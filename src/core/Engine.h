@@ -8,6 +8,7 @@
 #include <chrono>
 #include <deque>
 #include <functional>
+#include <array>
 
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
