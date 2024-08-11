@@ -45,12 +45,13 @@ add_executable(WillEngine main.cpp
         ${IMGUI_SOURCES})
 
 target_include_directories(WillEngine PRIVATE
-        ${Vulkan_INCLUDE_DIRS}                                      # Vulkan
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/include             # SDL
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/VulkanMemoryAllocator    # VMA
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/stb                      # STBI
-        ${IMGUI_DIR}                                                # ImGui
-        ${IMGUI_DIR}/backends                                       # ImGui backends
+        ${Vulkan_INCLUDE_DIRS}                                              # Vulkan
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/include                     # SDL
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/VulkanMemoryAllocator/include    # VMA
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/stb                              # STBI
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/volk
+        ${IMGUI_DIR}                                                        # ImGui
+        ${IMGUI_DIR}/backends                                               # ImGui backends
 )
 
 target_link_libraries(WillEngine PRIVATE

@@ -12,9 +12,9 @@
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vk_enum_string_helper.h>
-#include <volk/volk.h>
+#include <volk.h>
 #include <VkBootstrap.h>
-#include <vma/vk_mem_alloc.h>
+#include <vk_mem_alloc.h>
 
 #include <SDL.h>
 #include <SDL2/SDL_vulkan.h>

@@ -6,14 +6,14 @@
 #include <vulkan/vk_enum_string_helper.h>
 
 // volk
-//#include <volk/volk.h>
+#include <volk.h>
 
 // fmt
 #include <fmt/format.h>
 
 // vma
 #define VMA_IMPLEMENTATION
-#include <vma/vk_mem_alloc.h>
+#include <vk_mem_alloc.h>
 
 // stbi
 #define STB_IMAGE_IMPLEMENTATION

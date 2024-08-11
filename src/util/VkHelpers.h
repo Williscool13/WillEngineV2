@@ -7,7 +7,7 @@
 
 #include <cmath>
 
-#include <vma/vk_mem_alloc.h>
+#include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vk_enum_string_helper.h>
 #include "volk.h"
