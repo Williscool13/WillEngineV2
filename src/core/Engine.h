@@ -17,11 +17,11 @@
 #include <vk_mem_alloc.h>
 
 #include <SDL.h>
-#include <SDL2/SDL_vulkan.h>
+#include <SDL_vulkan.h>
 #include <fmt/format.h>
 #include <imgui.h>
-#include <backends/imgui_impl_sdl2.h>
-#include <backends/imgui_impl_vulkan.h>
+#include <imgui_impl_sdl2.h>
+#include <imgui_impl_vulkan.h>
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
 #include "glm/detail/func_packing.inl"
