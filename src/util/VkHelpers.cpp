@@ -124,8 +124,21 @@ VkSemaphoreCreateInfo VkHelpers::semaphoreCreateInfo(VkSemaphoreCreateFlags flag
     return info;
 }
 
+VkSemaphoreSubmitInfo VkHelpers::semaphoreSubmitInfo(VkPipelineStageFlags2 stageMask, VkSemaphore semaphore)
+{
+    VkSemaphoreSubmitInfo submitInfo{};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
+    submitInfo.pNext = nullptr;
+    submitInfo.semaphore = semaphore;
+    submitInfo.stageMask = stageMask;
+    submitInfo.deviceIndex = 0;
+    submitInfo.value = 1;
+
+    return submitInfo;
+}
+
 VkSubmitInfo2 VkHelpers::submitInfo(VkCommandBufferSubmitInfo *cmd, VkSemaphoreSubmitInfo *signalSemaphoreInfo,
-    VkSemaphoreSubmitInfo *waitSemaphoreInfo)
+                                    VkSemaphoreSubmitInfo *waitSemaphoreInfo)
 {
     VkSubmitInfo2 info = {};
     info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;

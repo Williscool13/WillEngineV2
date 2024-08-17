@@ -9,6 +9,8 @@
 #include <deque>
 #include <functional>
 #include <array>
+#include <thread>
+
 
 #include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
@@ -37,13 +39,15 @@ constexpr unsigned int FRAME_OVERLAP = 2;
 struct DeletionQueue {
     std::deque<std::function<void()> > deletors;
 
-    void pushFunction(std::function<void()> &&function) {
+    void pushFunction(std::function<void()> &&function)
+    {
         deletors.push_back(function);
     }
 
-    void flush() {
+    void flush()
+    {
         // reverse iterate the deletion queue to execute all the functions
-        for (auto& it : deletors) {
+        for (auto &it: deletors) {
             (it)();
         }
 
@@ -68,7 +72,15 @@ public:
 
     void run();
 
+    void draw();
+
+    /**
+     * Cleans up vulkan resources when application has exited. Destroys resources in opposite order of initialization
+     * \n Resources -> Command Pool (implicit destroy C. Buffers) -> Swapchain -> Surface -> Device -> Instance -> Window
+     */
     void cleanup();
+
+    void destroySwapchain();
 
 private:
     VkExtent2D windowExtent{1700, 900};
@@ -83,6 +95,7 @@ private:
     VmaAllocator allocator{};
     VkDebugUtilsMessengerEXT debug_messenger{};
 
+    bool stopRendering{false};
 
 private: // Rendering
     // Main
@@ -110,8 +123,8 @@ private: // Draw Images
     AllocatedImage drawImage{};
     AllocatedImage depthImage{};
     VkExtent2D drawExtent{};
-    float renderScale{ 1.0f };
-    float maxRenderScale{ 1.0f };
+    float renderScale{1.0f};
+    float maxRenderScale{1.0f};
 
     void createDrawImages(uint32_t width, uint32_t height);
 
@@ -139,20 +152,26 @@ private: // Initialization
 
     void initPipelines();
 
-    void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const;
+    void immediateSubmit(std::function<void(VkCommandBuffer cmd)> &&function) const;
 
 public: // Buffers
-    AllocatedBuffer createBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
-    AllocatedBuffer createStagingBuffer(size_t allocSize);
-    void copyBuffer(AllocatedBuffer src, AllocatedBuffer dst, VkDeviceSize size);
-    VkDeviceAddress getBufferAddress(AllocatedBuffer buffer);
-    void destroyBuffer(const AllocatedBuffer& buffer);
+    AllocatedBuffer createBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) const;
+
+    AllocatedBuffer createStagingBuffer(size_t allocSize) const;
+
+    void copyBuffer(const AllocatedBuffer &src, const AllocatedBuffer &dst, VkDeviceSize size) const;
+
+    VkDeviceAddress getBufferAddress(const AllocatedBuffer &buffer) const;
+
+    void destroyBuffer(const AllocatedBuffer &buffer) const;
 
 public: // Images
-    AllocatedImage createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
-    AllocatedImage createImage(void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+    AllocatedImage createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
+
+    AllocatedImage createImage(const void *data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
+
     static int getChannelCount(VkFormat format); // todo: move this static into vkhelpers
-    void destroyImage(const AllocatedImage& img);
+    void destroyImage(const AllocatedImage &img) const;
 };
 
 #endif //ENGINE_H
