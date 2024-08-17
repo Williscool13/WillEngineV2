@@ -2,6 +2,7 @@
 // Created by William on 8/11/2024.
 //
 
+
 #include "engine.h"
 
 
@@ -49,17 +50,146 @@ void Engine::init()
 void Engine::run()
 {
     fmt::print("Running Will Engine V2\n");
+
+    SDL_Event e;
+    bool bQuit = false;
+
+    // main loop
+    while (!bQuit) {
+        // Handle events on queue
+        while (SDL_PollEvent(&e) != 0) {
+            // close the window when user alt-f4s or clicks the X button
+            if (e.type == SDL_QUIT)
+                bQuit = true;
+            if (e.type == SDL_KEYDOWN) {
+                if (e.key.keysym.sym == SDLK_ESCAPE)
+                    bQuit = true;
+            }
+
+            if (e.type == SDL_WINDOWEVENT) {
+                if (e.window.event == SDL_WINDOWEVENT_MINIMIZED) {
+                    stopRendering = true;
+                }
+                if (e.window.event == SDL_WINDOWEVENT_RESTORED) {
+                    stopRendering = false;
+                }
+            }
+        }
+
+        // do not draw if we are minimized
+        if (stopRendering) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            continue;
+        }
+
+        draw();
+    }
+
+}
+
+void Engine::draw()
+{
+    // GPU -> VPU sync (fence)
+    VK_CHECK(vkWaitForFences(device, 1, &getCurrentFrame()._renderFence, true, 1000000000));
+    VK_CHECK(vkResetFences(device, 1, &getCurrentFrame()._renderFence));
+
+    // GPU -> GPU sync (semaphore)
+    uint32_t swapchainImageIndex;
+    VK_CHECK(vkAcquireNextImageKHR(device, swapchain, 1000000000, getCurrentFrame()._swapchainSemaphore, nullptr, &swapchainImageIndex));
+
+    // Start Command Buffer Recording
+    VkCommandBuffer cmd = getCurrentFrame()._mainCommandBuffer;
+    VK_CHECK(vkResetCommandBuffer(cmd, 0));
+    VkCommandBufferBeginInfo cmdBeginInfo = VkHelpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
+    VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+
+
+    VkHelpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+
+    // Clear Color
+    VkClearColorValue clearValue;
+    float flash = std::abs(std::sin(static_cast<float>(frameNumber) / 120.f));
+    clearValue = { { 0.0f, 0.0f, flash, 1.0f } };
+    VkImageSubresourceRange clearRange = VkHelpers::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT);
+    vkCmdClearColorImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+
+    VkHelpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+
+    // End Command Buffer Recording
+    VK_CHECK(vkEndCommandBuffer(cmd));
+
+    // Submission
+    VkCommandBufferSubmitInfo cmdinfo = VkHelpers::commandBufferSubmitInfo(cmd);
+
+    VkSemaphoreSubmitInfo waitInfo = VkHelpers::semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, getCurrentFrame()._swapchainSemaphore);
+    VkSemaphoreSubmitInfo signalInfo = VkHelpers::semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, getCurrentFrame()._renderSemaphore);
+
+    VkSubmitInfo2 submit = VkHelpers::submitInfo(&cmdinfo, &signalInfo, &waitInfo);
+
+    //submit command buffer to the queue and execute it.
+    // _renderFence will now block until the graphic commands finish execution
+    VK_CHECK(vkQueueSubmit2(graphicsQueue, 1, &submit, getCurrentFrame()._renderFence));
+
+
+    // Present
+    VkPresentInfoKHR presentInfo = {};
+    presentInfo.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    presentInfo.pNext = nullptr;
+    presentInfo.pSwapchains = &swapchain;
+    presentInfo.swapchainCount = 1;
+
+    presentInfo.pWaitSemaphores = &getCurrentFrame()._renderSemaphore;
+    presentInfo.waitSemaphoreCount = 1;
+
+    presentInfo.pImageIndices = &swapchainImageIndex;
+
+    VK_CHECK(vkQueuePresentKHR(graphicsQueue, &presentInfo));
+
+    //increase the number of frames drawn
+    frameNumber++;
 }
 
 void Engine::cleanup()
 {
+    fmt::print("Cleaning up Will Engine V2\n");
+
+    vkDeviceWaitIdle(device);
+
     destroyImage(whiteImage);
     destroyImage(errorCheckerboardImage);
     vkDestroySampler(device, defaultSamplerNearest, nullptr);
     vkDestroySampler(device, defaultSamplerLinear, nullptr);
 
-    fmt::print("Cleaning up Will Engine V2\n");
+    for (auto& frame : frames) {
+        vkDestroyCommandPool(device, frame._commandPool, nullptr);
+
+        //destroy sync objects
+        vkDestroyFence(device, frame._renderFence, nullptr);
+        vkDestroySemaphore(device, frame._renderSemaphore, nullptr);
+        vkDestroySemaphore(device, frame._swapchainSemaphore, nullptr);
+    }
+
+    destroySwapchain();
+
+    vkDestroySurfaceKHR(instance, surface, nullptr);
+    vkDestroyDevice(device, nullptr);
+
+    vkb::destroy_debug_utils_messenger(instance, debug_messenger);
+    vkDestroyInstance(instance, nullptr);
+
+    SDL_DestroyWindow(window);
+
+
 }
+
+void Engine::destroySwapchain()
+{
+    vkDestroySwapchainKHR(device, swapchain, nullptr);
+    for (int i = 0; i < swapchainImageViews.size(); i++) {
+        vkDestroyImageView(device, swapchainImageViews[i], nullptr);
+    }
+}
+
 
 void Engine::initVulkan()
 {
@@ -226,7 +356,7 @@ void Engine::initDearImgui()
     pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
     pool_info.maxSets = 1;
-    pool_info.poolSizeCount = (uint32_t) std::size(pool_sizes);
+    pool_info.poolSizeCount = static_cast<uint32_t>(std::size(pool_sizes));
     pool_info.pPoolSizes = pool_sizes;
 
     //VkDescriptorPool imguiPool;
@@ -243,7 +373,7 @@ void Engine::initDearImgui()
 
     // Need to LoadFunction when using VOLK/using VK_NO_PROTOTYPES
     ImGui_ImplVulkan_LoadFunctions([](const char *function_name, void *vulkan_instance) {
-        return vkGetInstanceProcAddr(*(reinterpret_cast<VkInstance *>(vulkan_instance)), function_name);
+        return vkGetInstanceProcAddr(*(static_cast<VkInstance *>(vulkan_instance)), function_name);
     }, &instance);
 
     // Setup Platform/Renderer backends
@@ -355,7 +485,7 @@ void Engine::immediateSubmit(std::function<void(VkCommandBuffer cmd)> &&function
     VK_CHECK(vkWaitForFences(device, 1, &immFence, true, 1000000000));
 }
 
-AllocatedBuffer Engine::createBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
+AllocatedBuffer Engine::createBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) const
 {
     VkBufferCreateInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     bufferInfo.pNext = nullptr;
@@ -372,12 +502,12 @@ AllocatedBuffer Engine::createBuffer(size_t allocSize, VkBufferUsageFlags usage,
     return newBuffer;
 }
 
-AllocatedBuffer Engine::createStagingBuffer(size_t allocSize)
+AllocatedBuffer Engine::createStagingBuffer(size_t allocSize) const
 {
     return createBuffer(allocSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 }
 
-void Engine::copyBuffer(AllocatedBuffer src, AllocatedBuffer dst, VkDeviceSize size)
+void Engine::copyBuffer(const AllocatedBuffer &src, const AllocatedBuffer &dst, const VkDeviceSize size) const
 {
     immediateSubmit([&](VkCommandBuffer cmd) {
         VkBufferCopy vertexCopy{0};
@@ -389,7 +519,7 @@ void Engine::copyBuffer(AllocatedBuffer src, AllocatedBuffer dst, VkDeviceSize s
     });
 }
 
-VkDeviceAddress Engine::getBufferAddress(AllocatedBuffer buffer)
+VkDeviceAddress Engine::getBufferAddress(const AllocatedBuffer &buffer) const
 {
     VkBufferDeviceAddressInfo addressInfo{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR};
     addressInfo.buffer = buffer.buffer;
@@ -397,12 +527,12 @@ VkDeviceAddress Engine::getBufferAddress(AllocatedBuffer buffer)
     return srcPtr;
 }
 
-void Engine::destroyBuffer(const AllocatedBuffer &buffer)
+void Engine::destroyBuffer(const AllocatedBuffer &buffer) const
 {
     vmaDestroyBuffer(allocator, buffer.buffer, buffer.allocation);
 }
 
-AllocatedImage Engine::createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
+AllocatedImage Engine::createImage(const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped) const
 {
     AllocatedImage newImage{};
     newImage.imageFormat = format;
@@ -436,7 +566,7 @@ AllocatedImage Engine::createImage(VkExtent3D size, VkFormat format, VkImageUsag
     return newImage;
 }
 
-AllocatedImage Engine::createImage(void *data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped /*= false*/)
+AllocatedImage Engine::createImage(const void *data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped /*= false*/) const
 {
     size_t data_size = dataSize;
     AllocatedBuffer uploadbuffer = createBuffer(data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
@@ -490,7 +620,7 @@ int Engine::getChannelCount(VkFormat format)
     }
 }
 
-void Engine::destroyImage(const AllocatedImage &img)
+void Engine::destroyImage(const AllocatedImage &img) const
 {
     vkDestroyImageView(device, img.imageView, nullptr);
     vmaDestroyImage(allocator, img.image, img.allocation);
@@ -521,7 +651,6 @@ void Engine::createSwapchain(uint32_t width, uint32_t height)
 void Engine::createDrawImages(uint32_t width, uint32_t height)
 {
     // Draw Image
-
     drawImage.imageFormat = VK_FORMAT_R16G16B16A16_SFLOAT;
     VkExtent3D drawImageExtent = {width, height, 1};
     drawImage.imageExtent = drawImageExtent;

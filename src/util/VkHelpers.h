@@ -37,6 +37,8 @@ namespace VkHelpers
 
     VkSemaphoreCreateInfo semaphoreCreateInfo(VkSemaphoreCreateFlags flags = 0);
 
+    VkSemaphoreSubmitInfo semaphoreSubmitInfo(VkPipelineStageFlags2 stageMask, VkSemaphore semaphore);
+
     VkSubmitInfo2 submitInfo(VkCommandBufferSubmitInfo* cmd, VkSemaphoreSubmitInfo* signalSemaphoreInfo,
         VkSemaphoreSubmitInfo* waitSemaphoreInfo);
     VkPresentInfoKHR presentInfo();
