@@ -82,13 +82,26 @@ void Engine::run()
             continue;
         }
 
+        // imgui new frame
+        ImGui_ImplVulkan_NewFrame();
+        ImGui_ImplSDL2_NewFrame();
+        ImGui::NewFrame();
+
+        if (ImGui::Begin("Main")) {
+            ImGui::Text("Frame Time: %.2f ms", frameTime);
+            ImGui::Text("Draw Time: %.2f ms", drawTime);
+        }
+        ImGui::End();
+        ImGui::Render();
+
         draw();
     }
-
 }
 
 void Engine::draw()
 {
+    auto start = std::chrono::system_clock::now();
+
     // GPU -> VPU sync (fence)
     VK_CHECK(vkWaitForFences(device, 1, &getCurrentFrame()._renderFence, true, 1000000000));
     VK_CHECK(vkResetFences(device, 1, &getCurrentFrame()._renderFence));
@@ -100,31 +113,32 @@ void Engine::draw()
     // Start Command Buffer Recording
     VkCommandBuffer cmd = getCurrentFrame()._mainCommandBuffer;
     VK_CHECK(vkResetCommandBuffer(cmd, 0));
-    VkCommandBufferBeginInfo cmdBeginInfo = VkHelpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
+    VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
-
-    VkHelpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+    vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
     // Clear Color
     VkClearColorValue clearValue;
     float flash = std::abs(std::sin(static_cast<float>(frameNumber) / 120.f));
     clearValue = { { 0.0f, 0.0f, flash, 1.0f } };
-    VkImageSubresourceRange clearRange = VkHelpers::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT);
+    VkImageSubresourceRange clearRange = vk_helpers::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT);
     vkCmdClearColorImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
 
-    VkHelpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    draw_imgui(cmd, swapchainImageViews[swapchainImageIndex]);
+
+    vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     // End Command Buffer Recording
     VK_CHECK(vkEndCommandBuffer(cmd));
 
     // Submission
-    VkCommandBufferSubmitInfo cmdinfo = VkHelpers::commandBufferSubmitInfo(cmd);
+    VkCommandBufferSubmitInfo cmdinfo = vk_helpers::commandBufferSubmitInfo(cmd);
 
-    VkSemaphoreSubmitInfo waitInfo = VkHelpers::semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, getCurrentFrame()._swapchainSemaphore);
-    VkSemaphoreSubmitInfo signalInfo = VkHelpers::semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, getCurrentFrame()._renderSemaphore);
+    VkSemaphoreSubmitInfo waitInfo = vk_helpers::semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, getCurrentFrame()._swapchainSemaphore);
+    VkSemaphoreSubmitInfo signalInfo = vk_helpers::semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, getCurrentFrame()._renderSemaphore);
 
-    VkSubmitInfo2 submit = VkHelpers::submitInfo(&cmdinfo, &signalInfo, &waitInfo);
+    VkSubmitInfo2 submit = vk_helpers::submitInfo(&cmdinfo, &signalInfo, &waitInfo);
 
     //submit command buffer to the queue and execute it.
     // _renderFence will now block until the graphic commands finish execution
@@ -147,6 +161,20 @@ void Engine::draw()
 
     //increase the number of frames drawn
     frameNumber++;
+
+    auto end = std::chrono::system_clock::now();
+    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    frameTime = frameTime * 0.99f + elapsed.count() / 1000.0f * 0.01f;
+    drawTime = drawTime * 0.99f +  elapsed.count() / 1000.0f * 0.01f;
+}
+
+void Engine::draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView)
+{
+    VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(targetImageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingInfo renderInfo = vk_helpers::renderingInfo(swapchainExtent, &colorAttachment, nullptr);
+    vkCmdBeginRendering(cmd, &renderInfo);
+    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
+    vkCmdEndRendering(cmd);
 }
 
 void Engine::cleanup()
@@ -280,24 +308,24 @@ void Engine::initSwapchain()
 
 void Engine::initCommands()
 {
-    VkCommandPoolCreateInfo commandPoolInfo = VkHelpers::commandPoolCreateInfo(graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+    VkCommandPoolCreateInfo commandPoolInfo = vk_helpers::commandPoolCreateInfo(graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
     for (auto &frame: frames) {
         VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &frame._commandPool));
-        VkCommandBufferAllocateInfo cmdAllocInfo = VkHelpers::commandBufferAllocateInfo(frame._commandPool);
+        VkCommandBufferAllocateInfo cmdAllocInfo = vk_helpers::commandBufferAllocateInfo(frame._commandPool);
         VK_CHECK(vkAllocateCommandBuffers(device, &cmdAllocInfo, &frame._mainCommandBuffer));
     }
 
     // Immediate Rendering
     VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &immCommandPool));
-    VkCommandBufferAllocateInfo immCmdAllocInfo = VkHelpers::commandBufferAllocateInfo(immCommandPool);
+    VkCommandBufferAllocateInfo immCmdAllocInfo = vk_helpers::commandBufferAllocateInfo(immCommandPool);
     VK_CHECK(vkAllocateCommandBuffers(device, &immCmdAllocInfo, &immCommandBuffer));
 }
 
 void Engine::initSyncStructures()
 {
-    VkFenceCreateInfo fenceCreateInfo = VkHelpers::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
-    VkSemaphoreCreateInfo semaphoreCreateInfo = VkHelpers::semaphoreCreateInfo();
+    VkFenceCreateInfo fenceCreateInfo = vk_helpers::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
+    VkSemaphoreCreateInfo semaphoreCreateInfo = vk_helpers::semaphoreCreateInfo();
 
     for (auto &frame: frames) {
         VK_CHECK(vkCreateFence(device, &fenceCreateInfo, nullptr, &frame._renderFence));
@@ -472,13 +500,13 @@ void Engine::immediateSubmit(std::function<void(VkCommandBuffer cmd)> &&function
     VK_CHECK(vkResetCommandBuffer(immCommandBuffer, 0));
 
     VkCommandBuffer cmd = immCommandBuffer;
-    VkCommandBufferBeginInfo cmdBeginInfo = VkHelpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+    VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
     function(cmd);
     VK_CHECK(vkEndCommandBuffer(cmd));
 
-    VkCommandBufferSubmitInfo cmdSubmitInfo = VkHelpers::commandBufferSubmitInfo(cmd);
-    VkSubmitInfo2 submitInfo = VkHelpers::submitInfo(&cmdSubmitInfo, nullptr, nullptr);
+    VkCommandBufferSubmitInfo cmdSubmitInfo = vk_helpers::commandBufferSubmitInfo(cmd);
+    VkSubmitInfo2 submitInfo = vk_helpers::submitInfo(&cmdSubmitInfo, nullptr, nullptr);
 
     VK_CHECK(vkQueueSubmit2(graphicsQueue, 1, &submitInfo, immFence));
 
@@ -538,7 +566,7 @@ AllocatedImage Engine::createImage(const VkExtent3D size, const VkFormat format,
     newImage.imageFormat = format;
     newImage.imageExtent = size;
 
-    VkImageCreateInfo imgInfo = VkHelpers::imageCreateInfo(format, usage, size);
+    VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(format, usage, size);
     if (mipmapped) {
         imgInfo.mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(size.width, size.height)))) + 1;
     }
@@ -558,7 +586,7 @@ AllocatedImage Engine::createImage(const VkExtent3D size, const VkFormat format,
     }
 
     // build a image-view for the image
-    VkImageViewCreateInfo view_info = VkHelpers::imageviewCreateInfo(format, newImage.image, aspectFlag);
+    VkImageViewCreateInfo view_info = vk_helpers::imageviewCreateInfo(format, newImage.image, aspectFlag);
     view_info.subresourceRange.levelCount = imgInfo.mipLevels;
 
     VK_CHECK(vkCreateImageView(device, &view_info, nullptr, &newImage.imageView));
@@ -576,7 +604,7 @@ AllocatedImage Engine::createImage(const void *data, size_t dataSize, VkExtent3D
     AllocatedImage newImage = createImage(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, mipmapped);
 
     immediateSubmit([&](VkCommandBuffer cmd) {
-        VkHelpers::transitionImage(cmd, newImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+        vk_helpers::transitionImage(cmd, newImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
         VkBufferImageCopy copyRegion = {};
         copyRegion.bufferOffset = 0;
@@ -594,9 +622,9 @@ AllocatedImage Engine::createImage(const void *data, size_t dataSize, VkExtent3D
                                &copyRegion);
 
         if (mipmapped) {
-            VkHelpers::generateMipmaps(cmd, newImage.image, VkExtent2D{newImage.imageExtent.width, newImage.imageExtent.height});
+            vk_helpers::generateMipmaps(cmd, newImage.image, VkExtent2D{newImage.imageExtent.width, newImage.imageExtent.height});
         } else {
-            VkHelpers::transitionImage(cmd, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            vk_helpers::transitionImage(cmd, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }
     });
@@ -660,14 +688,14 @@ void Engine::createDrawImages(uint32_t width, uint32_t height)
     drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
     drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     drawImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
-    VkImageCreateInfo rimg_info = VkHelpers::imageCreateInfo(drawImage.imageFormat, drawImageUsages, drawImageExtent);
+    VkImageCreateInfo rimg_info = vk_helpers::imageCreateInfo(drawImage.imageFormat, drawImageUsages, drawImageExtent);
 
     VmaAllocationCreateInfo rimg_allocinfo = {};
     rimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
     rimg_allocinfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     vmaCreateImage(allocator, &rimg_info, &rimg_allocinfo, &drawImage.image, &drawImage.allocation, nullptr);
 
-    VkImageViewCreateInfo rview_info = VkHelpers::imageviewCreateInfo(drawImage.imageFormat, drawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
+    VkImageViewCreateInfo rview_info = vk_helpers::imageviewCreateInfo(drawImage.imageFormat, drawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
     VK_CHECK(vkCreateImageView(device, &rview_info, nullptr, &drawImage.imageView));
 
 
@@ -677,13 +705,13 @@ void Engine::createDrawImages(uint32_t width, uint32_t height)
     depthImage.imageExtent = depthImageExtent;
     VkImageUsageFlags depthImageUsages{};
     depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-    VkImageCreateInfo dimg_info = VkHelpers::imageCreateInfo(depthImage.imageFormat, depthImageUsages, depthImageExtent);
+    VkImageCreateInfo dimg_info = vk_helpers::imageCreateInfo(depthImage.imageFormat, depthImageUsages, depthImageExtent);
 
     VmaAllocationCreateInfo dimg_allocinfo = {};
     dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
     dimg_allocinfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
     vmaCreateImage(allocator, &dimg_info, &dimg_allocinfo, &depthImage.image, &depthImage.allocation, nullptr);
 
-    VkImageViewCreateInfo dview_info = VkHelpers::imageviewCreateInfo(depthImage.imageFormat, depthImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
+    VkImageViewCreateInfo dview_info = vk_helpers::imageviewCreateInfo(depthImage.imageFormat, depthImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
     VK_CHECK(vkCreateImageView(device, &dview_info, nullptr, &depthImage.imageView));
 }

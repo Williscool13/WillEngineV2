@@ -2,9 +2,9 @@
 // Created by William on 8/11/2024.
 //
 
-#include "VkHelpers.h"
+#include "vk_helpers.h"
 
-VkImageCreateInfo VkHelpers::imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
+VkImageCreateInfo vk_helpers::imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
 {
     VkImageCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -27,7 +27,7 @@ VkImageCreateInfo VkHelpers::imageCreateInfo(VkFormat format, VkImageUsageFlags 
     return info;
 }
 
-VkImageViewCreateInfo VkHelpers::imageviewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags)
+VkImageViewCreateInfo vk_helpers::imageviewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags)
 {
     // Identical to imageCreateInfo, but is imageView instead
     VkImageViewCreateInfo info = {};
@@ -47,9 +47,9 @@ VkImageViewCreateInfo VkHelpers::imageviewCreateInfo(VkFormat format, VkImage im
     return info;
 }
 
-VkImageSubresourceRange VkHelpers::imageSubresourceRange(VkImageAspectFlags aspectMask)
+VkImageSubresourceRange vk_helpers::imageSubresourceRange(VkImageAspectFlags aspectMask)
 {
-    VkImageSubresourceRange subImage {};
+    VkImageSubresourceRange subImage{};
     subImage.aspectMask = aspectMask;
     subImage.baseMipLevel = 0;
     //subImage.levelCount = VK_REMAINING_MIP_LEVELS;
@@ -62,7 +62,7 @@ VkImageSubresourceRange VkHelpers::imageSubresourceRange(VkImageAspectFlags aspe
 }
 
 
-VkCommandPoolCreateInfo VkHelpers::commandPoolCreateInfo(uint32_t queueFamilyIndex, VkCommandPoolCreateFlags flags /*= 0*/)
+VkCommandPoolCreateInfo vk_helpers::commandPoolCreateInfo(uint32_t queueFamilyIndex, VkCommandPoolCreateFlags flags /*= 0*/)
 {
     VkCommandPoolCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -71,7 +71,7 @@ VkCommandPoolCreateInfo VkHelpers::commandPoolCreateInfo(uint32_t queueFamilyInd
     return info;
 }
 
-VkCommandBufferAllocateInfo VkHelpers::commandBufferAllocateInfo(VkCommandPool pool, uint32_t count /*= 1*/)
+VkCommandBufferAllocateInfo vk_helpers::commandBufferAllocateInfo(VkCommandPool pool, uint32_t count /*= 1*/)
 {
     VkCommandBufferAllocateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -83,7 +83,7 @@ VkCommandBufferAllocateInfo VkHelpers::commandBufferAllocateInfo(VkCommandPool p
     return info;
 }
 
-VkCommandBufferBeginInfo VkHelpers::commandBufferBeginInfo(VkCommandBufferUsageFlags flags)
+VkCommandBufferBeginInfo vk_helpers::commandBufferBeginInfo(VkCommandBufferUsageFlags flags)
 {
     VkCommandBufferBeginInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -94,7 +94,7 @@ VkCommandBufferBeginInfo VkHelpers::commandBufferBeginInfo(VkCommandBufferUsageF
     return info;
 }
 
-VkCommandBufferSubmitInfo VkHelpers::commandBufferSubmitInfo(VkCommandBuffer cmd)
+VkCommandBufferSubmitInfo vk_helpers::commandBufferSubmitInfo(VkCommandBuffer cmd)
 {
     VkCommandBufferSubmitInfo info{};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
@@ -106,7 +106,7 @@ VkCommandBufferSubmitInfo VkHelpers::commandBufferSubmitInfo(VkCommandBuffer cmd
 }
 
 
-VkFenceCreateInfo VkHelpers::fenceCreateInfo(VkFenceCreateFlags flags /*= 0*/)
+VkFenceCreateInfo vk_helpers::fenceCreateInfo(VkFenceCreateFlags flags /*= 0*/)
 {
     VkFenceCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -115,7 +115,7 @@ VkFenceCreateInfo VkHelpers::fenceCreateInfo(VkFenceCreateFlags flags /*= 0*/)
     return info;
 }
 
-VkSemaphoreCreateInfo VkHelpers::semaphoreCreateInfo(VkSemaphoreCreateFlags flags /*= 0*/)
+VkSemaphoreCreateInfo vk_helpers::semaphoreCreateInfo(VkSemaphoreCreateFlags flags /*= 0*/)
 {
     VkSemaphoreCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -124,7 +124,7 @@ VkSemaphoreCreateInfo VkHelpers::semaphoreCreateInfo(VkSemaphoreCreateFlags flag
     return info;
 }
 
-VkSemaphoreSubmitInfo VkHelpers::semaphoreSubmitInfo(VkPipelineStageFlags2 stageMask, VkSemaphore semaphore)
+VkSemaphoreSubmitInfo vk_helpers::semaphoreSubmitInfo(VkPipelineStageFlags2 stageMask, VkSemaphore semaphore)
 {
     VkSemaphoreSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
@@ -137,7 +137,41 @@ VkSemaphoreSubmitInfo VkHelpers::semaphoreSubmitInfo(VkPipelineStageFlags2 stage
     return submitInfo;
 }
 
-VkSubmitInfo2 VkHelpers::submitInfo(VkCommandBufferSubmitInfo *cmd, VkSemaphoreSubmitInfo *signalSemaphoreInfo,
+VkRenderingAttachmentInfo vk_helpers::attachmentInfo(VkImageView view, VkClearValue *clear, VkImageLayout layout)
+{
+    VkRenderingAttachmentInfo colorAttachment{};
+    colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
+    colorAttachment.pNext = nullptr;
+
+    colorAttachment.imageView = view;
+    colorAttachment.imageLayout = layout;
+    colorAttachment.loadOp = clear ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+    colorAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    if (clear) {
+        colorAttachment.clearValue = *clear;
+    }
+
+    return colorAttachment;
+}
+
+VkRenderingInfo vk_helpers::renderingInfo(VkExtent2D renderExtent, VkRenderingAttachmentInfo *colorAttachment,
+                                         VkRenderingAttachmentInfo *depthAttachment)
+{
+    VkRenderingInfo renderInfo{};
+    renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    renderInfo.pNext = nullptr;
+
+    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, renderExtent};
+    renderInfo.layerCount = 1;
+    renderInfo.colorAttachmentCount = 1;
+    renderInfo.pColorAttachments = colorAttachment;
+    renderInfo.pDepthAttachment = depthAttachment;
+    renderInfo.pStencilAttachment = nullptr;
+
+    return renderInfo;
+}
+
+VkSubmitInfo2 vk_helpers::submitInfo(VkCommandBufferSubmitInfo *cmd, VkSemaphoreSubmitInfo *signalSemaphoreInfo,
                                     VkSemaphoreSubmitInfo *waitSemaphoreInfo)
 {
     VkSubmitInfo2 info = {};
@@ -156,9 +190,37 @@ VkSubmitInfo2 VkHelpers::submitInfo(VkCommandBufferSubmitInfo *cmd, VkSemaphoreS
     return info;
 }
 
-void VkHelpers::transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout)
+VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo(VkDeviceAddress bufferAddress, VkBufferUsageFlagBits usageFlags)
 {
-    VkImageMemoryBarrier2 imageBarrier{ .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2 };
+    VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info{};
+    descriptor_buffer_binding_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT;
+    descriptor_buffer_binding_info.address = bufferAddress;
+    descriptor_buffer_binding_info.usage = usageFlags;
+
+    return descriptor_buffer_binding_info;
+}
+
+
+VkDeviceAddress vk_helpers::getDeviceAddress(VkDevice device, VkBuffer buffer)
+{
+    VkBufferDeviceAddressInfo deviceAdressInfo{};
+    deviceAdressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
+    deviceAdressInfo.buffer = buffer;
+    uint64_t address = vkGetBufferDeviceAddress(device, &deviceAdressInfo);
+
+    return address;
+}
+
+
+VkDeviceSize vk_helpers::getAlignedSize(VkDeviceSize value, VkDeviceSize alignment)
+{
+    return (value + alignment - 1) & ~(alignment - 1);
+}
+
+
+void vk_helpers::transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout)
+{
+    VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
     imageBarrier.pNext = nullptr;
 
     imageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
@@ -169,7 +231,9 @@ void VkHelpers::transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayou
     imageBarrier.oldLayout = currentLayout;
     imageBarrier.newLayout = targetLayout;
 
-    VkImageAspectFlags aspectMask = (targetLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL) ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+    VkImageAspectFlags aspectMask = (targetLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
+                                        ? VK_IMAGE_ASPECT_DEPTH_BIT
+                                        : VK_IMAGE_ASPECT_COLOR_BIT;
     imageBarrier.subresourceRange = imageSubresourceRange(aspectMask);
     imageBarrier.image = image;
 
@@ -183,9 +247,9 @@ void VkHelpers::transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayou
     vkCmdPipelineBarrier2(cmd, &depInfo);
 }
 
-void VkHelpers::copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize)
+void vk_helpers::copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize)
 {
-    VkImageBlit2 blitRegion{ .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2, .pNext = nullptr };
+    VkImageBlit2 blitRegion{.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2, .pNext = nullptr};
 
     blitRegion.srcOffsets[1].x = srcSize.width;
     blitRegion.srcOffsets[1].y = srcSize.height;
@@ -205,7 +269,7 @@ void VkHelpers::copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage de
     blitRegion.dstSubresource.layerCount = 1;
     blitRegion.dstSubresource.mipLevel = 0;
 
-    VkBlitImageInfo2 blitInfo{ .sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2, .pNext = nullptr };
+    VkBlitImageInfo2 blitInfo{.sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2, .pNext = nullptr};
     blitInfo.dstImage = destination;
     blitInfo.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     blitInfo.srcImage = source;
@@ -217,16 +281,15 @@ void VkHelpers::copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage de
     vkCmdBlitImage2(cmd, &blitInfo);
 }
 
-void VkHelpers::generateMipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize)
+void vk_helpers::generateMipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize)
 {
     int mipLevels = int(std::floor(std::log2(std::max(imageSize.width, imageSize.height)))) + 1;
     for (int mip = 0; mip < mipLevels; mip++) {
-
         VkExtent2D halfSize = imageSize;
         halfSize.width /= 2;
         halfSize.height /= 2;
 
-        VkImageMemoryBarrier2 imageBarrier{ .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2, .pNext = nullptr };
+        VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2, .pNext = nullptr};
 
         imageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
         imageBarrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
@@ -242,14 +305,14 @@ void VkHelpers::generateMipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D i
         imageBarrier.subresourceRange.baseMipLevel = mip;
         imageBarrier.image = image;
 
-        VkDependencyInfo depInfo{ .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO, .pNext = nullptr };
+        VkDependencyInfo depInfo{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO, .pNext = nullptr};
         depInfo.imageMemoryBarrierCount = 1;
         depInfo.pImageMemoryBarriers = &imageBarrier;
 
         vkCmdPipelineBarrier2(cmd, &depInfo);
 
         if (mip < mipLevels - 1) {
-            VkImageBlit2 blitRegion{ .sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2, .pNext = nullptr };
+            VkImageBlit2 blitRegion{.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2, .pNext = nullptr};
 
             blitRegion.srcOffsets[1].x = imageSize.width;
             blitRegion.srcOffsets[1].y = imageSize.height;
@@ -269,7 +332,7 @@ void VkHelpers::generateMipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D i
             blitRegion.dstSubresource.layerCount = 1;
             blitRegion.dstSubresource.mipLevel = mip + 1;
 
-            VkBlitImageInfo2 blitInfo{ .sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2, .pNext = nullptr };
+            VkBlitImageInfo2 blitInfo{.sType = VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2, .pNext = nullptr};
             blitInfo.dstImage = image;
             blitInfo.dstImageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
             blitInfo.srcImage = image;

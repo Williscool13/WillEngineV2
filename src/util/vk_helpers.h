@@ -13,9 +13,9 @@
 #include "volk.h"
 
 #include "fmt/format.h"
-#include "../core/VkTypes.h"
+#include "../renderer/vk_types.h"
 
-namespace VkHelpers
+namespace vk_helpers
 {
     VkImageCreateInfo imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
 
@@ -39,9 +39,32 @@ namespace VkHelpers
 
     VkSemaphoreSubmitInfo semaphoreSubmitInfo(VkPipelineStageFlags2 stageMask, VkSemaphore semaphore);
 
-    VkSubmitInfo2 submitInfo(VkCommandBufferSubmitInfo* cmd, VkSemaphoreSubmitInfo* signalSemaphoreInfo,
-        VkSemaphoreSubmitInfo* waitSemaphoreInfo);
+    VkRenderingAttachmentInfo attachmentInfo(VkImageView view, VkClearValue* clear, VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/);
+
+    VkRenderingInfo renderingInfo(VkExtent2D renderExtent, VkRenderingAttachmentInfo* colorAttachment, VkRenderingAttachmentInfo* depthAttachment);
+
+    VkSubmitInfo2 submitInfo(VkCommandBufferSubmitInfo* cmd, VkSemaphoreSubmitInfo* signalSemaphoreInfo, VkSemaphoreSubmitInfo* waitSemaphoreInfo);
     VkPresentInfoKHR presentInfo();
+
+
+    VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo(VkDeviceAddress bufferAddress, VkBufferUsageFlagBits usageFlags);
+
+    /**
+     * Returns the Buffer Device address of the specified buffer
+     * @param device The device the buffer was created with
+     * @param buffer The buffer whose address will be returned
+     * @return the address of the buffer
+     */
+    VkDeviceAddress getDeviceAddress(VkDevice device, VkBuffer buffer);
+
+    /**
+     * Returns the final aligned size based on the alignment given
+     * @param value value to align
+     * @param alignment value to align to
+     * @return
+     */
+    VkDeviceSize getAlignedSize(VkDeviceSize value, VkDeviceSize alignment);
+
 
     void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout);
 
