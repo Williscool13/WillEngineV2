@@ -10,7 +10,7 @@
 #include <vulkan/vulkan_core.h>
 #include <fmt/format.h>
 
-#include "../util/vk_helpers.h"
+#include "vk_helpers.h"
 
 class PipelineBuilder {
 public:

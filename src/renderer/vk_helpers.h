@@ -9,13 +9,13 @@
 #include <fstream>
 #include <vector>
 
-#include <vk_mem_alloc.h>
+#include <../../extern/VulkanMemoryAllocator/include/vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vk_enum_string_helper.h>
-#include "volk.h"
+#include "../../extern/volk/volk.h"
 
-#include "fmt/format.h"
-#include "../renderer/vk_types.h"
+#include "../../extern/fmt/include/fmt/format.h"
+#include "vk_types.h"
 
 namespace vk_helpers
 {
