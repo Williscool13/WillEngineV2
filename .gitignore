@@ -4,3 +4,6 @@
 
 # CLion
 .idea/
+
+# Compiled shader files
+shaders/**/*.spv
