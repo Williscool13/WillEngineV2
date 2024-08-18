@@ -52,6 +52,16 @@ void DescriptorBuffer::freeDescriptorBuffer(int index)
     freeIndices.push_back(index);
 }
 
+VkDescriptorBufferBindingInfoEXT DescriptorBuffer::getDescriptorBufferBindingInfo()
+{
+    VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info{};
+    descriptor_buffer_binding_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT;
+    descriptor_buffer_binding_info.address = descriptorBufferGpuAddress;
+    descriptor_buffer_binding_info.usage = getBufferUsageFlags();
+
+    return descriptor_buffer_binding_info;
+}
+
 DescriptorBufferUniform::DescriptorBufferUniform(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator,
                                                  VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount)
     : DescriptorBuffer(instance, device, physicalDevice, allocator, descriptorSetLayout, maxObjectCount)
@@ -117,6 +127,11 @@ int DescriptorBufferUniform::setupData(VkDevice device, std::vector<DescriptorUn
 
 
     return descriptorBufferIndex;
+}
+
+VkBufferUsageFlagBits DescriptorBufferUniform::getBufferUsageFlags()
+{
+    return VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT;
 }
 
 DescriptorBufferSampler::DescriptorBufferSampler(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator,
@@ -232,4 +247,9 @@ int DescriptorBufferSampler::setupData(VkDevice device, std::vector<DescriptorIm
     }
 
     return descriptorBufferIndex;
+}
+
+VkBufferUsageFlagBits DescriptorBufferSampler::getBufferUsageFlags()
+{
+    return static_cast<VkBufferUsageFlagBits>(VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT | VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT);
 }

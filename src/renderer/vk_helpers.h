@@ -51,8 +51,6 @@ namespace vk_helpers
     VkPresentInfoKHR presentInfo();
 
 
-    VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo(VkDeviceAddress bufferAddress, VkBufferUsageFlagBits usageFlags);
-
     /**
      * Returns the Buffer Device address of the specified buffer
      * @param device The device the buffer was created with

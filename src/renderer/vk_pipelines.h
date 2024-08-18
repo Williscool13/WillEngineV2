@@ -36,19 +36,19 @@ public:
 
     void clear();
 
-    VkPipeline build_pipeline(VkDevice device, VkPipelineCreateFlagBits flags);
+    VkPipeline buildPipeline(VkDevice device, VkPipelineCreateFlagBits flags);
 
-    void set_shaders(VkShaderModule vertexShader, VkShaderModule fragmentShader);
+    void setShaders(VkShaderModule vertexShader, VkShaderModule fragmentShader);
 
-    void setup_input_assembly(VkPrimitiveTopology topology);
+    void setupInputAssembly(VkPrimitiveTopology topology);
 
-    void setup_rasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace);
+    void setupRasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace);
 
     void setup_multisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples
                              , float minSampleShading, const VkSampleMask *pSampleMask
                              , VkBool32 alphaToCoverageEnable, VkBool32 alphaToOneEnable);
 
-    void setup_renderer(VkFormat colorattachmentFormat, VkFormat depthAttachmentFormat);
+    void setupRenderer(VkFormat colorattachmentFormat, VkFormat depthAttachmentFormat);
 
     /**
      * Set up the depth and stencil for this pipeline
@@ -67,20 +67,21 @@ public:
                              , float minDepthBounds, float maxDepthBounds);
 
 
-    void setup_blending(PipelineBuilder::BlendMode mode);
+    void setupBlending(PipelineBuilder::BlendMode mode);
 
+    void setupPipelineLayout(VkPipelineLayout pipelineLayout);
 
     /**
      * Shortcut to disable multisampling for this pipeline
      */
-    void disable_multisampling();
+    void disableMultisampling();
 
     /**
      * Shortcut to enable depth testing
      * @param depthWriteEnable enable depth write
      * @param op operation to use
      */
-    void enable_depthtest(bool depthWriteEnable, VkCompareOp op);
+    void enableDepthtest(bool depthWriteEnable, VkCompareOp op);
 
     /**
      * Shortcut to disable depth testing for this pipeline

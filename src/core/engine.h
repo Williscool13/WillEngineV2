@@ -77,6 +77,8 @@ public:
 
     void drawCompute(VkCommandBuffer cmd);
 
+    void drawRender(VkCommandBuffer cmd);
+
     void drawImgui(VkCommandBuffer cmd,  VkImageView targetImageView);
 
     /**
@@ -84,6 +86,28 @@ public:
      * \n Resources -> Command Pool (implicit destroy C. Buffers) -> Swapchain -> Surface -> Device -> Instance -> Window
      */
     void cleanup();
+
+
+private: // Initialization
+    void initVulkan();
+
+    void initSwapchain();
+
+    void initCommands();
+
+    void initSyncStructures();
+
+    void initDefaultData();
+
+    void initDearImgui();
+
+    void initPipelines();
+
+    void initComputePipelines();
+
+    void initRenderPipelines();
+
+    void immediateSubmit(std::function<void(VkCommandBuffer cmd)> &&function) const;
 
 private: // Vulkan Boilerplate
     VkExtent2D windowExtent{1700, 900};
@@ -119,9 +143,18 @@ private: // Rendering
 private: // Pipelines
     VkDescriptorSetLayout computeImageDescriptorSetLayout;
     DescriptorBufferSampler computeImageDescriptorBuffer;
-    VkPipelineLayout _backgroundEffectPipelineLayout;
+    VkPipelineLayout backgroundEffectPipelineLayout;
 
     VkPipeline computePipeline;
+
+    VkDescriptorSetLayout renderImageDescriptorSetLayout;
+    VkDescriptorSetLayout renderUniformDescriptorSetLayout;
+    DescriptorBufferSampler renderImageDescriptorBuffer;
+    DescriptorBufferUniform renderUniformDescriptorBuffer;
+    VkPipelineLayout renderPipelineLayout;
+
+    VkPipeline renderPipeline;
+
 
 private: // Swapchain
     VkSwapchainKHR swapchain{};
@@ -150,25 +183,6 @@ private: // Default Data
 
 private: // DearImgui
     VkDescriptorPool imguiPool{VK_NULL_HANDLE};
-
-private: // Initialization
-    void initVulkan();
-
-    void initSwapchain();
-
-    void initCommands();
-
-    void initSyncStructures();
-
-    void initDefaultData();
-
-    void initDearImgui();
-
-    void initPipelines();
-
-    void initComputePipelines();
-
-    void immediateSubmit(std::function<void(VkCommandBuffer cmd)> &&function) const;
 
 public: // Buffers
     AllocatedBuffer createBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) const;

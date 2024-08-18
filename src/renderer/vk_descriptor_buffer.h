@@ -39,7 +39,7 @@ public:
 
     void freeDescriptorBuffer(int index);
 
-    VkDeviceAddress getDeviceAddress() const { return descriptorBufferGpuAddress; }
+    VkDescriptorBufferBindingInfoEXT getDescriptorBufferBindingInfo();
 
 protected:
     /**
@@ -65,6 +65,8 @@ protected:
      * \n Total descriptor buffer size will be offset + size * maxObjectCount
      */
     int maxObjectCount{10};
+
+    virtual VkBufferUsageFlagBits getBufferUsageFlags() = 0;
 
     /**
      * Physical device properties that are the same for all descriptor buffers (assuming device is the same)
@@ -97,6 +99,8 @@ public:
      * @return the index of the allocated descriptor set. Store and use when binding during draw call.
      */
     int setupData(VkDevice device, std::vector<DescriptorUniformData>& uniformBuffers);
+
+    VkBufferUsageFlagBits getBufferUsageFlags() override;
 };
 
 class DescriptorBufferSampler : public DescriptorBuffer {
@@ -115,6 +119,8 @@ public:
      * @return the index of the allocated descriptor set. Store and use when binding during draw call.
      */
     int setupData(VkDevice device, std::vector<DescriptorImageData> imageBuffers, int index = -1);
+
+    VkBufferUsageFlagBits getBufferUsageFlags() override;
 };
 
 #endif //VKDESCRIPTORBUFFER_H

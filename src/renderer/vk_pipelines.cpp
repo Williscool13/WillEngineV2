@@ -18,7 +18,7 @@ void PipelineBuilder::clear()
     _shaderStages.clear();
 }
 
-VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkPipelineCreateFlagBits flags)
+VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkPipelineCreateFlagBits flags)
 {
     // Viewport, details not necessary here (dynamic rendering)
     VkPipelineViewportStateCreateInfo viewportState = {};
@@ -78,7 +78,7 @@ VkPipeline PipelineBuilder::build_pipeline(VkDevice device, VkPipelineCreateFlag
     }
 }
 
-void PipelineBuilder::set_shaders(VkShaderModule vertexShader, VkShaderModule fragmentShader)
+void PipelineBuilder::setShaders(VkShaderModule vertexShader, VkShaderModule fragmentShader)
 {
     _shaderStages.clear();
 
@@ -91,13 +91,13 @@ void PipelineBuilder::set_shaders(VkShaderModule vertexShader, VkShaderModule fr
     );
 }
 
-void PipelineBuilder::setup_input_assembly(VkPrimitiveTopology topology)
+void PipelineBuilder::setupInputAssembly(VkPrimitiveTopology topology)
 {
     _inputAssembly.topology = topology;
     _inputAssembly.primitiveRestartEnable = VK_FALSE;
 }
 
-void PipelineBuilder::setup_rasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace)
+void PipelineBuilder::setupRasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace)
 {
     // Draw Mode
     _rasterizer.polygonMode = polygonMode;
@@ -121,7 +121,7 @@ void PipelineBuilder::setup_multisampling(VkBool32 sampleShadingEnable, VkSample
     _multisampling.alphaToOneEnable = alphaToOneEnable;
 }
 
-void PipelineBuilder::setup_renderer(VkFormat colorattachmentFormat, VkFormat depthAttachmentFormat)
+void PipelineBuilder::setupRenderer(VkFormat colorattachmentFormat, VkFormat depthAttachmentFormat)
 {
     // Color Format
     _colorAttachmentFormat = colorattachmentFormat;
@@ -147,7 +147,7 @@ void PipelineBuilder::setup_depth_stencil(VkBool32 depthTestEnable, VkBool32 dep
     _depthStencil.maxDepthBounds = maxDepthBounds;
 }
 
-void PipelineBuilder::setup_blending(PipelineBuilder::BlendMode mode)
+void PipelineBuilder::setupBlending(PipelineBuilder::BlendMode mode)
 {
     switch (mode) {
         case BlendMode::ALPHA_BLEND: {
@@ -182,12 +182,17 @@ void PipelineBuilder::setup_blending(PipelineBuilder::BlendMode mode)
     }
 }
 
-void PipelineBuilder::disable_multisampling()
+void PipelineBuilder::setupPipelineLayout(VkPipelineLayout pipelineLayout)
+{
+    this->_pipelineLayout = pipelineLayout;
+}
+
+void PipelineBuilder::disableMultisampling()
 {
     setup_multisampling(VK_FALSE, VK_SAMPLE_COUNT_1_BIT, 1.0f, nullptr, VK_FALSE, VK_FALSE);
 }
 
-void PipelineBuilder::enable_depthtest(bool depthWriteEnable, VkCompareOp op)
+void PipelineBuilder::enableDepthtest(bool depthWriteEnable, VkCompareOp op)
 {
     setup_depth_stencil(
         VK_TRUE, depthWriteEnable, op,
