@@ -6,6 +6,8 @@
 #define VKHELPERS_H
 
 #include <cmath>
+#include <fstream>
+#include <vector>
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
@@ -39,11 +41,13 @@ namespace vk_helpers
 
     VkSemaphoreSubmitInfo semaphoreSubmitInfo(VkPipelineStageFlags2 stageMask, VkSemaphore semaphore);
 
-    VkRenderingAttachmentInfo attachmentInfo(VkImageView view, VkClearValue* clear, VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/);
+    VkRenderingAttachmentInfo attachmentInfo(VkImageView view, VkClearValue *clear,
+                                             VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/);
 
-    VkRenderingInfo renderingInfo(VkExtent2D renderExtent, VkRenderingAttachmentInfo* colorAttachment, VkRenderingAttachmentInfo* depthAttachment);
+    VkRenderingInfo renderingInfo(VkExtent2D renderExtent, VkRenderingAttachmentInfo *colorAttachment, VkRenderingAttachmentInfo *depthAttachment);
 
-    VkSubmitInfo2 submitInfo(VkCommandBufferSubmitInfo* cmd, VkSemaphoreSubmitInfo* signalSemaphoreInfo, VkSemaphoreSubmitInfo* waitSemaphoreInfo);
+    VkSubmitInfo2 submitInfo(VkCommandBufferSubmitInfo *cmd, VkSemaphoreSubmitInfo *signalSemaphoreInfo, VkSemaphoreSubmitInfo *waitSemaphoreInfo);
+
     VkPresentInfoKHR presentInfo();
 
 
@@ -71,6 +75,20 @@ namespace vk_helpers
     void copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize);
 
     void generateMipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize);
+
+
+    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo();
+
+    VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shaderModule,
+                                                                  const char *entry = "main");
+    /**
+     * Loads a shader module from the file paths specified
+     * @param filePath
+     * @param device
+     * @param outShaderModule
+     * @return
+     */
+    bool loadShaderModule(const char *filePath, VkDevice device, VkShaderModule *outShaderModule);
 }
 
 

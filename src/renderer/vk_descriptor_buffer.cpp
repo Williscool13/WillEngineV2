@@ -7,6 +7,10 @@
 VkPhysicalDeviceDescriptorBufferPropertiesEXT DescriptorBuffer::deviceDescriptorBufferProperties = {};
 bool DescriptorBuffer::devicePropertiesRetrieved = false;
 
+class DescriptorBufferException : public std::runtime_error {
+public:
+    explicit DescriptorBufferException(const std::string& message) : std::runtime_error(message) {}
+};
 
 DescriptorBuffer::DescriptorBuffer(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator,
                                    VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount)
@@ -37,7 +41,7 @@ DescriptorBuffer::DescriptorBuffer(VkInstance instance, VkDevice device, VkPhysi
     this->maxObjectCount = maxObjectCount;
 }
 
-void DescriptorBuffer::destroy(VkDevice device, VmaAllocator allocator) const
+void DescriptorBuffer::destroy(VkDevice device, VmaAllocator allocator)
 {
     //TODO: Maybe need to loop through all active indices and free those resources too? idk
     vmaDestroyBuffer(allocator, descriptorBuffer.buffer, descriptorBuffer.allocation);
@@ -48,8 +52,8 @@ void DescriptorBuffer::freeDescriptorBuffer(int index)
     freeIndices.push_back(index);
 }
 
-
-DescriptorBufferUniform::DescriptorBufferUniform(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator, VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount)
+DescriptorBufferUniform::DescriptorBufferUniform(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator,
+                                                 VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount)
     : DescriptorBuffer(instance, device, physicalDevice, allocator, descriptorSetLayout, maxObjectCount)
 {
     VkBufferCreateInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
@@ -70,9 +74,7 @@ int DescriptorBufferUniform::setupData(VkDevice device, std::vector<DescriptorUn
 {
     // TODO: Manage what happens if attempt to allocate a descriptor buffer set but out of space
     if (freeIndices.empty()) {
-        fmt::print("Ran out of space in DescriptorBufferUniform\n");
-        abort();
-        return -1;
+        throw DescriptorBufferException("Ran out of space in DescriptorBufferUniform");
     }
 
     const int descriptorBufferIndex = freeIndices[0];
@@ -117,16 +119,17 @@ int DescriptorBufferUniform::setupData(VkDevice device, std::vector<DescriptorUn
     return descriptorBufferIndex;
 }
 
-DescriptorBufferSampler::DescriptorBufferSampler(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator, VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount)
+DescriptorBufferSampler::DescriptorBufferSampler(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator,
+                                                 VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount)
     : DescriptorBuffer(instance, device, physicalDevice, allocator, descriptorSetLayout, maxObjectCount)
 {
-    VkBufferCreateInfo bufferInfo = { .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO };
+    VkBufferCreateInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     bufferInfo.pNext = nullptr;
     bufferInfo.size = descriptorBufferSize * maxObjectCount;
     bufferInfo.usage =
-        VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT
-        | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
-        | VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT;
+            VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT
+            | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+            | VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT;
     VmaAllocationCreateInfo vmaAllocInfo = {};
     vmaAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
     vmaAllocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
@@ -141,9 +144,7 @@ int DescriptorBufferSampler::setupData(VkDevice device, std::vector<DescriptorIm
     if (index < 0) {
         // TODO: Manage what happens if attempt to allocate a descriptor buffer set but out of space
         if (freeIndices.empty()) {
-            fmt::print("Ran out of space in DescriptorBufferUniform\n");
-            abort();
-            return -1;
+            throw DescriptorBufferException("No space in DescriptorBufferSampler\n");
         }
 
         descriptorBufferIndex = freeIndices[0];
