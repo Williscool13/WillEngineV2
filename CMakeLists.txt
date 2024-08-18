@@ -34,15 +34,18 @@ set(IMGUI_SOURCES
 add_definitions(-DVK_NO_PROTOTYPES)
 
 add_executable(WillEngine main.cpp
-        src/core/engine.cpp
-        src/core/engine.h
-        src/util/VkHelpers.cpp
-        src/util/VkHelpers.h
-        src/core/VkTypes.cpp
-        src/core/VkTypes.h
-        src/core/VkDescriptors.cpp
-        src/core/VkDescriptors.h
-        ${IMGUI_SOURCES})
+        src/core/Engine.cpp
+        src/core/Engine.h
+        src/util/vk_helpers.cpp
+        src/util/vk_helpers.h
+        src/renderer/vk_types.cpp
+        src/renderer/vk_types.h
+        src/renderer/vk_descriptors.cpp
+        src/renderer/vk_descriptors.h
+        ${IMGUI_SOURCES}
+        src/renderer/vk_descriptor_buffer.cpp
+        src/renderer/vk_descriptor_buffer.h
+        src/util/math_constants.h)
 
 target_include_directories(WillEngine PRIVATE
         ${Vulkan_INCLUDE_DIRS}                                              # Vulkan

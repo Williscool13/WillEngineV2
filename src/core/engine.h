@@ -29,9 +29,9 @@
 #include <glm/vec4.hpp>
 #include "glm/detail/func_packing.inl"
 
-#include "VkTypes.h"
-#include "VkDescriptors.h"
-#include "../util/VkHelpers.h"
+#include "../renderer/vk_types.h"
+#include "../renderer/vk_descriptors.h"
+#include "../util/vk_helpers.h"
 
 constexpr unsigned int FRAME_OVERLAP = 2;
 
@@ -74,6 +74,10 @@ public:
 
     void draw();
 
+    void draw_imgui(VkCommandBuffer cmd,  VkImageView targetImageView);
+
+
+
     /**
      * Cleans up vulkan resources when application has exited. Destroys resources in opposite order of initialization
      * \n Resources -> Command Pool (implicit destroy C. Buffers) -> Swapchain -> Surface -> Device -> Instance -> Window
@@ -102,6 +106,9 @@ private: // Rendering
     int frameNumber{0};
     FrameData frames[FRAME_OVERLAP]{};
     FrameData &getCurrentFrame() { return frames[frameNumber % FRAME_OVERLAP]; };
+
+    float frameTime{};
+    float drawTime{};
 
     // Immediate Mode
     VkFence immFence{VK_NULL_HANDLE};

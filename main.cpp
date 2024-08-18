@@ -35,7 +35,7 @@
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
 
-#include "src/core/Engine.h"
+#include "src/core/engine.h"
 
 
 int main(int argc, char* argv[])
