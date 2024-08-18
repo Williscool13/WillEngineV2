@@ -35,15 +35,10 @@ void main()
         vec3 pixel_center = pixel00_loc + vec3(float(texelCoord.x) * pixel_delta_u, float(texelCoord.y) * pixel_delta_v, 0);
         vec3 ray_direction = pixel_center - cam_center;
 
-        vec4 color = vec4(0.0, 0.0, 0.0, 1.0);
-
-        if(gl_LocalInvocationID.x != 0 && gl_LocalInvocationID.y != 0)
-        {
-            color.x = float(texelCoord.x)/(size.x);
-            color.y = float(texelCoord.y)/(size.y);
-            color = vec4(ray_color(ray_direction), 1.0);
-
-        }
+        vec4 color = vec4(0.0);
+        color.x = float(texelCoord.x)/(size.x);
+        color.y = float(texelCoord.y)/(size.y);
+        color = vec4(ray_color(ray_direction), 1.0);
 
 
 

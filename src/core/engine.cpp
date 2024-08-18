@@ -7,6 +7,8 @@
 
 #include <filesystem>
 
+#include "../renderer/vk_pipelines.h"
+
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
 #else
@@ -125,6 +127,7 @@ void Engine::draw()
     // draw geometry into _drawImage
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    drawRender(cmd);
 
     // copy Draw Image into Swapchain Image
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
@@ -132,7 +135,8 @@ void Engine::draw()
     vk_helpers::copyImageToImage(cmd, drawImage.image, swapchainImages[swapchainImageIndex], drawExtent, swapchainExtent);
 
     // draw ImGui into Swapchain Image
-    vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     drawImgui(cmd, swapchainImageViews[swapchainImageIndex]);
 
     vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
@@ -186,18 +190,63 @@ void Engine::drawCompute(VkCommandBuffer cmd)
 
     VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1]{};
     //descriptor_buffer_binding_info[0] = computeImageDescriptorBuffer.get_descriptor_buffer_binding_info(_device);
-    descriptorBufferBindingInfo[0] = vk_helpers::descriptorBufferBindingInfo(computeImageDescriptorBuffer.getDeviceAddress()
-        , static_cast<VkBufferUsageFlagBits>(VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT | VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT));
+    descriptorBufferBindingInfo[0] = computeImageDescriptorBuffer.getDescriptorBufferBindingInfo();
     vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
     uint32_t bufferIndexImage = 0;
     VkDeviceSize bufferOffset = 0;
 
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _backgroundEffectPipelineLayout
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, backgroundEffectPipelineLayout
                                        , 0, 1, &bufferIndexImage, &bufferOffset);
 
 
     // Execute at 8x8 thread groups
     vkCmdDispatch(cmd, std::ceil(drawExtent.width / 16.0), std::ceil(drawExtent.height / 16.0), 1);
+}
+
+void Engine::drawRender(VkCommandBuffer cmd)
+{
+    VkClearValue depthClearValue = {0.0f, 0};
+    VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    VkRenderingInfo renderInfo = vk_helpers::renderingInfo(drawExtent, &colorAttachment, &depthAttachment);
+
+
+    vkCmdBeginRendering(cmd, &renderInfo);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipeline);
+
+    // Dynamic States
+    //  Viewport
+    VkViewport viewport = {};
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width = drawExtent.width;
+    viewport.height = drawExtent.height;
+    viewport.minDepth = 0.f;
+    viewport.maxDepth = 1.f;
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+    //  Scissor
+    VkRect2D scissor = {};
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
+    scissor.extent.width = drawExtent.width;
+    scissor.extent.height = drawExtent.height;
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1];
+    descriptorBufferBindingInfo[0] = renderImageDescriptorBuffer.getDescriptorBufferBindingInfo();
+    vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
+    uint32_t bufferIndexImage = 0;
+    VkDeviceSize bufferOffset = 0;
+
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipelineLayout
+                                       , 0, 1, &bufferIndexImage, &bufferOffset);
+
+    //vkCmdDrawIndexed(cmd, draw.indexCount, 1, draw.firstIndex, 0, 0);
+    float time = SDL_GetTicks64() / 1000.0f;
+    vkCmdPushConstants(cmd, renderPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(float), &time);
+    vkCmdDraw(cmd, 3, 1, 0, 0);
+    vkCmdEndRendering(cmd);
 }
 
 void Engine::drawImgui(VkCommandBuffer cmd, VkImageView targetImageView)
@@ -477,11 +526,11 @@ void Engine::initDearImgui()
 void Engine::initPipelines()
 {
     initComputePipelines();
+    initRenderPipelines();
 }
 
 void Engine::initComputePipelines()
-{
-    {
+{ {
         DescriptorLayoutBuilder builder;
         builder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         computeImageDescriptorSetLayout = builder.build(
@@ -522,11 +571,11 @@ void Engine::initComputePipelines()
     backgroundEffectLayoutCreateInfo.pPushConstantRanges = nullptr;
     backgroundEffectLayoutCreateInfo.pushConstantRangeCount = 0;
 
-    VK_CHECK(vkCreatePipelineLayout(device, &backgroundEffectLayoutCreateInfo, nullptr, &_backgroundEffectPipelineLayout));
+    VK_CHECK(vkCreatePipelineLayout(device, &backgroundEffectLayoutCreateInfo, nullptr, &backgroundEffectPipelineLayout));
 
     VkShaderModule gradientShader;
     if (!vk_helpers::loadShaderModule("shaders\\compute.comp.spv", device, &gradientShader)) {
-        throw  std::runtime_error("Error when building the compute shader (compute.comp.spv)");
+        throw std::runtime_error("Error when building the compute shader (compute.comp.spv)");
     }
 
     VkPipelineShaderStageCreateInfo stageinfo{};
@@ -539,7 +588,7 @@ void Engine::initComputePipelines()
     VkComputePipelineCreateInfo computePipelineCreateInfo{};
     computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     computePipelineCreateInfo.pNext = nullptr;
-    computePipelineCreateInfo.layout = _backgroundEffectPipelineLayout;
+    computePipelineCreateInfo.layout = backgroundEffectPipelineLayout;
     computePipelineCreateInfo.stage = stageinfo;
     computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
@@ -549,8 +598,76 @@ void Engine::initComputePipelines()
     vkDestroyShaderModule(device, gradientShader, nullptr);
 
     mainDeletionQueue.pushFunction([&]() {
-        vkDestroyPipelineLayout(device, _backgroundEffectPipelineLayout, nullptr);
+        vkDestroyPipelineLayout(device, backgroundEffectPipelineLayout, nullptr);
         vkDestroyPipeline(device, computePipeline, nullptr);
+    });
+}
+
+void Engine::initRenderPipelines()
+{ {
+        DescriptorLayoutBuilder layoutBuilder;
+        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+
+        renderImageDescriptorSetLayout = layoutBuilder.build(device, VK_SHADER_STAGE_FRAGMENT_BIT
+                                                             , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    }
+    renderImageDescriptorBuffer = DescriptorBufferSampler(instance, device
+                                                          , physicalDevice, allocator, renderImageDescriptorSetLayout, 1);
+
+    VkDescriptorImageInfo fullscreenCombined{};
+    fullscreenCombined.sampler = defaultSamplerNearest;
+    fullscreenCombined.imageView = errorCheckerboardImage.imageView;
+    fullscreenCombined.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    // needs to match the order of the bindings in the layout
+    std::vector<DescriptorImageData> combined_descriptor = {
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &fullscreenCombined, 1}
+    };
+    renderImageDescriptorBuffer.setupData(device, combined_descriptor);
+
+
+    VkShaderModule vertShader;
+    if (!vk_helpers::loadShaderModule("shaders/vertex.vert.spv", device, &vertShader)) {
+        throw std::runtime_error("Error when building the triangle vertex shader module(compute.comp.spv)");
+    }
+    VkShaderModule fragShader;
+    if (!vk_helpers::loadShaderModule("shaders/fragment.frag.spv", device, &fragShader)) {
+        fmt::print("Error when building the triangle fragment shader module\n");
+    }
+
+
+    VkPipelineLayoutCreateInfo layout_info = vk_helpers::pipelineLayoutCreateInfo();
+    layout_info.setLayoutCount = 1;
+    layout_info.pSetLayouts = &renderImageDescriptorSetLayout;
+    VkPushConstantRange renderPushConstantRange{};
+    renderPushConstantRange.offset = 0;
+    renderPushConstantRange.size = sizeof(float);
+    renderPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    layout_info.pPushConstantRanges = &renderPushConstantRange;
+    layout_info.pushConstantRangeCount = 1;
+
+    VK_CHECK(vkCreatePipelineLayout(device, &layout_info, nullptr, &renderPipelineLayout));
+
+
+    PipelineBuilder renderPipelineBuilder;
+    renderPipelineBuilder.setShaders(vertShader, fragShader);
+    renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
+    renderPipelineBuilder.disableMultisampling();
+    renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
+    renderPipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+    renderPipelineBuilder.setupRenderer(drawImage.imageFormat, depthImage.imageFormat);
+    renderPipelineBuilder.setupPipelineLayout(renderPipelineLayout);
+
+    renderPipeline = renderPipelineBuilder.buildPipeline(device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+
+    vkDestroyShaderModule(device, vertShader, nullptr);
+    vkDestroyShaderModule(device, fragShader, nullptr);
+
+    mainDeletionQueue.pushFunction([&]() {
+        vkDestroyDescriptorSetLayout(device, renderImageDescriptorSetLayout, nullptr);
+        renderImageDescriptorBuffer.destroy(device, allocator);
+        vkDestroyPipelineLayout(device, renderPipelineLayout, nullptr);
+        vkDestroyPipeline(device, renderPipeline, nullptr);
     });
 }
 
@@ -776,5 +893,5 @@ void Engine::createDrawImages(uint32_t width, uint32_t height)
     VkImageViewCreateInfo dview_info = vk_helpers::imageviewCreateInfo(depthImage.imageFormat, depthImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
     VK_CHECK(vkCreateImageView(device, &dview_info, nullptr, &depthImage.imageView));
 
-    drawExtent = { width, height };
+    drawExtent = {width, height};
 }

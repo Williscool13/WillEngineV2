@@ -192,16 +192,6 @@ VkSubmitInfo2 vk_helpers::submitInfo(VkCommandBufferSubmitInfo *cmd, VkSemaphore
     return info;
 }
 
-VkDescriptorBufferBindingInfoEXT vk_helpers::descriptorBufferBindingInfo(VkDeviceAddress bufferAddress, VkBufferUsageFlagBits usageFlags)
-{
-    VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info{};
-    descriptor_buffer_binding_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT;
-    descriptor_buffer_binding_info.address = bufferAddress;
-    descriptor_buffer_binding_info.usage = usageFlags;
-
-    return descriptor_buffer_binding_info;
-}
-
 VkDeviceAddress vk_helpers::getDeviceAddress(VkDevice device, VkBuffer buffer)
 {
     VkBufferDeviceAddressInfo deviceAdressInfo{};
@@ -384,8 +374,6 @@ VkPipelineShaderStageCreateInfo vk_helpers::pipelineShaderStageCreateInfo(VkShad
 bool vk_helpers::loadShaderModule(const char *filePath, VkDevice device, VkShaderModule *outShaderModule)
 {
     std::filesystem::path shaderPath(filePath);
-
-    fmt::print("Current working directory: {}\n", std::filesystem::current_path().string());
 
     // open the file. With cursor at the end
     std::ifstream file(shaderPath, std::ios::ate | std::ios::binary);
