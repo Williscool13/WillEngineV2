@@ -40,7 +40,7 @@ constexpr unsigned int FRAME_OVERLAP = 2;
 struct DeletionQueue {
     std::deque<std::function<void()> > deletors;
 
-    void pushFunction(std::function<void()> &&function)
+    void pushFunction(std::function<void()>&& function)
     {
         deletors.push_back(function);
     }
@@ -48,7 +48,7 @@ struct DeletionQueue {
     void flush()
     {
         // reverse iterate the deletion queue to execute all the functions
-        for (auto &it: deletors) {
+        for (auto& it: deletors) {
             (it)();
         }
 
@@ -79,14 +79,13 @@ public:
 
     void drawRender(VkCommandBuffer cmd);
 
-    void drawImgui(VkCommandBuffer cmd,  VkImageView targetImageView);
+    void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
 
     /**
      * Cleans up vulkan resources when application has exited. Destroys resources in opposite order of initialization
      * \n Resources -> Command Pool (implicit destroy C. Buffers) -> Swapchain -> Surface -> Device -> Instance -> Window
      */
     void cleanup();
-
 
 private: // Initialization
     void initVulkan();
@@ -107,7 +106,7 @@ private: // Initialization
 
     void initRenderPipelines();
 
-    void immediateSubmit(std::function<void(VkCommandBuffer cmd)> &&function) const;
+    void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const;
 
 private: // Vulkan Boilerplate
     VkExtent2D windowExtent{1700, 900};
@@ -155,7 +154,6 @@ private: // Pipelines
 
     VkPipeline renderPipeline;
 
-
 private: // Swapchain
     VkSwapchainKHR swapchain{};
     VkFormat swapchainImageFormat{};
@@ -163,7 +161,11 @@ private: // Swapchain
     std::vector<VkImageView> swapchainImageViews;
     VkExtent2D swapchainExtent{};
 
+    bool resizeRequested{false};
+
     void createSwapchain(uint32_t width, uint32_t height);
+
+    void resizeSwapchain();
 
 private: // Draw Images
     // todo: In anticipation of deferred rendering, not implementing MSAA
@@ -189,19 +191,20 @@ public: // Buffers
 
     AllocatedBuffer createStagingBuffer(size_t allocSize) const;
 
-    void copyBuffer(const AllocatedBuffer &src, const AllocatedBuffer &dst, VkDeviceSize size) const;
+    void copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, VkDeviceSize size) const;
 
-    VkDeviceAddress getBufferAddress(const AllocatedBuffer &buffer) const;
+    VkDeviceAddress getBufferAddress(const AllocatedBuffer& buffer) const;
 
-    void destroyBuffer(const AllocatedBuffer &buffer) const;
+    void destroyBuffer(const AllocatedBuffer& buffer) const;
 
 public: // Images
     AllocatedImage createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
 
-    AllocatedImage createImage(const void *data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
+    AllocatedImage createImage(const void *data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,
+                               bool mipmapped = false) const;
 
     static int getChannelCount(VkFormat format); // todo: move this static into vkhelpers
-    void destroyImage(const AllocatedImage &img) const;
+    void destroyImage(const AllocatedImage& img) const;
 };
 
 #endif //ENGINE_H
