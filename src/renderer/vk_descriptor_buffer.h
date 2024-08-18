@@ -13,7 +13,7 @@
 #include <fmt/format.h>
 
 #include "vk_types.h"
-#include "../util/vk_helpers.h"
+#include "vk_helpers.h"
 
 
 struct DescriptorImageData {

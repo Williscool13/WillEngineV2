@@ -32,7 +32,7 @@
 #include "../renderer/vk_types.h"
 #include "../renderer/vk_descriptors.h"
 #include "../renderer/vk_descriptor_buffer.h"
-#include "../util/vk_helpers.h"
+#include "../renderer/vk_helpers.h"
 
 constexpr unsigned int FRAME_OVERLAP = 2;
 

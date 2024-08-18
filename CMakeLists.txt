@@ -36,8 +36,8 @@ add_definitions(-DVK_NO_PROTOTYPES)
 add_executable(WillEngine main.cpp
         src/core/Engine.cpp
         src/core/Engine.h
-        src/util/vk_helpers.cpp
-        src/util/vk_helpers.h
+        src/renderer/vk_helpers.cpp
+        src/renderer/vk_helpers.h
         src/renderer/vk_types.cpp
         src/renderer/vk_types.h
         src/renderer/vk_descriptors.cpp
