@@ -31,6 +31,7 @@
 
 #include "../renderer/vk_types.h"
 #include "../renderer/vk_descriptors.h"
+#include "../renderer/vk_descriptor_buffer.h"
 #include "../util/vk_helpers.h"
 
 constexpr unsigned int FRAME_OVERLAP = 2;
@@ -74,9 +75,9 @@ public:
 
     void draw();
 
-    void draw_imgui(VkCommandBuffer cmd,  VkImageView targetImageView);
+    void drawCompute(VkCommandBuffer cmd);
 
-
+    void drawImgui(VkCommandBuffer cmd,  VkImageView targetImageView);
 
     /**
      * Cleans up vulkan resources when application has exited. Destroys resources in opposite order of initialization
@@ -84,9 +85,7 @@ public:
      */
     void cleanup();
 
-    void destroySwapchain();
-
-private:
+private: // Vulkan Boilerplate
     VkExtent2D windowExtent{1700, 900};
     struct SDL_Window *window{nullptr};
 
@@ -99,13 +98,14 @@ private:
     VmaAllocator allocator{};
     VkDebugUtilsMessengerEXT debug_messenger{};
 
-    bool stopRendering{false};
+    DeletionQueue mainDeletionQueue;
 
 private: // Rendering
     // Main
     int frameNumber{0};
     FrameData frames[FRAME_OVERLAP]{};
     FrameData &getCurrentFrame() { return frames[frameNumber % FRAME_OVERLAP]; };
+    bool stopRendering{false};
 
     float frameTime{};
     float drawTime{};
@@ -115,6 +115,13 @@ private: // Rendering
     VkCommandBuffer immCommandBuffer{VK_NULL_HANDLE};
     VkCommandPool immCommandPool{VK_NULL_HANDLE};
     //void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
+
+private: // Pipelines
+    VkDescriptorSetLayout computeImageDescriptorSetLayout;
+    DescriptorBufferSampler computeImageDescriptorBuffer;
+    VkPipelineLayout _backgroundEffectPipelineLayout;
+
+    VkPipeline computePipeline;
 
 private: // Swapchain
     VkSwapchainKHR swapchain{};
@@ -158,6 +165,8 @@ private: // Initialization
     void initDearImgui();
 
     void initPipelines();
+
+    void initComputePipelines();
 
     void immediateSubmit(std::function<void(VkCommandBuffer cmd)> &&function) const;
 

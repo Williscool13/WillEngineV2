@@ -14,7 +14,6 @@
 
 #include "vk_types.h"
 #include "../util/vk_helpers.h"
-#include "volk.h"
 
 
 struct DescriptorImageData {
@@ -31,23 +30,16 @@ struct DescriptorUniformData {
 
 class DescriptorBuffer {
 public:
-    DescriptorBuffer() = delete;
+    DescriptorBuffer() = default;
 
     DescriptorBuffer(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator,
                      VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount = 10);
 
-    void destroy(VkDevice device, VmaAllocator allocator) const;
+    void destroy(VkDevice device, VmaAllocator allocator);
 
     void freeDescriptorBuffer(int index);
 
-    /**
-     * @return The size of a single descriptor set cached during Descriptor Buffer Initialization
-     */
-    [[nodiscard]] VkDeviceSize getDescriptorBufferSize() const { return descriptorBufferSize; }
-    /**
-     * @return The size of the Desriptor Buffer's offset cached during Descriptor Buffer Initialization
-     */
-    [[nodiscard]] VkDeviceSize getDescriptorBufferOffset() const { return descriptorBufferOffset; }
+    VkDeviceAddress getDeviceAddress() const { return descriptorBufferGpuAddress; }
 
 protected:
     /**
@@ -72,7 +64,7 @@ protected:
      * Must be specified when this descriptor buffer is created.
      * \n Total descriptor buffer size will be offset + size * maxObjectCount
      */
-    int maxObjectCount;
+    int maxObjectCount{10};
 
     /**
      * Physical device properties that are the same for all descriptor buffers (assuming device is the same)
@@ -81,9 +73,9 @@ protected:
     static bool devicePropertiesRetrieved;
 };
 
-class DescriptorBufferUniform : DescriptorBuffer {
+class DescriptorBufferUniform : public DescriptorBuffer {
 public:
-    DescriptorBufferUniform() = delete;
+    DescriptorBufferUniform() = default;
 
     /**
      *
@@ -107,9 +99,9 @@ public:
     int setupData(VkDevice device, std::vector<DescriptorUniformData>& uniformBuffers);
 };
 
-class DescriptorBufferSampler : DescriptorBuffer {
+class DescriptorBufferSampler : public DescriptorBuffer {
 public:
-    DescriptorBufferSampler() = delete;
+    DescriptorBufferSampler() = default;
 
     DescriptorBufferSampler(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator,
                             VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount = 10);

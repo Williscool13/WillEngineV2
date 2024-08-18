@@ -45,7 +45,9 @@ add_executable(WillEngine main.cpp
         ${IMGUI_SOURCES}
         src/renderer/vk_descriptor_buffer.cpp
         src/renderer/vk_descriptor_buffer.h
-        src/util/math_constants.h)
+        src/util/math_constants.h
+        src/renderer/vk_pipelines.cpp
+        src/renderer/vk_pipelines.h)
 
 target_include_directories(WillEngine PRIVATE
         ${Vulkan_INCLUDE_DIRS}                                              # Vulkan
@@ -66,3 +68,21 @@ target_link_libraries(WillEngine PRIVATE
         volk
         vk-bootstrap::vk-bootstrap
 )
+
+# Shader copying setup
+set(SHADER_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
+set(SHADER_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")
+
+# Create a custom command to copy shaders
+add_custom_command(
+        OUTPUT ${SHADER_BINARY_DIR}
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${SHADER_SOURCE_DIR} ${SHADER_BINARY_DIR}
+        DEPENDS ${SHADER_SOURCE_DIR}
+        COMMENT "Copying shaders to build directory"
+)
+
+# Create a custom target that depends on the copied shaders
+add_custom_target(copy_shaders DEPENDS ${SHADER_BINARY_DIR})
+
+# Add the custom target as a dependency of your main target
+add_dependencies(WillEngine copy_shaders)

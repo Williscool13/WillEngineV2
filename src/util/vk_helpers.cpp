@@ -4,6 +4,8 @@
 
 #include "vk_helpers.h"
 
+#include <filesystem>
+
 VkImageCreateInfo vk_helpers::imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
 {
     VkImageCreateInfo info = {};
@@ -155,7 +157,7 @@ VkRenderingAttachmentInfo vk_helpers::attachmentInfo(VkImageView view, VkClearVa
 }
 
 VkRenderingInfo vk_helpers::renderingInfo(VkExtent2D renderExtent, VkRenderingAttachmentInfo *colorAttachment,
-                                         VkRenderingAttachmentInfo *depthAttachment)
+                                          VkRenderingAttachmentInfo *depthAttachment)
 {
     VkRenderingInfo renderInfo{};
     renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -172,7 +174,7 @@ VkRenderingInfo vk_helpers::renderingInfo(VkExtent2D renderExtent, VkRenderingAt
 }
 
 VkSubmitInfo2 vk_helpers::submitInfo(VkCommandBufferSubmitInfo *cmd, VkSemaphoreSubmitInfo *signalSemaphoreInfo,
-                                    VkSemaphoreSubmitInfo *waitSemaphoreInfo)
+                                     VkSemaphoreSubmitInfo *waitSemaphoreInfo)
 {
     VkSubmitInfo2 info = {};
     info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
@@ -190,7 +192,7 @@ VkSubmitInfo2 vk_helpers::submitInfo(VkCommandBufferSubmitInfo *cmd, VkSemaphore
     return info;
 }
 
-VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo(VkDeviceAddress bufferAddress, VkBufferUsageFlagBits usageFlags)
+VkDescriptorBufferBindingInfoEXT vk_helpers::descriptorBufferBindingInfo(VkDeviceAddress bufferAddress, VkBufferUsageFlagBits usageFlags)
 {
     VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info{};
     descriptor_buffer_binding_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT;
@@ -199,7 +201,6 @@ VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo(VkDeviceAddress buf
 
     return descriptor_buffer_binding_info;
 }
-
 
 VkDeviceAddress vk_helpers::getDeviceAddress(VkDevice device, VkBuffer buffer)
 {
@@ -349,4 +350,84 @@ void vk_helpers::generateMipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D 
 
     // transition all mip levels into the final read_only layout
     transitionImage(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+}
+
+VkPipelineLayoutCreateInfo vk_helpers::pipelineLayoutCreateInfo()
+{
+    VkPipelineLayoutCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    info.pNext = nullptr;
+
+    // empty defaults
+    info.flags = 0;
+    info.setLayoutCount = 0;
+    info.pSetLayouts = nullptr;
+    info.pushConstantRangeCount = 0;
+    info.pPushConstantRanges = nullptr;
+    return info;
+}
+
+VkPipelineShaderStageCreateInfo vk_helpers::pipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shaderModule, const char *entry)
+{
+    VkPipelineShaderStageCreateInfo info{};
+    info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    info.pNext = nullptr;
+
+    // shader stage
+    info.stage = stage;
+    // module containing the code for this shader stage
+    info.module = shaderModule;
+    info.pName = entry; // usually "main"
+    return info;
+}
+
+bool vk_helpers::loadShaderModule(const char *filePath, VkDevice device, VkShaderModule *outShaderModule)
+{
+    std::filesystem::path shaderPath(filePath);
+
+    fmt::print("Current working directory: {}\n", std::filesystem::current_path().string());
+
+    // open the file. With cursor at the end
+    std::ifstream file(shaderPath, std::ios::ate | std::ios::binary);
+
+
+
+    if (!file.is_open()) {
+        return false;
+    }
+
+    // find what the size of the file is by looking up the location of the cursor
+    // because the cursor is at the end, it gives the size directly in bytes
+    size_t fileSize = (size_t) file.tellg();
+
+    // spirv expects the buffer to be on uint32, so make sure to reserve a int
+    // vector big enough for the entire file
+    std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
+
+    // put file cursor at beginning
+    file.seekg(0);
+
+    // load the entire file into the buffer
+    file.read((char *) buffer.data(), fileSize);
+
+    // now that the file is loaded into the buffer, we can close it
+    file.close();
+
+    // create a new shader module, using the buffer we loaded
+    VkShaderModuleCreateInfo createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+    createInfo.pNext = nullptr;
+
+    // codeSize has to be in bytes, so multply the ints in the buffer by size of
+    // int to know the real size of the buffer
+    createInfo.codeSize = buffer.size() * sizeof(uint32_t);
+    createInfo.pCode = buffer.data();
+
+    // check that the creation goes well.
+    VkShaderModule shaderModule;
+    if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+        return false;
+    }
+    *outShaderModule = shaderModule;
+    return true;
 }

@@ -5,6 +5,7 @@
 
 #include "engine.h"
 
+#include <filesystem>
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -39,6 +40,7 @@ void Engine::init()
     initDefaultData();
 
     initDearImgui();
+
     initPipelines();
 
 
@@ -116,18 +118,24 @@ void Engine::draw()
     VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
-    vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+    // draw compute into _drawImage
+    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+    drawCompute(cmd);
 
-    // Clear Color
-    VkClearColorValue clearValue;
-    float flash = std::abs(std::sin(static_cast<float>(frameNumber) / 120.f));
-    clearValue = { { 0.0f, 0.0f, flash, 1.0f } };
-    VkImageSubresourceRange clearRange = vk_helpers::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT);
-    vkCmdClearColorImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+    // draw geometry into _drawImage
+    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-    draw_imgui(cmd, swapchainImageViews[swapchainImageIndex]);
+    // copy Draw Image into Swapchain Image
+    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
+    vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    vk_helpers::copyImageToImage(cmd, drawImage.image, swapchainImages[swapchainImageIndex], drawExtent, swapchainExtent);
 
-    vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
+    // draw ImGui into Swapchain Image
+    vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    drawImgui(cmd, swapchainImageViews[swapchainImageIndex]);
+
+    vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR);
 
     // End Command Buffer Recording
     VK_CHECK(vkEndCommandBuffer(cmd));
@@ -135,7 +143,8 @@ void Engine::draw()
     // Submission
     VkCommandBufferSubmitInfo cmdinfo = vk_helpers::commandBufferSubmitInfo(cmd);
 
-    VkSemaphoreSubmitInfo waitInfo = vk_helpers::semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, getCurrentFrame()._swapchainSemaphore);
+    VkSemaphoreSubmitInfo waitInfo = vk_helpers::semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
+                                                                     getCurrentFrame()._swapchainSemaphore);
     VkSemaphoreSubmitInfo signalInfo = vk_helpers::semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, getCurrentFrame()._renderSemaphore);
 
     VkSubmitInfo2 submit = vk_helpers::submitInfo(&cmdinfo, &signalInfo, &waitInfo);
@@ -165,10 +174,33 @@ void Engine::draw()
     auto end = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     frameTime = frameTime * 0.99f + elapsed.count() / 1000.0f * 0.01f;
-    drawTime = drawTime * 0.99f +  elapsed.count() / 1000.0f * 0.01f;
+    drawTime = drawTime * 0.99f + elapsed.count() / 1000.0f * 0.01f;
 }
 
-void Engine::draw_imgui(VkCommandBuffer cmd, VkImageView targetImageView)
+void Engine::drawCompute(VkCommandBuffer cmd)
+{
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
+    // Push Constants
+    //vkCmdPushConstants(cmd, _backgroundEffectPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants), &selected._data);
+
+
+    VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1]{};
+    //descriptor_buffer_binding_info[0] = computeImageDescriptorBuffer.get_descriptor_buffer_binding_info(_device);
+    descriptorBufferBindingInfo[0] = vk_helpers::descriptorBufferBindingInfo(computeImageDescriptorBuffer.getDeviceAddress()
+        , static_cast<VkBufferUsageFlagBits>(VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT | VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT));
+    vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
+    uint32_t bufferIndexImage = 0;
+    VkDeviceSize bufferOffset = 0;
+
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, _backgroundEffectPipelineLayout
+                                       , 0, 1, &bufferIndexImage, &bufferOffset);
+
+
+    // Execute at 8x8 thread groups
+    vkCmdDispatch(cmd, std::ceil(drawExtent.width / 16.0), std::ceil(drawExtent.height / 16.0), 1);
+}
+
+void Engine::drawImgui(VkCommandBuffer cmd, VkImageView targetImageView)
 {
     VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(targetImageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     VkRenderingInfo renderInfo = vk_helpers::renderingInfo(swapchainExtent, &colorAttachment, nullptr);
@@ -188,7 +220,15 @@ void Engine::cleanup()
     vkDestroySampler(device, defaultSamplerNearest, nullptr);
     vkDestroySampler(device, defaultSamplerLinear, nullptr);
 
-    for (auto& frame : frames) {
+    // destroy all other resources
+    mainDeletionQueue.flush();
+
+    // ImGui
+    ImGui_ImplVulkan_Shutdown();
+    vkDestroyDescriptorPool(device, imguiPool, nullptr);
+
+    // Main Rendering Command and Fence
+    for (auto& frame: frames) {
         vkDestroyCommandPool(device, frame._commandPool, nullptr);
 
         //destroy sync objects
@@ -197,7 +237,22 @@ void Engine::cleanup()
         vkDestroySemaphore(device, frame._swapchainSemaphore, nullptr);
     }
 
-    destroySwapchain();
+    // Immediate Command and Fence
+    vkDestroyCommandPool(device, immCommandPool, nullptr);
+    vkDestroyFence(device, immFence, nullptr);
+
+    // Draw Images and Swapchain
+    vkDestroyImageView(device, drawImage.imageView, nullptr);
+    vmaDestroyImage(allocator, drawImage.image, drawImage.allocation);
+    vkDestroyImageView(device, depthImage.imageView, nullptr);
+    vmaDestroyImage(allocator, depthImage.image, depthImage.allocation);
+    vkDestroySwapchainKHR(device, swapchain, nullptr);
+    for (int i = 0; i < swapchainImageViews.size(); i++) {
+        vkDestroyImageView(device, swapchainImageViews[i], nullptr);
+    }
+
+    // Vulkan Boilerplate
+    vmaDestroyAllocator(allocator);
 
     vkDestroySurfaceKHR(instance, surface, nullptr);
     vkDestroyDevice(device, nullptr);
@@ -206,16 +261,6 @@ void Engine::cleanup()
     vkDestroyInstance(instance, nullptr);
 
     SDL_DestroyWindow(window);
-
-
-}
-
-void Engine::destroySwapchain()
-{
-    vkDestroySwapchainKHR(device, swapchain, nullptr);
-    for (int i = 0; i < swapchainImageViews.size(); i++) {
-        vkDestroyImageView(device, swapchainImageViews[i], nullptr);
-    }
 }
 
 
@@ -310,7 +355,7 @@ void Engine::initCommands()
 {
     VkCommandPoolCreateInfo commandPoolInfo = vk_helpers::commandPoolCreateInfo(graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
-    for (auto &frame: frames) {
+    for (auto& frame: frames) {
         VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &frame._commandPool));
         VkCommandBufferAllocateInfo cmdAllocInfo = vk_helpers::commandBufferAllocateInfo(frame._commandPool);
         VK_CHECK(vkAllocateCommandBuffers(device, &cmdAllocInfo, &frame._mainCommandBuffer));
@@ -327,7 +372,7 @@ void Engine::initSyncStructures()
     VkFenceCreateInfo fenceCreateInfo = vk_helpers::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
     VkSemaphoreCreateInfo semaphoreCreateInfo = vk_helpers::semaphoreCreateInfo();
 
-    for (auto &frame: frames) {
+    for (auto& frame: frames) {
         VK_CHECK(vkCreateFence(device, &fenceCreateInfo, nullptr, &frame._renderFence));
 
         VK_CHECK(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &frame._swapchainSemaphore));
@@ -393,7 +438,7 @@ void Engine::initDearImgui()
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
     ImGui::CreateContext();
-    ImGuiIO &io = ImGui::GetIO();
+    ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; // Enable Gamepad Controls
 
@@ -431,70 +476,85 @@ void Engine::initDearImgui()
 
 void Engine::initPipelines()
 {
-    /*// for now, initialize basic pipelines to test.
-    {
-        DescriptorLayoutBuilder layoutBuilder;
-        layoutBuilder.add_binding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-
-        _fullscreenDescriptorSetLayout = layoutBuilder.build(_device, VK_SHADER_STAGE_FRAGMENT_BIT
-                                                             , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-    }
-    _fullscreenDescriptorBuffer = DescriptorBufferSampler(_instance, _device
-                                                          , _physicalDevice, _allocator, _fullscreenDescriptorSetLayout, 1);
-
-    VkDescriptorImageInfo fullscreenCombined{};
-    fullscreenCombined.sampler = _defaultSamplerNearest;
-    fullscreenCombined.imageView = _errorCheckerboardImage.imageView;
-    fullscreenCombined.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    // needs to match the order of the bindings in the layout
-    std::vector<DescriptorImageData> combined_descriptor = {
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &fullscreenCombined, 1}
-    };
-    _fullscreenDescriptorBuffer.setup_data(_device, combined_descriptor);
-
-    VkPipelineLayoutCreateInfo layout_info = vkinit::pipeline_layout_create_info();
-    layout_info.setLayoutCount = 1;
-    layout_info.pSetLayouts = &_fullscreenDescriptorSetLayout;
-    layout_info.pPushConstantRanges = nullptr;
-    layout_info.pushConstantRangeCount = 0;
-
-    VK_CHECK(vkCreatePipelineLayout(_device, &layout_info, nullptr, &_fullscreenPipelineLayout));
-
-
-    _fullscreenPipeline = {};
-
-    _fullscreenPipeline.init_input_assembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST)
-            .init_rasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
-    if (USE_MSAA) _fullscreenPipeline.enable_msaa(MSAA_SAMPLES);
-    else _fullscreenPipeline.disable_multisampling();
-
-    _fullscreenPipeline.init_blending(ShaderObject::BlendMode::NO_BLEND);
-    _fullscreenPipeline.disable_depthtesting();
-
-
-    _fullscreenPipeline._stages[0] = VK_SHADER_STAGE_VERTEX_BIT;
-    _fullscreenPipeline._stages[1] = VK_SHADER_STAGE_FRAGMENT_BIT;
-    _fullscreenPipeline._stages[2] = VK_SHADER_STAGE_GEOMETRY_BIT;
-
-
-    vkutil::create_shader_objects(
-        "shaders/fullscreen.vert.spv", "shaders/fullscreen.frag.spv"
-        , _device, _fullscreenPipeline._shaders
-        , 1, &_fullscreenDescriptorSetLayout
-        , 0, nullptr
-    );
-
-
-    _mainDeletionQueue.push_function([=]() {
-        vkDestroyDescriptorSetLayout(_device, _fullscreenDescriptorSetLayout, nullptr);
-        _fullscreenDescriptorBuffer.destroy(_device, _allocator);
-        vkDestroyPipelineLayout(_device, _fullscreenPipelineLayout, nullptr);
-        vkDestroyShaderEXT(_device, _fullscreenPipeline._shaders[0], nullptr);
-        vkDestroyShaderEXT(_device, _fullscreenPipeline._shaders[1], nullptr);
-    });*/
+    initComputePipelines();
 }
 
-void Engine::immediateSubmit(std::function<void(VkCommandBuffer cmd)> &&function) const
+void Engine::initComputePipelines()
+{
+    {
+        DescriptorLayoutBuilder builder;
+        builder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        computeImageDescriptorSetLayout = builder.build(
+            device, VK_SHADER_STAGE_COMPUTE_BIT,
+            nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+        );
+    }
+
+    VkDescriptorImageInfo drawImageDescriptor{};
+    drawImageDescriptor.imageView = drawImage.imageView;
+    drawImageDescriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
+
+    // needs to match the order of the bindings in the layout
+    std::vector<DescriptorImageData> storageImage = {
+        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &drawImageDescriptor, 1}
+    };
+
+    computeImageDescriptorBuffer = DescriptorBufferSampler(instance, device, physicalDevice, allocator, computeImageDescriptorSetLayout);
+    computeImageDescriptorBuffer.setupData(device, storageImage);
+
+    mainDeletionQueue.pushFunction([&]() {
+        vkDestroyDescriptorSetLayout(device, computeImageDescriptorSetLayout, nullptr);
+        computeImageDescriptorBuffer.destroy(device, allocator);
+    });
+
+    // Layout
+    //  Descriptors
+    VkPipelineLayoutCreateInfo backgroundEffectLayoutCreateInfo{};
+    backgroundEffectLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    backgroundEffectLayoutCreateInfo.pNext = nullptr;
+    backgroundEffectLayoutCreateInfo.pSetLayouts = &computeImageDescriptorSetLayout;
+    backgroundEffectLayoutCreateInfo.setLayoutCount = 1;
+    //  Push Constants
+    /*VkPushConstantRange pushConstant{};
+    pushConstant.offset = 0;
+    pushConstant.size = sizeof(ComputePushConstants);
+    pushConstant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;*/
+    backgroundEffectLayoutCreateInfo.pPushConstantRanges = nullptr;
+    backgroundEffectLayoutCreateInfo.pushConstantRangeCount = 0;
+
+    VK_CHECK(vkCreatePipelineLayout(device, &backgroundEffectLayoutCreateInfo, nullptr, &_backgroundEffectPipelineLayout));
+
+    VkShaderModule gradientShader;
+    if (!vk_helpers::loadShaderModule("shaders\\compute.comp.spv", device, &gradientShader)) {
+        throw  std::runtime_error("Error when building the compute shader (compute.comp.spv)");
+    }
+
+    VkPipelineShaderStageCreateInfo stageinfo{};
+    stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stageinfo.pNext = nullptr;
+    stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    stageinfo.module = gradientShader;
+    stageinfo.pName = "main"; // entry point in shader
+
+    VkComputePipelineCreateInfo computePipelineCreateInfo{};
+    computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    computePipelineCreateInfo.pNext = nullptr;
+    computePipelineCreateInfo.layout = _backgroundEffectPipelineLayout;
+    computePipelineCreateInfo.stage = stageinfo;
+    computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+
+    VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &computePipeline));
+
+    // Cleanup
+    vkDestroyShaderModule(device, gradientShader, nullptr);
+
+    mainDeletionQueue.pushFunction([&]() {
+        vkDestroyPipelineLayout(device, _backgroundEffectPipelineLayout, nullptr);
+        vkDestroyPipeline(device, computePipeline, nullptr);
+    });
+}
+
+void Engine::immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const
 {
     VK_CHECK(vkResetFences(device, 1, &immFence));
     VK_CHECK(vkResetCommandBuffer(immCommandBuffer, 0));
@@ -535,7 +595,7 @@ AllocatedBuffer Engine::createStagingBuffer(size_t allocSize) const
     return createBuffer(allocSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 }
 
-void Engine::copyBuffer(const AllocatedBuffer &src, const AllocatedBuffer &dst, const VkDeviceSize size) const
+void Engine::copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, const VkDeviceSize size) const
 {
     immediateSubmit([&](VkCommandBuffer cmd) {
         VkBufferCopy vertexCopy{0};
@@ -547,7 +607,7 @@ void Engine::copyBuffer(const AllocatedBuffer &src, const AllocatedBuffer &dst, 
     });
 }
 
-VkDeviceAddress Engine::getBufferAddress(const AllocatedBuffer &buffer) const
+VkDeviceAddress Engine::getBufferAddress(const AllocatedBuffer& buffer) const
 {
     VkBufferDeviceAddressInfo addressInfo{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR};
     addressInfo.buffer = buffer.buffer;
@@ -555,7 +615,7 @@ VkDeviceAddress Engine::getBufferAddress(const AllocatedBuffer &buffer) const
     return srcPtr;
 }
 
-void Engine::destroyBuffer(const AllocatedBuffer &buffer) const
+void Engine::destroyBuffer(const AllocatedBuffer& buffer) const
 {
     vmaDestroyBuffer(allocator, buffer.buffer, buffer.allocation);
 }
@@ -594,7 +654,8 @@ AllocatedImage Engine::createImage(const VkExtent3D size, const VkFormat format,
     return newImage;
 }
 
-AllocatedImage Engine::createImage(const void *data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped /*= false*/) const
+AllocatedImage Engine::createImage(const void *data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,
+                                   bool mipmapped /*= false*/) const
 {
     size_t data_size = dataSize;
     AllocatedBuffer uploadbuffer = createBuffer(data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
@@ -625,7 +686,7 @@ AllocatedImage Engine::createImage(const void *data, size_t dataSize, VkExtent3D
             vk_helpers::generateMipmaps(cmd, newImage.image, VkExtent2D{newImage.imageExtent.width, newImage.imageExtent.height});
         } else {
             vk_helpers::transitionImage(cmd, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                       VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
         }
     });
 
@@ -648,7 +709,7 @@ int Engine::getChannelCount(VkFormat format)
     }
 }
 
-void Engine::destroyImage(const AllocatedImage &img) const
+void Engine::destroyImage(const AllocatedImage& img) const
 {
     vkDestroyImageView(device, img.imageView, nullptr);
     vmaDestroyImage(allocator, img.image, img.allocation);
@@ -714,4 +775,6 @@ void Engine::createDrawImages(uint32_t width, uint32_t height)
 
     VkImageViewCreateInfo dview_info = vk_helpers::imageviewCreateInfo(depthImage.imageFormat, depthImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
     VK_CHECK(vkCreateImageView(device, &dview_info, nullptr, &depthImage.imageView));
+
+    drawExtent = { width, height };
 }
