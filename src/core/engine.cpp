@@ -77,10 +77,25 @@ void Engine::run()
                 if (e.window.event == SDL_WINDOWEVENT_RESTORED) {
                     stopRendering = false;
                 }
+                if (e.type == SDL_WINDOWEVENT) {
+                    if (!resizeRequested) {
+                        if (e.window.event == SDL_WINDOWEVENT_RESIZED || e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
+                            resizeRequested = true;
+                            fmt::print("Window resized, resize requested\n");
+                        }
+                    }
+                }
             }
+
+            // imgui input handling
+            ImGui_ImplSDL2_ProcessEvent(&e);
         }
 
-        // do not draw if we are minimized
+        if (resizeRequested) {
+            resizeSwapchain();
+        }
+
+        // Minimized
         if (stopRendering) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
@@ -112,13 +127,21 @@ void Engine::draw()
 
     // GPU -> GPU sync (semaphore)
     uint32_t swapchainImageIndex;
-    VK_CHECK(vkAcquireNextImageKHR(device, swapchain, 1000000000, getCurrentFrame()._swapchainSemaphore, nullptr, &swapchainImageIndex));
+    VkResult e = vkAcquireNextImageKHR(device, swapchain, 1000000000, getCurrentFrame()._swapchainSemaphore, nullptr, &swapchainImageIndex);
+    if (e == VK_ERROR_OUT_OF_DATE_KHR || e == VK_SUBOPTIMAL_KHR) {
+        resizeRequested = true;
+        fmt::print("Swapchain out of date or suboptimal, resize requested (At Acquire)\n");
+        return;
+    }
 
     // Start Command Buffer Recording
     VkCommandBuffer cmd = getCurrentFrame()._mainCommandBuffer;
     VK_CHECK(vkResetCommandBuffer(cmd, 0));
     VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
+
+    drawExtent.height = std::min(swapchainExtent.height, drawImage.imageExtent.height); // * _renderScale;
+    drawExtent.width = std::min(swapchainExtent.width, drawImage.imageExtent.width); // * _renderScale;
 
     // draw compute into _drawImage
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
@@ -170,10 +193,15 @@ void Engine::draw()
 
     presentInfo.pImageIndices = &swapchainImageIndex;
 
-    VK_CHECK(vkQueuePresentKHR(graphicsQueue, &presentInfo));
+    VkResult presentResult = vkQueuePresentKHR(graphicsQueue, &presentInfo);
 
     //increase the number of frames drawn
     frameNumber++;
+
+    if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
+        resizeRequested = true;
+        fmt::print("Swapchain out of date or suboptimal, resize requested (At Present)\n");
+    }
 
     auto end = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -207,7 +235,8 @@ void Engine::drawRender(VkCommandBuffer cmd)
 {
     VkClearValue depthClearValue = {0.0f, 0};
     VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue,
+                                                                           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
     VkRenderingInfo renderInfo = vk_helpers::renderingInfo(drawExtent, &colorAttachment, &depthAttachment);
 
 
@@ -290,11 +319,12 @@ void Engine::cleanup()
     vkDestroyCommandPool(device, immCommandPool, nullptr);
     vkDestroyFence(device, immFence, nullptr);
 
-    // Draw Images and Swapchain
+    // Draw Images
     vkDestroyImageView(device, drawImage.imageView, nullptr);
     vmaDestroyImage(allocator, drawImage.image, drawImage.allocation);
     vkDestroyImageView(device, depthImage.imageView, nullptr);
     vmaDestroyImage(allocator, depthImage.image, depthImage.allocation);
+    // Swapchain
     vkDestroySwapchainKHR(device, swapchain, nullptr);
     for (int i = 0; i < swapchainImageViews.size(); i++) {
         vkDestroyImageView(device, swapchainImageViews[i], nullptr);
@@ -852,6 +882,35 @@ void Engine::createSwapchain(uint32_t width, uint32_t height)
     swapchain = vkbSwapchain.swapchain;
     swapchainImages = vkbSwapchain.get_images().value();
     swapchainImageViews = vkbSwapchain.get_image_views().value();
+}
+
+void Engine::resizeSwapchain()
+{
+    vkDeviceWaitIdle(device);
+
+    vkDestroySwapchainKHR(device, swapchain, nullptr);
+    for (int i = 0; i < swapchainImageViews.size(); i++) {
+        vkDestroyImageView(device, swapchainImageViews[i], nullptr);
+    }
+
+    int w, h;
+    // get new window size
+    SDL_GetWindowSize(window, &w, &h);
+    windowExtent.width = w;
+    windowExtent.height = h;
+
+    /*_maxRenderScale = std::min(
+        (float)_drawImage.imageExtent.width / (float)_windowExtent.width
+        , (float)_drawImage.imageExtent.height / (float)_windowExtent.height
+    );*/
+    //_maxRenderScale = std::max(_maxRenderScale, 1.0f);
+
+    //_renderScale = std::min(_maxRenderScale, _renderScale);
+
+    createSwapchain(windowExtent.width, windowExtent.height);
+
+    resizeRequested = false;
+    fmt::print("Window extent has been updated to {}x{}\n", windowExtent.width, windowExtent.height);
 }
 
 void Engine::createDrawImages(uint32_t width, uint32_t height)
