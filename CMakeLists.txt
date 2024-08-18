@@ -49,6 +49,15 @@ add_executable(WillEngine main.cpp
         src/renderer/vk_pipelines.cpp
         src/renderer/vk_pipelines.h)
 
+
+add_custom_target(compile_shaders
+        COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/shaders/compile_shaders_fast.sh
+        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/shaders
+        COMMENT "Compiling shaders"
+)
+
+add_dependencies(WillEngine compile_shaders)
+
 target_include_directories(WillEngine PRIVATE
         ${Vulkan_INCLUDE_DIRS}                                              # Vulkan
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/include                     # SDL
