@@ -7,6 +7,7 @@
 
 #include <filesystem>
 
+#include "input.h"
 #include "../renderer/vk_pipelines.h"
 
 #ifdef NDEBUG
@@ -57,10 +58,10 @@ void Engine::run()
 
     SDL_Event e;
     bool bQuit = false;
-
-    // main loop
     while (!bQuit) {
-        // Handle events on queue
+        Input& input = Input::Get();
+        input.frameReset();
+
         while (SDL_PollEvent(&e) != 0) {
             // close the window when user alt-f4s or clicks the X button
             if (e.type == SDL_QUIT)
@@ -89,6 +90,8 @@ void Engine::run()
 
             // imgui input handling
             ImGui_ImplSDL2_ProcessEvent(&e);
+
+            input.processEvent(e);
         }
 
         if (resizeRequested) {
@@ -109,6 +112,72 @@ void Engine::run()
         if (ImGui::Begin("Main")) {
             ImGui::Text("Frame Time: %.2f ms", frameTime);
             ImGui::Text("Draw Time: %.2f ms", drawTime);
+
+            if (ImGui::Begin("Input Details")) {
+                ImGui::Text("Mouse Buttons:");
+                ImGui::Columns(4, "MouseButtonsColumns", true);
+                ImGui::Separator();
+                ImGui::Text("Button");
+                ImGui::NextColumn();
+                ImGui::Text("Pressed");
+                ImGui::NextColumn();
+                ImGui::Text("Released");
+                ImGui::NextColumn();
+                ImGui::Text("State");
+                ImGui::NextColumn();
+                ImGui::Separator();
+
+                const char* mouseButtons[] = {"LMB", "RMB", "MMB", "M4", "M5"};
+                const uint8_t mouseButtonCodes[] = { 0, 2, 1, 3, 4 };
+
+                for (int i = 0; i < 5; ++i) {
+                    ImGui::Text("%s", mouseButtons[i]);
+                    ImGui::NextColumn();
+                    ImGui::Text("%s", input.isMousePressed(mouseButtonCodes[i]) ? "Yes" : "No");
+                    ImGui::NextColumn();
+                    ImGui::Text("%s", input.isMouseReleased(mouseButtonCodes[i]) ? "Yes" : "No");
+                    ImGui::NextColumn();
+                    ImGui::Text("%s", input.isMouseDown(mouseButtonCodes[i]) ? "Down" : "Up");
+                    ImGui::NextColumn();
+                }
+
+                ImGui::Columns(1);
+                ImGui::Separator();
+
+                ImGui::Text("Keyboard:");
+                ImGui::Columns(4, "KeyboardColumns", true);
+                ImGui::Separator();
+                ImGui::Text("Key");
+                ImGui::NextColumn();
+                ImGui::Text("Pressed");
+                ImGui::NextColumn();
+                ImGui::Text("Released");
+                ImGui::NextColumn();
+                ImGui::Text("State");
+                ImGui::NextColumn();
+                ImGui::Separator();
+
+                const char* keys[] = {"W", "A", "S", "D", "Space", "C", "Left Shift"};
+                const SDL_Keycode keyCodes[] = {SDLK_w, SDLK_a, SDLK_s, SDLK_d, SDLK_SPACE, SDLK_c, SDLK_LSHIFT};
+
+                for (int i = 0; i < 7; ++i) {
+                    ImGui::Text("%s", keys[i]);
+                    ImGui::NextColumn();
+                    ImGui::Text("%s", input.isKeyPressed(keyCodes[i]) ? "Yes" : "No");
+                    ImGui::NextColumn();
+                    ImGui::Text("%s", input.isKeyReleased(keyCodes[i]) ? "Yes" : "No");
+                    ImGui::NextColumn();
+                    ImGui::Text("%s", input.isKeyDown(keyCodes[i]) ? "Down" : "Up");
+                    ImGui::NextColumn();
+                }
+
+                ImGui::Columns(1);
+                ImGui::Separator();
+
+                ImGui::Text("Mouse Position: (%.1f, %.1f)", input.getMouseX(), input.getMouseY());
+                ImGui::Text("Mouse Delta: (%.1f, %.1f)", input.getMouseDeltaX(), input.getMouseDeltaY());
+            }
+            ImGui::End();
         }
         ImGui::End();
         ImGui::Render();
@@ -524,7 +593,7 @@ void Engine::initDearImgui()
     ImGui::StyleColorsLight();
 
     // Need to LoadFunction when using VOLK/using VK_NO_PROTOTYPES
-    ImGui_ImplVulkan_LoadFunctions([](const char *function_name, void *vulkan_instance) {
+    ImGui_ImplVulkan_LoadFunctions([](const char* function_name, void* vulkan_instance) {
         return vkGetInstanceProcAddr(*(static_cast<VkInstance *>(vulkan_instance)), function_name);
     }, &instance);
 
@@ -801,7 +870,7 @@ AllocatedImage Engine::createImage(const VkExtent3D size, const VkFormat format,
     return newImage;
 }
 
-AllocatedImage Engine::createImage(const void *data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,
+AllocatedImage Engine::createImage(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,
                                    bool mipmapped /*= false*/) const
 {
     size_t data_size = dataSize;

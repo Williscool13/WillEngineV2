@@ -34,6 +34,7 @@ set(IMGUI_SOURCES
 add_definitions(-DVK_NO_PROTOTYPES)
 
 add_executable(WillEngine main.cpp
+        ${IMGUI_SOURCES}
         src/core/Engine.cpp
         src/core/Engine.h
         src/renderer/vk_helpers.cpp
@@ -42,12 +43,17 @@ add_executable(WillEngine main.cpp
         src/renderer/vk_types.h
         src/renderer/vk_descriptors.cpp
         src/renderer/vk_descriptors.h
-        ${IMGUI_SOURCES}
         src/renderer/vk_descriptor_buffer.cpp
         src/renderer/vk_descriptor_buffer.h
         src/util/math_constants.h
         src/renderer/vk_pipelines.cpp
-        src/renderer/vk_pipelines.h)
+        src/renderer/vk_pipelines.h
+        src/core/scene.cpp
+        src/core/scene.h
+        src/core/camera/camera.cpp
+        src/core/camera/camera.h
+        src/core/input.cpp
+        src/core/input.h)
 
 
 add_custom_target(compile_shaders
