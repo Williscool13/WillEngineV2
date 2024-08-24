@@ -29,6 +29,8 @@ set(IMGUI_SOURCES
         ${IMGUI_DIR}/imgui_widgets.cpp
         ${IMGUI_DIR}/backends/imgui_impl_sdl2.cpp
         ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp
+        src/core/camera/free_camera.cpp
+        src/core/camera/free_camera.h
 )
 
 add_definitions(-DVK_NO_PROTOTYPES)
@@ -53,7 +55,11 @@ add_executable(WillEngine main.cpp
         src/core/camera/camera.cpp
         src/core/camera/camera.h
         src/core/input.cpp
-        src/core/input.h)
+        src/core/input.h
+        src/core/game_object.cpp
+        src/core/game_object.h
+        src/util/time_utils.cpp
+        src/util/time_utils.h)
 
 
 add_custom_target(compile_shaders
@@ -84,20 +90,13 @@ target_link_libraries(WillEngine PRIVATE
         vk-bootstrap::vk-bootstrap
 )
 
-# Shader copying setup
 set(SHADER_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 set(SHADER_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")
-
-# Create a custom command to copy shaders
 add_custom_command(
         OUTPUT ${SHADER_BINARY_DIR}
         COMMAND ${CMAKE_COMMAND} -E copy_directory ${SHADER_SOURCE_DIR} ${SHADER_BINARY_DIR}
         DEPENDS ${SHADER_SOURCE_DIR}
         COMMENT "Copying shaders to build directory"
 )
-
-# Create a custom target that depends on the copied shaders
 add_custom_target(copy_shaders DEPENDS ${SHADER_BINARY_DIR})
-
-# Add the custom target as a dependency of your main target
 add_dependencies(WillEngine copy_shaders)

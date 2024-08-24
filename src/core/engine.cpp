@@ -94,6 +94,8 @@ void Engine::run()
             input.processEvent(e);
         }
 
+        input.updateFocus(SDL_GetWindowFlags(window));
+
         if (resizeRequested) {
             resizeSwapchain();
         }
@@ -104,15 +106,19 @@ void Engine::run()
             continue;
         }
 
-        // imgui new frame
-        ImGui_ImplVulkan_NewFrame();
-        ImGui_ImplSDL2_NewFrame();
-        ImGui::NewFrame();
+        // DearImGui Draw
+        {
+            ImGui_ImplVulkan_NewFrame();
+            ImGui_ImplSDL2_NewFrame();
+            ImGui::NewFrame();
 
-        if (ImGui::Begin("Main")) {
-            ImGui::Text("Frame Time: %.2f ms", frameTime);
-            ImGui::Text("Draw Time: %.2f ms", drawTime);
+            if (ImGui::Begin("Main")) {
+                ImGui::Text("Frame Time: %.2f ms", frameTime);
+                ImGui::Text("Draw Time: %.2f ms", drawTime);
+            }
+            ImGui::End();
 
+            // Input Debug
             if (ImGui::Begin("Input Details")) {
                 ImGui::Text("Mouse Buttons:");
                 ImGui::Columns(4, "MouseButtonsColumns", true);
@@ -128,7 +134,7 @@ void Engine::run()
                 ImGui::Separator();
 
                 const char* mouseButtons[] = {"LMB", "RMB", "MMB", "M4", "M5"};
-                const uint8_t mouseButtonCodes[] = { 0, 2, 1, 3, 4 };
+                const uint8_t mouseButtonCodes[] = {0, 2, 1, 3, 4};
 
                 for (int i = 0; i < 5; ++i) {
                     ImGui::Text("%s", mouseButtons[i]);
@@ -178,9 +184,46 @@ void Engine::run()
                 ImGui::Text("Mouse Delta: (%.1f, %.1f)", input.getMouseDeltaX(), input.getMouseDeltaY());
             }
             ImGui::End();
+
+            if (ImGui::Begin("Camera Details")) {
+                // View Direction (Read-only)
+                glm::vec3 viewDir = camera.getViewDirectionWS();
+                ImGui::Text("View Direction: (%.2f, %.2f, %.2f)", viewDir.x, viewDir.y, viewDir.z);
+
+                // Matrices (Read-only)
+                if (ImGui::TreeNode("Matrices"))
+                {
+                    glm::mat4 viewMatrix = camera.getViewMatrix();
+                    ImGui::Text("View Matrix");
+                    for (int i = 0; i < 4; i++)
+                        ImGui::Text("%.2f %.2f %.2f %.2f", viewMatrix[i][0], viewMatrix[i][1], viewMatrix[i][2], viewMatrix[i][3]);
+
+                    glm::mat4 projMatrix = camera.getProjMatrix();
+                    ImGui::Text("Projection Matrix");
+                    for (int i = 0; i < 4; i++)
+                        ImGui::Text("%.2f %.2f %.2f %.2f", projMatrix[i][0], projMatrix[i][1], projMatrix[i][2], projMatrix[i][3]);
+
+                    glm::mat4 viewProjMatrix = camera.getViewProjMatrix();
+                    ImGui::Text("View-Projection Matrix");
+                    for (int i = 0; i < 4; i++)
+                        ImGui::Text("%.2f %.2f %.2f %.2f", viewProjMatrix[i][0], viewProjMatrix[i][1], viewProjMatrix[i][2], viewProjMatrix[i][3]);
+
+                    ImGui::TreePop();
+                }
+
+                // Rotation Matrix (Read-only)
+                if (ImGui::TreeNode("Rotation Matrix"))
+                {
+                    glm::mat4 rotationMatrix = camera.getRotationMatrixWS();
+                    for (int i = 0; i < 4; i++)
+                        ImGui::Text("%.2f %.2f %.2f %.2f", rotationMatrix[i][0], rotationMatrix[i][1], rotationMatrix[i][2], rotationMatrix[i][3]);
+
+                    ImGui::TreePop();
+                }
+            }
+            ImGui::End();
+            ImGui::Render();
         }
-        ImGui::End();
-        ImGui::Render();
 
         draw();
     }
@@ -188,6 +231,8 @@ void Engine::run()
 
 void Engine::draw()
 {
+    camera.update();
+
     auto start = std::chrono::system_clock::now();
 
     // GPU -> VPU sync (fence)

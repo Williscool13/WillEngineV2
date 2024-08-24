@@ -28,7 +28,7 @@ void Input::processEvent(const SDL_Event& event)
     switch (event.type) {
         case SDL_KEYDOWN:
         case SDL_KEYUP: {
-            auto it = keyStateData.find(event.key.keysym.sym);
+            const auto it = keyStateData.find(event.key.keysym.sym);
             if (it != keyStateData.end()) {
                 UpdateInputState(it->second, event.type == SDL_KEYDOWN);
             }
@@ -36,7 +36,7 @@ void Input::processEvent(const SDL_Event& event)
         }
         case SDL_MOUSEBUTTONDOWN:
         case SDL_MOUSEBUTTONUP: {
-            auto it = mouseStateData.find(event.button.button - 1);
+            const auto it = mouseStateData.find(event.button.button - 1);
             if (it != mouseStateData.end()) {
                 UpdateInputState(it->second, event.type == SDL_MOUSEBUTTONDOWN);
             }
@@ -51,6 +51,11 @@ void Input::processEvent(const SDL_Event& event)
         default:
             break;
     }
+}
+
+void Input::updateFocus(Uint32 sdlWindowFlags)
+{
+    inFocus = (sdlWindowFlags & SDL_WINDOW_INPUT_FOCUS) != 0;
 }
 
 void Input::frameReset()
