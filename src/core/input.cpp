@@ -7,14 +7,37 @@
 Input::Input()
 {
     keyStateData[SDLK_ESCAPE] = {};
+    keyStateData[SDLK_SPACE] = {};
+    keyStateData[SDLK_LSHIFT] = {};
+    keyStateData[SDLK_RETURN] = {};
+    keyStateData[SDLK_q] = {};
     keyStateData[SDLK_w] = {};
+    keyStateData[SDLK_e] = {};
+    keyStateData[SDLK_r] = {};
+    keyStateData[SDLK_t] = {};
+    keyStateData[SDLK_y] = {};
+    keyStateData[SDLK_u] = {};
+    keyStateData[SDLK_i] = {};
+    keyStateData[SDLK_o] = {};
+    keyStateData[SDLK_p] = {};
     keyStateData[SDLK_a] = {};
     keyStateData[SDLK_s] = {};
     keyStateData[SDLK_d] = {};
-    keyStateData[SDLK_SPACE] = {};
+    keyStateData[SDLK_f] = {};
+    keyStateData[SDLK_g] = {};
+    keyStateData[SDLK_h] = {};
+    keyStateData[SDLK_j] = {};
+    keyStateData[SDLK_k] = {};
+    keyStateData[SDLK_l] = {};
+    keyStateData[SDLK_z] = {};
+    keyStateData[SDLK_x] = {};
     keyStateData[SDLK_c] = {};
-    keyStateData[SDLK_LSHIFT] = {};
-    keyStateData[SDLK_RETURN] = {};
+    keyStateData[SDLK_v] = {};
+    keyStateData[SDLK_b] = {};
+    keyStateData[SDLK_n] = {};
+    keyStateData[SDLK_m] = {};
+
+
 
     mouseStateData[SDL_BUTTON_LEFT - 1] = {};
     mouseStateData[SDL_BUTTON_RIGHT - 1] = {};
@@ -56,6 +79,11 @@ void Input::processEvent(const SDL_Event& event)
 void Input::updateFocus(Uint32 sdlWindowFlags)
 {
     inFocus = (sdlWindowFlags & SDL_WINDOW_INPUT_FOCUS) != 0;
+    if (isMousePressed(0) && inFocus) {
+        SDL_SetRelativeMouseMode(SDL_TRUE);
+    } else if (isKeyPressed(SDLK_ESCAPE)) {
+        SDL_SetRelativeMouseMode(SDL_FALSE);
+    }
 }
 
 void Input::frameReset()

@@ -5,6 +5,8 @@
 #define CAMERA_H
 #include <glm/glm.hpp>
 
+#include "../../util/transform.h"
+
 
 /**
  * The base class that defines a camera.
@@ -14,20 +16,16 @@
 class Camera
 {
 public:
-    glm::mat4 getViewMatrix() const
-    {
-        return cachedViewMatrix;
-    }
+    glm::mat4 getViewMatrix() const { return cachedViewMatrix; }
+    glm::mat4 getProjMatrix() const { return cachedProjMatrix; }
+    glm::mat4 getViewProjMatrix() const { return cachedViewProjMatrix; }
+    Position getPosition() const { return transform.getPosition(); }
+    Rotation getRotation() const { return transform.getRotation(); }
 
-    glm::mat4 getProjMatrix() const
-    {
-        return cachedProjMatrix;
-    }
+    void setPosition(const Position& newPosition) { transform.setPosition(newPosition); updateViewMatrix(); }
 
-    glm::mat4 getViewProjMatrix() const
-    {
-        return cachedViewProjMatrix;
-    }
+    void setRotation(const Rotation& newRotation) { transform.setRotation(newRotation); updateViewMatrix(); }
+
 
     /**
      * Generates the rotation matrix of the camera in world space using the \code pitch\endcode and \code yaw\endcode  properties
@@ -42,6 +40,13 @@ public:
     glm::vec3 getViewDirectionWS() const;
 
 
+    /**
+     * Updates the projection matrix. FOV is in degrees and converted to radians in this function
+     * @param fov
+     * @param aspect
+     * @param farPlane
+     * @param nearPlane
+     */
     virtual void updateProjMatrix(float fov, float aspect, float farPlane, float nearPlane);
 
     virtual void updateViewMatrix();
@@ -55,12 +60,10 @@ protected:
 
     ~Camera() = default;
 
-    virtual void update();
-
 protected:
-    float pitch{0.f};
-    float yaw{0.f};
-    glm::vec3 position{0., 0., 0.};
+    virtual void update() {}
+
+    Transform transform;
 
     // projection
     float cachedFov{75.0f};

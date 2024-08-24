@@ -21,7 +21,7 @@ public:
 
     void update();
 
-    float getDeltaTime();
+    float getDeltaTime() const;
 
 private:
     uint64_t deltaTime = 0;

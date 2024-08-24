@@ -9,6 +9,7 @@
 
 #include "input.h"
 #include "../renderer/vk_pipelines.h"
+#include "../util/time_utils.h"
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -46,6 +47,7 @@ void Engine::init()
 
     initPipelines();
 
+    initScene();
 
     auto end = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -60,15 +62,13 @@ void Engine::run()
     bool bQuit = false;
     while (!bQuit) {
         Input& input = Input::Get();
+        TimeUtils& time = TimeUtils::Get();
         input.frameReset();
 
         while (SDL_PollEvent(&e) != 0) {
             // close the window when user alt-f4s or clicks the X button
-            if (e.type == SDL_QUIT)
+            if (e.type == SDL_QUIT) {
                 bQuit = true;
-            if (e.type == SDL_KEYDOWN) {
-                if (e.key.keysym.sym == SDLK_ESCAPE)
-                    bQuit = true;
             }
 
             if (e.type == SDL_WINDOWEVENT) {
@@ -95,6 +95,7 @@ void Engine::run()
         }
 
         input.updateFocus(SDL_GetWindowFlags(window));
+        time.update();
 
         if (resizeRequested) {
             resizeSwapchain();
@@ -115,10 +116,10 @@ void Engine::run()
             if (ImGui::Begin("Main")) {
                 ImGui::Text("Frame Time: %.2f ms", frameTime);
                 ImGui::Text("Draw Time: %.2f ms", drawTime);
+                ImGui::Text("Delta Time: %.2f ms", time.getDeltaTime() * 1000.0f);
             }
             ImGui::End();
 
-            // Input Debug
             if (ImGui::Begin("Input Details")) {
                 ImGui::Text("Mouse Buttons:");
                 ImGui::Columns(4, "MouseButtonsColumns", true);
@@ -186,13 +187,12 @@ void Engine::run()
             ImGui::End();
 
             if (ImGui::Begin("Camera Details")) {
-                // View Direction (Read-only)
                 glm::vec3 viewDir = camera.getViewDirectionWS();
+                glm::vec3 cameraPosition = camera.getPosition();
                 ImGui::Text("View Direction: (%.2f, %.2f, %.2f)", viewDir.x, viewDir.y, viewDir.z);
+                ImGui::Text("Position: (%.2f, %.2f, %.2f)", cameraPosition.x, cameraPosition.y, cameraPosition.z);
 
-                // Matrices (Read-only)
-                if (ImGui::TreeNode("Matrices"))
-                {
+                if (ImGui::TreeNode("Matrices")) {
                     glm::mat4 viewMatrix = camera.getViewMatrix();
                     ImGui::Text("View Matrix");
                     for (int i = 0; i < 4; i++)
@@ -211,9 +211,7 @@ void Engine::run()
                     ImGui::TreePop();
                 }
 
-                // Rotation Matrix (Read-only)
-                if (ImGui::TreeNode("Rotation Matrix"))
-                {
+                if (ImGui::TreeNode("Rotation Matrix")) {
                     glm::mat4 rotationMatrix = camera.getRotationMatrixWS();
                     for (int i = 0; i < 4; i++)
                         ImGui::Text("%.2f %.2f %.2f %.2f", rotationMatrix[i][0], rotationMatrix[i][1], rotationMatrix[i][2], rotationMatrix[i][3]);
@@ -222,7 +220,48 @@ void Engine::run()
                 }
             }
             ImGui::End();
+
+            if (ImGui::Begin("GameObject Test")) {
+                if (tempObjectOne != nullptr) {
+                    glm::mat4 wMat = tempObjectOne->getWorldMatrix();
+                    glm::vec3 pos = wMat[3];
+                    ImGui::Text("Object One Position: %.2f %.2f %.2f", pos.x, pos.y, pos.z);
+                }
+                if (tempObjectTwo != nullptr) {
+                    glm::mat4 wMat = tempObjectTwo->getWorldMatrix();
+                    glm::vec3 pos = wMat[3];
+                    ImGui::Text("Object Two Position: %.2f %.2f %.2f", pos.x, pos.y, pos.z);
+                }
+            }
+            ImGui::End();
+
             ImGui::Render();
+        }
+
+        if (input.isKeyPressed(SDLK_q)) {
+            if (tempObjectOne) {
+                tempObjectOne->translate(glm::vec3(1.0f, 0, 0));
+            }
+        }
+        if (input.isKeyPressed(SDLK_e)) {
+            if (tempObjectOne) {
+                tempObjectOne->translate(glm::vec3(-1.0f, 0, 0));
+            }
+        }
+        if (input.isKeyPressed(SDLK_r)) {
+            if (tempObjectTwo) {
+                tempObjectTwo->translate(glm::vec3(1.0f, 0, 0));
+            }
+        }
+        if (input.isKeyPressed(SDLK_t)) {
+            if (tempObjectTwo) {
+                tempObjectTwo->translate(glm::vec3(-1.0f, 0, 0));
+            }
+        }
+
+        if (input.isKeyPressed(SDLK_y)) {
+            delete tempObjectOne;
+            tempObjectOne = nullptr;
         }
 
         draw();
@@ -813,6 +852,13 @@ void Engine::initRenderPipelines()
         vkDestroyPipelineLayout(device, renderPipelineLayout, nullptr);
         vkDestroyPipeline(device, renderPipeline, nullptr);
     });
+}
+
+void Engine::initScene()
+{
+    tempObjectOne = new GameObject();
+    tempObjectTwo = new GameObject();
+    tempObjectOne->addChild(tempObjectTwo);
 }
 
 void Engine::immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const

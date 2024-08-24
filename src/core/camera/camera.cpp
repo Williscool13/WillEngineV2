@@ -16,15 +16,9 @@ Camera::Camera(float fov, float aspect, float farPlane, float nearPlane)
     updateViewProjMatrix();
 }
 
-void Camera::update()
-{}
-
 glm::mat4 Camera::getRotationMatrixWS() const
 {
-    glm::mat4 pitchMatrix = glm::rotate(glm::mat4(1.0f), pitch, glm::vec3(1.0f, 0.0f, 0.0f));
-    glm::mat4 yawMatrix = glm::rotate(glm::mat4(1.0f), yaw, glm::vec3(0.0f, -1.0f, 0.0f));
-
-    return yawMatrix * pitchMatrix;
+    return glm::mat4_cast(glm::quat(transform.getRotation()));
 }
 
 glm::vec3 Camera::getViewDirectionWS() const
@@ -46,9 +40,7 @@ void Camera::updateProjMatrix(float fov, float aspect, float farPlane, float nea
 
 void Camera::updateViewMatrix()
 {
-    glm::mat4 cameraTranslation = glm::translate(glm::mat4(1.f), position);
-    glm::mat4 cameraRotation = getRotationMatrixWS();
-    cachedViewMatrix = glm::inverse(cameraTranslation * cameraRotation);
+    cachedViewMatrix = glm::inverse(transform.getWorldMatrix());
     updateViewProjMatrix();
 }
 
