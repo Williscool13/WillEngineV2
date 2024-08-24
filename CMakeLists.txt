@@ -31,6 +31,8 @@ set(IMGUI_SOURCES
         ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp
         src/core/camera/free_camera.cpp
         src/core/camera/free_camera.h
+        src/core/render_object.cpp
+        src/core/render_object.h
 )
 
 add_definitions(-DVK_NO_PROTOTYPES)
@@ -59,7 +61,9 @@ add_executable(WillEngine main.cpp
         src/core/game_object.cpp
         src/core/game_object.h
         src/util/time_utils.cpp
-        src/util/time_utils.h)
+        src/util/time_utils.h
+        src/util/transform.cpp
+        src/util/transform.h)
 
 
 add_custom_target(compile_shaders

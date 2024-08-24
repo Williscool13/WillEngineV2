@@ -11,12 +11,12 @@ TimeUtils::TimeUtils()
 
 void TimeUtils::update()
 {
-    uint64_t last = SDL_GetTicks64();
+    const uint64_t last = SDL_GetTicks64();
     deltaTime = last - lastTime;
     lastTime = last;
 }
 
-float TimeUtils::getDeltaTime()
+float TimeUtils::getDeltaTime() const
 {
-    return deltaTime / 1000.0f;
+    return static_cast<float>(deltaTime) / 1000.0f;
 }

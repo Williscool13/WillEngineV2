@@ -38,12 +38,15 @@ void FreeCamera::update()
 
     velocity *= TimeUtils::Get().getDeltaTime();
 
-    yaw += input.getMouseDeltaX() / 200.0f;
-    pitch -= input.getMouseDeltaY() / 200.0f;
-    pitch = glm::clamp(pitch, -glm::half_pi<float>(), glm::half_pi<float>());
+    Rotation rotation = transform.getRotation();
+    rotation.y += input.getMouseDeltaX() / 200.0f;
+    rotation.x -= input.getMouseDeltaY() / 200.0f;
+    rotation.x = glm::clamp(rotation.x, -glm::half_pi<float>(), glm::half_pi<float>());
+    transform.setRotation(rotation);
 
-    glm::mat4 cameraRotation = getRotationMatrixWS();
-    position += glm::vec3(cameraRotation * glm::vec4(velocity * 15.0f, 0.f));
+    glm::mat4 rotationMatrix = getRotationMatrixWS();
+    Position newPosition = transform.getPosition() + glm::vec3(rotationMatrix * glm::vec4(velocity, 0.f));
+    transform.setPosition(newPosition);
 
     updateViewMatrix();
 }

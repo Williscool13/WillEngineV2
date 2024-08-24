@@ -27,6 +27,7 @@
 #include <imgui_impl_vulkan.h>
 #include <glm/glm.hpp>
 
+#include "game_object.h"
 #include "../renderer/vk_types.h"
 #include "../renderer/vk_descriptors.h"
 #include "../renderer/vk_descriptor_buffer.h"
@@ -105,6 +106,8 @@ private: // Initialization
 
     void initRenderPipelines();
 
+    void initScene();
+
     void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const;
 
 private: // Vulkan Boilerplate
@@ -137,8 +140,11 @@ private: // Rendering
     VkCommandBuffer immCommandBuffer{VK_NULL_HANDLE};
     VkCommandPool immCommandPool{VK_NULL_HANDLE};
 
-    // Camera
+private: // Scene
     FreeCamera camera{};
+
+    GameObject* tempObjectOne = nullptr;
+    GameObject* tempObjectTwo = nullptr;
 
 private: // Pipelines
     VkDescriptorSetLayout computeImageDescriptorSetLayout;
