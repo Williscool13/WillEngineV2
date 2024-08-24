@@ -25,14 +25,13 @@
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
-#include <glm/mat4x4.hpp>
-#include <glm/vec4.hpp>
-#include "glm/detail/func_packing.inl"
+#include <glm/glm.hpp>
 
 #include "../renderer/vk_types.h"
 #include "../renderer/vk_descriptors.h"
 #include "../renderer/vk_descriptor_buffer.h"
 #include "../renderer/vk_helpers.h"
+#include "camera/free_camera.h"
 
 constexpr unsigned int FRAME_OVERLAP = 2;
 
@@ -110,7 +109,7 @@ private: // Initialization
 
 private: // Vulkan Boilerplate
     VkExtent2D windowExtent{1700, 900};
-    struct SDL_Window *window{nullptr};
+    SDL_Window *window{nullptr};
 
     VkInstance instance{};
     VkSurfaceKHR surface{};
@@ -137,7 +136,9 @@ private: // Rendering
     VkFence immFence{VK_NULL_HANDLE};
     VkCommandBuffer immCommandBuffer{VK_NULL_HANDLE};
     VkCommandPool immCommandPool{VK_NULL_HANDLE};
-    //void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
+
+    // Camera
+    FreeCamera camera{};
 
 private: // Pipelines
     VkDescriptorSetLayout computeImageDescriptorSetLayout;
