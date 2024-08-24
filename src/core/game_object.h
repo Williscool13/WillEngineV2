@@ -65,12 +65,22 @@ public: // Transform
     }
 
 public: // Hierarchy
+    /**
+     * Adds a \code GameObject\endcode as a child to this \code GameObject\endcode while maintaining its position in WorldSpace.
+     * \n Will reparent the child if that child has a parent.
+     * @param child
+     */
     void addChild(GameObject* child);
 
+    /**
+     * If exists, removes a child from the children array and unparents the child.
+     * @param child
+     */
     void removeChild(GameObject* child);
 
-    void unparentChild(GameObject* child);
-
+    /**
+     * Unparents a child while maintaining its position in WorldSpace
+     */
     void unparent();
 
 private: // Transform
@@ -81,16 +91,16 @@ private: // Transform
 private: // Hierarchy
     GameObject* parent{nullptr};
     std::vector<GameObject *> children{};
-
-private:
     static int nextId;
-    int id;
+    int gameObjectId;
+private:
+
 
 
 
 public:
     bool operator==(const GameObject& other) const {
-        return this->id == other.id;
+        return this->gameObjectId == other.gameObjectId;
     }
 };
 
