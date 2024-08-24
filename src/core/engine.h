@@ -145,6 +145,7 @@ private: // Scene
 
     GameObject* tempObjectOne = nullptr;
     GameObject* tempObjectTwo = nullptr;
+    GameObject* tempObjectThree = nullptr;
 
 private: // Pipelines
     VkDescriptorSetLayout computeImageDescriptorSetLayout;

@@ -9,11 +9,11 @@
 int GameObject::nextId = 0;
 
 GameObject::GameObject()
-    : id(nextId++)
+    : gameObjectId(nextId++)
 {}
 
 GameObject::GameObject(glm::vec3 position, glm::vec3 rotation, glm::vec3 scale)
-    : id(nextId++)
+    : gameObjectId(nextId++)
 {
     transform.setPosition(position);
     transform.setRotation(rotation);
@@ -29,7 +29,7 @@ GameObject::~GameObject()
 
     // Remove all children
     while (!children.empty()) {
-        unparentChild(children.back());
+        removeChild(children.back());
     }
 }
 
@@ -49,7 +49,6 @@ glm::mat4 GameObject::getWorldMatrix()
 
 void GameObject::addChild(GameObject* child)
 {
-
     // Prevent adding self as child
     if (child == this) { return; }
 
@@ -57,10 +56,7 @@ void GameObject::addChild(GameObject* child)
     glm::mat4 childWorldMatrix = child->getWorldMatrix();
 
     // Remove from previous parent if any
-    if (child->parent) {
-        child->parent->unparentChild(child);
-    }
-
+    child->unparent();
     children.push_back(child);
     child->parent = this;
 
@@ -84,28 +80,21 @@ void GameObject::addChild(GameObject* child)
     child->setTransformDirty();
 }
 
-void GameObject::unparentChild(GameObject* child)
-{
-    const auto it = std::ranges::find(children, child);
-    if (it != children.end()) {
-        (*it)->unparent();
-    }
-}
-
 void GameObject::removeChild(GameObject* child)
 {
     const auto it = std::ranges::find(children, child);
     if (it != children.end()) {
-        children.erase(it);  // Remove the child from the vector
+        // Done to prevent an infinite loop.
+        GameObject* temp = *it;
+        children.erase(it);
+        temp->unparent();
     }
 }
 
 void GameObject::unparent()
 {
     // Already unparented, nothing to do
-    if (!parent) {
-        return;
-    }
+    if (!parent) { return; }
 
     // Get the current world position, rotation, and scale
     glm::mat4 worldMatrix = getWorldMatrix();
@@ -117,6 +106,7 @@ void GameObject::unparent()
     );
     glm::quat worldRotation = glm::quat_cast(worldMatrix);
 
+    // Done to prevent an infinite loop.
     GameObject* temp = parent;
     parent = nullptr;
     temp->removeChild(this);

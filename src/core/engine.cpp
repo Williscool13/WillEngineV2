@@ -232,36 +232,50 @@ void Engine::run()
                     glm::vec3 pos = wMat[3];
                     ImGui::Text("Object Two Position: %.2f %.2f %.2f", pos.x, pos.y, pos.z);
                 }
+                if (tempObjectThree != nullptr) {
+                    glm::mat4 wMat = tempObjectThree->getWorldMatrix();
+                    glm::vec3 pos = wMat[3];
+                    ImGui::Text("Object Three Position: %.2f %.2f %.2f", pos.x, pos.y, pos.z);
+                }
             }
             ImGui::End();
 
             ImGui::Render();
         }
 
-        if (input.isKeyPressed(SDLK_q)) {
-            if (tempObjectOne) {
+        if (tempObjectOne) {
+            if (input.isKeyPressed(SDLK_u)) {
                 tempObjectOne->translate(glm::vec3(1.0f, 0, 0));
             }
-        }
-        if (input.isKeyPressed(SDLK_e)) {
-            if (tempObjectOne) {
+            if (input.isKeyPressed(SDLK_i)) {
                 tempObjectOne->translate(glm::vec3(-1.0f, 0, 0));
             }
         }
-        if (input.isKeyPressed(SDLK_r)) {
-            if (tempObjectTwo) {
+        if (tempObjectTwo) {
+            if (input.isKeyPressed(SDLK_o)) {
                 tempObjectTwo->translate(glm::vec3(1.0f, 0, 0));
             }
-        }
-        if (input.isKeyPressed(SDLK_t)) {
-            if (tempObjectTwo) {
+            if (input.isKeyPressed(SDLK_p)) {
                 tempObjectTwo->translate(glm::vec3(-1.0f, 0, 0));
             }
         }
+        if (tempObjectThree) {
+            if (input.isKeyPressed(SDLK_k)) {
+                tempObjectThree->translate(glm::vec3(1.0f, 0, 0));
+            }
+            if (input.isKeyPressed(SDLK_l)) {
+                tempObjectThree->translate(glm::vec3(-1.0f, 0, 0));
+            }
+        }
+
 
         if (input.isKeyPressed(SDLK_y)) {
             delete tempObjectOne;
             tempObjectOne = nullptr;
+        }
+
+        if (input.isKeyPressed(SDLK_v)) {
+            tempObjectThree->addChild(tempObjectTwo);
         }
 
         draw();
@@ -859,6 +873,7 @@ void Engine::initScene()
     tempObjectOne = new GameObject();
     tempObjectTwo = new GameObject();
     tempObjectOne->addChild(tempObjectTwo);
+    tempObjectThree = new GameObject();
 }
 
 void Engine::immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const
