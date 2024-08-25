@@ -41,6 +41,8 @@ public:
 
     VkDescriptorBufferBindingInfoEXT getDescriptorBufferBindingInfo();
 
+    VkDeviceSize getDescriptorBufferSize() { return descriptorBufferSize; }
+
 protected:
     /**
      * The underlying VkBuffer for this descriptor buffer

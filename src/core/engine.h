@@ -27,18 +27,19 @@
 #include <imgui_impl_vulkan.h>
 #include <glm/glm.hpp>
 
-#include "game_object.h"
 #include "scene.h"
 #include "../renderer/vk_types.h"
 #include "../renderer/vk_descriptors.h"
 #include "../renderer/vk_descriptor_buffer.h"
 #include "../renderer/vk_helpers.h"
 #include "camera/free_camera.h"
+#include "draw/environment.h"
 
 constexpr unsigned int FRAME_OVERLAP = 2;
 
 
-struct DeletionQueue {
+struct DeletionQueue
+{
     std::deque<std::function<void()> > deletors;
 
     void pushFunction(std::function<void()>&& function)
@@ -57,7 +58,8 @@ struct DeletionQueue {
     }
 };
 
-struct FrameData {
+struct FrameData
+{
     VkCommandPool _commandPool;
     VkCommandBuffer _mainCommandBuffer;
     VkSemaphore _swapchainSemaphore, _renderSemaphore;
@@ -68,7 +70,8 @@ struct FrameData {
 };
 
 
-class Engine {
+class Engine
+{
 public:
     void init();
 
@@ -107,13 +110,14 @@ private: // Initialization
 
     void initRenderPipelines();
 
-    void initScene();
+    void initStaticScene();
 
+public:
     void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const;
 
 private: // Vulkan Boilerplate
     VkExtent2D windowExtent{1700, 900};
-    SDL_Window *window{nullptr};
+    SDL_Window* window{nullptr};
 
     VkInstance instance{};
     VkSurfaceKHR surface{};
@@ -125,6 +129,15 @@ private: // Vulkan Boilerplate
     VkDebugUtilsMessengerEXT debug_messenger{};
 
     DeletionQueue mainDeletionQueue;
+
+public:
+    VkInstance getInstance() const { return instance; }
+
+    VkDevice getDevice() const { return device; }
+
+    VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }
+
+    VmaAllocator getAllocator() const { return allocator; }
 
 private: // Rendering
     // Main
@@ -143,11 +156,9 @@ private: // Rendering
 
 private: // Scene
     FreeCamera camera{};
-
     Scene scene{};
-    GameObject* tempObjectOne = nullptr;
-    GameObject* tempObjectTwo = nullptr;
-    GameObject* tempObjectThree = nullptr;
+
+    Environment* environment{};
 
 private: // Pipelines
     VkDescriptorSetLayout computeImageDescriptorSetLayout;
@@ -210,8 +221,10 @@ public: // Buffers
 public: // Images
     AllocatedImage createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
 
-    AllocatedImage createImage(const void *data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,
+    AllocatedImage createImage(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,
                                bool mipmapped = false) const;
+
+    AllocatedImage createCubemap(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
 
     static int getChannelCount(VkFormat format); // todo: move this static into vkhelpers
     void destroyImage(const AllocatedImage& img) const;

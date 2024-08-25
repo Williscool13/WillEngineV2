@@ -7,7 +7,6 @@
 #include <imgui.h>
 
 #include <utility>
-#include <bits/ranges_algo.h>
 
 Scene::Scene()
 {
@@ -36,11 +35,11 @@ bool Scene::isGameObjectValid(GameObject* obj)
 
 void Scene::displayGameObject(GameObject* obj, int depth)
 {
-    const float indent = 10.0f;
-    const float treeNodeWidth = 200.0f;
-    const float buttonWidth = 75.0f;
-    const float arrowWidth = 20.0f;
-    const float spacing = 5.0f;
+    constexpr float indent = 10.0f;
+    constexpr float treeNodeWidth = 200.0f;
+    constexpr float buttonWidth = 75.0f;
+    constexpr float arrowWidth = 20.0f;
+    constexpr float spacing = 5.0f;
 
     ImGui::PushID(obj);
     ImGui::Indent(depth * indent);
@@ -55,9 +54,9 @@ void Scene::displayGameObject(GameObject* obj, int depth)
     ImGui::SameLine(treeNodeWidth + spacing);
     ImGui::BeginGroup();
 
-    auto* parent = obj->getParent();
+    GameObject* parent = obj->getParent();
     if (parent != nullptr) {
-        std::vector<GameObject *>& parentChildren = obj->getParent()->getChildren();
+        std::vector<GameObject*>& parentChildren = obj->getParent()->getChildren();
 
         if (parent != sceneRoot) {
             if (ImGui::Button("Unparent", ImVec2(buttonWidth, 0))) { unparentGameObject(obj); }
@@ -198,8 +197,10 @@ int Scene::getIndexInVector(GameObject* obj, std::vector<GameObject *> vector)
 void Scene::deleteGameObjectRecursive(GameObject* obj)
 {
     if (obj == nullptr) { return; }
-    for (auto* child: obj->getChildren()) {
-        deleteGameObjectRecursive(child);
+    // Reverse iterate
+    std::vector<GameObject*>& children = obj->getChildren();
+    for (int i = children.size() - 1; i >= 0; i--) {
+        deleteGameObjectRecursive(children[i]);
     }
 
     activeGameObjects.erase(obj);

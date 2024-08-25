@@ -1,0 +1,48 @@
+#version 450
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout(set = 0, binding = 0) uniform sampler2D sourceImage;
+layout(set = 1, binding = 0, rgba32f) writeonly uniform imageCube cubemap;
+
+layout(push_constant) uniform PushConstants {
+    bool invertY;
+} pushConstants;
+
+
+vec2 SampleSphericalMap(vec3 v) {
+    vec2 invAtan = vec2(0.1591, 0.3183); // 1 / (2 * pi), 1 / pi
+    vec2 uv = vec2(atan(v.z, v.x), asin(v.y));
+    uv *= invAtan;
+    uv += 0.5;
+    return uv;
+}
+
+void main() {
+    ivec3 storePos = ivec3(gl_GlobalInvocationID.xy, gl_GlobalInvocationID.z);
+    vec2 uv = (vec2(storePos.xy) + 0.5) / vec2(imageSize(cubemap).xy); // Normalized coordinates
+    uv = uv * 2.0 - 1.0; // Map to range [-1, 1]
+
+    vec3 direction;
+    switch (storePos.z) {
+        case 0: direction = normalize(vec3(1.0, -uv.y, -uv.x)); break; // +X
+        case 1: direction = normalize(vec3(-1.0, -uv.y, uv.x)); break; // -X
+        case 2: direction = normalize(vec3(uv.x, 1.0, uv.y)); break; // +Y
+        case 3: direction = normalize(vec3(uv.x, -1.0, -uv.y)); break; // -Y
+        case 4: direction = normalize(vec3(uv.x, -uv.y, 1.0)); break; // +Z
+        case 5: direction = normalize(vec3(-uv.x, -uv.y, -1.0)); break; // -Z
+        default: direction = vec3(0.0); break; // Should not happen
+    }
+
+    vec2 sphericalUV = SampleSphericalMap(direction);
+    sphericalUV = clamp(sphericalUV, vec2(0.0), vec2(1.0));
+
+    vec4 color;
+    if (pushConstants.invertY) {
+		color = texture(sourceImage, vec2(sphericalUV.x, 1.0 - sphericalUV.y));
+	} else {
+		color = texture(sourceImage, sphericalUV);
+	}
+
+    imageStore(cubemap, storePos, color);
+}

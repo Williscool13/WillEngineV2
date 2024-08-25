@@ -33,6 +33,10 @@ set(IMGUI_SOURCES
         src/core/camera/free_camera.h
         src/core/render_object.cpp
         src/core/render_object.h
+        src/core/draw/render_object.cpp
+        src/core/draw/render_object.h
+        src/core/draw/environment.cpp
+        src/core/draw/environment.h
 )
 
 add_definitions(-DVK_NO_PROTOTYPES)
@@ -63,7 +67,9 @@ add_executable(WillEngine main.cpp
         src/util/time_utils.cpp
         src/util/time_utils.h
         src/util/transform.cpp
-        src/util/transform.h)
+        src/util/transform.h
+        src/core/draw/draw_structure.cpp
+        src/core/draw/draw_structure.h)
 
 
 add_custom_target(compile_shaders
@@ -102,5 +108,15 @@ add_custom_command(
         DEPENDS ${SHADER_SOURCE_DIR}
         COMMENT "Copying shaders to build directory"
 )
-add_custom_target(copy_shaders DEPENDS ${SHADER_BINARY_DIR})
-add_dependencies(WillEngine copy_shaders)
+set(ASSETS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets")
+set(ASSETS_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/assets")
+add_custom_command(
+        OUTPUT ${ASSETS_BINARY_DIR}
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${ASSETS_SOURCE_DIR} ${ASSETS_BINARY_DIR}
+        DEPENDS ${ASSETS_SOURCE_DIR}
+        COMMENT "Copying assets to build directory"
+)
+
+add_custom_target(copy_shaders_and_assets
+        DEPENDS ${SHADER_BINARY_DIR} ${ASSETS_BINARY_DIR})
+add_dependencies(WillEngine copy_shaders_and_assets)
