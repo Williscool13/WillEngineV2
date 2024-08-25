@@ -100,23 +100,29 @@ target_link_libraries(WillEngine PRIVATE
         vk-bootstrap::vk-bootstrap
 )
 
+
+
 set(SHADER_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 set(SHADER_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")
-add_custom_command(
-        OUTPUT ${SHADER_BINARY_DIR}
-        COMMAND ${CMAKE_COMMAND} -E copy_directory ${SHADER_SOURCE_DIR} ${SHADER_BINARY_DIR}
-        DEPENDS ${SHADER_SOURCE_DIR}
-        COMMENT "Copying shaders to build directory"
-)
 set(ASSETS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets")
 set(ASSETS_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/assets")
-add_custom_command(
-        OUTPUT ${ASSETS_BINARY_DIR}
-        COMMAND ${CMAKE_COMMAND} -E copy_directory ${ASSETS_SOURCE_DIR} ${ASSETS_BINARY_DIR}
-        DEPENDS ${ASSETS_SOURCE_DIR}
-        COMMENT "Copying assets to build directory"
+
+function(safe_copy_directory src dst)
+    if(EXISTS "${src}")
+        file(COPY "${src}" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
+    else()
+        message(WARNING "Source directory does not exist: ${src}")
+        file(MAKE_DIRECTORY "${dst}")
+    endif()
+endfunction()
+
+
+safe_copy_directory(${SHADER_SOURCE_DIR} ${SHADER_BINARY_DIR})
+safe_copy_directory(${ASSETS_SOURCE_DIR} ${ASSETS_BINARY_DIR})
+
+add_custom_target(copy_shaders_and_assets ALL
+    COMMAND ${CMAKE_COMMAND} -E echo "Shaders and assets copied."
+    DEPENDS ${SHADER_BINARY_DIR} ${ASSETS_BINARY_DIR}
 )
 
-add_custom_target(copy_shaders_and_assets
-        DEPENDS ${SHADER_BINARY_DIR} ${ASSETS_BINARY_DIR})
 add_dependencies(WillEngine copy_shaders_and_assets)
