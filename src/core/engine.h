@@ -81,7 +81,11 @@ public:
 
     void drawCompute(VkCommandBuffer cmd);
 
+    void drawEnvironment(VkCommandBuffer cmd);
+
     void drawRender(VkCommandBuffer cmd);
+
+
 
     void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
 
@@ -109,6 +113,8 @@ private: // Initialization
     void initComputePipelines();
 
     void initRenderPipelines();
+
+    void initEnvironmentPipeline();
 
     void initStaticScene();
 
@@ -174,6 +180,12 @@ private: // Pipelines
     VkPipelineLayout renderPipelineLayout;
 
     VkPipeline renderPipeline;
+
+    // Environment
+    VkDescriptorSetLayout environmentUniformDescriptorLayout;
+    VkPipelineLayout environmentPipelineLayout;
+    VkPipeline environmentPipeline;
+
 
 private: // Swapchain
     VkSwapchainKHR swapchain{};

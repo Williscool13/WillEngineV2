@@ -39,9 +39,11 @@ void FreeCamera::update()
     velocity *= TimeUtils::Get().getDeltaTime();
 
     Rotation rotation = transform.getRotation();
-    rotation.y += input.getMouseDeltaX() / 200.0f;
-    rotation.x -= input.getMouseDeltaY() / 200.0f;
-    rotation.x = glm::clamp(rotation.x, -glm::half_pi<float>(), glm::half_pi<float>());
+    rotation.y -= input.getMouseDeltaX() / 200.0f;
+    rotation.x += input.getMouseDeltaY() / 200.0f;
+    // add small epsilon to up/down to avoid gimbal lock
+    constexpr float epsilon = glm::pi<float>() * 0.01f;
+    rotation.x = glm::clamp(rotation.x, -glm::half_pi<float>() + epsilon, glm::half_pi<float>() - epsilon);
     transform.setRotation(rotation);
 
     glm::mat4 rotationMatrix = getRotationMatrixWS();

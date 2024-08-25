@@ -6,6 +6,7 @@
 #define ENVIRONMENT_H
 #include <string>
 #include <vulkan/vulkan_core.h>
+#include <glm/glm.hpp>
 
 #include "../../renderer/vk_descriptor_buffer.h"
 
@@ -39,6 +40,12 @@ struct EnvironmentMapData {
 	AllocatedImage specDiffCubemap;
 };
 
+struct EnvironmentSceneData
+{
+	glm::mat4 viewproj;
+};
+
+
 class Environment {
 public:
 	static const int MAX_ENVIRONMENT_MAPS{ 10 };
@@ -55,7 +62,7 @@ public:
 	// init sampler
 	void loadCubemap(const char* path, int environmentMapIndex = 0);
 
-	bool flip_y{ false };
+	bool flip_y{ true };
 
 	float diffuse_sample_delta{ 0.025f };
 	int specular_sample_count{ 2048 };
@@ -70,10 +77,10 @@ public:
 
 	static VkDescriptorSetLayout environmentMapDescriptorSetLayout; // contains 2 samplers -> diffuse/spec and lut
 
-	DescriptorBufferSampler& get_equi_image_descriptor_buffer() { return equiImageDescriptorBuffer; }
-	DescriptorBufferSampler& get_cubemap_descriptor_buffer() { return cubemapDescriptorBuffer; }
+	DescriptorBufferSampler& getEquiImageDescriptorBuffer() { return equiImageDescriptorBuffer; }
+	DescriptorBufferSampler& getCubemapDescriptorBuffer() { return cubemapDescriptorBuffer; }
 
-	DescriptorBufferSampler& get_diff_spec_map_descriptor_buffer() { return _diffSpecMapDescriptorBuffer; }
+	DescriptorBufferSampler& getDiffSpecMapDescriptorBuffer() { return _diffSpecMapDescriptorBuffer; }
 
 private:
 	Engine* creator{};

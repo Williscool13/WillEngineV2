@@ -90,6 +90,31 @@ target_include_directories(WillEngine PRIVATE
         ${IMGUI_DIR}/backends                                               # ImGui backends
 )
 
+
+function(copy_directory src dst)
+    add_custom_command(
+            OUTPUT ${dst}
+            COMMAND ${CMAKE_COMMAND} -E copy_directory ${src} ${dst}
+            DEPENDS ${src}
+    )
+endfunction()
+
+set(SHADER_SRC "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
+set(SHADER_DST "${CMAKE_CURRENT_BINARY_DIR}/shaders")
+set(ASSETS_SRC "${CMAKE_CURRENT_SOURCE_DIR}/assets")
+set(ASSETS_DST "${CMAKE_CURRENT_BINARY_DIR}/assets")
+copy_directory(${SHADER_SRC} ${SHADER_DST})
+copy_directory(${ASSETS_SRC} ${ASSETS_DST})
+add_custom_target(copy_resources ALL
+        DEPENDS
+        ${SHADER_DST}
+        ${ASSETS_DST}
+)
+
+add_dependencies(WillEngine copy_resources)
+
+
+
 target_link_libraries(WillEngine PRIVATE
         ${SDL2MAIN_LIBRARY} # Needs to happen before SDL2_LIBRARY
         ${SDL2_LIBRARY}
@@ -99,30 +124,3 @@ target_link_libraries(WillEngine PRIVATE
         volk
         vk-bootstrap::vk-bootstrap
 )
-
-
-
-set(SHADER_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
-set(SHADER_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/shaders")
-set(ASSETS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/assets")
-set(ASSETS_BINARY_DIR "${CMAKE_CURRENT_BINARY_DIR}/assets")
-
-function(safe_copy_directory src dst)
-    if(EXISTS "${src}")
-        file(COPY "${src}" DESTINATION "${CMAKE_CURRENT_BINARY_DIR}")
-    else()
-        message(WARNING "Source directory does not exist: ${src}")
-        file(MAKE_DIRECTORY "${dst}")
-    endif()
-endfunction()
-
-
-safe_copy_directory(${SHADER_SOURCE_DIR} ${SHADER_BINARY_DIR})
-safe_copy_directory(${ASSETS_SOURCE_DIR} ${ASSETS_BINARY_DIR})
-
-add_custom_target(copy_shaders_and_assets ALL
-    COMMAND ${CMAKE_COMMAND} -E echo "Shaders and assets copied."
-    DEPENDS ${SHADER_BINARY_DIR} ${ASSETS_BINARY_DIR}
-)
-
-add_dependencies(WillEngine copy_shaders_and_assets)
