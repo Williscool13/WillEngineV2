@@ -78,10 +78,11 @@ void Input::processEvent(const SDL_Event& event)
 
 void Input::updateFocus(Uint32 sdlWindowFlags)
 {
-    inFocus = (sdlWindowFlags & SDL_WINDOW_INPUT_FOCUS) != 0;
-    if (isKeyPressed(SDLK_f) && inFocus) {
+    if (windowInputFocus && isKeyPressed(SDLK_f)) {
         SDL_SetRelativeMouseMode(SDL_GetRelativeMouseMode() == SDL_TRUE ? SDL_FALSE : SDL_TRUE);
     }
+    windowInputFocus = (sdlWindowFlags & SDL_WINDOW_INPUT_FOCUS) != 0;
+    inFocus = SDL_GetRelativeMouseMode() == SDL_TRUE;
 }
 
 void Input::frameReset()

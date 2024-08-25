@@ -70,7 +70,7 @@ Environment::Environment(Engine* creator)
     cubemapDescriptorBuffer = DescriptorBufferSampler(creator->getInstance(), creator->getDevice()
                                                       , creator->getPhysicalDevice(), creator->getAllocator(), cubemapDescriptorSetLayout,
                                                       MAX_ENVIRONMENT_MAPS);
-    _diffSpecMapDescriptorBuffer = DescriptorBufferSampler(creator->getInstance(), creator->getDevice()
+    diffSpecMapDescriptorBuffer = DescriptorBufferSampler(creator->getInstance(), creator->getDevice()
                                                            , creator->getPhysicalDevice(), creator->getAllocator(), environmentMapDescriptorSetLayout,
                                                            MAX_ENVIRONMENT_MAPS);
 
@@ -78,11 +78,10 @@ Environment::Environment(Engine* creator)
     useCount++;
 }
 
-
 Environment::~Environment()
 {
     useCount--;
-    if (useCount == 0) {
+    if (useCount == 0 && layoutsCreated) {
         vkDestroyDescriptorSetLayout(device, equiImageDescriptorSetLayout, nullptr);
         vkDestroyDescriptorSetLayout(device, cubemapStorageDescriptorSetLayout, nullptr);
         vkDestroyDescriptorSetLayout(device, cubemapDescriptorSetLayout, nullptr);
@@ -124,9 +123,9 @@ Environment::~Environment()
     cubemapStorageDescriptorBuffer.destroy(device, allocator);
     cubemapDescriptorBuffer.destroy(device, allocator);
     equiImageDescriptorBuffer.destroy(device, allocator);
-    _diffSpecMapDescriptorBuffer.destroy(device, allocator);
+    diffSpecMapDescriptorBuffer.destroy(device, allocator);
 
-    for (EnvironmentMapData& envMap: _environmentMaps) {
+    for (EnvironmentMapData& envMap: environmentMaps) {
         creator->destroyImage(envMap.cubemapImage);
         creator->destroyImage(envMap.specDiffCubemap);
     }
@@ -269,9 +268,9 @@ void Environment::loadCubemap(const char* path, int environmentMapIndex)
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &lutDescriptorInfo, 1}
     };
 
-    _diffSpecMapDescriptorBuffer.setupData(device, combined_descriptor2, environmentMapIndex);
+    diffSpecMapDescriptorBuffer.setupData(device, combined_descriptor2, environmentMapIndex);
 
-    _environmentMaps[environmentMapIndex] = newEnvMapData;
+    environmentMaps[environmentMapIndex] = newEnvMapData;
 
 
     auto end3 = std::chrono::system_clock::now();

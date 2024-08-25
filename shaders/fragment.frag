@@ -13,4 +13,5 @@ vec3 linearTosRGB(vec3 color) {
 void main() {
     FragColor = texture(sourceImage, TexCoord);
     //FragColor = vec4(linearTosRGB(Color), 1.0);
+    //FragColor = vec4(1);
 }

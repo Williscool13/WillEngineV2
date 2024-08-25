@@ -55,7 +55,6 @@ public:
 	static const int diffuseIrradianceMipLevel{ 5 };
 	static const char* defaultEquiPath;
 
-	Environment() = default;
 	explicit Environment(Engine* creator);
 	~Environment();
 
@@ -80,7 +79,7 @@ public:
 	DescriptorBufferSampler& getEquiImageDescriptorBuffer() { return equiImageDescriptorBuffer; }
 	DescriptorBufferSampler& getCubemapDescriptorBuffer() { return cubemapDescriptorBuffer; }
 
-	DescriptorBufferSampler& getDiffSpecMapDescriptorBuffer() { return _diffSpecMapDescriptorBuffer; }
+	DescriptorBufferSampler& getDiffSpecMapDescriptorBuffer() { return diffSpecMapDescriptorBuffer; }
 
 private:
 	Engine* creator{};
@@ -94,7 +93,7 @@ private:
 	DescriptorBufferSampler cubemapDescriptorBuffer;
 
 	static DescriptorBufferSampler lutDescriptorBuffer;
-	DescriptorBufferSampler _diffSpecMapDescriptorBuffer;
+	DescriptorBufferSampler diffSpecMapDescriptorBuffer;
 
 	// Pipelines
 	static VkPipelineLayout equiToCubemapPipelineLayout;
@@ -111,7 +110,7 @@ private:
 
 
 
-	EnvironmentMapData _environmentMaps[10]{
+	EnvironmentMapData environmentMaps[10]{
 		{"", VK_NULL_HANDLE, VK_NULL_HANDLE},
 		{"", VK_NULL_HANDLE, VK_NULL_HANDLE},
 		{"", VK_NULL_HANDLE, VK_NULL_HANDLE},

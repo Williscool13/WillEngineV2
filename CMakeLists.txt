@@ -72,14 +72,6 @@ add_executable(WillEngine main.cpp
         src/core/draw/draw_structure.h)
 
 
-add_custom_target(compile_shaders
-        COMMAND ${CMAKE_CURRENT_SOURCE_DIR}/shaders/compile_shaders_fast.sh
-        WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/shaders
-        COMMENT "Compiling shaders"
-)
-
-add_dependencies(WillEngine compile_shaders)
-
 target_include_directories(WillEngine PRIVATE
         ${Vulkan_INCLUDE_DIRS}                                              # Vulkan
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/include                     # SDL
@@ -91,29 +83,53 @@ target_include_directories(WillEngine PRIVATE
 )
 
 
+
 function(copy_directory src dst)
+    file(GLOB_RECURSE source_files "${src}/*")
+
+    # Create a valid target name
+    file(RELATIVE_PATH rel_src "${CMAKE_SOURCE_DIR}" "${src}")
+    file(RELATIVE_PATH rel_dst "${CMAKE_SOURCE_DIR}" "${dst}")
+    string(REPLACE "/" "_" target_name "copy_${rel_src}_to_${rel_dst}")
+    string(REPLACE "\\" "_" target_name "${target_name}")
+    string(REPLACE ":" "_" target_name "${target_name}")
+
     add_custom_command(
-            OUTPUT ${dst}
+            OUTPUT ${dst}/timestamp
             COMMAND ${CMAKE_COMMAND} -E copy_directory ${src} ${dst}
-            DEPENDS ${src}
+            COMMAND ${CMAKE_COMMAND} -E touch ${dst}/timestamp
+            DEPENDS ${source_files}
+            COMMENT "Copying ${src} to ${dst}"
     )
+    add_custom_target(${target_name} ALL DEPENDS ${dst}/timestamp)
 endfunction()
 
 set(SHADER_SRC "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
 set(SHADER_DST "${CMAKE_CURRENT_BINARY_DIR}/shaders")
 set(ASSETS_SRC "${CMAKE_CURRENT_SOURCE_DIR}/assets")
 set(ASSETS_DST "${CMAKE_CURRENT_BINARY_DIR}/assets")
+
 copy_directory(${SHADER_SRC} ${SHADER_DST})
 copy_directory(${ASSETS_SRC} ${ASSETS_DST})
-add_custom_target(copy_resources ALL
-        DEPENDS
-        ${SHADER_DST}
-        ${ASSETS_DST}
+
+# Get the target name for shader copy (we'll need this for the dependency)
+file(RELATIVE_PATH rel_shader_src "${CMAKE_SOURCE_DIR}" "${SHADER_SRC}")
+file(RELATIVE_PATH rel_shader_dst "${CMAKE_SOURCE_DIR}" "${SHADER_DST}")
+string(REPLACE "/" "_" shader_copy_target "copy_${rel_shader_src}_to_${rel_shader_dst}")
+string(REPLACE "\\" "_" shader_copy_target "${shader_copy_target}")
+string(REPLACE ":" "_" shader_copy_target "${shader_copy_target}")
+
+
+
+
+
+add_custom_target(compile_shaders
+        COMMAND ${CMAKE_CURRENT_BINARY_DIR}/shaders/compile_shaders_fast.sh
+        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/shaders
+        DEPENDS ${shader_copy_target}
+        COMMENT "Compiling shaders"
 )
-
-add_dependencies(WillEngine copy_resources)
-
-
+add_dependencies(WillEngine compile_shaders)
 
 target_link_libraries(WillEngine PRIVATE
         ${SDL2MAIN_LIBRARY} # Needs to happen before SDL2_LIBRARY

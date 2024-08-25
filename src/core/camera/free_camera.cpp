@@ -29,10 +29,10 @@ void FreeCamera::update()
     }
 
     if (input.isKeyDown(SDLK_w)) {
-        velocity.x += 1.0f;
+        velocity.z += 1.0f;
     }
     if (input.isKeyDown(SDLK_s)) {
-        velocity.x -= 1.0f;
+        velocity.z -= 1.0f;
     }
 
 
