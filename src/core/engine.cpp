@@ -46,9 +46,10 @@ void Engine::init()
 
     initDearImgui();
 
+    initStaticScene();
+
     initPipelines();
 
-    initStaticScene();
 
     auto end = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -266,7 +267,18 @@ void Engine::draw()
     // draw geometry into _drawImage
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+    VkClearValue depthClearValue = {0.0f, 0};
+    VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue,VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    VkRenderingInfo renderInfo = vk_helpers::renderingInfo(drawExtent, &colorAttachment, &depthAttachment);
+    vkCmdBeginRendering(cmd, &renderInfo);
+
+    drawEnvironment(cmd);
     drawRender(cmd);
+
+    vkCmdEndRendering(cmd);
+
 
     // copy Draw Image into Swapchain Image
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL);
@@ -347,17 +359,49 @@ void Engine::drawCompute(VkCommandBuffer cmd)
     vkCmdDispatch(cmd, std::ceil(drawExtent.width / 16.0), std::ceil(drawExtent.height / 16.0), 1);
 }
 
+void Engine::drawEnvironment(VkCommandBuffer cmd)
+{
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, environmentPipeline);
+
+    VkViewport viewport = {};
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width = drawExtent.width;
+    viewport.height = drawExtent.height;
+    viewport.minDepth = 0.f;
+    viewport.maxDepth = 1.f;
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+    //  Scissor
+    VkRect2D scissor = {};
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
+    scissor.extent.width = drawExtent.width;
+    scissor.extent.height = drawExtent.height;
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    DescriptorBufferSampler& cubemapSampler = environment->getCubemapDescriptorBuffer();
+
+    VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1];
+    descriptorBufferBindingInfo[0] = cubemapSampler.getDescriptorBufferBindingInfo();
+    vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
+    uint32_t imageBufferIndex  = 0;
+    VkDeviceSize imageBufferOffset = 0;
+
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, environmentPipelineLayout
+    , 0, 1, &imageBufferIndex, &imageBufferOffset);
+
+
+
+    EnvironmentSceneData sceneData{};
+    auto view = glm::lookAt(glm::vec3(0), camera.getViewDirectionWS(), glm::vec3(0, 1, 0));
+    auto proj = camera.getProjMatrix();
+    sceneData.viewproj = proj * view;
+    vkCmdPushConstants(cmd, environmentPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(EnvironmentSceneData), &sceneData);
+    vkCmdDraw(cmd, 3, 1, 0, 0);
+}
+
 void Engine::drawRender(VkCommandBuffer cmd)
 {
-    VkClearValue depthClearValue = {0.0f, 0};
-    VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue,
-                                                                           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-    VkRenderingInfo renderInfo = vk_helpers::renderingInfo(drawExtent, &colorAttachment, &depthAttachment);
-
-
-    vkCmdBeginRendering(cmd, &renderInfo);
-
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipeline);
 
     // Dynamic States
@@ -391,7 +435,6 @@ void Engine::drawRender(VkCommandBuffer cmd)
     float time = SDL_GetTicks64() / 1000.0f;
     vkCmdPushConstants(cmd, renderPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(float), &time);
     vkCmdDraw(cmd, 3, 1, 0, 0);
-    vkCmdEndRendering(cmd);
 }
 
 void Engine::drawImgui(VkCommandBuffer cmd, VkImageView targetImageView)
@@ -459,7 +502,6 @@ void Engine::cleanup()
 
     SDL_DestroyWindow(window);
 }
-
 
 void Engine::initVulkan()
 {
@@ -674,6 +716,7 @@ void Engine::initDearImgui()
 void Engine::initPipelines()
 {
     initComputePipelines();
+    initEnvironmentPipeline();
     initRenderPipelines();
 }
 
@@ -816,6 +859,57 @@ void Engine::initRenderPipelines()
         renderImageDescriptorBuffer.destroy(device, allocator);
         vkDestroyPipelineLayout(device, renderPipelineLayout, nullptr);
         vkDestroyPipeline(device, renderPipeline, nullptr);
+    });
+}
+
+void Engine::initEnvironmentPipeline()
+{
+    assert(Environment::layoutsCreated);
+
+    VkDescriptorSetLayout layouts[1] =
+    { Environment::cubemapDescriptorSetLayout };
+
+    VkPipelineLayoutCreateInfo layout_info = vk_helpers::pipelineLayoutCreateInfo();
+    layout_info.setLayoutCount = 1;
+    layout_info.pSetLayouts = layouts;
+    VkPushConstantRange environmentPushConstantRange{};
+    environmentPushConstantRange.offset = 0;
+    environmentPushConstantRange.size = sizeof(EnvironmentSceneData);
+    environmentPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    layout_info.pPushConstantRanges = &environmentPushConstantRange;
+    layout_info.pushConstantRangeCount = 1;
+
+    VK_CHECK(vkCreatePipelineLayout(device, &layout_info, nullptr, &environmentPipelineLayout));
+
+    VkShaderModule vertShader;
+    if (!vk_helpers::loadShaderModule("shaders/environment/environment.vert.spv", device, &vertShader)) {
+        throw std::runtime_error("Error when building the triangle vertex shader module(compute.comp.spv)");
+    }
+    VkShaderModule fragShader;
+    if (!vk_helpers::loadShaderModule("shaders/environment/environment.frag.spv", device, &fragShader)) {
+        fmt::print("Error when building the triangle fragment shader module\n");
+    }
+
+    PipelineBuilder renderPipelineBuilder;
+    renderPipelineBuilder.setShaders(vertShader, fragShader);
+    renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    //renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
+    renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+    renderPipelineBuilder.disableMultisampling();
+    renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
+    renderPipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+    renderPipelineBuilder.setupRenderer(drawImage.imageFormat, depthImage.imageFormat);
+    renderPipelineBuilder.setupPipelineLayout(environmentPipelineLayout);
+
+    environmentPipeline = renderPipelineBuilder.buildPipeline(device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+
+    vkDestroyShaderModule(device, vertShader, nullptr);
+    vkDestroyShaderModule(device, fragShader, nullptr);
+
+    mainDeletionQueue.pushFunction([&]() {
+        vkDestroyDescriptorSetLayout(device, environmentUniformDescriptorLayout, nullptr);
+        vkDestroyPipelineLayout(device, environmentPipelineLayout, nullptr);
+        vkDestroyPipeline(device, environmentPipeline, nullptr);
     });
 }
 
