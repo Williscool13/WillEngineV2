@@ -14,7 +14,7 @@ class GameObject
 public:
     GameObject();
 
-    GameObject(std::string gameObjectName);
+    explicit GameObject(std::string gameObjectName);
 
     explicit GameObject(glm::vec3 position, glm::vec3 rotation, glm::vec3 scale);
 

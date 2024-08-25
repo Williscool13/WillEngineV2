@@ -10,6 +10,7 @@
 #include "input.h"
 #include "../renderer/vk_pipelines.h"
 #include "../util/time_utils.h"
+#include "draw/draw_structure.h"
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -47,7 +48,7 @@ void Engine::init()
 
     initPipelines();
 
-    initScene();
+    initStaticScene();
 
     auto end = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -217,25 +218,6 @@ void Engine::run()
                         ImGui::Text("%.2f %.2f %.2f %.2f", rotationMatrix[i][0], rotationMatrix[i][1], rotationMatrix[i][2], rotationMatrix[i][3]);
 
                     ImGui::TreePop();
-                }
-            }
-            ImGui::End();
-
-            if (ImGui::Begin("GameObject Test")) {
-                if (tempObjectOne != nullptr) {
-                    glm::mat4 wMat = tempObjectOne->getWorldMatrix();
-                    glm::vec3 pos = wMat[3];
-                    ImGui::Text("Object One Position: %.2f %.2f %.2f", pos.x, pos.y, pos.z);
-                }
-                if (tempObjectTwo != nullptr) {
-                    glm::mat4 wMat = tempObjectTwo->getWorldMatrix();
-                    glm::vec3 pos = wMat[3];
-                    ImGui::Text("Object Two Position: %.2f %.2f %.2f", pos.x, pos.y, pos.z);
-                }
-                if (tempObjectThree != nullptr) {
-                    glm::mat4 wMat = tempObjectThree->getWorldMatrix();
-                    glm::vec3 pos = wMat[3];
-                    ImGui::Text("Object Three Position: %.2f %.2f %.2f", pos.x, pos.y, pos.z);
                 }
             }
             ImGui::End();
@@ -431,6 +413,8 @@ void Engine::cleanup()
     destroyImage(errorCheckerboardImage);
     vkDestroySampler(device, defaultSamplerNearest, nullptr);
     vkDestroySampler(device, defaultSamplerLinear, nullptr);
+
+    delete environment;
 
     // destroy all other resources
     mainDeletionQueue.flush();
@@ -835,12 +819,14 @@ void Engine::initRenderPipelines()
     });
 }
 
-void Engine::initScene()
+void Engine::initStaticScene()
 {
     scene.createGameObject("First");
     scene.createGameObject("Second");
     scene.createGameObject("Third");
 
+    environment = new Environment(this);
+    environment->loadCubemap(Environment::defaultEquiPath, 0);
 }
 
 void Engine::immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const
@@ -968,8 +954,7 @@ AllocatedImage Engine::createImage(const void* data, size_t dataSize, VkExtent3D
         copyRegion.imageExtent = size;
 
         // copy the buffer into the image
-        vkCmdCopyBufferToImage(cmd, uploadbuffer.buffer, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1,
-                               &copyRegion);
+        vkCmdCopyBufferToImage(cmd, uploadbuffer.buffer, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
         if (mipmapped) {
             vk_helpers::generateMipmaps(cmd, newImage.image, VkExtent2D{newImage.imageExtent.width, newImage.imageExtent.height});
@@ -980,6 +965,30 @@ AllocatedImage Engine::createImage(const void* data, size_t dataSize, VkExtent3D
     });
 
     destroyBuffer(uploadbuffer);
+
+    return newImage;
+}
+
+AllocatedImage Engine::createCubemap(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
+{
+    AllocatedImage newImage{};
+    newImage.imageFormat = format;
+    newImage.imageExtent = size;
+
+    VkImageCreateInfo img_info = vk_helpers::cubemapCreateInfo(format, usage, size);
+    if (mipmapped) {
+        img_info.mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(size.width, size.height)))) + 1;
+    }
+    // always allocate images on dedicated GPU memory
+    VmaAllocationCreateInfo allocinfo = {};
+    allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    VK_CHECK(vmaCreateImage(allocator, &img_info, &allocinfo, &newImage.image, &newImage.allocation, nullptr));
+
+    VkImageViewCreateInfo view_info = vk_helpers::cubemapViewCreateInfo(format, newImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
+    view_info.subresourceRange.levelCount = img_info.mipLevels;
+
+    VK_CHECK(vkCreateImageView(device, &view_info, nullptr, &newImage.imageView));
 
     return newImage;
 }

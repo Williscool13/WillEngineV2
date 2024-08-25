@@ -29,6 +29,32 @@ VkImageCreateInfo vk_helpers::imageCreateInfo(VkFormat format, VkImageUsageFlags
     return info;
 }
 
+VkImageCreateInfo vk_helpers::cubemapCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
+{
+    VkImageCreateInfo info = {};
+    info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+    info.pNext = nullptr;
+
+    info.imageType = VK_IMAGE_TYPE_2D;
+
+    info.format = format;
+    info.extent = extent;
+
+    info.mipLevels = 1;
+    info.arrayLayers = 6;
+
+    //for MSAA. we will not be using it by default, so default it to 1 sample per pixel.
+    info.samples = VK_SAMPLE_COUNT_1_BIT;
+
+    //optimal tiling, which means the image is stored on the best gpu format
+    info.tiling = VK_IMAGE_TILING_OPTIMAL;
+    info.usage = usageFlags;
+
+    info.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+
+    return info;
+}
+
 VkImageViewCreateInfo vk_helpers::imageviewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags)
 {
     // Identical to imageCreateInfo, but is imageView instead
@@ -49,16 +75,35 @@ VkImageViewCreateInfo vk_helpers::imageviewCreateInfo(VkFormat format, VkImage i
     return info;
 }
 
+VkImageViewCreateInfo vk_helpers::cubemapViewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags)
+{
+    // build a image-view for the depth image to use for rendering
+    VkImageViewCreateInfo info = {};
+    info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    info.pNext = nullptr;
+
+    info.viewType = VK_IMAGE_VIEW_TYPE_CUBE;
+    info.image = image;
+    info.format = format;
+    info.subresourceRange.baseMipLevel = 0;
+    info.subresourceRange.levelCount = 1;
+    info.subresourceRange.baseArrayLayer = 0;
+    info.subresourceRange.layerCount = 6;
+    info.subresourceRange.aspectMask = aspectFlags;
+
+    return info;
+}
+
 VkImageSubresourceRange vk_helpers::imageSubresourceRange(VkImageAspectFlags aspectMask)
 {
     VkImageSubresourceRange subImage{};
     subImage.aspectMask = aspectMask;
     subImage.baseMipLevel = 0;
-    //subImage.levelCount = VK_REMAINING_MIP_LEVELS;
-    subImage.levelCount = 1;
+    subImage.levelCount = VK_REMAINING_MIP_LEVELS;
+    //subImage.levelCount = 1;
     subImage.baseArrayLayer = 0;
-    //subImage.layerCount = VK_REMAINING_ARRAY_LAYERS;
-    subImage.layerCount = 1;
+    subImage.layerCount = VK_REMAINING_ARRAY_LAYERS;
+    //subImage.layerCount = 1;
 
     return subImage;
 }

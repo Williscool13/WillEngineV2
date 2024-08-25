@@ -17,7 +17,7 @@ GameObject::GameObject()
 GameObject::GameObject(std::string gameObjectName)
     : gameObjectId(nextId++)
 {
-    this->gameObjectName = gameObjectName;
+    this->gameObjectName = std::move(gameObjectName);
 }
 
 GameObject::GameObject(glm::vec3 position, glm::vec3 rotation, glm::vec3 scale)
