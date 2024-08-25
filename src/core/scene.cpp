@@ -6,6 +6,9 @@
 
 #include <imgui.h>
 
+#include <utility>
+#include <bits/ranges_algo.h>
+
 Scene::Scene()
 {
     sceneRoot = new GameObject("Scene Root");
@@ -13,57 +16,70 @@ Scene::Scene()
 
 Scene::~Scene()
 {
-    // destroy children depth first search
+    deleteGameObjectRecursive(sceneRoot);
+
+    sceneRoot = nullptr;
+}
+
+GameObject* Scene::createGameObject(std::string name)
+{
+    auto* newGameObject = new GameObject(std::move(name));
+    activeGameObjects.insert(newGameObject);
+    sceneRoot->addChild(newGameObject);
+    return newGameObject;
+}
+
+bool Scene::isGameObjectValid(GameObject* obj)
+{
+    return std::ranges::find(activeGameObjects, obj) != activeGameObjects.end();
 }
 
 void Scene::displayGameObject(GameObject* obj, int depth)
 {
+    const float indent = 10.0f;
+    const float treeNodeWidth = 200.0f;
+    const float buttonWidth = 75.0f;
+    const float arrowWidth = 20.0f;
+    const float spacing = 5.0f;
+
+    ImGui::PushID(obj);
+    ImGui::Indent(depth * indent);
+
     ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick;
+    if (obj->getChildren().empty()) { flags |= ImGuiTreeNodeFlags_Leaf; }
 
-    if (obj->getChildren().empty()) {
-        flags |= ImGuiTreeNodeFlags_Leaf;
-    }
+    ImGui::SetNextItemWidth(treeNodeWidth);
+    bool isOpen = ImGui::TreeNodeEx("##TreeNode", flags, "%s", obj->getName().data());
+    //bool isOpen = ImGui::TreeNodeEx((void *) (intptr_t) obj->getId(), flags, obj->getName().data());
 
-    bool isOpen = ImGui::TreeNodeEx((void *) (intptr_t) obj->getId(), flags, obj->getName().data());
-
-    const ImVec2 parentButtonSize = {75,20};
-    const ImVec2 arrowButtonSize  = {20,20};
-    const float buttonSpacing = ImGui::GetStyle().ItemSpacing.x;
+    ImGui::SameLine(treeNodeWidth + spacing);
+    ImGui::BeginGroup();
 
     auto* parent = obj->getParent();
     if (parent != nullptr) {
         std::vector<GameObject *>& parentChildren = obj->getParent()->getChildren();
 
-        ImGui::SameLine();
-        if (obj->getParent() != sceneRoot) {
-            if (ImGui::Button("Unparent##Unparent", parentButtonSize)) { unparentGameObject(obj); }
-        } else {
-            ImGui::Dummy(parentButtonSize);
-        }
+        if (parent != sceneRoot) {
+            if (ImGui::Button("Unparent", ImVec2(buttonWidth, 0))) { unparentGameObject(obj); }
+        } else { ImGui::Dummy(ImVec2(buttonWidth, 0)); }
 
-        ImGui::SameLine();
+        ImGui::SameLine(0, spacing);
         if (parentChildren[0] != obj) {
-            if (ImGui::Button("Parent##Parent", parentButtonSize)) { parentGameObject(obj); }
-        } else {
-            ImGui::Dummy(parentButtonSize);
-        }
+            if (ImGui::Button("Parent", ImVec2(buttonWidth, 0))) { parentGameObject(obj); }
+        } else { ImGui::Dummy(ImVec2(buttonWidth, 0)); }
 
-        ImGui::SameLine();
+        ImGui::SameLine(0, spacing);
         if (parentChildren[0] != obj) {
-            if (ImGui::Button("^##MoveUp", arrowButtonSize)) { moveObject(obj, -1); }
-        } else {
-            ImGui::Dummy(arrowButtonSize);
-        }
+            if (ImGui::ArrowButton("##Up", ImGuiDir_Up)) { moveObject(obj, -1); }
+        } else { ImGui::Dummy(ImVec2(arrowWidth, 0)); }
 
-        ImGui::SameLine();
+        ImGui::SameLine(0, spacing);
         if (parentChildren[parentChildren.size() - 1] != obj) {
-            if (ImGui::Button("v##MoveDown", arrowButtonSize)) { moveObject(obj, 1); }
-        } else {
-            ImGui::Dummy(arrowButtonSize);
-        }
+            if (ImGui::ArrowButton("##Down", ImGuiDir_Down)) { moveObject(obj, 1); }
+        } else { ImGui::Dummy(ImVec2(arrowWidth, 0)); }
     }
 
-
+    ImGui::EndGroup();
 
     /*if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
         ImGui::SetDragDropPayload("GAMEOBJECT_DRAG", &obj, sizeof(GameObject *));
@@ -89,6 +105,9 @@ void Scene::displayGameObject(GameObject* obj, int depth)
         }
         ImGui::TreePop();
     }
+
+    ImGui::Unindent(depth * indent);
+    ImGui::PopID();
 }
 
 void Scene::parentGameObject(GameObject* obj)
@@ -149,11 +168,6 @@ void Scene::moveObject(GameObject* obj, int diff)
     }
 }
 
-void Scene::addToRoot(GameObject* gameObject)
-{
-    sceneRoot->addChild(gameObject);
-}
-
 void Scene::imguiSceneGraph()
 {
     ImGui::Begin("Scene Graph");
@@ -179,4 +193,15 @@ int Scene::getIndexInVector(GameObject* obj, std::vector<GameObject *> vector)
     }
 
     return -1;
+}
+
+void Scene::deleteGameObjectRecursive(GameObject* obj)
+{
+    if (obj == nullptr) { return; }
+    for (auto* child: obj->getChildren()) {
+        deleteGameObjectRecursive(child);
+    }
+
+    activeGameObjects.erase(obj);
+    delete obj;
 }

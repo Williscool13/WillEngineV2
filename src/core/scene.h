@@ -4,6 +4,8 @@
 
 #ifndef SCENE_H
 #define SCENE_H
+#include <unordered_set>
+
 #include "game_object.h"
 
 
@@ -11,8 +13,14 @@ class Scene {
 public:
     Scene();
     ~Scene();
+
+    GameObject* createGameObject(std::string name);
+
+    bool isGameObjectValid(GameObject* obj);
+
 private: // Scene properties
     GameObject* sceneRoot;
+    std::unordered_set<GameObject*> activeGameObjects;
 
     void displayGameObject(GameObject* obj, int depth = 0);
 
@@ -23,12 +31,13 @@ private: // Scene properties
     void moveObject(GameObject* obj, int diff);
 
 public:
-    void addToRoot(GameObject* gameObject);
-
     void imguiSceneGraph();
 
 private:
     int getIndexInVector(GameObject* obj, std::vector<GameObject*> vector);
+
+private:
+    void deleteGameObjectRecursive(GameObject* obj);
 };
 
 
