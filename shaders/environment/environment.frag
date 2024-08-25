@@ -20,5 +20,6 @@ void main()
 
     outColor = vec4(envColor, 1.0);
 
-	//outColor = vec4(direction, 1.0f);
+	// view direction debug
+	//outColor = vec4(direction * 0.5 + 0.5, 1.0f);
 }

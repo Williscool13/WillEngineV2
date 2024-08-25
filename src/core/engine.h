@@ -182,7 +182,6 @@ private: // Pipelines
     VkPipeline renderPipeline;
 
     // Environment
-    VkDescriptorSetLayout environmentUniformDescriptorLayout;
     VkPipelineLayout environmentPipelineLayout;
     VkPipeline environmentPipeline;
 

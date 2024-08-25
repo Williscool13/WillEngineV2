@@ -73,6 +73,7 @@ private:
     float mouseY{0.0f};
     float mouseDeltaX{0.0f};
     float mouseDeltaY{0.0f};
+    bool windowInputFocus{false};
     bool inFocus{false};
 
     void UpdateInputState(InputStateData& inputButton, bool isPressed);

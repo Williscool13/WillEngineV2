@@ -72,6 +72,10 @@ void Engine::run()
             if (e.type == SDL_QUIT) {
                 bQuit = true;
             }
+            if (e.type == SDL_KEYDOWN) {
+                if (e.key.keysym.sym == SDLK_ESCAPE)
+                    bQuit = true;
+            }
 
             if (e.type == SDL_WINDOWEVENT) {
                 if (e.window.event == SDL_WINDOWEVENT_MINIMIZED) {
@@ -907,7 +911,6 @@ void Engine::initEnvironmentPipeline()
     vkDestroyShaderModule(device, fragShader, nullptr);
 
     mainDeletionQueue.pushFunction([&]() {
-        vkDestroyDescriptorSetLayout(device, environmentUniformDescriptorLayout, nullptr);
         vkDestroyPipelineLayout(device, environmentPipelineLayout, nullptr);
         vkDestroyPipeline(device, environmentPipeline, nullptr);
     });
