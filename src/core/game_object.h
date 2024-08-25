@@ -4,6 +4,8 @@
 
 #ifndef GAME_OBJECT_H
 #define GAME_OBJECT_H
+#include <string>
+
 #include "../util/transform.h"
 
 
@@ -11,6 +13,8 @@ class GameObject
 {
 public:
     GameObject();
+
+    GameObject(std::string gameObjectName);
 
     explicit GameObject(glm::vec3 position, glm::vec3 rotation, glm::vec3 scale);
 
@@ -83,6 +87,15 @@ public: // Hierarchy
      */
     void unparent();
 
+
+    GameObject* getParent();
+
+    std::vector<GameObject *> &getChildren();
+
+    int getId() const { return gameObjectId; }
+
+    std::string_view getName() const { return gameObjectName; }
+
 private: // Transform
     Transform transform{};
     glm::mat4 cachedWorldTransform{};
@@ -92,14 +105,15 @@ private: // Hierarchy
     GameObject* parent{nullptr};
     std::vector<GameObject *> children{};
     static int nextId;
-    int gameObjectId;
+    int gameObjectId{};
+    std::string gameObjectName{};
+
 private:
 
 
-
-
 public:
-    bool operator==(const GameObject& other) const {
+    bool operator==(const GameObject& other) const
+    {
         return this->gameObjectId == other.gameObjectId;
     }
 };

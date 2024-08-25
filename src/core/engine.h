@@ -28,6 +28,7 @@
 #include <glm/glm.hpp>
 
 #include "game_object.h"
+#include "scene.h"
 #include "../renderer/vk_types.h"
 #include "../renderer/vk_descriptors.h"
 #include "../renderer/vk_descriptor_buffer.h"
@@ -143,6 +144,7 @@ private: // Rendering
 private: // Scene
     FreeCamera camera{};
 
+    Scene scene{};
     GameObject* tempObjectOne = nullptr;
     GameObject* tempObjectTwo = nullptr;
     GameObject* tempObjectThree = nullptr;

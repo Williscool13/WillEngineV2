@@ -13,6 +13,8 @@ void TimeUtils::update()
 {
     const uint64_t last = SDL_GetTicks64();
     deltaTime = last - lastTime;
+    // Breakpoint resume case
+    if (deltaTime > 1000) { deltaTime = 333; }
     lastTime = last;
 }
 

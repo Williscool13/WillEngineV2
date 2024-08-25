@@ -240,6 +240,8 @@ void Engine::run()
             }
             ImGui::End();
 
+            scene.imguiSceneGraph();
+
             ImGui::Render();
         }
 
@@ -871,9 +873,14 @@ void Engine::initRenderPipelines()
 void Engine::initScene()
 {
     tempObjectOne = new GameObject();
+    scene.addToRoot(tempObjectOne);
+
     tempObjectTwo = new GameObject();
     tempObjectOne->addChild(tempObjectTwo);
+
     tempObjectThree = new GameObject();
+    scene.addToRoot(tempObjectThree);
+
 }
 
 void Engine::immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const

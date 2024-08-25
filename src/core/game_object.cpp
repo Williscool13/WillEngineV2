@@ -10,11 +10,20 @@ int GameObject::nextId = 0;
 
 GameObject::GameObject()
     : gameObjectId(nextId++)
-{}
+{
+    gameObjectName = "GameObject_" + std::to_string(gameObjectId);
+}
+
+GameObject::GameObject(std::string gameObjectName)
+    : gameObjectId(nextId++)
+{
+    this->gameObjectName = gameObjectName;
+}
 
 GameObject::GameObject(glm::vec3 position, glm::vec3 rotation, glm::vec3 scale)
     : gameObjectId(nextId++)
 {
+    gameObjectName = "GameObject_" + std::to_string(gameObjectId);
     transform.setPosition(position);
     transform.setRotation(rotation);
     transform.setScale(scale);
@@ -116,4 +125,14 @@ void GameObject::unparent()
     transform.setRotation(glm::eulerAngles(worldRotation)); // Convert quaternion to Euler angles
     transform.setScale(worldScale);
     setTransformDirty();
+}
+
+GameObject* GameObject::getParent()
+{
+    return parent;
+}
+
+std::vector<GameObject*>& GameObject::getChildren()
+{
+    return children;
 }
