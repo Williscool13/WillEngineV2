@@ -108,9 +108,6 @@ private: // Hierarchy
     int gameObjectId{};
     std::string gameObjectName{};
 
-private:
-
-
 public:
     bool operator==(const GameObject& other) const
     {

@@ -245,41 +245,6 @@ void Engine::run()
             ImGui::Render();
         }
 
-        if (tempObjectOne) {
-            if (input.isKeyPressed(SDLK_u)) {
-                tempObjectOne->translate(glm::vec3(1.0f, 0, 0));
-            }
-            if (input.isKeyPressed(SDLK_i)) {
-                tempObjectOne->translate(glm::vec3(-1.0f, 0, 0));
-            }
-        }
-        if (tempObjectTwo) {
-            if (input.isKeyPressed(SDLK_o)) {
-                tempObjectTwo->translate(glm::vec3(1.0f, 0, 0));
-            }
-            if (input.isKeyPressed(SDLK_p)) {
-                tempObjectTwo->translate(glm::vec3(-1.0f, 0, 0));
-            }
-        }
-        if (tempObjectThree) {
-            if (input.isKeyPressed(SDLK_k)) {
-                tempObjectThree->translate(glm::vec3(1.0f, 0, 0));
-            }
-            if (input.isKeyPressed(SDLK_l)) {
-                tempObjectThree->translate(glm::vec3(-1.0f, 0, 0));
-            }
-        }
-
-
-        if (input.isKeyPressed(SDLK_y)) {
-            delete tempObjectOne;
-            tempObjectOne = nullptr;
-        }
-
-        if (input.isKeyPressed(SDLK_v)) {
-            tempObjectThree->addChild(tempObjectTwo);
-        }
-
         draw();
     }
 }
@@ -872,14 +837,9 @@ void Engine::initRenderPipelines()
 
 void Engine::initScene()
 {
-    tempObjectOne = new GameObject();
-    scene.addToRoot(tempObjectOne);
-
-    tempObjectTwo = new GameObject();
-    tempObjectOne->addChild(tempObjectTwo);
-
-    tempObjectThree = new GameObject();
-    scene.addToRoot(tempObjectThree);
+    scene.createGameObject("First");
+    scene.createGameObject("Second");
+    scene.createGameObject("Third");
 
 }
 
