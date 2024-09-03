@@ -19,3 +19,6 @@
 [submodule "extern/vk-bootstrap"]
 	path = extern/vk-bootstrap
 	url = https://github.com/charles-lunarg/vk-bootstrap.git
+[submodule "extern/fastgltf"]
+	path = extern/fastgltf
+	url = https://github.com/spnda/fastgltf.git
