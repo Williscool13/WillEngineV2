@@ -28,6 +28,12 @@ GameObject* Scene::createGameObject(std::string name)
     return newGameObject;
 }
 
+void Scene::addGameObject(GameObject* gameObject)
+{
+    activeGameObjects.insert(gameObject);
+    sceneRoot->addChild(gameObject);
+}
+
 bool Scene::isGameObjectValid(GameObject* obj)
 {
     return std::ranges::find(activeGameObjects, obj) != activeGameObjects.end();
@@ -99,7 +105,7 @@ void Scene::displayGameObject(GameObject* obj, int depth)
     //}
 
     if (isOpen) {
-        for (auto* child: obj->getChildren()) {
+        for (GameObject* child: obj->getChildren()) {
             displayGameObject(child, depth + 1);
         }
         ImGui::TreePop();
@@ -172,7 +178,7 @@ void Scene::imguiSceneGraph()
     ImGui::Begin("Scene Graph");
 
     if (sceneRoot != nullptr && !sceneRoot->getChildren().empty()) {
-        for (auto* child: sceneRoot->getChildren()) {
+        for (GameObject* child: sceneRoot->getChildren()) {
             displayGameObject(child, 0);
         }
     } else {

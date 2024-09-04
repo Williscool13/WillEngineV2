@@ -40,7 +40,11 @@ void Camera::updateProjMatrix(float fov, float aspect, float farPlane, float nea
 
 void Camera::updateViewMatrix()
 {
-    cachedViewMatrix = glm::inverse(transform.getWorldMatrix());
+    glm::vec3 position = transform.getPosition();
+    glm::vec3 forward = getViewDirectionWS();
+    glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+    cachedViewMatrix = glm::lookAt(position, position + forward, up);
+    //cachedViewMatrix = glm::inverse(transform.getWorldMatrix());
     updateViewProjMatrix();
 }
 

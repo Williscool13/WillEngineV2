@@ -9,7 +9,7 @@
 #include "glm/common.hpp"
 #include "glm/gtc/constants.hpp"
 
-FreeCamera::FreeCamera(float fov, float apsect, float farPlane, float nearPlane) : Camera(fov, apsect, farPlane, nearPlane)
+FreeCamera::FreeCamera(const float fov, const float aspect, const float farPlane, const float nearPlane) : Camera(fov, aspect, farPlane, nearPlane)
 {}
 
 void FreeCamera::update()
@@ -28,11 +28,12 @@ void FreeCamera::update()
         velocity.x -= 1.0f;
     }
 
+    // I guess vulkan is negative Z forward?!
     if (input.isKeyDown(SDLK_w)) {
-        velocity.z += 1.0f;
+        velocity.z -= 1.0f;
     }
     if (input.isKeyDown(SDLK_s)) {
-        velocity.z -= 1.0f;
+        velocity.z += 1.0f;
     }
 
 

@@ -18,6 +18,10 @@ add_subdirectory(extern/fmt)
 add_subdirectory(extern/volk)
 # vkb
 add_subdirectory(extern/vk-bootstrap)
+# fastgltf
+add_subdirectory(extern/fastgltf)
+# simdjson
+add_subdirectory(extern/fastgltf/deps)
 
 # ImGui setup
 set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/imgui)
@@ -29,20 +33,22 @@ set(IMGUI_SOURCES
         ${IMGUI_DIR}/imgui_widgets.cpp
         ${IMGUI_DIR}/backends/imgui_impl_sdl2.cpp
         ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp
-        src/core/camera/free_camera.cpp
-        src/core/camera/free_camera.h
-        src/core/render_object.cpp
-        src/core/render_object.h
-        src/core/draw/render_object.cpp
-        src/core/draw/render_object.h
-        src/core/draw/environment.cpp
-        src/core/draw/environment.h
+)
+set(FASTGLTF_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf)
+
+set(FASTGLTF_SOURCES
+        ${FASTGLTF_DIR}/src/base64.cpp
+        ${FASTGLTF_DIR}/src/fastgltf.cpp
+        ${FASTGLTF_DIR}/src/io.cpp
 )
 
+
 add_definitions(-DVK_NO_PROTOTYPES)
+add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE)
 
 add_executable(WillEngine main.cpp
         ${IMGUI_SOURCES}
+        ${FASTGLTF_SOURCES}
         src/core/Engine.cpp
         src/core/Engine.h
         src/renderer/vk_helpers.cpp
@@ -69,7 +75,15 @@ add_executable(WillEngine main.cpp
         src/util/transform.cpp
         src/util/transform.h
         src/core/draw/draw_structure.cpp
-        src/core/draw/draw_structure.h)
+        src/core/draw/draw_structure.h
+        src/core/camera/free_camera.cpp
+        src/core/camera/free_camera.h
+        src/core/render_object.cpp
+        src/core/render_object.h
+        src/core/environment.cpp
+        src/core/environment.h
+        src/renderer/vk_loader.cpp
+        src/renderer/vk_loader.h)
 
 
 target_include_directories(WillEngine PRIVATE
@@ -77,13 +91,16 @@ target_include_directories(WillEngine PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/include                     # SDL
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/VulkanMemoryAllocator/include    # VMA
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/stb                              # STBI
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/volk
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/volk                             # volk
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/include                 # fastgltf
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/deps/simdjson           # simdjson
         ${IMGUI_DIR}                                                        # ImGui
         ${IMGUI_DIR}/backends                                               # ImGui backends
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 
-
+# Some AI BS. IDK what it does, but it works.
 function(copy_directory src dst)
     file(GLOB_RECURSE source_files "${src}/*")
 
@@ -139,4 +156,5 @@ target_link_libraries(WillEngine PRIVATE
         fmt::fmt
         volk
         vk-bootstrap::vk-bootstrap
+        fastgltf
 )

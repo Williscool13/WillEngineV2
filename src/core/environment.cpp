@@ -5,9 +5,9 @@
 #include "environment.h"
 
 #include <cassert>
-#include <stb_image.h>
+#include <../../extern/stb/stb_image.h>
 //#include <chrono.h>
-#include "../engine.h"
+#include "engine.h"
 
 const VkExtent3D Environment::specularPrefilteredBaseExtents = {512, 512, 1};
 const VkExtent3D Environment::lutImageExtent = {512, 512, 1};

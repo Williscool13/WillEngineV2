@@ -6,9 +6,9 @@
 #define ENVIRONMENT_H
 #include <string>
 #include <vulkan/vulkan_core.h>
-#include <glm/glm.hpp>
+#include <../../extern/glm/glm/glm.hpp>
 
-#include "../../renderer/vk_descriptor_buffer.h"
+#include "../renderer/vk_descriptor_buffer.h"
 
 class Engine;
 

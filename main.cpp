@@ -31,7 +31,6 @@
 #include <misc/cpp/imgui_stdlib.h>
 
 // glm
-#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
 
