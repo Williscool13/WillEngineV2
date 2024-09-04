@@ -16,6 +16,8 @@ public:
 
     GameObject* createGameObject(std::string name);
 
+    void addGameObject(GameObject* gameObject);
+
     bool isGameObjectValid(GameObject* obj);
 
 private: // Scene properties

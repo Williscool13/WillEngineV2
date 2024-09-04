@@ -12,25 +12,15 @@
 
 #include "vk_helpers.h"
 
-class PipelineBuilder {
+class PipelineBuilder
+{
 public:
-    enum class BlendMode {
+    enum class BlendMode
+    {
         ALPHA_BLEND,
         ADDITIVE_BLEND,
         NO_BLEND
     };
-
-    std::vector<VkPipelineShaderStageCreateInfo> _shaderStages;
-
-    VkPipelineInputAssemblyStateCreateInfo _inputAssembly{};
-    VkPipelineRasterizationStateCreateInfo _rasterizer{};
-    VkPipelineMultisampleStateCreateInfo _multisampling{};
-    VkPipelineColorBlendAttachmentState _colorBlendAttachment{};
-    VkPipelineRenderingCreateInfo _renderInfo{};
-    VkPipelineDepthStencilStateCreateInfo _depthStencil{};
-
-    VkPipelineLayout _pipelineLayout{VK_NULL_HANDLE};
-    VkFormat _colorAttachmentFormat{};
 
     PipelineBuilder() { clear(); }
 
@@ -40,13 +30,23 @@ public:
 
     void setShaders(VkShaderModule vertexShader, VkShaderModule fragmentShader);
 
+    /**
+     * Care must be taken when using this to ensure that the pointers are still valid when the pipeline is constructed
+     * @param bindings
+     * @param bindingCount
+     * @param attributes
+     * @param attributeCount
+     */
+    void setupVertexInput(VkVertexInputBindingDescription* bindings, uint32_t bindingCount, VkVertexInputAttributeDescription* attributes,
+                          uint32_t attributeCount);
+
     void setupInputAssembly(VkPrimitiveTopology topology);
 
     void setupRasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace);
 
-    void setup_multisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples
-                             , float minSampleShading, const VkSampleMask *pSampleMask
-                             , VkBool32 alphaToCoverageEnable, VkBool32 alphaToOneEnable);
+    void setupMultisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples
+                            , float minSampleShading, const VkSampleMask* pSampleMask
+                            , VkBool32 alphaToCoverageEnable, VkBool32 alphaToOneEnable);
 
     void setupRenderer(VkFormat colorattachmentFormat, VkFormat depthAttachmentFormat);
 
@@ -62,9 +62,9 @@ public:
      * @param minDepthBounds
      * @param maxDepthBounds
      */
-    void setup_depth_stencil(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp
-                             , VkBool32 depthBoundsTestEnable, VkBool32 stencilTestEnable, VkStencilOpState front, VkStencilOpState back
-                             , float minDepthBounds, float maxDepthBounds);
+    void setupDepthStencil(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp
+                           , VkBool32 depthBoundsTestEnable, VkBool32 stencilTestEnable, VkStencilOpState front, VkStencilOpState back
+                           , float minDepthBounds, float maxDepthBounds);
 
 
     void setupBlending(PipelineBuilder::BlendMode mode);
@@ -86,9 +86,24 @@ public:
     /**
      * Shortcut to disable depth testing for this pipeline
      */
-    void disable_depthtest();
+    void disableDepthtest();
 
     VkPipelineDynamicStateCreateInfo generateDynamicStates(VkDynamicState states[], uint32_t count);
+
+private:
+    std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
+
+    bool vertexInputEnabled{false};
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+    VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
+    VkPipelineRasterizationStateCreateInfo rasterizer{};
+    VkPipelineMultisampleStateCreateInfo multisampling{};
+    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
+    VkPipelineRenderingCreateInfo renderInfo{};
+    VkPipelineDepthStencilStateCreateInfo depthStencil{};
+
+    VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
+    VkFormat colorAttachmentFormat{};
 };
 
 

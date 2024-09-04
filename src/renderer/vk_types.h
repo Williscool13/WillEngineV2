@@ -8,11 +8,8 @@
 #include <vector>
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
+#include <glm/glm.hpp>
 
-
-class VkTypes {
-
-};
 struct CubemapImageView {
     VkImageView imageView;
     VkExtent3D imageExtent;
@@ -40,6 +37,19 @@ struct AllocatedCubemap {
     int mipLevels; //should be equal to cubemapImageViews.size()
 
 };
+
+
+struct Vertex
+{
+    glm::vec3 position;
+};
+
+struct Mesh
+{
+    std::vector<Vertex> vertices;
+    std::vector<uint32_t> indices;
+};
+
 
 
 

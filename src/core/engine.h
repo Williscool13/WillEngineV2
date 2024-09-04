@@ -33,7 +33,7 @@
 #include "../renderer/vk_descriptor_buffer.h"
 #include "../renderer/vk_helpers.h"
 #include "camera/free_camera.h"
-#include "draw/environment.h"
+#include "environment.h"
 
 constexpr unsigned int FRAME_OVERLAP = 2;
 
@@ -85,7 +85,7 @@ public:
 
     void drawRender(VkCommandBuffer cmd);
 
-
+    void drawCube(VkCommandBuffer cmd);
 
     void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
 
@@ -117,6 +117,14 @@ private: // Initialization
     void initEnvironmentPipeline();
 
     void initStaticScene();
+
+    VkPipelineLayout cubePipelineLayout{VK_NULL_HANDLE};
+    VkPipeline cubePipeline{VK_NULL_HANDLE};
+    Mesh cubeMesh;
+    AllocatedBuffer cubeVertexBuffer{};
+    AllocatedBuffer cubeIndexBuffer{};
+
+    void initTesting();
 
 public:
     void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const;
@@ -169,7 +177,7 @@ private: // Scene
 private: // Pipelines
     VkDescriptorSetLayout computeImageDescriptorSetLayout;
     DescriptorBufferSampler computeImageDescriptorBuffer;
-    VkPipelineLayout backgroundEffectPipelineLayout;
+    VkPipelineLayout computePipelineLayout;
 
     VkPipeline computePipeline;
 
