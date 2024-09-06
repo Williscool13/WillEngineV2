@@ -22,6 +22,12 @@
 #endif
 
 
+VkSampler Engine::defaultSamplerLinear{VK_NULL_HANDLE};
+VkSampler Engine::defaultSamplerNearest{VK_NULL_HANDLE};
+AllocatedImage Engine::whiteImage{};
+AllocatedImage Engine::errorCheckerboardImage{};
+
+
 void Engine::init()
 {
     fmt::print("Initializing Will Engine V2\n");
@@ -668,9 +674,6 @@ void Engine::initSyncStructures()
 
 void Engine::initDefaultData()
 {
-    // Initialization of default textures and samplers for all models to use. In cases where models don't have an albedo texture, they will fallback to
-    // the white texture (sometimes only vertex colors are assigned)
-
     // white image
     uint32_t white = packUnorm4x8(glm::vec4(1, 1, 1, 1));
     AllocatedImage newImage = createImage(VkExtent3D{1, 1, 1}, VK_FORMAT_R8G8B8A8_UNORM,
@@ -995,13 +998,35 @@ void Engine::initTesting()
         mainBinding.stride = sizeof(Vertex);
         mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-        VkVertexInputAttributeDescription positionAttribute{};
-        positionAttribute.binding = 0;
-        positionAttribute.location = 0;
-        positionAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
-        positionAttribute.offset = 0; // sizeof(Vertex, position);
 
-        renderPipelineBuilder.setupVertexInput(&mainBinding, 1, &positionAttribute, 1);
+        VkVertexInputAttributeDescription vertexAttributes[5];
+        vertexAttributes[0].binding = 0;
+        vertexAttributes[0].location = 0;
+        vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+        vertexAttributes[0].offset = offsetof(Vertex, position);
+
+
+        vertexAttributes[1].binding = 0;
+        vertexAttributes[1].location = 1;
+        vertexAttributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+        vertexAttributes[1].offset = offsetof(Vertex, normal);
+
+        vertexAttributes[2].binding = 0;
+        vertexAttributes[2].location = 2;
+        vertexAttributes[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        vertexAttributes[2].offset = offsetof(Vertex, color);
+
+        vertexAttributes[3].binding = 0;
+        vertexAttributes[3].location = 3;
+        vertexAttributes[3].format = VK_FORMAT_R32G32_SFLOAT;
+        vertexAttributes[3].offset = offsetof(Vertex, uv);
+
+        vertexAttributes[4].binding = 0;
+        vertexAttributes[4].location = 4;
+        vertexAttributes[4].format = VK_FORMAT_R32_UINT;
+        vertexAttributes[4].offset = offsetof(Vertex, materialIndex);
+
+        renderPipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 5);
     }
 
     renderPipelineBuilder.setShaders(vertShader, fragShader);
@@ -1059,11 +1084,10 @@ void Engine::initTesting()
                 size_t initial_vtx = vertices.size();
                 size_t materialIndex = 0;
 
-                /*if (p.materialIndex.has_value()) {
+                if (p.materialIndex.has_value()) {
                     materialIndex = p.materialIndex.value() + 1;
-                    MaterialPass matType = static_cast<MaterialPass>(file.materials[materialIndex].alphaCutoff.y);
-                    if (matType == MaterialPass::Transparent) { hasTransparentPrimitives = true; }
-                }*/
+                    hasTransparentPrimitives = gltf.materials[materialIndex].alphaMode == fastgltf::AlphaMode::Blend;
+                }
 
 
                 // load indexes
@@ -1086,10 +1110,7 @@ void Engine::initTesting()
                     fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, posAccessor, [&](fastgltf::math::fvec3 v, size_t index) {
                         Vertex newvtx{};
                         newvtx.position = {v.x(), v.y(), v.z()};
-                        /*newvtx.normal = {1, 0, 0}; // default init the rest of the values
-                        newvtx.color = glm::vec4{1.f};
-                        newvtx.uv = glm::vec2(0, 0);
-                        newvtx.materialIndex = static_cast<uint32_t>(materialIndex);*/
+                        newvtx.materialIndex = static_cast<uint32_t>(materialIndex);
                         vertices[initial_vtx + index] = newvtx;
                     });
                 }
@@ -1098,7 +1119,7 @@ void Engine::initTesting()
                 fastgltf::Attribute* normals = p.findAttribute("NORMAL");
                 if (normals != p.attributes.end()) {
                     fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, gltf.accessors[normals->accessorIndex], [&](fastgltf::math::fvec3 n, size_t index) {
-                        //vertices[initial_vtx + index].normal = {n.x(), n.y(), n.z()};
+                        vertices[initial_vtx + index].normal = {n.x(), n.y(), n.z()};
                     });
                 }
 
@@ -1106,7 +1127,7 @@ void Engine::initTesting()
                 fastgltf::Attribute* uvs = p.findAttribute("TEXCOORD_0");
                 if (uvs != p.attributes.end()) {
                     fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(gltf, gltf.accessors[uvs->accessorIndex], [&](fastgltf::math::fvec2 uv, size_t index) {
-                        //vertices[initial_vtx + index].uv = { uv.x(), uv.y() };
+                        vertices[initial_vtx + index].uv = { uv.x(), uv.y() };
                     });
                 }
 
@@ -1114,7 +1135,7 @@ void Engine::initTesting()
                 fastgltf::Attribute* colors = p.findAttribute("COLOR_0");
                 if (colors != p.attributes.end()) {
                     fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec4>(gltf, gltf.accessors[colors->accessorIndex], [&](fastgltf::math::fvec4 color, size_t index) {
-                        //vertices[initial_vtx + index].color = {color.x(), color.y(), color.z(), color.w()};
+                        vertices[initial_vtx + index].color = {color.x(), color.y(), color.z(), color.w()};
                     });
                 }
             }

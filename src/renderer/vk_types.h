@@ -42,6 +42,11 @@ struct AllocatedCubemap {
 struct Vertex
 {
     glm::vec3 position;
+    glm::vec3 normal{1.0f, 0.0f, 0.0f};
+    glm::vec4 color{1.0f};
+    glm::vec2 uv{0,0};
+    glm::uint32_t materialIndex{0};
+
 };
 
 struct Mesh
@@ -50,8 +55,20 @@ struct Mesh
     std::vector<uint32_t> indices;
 };
 
+struct Material
+{
+    glm::vec4 colorFactor{1.0f};
+    glm::vec4 metalRoughFactors{0.0f, 1.0f, 0.0f, 0.0f}; // x: metallic, y: roughness
+    glm::vec4 textureImageIndices{-1.0f};   // x: base color, y: metallic roughness, z: pad, w: pad
+    glm::vec4 textureSamplerIndices{-1.0f}; // x: base color, y: metallic roughness, z: pad, w: pad
+    glm::vec4 alphaCutoff{1.0f, 0.0f, 0.0f, 0.0f}; // x: alpha cutoff, y: alpha mode, z: padding, w: padding
+};
 
-
-
+enum class MaterialType
+{
+    OPAQUE = 0,
+    TRANSPARENT = 1,
+    MASK = 2,
+};
 
 #endif //VKTYPES_H

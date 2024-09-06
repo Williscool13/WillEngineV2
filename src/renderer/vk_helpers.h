@@ -17,6 +17,12 @@
 #include "../../extern/fmt/include/fmt/format.h"
 #include "vk_types.h"
 
+#include <fastgltf/core.hpp>
+#include <fastgltf/types.hpp>
+#include <fastgltf/tools.hpp>
+
+class Engine;
+
 namespace vk_helpers
 {
     VkImageCreateInfo imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
@@ -91,6 +97,26 @@ namespace vk_helpers
      * @return
      */
     bool loadShaderModule(const char *filePath, VkDevice device, VkShaderModule *outShaderModule);
+
+
+    VkFilter extractFilter(fastgltf::Filter filter);
+
+    VkSamplerMipmapMode extractMipmapMode(fastgltf::Filter filter);
+
+    std::optional<AllocatedImage> loadImage(const Engine* engine, const fastgltf::Asset& asset, const fastgltf::Image& image, const std::filesystem::path& filepath);
+
+    /**
+     * Loads a fastgltf texture.
+     * Assumes that index 0 is a default image/sampler, so offset both by +1
+     * @param texture
+     * @param gltf
+     * @param imageIndex
+     * @param samplerIndex
+     * @param imageOffset
+     * @param samplerOffset
+     */
+    void loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, float& imageIndex, float& samplerIndex, size_t
+                     imageOffset = 0, size_t samplerOffset = 0);
 }
 
 

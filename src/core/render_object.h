@@ -10,6 +10,13 @@
 
 #include "engine.h"
 
+struct RenderMesh
+{
+    uint32_t meshIndex;
+    uint32_t vertexOffset;
+    uint32_t indexStart;
+    uint32_t indexCount;
+};
 
 class RenderObject {
 public:
@@ -33,6 +40,12 @@ private:
 
     // the game will adjust the pipeline object as necessary (without shader objects this is slightly less flexible)
     // the game will then execute drawIndirectDrawBuffers
+
+private:
+    std::vector<RenderMesh> meshes;
+
+    AllocatedBuffer vertexBuffer;
+    AllocatedBuffer indexBuffer;
 };
 
 
