@@ -104,6 +104,10 @@ private: // Initialization
 
     void initSyncStructures();
 
+    /**
+    * Initialization of default textures and samplers for all models to use.
+    * Used in cases where models don't have an albedo texture, they will fallback to he white texture (sometimes only vertex colors are assigned)
+     */
     void initDefaultData();
 
     void initDearImgui();
@@ -217,11 +221,11 @@ private: // Draw Images
 
     void createDrawImages(uint32_t width, uint32_t height);
 
-private: // Default Data
-    AllocatedImage whiteImage;
-    AllocatedImage errorCheckerboardImage;
-    VkSampler defaultSamplerLinear{VK_NULL_HANDLE};
-    VkSampler defaultSamplerNearest{VK_NULL_HANDLE};
+public: // Default Data
+    static AllocatedImage whiteImage;
+    static AllocatedImage errorCheckerboardImage;
+    static VkSampler defaultSamplerLinear;
+    static VkSampler defaultSamplerNearest;
 
 private: // DearImgui
     VkDescriptorPool imguiPool{VK_NULL_HANDLE};

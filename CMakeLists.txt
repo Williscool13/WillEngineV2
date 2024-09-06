@@ -96,9 +96,7 @@ target_include_directories(WillEngine PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/deps/simdjson           # simdjson
         ${IMGUI_DIR}                                                        # ImGui
         ${IMGUI_DIR}/backends                                               # ImGui backends
-        ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
-
 
 # Some AI BS. IDK what it does, but it works.
 function(copy_directory src dst)

@@ -5,6 +5,9 @@
 #include "vk_helpers.h"
 
 #include <filesystem>
+#include <stb_image.h>
+
+#include "../core/engine.h"
 
 VkImageCreateInfo vk_helpers::imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
 {
@@ -184,7 +187,7 @@ VkSemaphoreSubmitInfo vk_helpers::semaphoreSubmitInfo(VkPipelineStageFlags2 stag
     return submitInfo;
 }
 
-VkRenderingAttachmentInfo vk_helpers::attachmentInfo(VkImageView view, VkClearValue *clear, VkImageLayout layout)
+VkRenderingAttachmentInfo vk_helpers::attachmentInfo(VkImageView view, VkClearValue* clear, VkImageLayout layout)
 {
     VkRenderingAttachmentInfo colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -201,8 +204,8 @@ VkRenderingAttachmentInfo vk_helpers::attachmentInfo(VkImageView view, VkClearVa
     return colorAttachment;
 }
 
-VkRenderingInfo vk_helpers::renderingInfo(VkExtent2D renderExtent, VkRenderingAttachmentInfo *colorAttachment,
-                                          VkRenderingAttachmentInfo *depthAttachment)
+VkRenderingInfo vk_helpers::renderingInfo(VkExtent2D renderExtent, VkRenderingAttachmentInfo* colorAttachment,
+                                          VkRenderingAttachmentInfo* depthAttachment)
 {
     VkRenderingInfo renderInfo{};
     renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -218,8 +221,8 @@ VkRenderingInfo vk_helpers::renderingInfo(VkExtent2D renderExtent, VkRenderingAt
     return renderInfo;
 }
 
-VkSubmitInfo2 vk_helpers::submitInfo(VkCommandBufferSubmitInfo *cmd, VkSemaphoreSubmitInfo *signalSemaphoreInfo,
-                                     VkSemaphoreSubmitInfo *waitSemaphoreInfo)
+VkSubmitInfo2 vk_helpers::submitInfo(VkCommandBufferSubmitInfo* cmd, VkSemaphoreSubmitInfo* signalSemaphoreInfo,
+                                     VkSemaphoreSubmitInfo* waitSemaphoreInfo)
 {
     VkSubmitInfo2 info = {};
     info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
@@ -402,7 +405,7 @@ VkPipelineLayoutCreateInfo vk_helpers::pipelineLayoutCreateInfo()
     return info;
 }
 
-VkPipelineShaderStageCreateInfo vk_helpers::pipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shaderModule, const char *entry)
+VkPipelineShaderStageCreateInfo vk_helpers::pipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shaderModule, const char* entry)
 {
     VkPipelineShaderStageCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -416,13 +419,12 @@ VkPipelineShaderStageCreateInfo vk_helpers::pipelineShaderStageCreateInfo(VkShad
     return info;
 }
 
-bool vk_helpers::loadShaderModule(const char *filePath, VkDevice device, VkShaderModule *outShaderModule)
+bool vk_helpers::loadShaderModule(const char* filePath, VkDevice device, VkShaderModule* outShaderModule)
 {
     std::filesystem::path shaderPath(filePath);
 
     // open the file. With cursor at the end
     std::ifstream file(shaderPath, std::ios::ate | std::ios::binary);
-
 
 
     if (!file.is_open()) {
@@ -463,4 +465,176 @@ bool vk_helpers::loadShaderModule(const char *filePath, VkDevice device, VkShade
     }
     *outShaderModule = shaderModule;
     return true;
+}
+
+
+VkFilter vk_helpers::extractFilter(const fastgltf::Filter filter)
+{
+    switch (filter) {
+        // nearest samplers
+        case fastgltf::Filter::Nearest:
+        case fastgltf::Filter::NearestMipMapNearest:
+        case fastgltf::Filter::NearestMipMapLinear:
+            return VK_FILTER_NEAREST;
+
+        // linear samplers
+        case fastgltf::Filter::Linear:
+        case fastgltf::Filter::LinearMipMapNearest:
+        case fastgltf::Filter::LinearMipMapLinear:
+        default:
+            return VK_FILTER_LINEAR;
+    }
+}
+
+VkSamplerMipmapMode vk_helpers::extractMipmapMode(const fastgltf::Filter filter)
+{
+    switch (filter) {
+        case fastgltf::Filter::NearestMipMapNearest:
+        case fastgltf::Filter::LinearMipMapNearest:
+            return VK_SAMPLER_MIPMAP_MODE_NEAREST;
+
+        case fastgltf::Filter::NearestMipMapLinear:
+        case fastgltf::Filter::LinearMipMapLinear:
+        default:
+            return VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    }
+}
+
+std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const fastgltf::Asset& asset, const fastgltf::Image& image,
+                                                    const std::filesystem::path& filepath)
+{
+    AllocatedImage newImage{};
+
+    int width{}, height{}, nrChannels{};
+
+    std::visit(
+        fastgltf::visitor{
+            [](auto& arg) {},
+            [&](fastgltf::sources::URI& filePath) {
+                assert(filePath.fileByteOffset == 0); // We don't support offsets with stbi.
+                assert(filePath.uri.isLocalPath()); // We're only capable of loading
+                // local files.
+                const std::string path(filePath.uri.path().begin(), filePath.uri.path().end()); // Thanks C++.
+                std::string fullpath = filepath.string() + "\\" + path;
+
+                //std::string extension = getFileExtension(fullpath);
+                /*if (isKTXFile(extension)) {
+                    ktxTexture* kTexture;
+                    KTX_error_code ktxresult;
+
+                    ktxresult = ktxTexture_CreateFromNamedFile(
+                        fullpath.c_str(),
+                        KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT,
+                        &kTexture);
+
+
+                    if (ktxresult == KTX_SUCCESS) {
+                        VkImageFormatProperties formatProperties;
+                        VkResult result = vkGetPhysicalDeviceImageFormatProperties(engine->_physicalDevice
+                            , ktxTexture_GetVkFormat(kTexture), VK_IMAGE_TYPE_2D
+                            , VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT, 0, &formatProperties);
+                        if (result == VK_ERROR_FORMAT_NOT_SUPPORTED) {
+                            fmt::print("Image found with format not supported\n");
+                            VkExtent3D imagesize;
+                            imagesize.width = 1;
+                            imagesize.height = 1;
+                            imagesize.depth = 1;
+                            unsigned char data[4] = { 255, 0, 255, 1 };
+                            newImage = engine->_resourceConstructor->create_image(data, 4, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
+                        }
+                        else {
+                            unsigned char* data = (unsigned char*)ktxTexture_GetData(kTexture);
+                            VkExtent3D imageExtents{};
+                            imageExtents.width = kTexture->baseWidth;
+                            imageExtents.height = kTexture->baseHeight;
+                            imageExtents.depth = 1;
+                            newImage = engine->_resourceConstructor->create_image(data, kTexture->dataSize, imageExtents, ktxTexture_GetVkFormat(kTexture), VK_IMAGE_USAGE_SAMPLED_BIT, false);
+                        }
+
+                    }
+
+                    ktxTexture_Destroy(kTexture);
+                }*/
+
+                unsigned char* data = stbi_load(fullpath.c_str(), &width, &height, &nrChannels, 4);
+                if (data) {
+                    VkExtent3D imagesize;
+                    imagesize.width = width;
+                    imagesize.height = height;
+                    imagesize.depth = 1;
+                    size_t size = width * height * 4;
+                    newImage = engine->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
+
+                    stbi_image_free(data);
+                }
+            },
+            [&](fastgltf::sources::Array& vector) {
+                unsigned char* data = stbi_load_from_memory(reinterpret_cast<const unsigned char *>(vector.bytes.data()),
+                                                            static_cast<int>(vector.bytes.size()),
+                                                            &width, &height, &nrChannels, 4);
+                if (data) {
+                    VkExtent3D imagesize;
+                    imagesize.width = width;
+                    imagesize.height = height;
+                    imagesize.depth = 1;
+                    size_t size = width * height * 4;
+                    newImage = engine->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT,
+                                                   false);
+
+                    stbi_image_free(data);
+                }
+            },
+            [&](const fastgltf::sources::BufferView& view) {
+                const fastgltf::BufferView& bufferView = asset.bufferViews[view.bufferViewIndex];
+                const fastgltf::Buffer& buffer = asset.buffers[bufferView.bufferIndex];
+                // We only care about VectorWithMime here, because we
+                // specify LoadExternalBuffers, meaning all buffers
+                // are already loaded into a vector.
+                std::visit(
+                    fastgltf::visitor{
+                        [](auto& arg) {},
+                        [&](fastgltf::sources::Array& vector) {
+                            unsigned char* data = stbi_load_from_memory(
+                                reinterpret_cast<const unsigned char *>(vector.bytes.data()) + bufferView.byteOffset,
+                                static_cast<int>(bufferView.byteLength), &width, &height, &nrChannels, 4);
+                            if (data) {
+                                VkExtent3D imagesize;
+                                imagesize.width = width;
+                                imagesize.height = height;
+                                imagesize.depth = 1;
+                                size_t size = width * height * 4;
+                                newImage = engine->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM,
+                                                               VK_IMAGE_USAGE_SAMPLED_BIT, false);
+                                stbi_image_free(data);
+                            }
+                        }
+                    }, buffer.data);
+            },
+        }, image.data);
+
+    // if any of the attempts to load the data failed, we havent written the image
+    // so handle is null
+    if (newImage.image == VK_NULL_HANDLE) {
+        fmt::print("Image failed to load: {}\n", image.name.c_str());
+        return {};
+    } else {
+        return newImage;
+    }
+}
+
+void vk_helpers::loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, float& imageIndex,
+                             float& samplerIndex, const size_t imageOffset, const size_t samplerOffset)
+{
+    if (!texture.has_value()) {
+        return;
+    }
+
+    const size_t textureIndex = texture.value().textureIndex;
+    if (gltf.textures[textureIndex].imageIndex.has_value()) {
+        imageIndex = static_cast<float>(gltf.textures[textureIndex].imageIndex.value() + imageOffset);
+    }
+
+    if (gltf.textures[textureIndex].samplerIndex.has_value()) {
+        samplerIndex = static_cast<float>(gltf.textures[textureIndex].samplerIndex.value() + samplerOffset);
+    }
 }
