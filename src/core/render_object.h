@@ -37,7 +37,6 @@ private:
     // nodes
 
 
-    DescriptorBufferSampler textureDescriptorBuffer;
 
     //void BindDescriptors(VkCommandBuffer cmd);
     // indirects are then constructed/reconstructed every frame elsewhere in the code.
@@ -51,33 +50,24 @@ private:
 
     std::vector<RenderNode> renderNodes;
     std::vector<int32_t> topNodes;
-    //std::vector<RenderNode*> topNodes;
 
-    AllocatedBuffer materialBuffer;
-
-public:
-    AllocatedBuffer& getVertexBuffer()
-    {
-        return vertexBuffer;
-    }
-    AllocatedBuffer& getIndexBuffer()
-    {
-        return indexBuffer;
-    }
-
-    void draw(const VkCommandBuffer& cmd);
+    std::vector<VkDrawIndexedIndirectCommand> drawIndirectCommands;
+    std::vector<InstanceData> instanceDatas;
 
 public:
     GameObject* GenerateGameObject();
 
+    void draw(const VkCommandBuffer& cmd);
+
 private: // Drawing
-    AllocatedBuffer vertexBuffer;
-    AllocatedBuffer indexBuffer;
+    AllocatedBuffer vertexBuffer{};
+    AllocatedBuffer indexBuffer{};
+    AllocatedBuffer drawIndirectBuffer{};
 
-    AllocatedBuffer drawIndirectBuffer;
+    AllocatedBuffer materialBuffer{};
 
-    std::vector<VkDrawIndexedIndirectCommand> drawIndirectCommands;
-    std::vector<InstanceData> instanceDatas;
+    DescriptorBufferSampler textureDescriptorBuffer;
+
 
     GameObject* RecursiveGenerateGameObject(const RenderNode& renderNode);
 

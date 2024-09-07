@@ -85,8 +85,6 @@ public:
 
     void drawRender(VkCommandBuffer cmd);
 
-    void drawCube(VkCommandBuffer cmd);
-
     void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
 
     /**
@@ -120,18 +118,7 @@ private: // Initialization
 
     void initEnvironmentPipeline();
 
-    void initStaticScene();
-
-    VkPipelineLayout cubePipelineLayout{VK_NULL_HANDLE};
-    VkPipeline cubePipeline{VK_NULL_HANDLE};
-    Mesh cubeMesh;
-    AllocatedBuffer cubeVertexBuffer{};
-    AllocatedBuffer cubeIndexBuffer{};
-
-    RenderObject* cubeRenderObject;
-    GameObject* cubeGameObject;
-
-    void initTesting();
+    void initScene();
 
 public:
     void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const;
@@ -179,7 +166,7 @@ private: // Scene
     FreeCamera camera{};
     Scene scene{};
 
-    Environment* environment{};
+    Environment* environment{nullptr};
 
 private: // Pipelines
     VkDescriptorSetLayout computeImageDescriptorSetLayout;
@@ -188,13 +175,12 @@ private: // Pipelines
 
     VkPipeline computePipeline;
 
-    VkDescriptorSetLayout renderImageDescriptorSetLayout;
-    VkDescriptorSetLayout renderUniformDescriptorSetLayout;
-    DescriptorBufferSampler renderImageDescriptorBuffer;
-    DescriptorBufferUniform renderUniformDescriptorBuffer;
-    VkPipelineLayout renderPipelineLayout;
+    // Render
+    VkPipelineLayout renderPipelineLayout{VK_NULL_HANDLE};
+    VkPipeline renderPipeline{VK_NULL_HANDLE};
+    RenderObject* testRenderObject{nullptr};
+    GameObject* testGameObject{nullptr};
 
-    VkPipeline renderPipeline;
 
     // Environment
     VkPipelineLayout environmentPipelineLayout;

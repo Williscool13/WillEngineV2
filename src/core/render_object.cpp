@@ -380,6 +380,10 @@ RenderObject::~RenderObject()
 
 void RenderObject::draw(const VkCommandBuffer& cmd)
 {
+    if (vertexBuffer.buffer == VK_NULL_HANDLE) {
+        return;
+    }
+
     VkDeviceSize offsets{ 0 };
     vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer.buffer, &offsets);
     vkCmdBindIndexBuffer(cmd, indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
