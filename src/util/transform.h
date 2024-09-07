@@ -24,6 +24,10 @@ private:
 public:
     Transform() : position(0.0f), rotation(0.0f), scale(1.0f), cachedWorldMatrix(1.0f), isDirty(true) {}
 
+    Transform(const glm::vec3 position, const glm::vec3 rotation, const glm::vec3 scale)
+        : position(position), rotation(rotation), scale(scale), cachedWorldMatrix(1.0f), isDirty(true) {}
+
+
     Position getPosition() const { return position; }
     Rotation getRotation() const { return rotation; }
     Scale getScale() const { return scale; }

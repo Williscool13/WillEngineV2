@@ -168,7 +168,7 @@ void Environment::loadCubemap(const char* path, int environmentMapIndex)
     equiImageDescriptorInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     // needs to match the order of the bindings in the layout
-    std::vector<DescriptorImageData> combined_descriptor = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &equiImageDescriptorInfo, 1}};
+    std::vector<DescriptorImageData> combined_descriptor = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, equiImageDescriptorInfo}};
     equiImageDescriptorBuffer.setupData(device, combined_descriptor);
 
 
@@ -176,10 +176,10 @@ void Environment::loadCubemap(const char* path, int environmentMapIndex)
     cubemapDescriptor.sampler = sampler;
     cubemapDescriptor.imageView = newEnvMapData.cubemapImage.imageView;
     cubemapDescriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-    std::vector<DescriptorImageData> cubemapStorageDescriptor = {{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &cubemapDescriptor, 1}};
+    std::vector<DescriptorImageData> cubemapStorageDescriptor = {{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, cubemapDescriptor}};
     int cubemapIndex = cubemapStorageDescriptorBuffer.setupData(device, cubemapStorageDescriptor);
     cubemapDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    std::vector<DescriptorImageData> cubemapSamplerDescriptor = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &cubemapDescriptor, 1}};
+    std::vector<DescriptorImageData> cubemapSamplerDescriptor = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, cubemapDescriptor}};
     cubemapDescriptorBuffer.setupData(device, cubemapSamplerDescriptor, environmentMapIndex);
 
 
@@ -209,35 +209,33 @@ void Environment::loadCubemap(const char* path, int environmentMapIndex)
     assert(specularPrefilteredBaseExtents.width == specularPrefilteredBaseExtents.height);
 
     for (int i = 0; i < specularPrefilteredMipLevels; i++) {
-        CubemapImageView image_view{};
+        CubemapImageView cubemapImageView{};
         VkImageViewCreateInfo view_info = vk_helpers::cubemapViewCreateInfo(newEnvMapData.specDiffCubemap.imageFormat,
                                                                             newEnvMapData.specDiffCubemap.image, VK_IMAGE_ASPECT_COLOR_BIT);
         view_info.subresourceRange.baseMipLevel = i;
-        VK_CHECK(vkCreateImageView(device, &view_info, nullptr, &image_view.imageView));
+        VK_CHECK(vkCreateImageView(device, &view_info, nullptr, &cubemapImageView.imageView));
 
         auto length = static_cast<uint32_t>(specularPrefilteredBaseExtents.width / pow(2, i)); // w and h always equal
-        image_view.imageExtent = {length, length, 1};
+        cubemapImageView.imageExtent = {length, length, 1};
         float roughness{};
         int j = i;
         if (i > 5) { j = i - 1; }
         if (i == 5) { roughness = -1; } // diffuse irradiance map
         else { roughness = static_cast<float>(j) / static_cast<float>(specularPrefilteredMipLevels - 2); }
 
-        image_view.roughness = roughness;
+        cubemapImageView.roughness = roughness;
 
         VkDescriptorImageInfo prefilteredCubemapStorage{};
         prefilteredCubemapStorage.sampler = nullptr; // sampler not actually used in storage image
-        prefilteredCubemapStorage.imageView = image_view.imageView;
+        prefilteredCubemapStorage.imageView = cubemapImageView.imageView;
         prefilteredCubemapStorage.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
-        std::vector<DescriptorImageData> prefiltered_cubemap_storage_descriptor = {
-            {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &prefilteredCubemapStorage, 1}
-        };
+        std::vector<DescriptorImageData> prefilteredCubemapStorageDescriptor = {{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, prefilteredCubemapStorage}};
 
-        int descriptorBufferIndex = cubemapStorageDescriptorBuffer.setupData(device, prefiltered_cubemap_storage_descriptor);
-        image_view.descriptorBufferIndex = descriptorBufferIndex;
+        int descriptorBufferIndex = cubemapStorageDescriptorBuffer.setupData(device, prefilteredCubemapStorageDescriptor);
+        cubemapImageView.descriptorBufferIndex = descriptorBufferIndex;
 
-        specDiffCubemap.cubemapImageViews[i] = image_view;
+        specDiffCubemap.cubemapImageViews[i] = cubemapImageView;
     }
 
     cubemapToDiffuseSpecularImmediate(specDiffCubemap, environmentMapIndex);
@@ -263,12 +261,12 @@ void Environment::loadCubemap(const char* path, int environmentMapIndex)
     lutDescriptorInfo.imageView = lutImage.imageView;
     lutDescriptorInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
-    std::vector<DescriptorImageData> combined_descriptor2 = {
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &diffSpecDescriptorInfo, 1},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &lutDescriptorInfo, 1}
+    std::vector<DescriptorImageData> combinedDescriptor2 = {
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, diffSpecDescriptorInfo},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, lutDescriptorInfo}
     };
 
-    diffSpecMapDescriptorBuffer.setupData(device, combined_descriptor2, environmentMapIndex);
+    diffSpecMapDescriptorBuffer.setupData(device, combinedDescriptor2, environmentMapIndex);
 
     environmentMaps[environmentMapIndex] = newEnvMapData;
 
@@ -638,9 +636,7 @@ void Environment::initializeStatics(Engine* engine)
         lutDescriptorInfo.imageView = lutImage.imageView;
         lutDescriptorInfo.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
-        std::vector<DescriptorImageData> descriptor = {
-            {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &lutDescriptorInfo, 1}
-        };
+        std::vector<DescriptorImageData> descriptor = {{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, lutDescriptorInfo}};
 
 
         lutDescriptorBuffer.setupData(engine->getDevice(), descriptor); // index 0, obviously

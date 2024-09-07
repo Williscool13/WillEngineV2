@@ -622,8 +622,8 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
     }
 }
 
-void vk_helpers::loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, float& imageIndex,
-                             float& samplerIndex, const size_t imageOffset, const size_t samplerOffset)
+void vk_helpers::loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, int& imageIndex,
+                             int& samplerIndex, const size_t imageOffset, const size_t samplerOffset)
 {
     if (!texture.has_value()) {
         return;
@@ -631,10 +631,10 @@ void vk_helpers::loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& te
 
     const size_t textureIndex = texture.value().textureIndex;
     if (gltf.textures[textureIndex].imageIndex.has_value()) {
-        imageIndex = static_cast<float>(gltf.textures[textureIndex].imageIndex.value() + imageOffset);
+        imageIndex = gltf.textures[textureIndex].imageIndex.value() + imageOffset;
     }
 
     if (gltf.textures[textureIndex].samplerIndex.has_value()) {
-        samplerIndex = static_cast<float>(gltf.textures[textureIndex].samplerIndex.value() + samplerOffset);
+        samplerIndex = gltf.textures[textureIndex].samplerIndex.value() + samplerOffset;
     }
 }

@@ -17,9 +17,9 @@
 
 
 struct DescriptorImageData {
-    VkDescriptorType type;
-    VkDescriptorImageInfo *image_info;
-    size_t count;
+    VkDescriptorType type{VK_DESCRIPTOR_TYPE_SAMPLER};
+    VkDescriptorImageInfo imageInfo{};
+    bool padding{false};
 };
 
 struct DescriptorUniformData {
@@ -32,6 +32,8 @@ class DescriptorBuffer {
 public:
     DescriptorBuffer() = default;
 
+    virtual ~DescriptorBuffer() = default;
+
     DescriptorBuffer(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator,
                      VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount = 10);
 
@@ -41,7 +43,7 @@ public:
 
     VkDescriptorBufferBindingInfoEXT getDescriptorBufferBindingInfo();
 
-    VkDeviceSize getDescriptorBufferSize() { return descriptorBufferSize; }
+    VkDeviceSize getDescriptorBufferSize() const { return descriptorBufferSize; }
 
 protected:
     /**

@@ -18,10 +18,19 @@ struct RenderMesh
     uint32_t indexCount;
 };
 
+struct RenderNode
+{
+    Transform transform;
+    std::vector<RenderNode> children;
+    RenderNode* parent;
+    int meshIndex{-1};
+};
+
 class RenderObject {
 public:
     RenderObject() = default;
     RenderObject(Engine* engine, std::string_view gltfFilepath);
+    ~RenderObject();
 
 private:
     // samplers
@@ -30,9 +39,8 @@ private:
     // vertices and indices
     // nodes
 
-    VkDescriptorSetLayout bufferAddressesDescriptorSetLayout{VK_NULL_HANDLE};
-    VkDescriptorSetLayout textureDescriptorSetLayout{VK_NULL_HANDLE};
-    VkDescriptorSetLayout computeCullingDescriptorSetLayout{VK_NULL_HANDLE};
+
+    DescriptorBufferSampler textureDescriptorBuffer;
 
     void BindDescriptors(VkCommandBuffer cmd);
     // indirects are then constructed/reconstructed every frame elsewhere in the code.
@@ -46,6 +54,16 @@ private:
 
     AllocatedBuffer vertexBuffer;
     AllocatedBuffer indexBuffer;
+
+    AllocatedBuffer materialBuffer;
+
+    std::vector<RenderNode> renderNodes;
+private:
+    Engine* creator;
+
+    VkDescriptorSetLayout bufferAddressesDescriptorSetLayout{VK_NULL_HANDLE};
+    VkDescriptorSetLayout textureDescriptorSetLayout{VK_NULL_HANDLE};
+    VkDescriptorSetLayout computeCullingDescriptorSetLayout{VK_NULL_HANDLE};
 };
 
 

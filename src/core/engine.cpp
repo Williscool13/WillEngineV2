@@ -15,6 +15,8 @@
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
 
+#include "render_object.h"
+
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
 #else
@@ -289,7 +291,7 @@ void Engine::draw()
     VkRenderingInfo renderInfo = vk_helpers::renderingInfo(drawExtent, &colorAttachment, &depthAttachment);
     vkCmdBeginRendering(cmd, &renderInfo);
 
-    //drawEnvironment(cmd);
+     drawEnvironment(cmd);
     //drawRender(cmd);
     drawCube(cmd);
 
@@ -454,7 +456,7 @@ void Engine::drawRender(VkCommandBuffer cmd)
 
 void Engine::drawCube(VkCommandBuffer cmd)
 {
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, cubePipeline);
+    /*vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, cubePipeline);
 
     // Dynamic States
     //  Viewport
@@ -484,7 +486,7 @@ void Engine::drawCube(VkCommandBuffer cmd)
     vkCmdBindVertexBuffers(cmd, 0, 1, &cubeVertexBuffer.buffer, &vertexOffsets);
     vkCmdBindIndexBuffer(cmd, cubeIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
 
-    vkCmdDrawIndexed(cmd, cubeMesh.indices.size(), 1, 0, 0, 0);
+    vkCmdDrawIndexed(cmd, cubeMesh.indices.size(), 1, 0, 0, 0);*/
 }
 
 void Engine::drawImgui(VkCommandBuffer cmd, VkImageView targetImageView)
@@ -783,7 +785,7 @@ void Engine::initComputePipelines()
 
     // needs to match the order of the bindings in the layout
     std::vector<DescriptorImageData> storageImage = {
-        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, &drawImageDescriptor, 1}
+        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, drawImageDescriptor}
     };
 
     computeImageDescriptorBuffer = DescriptorBufferSampler(instance, device, physicalDevice, allocator, computeImageDescriptorSetLayout);
@@ -858,7 +860,7 @@ void Engine::initRenderPipelines()
     fullscreenCombined.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     // needs to match the order of the bindings in the layout
     std::vector<DescriptorImageData> combined_descriptor = {
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &fullscreenCombined, 1}
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, fullscreenCombined}
     };
     renderImageDescriptorBuffer.setupData(device, combined_descriptor);
 
@@ -970,7 +972,8 @@ void Engine::initStaticScene()
 
 void Engine::initTesting()
 {
-    VkPipelineLayoutCreateInfo layout_info = vk_helpers::pipelineLayoutCreateInfo();
+    RenderObject renderObject{this, "assets/models/box/Box.gltf"};
+    /*VkPipelineLayoutCreateInfo layout_info = vk_helpers::pipelineLayoutCreateInfo();
     layout_info.setLayoutCount = 0;
     layout_info.pSetLayouts = nullptr;
     VkPushConstantRange pushConstants{};
@@ -1171,7 +1174,7 @@ void Engine::initTesting()
     mainDeletionQueue.pushFunction([&]() {
         destroyBuffer(cubeVertexBuffer);
         destroyBuffer(cubeIndexBuffer);
-    });
+    });*/
 }
 
 void Engine::immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const

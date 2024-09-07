@@ -115,7 +115,7 @@ namespace vk_helpers
      * @param imageOffset
      * @param samplerOffset
      */
-    void loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, float& imageIndex, float& samplerIndex, size_t
+    void loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, int& imageIndex, int& samplerIndex, size_t
                      imageOffset = 0, size_t samplerOffset = 0);
 }
 
