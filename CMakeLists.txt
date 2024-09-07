@@ -6,6 +6,15 @@ set(CMAKE_CXX_STANDARD 20)
 add_definitions(-DVK_NO_PROTOTYPES)
 add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE)
 add_definitions(-DGLM_ENABLE_EXPERIMENTAL)
+add_compile_definitions(
+        "VMA_DEBUG_LOG(format,...)=do { printf(format, __VA_ARGS__); printf(\"\\n\"); } while(false)"
+        VMA_DEBUG_GLOBAL_MUTEX
+        VMA_DEBUG_ALIGNMENT=1
+        VMA_DEBUG_MARGIN=16
+        VMA_DEBUG_INITIALIZE_ALLOCATIONS=1
+        VMA_DEBUG_DETECT_CORRUPTION=1
+        VMA_RECORDING_ENABLED=1
+)
 
 # Vulkan
 find_package(Vulkan REQUIRED)

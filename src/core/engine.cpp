@@ -57,11 +57,11 @@ void Engine::init()
 
     initDearImgui();
 
-    initStaticScene();
+    initScene();
 
     initPipelines();
 
-    initTesting();
+
 
     auto end = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -292,8 +292,7 @@ void Engine::draw()
     vkCmdBeginRendering(cmd, &renderInfo);
 
     drawEnvironment(cmd);
-    //drawRender(cmd);
-    drawCube(cmd);
+    drawRender(cmd);
 
     vkCmdEndRendering(cmd);
 
@@ -422,43 +421,6 @@ void Engine::drawRender(VkCommandBuffer cmd)
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipeline);
 
     // Dynamic States
-    //  Viewport
-    VkViewport viewport = {};
-    viewport.x = 0;
-    viewport.y = 0;
-    viewport.width = drawExtent.width;
-    viewport.height = drawExtent.height;
-    viewport.minDepth = 0.f;
-    viewport.maxDepth = 1.f;
-    vkCmdSetViewport(cmd, 0, 1, &viewport);
-    //  Scissor
-    VkRect2D scissor = {};
-    scissor.offset.x = 0;
-    scissor.offset.y = 0;
-    scissor.extent.width = drawExtent.width;
-    scissor.extent.height = drawExtent.height;
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
-
-    VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1];
-    descriptorBufferBindingInfo[0] = renderImageDescriptorBuffer.getDescriptorBufferBindingInfo();
-    vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
-    uint32_t bufferIndexImage = 0;
-    VkDeviceSize bufferOffset = 0;
-
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipelineLayout
-                                       , 0, 1, &bufferIndexImage, &bufferOffset);
-
-    //vkCmdDrawIndexed(cmd, draw.indexCount, 1, draw.firstIndex, 0, 0);
-    float time = SDL_GetTicks64() / 1000.0f;
-    vkCmdPushConstants(cmd, renderPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(float), &time);
-    vkCmdDraw(cmd, 3, 1, 0, 0);
-}
-
-void Engine::drawCube(VkCommandBuffer cmd)
-{
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, cubePipeline);
-
-    // Dynamic States
     {
         //  Viewport
         VkViewport viewport = {};
@@ -482,9 +444,9 @@ void Engine::drawCube(VkCommandBuffer cmd)
     glm::mat4 view = camera.getViewMatrix();
     glm::mat4 proj = camera.getProjMatrix();
     glm::mat4 mvp = proj * view * model;
-    vkCmdPushConstants(cmd, cubePipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &mvp);
+    vkCmdPushConstants(cmd, renderPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &mvp);
 
-    cubeRenderObject->draw(cmd);
+    testRenderObject->draw(cmd);
 }
 
 void Engine::drawImgui(VkCommandBuffer cmd, VkImageView targetImageView)
@@ -508,8 +470,8 @@ void Engine::cleanup()
     vkDestroySampler(device, defaultSamplerLinear, nullptr);
 
     delete environment;
-    delete cubeRenderObject;
-    delete cubeGameObject;
+    delete testRenderObject;
+    delete testGameObject;
     // destroy all other resources
     mainDeletionQueue.flush();
 
@@ -843,137 +805,7 @@ void Engine::initComputePipelines()
 }
 
 void Engine::initRenderPipelines()
-{ {
-        DescriptorLayoutBuilder layoutBuilder;
-        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-
-        renderImageDescriptorSetLayout = layoutBuilder.build(device, VK_SHADER_STAGE_FRAGMENT_BIT
-                                                             , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-    }
-    renderImageDescriptorBuffer = DescriptorBufferSampler(instance, device
-                                                          , physicalDevice, allocator, renderImageDescriptorSetLayout, 1);
-
-    VkDescriptorImageInfo fullscreenCombined{};
-    fullscreenCombined.sampler = defaultSamplerNearest;
-    fullscreenCombined.imageView = errorCheckerboardImage.imageView;
-    fullscreenCombined.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    // needs to match the order of the bindings in the layout
-    std::vector<DescriptorImageData> combined_descriptor = {
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, fullscreenCombined}
-    };
-    renderImageDescriptorBuffer.setupData(device, combined_descriptor);
-
-
-    VkShaderModule vertShader;
-    if (!vk_helpers::loadShaderModule("shaders/vertex.vert.spv", device, &vertShader)) {
-        throw std::runtime_error("Error when building the triangle vertex shader module(compute.comp.spv)");
-    }
-    VkShaderModule fragShader;
-    if (!vk_helpers::loadShaderModule("shaders/fragment.frag.spv", device, &fragShader)) {
-        fmt::print("Error when building the triangle fragment shader module\n");
-    }
-
-
-    VkPipelineLayoutCreateInfo layout_info = vk_helpers::pipelineLayoutCreateInfo();
-    layout_info.setLayoutCount = 1;
-    layout_info.pSetLayouts = &renderImageDescriptorSetLayout;
-    VkPushConstantRange renderPushConstantRange{};
-    renderPushConstantRange.offset = 0;
-    renderPushConstantRange.size = sizeof(float);
-    renderPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    layout_info.pPushConstantRanges = &renderPushConstantRange;
-    layout_info.pushConstantRangeCount = 1;
-
-    VK_CHECK(vkCreatePipelineLayout(device, &layout_info, nullptr, &renderPipelineLayout));
-
-
-    PipelineBuilder renderPipelineBuilder;
-    renderPipelineBuilder.setShaders(vertShader, fragShader);
-    renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-    renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
-    renderPipelineBuilder.disableMultisampling();
-    renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
-    renderPipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    renderPipelineBuilder.setupRenderer(drawImage.imageFormat, depthImage.imageFormat);
-    renderPipelineBuilder.setupPipelineLayout(renderPipelineLayout);
-
-    renderPipeline = renderPipelineBuilder.buildPipeline(device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-
-    vkDestroyShaderModule(device, vertShader, nullptr);
-    vkDestroyShaderModule(device, fragShader, nullptr);
-
-    mainDeletionQueue.pushFunction([&]() {
-        vkDestroyDescriptorSetLayout(device, renderImageDescriptorSetLayout, nullptr);
-        renderImageDescriptorBuffer.destroy(device, allocator);
-        vkDestroyPipelineLayout(device, renderPipelineLayout, nullptr);
-        vkDestroyPipeline(device, renderPipeline, nullptr);
-    });
-}
-
-void Engine::initEnvironmentPipeline()
 {
-    assert(Environment::layoutsCreated);
-
-    VkDescriptorSetLayout layouts[1] =
-            {Environment::cubemapDescriptorSetLayout};
-
-    VkPipelineLayoutCreateInfo layout_info = vk_helpers::pipelineLayoutCreateInfo();
-    layout_info.setLayoutCount = 1;
-    layout_info.pSetLayouts = layouts;
-    VkPushConstantRange environmentPushConstantRange{};
-    environmentPushConstantRange.offset = 0;
-    environmentPushConstantRange.size = sizeof(EnvironmentSceneData);
-    environmentPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    layout_info.pPushConstantRanges = &environmentPushConstantRange;
-    layout_info.pushConstantRangeCount = 1;
-
-    VK_CHECK(vkCreatePipelineLayout(device, &layout_info, nullptr, &environmentPipelineLayout));
-
-    VkShaderModule vertShader;
-    if (!vk_helpers::loadShaderModule("shaders/environment/environment.vert.spv", device, &vertShader)) {
-        throw std::runtime_error("Error when building the triangle vertex shader module(compute.comp.spv)");
-    }
-    VkShaderModule fragShader;
-    if (!vk_helpers::loadShaderModule("shaders/environment/environment.frag.spv", device, &fragShader)) {
-        fmt::print("Error when building the triangle fragment shader module\n");
-    }
-
-    PipelineBuilder renderPipelineBuilder;
-    renderPipelineBuilder.setShaders(vertShader, fragShader);
-    renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-    renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
-    renderPipelineBuilder.disableMultisampling();
-    renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
-    renderPipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    renderPipelineBuilder.setupRenderer(drawImage.imageFormat, depthImage.imageFormat);
-    renderPipelineBuilder.setupPipelineLayout(environmentPipelineLayout);
-
-    environmentPipeline = renderPipelineBuilder.buildPipeline(device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-
-    vkDestroyShaderModule(device, vertShader, nullptr);
-    vkDestroyShaderModule(device, fragShader, nullptr);
-
-    mainDeletionQueue.pushFunction([&]() {
-        vkDestroyPipelineLayout(device, environmentPipelineLayout, nullptr);
-        vkDestroyPipeline(device, environmentPipeline, nullptr);
-    });
-}
-
-void Engine::initStaticScene()
-{
-    scene.createGameObject("First");
-    scene.createGameObject("Second");
-    scene.createGameObject("Third");
-
-    environment = new Environment(this);
-    environment->loadCubemap(Environment::defaultEquiPath, 0);
-}
-
-void Engine::initTesting()
-{
-    cubeRenderObject = new RenderObject{this, "assets/models/avocado/Avocado.gltf"};
-    cubeGameObject = cubeRenderObject->GenerateGameObject();
-
     VkPipelineLayoutCreateInfo layout_info = vk_helpers::pipelineLayoutCreateInfo();
     layout_info.setLayoutCount = 0;
     layout_info.pSetLayouts = nullptr;
@@ -984,7 +816,7 @@ void Engine::initTesting()
     layout_info.pPushConstantRanges = &pushConstants;
     layout_info.pushConstantRangeCount = 1;
 
-    VK_CHECK(vkCreatePipelineLayout(device, &layout_info, nullptr, &cubePipelineLayout));
+    VK_CHECK(vkCreatePipelineLayout(device, &layout_info, nullptr, &renderPipelineLayout));
 
 
     VkShaderModule vertShader;
@@ -1040,141 +872,79 @@ void Engine::initTesting()
     renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
     renderPipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
     renderPipelineBuilder.setupRenderer(drawImage.imageFormat, depthImage.imageFormat);
-    renderPipelineBuilder.setupPipelineLayout(cubePipelineLayout);
+    renderPipelineBuilder.setupPipelineLayout(renderPipelineLayout);
 
-    cubePipeline = renderPipelineBuilder.buildPipeline(device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    renderPipeline = renderPipelineBuilder.buildPipeline(device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
     vkDestroyShaderModule(device, vertShader, nullptr);
     vkDestroyShaderModule(device, fragShader, nullptr);
 
     mainDeletionQueue.pushFunction([&]() {
-        vkDestroyPipelineLayout(device, cubePipelineLayout, nullptr);
-        vkDestroyPipeline(device, cubePipeline, nullptr);
+        vkDestroyPipelineLayout(device, renderPipelineLayout, nullptr);
+        vkDestroyPipeline(device, renderPipeline, nullptr);
     });
+}
 
-    // Parsing GLTF
-    /*{
-        fastgltf::Parser parser{};
+void Engine::initEnvironmentPipeline()
+{
+    assert(Environment::layoutsCreated);
 
-        constexpr auto gltfOptions = fastgltf::Options::DontRequireValidAssetMember
-                                     | fastgltf::Options::AllowDouble
-                                     //| fastgltf::Options::LoadGLBBuffers
-                                     | fastgltf::Options::LoadExternalBuffers;
+    const VkDescriptorSetLayout layouts[1] = {Environment::cubemapDescriptorSetLayout};
 
-        const char* filePath = "assets/models/box/Box.gltf";
-        fastgltf::GltfDataBuffer data;
-        data.FromPath(filePath);
-        fastgltf::Asset gltf;
+    VkPipelineLayoutCreateInfo layout_info = vk_helpers::pipelineLayoutCreateInfo();
+    layout_info.setLayoutCount = 1;
+    layout_info.pSetLayouts = layouts;
+    VkPushConstantRange environmentPushConstantRange{};
+    environmentPushConstantRange.offset = 0;
+    environmentPushConstantRange.size = sizeof(EnvironmentSceneData);
+    environmentPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    layout_info.pPushConstantRanges = &environmentPushConstantRange;
+    layout_info.pushConstantRangeCount = 1;
 
-        auto gltfFile = fastgltf::MappedGltfFile::FromPath(filePath);
-        if (!static_cast<bool>(gltfFile)) { fmt::print("Failed to open glTF file: {}\n", fastgltf::getErrorMessage(gltfFile.error())); }
+    VK_CHECK(vkCreatePipelineLayout(device, &layout_info, nullptr, &environmentPipelineLayout));
 
-        std::filesystem::path path = filePath;
-        auto load = parser.loadGltf(gltfFile.get(), path.parent_path(), gltfOptions);
-        if (!load) { fmt::print("Failed to load glTF: {}\n", fastgltf::to_underlying(load.error())); }
-
-        gltf = std::move(load.get());
-
-        std::vector<Mesh> meshes;
-
-        fmt::print("Test {}", gltf.meshes.size());
-        std::vector<Vertex> vertices;
-        std::vector<uint32_t> indices;
-        for (fastgltf::Mesh& mesh: gltf.meshes) {
-            indices.clear();
-            vertices.clear();
-            bool hasTransparentPrimitives = false;
-            for (auto&& p: mesh.primitives) {
-                size_t initial_vtx = vertices.size();
-                size_t materialIndex = 0;
-
-                if (p.materialIndex.has_value()) {
-                    materialIndex = p.materialIndex.value() + 1;
-                    hasTransparentPrimitives = gltf.materials[materialIndex].alphaMode == fastgltf::AlphaMode::Blend;
-                }
-
-
-                // load indexes
-                {
-                    fastgltf::Accessor& indexaccessor = gltf.accessors[p.indicesAccessor.value()];
-                    indices.reserve(indices.size() + indexaccessor.count);
-
-                    fastgltf::iterateAccessor<std::uint32_t>(gltf, indexaccessor, [&](std::uint32_t idx) {
-                        indices.push_back(idx + static_cast<uint32_t>(initial_vtx));
-                    });
-                }
-
-                // load vertex positions
-                {
-                    // position is a REQUIRED property in gltf. No need to check if it exists
-                    fastgltf::Attribute* positionIt = p.findAttribute("POSITION");
-                    fastgltf::Accessor& posAccessor = gltf.accessors[positionIt->accessorIndex];
-                    vertices.resize(vertices.size() + posAccessor.count);
-
-                    fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, posAccessor, [&](fastgltf::math::fvec3 v, size_t index) {
-                        Vertex newvtx{};
-                        newvtx.position = {v.x(), v.y(), v.z()};
-                        newvtx.materialIndex = static_cast<uint32_t>(materialIndex);
-                        vertices[initial_vtx + index] = newvtx;
-                    });
-                }
-
-                // load vertex normals
-                fastgltf::Attribute* normals = p.findAttribute("NORMAL");
-                if (normals != p.attributes.end()) {
-                    fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, gltf.accessors[normals->accessorIndex], [&](fastgltf::math::fvec3 n, size_t index) {
-                        vertices[initial_vtx + index].normal = {n.x(), n.y(), n.z()};
-                    });
-                }
-
-                // load UVs
-                fastgltf::Attribute* uvs = p.findAttribute("TEXCOORD_0");
-                if (uvs != p.attributes.end()) {
-                    fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(gltf, gltf.accessors[uvs->accessorIndex], [&](fastgltf::math::fvec2 uv, size_t index) {
-                        vertices[initial_vtx + index].uv = { uv.x(), uv.y() };
-                    });
-                }
-
-                // load vertex colors
-                fastgltf::Attribute* colors = p.findAttribute("COLOR_0");
-                if (colors != p.attributes.end()) {
-                    fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec4>(gltf, gltf.accessors[colors->accessorIndex], [&](fastgltf::math::fvec4 color, size_t index) {
-                        vertices[initial_vtx + index].color = {color.x(), color.y(), color.z(), color.w()};
-                    });
-                }
-            }
-
-            meshes.push_back({ vertices, indices });
-        }
-        cubeMesh = meshes[0];
+    VkShaderModule vertShader;
+    if (!vk_helpers::loadShaderModule("shaders/environment/environment.vert.spv", device, &vertShader)) {
+        throw std::runtime_error("Error when building the triangle vertex shader module(compute.comp.spv)");
+    }
+    VkShaderModule fragShader;
+    if (!vk_helpers::loadShaderModule("shaders/environment/environment.frag.spv", device, &fragShader)) {
+        fmt::print("Error when building the triangle fragment shader module\n");
     }
 
-    AllocatedBuffer vertexStaging = createStagingBuffer(cubeMesh.vertices.size() * sizeof(cubeMesh.vertices[0]));
-    memcpy(vertexStaging.info.pMappedData, cubeMesh.vertices.data(), cubeMesh.vertices.size() * sizeof(cubeMesh.vertices[0]));
+    PipelineBuilder renderPipelineBuilder;
+    renderPipelineBuilder.setShaders(vertShader, fragShader);
+    renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+    renderPipelineBuilder.disableMultisampling();
+    renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
+    renderPipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+    renderPipelineBuilder.setupRenderer(drawImage.imageFormat, depthImage.imageFormat);
+    renderPipelineBuilder.setupPipelineLayout(environmentPipelineLayout);
 
-    AllocatedBuffer indexStaging = createStagingBuffer(cubeMesh.indices.size() * sizeof(cubeMesh.indices[0]));
-    memcpy(indexStaging.info.pMappedData, cubeMesh.indices.data(), cubeMesh.indices.size() * sizeof(cubeMesh.indices[0]));
+    environmentPipeline = renderPipelineBuilder.buildPipeline(device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
-
-
-    cubeVertexBuffer = createBuffer(cubeMesh.vertices.size() * sizeof(cubeMesh.vertices[0])
-                                    , VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT                                    , VMA_MEMORY_USAGE_CPU_TO_GPU);
-
-    cubeIndexBuffer = createBuffer(cubeMesh.indices.size() * sizeof(cubeMesh.indices[0])
-                                   , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT
-                                   , VMA_MEMORY_USAGE_CPU_TO_GPU);
-
-
-    copyBuffer(vertexStaging, cubeVertexBuffer, cubeMesh.vertices.size() * sizeof(cubeMesh.vertices[0]));
-    copyBuffer(indexStaging, cubeIndexBuffer, cubeMesh.indices.size() * sizeof(cubeMesh.indices[0]));
-
-    destroyBuffer(vertexStaging);
-    destroyBuffer(indexStaging);
+    vkDestroyShaderModule(device, vertShader, nullptr);
+    vkDestroyShaderModule(device, fragShader, nullptr);
 
     mainDeletionQueue.pushFunction([&]() {
-        destroyBuffer(cubeVertexBuffer);
-        destroyBuffer(cubeIndexBuffer);
-    });*/
+        vkDestroyPipelineLayout(device, environmentPipelineLayout, nullptr);
+        vkDestroyPipeline(device, environmentPipeline, nullptr);
+    });
+}
+
+void Engine::initScene()
+{
+    environment = new Environment(this);
+    environment->loadCubemap(Environment::defaultEquiPath, 0);
+
+    //scene.createGameObject("First");
+    //scene.createGameObject("Second");
+    //scene.createGameObject("Third");
+
+    testRenderObject = new RenderObject{this, "assets/models/avocado/Avocado.gltf"};
+    testGameObject = testRenderObject->GenerateGameObject();
+    scene.addGameObject(testGameObject);
 }
 
 void Engine::immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const
@@ -1206,6 +976,7 @@ AllocatedBuffer Engine::createBuffer(size_t allocSize, VkBufferUsageFlags usage,
     VmaAllocationCreateInfo vmaallocInfo = {};
     vmaallocInfo.usage = memoryUsage;
     vmaallocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
+    vmaallocInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
     AllocatedBuffer newBuffer{};
 
     VK_CHECK(vmaCreateBuffer(allocator, &bufferInfo, &vmaallocInfo, &newBuffer.buffer, &newBuffer.allocation, &newBuffer.info));
