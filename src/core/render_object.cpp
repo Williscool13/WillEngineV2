@@ -14,27 +14,112 @@
 #include "glm/detail/type_quat.hpp"
 #include "glm/gtx/matrix_decompose.hpp"
 
+VkDescriptorSetLayout RenderObject::addressesDescriptorSetLayout{VK_NULL_HANDLE};
+VkDescriptorSetLayout RenderObject::textureDescriptorSetLayout{VK_NULL_HANDLE};
+VkDescriptorSetLayout RenderObject::computeCullingDescriptorSetLayout{VK_NULL_HANDLE};
+int RenderObject::renderObjectCount{0};
+
 RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
 {
     creator = engine;
 
-    // Descriptor Layouts
-    {
+    if (renderObjectCount == 0) {
+        // Descriptor Layouts
         {
-            DescriptorLayoutBuilder layoutBuilder;
-            layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-            bufferAddressesDescriptorSetLayout = layoutBuilder.build(creator->getDevice(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT
-                , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-        }
-        {
-            DescriptorLayoutBuilder layoutBuilder;
-            layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-            computeCullingDescriptorSetLayout = layoutBuilder.build(creator->getDevice(), VK_SHADER_STAGE_COMPUTE_BIT
-                , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+            { // Render binding 0 (to be 2)
+                DescriptorLayoutBuilder layoutBuilder;
+                layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+                addressesDescriptorSetLayout = layoutBuilder.build(creator->getDevice(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT
+                    , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+            }
+            { // Render binding 1 (to be 3)
+                DescriptorLayoutBuilder layoutBuilder;
+                layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_SAMPLER, samplerCount);
+                layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageCount);
+
+                textureDescriptorSetLayout = layoutBuilder.build(creator->getDevice(), VK_SHADER_STAGE_FRAGMENT_BIT
+                    , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+            }
+            {
+                DescriptorLayoutBuilder layoutBuilder;
+                layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+                computeCullingDescriptorSetLayout = layoutBuilder.build(creator->getDevice(), VK_SHADER_STAGE_COMPUTE_BIT
+                    , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+            }
         }
     }
 
-    // Parse GLTF
+    renderObjectCount++;
+
+
+    parseModel(engine, gltfFilepath);
+
+
+    VkDeviceAddress addresses[2];
+    addresses[0] = engine->getBufferAddress(materialBuffer);
+    addresses[1] = engine->getBufferAddress(instanceBuffer);
+
+    AllocatedBuffer addressesStaging = creator->createStagingBuffer(sizeof(addresses));
+    memcpy(addressesStaging.info.pMappedData, addresses, sizeof(addresses));
+    addressesDescriptorBuffer = DescriptorBufferUniform(engine->getInstance(), engine->getDevice()
+            , engine->getPhysicalDevice(), engine->getAllocator(), addressesDescriptorSetLayout, 1);
+
+    bufferAddresses = engine->createBuffer(sizeof(addresses)
+                                           , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                                             VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_GPU_ONLY);
+    creator->copyBuffer(addressesStaging, bufferAddresses, sizeof(addresses));
+    creator->destroyBuffer(addressesStaging);
+
+
+}
+
+RenderObject::~RenderObject()
+{
+    renderObjectCount--;
+    if (renderObjectCount == 0) {
+        vkDestroyDescriptorSetLayout(creator->getDevice(), addressesDescriptorSetLayout, nullptr);
+        vkDestroyDescriptorSetLayout(creator->getDevice(), textureDescriptorSetLayout, nullptr);
+        vkDestroyDescriptorSetLayout(creator->getDevice(), computeCullingDescriptorSetLayout, nullptr);
+    }
+
+    //vkDestroyPipelineLayout(creator->_device, _computeCullingPipelineLayout, nullptr);
+    //vkDestroyPipeline(creator->_device, _computeCullingPipeline, nullptr);
+
+    creator->destroyBuffer(indexBuffer);
+    creator->destroyBuffer(vertexBuffer);
+    creator->destroyBuffer(drawIndirectBuffer);
+
+    creator->destroyBuffer(bufferAddresses);
+
+    creator->destroyBuffer(materialBuffer);
+    creator->destroyBuffer(instanceBuffer);
+
+
+    textureDescriptorBuffer.destroy(creator->getDevice(), creator->getAllocator());
+    addressesDescriptorBuffer.destroy(creator->getDevice(), creator->getAllocator());
+
+    for (auto& image : images) {
+        if (image.image == Engine::errorCheckerboardImage.image
+            || image.image == Engine::whiteImage.image) {
+            //dont destroy the default images
+            continue;
+        }
+
+        creator->destroyImage(image);
+    }
+
+    for (auto& sampler : samplers) {
+        if (sampler == Engine::defaultSamplerNearest
+            || sampler == Engine::defaultSamplerLinear) {
+            //dont destroy the default samplers
+            continue;
+        }
+        vkDestroySampler(creator->getDevice(), sampler, nullptr);
+    }
+}
+
+void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
+{
     fastgltf::Parser parser{};
 
     constexpr auto gltfOptions = fastgltf::Options::DontRequireValidAssetMember
@@ -55,7 +140,7 @@ RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
 
     gltf = std::move(load.get());
 
-    std::vector<VkSampler> samplers;
+
     constexpr uint32_t samplerOffset = 1; // default sampler at 0
     assert(Engine::defaultSamplerNearest != VK_NULL_HANDLE);
     samplers.push_back(Engine::defaultSamplerNearest);
@@ -79,8 +164,6 @@ RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
     }
     assert(samplers.size() == gltf.samplers.size() + samplerOffset);
 
-
-    std::vector<AllocatedImage> images;
     constexpr uint32_t imageOffset = 1; // default texture at 0
     assert(Engine::whiteImage.image != VK_NULL_HANDLE);
     images.push_back(Engine::whiteImage);
@@ -100,21 +183,18 @@ RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
 
     // Binding Images/Samplers
     {
-        {
-            DescriptorLayoutBuilder layoutBuilder;
-            layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_SAMPLER, samplers.size());
-            layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, images.size());
-
-            textureDescriptorSetLayout = layoutBuilder.build(creator->getDevice(), VK_SHADER_STAGE_FRAGMENT_BIT
-                , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-        }
-
         std::vector<DescriptorImageData> textureDescriptors;
         // samplers
         {
             for (VkSampler sampler : samplers) {
                 VkDescriptorImageInfo samplerInfo{.sampler = sampler};
                 textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, samplerInfo, false});
+            }
+
+            size_t remaining = samplerCount - samplers.size();
+            VkDescriptorImageInfo samplerInfo{};
+            for (int i = 0; i < remaining; i++) {
+                textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, samplerInfo, true});
             }
         }
         // images
@@ -352,37 +432,44 @@ RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
         }
     }
 
+    uint32_t instanceCount{0};
+
     for (int i = 0; i < renderNodes.size(); i++) {
         if (renderNodes[i].parent == nullptr) {
             topNodes.push_back(i);
             renderNodes[i].transform.reset();
         }
+
+        if (renderNodes[i].meshIndex != -1) {
+            instanceCount++;
+        }
     }
 
     UploadIndirect();
+
+
+    instanceBuffer = engine->createBuffer(instanceCount * sizeof(InstanceData)
+                                          , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+                                          , VMA_MEMORY_USAGE_CPU_TO_GPU);
 }
 
-RenderObject::~RenderObject()
-{
-    vkDestroyDescriptorSetLayout(creator->getDevice(), bufferAddressesDescriptorSetLayout, nullptr);
-    vkDestroyDescriptorSetLayout(creator->getDevice(), textureDescriptorSetLayout, nullptr);
-    vkDestroyDescriptorSetLayout(creator->getDevice(), computeCullingDescriptorSetLayout, nullptr);
-
-    //vkDestroyPipelineLayout(creator->_device, _computeCullingPipelineLayout, nullptr);
-    //vkDestroyPipeline(creator->_device, _computeCullingPipeline, nullptr);
-
-    creator->destroyBuffer(drawIndirectBuffer);
-    creator->destroyBuffer(indexBuffer);
-    creator->destroyBuffer(vertexBuffer);
-    creator->destroyBuffer(materialBuffer);
-    textureDescriptorBuffer.destroy(creator->getDevice(), creator->getAllocator());
-}
-
-void RenderObject::draw(const VkCommandBuffer& cmd)
+void RenderObject::draw(const VkCommandBuffer& cmd, VkPipelineLayout pipelineLayout)
 {
     if (vertexBuffer.buffer == VK_NULL_HANDLE) {
         return;
     }
+
+    // bind descriptors
+    VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];
+    descriptorBufferBindingInfo[0] = addressesDescriptorBuffer.getDescriptorBufferBindingInfo();
+    descriptorBufferBindingInfo[1] = textureDescriptorBuffer.getDescriptorBufferBindingInfo();
+    vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
+
+    VkDeviceSize zeroOffset{0};
+    const uint32_t addressIndex{0};
+    const uint32_t texturesIndex{1};
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &addressIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &texturesIndex, &zeroOffset);
 
     VkDeviceSize offsets{ 0 };
     vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer.buffer, &offsets);
@@ -403,26 +490,36 @@ GameObject* RenderObject::GenerateGameObject()
     return superRoot;
 }
 
+void RenderObject::updateInstanceData(const InstanceData& value, const int32_t index) const
+{
+    auto basePtr = static_cast<char*>(instanceBuffer.info.pMappedData);
+    void* target = basePtr + index * sizeof(InstanceData);
+    memcpy(target, &value, sizeof(InstanceData));
+}
+
 GameObject* RenderObject::RecursiveGenerateGameObject(const RenderNode& renderNode)
 {
     auto gameObject = new GameObject();
     gameObject->setTransform(renderNode.transform);
+    for (const RenderNode& node : renderNode.children) {
+        GameObject* child = RecursiveGenerateGameObject(node);
+        gameObject->addChild(child);
+    }
 
     if (renderNode.meshIndex != -1) {
+        size_t instanceIndex = drawIndirectCommands.size();
+
+
         VkDrawIndexedIndirectCommand drawCommand;
         drawCommand.firstIndex = meshes[renderNode.meshIndex].firstIndex;
         drawCommand.indexCount = meshes[renderNode.meshIndex].indexCount;
         drawCommand.vertexOffset = meshes[renderNode.meshIndex].vertexOffset;
 
         drawCommand.instanceCount = 1;
-        drawCommand.firstInstance = drawIndirectCommands.size();
+        drawCommand.firstInstance = instanceIndex;
 
+        gameObject->setRenderObjectReference(this, static_cast<int32_t>(instanceIndex));
         drawIndirectCommands.push_back(drawCommand);
-    }
-
-    for (const RenderNode& node : renderNode.children) {
-        GameObject* child = RecursiveGenerateGameObject(node);
-        gameObject->addChild(child);
     }
     return gameObject;
 }

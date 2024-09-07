@@ -108,8 +108,6 @@ Environment::~Environment()
         cubemapToSpecularPipelineLayout = VK_NULL_HANDLE;
         cubemapToSpecularPipeline = VK_NULL_HANDLE;
 
-        vkDestroySampler(device, sampler, nullptr);
-
         lutDescriptorBuffer.destroy(device, allocator);
         creator->destroyImage(lutImage);
         lutImage = {};
@@ -119,6 +117,7 @@ Environment::~Environment()
         fmt::print("The last EnvironmentMap has been destroyed, uninitializing layouts and pipelines \n");
     }
 
+    vkDestroySampler(device, sampler, nullptr);
 
     cubemapStorageDescriptorBuffer.destroy(device, allocator);
     cubemapDescriptorBuffer.destroy(device, allocator);

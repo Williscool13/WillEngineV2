@@ -446,7 +446,7 @@ void Engine::drawRender(VkCommandBuffer cmd)
     glm::mat4 mvp = proj * view * model;
     vkCmdPushConstants(cmd, renderPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &mvp);
 
-    testRenderObject->draw(cmd);
+    testRenderObject->draw(cmd, renderPipelineLayout);
 }
 
 void Engine::drawImgui(VkCommandBuffer cmd, VkImageView targetImageView)
@@ -464,16 +464,18 @@ void Engine::cleanup()
 
     vkDeviceWaitIdle(device);
 
-    destroyImage(whiteImage);
-    destroyImage(errorCheckerboardImage);
-    vkDestroySampler(device, defaultSamplerNearest, nullptr);
-    vkDestroySampler(device, defaultSamplerLinear, nullptr);
 
     delete environment;
     delete testRenderObject;
     delete testGameObject;
     // destroy all other resources
     mainDeletionQueue.flush();
+
+    // Destroy these after destroying all render objects
+    destroyImage(whiteImage);
+    destroyImage(errorCheckerboardImage);
+    vkDestroySampler(device, defaultSamplerNearest, nullptr);
+    vkDestroySampler(device, defaultSamplerLinear, nullptr);
 
     // ImGui
     ImGui_ImplVulkan_Shutdown();
@@ -807,8 +809,12 @@ void Engine::initComputePipelines()
 void Engine::initRenderPipelines()
 {
     VkPipelineLayoutCreateInfo layout_info = vk_helpers::pipelineLayoutCreateInfo();
-    layout_info.setLayoutCount = 0;
-    layout_info.pSetLayouts = nullptr;
+    VkDescriptorSetLayout descriptorLayout[2];
+    descriptorLayout[0] = RenderObject::addressesDescriptorSetLayout;
+    descriptorLayout[1] = RenderObject::textureDescriptorSetLayout;
+    layout_info.pSetLayouts = descriptorLayout;
+    layout_info.setLayoutCount = 2;
+
     VkPushConstantRange pushConstants{};
     pushConstants.offset = 0;
     pushConstants.size = sizeof(glm::mat4);
@@ -942,7 +948,7 @@ void Engine::initScene()
     //scene.createGameObject("Second");
     //scene.createGameObject("Third");
 
-    testRenderObject = new RenderObject{this, "assets/models/avocado/Avocado.gltf"};
+    testRenderObject = new RenderObject{this, "assets/models/BoxTextured/glTF/BoxTextured.gltf"};
     testGameObject = testRenderObject->GenerateGameObject();
     scene.addGameObject(testGameObject);
 }
