@@ -26,9 +26,9 @@ struct AllocatedImage {
 };
 
 struct AllocatedBuffer {
-    VkBuffer buffer;
-    VmaAllocation allocation;
-    VmaAllocationInfo info;
+    VkBuffer buffer{VK_NULL_HANDLE};
+    VmaAllocation allocation{};
+    VmaAllocationInfo info{};
 };
 
 struct AllocatedCubemap {
@@ -51,9 +51,9 @@ struct Vertex
 
 struct Mesh
 {
-    size_t firstIndex{0};
-    size_t indexCount{0};
-    size_t vertexOffset{0};
+    uint32_t firstIndex{0}; // ID of the instance (used to get model matrix)
+    uint32_t indexCount{0};
+    int32_t vertexOffset{0};
     bool hasTransparents{false};
 };
 
@@ -64,6 +64,11 @@ struct Material
     glm::ivec4 textureImageIndices{-1};   // x: color image, y: metallic image, z: pad, w: pad
     glm::ivec4 textureSamplerIndices{-1}; // x: color sampler, y: metallic sampler, z: pad, w: pad
     glm::vec4 alphaCutoff{1.0f, 0.0f, 0.0f, 0.0f}; // x: alpha cutoff, y: alpha mode, z: padding, w: padding
+};
+
+struct InstanceData
+{
+    glm::mat4* modelMatrix;
 };
 
 enum class MaterialType

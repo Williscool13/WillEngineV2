@@ -61,7 +61,7 @@ public:
 	// init sampler
 	void loadCubemap(const char* path, int environmentMapIndex = 0);
 
-	bool flip_y{ true };
+	bool flip_y{ false };
 
 	float diffuse_sample_delta{ 0.025f };
 	int specular_sample_count{ 2048 };

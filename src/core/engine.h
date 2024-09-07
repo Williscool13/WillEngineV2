@@ -34,9 +34,9 @@
 #include "../renderer/vk_helpers.h"
 #include "camera/free_camera.h"
 #include "environment.h"
+#include "render_object.h"
 
 constexpr unsigned int FRAME_OVERLAP = 2;
-
 
 struct DeletionQueue
 {
@@ -127,6 +127,9 @@ private: // Initialization
     Mesh cubeMesh;
     AllocatedBuffer cubeVertexBuffer{};
     AllocatedBuffer cubeIndexBuffer{};
+
+    RenderObject* cubeRenderObject;
+    GameObject* cubeGameObject;
 
     void initTesting();
 

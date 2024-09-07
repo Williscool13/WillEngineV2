@@ -86,7 +86,7 @@ void GameObject::addChild(GameObject* child)
     child->transform.setPosition(newLocalPosition);
     child->transform.setRotation(glm::eulerAngles(newLocalRotation));
     child->transform.setScale(newLocalScale);
-    child->setTransformDirty();
+    child->setDirty();
 }
 
 void GameObject::removeChild(GameObject* child)
@@ -124,7 +124,7 @@ void GameObject::unparent()
     transform.setPosition(worldPosition);
     transform.setRotation(glm::eulerAngles(worldRotation)); // Convert quaternion to Euler angles
     transform.setScale(worldScale);
-    setTransformDirty();
+    setDirty();
 }
 
 GameObject* GameObject::getParent()
@@ -135,4 +135,9 @@ GameObject* GameObject::getParent()
 std::vector<GameObject*>& GameObject::getChildren()
 {
     return children;
+}
+
+void GameObject::setDrawIndexedIndirectCommand(VkDrawIndexedIndirectCommand* indirectCommand)
+{
+    drawIndexedIndirectCommand = indirectCommand;
 }
