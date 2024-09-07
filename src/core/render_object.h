@@ -14,6 +14,7 @@
 #include "../renderer/vk_descriptor_buffer.h"
 
 class Engine;
+class RenderObject;
 
 struct RenderNode
 {
@@ -23,6 +24,17 @@ struct RenderNode
     int meshIndex{-1};
 };
 
+struct RenderObjectReference
+{
+    RenderObject* renderObject;
+    int32_t instanceIndex;
+};
+
+/**
+ * Lifetime: Program
+ * Exists after initialized at program start.
+ * Only deleted when application is exiting.
+ */
 class RenderObject {
 public:
     RenderObject() = default;
@@ -30,22 +42,11 @@ public:
     ~RenderObject();
 
 private:
-    // samplers
-    // images
-    // pbr material data
-    // vertices and indices
-    // nodes
-
-
-
-    //void BindDescriptors(VkCommandBuffer cmd);
-    // indirects are then constructed/reconstructed every frame elsewhere in the code.
-    // When ready to draw, the game will bind, the render object resources
-
-    // the game will adjust the pipeline object as necessary (without shader objects this is slightly less flexible)
-    // the game will then execute drawIndirectDrawBuffers
+    void parseModel(Engine* engine, std::string_view gltfFilepath);
 
 private:
+    std::vector<VkSampler> samplers;
+    std::vector<AllocatedImage> images;
     std::vector<Mesh> meshes;
 
     std::vector<RenderNode> renderNodes;
@@ -57,15 +58,23 @@ private:
 public:
     GameObject* GenerateGameObject();
 
-    void draw(const VkCommandBuffer& cmd);
+    void updateInstanceData(const InstanceData& value, int32_t index) const;
+
+    void draw(const VkCommandBuffer& cmd, VkPipelineLayout pipelineLayout);
 
 private: // Drawing
     AllocatedBuffer vertexBuffer{};
     AllocatedBuffer indexBuffer{};
     AllocatedBuffer drawIndirectBuffer{};
 
+    // addresses
+    AllocatedBuffer bufferAddresses;
+    //
     AllocatedBuffer materialBuffer{};
+    AllocatedBuffer instanceBuffer{};
 
+
+    DescriptorBufferUniform addressesDescriptorBuffer;
     DescriptorBufferSampler textureDescriptorBuffer;
 
 
@@ -76,9 +85,14 @@ private: // Drawing
 private:
     Engine* creator;
 
-    VkDescriptorSetLayout bufferAddressesDescriptorSetLayout{VK_NULL_HANDLE};
-    VkDescriptorSetLayout textureDescriptorSetLayout{VK_NULL_HANDLE};
-    VkDescriptorSetLayout computeCullingDescriptorSetLayout{VK_NULL_HANDLE};
+    static int renderObjectCount;
+    static constexpr size_t samplerCount{32};
+    static constexpr size_t imageCount{255}; // if anything exists after images, need to use padding.
+public:
+    static VkDescriptorSetLayout addressesDescriptorSetLayout;
+    static VkDescriptorSetLayout textureDescriptorSetLayout;
+    static VkDescriptorSetLayout computeCullingDescriptorSetLayout;
+
 };
 
 

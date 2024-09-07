@@ -4,6 +4,7 @@
 
 #include "game_object.h"
 
+#include "render_object.h"
 #include "glm/gtc/quaternion.hpp"
 
 int GameObject::nextId = 0;
@@ -43,11 +44,11 @@ GameObject::~GameObject()
 }
 
 
-glm::mat4 GameObject::getWorldMatrix()
+glm::mat4 GameObject::getModelMatrix()
 {
     if (isTransformDirty) {
         if (parent != nullptr) {
-            cachedWorldTransform = parent->getWorldMatrix() * transform.getWorldMatrix();
+            cachedWorldTransform = parent->getModelMatrix() * transform.getWorldMatrix();
         } else {
             cachedWorldTransform = transform.getWorldMatrix();
         }
@@ -56,13 +57,30 @@ glm::mat4 GameObject::getWorldMatrix()
     return cachedWorldTransform;
 }
 
+void GameObject::setDirty()
+{
+    isTransformDirty = true;
+    for (auto& child : children) {
+        child->setDirty();
+    }
+
+    if (instanceOwner != nullptr) {
+        InstanceData instanceData{.modelMatrix = getModelMatrix()};
+        instanceOwner->updateInstanceData(instanceData, instanceIndex);
+    }
+    /*// If no callbacks, dirty transforms are not calculated unless necessary
+    for (const TransformChangedCallback& callback : transformCallbacks) {
+        callback(getModelMatrix());
+    }*/
+}
+
 void GameObject::addChild(GameObject* child)
 {
     // Prevent adding self as child
     if (child == this) { return; }
 
     // Child's current world transform
-    glm::mat4 childWorldMatrix = child->getWorldMatrix();
+    glm::mat4 childWorldMatrix = child->getModelMatrix();
 
     // Remove from previous parent if any
     child->unparent();
@@ -70,7 +88,7 @@ void GameObject::addChild(GameObject* child)
     child->parent = this;
 
     // Calculate and set the child's new local transform
-    glm::mat4 inverseParentWorldMatrix = glm::inverse(this->getWorldMatrix());
+    glm::mat4 inverseParentWorldMatrix = glm::inverse(this->getModelMatrix());
     glm::mat4 newLocalMatrix = inverseParentWorldMatrix * childWorldMatrix;
 
     // Extract new local transform components
@@ -106,7 +124,7 @@ void GameObject::unparent()
     if (!parent) { return; }
 
     // Get the current world position, rotation, and scale
-    glm::mat4 worldMatrix = getWorldMatrix();
+    glm::mat4 worldMatrix = getModelMatrix();
     glm::vec3 worldPosition = glm::vec3(worldMatrix[3]);
     glm::vec3 worldScale = glm::vec3(
         glm::length(glm::vec3(worldMatrix[0])),
@@ -135,9 +153,4 @@ GameObject* GameObject::getParent()
 std::vector<GameObject*>& GameObject::getChildren()
 {
     return children;
-}
-
-void GameObject::setDrawIndexedIndirectCommand(VkDrawIndexedIndirectCommand* indirectCommand)
-{
-    drawIndexedIndirectCommand = indirectCommand;
 }

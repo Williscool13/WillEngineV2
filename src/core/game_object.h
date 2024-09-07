@@ -9,6 +9,10 @@
 #include "../util/transform.h"
 #include <vulkan/vulkan_core.h>
 
+class RenderObject;
+
+using TransformChangedCallback = std::function<void(const glm::mat4&)>;
+
 class GameObject
 {
 public:
@@ -20,7 +24,7 @@ public:
 
     ~GameObject();
 
-    glm::mat4 getWorldMatrix();
+    glm::mat4 getModelMatrix();
 
 public: // Transform
     void translate(glm::vec3 translation)
@@ -73,13 +77,27 @@ public: // Transform
         setTransform(transform.getPosition(), transform.getRotation(), transform.getScale());
     }
 
-    void setDirty()
-    {
-        isTransformDirty = true;
-        for (auto& child : children) {
-            child->setDirty();
-        }
+    void setDirty();
+
+    /*std::vector<TransformChangedCallback> transformCallbacks;
+    void addTransformCallback(TransformChangedCallback callback) {
+        transformCallbacks.push_back(std::move(callback));
     }
+
+    /**
+     * O(n) callback removal
+     * @param callback
+     #1#
+    void removeTransformCallback(const TransformChangedCallback& callback)
+    {
+        auto it = std::find_if(transformCallbacks.begin(), transformCallbacks.end(),
+            [&callback](const TransformChangedCallback& cb) {
+                return cb.target_type() == callback.target_type();
+            });
+        if (it != transformCallbacks.end()) {
+            transformCallbacks.erase(it);
+        }
+    }*/
 
 public: // Hierarchy
     /**
@@ -123,10 +141,15 @@ private: // Hierarchy
 
 
 public: // Rendering
-    void setDrawIndexedIndirectCommand(VkDrawIndexedIndirectCommand* indirectCommand);
-private: // Rendering
-    VkDrawIndexedIndirectCommand* drawIndexedIndirectCommand;
+    void setRenderObjectReference(RenderObject* owner, int32_t index)
+    {
+        instanceOwner = owner;
+        instanceIndex = index;
+    }
 
+private: // Rendering
+    RenderObject* instanceOwner{nullptr};
+    int32_t instanceIndex{-1};
 
 public:
     bool operator==(const GameObject& other) const

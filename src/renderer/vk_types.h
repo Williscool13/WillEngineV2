@@ -68,7 +68,7 @@ struct Material
 
 struct InstanceData
 {
-    glm::mat4* modelMatrix;
+    glm::mat4 modelMatrix;
 };
 
 enum class MaterialType
