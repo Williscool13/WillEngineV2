@@ -3,6 +3,10 @@ project(WillEngine)
 
 set(CMAKE_CXX_STANDARD 20)
 
+add_definitions(-DVK_NO_PROTOTYPES)
+add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE)
+add_definitions(-DGLM_ENABLE_EXPERIMENTAL)
+
 # Vulkan
 find_package(Vulkan REQUIRED)
 
@@ -41,10 +45,6 @@ set(FASTGLTF_SOURCES
         ${FASTGLTF_DIR}/src/fastgltf.cpp
         ${FASTGLTF_DIR}/src/io.cpp
 )
-
-
-add_definitions(-DVK_NO_PROTOTYPES)
-add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE)
 
 add_executable(WillEngine main.cpp
         ${IMGUI_SOURCES}

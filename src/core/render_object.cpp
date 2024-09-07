@@ -8,8 +8,29 @@
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
 
+#include "glm/detail/type_quat.hpp"
+#include "glm/gtx/matrix_decompose.hpp"
+
 RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
 {
+    creator = engine;
+
+    // Descriptor Layouts
+    {
+        {
+            DescriptorLayoutBuilder layoutBuilder;
+            layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+            bufferAddressesDescriptorSetLayout = layoutBuilder.build(creator->getDevice(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT
+                , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        }
+        {
+            DescriptorLayoutBuilder layoutBuilder;
+            layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+            computeCullingDescriptorSetLayout = layoutBuilder.build(creator->getDevice(), VK_SHADER_STAGE_COMPUTE_BIT
+                , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        }
+    }
+
     // Parse GLTF
     fastgltf::Parser parser{};
 
@@ -56,11 +77,11 @@ RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
     assert(samplers.size() == gltf.samplers.size() + samplerOffset);
 
 
-    // Textures
     std::vector<AllocatedImage> images;
     constexpr uint32_t imageOffset = 1; // default texture at 0
     assert(Engine::whiteImage.image != VK_NULL_HANDLE);
     images.push_back(Engine::whiteImage);
+    // Images
     {
         for (const fastgltf::Image& gltfImage: gltf.images) {
             std::optional<AllocatedImage> newImage = vk_helpers::loadImage(engine, gltf, gltfImage, path.parent_path());
@@ -74,13 +95,46 @@ RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
     }
     assert(images.size() == gltf.images.size() + imageOffset);
 
+    // Binding Images/Samplers
+    {
+        {
+            DescriptorLayoutBuilder layoutBuilder;
+            layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_SAMPLER, samplers.size());
+            layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, images.size());
+
+            textureDescriptorSetLayout = layoutBuilder.build(creator->getDevice(), VK_SHADER_STAGE_FRAGMENT_BIT
+                , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        }
+
+        std::vector<DescriptorImageData> textureDescriptors;
+        // samplers
+        {
+            for (VkSampler sampler : samplers) {
+                VkDescriptorImageInfo samplerInfo{.sampler = sampler};
+                textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, samplerInfo, false});
+            }
+        }
+        // images
+        {
+            for (AllocatedImage image : images) {
+                VkDescriptorImageInfo imageInfo{.imageView = image.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+                textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageInfo, false});
+            }
+        }
+
+        // init descriptor buffer
+        textureDescriptorBuffer = DescriptorBufferSampler(engine->getInstance(), engine->getDevice(), engine->getPhysicalDevice(),
+                                                          engine->getAllocator(), textureDescriptorSetLayout, 1);
+        textureDescriptorBuffer.setupData(engine->getDevice(), textureDescriptors);
+    }
+
     // Materials
     std::vector<Material> materials;
     uint32_t materialOffset = 1; // default material at 0
     materials.emplace_back();
     //  actual materials
     {
-        for (const fastgltf::Material& gltfMaterial : gltf.materials) {
+        for (const fastgltf::Material& gltfMaterial: gltf.materials) {
             Material material{};
             material.colorFactor = glm::vec4(
                 gltfMaterial.pbrData.baseColorFactor[0]
@@ -113,8 +167,10 @@ RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
                     break;
             }
 
-            vk_helpers::loadTexture(gltfMaterial.pbrData.baseColorTexture, gltf, material.textureImageIndices.x, material.textureSamplerIndices.x);
-            vk_helpers::loadTexture(gltfMaterial.pbrData.metallicRoughnessTexture, gltf, material.textureImageIndices.y, material.textureSamplerIndices.y);
+            vk_helpers::loadTexture(gltfMaterial.pbrData.baseColorTexture, gltf, material.textureImageIndices.x,
+                                    material.textureSamplerIndices.x);
+            vk_helpers::loadTexture(gltfMaterial.pbrData.metallicRoughnessTexture, gltf, material.textureImageIndices.y,
+                                    material.textureSamplerIndices.y);
 
             // image defined but no sampler and vice versa - use defaults
             // pretty rare/edge case
@@ -136,81 +192,149 @@ RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
     }
     assert(materials.size() == gltf.materials.size() + materialOffset);
 
+    materialBuffer = engine->createBuffer(materials.size() * sizeof(Material)
+        , VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+        , VMA_MEMORY_USAGE_CPU_TO_GPU);
+    memcpy(materialBuffer.info.pMappedData, materials.data(), materials.size() * sizeof(Material));
+
     std::vector<Mesh> meshes;
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
 
     for (fastgltf::Mesh& mesh: gltf.meshes) {
-            indices.clear();
-            vertices.clear();
-            bool hasTransparentPrimitives = false;
-            for (auto&& p: mesh.primitives) {
-                size_t initial_vtx = vertices.size();
-                size_t materialIndex = 0;
+        std::vector<Vertex> meshVertices;
+        std::vector<uint32_t> meshIndices;
+        bool hasTransparentPrimitives = false;
+        for (fastgltf::Primitive& p: mesh.primitives) {
+            size_t initial_vtx = meshVertices.size();
 
-                /*if (p.materialIndex.has_value()) {
-                    materialIndex = p.materialIndex.value() + 1;
-                    MaterialPass matType = static_cast<MaterialPass>(file.materials[materialIndex].alphaCutoff.y);
-                    if (matType == MaterialPass::Transparent) { hasTransparentPrimitives = true; }
-                }*/
-
-
-                // load indexes
-                {
-                    fastgltf::Accessor& indexaccessor = gltf.accessors[p.indicesAccessor.value()];
-                    indices.reserve(indices.size() + indexaccessor.count);
-
-                    fastgltf::iterateAccessor<std::uint32_t>(gltf, indexaccessor, [&](std::uint32_t idx) {
-                        indices.push_back(idx + static_cast<uint32_t>(initial_vtx));
-                    });
-                }
-
-                // load vertex positions
-                {
-                    // position is a REQUIRED property in gltf. No need to check if it exists
-                    fastgltf::Attribute* positionIt = p.findAttribute("POSITION");
-                    fastgltf::Accessor& posAccessor = gltf.accessors[positionIt->accessorIndex];
-                    vertices.resize(vertices.size() + posAccessor.count);
-
-                    fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, posAccessor, [&](fastgltf::math::fvec3 v, size_t index) {
-                        Vertex newvtx{};
-                        newvtx.position = {v.x(), v.y(), v.z()};
-                        /*newvtx.normal = {1, 0, 0}; // default init the rest of the values
-                        newvtx.color = glm::vec4{1.f};
-                        newvtx.uv = glm::vec2(0, 0);
-                        newvtx.materialIndex = static_cast<uint32_t>(materialIndex);*/
-                        vertices[initial_vtx + index] = newvtx;
-                    });
-                }
-
-                // load vertex normals
-                fastgltf::Attribute* normals = p.findAttribute("NORMAL");
-                if (normals != p.attributes.end()) {
-                    fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, gltf.accessors[normals->accessorIndex], [&](fastgltf::math::fvec3 n, size_t index) {
-                        //vertices[initial_vtx + index].normal = {n.x(), n.y(), n.z()};
-                    });
-                }
-
-                // load UVs
-                fastgltf::Attribute* uvs = p.findAttribute("TEXCOORD_0");
-                if (uvs != p.attributes.end()) {
-                    fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(gltf, gltf.accessors[uvs->accessorIndex], [&](fastgltf::math::fvec2 uv, size_t index) {
-                        //vertices[initial_vtx + index].uv = { uv.x(), uv.y() };
-                    });
-                }
-
-                // load vertex colors
-                fastgltf::Attribute* colors = p.findAttribute("COLOR_0");
-                if (colors != p.attributes.end()) {
-                    fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec4>(gltf, gltf.accessors[colors->accessorIndex], [&](fastgltf::math::fvec4 color, size_t index) {
-                        //vertices[initial_vtx + index].color = {color.x(), color.y(), color.z(), color.w()};
-                    });
-                }
+            if (p.materialIndex.has_value()) {
+                size_t materialIndex = p.materialIndex.value() + 1;
+                hasTransparentPrimitives = gltf.materials[materialIndex].alphaMode == fastgltf::AlphaMode::Blend;
             }
 
-            meshes.push_back({ vertices, indices });
+
+            // load indexes
+            {
+                const fastgltf::Accessor& indexaccessor = gltf.accessors[p.indicesAccessor.value()];
+                meshIndices.reserve(meshIndices.size() + indexaccessor.count);
+
+                fastgltf::iterateAccessor<std::uint32_t>(gltf, indexaccessor, [&](std::uint32_t idx) {
+                    meshIndices.push_back(idx + static_cast<uint32_t>(initial_vtx));
+                });
+            }
+
+            // load vertex positions
+            {
+                // position is a REQUIRED property in gltf. No need to check if it exists
+                const fastgltf::Attribute* positionIt = p.findAttribute("POSITION");
+                const fastgltf::Accessor& posAccessor = gltf.accessors[positionIt->accessorIndex];
+                meshVertices.resize(meshVertices.size() + posAccessor.count);
+
+                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, posAccessor, [&](fastgltf::math::fvec3 v, size_t index) {
+                    Vertex newvtx{};
+                    newvtx.position = {v.x(), v.y(), v.z()};
+                    meshVertices[initial_vtx + index] = newvtx;
+                });
+            }
+
+            // load vertex normals
+            const fastgltf::Attribute* normals = p.findAttribute("NORMAL");
+            if (normals != p.attributes.end()) {
+                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, gltf.accessors[normals->accessorIndex], [&](fastgltf::math::fvec3 n, size_t index) {
+                    meshVertices[initial_vtx + index].normal = {n.x(), n.y(), n.z()};
+                });
+            }
+
+            // load UVs
+            const fastgltf::Attribute* uvs = p.findAttribute("TEXCOORD_0");
+            if (uvs != p.attributes.end()) {
+                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(gltf, gltf.accessors[uvs->accessorIndex], [&](fastgltf::math::fvec2 uv, size_t index) {
+                    meshVertices[initial_vtx + index].uv = {uv.x(), uv.y()};
+                });
+            }
+
+            // load vertex colors
+            const fastgltf::Attribute* colors = p.findAttribute("COLOR_0");
+            if (colors != p.attributes.end()) {
+                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec4>(gltf, gltf.accessors[colors->accessorIndex], [&](fastgltf::math::fvec4 color, size_t index) {
+                    meshVertices[initial_vtx + index].color = {color.x(), color.y(), color.z(), color.w()};
+                });
+            }
         }
+
+        meshes.push_back({.firstIndex = indices.size(), .indexCount = meshIndices.size(), .vertexOffset = vertices.size(), .hasTransparents = hasTransparentPrimitives});
+        vertices.insert(vertices.end(), meshVertices.begin(), meshVertices.end());
+        indices.insert(indices.end(), meshIndices.begin(),  meshIndices.end());
+    }
+
+    for (const fastgltf::Node& node : gltf.nodes) {
+        RenderNode renderNode{};
+        if (node.meshIndex.has_value()) {
+            renderNode.meshIndex = static_cast<int>(*node.meshIndex);
+        }
+
+        std::visit(
+            fastgltf::visitor{
+                [&](fastgltf::math::fmat4x4 matrix) {
+                    glm::mat4 glmMatrix;
+                    for (int i = 0; i < 4; ++i) {
+                        for (int j = 0; j < 4; ++j) {
+                            glmMatrix[i][j] = matrix[i][j];
+                        }
+                    }
+
+                    glm::vec3 translation;
+                    glm::vec3 rotation{0.0f};
+                    glm::vec3 scale;
+
+                    glm::vec3 skew;
+                    glm::vec4 perspective;
+                    glm::quat orientation;
+
+                    if (glm::decompose(glmMatrix, scale, orientation, translation, skew, perspective)) {
+                        rotation = glm::eulerAngles(orientation);
+                    }
+
+                    renderNode.transform = Transform(translation, rotation, scale);
+                },
+                [&](fastgltf::TRS transform) {
+                    const glm::vec3 translation{transform.translation[0], transform.translation[1], transform.translation[2]};
+                    const glm::quat quaternionRotation{transform.rotation[3], transform.rotation[0], transform.rotation[1], transform.rotation[2]};
+                    const glm::vec3 rotation = glm::eulerAngles(quaternionRotation);
+                    const glm::vec3 scale{transform.scale[0], transform.scale[1], transform.scale[2]};
+
+
+                    renderNode.transform = Transform(translation, rotation, scale);
+                }
+            }
+            , node.transform
+        );
+
+        renderNodes.push_back(renderNode);
+    }
+
+    for (int i = 0; i < gltf.nodes.size(); i++) {
+        for (std::size_t& child : gltf.nodes[i].children) {
+            renderNodes[i].children.push_back(renderNodes[child]);
+            renderNodes[child].parent = &renderNodes[i];
+        }
+    }
+
+    fmt::print("Test");
+
 }
 
-void RenderObject::BindDescriptors(VkCommandBuffer cmd)
-{}
+RenderObject::~RenderObject()
+{
+    vkDestroyDescriptorSetLayout(creator->getDevice(), bufferAddressesDescriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(creator->getDevice(), textureDescriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(creator->getDevice(), computeCullingDescriptorSetLayout, nullptr);
+
+        //vkDestroyPipelineLayout(creator->_device, _computeCullingPipelineLayout, nullptr);
+        //vkDestroyPipeline(creator->_device, _computeCullingPipeline, nullptr);
+
+
+    creator->destroyBuffer(materialBuffer);
+    textureDescriptorBuffer.destroy(creator->getDevice(), creator->getAllocator());
+}
