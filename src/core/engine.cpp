@@ -291,7 +291,7 @@ void Engine::draw()
     VkRenderingInfo renderInfo = vk_helpers::renderingInfo(drawExtent, &colorAttachment, &depthAttachment);
     vkCmdBeginRendering(cmd, &renderInfo);
 
-     drawEnvironment(cmd);
+    drawEnvironment(cmd);
     //drawRender(cmd);
     drawCube(cmd);
 
@@ -456,25 +456,27 @@ void Engine::drawRender(VkCommandBuffer cmd)
 
 void Engine::drawCube(VkCommandBuffer cmd)
 {
-    /*vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, cubePipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, cubePipeline);
 
     // Dynamic States
-    //  Viewport
-    VkViewport viewport = {};
-    viewport.x = 0;
-    viewport.y = 0;
-    viewport.width = drawExtent.width;
-    viewport.height = drawExtent.height;
-    viewport.minDepth = 0.f;
-    viewport.maxDepth = 1.f;
-    vkCmdSetViewport(cmd, 0, 1, &viewport);
-    //  Scissor
-    VkRect2D scissor = {};
-    scissor.offset.x = 0;
-    scissor.offset.y = 0;
-    scissor.extent.width = drawExtent.width;
-    scissor.extent.height = drawExtent.height;
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
+    {
+        //  Viewport
+        VkViewport viewport = {};
+        viewport.x = 0;
+        viewport.y = 0;
+        viewport.width = drawExtent.width;
+        viewport.height = drawExtent.height;
+        viewport.minDepth = 0.f;
+        viewport.maxDepth = 1.f;
+        vkCmdSetViewport(cmd, 0, 1, &viewport);
+        //  Scissor
+        VkRect2D scissor = {};
+        scissor.offset.x = 0;
+        scissor.offset.y = 0;
+        scissor.extent.width = drawExtent.width;
+        scissor.extent.height = drawExtent.height;
+        vkCmdSetScissor(cmd, 0, 1, &scissor);
+    }
 
     glm::mat4 model = glm::mat4(1.0f);
     glm::mat4 view = camera.getViewMatrix();
@@ -482,11 +484,7 @@ void Engine::drawCube(VkCommandBuffer cmd)
     glm::mat4 mvp = proj * view * model;
     vkCmdPushConstants(cmd, cubePipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &mvp);
 
-    VkDeviceSize vertexOffsets = 0;
-    vkCmdBindVertexBuffers(cmd, 0, 1, &cubeVertexBuffer.buffer, &vertexOffsets);
-    vkCmdBindIndexBuffer(cmd, cubeIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-
-    vkCmdDrawIndexed(cmd, cubeMesh.indices.size(), 1, 0, 0, 0);*/
+    cubeRenderObject->draw(cmd);
 }
 
 void Engine::drawImgui(VkCommandBuffer cmd, VkImageView targetImageView)
@@ -510,7 +508,8 @@ void Engine::cleanup()
     vkDestroySampler(device, defaultSamplerLinear, nullptr);
 
     delete environment;
-
+    delete cubeRenderObject;
+    delete cubeGameObject;
     // destroy all other resources
     mainDeletionQueue.flush();
 
@@ -972,8 +971,10 @@ void Engine::initStaticScene()
 
 void Engine::initTesting()
 {
-    RenderObject renderObject{this, "assets/models/box/Box.gltf"};
-    /*VkPipelineLayoutCreateInfo layout_info = vk_helpers::pipelineLayoutCreateInfo();
+    cubeRenderObject = new RenderObject{this, "assets/models/avocado/Avocado.gltf"};
+    cubeGameObject = cubeRenderObject->GenerateGameObject();
+
+    VkPipelineLayoutCreateInfo layout_info = vk_helpers::pipelineLayoutCreateInfo();
     layout_info.setLayoutCount = 0;
     layout_info.pSetLayouts = nullptr;
     VkPushConstantRange pushConstants{};
@@ -1052,7 +1053,7 @@ void Engine::initTesting()
     });
 
     // Parsing GLTF
-    {
+    /*{
         fastgltf::Parser parser{};
 
         constexpr auto gltfOptions = fastgltf::Options::DontRequireValidAssetMember
@@ -1157,8 +1158,7 @@ void Engine::initTesting()
 
 
     cubeVertexBuffer = createBuffer(cubeMesh.vertices.size() * sizeof(cubeMesh.vertices[0])
-                                    , VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
-                                    , VMA_MEMORY_USAGE_CPU_TO_GPU);
+                                    , VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT                                    , VMA_MEMORY_USAGE_CPU_TO_GPU);
 
     cubeIndexBuffer = createBuffer(cubeMesh.indices.size() * sizeof(cubeMesh.indices[0])
                                    , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT

@@ -7,7 +7,7 @@
 #include <string>
 
 #include "../util/transform.h"
-
+#include <vulkan/vulkan_core.h>
 
 class GameObject
 {
@@ -26,45 +26,58 @@ public: // Transform
     void translate(glm::vec3 translation)
     {
         transform.setPosition(transform.getPosition() + translation);
-        setTransformDirty();
+        setDirty();
     }
 
     void rotate(glm::vec3 rotation)
     {
         glm::vec3 currentRotation = transform.getRotation();
         transform.setRotation(currentRotation + rotation);
-        setTransformDirty();
+        setDirty();
     }
 
     void scale(glm::vec3 scale)
     {
         transform.setScale(transform.getScale() * scale);
-        setTransformDirty();
+        setDirty();
     }
 
     void setPosition(const glm::vec3& position)
     {
         transform.setPosition(position);
-        setTransformDirty();
+        setDirty();
     }
 
     void setRotation(const glm::vec3& rotation)
     {
         transform.setRotation(rotation);
-        setTransformDirty();
+        setDirty();
     }
 
     void setScale(const glm::vec3& scale)
     {
         transform.setScale(scale);
-        setTransformDirty();
+        setDirty();
     }
 
-    void setTransformDirty()
+    void setTransform(glm::vec3 translation, glm::vec3 rotation, glm::vec3 scale)
+    {
+        transform.setPosition(translation);
+        transform.setRotation(rotation);
+        transform.setScale(scale);
+        setDirty();
+    }
+
+    void setTransform(const Transform& transform)
+    {
+        setTransform(transform.getPosition(), transform.getRotation(), transform.getScale());
+    }
+
+    void setDirty()
     {
         isTransformDirty = true;
-        for (auto& child: children) {
-            child->setTransformDirty();
+        for (auto& child : children) {
+            child->setDirty();
         }
     }
 
@@ -107,6 +120,13 @@ private: // Hierarchy
     static int nextId;
     int gameObjectId{};
     std::string gameObjectName{};
+
+
+public: // Rendering
+    void setDrawIndexedIndirectCommand(VkDrawIndexedIndirectCommand* indirectCommand);
+private: // Rendering
+    VkDrawIndexedIndirectCommand* drawIndexedIndirectCommand;
+
 
 public:
     bool operator==(const GameObject& other) const

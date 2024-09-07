@@ -6,17 +6,14 @@
 #define RENDER_OBJECT_H
 
 #include <string_view>
+#include <vector>
 #include <vulkan/vulkan_core.h>
 
-#include "engine.h"
+#include "game_object.h"
+#include "../renderer/vk_types.h"
+#include "../renderer/vk_descriptor_buffer.h"
 
-struct RenderMesh
-{
-    uint32_t meshIndex;
-    uint32_t vertexOffset;
-    uint32_t indexStart;
-    uint32_t indexCount;
-};
+class Engine;
 
 struct RenderNode
 {
@@ -42,7 +39,7 @@ private:
 
     DescriptorBufferSampler textureDescriptorBuffer;
 
-    void BindDescriptors(VkCommandBuffer cmd);
+    //void BindDescriptors(VkCommandBuffer cmd);
     // indirects are then constructed/reconstructed every frame elsewhere in the code.
     // When ready to draw, the game will bind, the render object resources
 
@@ -50,14 +47,42 @@ private:
     // the game will then execute drawIndirectDrawBuffers
 
 private:
-    std::vector<RenderMesh> meshes;
+    std::vector<Mesh> meshes;
 
-    AllocatedBuffer vertexBuffer;
-    AllocatedBuffer indexBuffer;
+    std::vector<RenderNode> renderNodes;
+    std::vector<int32_t> topNodes;
+    //std::vector<RenderNode*> topNodes;
 
     AllocatedBuffer materialBuffer;
 
-    std::vector<RenderNode> renderNodes;
+public:
+    AllocatedBuffer& getVertexBuffer()
+    {
+        return vertexBuffer;
+    }
+    AllocatedBuffer& getIndexBuffer()
+    {
+        return indexBuffer;
+    }
+
+    void draw(const VkCommandBuffer& cmd);
+
+public:
+    GameObject* GenerateGameObject();
+
+private: // Drawing
+    AllocatedBuffer vertexBuffer;
+    AllocatedBuffer indexBuffer;
+
+    AllocatedBuffer drawIndirectBuffer;
+
+    std::vector<VkDrawIndexedIndirectCommand> drawIndirectCommands;
+    std::vector<InstanceData> instanceDatas;
+
+    GameObject* RecursiveGenerateGameObject(const RenderNode& renderNode);
+
+    void UploadIndirect();
+
 private:
     Engine* creator;
 

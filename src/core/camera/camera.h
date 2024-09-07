@@ -56,12 +56,14 @@ public:
 protected:
     Camera() = default;
 
-    Camera(float fov, float aspect, float farPlane, float nearPlane);
+    Camera(float fov, float aspect, float farPlane, float nearPlane, bool flipY = true);
 
     ~Camera() = default;
 
 protected:
     virtual void update() {}
+
+    bool flipY;
 
     Transform transform;
 

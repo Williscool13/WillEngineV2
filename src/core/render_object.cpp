@@ -4,6 +4,9 @@
 
 #include "render_object.h"
 
+#include "../renderer/vk_descriptors.h"
+#include "engine.h"
+
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
@@ -197,10 +200,8 @@ RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
         , VMA_MEMORY_USAGE_CPU_TO_GPU);
     memcpy(materialBuffer.info.pMappedData, materials.data(), materials.size() * sizeof(Material));
 
-    std::vector<Mesh> meshes;
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
-
     for (fastgltf::Mesh& mesh: gltf.meshes) {
         std::vector<Vertex> meshVertices;
         std::vector<uint32_t> meshIndices;
@@ -263,9 +264,39 @@ RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
             }
         }
 
-        meshes.push_back({.firstIndex = indices.size(), .indexCount = meshIndices.size(), .vertexOffset = vertices.size(), .hasTransparents = hasTransparentPrimitives});
+        meshes.push_back(
+            {
+                .firstIndex = static_cast<uint32_t>(indices.size()),
+                .indexCount = static_cast<uint32_t>(meshIndices.size()),
+                .vertexOffset = static_cast<int32_t>(vertices.size()),
+                .hasTransparents = hasTransparentPrimitives
+            });
         vertices.insert(vertices.end(), meshVertices.begin(), meshVertices.end());
         indices.insert(indices.end(), meshIndices.begin(),  meshIndices.end());
+    }
+    // Upload the vertices and indices into their buffers
+    {
+        AllocatedBuffer vertexStaging = engine->createStagingBuffer(vertices.size() * sizeof(Vertex));
+        memcpy(vertexStaging.info.pMappedData, vertices.data(), vertices.size() * sizeof(Vertex));
+
+        AllocatedBuffer indexStaging = engine->createStagingBuffer(indices.size() * sizeof(uint32_t));
+        memcpy(indexStaging.info.pMappedData, indices.data(), indices.size() * sizeof(uint32_t));
+
+
+        vertexBuffer = engine->createBuffer(vertices.size() * sizeof(Vertex)
+                                            , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+                                            , VMA_MEMORY_USAGE_GPU_ONLY);
+
+        indexBuffer = engine->createBuffer(indices.size() * sizeof(uint32_t)
+                                           , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT
+                                           , VMA_MEMORY_USAGE_GPU_ONLY);
+
+
+        engine->copyBuffer(vertexStaging, vertexBuffer, vertices.size() * sizeof(Vertex));
+        engine->copyBuffer(indexStaging, indexBuffer, indices.size() * sizeof(uint32_t));
+
+        engine->destroyBuffer(vertexStaging);
+        engine->destroyBuffer(indexStaging);
     }
 
     for (const fastgltf::Node& node : gltf.nodes) {
@@ -321,8 +352,14 @@ RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
         }
     }
 
-    fmt::print("Test");
+    for (int i = 0; i < renderNodes.size(); i++) {
+        if (renderNodes[i].parent == nullptr) {
+            topNodes.push_back(i);
+            renderNodes[i].transform.reset();
+        }
+    }
 
+    UploadIndirect();
 }
 
 RenderObject::~RenderObject()
@@ -331,10 +368,77 @@ RenderObject::~RenderObject()
     vkDestroyDescriptorSetLayout(creator->getDevice(), textureDescriptorSetLayout, nullptr);
     vkDestroyDescriptorSetLayout(creator->getDevice(), computeCullingDescriptorSetLayout, nullptr);
 
-        //vkDestroyPipelineLayout(creator->_device, _computeCullingPipelineLayout, nullptr);
-        //vkDestroyPipeline(creator->_device, _computeCullingPipeline, nullptr);
+    //vkDestroyPipelineLayout(creator->_device, _computeCullingPipelineLayout, nullptr);
+    //vkDestroyPipeline(creator->_device, _computeCullingPipeline, nullptr);
 
-
+    creator->destroyBuffer(drawIndirectBuffer);
+    creator->destroyBuffer(indexBuffer);
+    creator->destroyBuffer(vertexBuffer);
     creator->destroyBuffer(materialBuffer);
     textureDescriptorBuffer.destroy(creator->getDevice(), creator->getAllocator());
+}
+
+void RenderObject::draw(const VkCommandBuffer& cmd)
+{
+    VkDeviceSize offsets{ 0 };
+    vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer.buffer, &offsets);
+    vkCmdBindIndexBuffer(cmd, indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexedIndirect(cmd, drawIndirectBuffer.buffer, 0, drawIndirectCommands.size(),  sizeof(VkDrawIndexedIndirectCommand));
+}
+
+GameObject* RenderObject::GenerateGameObject()
+{
+    auto* superRoot = new GameObject();
+    superRoot->setTransform(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
+    for (const int32_t rootNode : topNodes) {
+        GameObject* root = RecursiveGenerateGameObject(renderNodes[rootNode]);
+        superRoot->addChild(root);
+    }
+
+    UploadIndirect();
+    return superRoot;
+}
+
+GameObject* RenderObject::RecursiveGenerateGameObject(const RenderNode& renderNode)
+{
+    auto gameObject = new GameObject();
+    gameObject->setTransform(renderNode.transform);
+
+    if (renderNode.meshIndex != -1) {
+        VkDrawIndexedIndirectCommand drawCommand;
+        drawCommand.firstIndex = meshes[renderNode.meshIndex].firstIndex;
+        drawCommand.indexCount = meshes[renderNode.meshIndex].indexCount;
+        drawCommand.vertexOffset = meshes[renderNode.meshIndex].vertexOffset;
+
+        drawCommand.instanceCount = 1;
+        drawCommand.firstInstance = drawIndirectCommands.size();
+
+        drawIndirectCommands.push_back(drawCommand);
+    }
+
+    for (const RenderNode& node : renderNode.children) {
+        GameObject* child = RecursiveGenerateGameObject(node);
+        gameObject->addChild(child);
+    }
+    return gameObject;
+}
+
+void RenderObject::UploadIndirect()
+{
+    if (drawIndirectBuffer.buffer != VK_NULL_HANDLE) {
+        creator->destroyBuffer(drawIndirectBuffer);
+    }
+
+    if (drawIndirectCommands.empty()) {
+        return;
+    }
+
+    AllocatedBuffer indirectStaging = creator->createStagingBuffer(drawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+    memcpy(indirectStaging.info.pMappedData, drawIndirectCommands.data(), drawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+    drawIndirectBuffer = creator->createBuffer(drawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand)
+                                    , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT
+                                    , VMA_MEMORY_USAGE_GPU_ONLY);
+
+    creator->copyBuffer(indirectStaging, drawIndirectBuffer, drawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+    creator->destroyBuffer(indirectStaging);
 }
