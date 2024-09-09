@@ -7,7 +7,8 @@
 VkPhysicalDeviceDescriptorBufferPropertiesEXT DescriptorBuffer::deviceDescriptorBufferProperties = {};
 bool DescriptorBuffer::devicePropertiesRetrieved = false;
 
-class DescriptorBufferException : public std::runtime_error {
+class DescriptorBufferException : public std::runtime_error
+{
 public:
     explicit DescriptorBufferException(const std::string& message) : std::runtime_error(message) {}
 };
@@ -112,7 +113,7 @@ int DescriptorBufferUniform::setupData(VkDevice device, std::vector<DescriptorUn
         // at index 0, should be -> (pointer) + (baseOffset + 0 * uniformBufferSize) + (descriptorBufferIndex * descriptorBufferSize)
         // at index 1, should be -> (pointer) + (baseOffset + 1 * uniformBufferSize) + (descriptorBufferIndex * descriptorBufferSize)
         // at index 2, should be -> (pointer) + (baseOffset + 2 * uniformBufferSize) + (descriptorBufferIndex * descriptorBufferSize)
-        char *buffer_ptr_offset = static_cast<char *>(descriptorBuffer.info.pMappedData) + accum_offset + descriptorBufferIndex *
+        char* buffer_ptr_offset = static_cast<char*>(descriptorBuffer.info.pMappedData) + accum_offset + descriptorBufferIndex *
                                   descriptorBufferSize;
 
         vkGetDescriptorEXT(
@@ -181,65 +182,65 @@ int DescriptorBufferSampler::setupData(VkDevice device, std::vector<DescriptorIm
 
     for (const DescriptorImageData currentData : imageBuffers) {
         if (currentData.padding) {
-                size_t descriptor_size;
-                switch (currentData.type) {
-                    case VK_DESCRIPTOR_TYPE_SAMPLER:
-                        descriptor_size = deviceDescriptorBufferProperties.samplerDescriptorSize;
-                        break;
-                    case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-                        descriptor_size = deviceDescriptorBufferProperties.combinedImageSamplerDescriptorSize;
-                        break;
-                    case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-                        descriptor_size = deviceDescriptorBufferProperties.sampledImageDescriptorSize;
-                        break;
-                    case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-                        descriptor_size = deviceDescriptorBufferProperties.storageImageDescriptorSize;
-                        break;
-                    default:
-                        fmt::print("DescriptorBufferImage::setup_data() called with a non-image/sampler type in its data");
-                        return -1;
-                }
-                accum_offset += descriptor_size;
-                continue;
-            }
-
-            VkDescriptorGetInfoEXT image_descriptor_info{VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT};
-            image_descriptor_info.type = currentData.type;
-            image_descriptor_info.pNext = nullptr;
-            size_t descriptor_size{};
-
+            size_t descriptorSize;
             switch (currentData.type) {
                 case VK_DESCRIPTOR_TYPE_SAMPLER:
-                    image_descriptor_info.data.pSampler = &currentData.imageInfo.sampler;
-                    descriptor_size = deviceDescriptorBufferProperties.samplerDescriptorSize;
+                    descriptorSize = deviceDescriptorBufferProperties.samplerDescriptorSize;
                     break;
                 case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-                    image_descriptor_info.data.pCombinedImageSampler = &currentData.imageInfo;
-                    descriptor_size = deviceDescriptorBufferProperties.combinedImageSamplerDescriptorSize;
+                    descriptorSize = deviceDescriptorBufferProperties.combinedImageSamplerDescriptorSize;
                     break;
                 case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-                    image_descriptor_info.data.pSampledImage = &currentData.imageInfo;
-                    descriptor_size = deviceDescriptorBufferProperties.sampledImageDescriptorSize;
+                    descriptorSize = deviceDescriptorBufferProperties.sampledImageDescriptorSize;
                     break;
                 case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-                    image_descriptor_info.data.pStorageImage = &currentData.imageInfo;
-                    descriptor_size = deviceDescriptorBufferProperties.storageImageDescriptorSize;
+                    descriptorSize = deviceDescriptorBufferProperties.storageImageDescriptorSize;
                     break;
                 default:
-                    fmt::print("DescriptorBufferImage::setup_data() called with a non-image/sampler descriptor type\n");
+                    fmt::print("DescriptorBufferImage::setup_data() called with a non-image/sampler type in its data");
                     return -1;
             }
-            char *buffer_ptr_offset = static_cast<char *>(descriptorBuffer.info.pMappedData) + accum_offset + descriptorBufferIndex *
-                                      descriptorBufferSize;
+            accum_offset += descriptorSize;
+            continue;
+        }
 
-            vkGetDescriptorEXT(
-                device,
-                &image_descriptor_info,
-                descriptor_size,
-                buffer_ptr_offset
-            );
+        VkDescriptorGetInfoEXT image_descriptor_info{VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT};
+        image_descriptor_info.type = currentData.type;
+        image_descriptor_info.pNext = nullptr;
+        size_t descriptor_size{};
 
-            accum_offset += descriptor_size;
+        switch (currentData.type) {
+            case VK_DESCRIPTOR_TYPE_SAMPLER:
+                image_descriptor_info.data.pSampler = &currentData.imageInfo.sampler;
+                descriptor_size = deviceDescriptorBufferProperties.samplerDescriptorSize;
+                break;
+            case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+                image_descriptor_info.data.pCombinedImageSampler = &currentData.imageInfo;
+                descriptor_size = deviceDescriptorBufferProperties.combinedImageSamplerDescriptorSize;
+                break;
+            case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+                image_descriptor_info.data.pSampledImage = &currentData.imageInfo;
+                descriptor_size = deviceDescriptorBufferProperties.sampledImageDescriptorSize;
+                break;
+            case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+                image_descriptor_info.data.pStorageImage = &currentData.imageInfo;
+                descriptor_size = deviceDescriptorBufferProperties.storageImageDescriptorSize;
+                break;
+            default:
+                fmt::print("DescriptorBufferImage::setup_data() called with a non-image/sampler descriptor type\n");
+                return -1;
+        }
+        char* buffer_ptr_offset = static_cast<char*>(descriptorBuffer.info.pMappedData) + accum_offset + descriptorBufferIndex *
+                                  descriptorBufferSize;
+
+        vkGetDescriptorEXT(
+            device,
+            &image_descriptor_info,
+            descriptor_size,
+            buffer_ptr_offset
+        );
+
+        accum_offset += descriptor_size;
     }
 
     return descriptorBufferIndex;

@@ -303,7 +303,7 @@ void Environment::equiToCubemapImmediate(AllocatedImage& _cubemapImage, int _cub
 
 
         EquiToCubePushConstantData pushData{};
-        pushData.flipY = flip_y;
+        pushData.flipY = flipY;
         vkCmdPushConstants(cmd, equiToCubemapPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(EquiToCubePushConstantData), &pushData);
 
         assert(extents.width % 16 == 0 && extents.height % 16 == 0);

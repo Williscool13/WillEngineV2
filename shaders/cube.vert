@@ -47,10 +47,12 @@ layout (location = 4) flat out uint outMaterialIndex;
 
 
 layout (push_constant) uniform PushConstants {
-    mat4 mvp;
+    mat4 vp;
 } pushConstants;
 
 void main() {
+
+    mat4 model = bufferAddresses.modelBufferDeviceAddress.models[gl_InstanceIndex].modelMatrix;
     Material material = bufferAddresses.materialBufferDeviceAddress.materials[materialIndex];
 
     // use world matrix when it becomes available
@@ -60,7 +62,7 @@ void main() {
     outUV = uv;
     outMaterialIndex = materialIndex;
 
-    gl_Position = pushConstants.mvp * vec4(position, 1.0);
+    gl_Position = pushConstants.vp * model * vec4(position, 1.0);
 
     //mat3 i_t_m = inverse(transpose(mat3(pushConstants.mvp)));
     //outNormal = i_t_m * normal;

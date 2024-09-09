@@ -501,7 +501,7 @@ VkSamplerMipmapMode vk_helpers::extractMipmapMode(const fastgltf::Filter filter)
 }
 
 std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const fastgltf::Asset& asset, const fastgltf::Image& image,
-                                                    const std::filesystem::path& filepath)
+                                                    const std::filesystem::path& parentFolder)
 {
     AllocatedImage newImage{};
 
@@ -510,12 +510,12 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
     std::visit(
         fastgltf::visitor{
             [](auto& arg) {},
-            [&](fastgltf::sources::URI& filePath) {
-                assert(filePath.fileByteOffset == 0); // We don't support offsets with stbi.
-                assert(filePath.uri.isLocalPath()); // We're only capable of loading
+            [&](const fastgltf::sources::URI& fileName) {
+                assert(fileName.fileByteOffset == 0); // We don't support offsets with stbi.
+                assert(fileName.uri.isLocalPath()); // We're only capable of loading
                 // local files.
-                const std::string path(filePath.uri.path().begin(), filePath.uri.path().end()); // Thanks C++.
-                std::string fullpath = filepath.string() + "\\" + path;
+                std::wstring widePath(fileName.uri.path().begin(), fileName.uri.path().end());
+                std::filesystem::path fullPath = parentFolder / widePath;
 
                 //std::string extension = getFileExtension(fullpath);
                 /*if (isKTXFile(extension)) {
@@ -556,7 +556,7 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
                     ktxTexture_Destroy(kTexture);
                 }*/
 
-                unsigned char* data = stbi_load(fullpath.c_str(), &width, &height, &nrChannels, 4);
+                unsigned char* data = stbi_load(fullPath.string().c_str(), &width, &height, &nrChannels, 4);
                 if (data) {
                     VkExtent3D imagesize;
                     imagesize.width = width;
@@ -569,7 +569,7 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
                 }
             },
             [&](fastgltf::sources::Array& vector) {
-                unsigned char* data = stbi_load_from_memory(reinterpret_cast<const unsigned char *>(vector.bytes.data()),
+                unsigned char* data = stbi_load_from_memory(reinterpret_cast<const unsigned char*>(vector.bytes.data()),
                                                             static_cast<int>(vector.bytes.size()),
                                                             &width, &height, &nrChannels, 4);
                 if (data) {
@@ -595,7 +595,7 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
                         [](auto& arg) {},
                         [&](fastgltf::sources::Array& vector) {
                             unsigned char* data = stbi_load_from_memory(
-                                reinterpret_cast<const unsigned char *>(vector.bytes.data()) + bufferView.byteOffset,
+                                reinterpret_cast<const unsigned char*>(vector.bytes.data()) + bufferView.byteOffset,
                                 static_cast<int>(bufferView.byteLength), &width, &height, &nrChannels, 4);
                             if (data) {
                                 VkExtent3D imagesize;
@@ -623,7 +623,7 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
 }
 
 void vk_helpers::loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, int& imageIndex,
-                             int& samplerIndex, const size_t imageOffset, const size_t samplerOffset)
+                             int& samplerIndex, const uint32_t imageOffset, const uint32_t samplerOffset)
 {
     if (!texture.has_value()) {
         return;

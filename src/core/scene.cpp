@@ -212,3 +212,8 @@ void Scene::deleteGameObjectRecursive(GameObject* obj)
     activeGameObjects.erase(obj);
     delete obj;
 }
+
+GameObject* Scene::DEBUG_getSceneRoot() const
+{
+    return sceneRoot;
+}
