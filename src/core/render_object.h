@@ -60,7 +60,7 @@ public:
 
     void updateInstanceData(const InstanceData& value, int32_t index) const;
 
-    void draw(const VkCommandBuffer& cmd, VkPipelineLayout pipelineLayout);
+    void draw(const VkCommandBuffer cmd, VkPipelineLayout pipelineLayout);
 
 private: // Drawing
     AllocatedBuffer vertexBuffer{};
@@ -86,7 +86,7 @@ private:
     Engine* creator;
 
     static int renderObjectCount;
-    static constexpr size_t samplerCount{32};
+    static constexpr size_t samplerCount{32}; // see hard coded values in the shader
     static constexpr size_t imageCount{255}; // if anything exists after images, need to use padding.
 public:
     static VkDescriptorSetLayout addressesDescriptorSetLayout;

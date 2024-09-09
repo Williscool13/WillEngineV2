@@ -26,25 +26,27 @@ RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
     if (renderObjectCount == 0) {
         // Descriptor Layouts
         {
-            { // Render binding 0 (to be 2)
+            {
+                // Render binding 0 (to be 2)
                 DescriptorLayoutBuilder layoutBuilder;
                 layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-                addressesDescriptorSetLayout = layoutBuilder.build(creator->getDevice(), VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT
-                    , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-            }
-            { // Render binding 1 (to be 3)
+                addressesDescriptorSetLayout = layoutBuilder.build(creator->getDevice(),
+                                                                   VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT |
+                                                                   VK_SHADER_STAGE_COMPUTE_BIT
+                                                                   , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+            } {
+                // Render binding 1 (to be 3)
                 DescriptorLayoutBuilder layoutBuilder;
                 layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_SAMPLER, samplerCount);
                 layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageCount);
 
                 textureDescriptorSetLayout = layoutBuilder.build(creator->getDevice(), VK_SHADER_STAGE_FRAGMENT_BIT
-                    , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-            }
-            {
+                                                                 , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+            } {
                 DescriptorLayoutBuilder layoutBuilder;
                 layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
                 computeCullingDescriptorSetLayout = layoutBuilder.build(creator->getDevice(), VK_SHADER_STAGE_COMPUTE_BIT
-                    , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+                                                                        , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
             }
         }
     }
@@ -62,7 +64,7 @@ RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
     AllocatedBuffer addressesStaging = creator->createStagingBuffer(sizeof(addresses));
     memcpy(addressesStaging.info.pMappedData, addresses, sizeof(addresses));
     addressesDescriptorBuffer = DescriptorBufferUniform(engine->getInstance(), engine->getDevice()
-            , engine->getPhysicalDevice(), engine->getAllocator(), addressesDescriptorSetLayout, 1);
+                                                        , engine->getPhysicalDevice(), engine->getAllocator(), addressesDescriptorSetLayout, 1);
 
     bufferAddresses = engine->createBuffer(sizeof(addresses)
                                            , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
@@ -70,7 +72,11 @@ RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
     creator->copyBuffer(addressesStaging, bufferAddresses, sizeof(addresses));
     creator->destroyBuffer(addressesStaging);
 
-
+    DescriptorUniformData addressesUniformData;
+    addressesUniformData.allocSize = sizeof(addresses);
+    addressesUniformData.uniformBuffer = bufferAddresses;
+    std::vector uniforms = {addressesUniformData};
+    addressesDescriptorBuffer.setupData(creator->getDevice(), uniforms);
 }
 
 RenderObject::~RenderObject()
@@ -146,7 +152,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
     samplers.push_back(Engine::defaultSamplerNearest);
     // Samplers
     {
-        for (const fastgltf::Sampler& gltfSampler: gltf.samplers) {
+        for (const fastgltf::Sampler& gltfSampler : gltf.samplers) {
             VkSamplerCreateInfo sampl = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO, .pNext = nullptr};
             sampl.maxLod = VK_LOD_CLAMP_NONE;
             sampl.minLod = 0;
@@ -169,7 +175,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
     images.push_back(Engine::whiteImage);
     // Images
     {
-        for (const fastgltf::Image& gltfImage: gltf.images) {
+        for (const fastgltf::Image& gltfImage : gltf.images) {
             std::optional<AllocatedImage> newImage = vk_helpers::loadImage(engine, gltf, gltfImage, path.parent_path());
             if (newImage.has_value()) {
                 images.push_back(*newImage);
@@ -217,7 +223,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
     materials.emplace_back();
     //  actual materials
     {
-        for (const fastgltf::Material& gltfMaterial: gltf.materials) {
+        for (const fastgltf::Material& gltfMaterial : gltf.materials) {
             Material material{};
             material.colorFactor = glm::vec4(
                 gltfMaterial.pbrData.baseColorFactor[0]
@@ -251,9 +257,9 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
             }
 
             vk_helpers::loadTexture(gltfMaterial.pbrData.baseColorTexture, gltf, material.textureImageIndices.x,
-                                    material.textureSamplerIndices.x);
+                                    material.textureSamplerIndices.x, imageOffset, samplerOffset);
             vk_helpers::loadTexture(gltfMaterial.pbrData.metallicRoughnessTexture, gltf, material.textureImageIndices.y,
-                                    material.textureSamplerIndices.y);
+                                    material.textureSamplerIndices.y, imageOffset, samplerOffset);
 
             // image defined but no sampler and vice versa - use defaults
             // pretty rare/edge case
@@ -276,24 +282,25 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
     assert(materials.size() == gltf.materials.size() + materialOffset);
 
     materialBuffer = engine->createBuffer(materials.size() * sizeof(Material)
-        , VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
-        , VMA_MEMORY_USAGE_CPU_TO_GPU);
+                                          , VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                                            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+                                          , VMA_MEMORY_USAGE_CPU_TO_GPU);
     memcpy(materialBuffer.info.pMappedData, materials.data(), materials.size() * sizeof(Material));
 
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
-    for (fastgltf::Mesh& mesh: gltf.meshes) {
+    for (fastgltf::Mesh& mesh : gltf.meshes) {
         std::vector<Vertex> meshVertices;
         std::vector<uint32_t> meshIndices;
         bool hasTransparentPrimitives = false;
-        for (fastgltf::Primitive& p: mesh.primitives) {
-            size_t initial_vtx = meshVertices.size();
+        for (fastgltf::Primitive& p : mesh.primitives) {
+            size_t initialVtx = meshVertices.size();
+            glm::uint32_t primitiveMaterialIndex{0};
 
             if (p.materialIndex.has_value()) {
-                size_t materialIndex = p.materialIndex.value() + 1;
-                hasTransparentPrimitives = gltf.materials[materialIndex].alphaMode == fastgltf::AlphaMode::Blend;
+                primitiveMaterialIndex = p.materialIndex.value() + 1;
+                hasTransparentPrimitives = gltf.materials[primitiveMaterialIndex].alphaMode == fastgltf::AlphaMode::Blend;
             }
-
 
             // load indexes
             {
@@ -301,7 +308,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
                 meshIndices.reserve(meshIndices.size() + indexaccessor.count);
 
                 fastgltf::iterateAccessor<std::uint32_t>(gltf, indexaccessor, [&](std::uint32_t idx) {
-                    meshIndices.push_back(idx + static_cast<uint32_t>(initial_vtx));
+                    meshIndices.push_back(idx + static_cast<uint32_t>(initialVtx));
                 });
             }
 
@@ -315,32 +322,38 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
                 fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, posAccessor, [&](fastgltf::math::fvec3 v, size_t index) {
                     Vertex newvtx{};
                     newvtx.position = {v.x(), v.y(), v.z()};
-                    meshVertices[initial_vtx + index] = newvtx;
+                    newvtx.materialIndex = primitiveMaterialIndex;
+                    meshVertices[initialVtx + index] = newvtx;
                 });
             }
 
             // load vertex normals
             const fastgltf::Attribute* normals = p.findAttribute("NORMAL");
             if (normals != p.attributes.end()) {
-                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, gltf.accessors[normals->accessorIndex], [&](fastgltf::math::fvec3 n, size_t index) {
-                    meshVertices[initial_vtx + index].normal = {n.x(), n.y(), n.z()};
-                });
+                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, gltf.accessors[normals->accessorIndex],
+                                                                          [&](fastgltf::math::fvec3 n, size_t index) {
+                                                                              meshVertices[initialVtx + index].normal = {n.x(), n.y(), n.z()};
+                                                                          });
             }
 
             // load UVs
             const fastgltf::Attribute* uvs = p.findAttribute("TEXCOORD_0");
             if (uvs != p.attributes.end()) {
-                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(gltf, gltf.accessors[uvs->accessorIndex], [&](fastgltf::math::fvec2 uv, size_t index) {
-                    meshVertices[initial_vtx + index].uv = {uv.x(), uv.y()};
-                });
+                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(gltf, gltf.accessors[uvs->accessorIndex],
+                                                                          [&](fastgltf::math::fvec2 uv, size_t index) {
+                                                                              meshVertices[initialVtx + index].uv = {uv.x(), uv.y()};
+                                                                          });
             }
 
             // load vertex colors
             const fastgltf::Attribute* colors = p.findAttribute("COLOR_0");
             if (colors != p.attributes.end()) {
-                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec4>(gltf, gltf.accessors[colors->accessorIndex], [&](fastgltf::math::fvec4 color, size_t index) {
-                    meshVertices[initial_vtx + index].color = {color.x(), color.y(), color.z(), color.w()};
-                });
+                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec4>(gltf, gltf.accessors[colors->accessorIndex],
+                                                                          [&](fastgltf::math::fvec4 color, size_t index) {
+                                                                              meshVertices[initialVtx + index].color = {
+                                                                                  color.x(), color.y(), color.z(), color.w()
+                                                                              };
+                                                                          });
             }
         }
 
@@ -352,7 +365,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
                 .hasTransparents = hasTransparentPrimitives
             });
         vertices.insert(vertices.end(), meshVertices.begin(), meshVertices.end());
-        indices.insert(indices.end(), meshIndices.begin(),  meshIndices.end());
+        indices.insert(indices.end(), meshIndices.begin(), meshIndices.end());
     }
     // Upload the vertices and indices into their buffers
     {
@@ -449,11 +462,12 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
 
 
     instanceBuffer = engine->createBuffer(instanceCount * sizeof(InstanceData)
-                                          , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+                                          , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                                            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
                                           , VMA_MEMORY_USAGE_CPU_TO_GPU);
 }
 
-void RenderObject::draw(const VkCommandBuffer& cmd, VkPipelineLayout pipelineLayout)
+void RenderObject::draw(const VkCommandBuffer cmd, VkPipelineLayout pipelineLayout)
 {
     if (vertexBuffer.buffer == VK_NULL_HANDLE) {
         return;
@@ -468,13 +482,13 @@ void RenderObject::draw(const VkCommandBuffer& cmd, VkPipelineLayout pipelineLay
     VkDeviceSize zeroOffset{0};
     const uint32_t addressIndex{0};
     const uint32_t texturesIndex{1};
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &addressIndex, &zeroOffset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &texturesIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &addressIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &texturesIndex, &zeroOffset);
 
-    VkDeviceSize offsets{ 0 };
+    VkDeviceSize offsets{0};
     vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer.buffer, &offsets);
     vkCmdBindIndexBuffer(cmd, indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexedIndirect(cmd, drawIndirectBuffer.buffer, 0, drawIndirectCommands.size(),  sizeof(VkDrawIndexedIndirectCommand));
+    vkCmdDrawIndexedIndirect(cmd, drawIndirectBuffer.buffer, 0, drawIndirectCommands.size(), sizeof(VkDrawIndexedIndirectCommand));
 }
 
 GameObject* RenderObject::GenerateGameObject()
@@ -492,6 +506,7 @@ GameObject* RenderObject::GenerateGameObject()
 
 void RenderObject::updateInstanceData(const InstanceData& value, const int32_t index) const
 {
+    // TODO: Null pointer during destruction here
     auto basePtr = static_cast<char*>(instanceBuffer.info.pMappedData);
     void* target = basePtr + index * sizeof(InstanceData);
     memcpy(target, &value, sizeof(InstanceData));
@@ -537,8 +552,8 @@ void RenderObject::UploadIndirect()
     AllocatedBuffer indirectStaging = creator->createStagingBuffer(drawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
     memcpy(indirectStaging.info.pMappedData, drawIndirectCommands.data(), drawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
     drawIndirectBuffer = creator->createBuffer(drawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand)
-                                    , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT
-                                    , VMA_MEMORY_USAGE_GPU_ONLY);
+                                               , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT
+                                               , VMA_MEMORY_USAGE_GPU_ONLY);
 
     creator->copyBuffer(indirectStaging, drawIndirectBuffer, drawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
     creator->destroyBuffer(indirectStaging);

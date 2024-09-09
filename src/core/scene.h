@@ -40,6 +40,9 @@ private:
 
 private:
     void deleteGameObjectRecursive(GameObject* obj);
+
+public: // Debug
+    GameObject* DEBUG_getSceneRoot() const;
 };
 
 

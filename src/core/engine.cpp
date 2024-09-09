@@ -244,6 +244,13 @@ void Engine::run()
             ImGui::Render();
         }
 
+        if (Input::Get().isKeyPressed(SDLK_p)) {
+            GameObject* root = scene.DEBUG_getSceneRoot();
+
+            root->translate(glm::vec3(1.0f, 0.0f, 0.0f));
+        }
+
+
         draw();
     }
 }

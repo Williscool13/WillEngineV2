@@ -103,7 +103,7 @@ namespace vk_helpers
 
     VkSamplerMipmapMode extractMipmapMode(fastgltf::Filter filter);
 
-    std::optional<AllocatedImage> loadImage(const Engine* engine, const fastgltf::Asset& asset, const fastgltf::Image& image, const std::filesystem::path& filepath);
+    std::optional<AllocatedImage> loadImage(const Engine* engine, const fastgltf::Asset& asset, const fastgltf::Image& image, const std::filesystem::path& parentFolder);
 
     /**
      * Loads a fastgltf texture.
@@ -115,8 +115,8 @@ namespace vk_helpers
      * @param imageOffset
      * @param samplerOffset
      */
-    void loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, int& imageIndex, int& samplerIndex, size_t
-                     imageOffset = 0, size_t samplerOffset = 0);
+    void loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, int& imageIndex, int& samplerIndex, const uint32_t
+                     imageOffset = 0, const uint32_t samplerOffset = 0);
 }
 
 
