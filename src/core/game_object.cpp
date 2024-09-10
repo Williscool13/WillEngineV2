@@ -48,9 +48,9 @@ glm::mat4 GameObject::getModelMatrix()
 {
     if (isTransformDirty) {
         if (parent != nullptr) {
-            cachedWorldTransform = parent->getModelMatrix() * transform.getWorldMatrix();
+            cachedWorldTransform = parent->getModelMatrix() * transform.getTRSMatrix();
         } else {
-            cachedWorldTransform = transform.getWorldMatrix();
+            cachedWorldTransform = transform.getTRSMatrix();
         }
         isTransformDirty = false;
     }
@@ -74,37 +74,36 @@ void GameObject::setDirty()
     }*/
 }
 
-void GameObject::addChild(GameObject* child)
+void GameObject::addChild(GameObject* child, bool maintainWorldPosition)
 {
     // Prevent adding self as child
     if (child == this) { return; }
-
-    // Child's current world transform
-    glm::mat4 childWorldMatrix = child->getModelMatrix();
 
     // Remove from previous parent if any
     child->unparent();
     children.push_back(child);
     child->parent = this;
 
-    // Calculate and set the child's new local transform
-    glm::mat4 inverseParentWorldMatrix = glm::inverse(this->getModelMatrix());
-    glm::mat4 newLocalMatrix = inverseParentWorldMatrix * childWorldMatrix;
+    if (maintainWorldPosition) {
+        // Child's current world transform
+        glm::mat4 childWorldMatrix = child->getModelMatrix();
 
-    // Extract new local transform components
-    glm::vec3 newLocalPosition = glm::vec3(newLocalMatrix[3]);
-    glm::vec3 newLocalScale = glm::vec3(
-        glm::length(glm::vec3(newLocalMatrix[0])),
-        glm::length(glm::vec3(newLocalMatrix[1])),
-        glm::length(glm::vec3(newLocalMatrix[2]))
-    );
-    glm::quat newLocalRotation = glm::quat_cast(newLocalMatrix);
+        // Calculate and set the child's new local transform
+        glm::mat4 inverseParentWorldMatrix = glm::inverse(this->getModelMatrix());
+        glm::mat4 newLocalMatrix = inverseParentWorldMatrix * childWorldMatrix;
 
-    // Set the new local position, rotation, and scale
-    child->transform.setPosition(newLocalPosition);
-    child->transform.setRotation(glm::eulerAngles(newLocalRotation));
-    child->transform.setScale(newLocalScale);
-    child->setDirty();
+        // Extract new local transform components
+        glm::vec3 newLocalPosition = glm::vec3(newLocalMatrix[3]);
+        glm::vec3 newLocalScale = glm::vec3(
+            glm::length(glm::vec3(newLocalMatrix[0])),
+            glm::length(glm::vec3(newLocalMatrix[1])),
+            glm::length(glm::vec3(newLocalMatrix[2]))
+        );
+        glm::quat newLocalRotation = glm::quat_cast(newLocalMatrix);
+
+        // Set the new local position, rotation, and scale
+        child->setTransform(newLocalPosition, glm::eulerAngles(newLocalRotation), newLocalScale);
+    }
 }
 
 void GameObject::removeChild(GameObject* child)

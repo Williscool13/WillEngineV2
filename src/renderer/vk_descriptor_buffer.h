@@ -122,7 +122,7 @@ public:
      * @param index optional. If specified, will allocate/overwrite the descriptor set in that index of the descriptor buffer
      * @return the index of the allocated descriptor set. Store and use when binding during draw call.
      */
-    int setupData(VkDevice device, std::vector<DescriptorImageData> imageBuffers, int index = -1);
+    int setupData(VkDevice device, const std::vector<DescriptorImageData>& imageBuffers, int index = -1);
 
     VkBufferUsageFlagBits getBufferUsageFlags() override;
 };

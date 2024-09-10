@@ -447,10 +447,9 @@ void Engine::drawRender(VkCommandBuffer cmd)
         vkCmdSetScissor(cmd, 0, 1, &scissor);
     }
 
-    glm::mat4 model = glm::mat4(1.0f);
     glm::mat4 view = camera.getViewMatrix();
     glm::mat4 proj = camera.getProjMatrix();
-    glm::mat4 mvp = proj * view * model;
+    glm::mat4 mvp = proj * view;
     vkCmdPushConstants(cmd, renderPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &mvp);
 
     testRenderObject->draw(cmd, renderPipelineLayout);
@@ -880,7 +879,7 @@ void Engine::initRenderPipelines()
 
     renderPipelineBuilder.setShaders(vertShader, fragShader);
     renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-    renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
+    renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE); // VK_CULL_MODE_BACK_BIT
     renderPipelineBuilder.disableMultisampling();
     renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
     renderPipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
@@ -951,11 +950,11 @@ void Engine::initScene()
     environment = new Environment(this);
     environment->loadCubemap(Environment::defaultEquiPath, 0);
 
-    //scene.createGameObject("First");
-    //scene.createGameObject("Second");
-    //scene.createGameObject("Third");
-
-    testRenderObject = new RenderObject{this, "assets/models/BoxTextured/glTF/BoxTextured.gltf"};
+    //testRenderObject = new RenderObject{this, "assets/models/BoxTextured/glTF/BoxTextured.gltf"};
+    //testRenderObject = new RenderObject{this, "assets/models/structure_mat.glb"};
+    testRenderObject = new RenderObject{this, "assets/models/structure.glb"};
+    //testRenderObject = new RenderObject{this, "assets/models/Suzanne/glTF/Suzanne.gltf"};
+    //testRenderObject = new RenderObject{this, "assets/models/glTF/Sponza.gltf"};
     testGameObject = testRenderObject->GenerateGameObject();
     scene.addGameObject(testGameObject);
 }

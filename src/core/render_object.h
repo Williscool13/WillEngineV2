@@ -78,7 +78,7 @@ private: // Drawing
     DescriptorBufferSampler textureDescriptorBuffer;
 
 
-    GameObject* RecursiveGenerateGameObject(const RenderNode& renderNode);
+    void RecursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent);
 
     void UploadIndirect();
 

@@ -154,7 +154,7 @@ DescriptorBufferSampler::DescriptorBufferSampler(VkInstance instance, VkDevice d
     descriptorBufferGpuAddress = vk_helpers::getDeviceAddress(device, descriptorBuffer.buffer);
 }
 
-int DescriptorBufferSampler::setupData(VkDevice device, std::vector<DescriptorImageData> imageBuffers, int index /*= -1*/)
+int DescriptorBufferSampler::setupData(VkDevice device, const std::vector<DescriptorImageData>& imageBuffers, const int index /*= -1*/)
 {
     int descriptorBufferIndex{};
     if (index < 0) {
@@ -173,7 +173,7 @@ int DescriptorBufferSampler::setupData(VkDevice device, std::vector<DescriptorIm
         descriptorBufferIndex = index;
     }
 
-    uint64_t accum_offset{descriptorBufferOffset};
+    uint64_t accumOffset{descriptorBufferOffset};
 
     if (deviceDescriptorBufferProperties.combinedImageSamplerDescriptorSingleArray == VK_FALSE) {
         fmt::print("This implementation does not support combinedImageSamplerDescriptorSingleArray\n");
@@ -200,7 +200,7 @@ int DescriptorBufferSampler::setupData(VkDevice device, std::vector<DescriptorIm
                     fmt::print("DescriptorBufferImage::setup_data() called with a non-image/sampler type in its data");
                     return -1;
             }
-            accum_offset += descriptorSize;
+            accumOffset += descriptorSize;
             continue;
         }
 
@@ -230,7 +230,7 @@ int DescriptorBufferSampler::setupData(VkDevice device, std::vector<DescriptorIm
                 fmt::print("DescriptorBufferImage::setup_data() called with a non-image/sampler descriptor type\n");
                 return -1;
         }
-        char* buffer_ptr_offset = static_cast<char*>(descriptorBuffer.info.pMappedData) + accum_offset + descriptorBufferIndex *
+        char* buffer_ptr_offset = static_cast<char*>(descriptorBuffer.info.pMappedData) + accumOffset + descriptorBufferIndex *
                                   descriptorBufferSize;
 
         vkGetDescriptorEXT(
@@ -240,7 +240,7 @@ int DescriptorBufferSampler::setupData(VkDevice device, std::vector<DescriptorIm
             buffer_ptr_offset
         );
 
-        accum_offset += descriptor_size;
+        accumOffset += descriptor_size;
     }
 
     return descriptorBufferIndex;

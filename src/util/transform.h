@@ -18,14 +18,14 @@ private:
     Position position;
     Rotation rotation; // Euler angles in radians (pitch, yaw, roll)
     Scale scale;
-    mutable glm::mat4 cachedWorldMatrix;
+    mutable glm::mat4 cachedTRSMatrix;
     mutable bool isDirty;
 
 public:
-    Transform() : position(0.0f), rotation(0.0f), scale(1.0f), cachedWorldMatrix(1.0f), isDirty(true) {}
+    Transform() : position(0.0f), rotation(0.0f), scale(1.0f), cachedTRSMatrix(1.0f), isDirty(true) {}
 
     Transform(const glm::vec3 position, const glm::vec3 rotation, const glm::vec3 scale)
-        : position(position), rotation(rotation), scale(scale), cachedWorldMatrix(1.0f), isDirty(true) {}
+        : position(position), rotation(rotation), scale(scale), cachedTRSMatrix(1.0f), isDirty(true) {}
 
 
     Position getPosition() const { return position; }
@@ -62,7 +62,7 @@ public:
         isDirty = true;
     }
 
-    glm::mat4 getWorldMatrix() const
+    glm::mat4 getTRSMatrix() const
     {
         if (isDirty) {
             const glm::mat4 translationMatrix = glm::translate(glm::mat4(1.0f), position);
@@ -74,10 +74,10 @@ public:
 
             const glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), scale);
 
-            cachedWorldMatrix = translationMatrix * rotationMatrix * scaleMatrix;
+            cachedTRSMatrix = translationMatrix * rotationMatrix * scaleMatrix;
             isDirty = false;
         }
-        return cachedWorldMatrix;
+        return cachedTRSMatrix;
     }
 
     void reset()

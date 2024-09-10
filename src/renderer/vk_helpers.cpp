@@ -443,7 +443,7 @@ bool vk_helpers::loadShaderModule(const char* filePath, VkDevice device, VkShade
     file.seekg(0);
 
     // load the entire file into the buffer
-    file.read((char *) buffer.data(), fileSize);
+    file.read((char*) buffer.data(), fileSize);
 
     // now that the file is loaded into the buffer, we can close it
     file.close();
@@ -568,10 +568,8 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
                     stbi_image_free(data);
                 }
             },
-            [&](fastgltf::sources::Array& vector) {
-                unsigned char* data = stbi_load_from_memory(reinterpret_cast<const unsigned char*>(vector.bytes.data()),
-                                                            static_cast<int>(vector.bytes.size()),
-                                                            &width, &height, &nrChannels, 4);
+            [&](const fastgltf::sources::Array& vector) {
+                unsigned char* data = stbi_load_from_memory(reinterpret_cast<const unsigned char*>(vector.bytes.data()), static_cast<int>(vector.bytes.size()), &width, &height, &nrChannels, 4);
                 if (data) {
                     VkExtent3D imagesize;
                     imagesize.width = width;
@@ -590,26 +588,23 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
                 // We only care about VectorWithMime here, because we
                 // specify LoadExternalBuffers, meaning all buffers
                 // are already loaded into a vector.
-                std::visit(
-                    fastgltf::visitor{
-                        [](auto& arg) {},
-                        [&](fastgltf::sources::Array& vector) {
-                            unsigned char* data = stbi_load_from_memory(
-                                reinterpret_cast<const unsigned char*>(vector.bytes.data()) + bufferView.byteOffset,
-                                static_cast<int>(bufferView.byteLength), &width, &height, &nrChannels, 4);
-                            if (data) {
-                                VkExtent3D imagesize;
-                                imagesize.width = width;
-                                imagesize.height = height;
-                                imagesize.depth = 1;
-                                size_t size = width * height * 4;
-                                newImage = engine->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM,
-                                                               VK_IMAGE_USAGE_SAMPLED_BIT, false);
-                                stbi_image_free(data);
-                            }
-                        }
-                    }, buffer.data);
-            },
+                std::visit(fastgltf::visitor{
+                               [](auto& arg) {},
+                               [&](const fastgltf::sources::Array& vector) {
+                                   unsigned char* data = stbi_load_from_memory(reinterpret_cast<const stbi_uc*>(vector.bytes.data() + bufferView.byteOffset), static_cast<int>(bufferView.byteLength), &width, &height, &nrChannels, 4);
+                                   if (data) {
+                                       VkExtent3D imagesize;
+                                       imagesize.width = width;
+                                       imagesize.height = height;
+                                       imagesize.depth = 1;
+                                       size_t size = width * height * 4;
+                                       newImage = engine->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM,
+                                                                      VK_IMAGE_USAGE_SAMPLED_BIT, false);
+                                       stbi_image_free(data);
+                                   }
+                               }
+                           }, buffer.data);
+            }
         }, image.data);
 
     // if any of the attempts to load the data failed, we havent written the image
@@ -622,8 +617,8 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
     }
 }
 
-void vk_helpers::loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, int& imageIndex,
-                             int& samplerIndex, const uint32_t imageOffset, const uint32_t samplerOffset)
+void vk_helpers::loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, float& imageIndex,
+                             float& samplerIndex, const uint32_t imageOffset, const uint32_t samplerOffset)
 {
     if (!texture.has_value()) {
         return;
