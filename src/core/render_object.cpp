@@ -130,8 +130,8 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
 
     constexpr auto gltfOptions = fastgltf::Options::DontRequireValidAssetMember
                                  | fastgltf::Options::AllowDouble
-                                 //| fastgltf::Options::LoadGLBBuffers
-                                 | fastgltf::Options::LoadExternalBuffers;
+                                 | fastgltf::Options::LoadExternalBuffers
+                                 | fastgltf::Options::LoadExternalImages;
 
     fastgltf::GltfDataBuffer data;
     data.FromPath(gltfFilepath);
@@ -181,7 +181,6 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
                 images.push_back(*newImage);
             } else {
                 images.push_back(Engine::errorCheckerboardImage);
-                fmt::print("Image failed to load: {}\n", gltfImage.name.c_str());
             }
         }
     }
@@ -221,6 +220,8 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
     std::vector<Material> materials;
     uint32_t materialOffset = 1; // default material at 0
     materials.emplace_back();
+    materials[0].textureImageIndices = glm::vec4(0,0,0,0);
+    materials[0].textureSamplerIndices = glm::vec4(0,0,0,0);
     //  actual materials
     {
         for (const fastgltf::Material& gltfMaterial : gltf.materials) {
@@ -281,11 +282,15 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
     }
     assert(materials.size() == gltf.materials.size() + materialOffset);
 
+    AllocatedBuffer materialStaging = creator->createStagingBuffer(materials.size() * sizeof(Material));
+    memcpy(materialStaging.info.pMappedData, materials.data(), materials.size() * sizeof(Material));
     materialBuffer = engine->createBuffer(materials.size() * sizeof(Material)
                                           , VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                             VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
-                                          , VMA_MEMORY_USAGE_CPU_TO_GPU);
-    memcpy(materialBuffer.info.pMappedData, materials.data(), materials.size() * sizeof(Material));
+                                          , VMA_MEMORY_USAGE_GPU_ONLY);
+
+    creator->copyBuffer(materialStaging, materialBuffer, materials.size() * sizeof(Material));
+    creator->destroyBuffer(materialStaging);
 
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
@@ -298,8 +303,8 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
             glm::uint32_t primitiveMaterialIndex{0};
 
             if (p.materialIndex.has_value()) {
-                primitiveMaterialIndex = p.materialIndex.value() + 1;
-                hasTransparentPrimitives = gltf.materials[primitiveMaterialIndex].alphaMode == fastgltf::AlphaMode::Blend;
+                primitiveMaterialIndex = p.materialIndex.value() + materialOffset;
+                hasTransparentPrimitives |= gltf.materials[primitiveMaterialIndex].alphaMode == fastgltf::AlphaMode::Blend;
             }
 
             // load indexes
@@ -450,7 +455,6 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
     for (int i = 0; i < renderNodes.size(); i++) {
         if (renderNodes[i].parent == nullptr) {
             topNodes.push_back(i);
-            renderNodes[i].transform.reset();
         }
 
         if (renderNodes[i].meshIndex != -1) {
@@ -494,10 +498,9 @@ void RenderObject::draw(const VkCommandBuffer cmd, VkPipelineLayout pipelineLayo
 GameObject* RenderObject::GenerateGameObject()
 {
     auto* superRoot = new GameObject();
-    superRoot->setTransform(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(1.0f));
+    superRoot->setTransform(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.05f));
     for (const int32_t rootNode : topNodes) {
-        GameObject* root = RecursiveGenerateGameObject(renderNodes[rootNode]);
-        superRoot->addChild(root);
+        RecursiveGenerateGameObject(renderNodes[rootNode], superRoot);
     }
 
     UploadIndirect();
@@ -512,18 +515,14 @@ void RenderObject::updateInstanceData(const InstanceData& value, const int32_t i
     memcpy(target, &value, sizeof(InstanceData));
 }
 
-GameObject* RenderObject::RecursiveGenerateGameObject(const RenderNode& renderNode)
+void RenderObject::RecursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent)
 {
     auto gameObject = new GameObject();
     gameObject->setTransform(renderNode.transform);
-    for (const RenderNode& node : renderNode.children) {
-        GameObject* child = RecursiveGenerateGameObject(node);
-        gameObject->addChild(child);
-    }
+    parent->addChild(gameObject, false);
 
     if (renderNode.meshIndex != -1) {
         size_t instanceIndex = drawIndirectCommands.size();
-
 
         VkDrawIndexedIndirectCommand drawCommand;
         drawCommand.firstIndex = meshes[renderNode.meshIndex].firstIndex;
@@ -536,7 +535,10 @@ GameObject* RenderObject::RecursiveGenerateGameObject(const RenderNode& renderNo
         gameObject->setRenderObjectReference(this, static_cast<int32_t>(instanceIndex));
         drawIndirectCommands.push_back(drawCommand);
     }
-    return gameObject;
+
+    for (const auto& child : renderNode.children) {
+        RecursiveGenerateGameObject(child, gameObject);
+    }
 }
 
 void RenderObject::UploadIndirect()

@@ -8,11 +8,11 @@ struct Model
 
 struct Material
 {
-    vec4 color_factor;
-    vec4 metal_rough_factors;
-    vec4 texture_image_indices;
-    vec4 texture_sampler_indices;
-    vec4 alpha_cutoff; // only use X, can pack with other values in future
+    vec4 colorFactor;
+    vec4 metalRoughFactors;
+    ivec4 textureImageIndices;
+    ivec4 textureSamplerIndices;
+    vec4 alphaCutoff;
 };
 
 layout(buffer_reference, std430) readonly buffer ModelData
@@ -31,8 +31,6 @@ layout(set = 0, binding = 0) uniform addresses // to be moved to set 2
     ModelData modelBufferDeviceAddress;
 } bufferAddresses;
 
-
-
 layout (location = 0) in vec3 position;
 layout (location = 1) in vec3 normal;
 layout (location = 2) in vec4 color;
@@ -43,7 +41,7 @@ layout (location = 0) out vec3 outPosition;
 layout (location = 1) out vec3 outNormal;
 layout (location = 2) out vec4 outColor;
 layout (location = 3) out vec2 outUV;
-layout (location = 4) flat out uint outMaterialIndex;
+layout (location = 4) out flat uint outMaterialIndex;
 
 
 layout (push_constant) uniform PushConstants {
@@ -53,7 +51,6 @@ layout (push_constant) uniform PushConstants {
 void main() {
 
     mat4 model = bufferAddresses.modelBufferDeviceAddress.models[gl_InstanceIndex].modelMatrix;
-    Material material = bufferAddresses.materialBufferDeviceAddress.materials[materialIndex];
 
     // use world matrix when it becomes available
     outPosition = position;
@@ -63,7 +60,7 @@ void main() {
     outMaterialIndex = materialIndex;
 
     gl_Position = pushConstants.vp * model * vec4(position, 1.0);
-
+    //gl_Position = model * vec4(position, 1.0);
     //mat3 i_t_m = inverse(transpose(mat3(pushConstants.mvp)));
     //outNormal = i_t_m * normal;
 }

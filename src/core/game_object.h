@@ -105,7 +105,7 @@ public: // Hierarchy
      * \n Will reparent the child if that child has a parent.
      * @param child
      */
-    void addChild(GameObject* child);
+    void addChild(GameObject* child, bool maintainWorldPosition = true);
 
     /**
      * If exists, removes a child from the children array and unparents the child.
