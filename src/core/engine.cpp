@@ -206,8 +206,11 @@ void Engine::run()
 
             if (ImGui::Begin("Camera Details")) {
                 glm::vec3 viewDir = camera.getViewDirectionWS();
-                glm::vec3 cameraPosition = camera.getPosition();
+                glm::vec3 cameraRotation = camera.transform.getEulerAngles();
+                cameraRotation = glm::degrees(cameraRotation);
+                glm::vec3 cameraPosition = camera.transform.getTranslation();
                 ImGui::Text("View Direction: (%.2f, %.2f, %.2f)", viewDir.x, viewDir.y, viewDir.z);
+                ImGui::Text("Rotation (%.2f, %.2f, %.2f)", cameraRotation.x, cameraRotation.y, cameraRotation.z);
                 ImGui::Text("Position: (%.2f, %.2f, %.2f)", cameraPosition.x, cameraPosition.y, cameraPosition.z);
 
                 if (ImGui::TreeNode("Matrices")) {
@@ -247,7 +250,8 @@ void Engine::run()
         if (Input::Get().isKeyPressed(SDLK_p)) {
             GameObject* root = scene.DEBUG_getSceneRoot();
 
-            root->translate(glm::vec3(1.0f, 0.0f, 0.0f));
+            root->transform.translate(glm::vec3(1.0f, 0.0f, 0.0f));
+            root->refreshTransforms();
         }
 
 
@@ -298,7 +302,7 @@ void Engine::draw()
     VkRenderingInfo renderInfo = vk_helpers::renderingInfo(drawExtent, &colorAttachment, &depthAttachment);
     vkCmdBeginRendering(cmd, &renderInfo);
 
-    drawEnvironment(cmd);
+    //drawEnvironment(cmd);
     drawRender(cmd);
 
     vkCmdEndRendering(cmd);
@@ -449,6 +453,8 @@ void Engine::drawRender(VkCommandBuffer cmd)
 
     glm::mat4 view = camera.getViewMatrix();
     glm::mat4 proj = camera.getProjMatrix();
+
+    //view = glm::lookAt(glm::vec3(5.0f, 0.0f, 0.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
     glm::mat4 mvp = proj * view;
     vkCmdPushConstants(cmd, renderPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &mvp);
 
@@ -472,8 +478,8 @@ void Engine::cleanup()
 
 
     delete environment;
-    delete testRenderObject;
     delete testGameObject;
+    delete testRenderObject;
     // destroy all other resources
     mainDeletionQueue.flush();
 
@@ -879,7 +885,7 @@ void Engine::initRenderPipelines()
 
     renderPipelineBuilder.setShaders(vertShader, fragShader);
     renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-    renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE); // VK_CULL_MODE_BACK_BIT
+    renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE); // VK_CULL_MODE_BACK_BIT
     renderPipelineBuilder.disableMultisampling();
     renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
     renderPipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
