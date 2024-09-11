@@ -36,20 +36,30 @@ void FreeCamera::update()
         velocity.z += 1.0f;
     }
 
+    const float deltaTime = TimeUtils::Get().getDeltaTime();
+    velocity *= deltaTime;
 
-    velocity *= TimeUtils::Get().getDeltaTime();
 
-    Rotation rotation = transform.getRotation();
-    rotation.y -= input.getMouseDeltaX() / 200.0f;
-    rotation.x += input.getMouseDeltaY() / 200.0f;
-    // add small epsilon to up/down to avoid gimbal lock
-    constexpr float epsilon = glm::pi<float>() * 0.01f;
-    rotation.x = glm::clamp(rotation.x, -glm::half_pi<float>() + epsilon, glm::half_pi<float>() - epsilon);
-    transform.setRotation(rotation);
+    const float yaw = glm::radians(-input.getMouseDeltaX() * deltaTime * 10.0f);
+    const float pitch = glm::radians(input.getMouseDeltaY() * deltaTime * 10.0f);
 
-    glm::mat4 rotationMatrix = getRotationMatrixWS();
-    Position newPosition = transform.getPosition() + glm::vec3(rotationMatrix * glm::vec4(velocity, 0.f));
-    transform.setPosition(newPosition);
+    const glm::quat currentRotation = transform.getRotation();
+    const glm::vec3 forward = currentRotation * glm::vec3(0.0f, 0.0f, -1.0f);
+    const float currentPitch = std::asin(forward.y);
+
+    const float newPitch = glm::clamp(currentPitch + pitch, glm::radians(-89.9f), glm::radians(89.9f));
+    const float pitchDelta = newPitch - currentPitch;
+
+    const glm::quat yawQuat = glm::angleAxis(yaw, glm::vec3(0.0f, 1.0f, 0.0f));
+    const glm::quat pitchQuat = glm::angleAxis(pitchDelta, glm::vec3(1.0f, 0.0f, 0.0f));
+
+    glm::quat newRotation = yawQuat * currentRotation * pitchQuat;
+    newRotation = glm::normalize(newRotation);
+
+    transform.setRotation(newRotation);
+
+    const glm::mat4 rotationMatrix = getRotationMatrixWS();
+    transform.translate(glm::vec3(rotationMatrix * glm::vec4(velocity, 0.f)));
 
     updateViewMatrix();
 }

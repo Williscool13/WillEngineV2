@@ -220,8 +220,8 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
     std::vector<Material> materials;
     uint32_t materialOffset = 1; // default material at 0
     materials.emplace_back();
-    materials[0].textureImageIndices = glm::vec4(0,0,0,0);
-    materials[0].textureSamplerIndices = glm::vec4(0,0,0,0);
+    materials[0].textureImageIndices = glm::vec4(0, 0, 0, 0);
+    materials[0].textureSamplerIndices = glm::vec4(0, 0, 0, 0);
     //  actual materials
     {
         for (const fastgltf::Material& gltfMaterial : gltf.materials) {
@@ -413,28 +413,22 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
                         }
                     }
 
-                    glm::vec3 translation;
-                    glm::vec3 rotation{0.0f};
-                    glm::vec3 scale;
-
-                    glm::vec3 skew;
-                    glm::vec4 perspective;
-                    glm::quat orientation;
-
-                    if (glm::decompose(glmMatrix, scale, orientation, translation, skew, perspective)) {
-                        rotation = glm::eulerAngles(orientation);
-                    }
+                    glm::vec3 translation = glm::vec3(glmMatrix[3]);
+                    glm::vec3 scale = glm::vec3(
+                        glm::length(glm::vec3(glmMatrix[0])),
+                        glm::length(glm::vec3(glmMatrix[1])),
+                        glm::length(glm::vec3(glmMatrix[2]))
+                    );
+                    glm::quat rotation = glm::quat_cast(glmMatrix);
 
                     renderNode.transform = Transform(translation, rotation, scale);
                 },
                 [&](fastgltf::TRS transform) {
                     const glm::vec3 translation{transform.translation[0], transform.translation[1], transform.translation[2]};
                     const glm::quat quaternionRotation{transform.rotation[3], transform.rotation[0], transform.rotation[1], transform.rotation[2]};
-                    const glm::vec3 rotation = glm::eulerAngles(quaternionRotation);
                     const glm::vec3 scale{transform.scale[0], transform.scale[1], transform.scale[2]};
 
-
-                    renderNode.transform = Transform(translation, rotation, scale);
+                    renderNode.transform = Transform(translation, quaternionRotation, scale);
                 }
             }
             , node.transform
@@ -498,10 +492,12 @@ void RenderObject::draw(const VkCommandBuffer cmd, VkPipelineLayout pipelineLayo
 GameObject* RenderObject::GenerateGameObject()
 {
     auto* superRoot = new GameObject();
-    superRoot->setTransform(glm::vec3(0.0f), glm::vec3(0.0f), glm::vec3(0.05f));
     for (const int32_t rootNode : topNodes) {
         RecursiveGenerateGameObject(renderNodes[rootNode], superRoot);
     }
+
+    superRoot->transform.setScale(glm::vec3(0.05f));
+    superRoot->refreshTransforms();
 
     UploadIndirect();
     return superRoot;
@@ -509,6 +505,9 @@ GameObject* RenderObject::GenerateGameObject()
 
 void RenderObject::updateInstanceData(const InstanceData& value, const int32_t index) const
 {
+    if (instanceBuffer.buffer == VK_NULL_HANDLE) {
+        return;
+    }
     // TODO: Null pointer during destruction here
     auto basePtr = static_cast<char*>(instanceBuffer.info.pMappedData);
     void* target = basePtr + index * sizeof(InstanceData);
@@ -518,8 +517,6 @@ void RenderObject::updateInstanceData(const InstanceData& value, const int32_t i
 void RenderObject::RecursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent)
 {
     auto gameObject = new GameObject();
-    gameObject->setTransform(renderNode.transform);
-    parent->addChild(gameObject, false);
 
     if (renderNode.meshIndex != -1) {
         size_t instanceIndex = drawIndirectCommands.size();
@@ -535,6 +532,10 @@ void RenderObject::RecursiveGenerateGameObject(const RenderNode& renderNode, Gam
         gameObject->setRenderObjectReference(this, static_cast<int32_t>(instanceIndex));
         drawIndirectCommands.push_back(drawCommand);
     }
+
+    gameObject->transform.setTransform(renderNode.transform);
+    gameObject->refreshTransforms();
+    parent->addChild(gameObject, false);
 
     for (const auto& child : renderNode.children) {
         RecursiveGenerateGameObject(child, gameObject);

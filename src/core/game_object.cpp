@@ -21,15 +21,6 @@ GameObject::GameObject(std::string gameObjectName)
     this->gameObjectName = std::move(gameObjectName);
 }
 
-GameObject::GameObject(glm::vec3 position, glm::vec3 rotation, glm::vec3 scale)
-    : gameObjectId(nextId++)
-{
-    gameObjectName = "GameObject_" + std::to_string(gameObjectId);
-    transform.setPosition(position);
-    transform.setRotation(rotation);
-    transform.setScale(scale);
-}
-
 GameObject::~GameObject()
 {
     // Remove Parent
@@ -57,11 +48,13 @@ glm::mat4 GameObject::getModelMatrix()
     return cachedWorldTransform;
 }
 
-void GameObject::setDirty()
+void GameObject::refreshTransforms()
 {
     isTransformDirty = true;
+    //transform.setDirty();
+
     for (auto& child : children) {
-        child->setDirty();
+        child->refreshTransforms();
     }
 
     if (instanceOwner != nullptr) {
@@ -86,15 +79,15 @@ void GameObject::addChild(GameObject* child, bool maintainWorldPosition)
 
     if (maintainWorldPosition) {
         // Child's current world transform
-        glm::mat4 childWorldMatrix = child->getModelMatrix();
+        const glm::mat4 childWorldMatrix = child->getModelMatrix();
 
         // Calculate and set the child's new local transform
-        glm::mat4 inverseParentWorldMatrix = glm::inverse(this->getModelMatrix());
+        const glm::mat4 inverseParentWorldMatrix = glm::inverse(this->getModelMatrix());
         glm::mat4 newLocalMatrix = inverseParentWorldMatrix * childWorldMatrix;
 
         // Extract new local transform components
-        glm::vec3 newLocalPosition = glm::vec3(newLocalMatrix[3]);
-        glm::vec3 newLocalScale = glm::vec3(
+        const auto newLocalPosition = glm::vec3(newLocalMatrix[3]);
+        const auto newLocalScale = glm::vec3(
             glm::length(glm::vec3(newLocalMatrix[0])),
             glm::length(glm::vec3(newLocalMatrix[1])),
             glm::length(glm::vec3(newLocalMatrix[2]))
@@ -102,7 +95,8 @@ void GameObject::addChild(GameObject* child, bool maintainWorldPosition)
         glm::quat newLocalRotation = glm::quat_cast(newLocalMatrix);
 
         // Set the new local position, rotation, and scale
-        child->setTransform(newLocalPosition, glm::eulerAngles(newLocalRotation), newLocalScale);
+        child->transform.setTransform(newLocalPosition, newLocalRotation, newLocalScale);
+        child->refreshTransforms();
     }
 }
 
@@ -138,10 +132,10 @@ void GameObject::unparent()
     temp->removeChild(this);
 
     // Set the object's local transform to its previous world transform
-    transform.setPosition(worldPosition);
-    transform.setRotation(glm::eulerAngles(worldRotation)); // Convert quaternion to Euler angles
+    transform.setTranslation(worldPosition);
+    transform.setRotation(worldRotation);
     transform.setScale(worldScale);
-    setDirty();
+    refreshTransforms();
 }
 
 GameObject* GameObject::getParent()

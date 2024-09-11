@@ -1,8 +1,8 @@
 #version 450
 #extension GL_EXT_buffer_reference : require
 
-layout (set = 1, binding = 0) uniform sampler samplers[1];
-layout (set = 1, binding = 1) uniform texture2D textures[1];
+layout (set = 1, binding = 0) uniform sampler samplers[32];
+layout (set = 1, binding = 1) uniform texture2D textures[255];
 
 // world space
 layout (location = 0) in vec3 inPosition;

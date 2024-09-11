@@ -11,7 +11,7 @@
 
 class RenderObject;
 
-using TransformChangedCallback = std::function<void(const glm::mat4&)>;
+//using TransformChangedCallback = std::function<void(const glm::mat4&)>;
 
 class GameObject
 {
@@ -20,65 +20,9 @@ public:
 
     explicit GameObject(std::string gameObjectName);
 
-    explicit GameObject(glm::vec3 position, glm::vec3 rotation, glm::vec3 scale);
-
     ~GameObject();
 
-    glm::mat4 getModelMatrix();
-
-public: // Transform
-    void translate(glm::vec3 translation)
-    {
-        transform.setPosition(transform.getPosition() + translation);
-        setDirty();
-    }
-
-    void rotate(glm::vec3 rotation)
-    {
-        glm::vec3 currentRotation = transform.getRotation();
-        transform.setRotation(currentRotation + rotation);
-        setDirty();
-    }
-
-    void scale(glm::vec3 scale)
-    {
-        transform.setScale(transform.getScale() * scale);
-        setDirty();
-    }
-
-    void setPosition(const glm::vec3& position)
-    {
-        transform.setPosition(position);
-        setDirty();
-    }
-
-    void setRotation(const glm::vec3& rotation)
-    {
-        transform.setRotation(rotation);
-        setDirty();
-    }
-
-    void setScale(const glm::vec3& scale)
-    {
-        transform.setScale(scale);
-        setDirty();
-    }
-
-    void setTransform(glm::vec3 translation, glm::vec3 rotation, glm::vec3 scale)
-    {
-        transform.setPosition(translation);
-        transform.setRotation(rotation);
-        transform.setScale(scale);
-        setDirty();
-    }
-
-    void setTransform(const Transform& transform)
-    {
-        setTransform(transform.getPosition(), transform.getRotation(), transform.getScale());
-    }
-
-    void setDirty();
-
+private:
     /*std::vector<TransformChangedCallback> transformCallbacks;
     void addTransformCallback(TransformChangedCallback callback) {
         transformCallbacks.push_back(std::move(callback));
@@ -121,24 +65,32 @@ public: // Hierarchy
 
     GameObject* getParent();
 
-    std::vector<GameObject *> &getChildren();
+    std::vector<GameObject*> &getChildren();
 
     int getId() const { return gameObjectId; }
 
     std::string_view getName() const { return gameObjectName; }
 
 private: // Transform
-    Transform transform{};
     glm::mat4 cachedWorldTransform{};
     bool isTransformDirty{true};
 
+public:
+    Transform transform{};
+
+    /**
+     * Should be called whenever transform is modified
+     */
+    void refreshTransforms();
+
+    glm::mat4 getModelMatrix();
+
 private: // Hierarchy
     GameObject* parent{nullptr};
-    std::vector<GameObject *> children{};
+    std::vector<GameObject*> children{};
     static int nextId;
     int gameObjectId{};
     std::string gameObjectName{};
-
 
 public: // Rendering
     void setRenderObjectReference(RenderObject* owner, int32_t index)

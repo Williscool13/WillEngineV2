@@ -6,86 +6,140 @@
 #define TRANSFORM_H
 
 #include "glm/glm.hpp"
+#include "glm/detail/type_quat.hpp"
 #include "glm/ext/matrix_transform.hpp"
+#include "glm/gtx/quaternion.hpp"
 
-typedef glm::vec3 Position;
-typedef glm::vec3 Rotation;
-typedef glm::vec3 Scale;
 
 class Transform
 {
 private:
-    Position position;
-    Rotation rotation; // Euler angles in radians (pitch, yaw, roll)
-    Scale scale;
-    mutable glm::mat4 cachedTRSMatrix;
-    mutable bool isDirty;
+    glm::vec3 translation;
+    glm::quat rotation;
+    glm::vec3 scale;
+
+    mutable glm::mat4 cachedRotationMatrix{1.0f};
+    mutable bool rotationDirty{true};
+
+    mutable glm::mat4 cachedTRSMatrix{1.0f};
+    mutable bool trsDirty{true};
 
 public:
-    Transform() : position(0.0f), rotation(0.0f), scale(1.0f), cachedTRSMatrix(1.0f), isDirty(true) {}
+    Transform() : translation(0.0f), rotation(glm::quat(1.0f, 0.0f, 0.0f, 0.0f)), scale(1.0f) {}
+    Transform(const glm::vec3& translation, const glm::quat& rotation, const glm::vec3& scale) : translation(translation), rotation(rotation), scale(scale) {}
 
-    Transform(const glm::vec3 position, const glm::vec3 rotation, const glm::vec3 scale)
-        : position(position), rotation(rotation), scale(scale), cachedTRSMatrix(1.0f), isDirty(true) {}
-
-
-    Position getPosition() const { return position; }
-    Rotation getRotation() const { return rotation; }
-    Scale getScale() const { return scale; }
-
-    void setPosition(const Position& position)
+    [[nodiscard]] glm::vec3 getTranslation() const { return translation; }
+    [[nodiscard]] glm::vec3 getEulerAngles() const
     {
-        this->position = position;
-        isDirty = true;
+        return glm::eulerAngles(rotation);
+    }
+    [[nodiscard]] glm::quat getRotation() const { return rotation; }
+    [[nodiscard]] glm::vec3 getScale() const { return scale; }
+
+    [[nodiscard]] glm::mat4 getTranslationMatrix() const
+    {
+        return glm::translate(glm::mat4(1.0f), translation);
+    }
+    [[nodiscard]] glm::mat4 getRotationMatrix() const
+    {
+        if (rotationDirty) {
+            cachedRotationMatrix = glm::toMat4(rotation);
+            rotationDirty = false;
+        }
+        return cachedRotationMatrix;
+    }
+    [[nodiscard]] glm::mat4 getScaleMatrix() const
+    {
+        return glm::scale(glm::mat4(1.0f), scale);
     }
 
-    void setRotation(const Rotation& rotation)
+    void setTranslation(const glm::vec3& translation)
+    {
+        this->translation = translation;
+        trsDirty = true;
+    }
+    void setRotation(const glm::quat& rotation)
     {
         this->rotation = rotation;
-        isDirty = true;
+        rotationDirty = true;
+        trsDirty = true;
     }
-
-    void setScale(const Scale& scale)
+    void setEulerRotation(const glm::vec3& eulerAngles)
+    {
+        this->rotation = glm::quat(eulerAngles);
+        rotationDirty = true;
+        trsDirty = true;
+    }
+    void setScale(const glm::vec3& scale)
     {
         this->scale = scale;
-        isDirty = true;
+        trsDirty = true;
+    }
+    void setTransform(const Transform& transform)
+    {
+        setTranslation(transform.getTranslation());
+        setRotation(transform.getRotation());
+        setScale(transform.getScale());
+    }
+    void setTransform(const glm::vec3& translation, const glm::quat& rotation, const glm::vec3& scale)
+    {
+        setTranslation(translation);
+        setRotation(rotation);
+        setScale(scale);
+    }
+    void setDirty() const
+    {
+        trsDirty = true;
+        rotationDirty = true;
     }
 
-    void translate(const Position& offset)
+    void translate(const glm::vec3& offset)
     {
-        position += offset;
-        isDirty = true;
+        translation += offset;
+        trsDirty = true;
     }
-
-    void rotate(const Rotation& angles)
+    /**
+     * Rotate in radians
+     * @param angles
+     */
+    void rotate(const glm::vec3& angles)
     {
-        rotation += angles;
-        isDirty = true;
+        const auto rotationDelta = glm::quat(angles);
+        this->rotation = this->rotation * rotationDelta;
+        rotationDirty = true;
+        trsDirty = true;
+    }
+    /**
+     * Rotate in radians
+     * @param angles
+     */
+    void rotate(const glm::quat& angles)
+    {
+        this->rotation = this->rotation * angles;
+        rotationDirty = true;
+        trsDirty = true;
+    }
+    void rotateAxis(const float angle, const glm::vec3& axis)
+    {
+        glm::quat rotationDelta = glm::angleAxis(angle, glm::normalize(axis));
+        rotate(rotationDelta);
     }
 
     glm::mat4 getTRSMatrix() const
     {
-        if (isDirty) {
-            const glm::mat4 translationMatrix = glm::translate(glm::mat4(1.0f), position);
-
-            glm::mat4 rotationMatrix{1.0f};
-            rotationMatrix = glm::rotate(rotationMatrix, rotation.x, glm::vec3(1.0f, 0.0f, 0.0f)); // Pitch
-            rotationMatrix = glm::rotate(rotationMatrix, rotation.y, glm::vec3(0.0f, 1.0f, 0.0f)); // Yaw
-            rotationMatrix = glm::rotate(rotationMatrix, rotation.z, glm::vec3(0.0f, 0.0f, 1.0f)); // Roll
-
-            const glm::mat4 scaleMatrix = glm::scale(glm::mat4(1.0f), scale);
-
-            cachedTRSMatrix = translationMatrix * rotationMatrix * scaleMatrix;
-            isDirty = false;
+        if (trsDirty) {
+            cachedTRSMatrix = getTranslationMatrix() * getRotationMatrix() * getScaleMatrix();
+            trsDirty = false;
         }
         return cachedTRSMatrix;
     }
 
     void reset()
     {
-        position = glm::vec3(0.0f);
-        rotation = glm::vec3(0.0f);
+        translation = glm::vec3(0.0f);
+        rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
         scale = glm::vec3(1.0f);
-        isDirty = true;
+        trsDirty = true;
     }
 };
 
