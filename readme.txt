@@ -6,3 +6,6 @@ How to use:
  - `git submodule update`
  - Use CMake GUI to build the project
  - Run the build program
+
+
+ If prompted for an SDL2.dll, copy the SDL from this repository into the working directory of the built project.
