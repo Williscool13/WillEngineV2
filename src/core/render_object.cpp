@@ -304,7 +304,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
 
             if (p.materialIndex.has_value()) {
                 primitiveMaterialIndex = p.materialIndex.value() + materialOffset;
-                hasTransparentPrimitives |= gltf.materials[primitiveMaterialIndex].alphaMode == fastgltf::AlphaMode::Blend;
+                hasTransparentPrimitives |= (static_cast<MaterialType>(materials[primitiveMaterialIndex].alphaCutoff.y) == MaterialType::TRANSPARENT);
             }
 
             // load indexes
