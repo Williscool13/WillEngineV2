@@ -41,7 +41,7 @@ void FreeCamera::update()
 
 
     const float yaw = glm::radians(-input.getMouseDeltaX() * deltaTime * 10.0f);
-    const float pitch = glm::radians(input.getMouseDeltaY() * deltaTime * 10.0f);
+    const float pitch = glm::radians(-input.getMouseDeltaY() * deltaTime * 10.0f);
 
     const glm::quat currentRotation = transform.getRotation();
     const glm::vec3 forward = currentRotation * glm::vec3(0.0f, 0.0f, -1.0f);
