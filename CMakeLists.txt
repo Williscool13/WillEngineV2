@@ -136,7 +136,6 @@ set(ASSETS_DST "${CMAKE_CURRENT_BINARY_DIR}/assets")
 copy_directory(${SHADER_SRC} ${SHADER_DST})
 copy_directory(${ASSETS_SRC} ${ASSETS_DST})
 
-# Get the target name for shader copy (we'll need this for the dependency)
 file(RELATIVE_PATH rel_shader_src "${CMAKE_SOURCE_DIR}" "${SHADER_SRC}")
 file(RELATIVE_PATH rel_shader_dst "${CMAKE_SOURCE_DIR}" "${SHADER_DST}")
 string(REPLACE "/" "_" shader_copy_target "copy_${rel_shader_src}_to_${rel_shader_dst}")

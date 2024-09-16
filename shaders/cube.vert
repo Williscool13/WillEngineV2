@@ -35,13 +35,13 @@ layout (location = 0) in vec3 position;
 layout (location = 1) in vec3 normal;
 layout (location = 2) in vec4 color;
 layout (location = 3) in vec2 uv;
-layout (location = 4) in uint materialIndex;
+layout (location = 4) in int materialIndex;
 
 layout (location = 0) out vec3 outPosition;
 layout (location = 1) out vec3 outNormal;
 layout (location = 2) out vec4 outColor;
 layout (location = 3) out vec2 outUV;
-layout (location = 4) out flat uint outMaterialIndex;
+layout (location = 4) out flat int outMaterialIndex;
 
 
 layout (push_constant) uniform PushConstants {
@@ -60,7 +60,4 @@ void main() {
     outMaterialIndex = materialIndex;
 
     gl_Position = pushConstants.vp * model * vec4(position, 1.0);
-    //gl_Position = model * vec4(position, 1.0);
-    //mat3 i_t_m = inverse(transpose(mat3(pushConstants.mvp)));
-    //outNormal = i_t_m * normal;
 }

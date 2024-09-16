@@ -60,7 +60,7 @@ public:
 
     void updateInstanceData(const InstanceData& value, int32_t index) const;
 
-    void draw(const VkCommandBuffer cmd, VkPipelineLayout pipelineLayout);
+    void draw(VkCommandBuffer cmd, VkPipelineLayout pipelineLayout);
 
 private: // Drawing
     AllocatedBuffer vertexBuffer{};
@@ -69,7 +69,7 @@ private: // Drawing
 
     // addresses
     AllocatedBuffer bufferAddresses;
-    //
+    //  the actual buffers
     AllocatedBuffer materialBuffer{};
     AllocatedBuffer instanceBuffer{};
 
@@ -83,11 +83,11 @@ private: // Drawing
     void UploadIndirect();
 
 private:
-    Engine* creator;
+    Engine* creator{nullptr};
 
     static int renderObjectCount;
-    static constexpr size_t samplerCount{32}; // see hard coded values in the shader
-    static constexpr size_t imageCount{255}; // if anything exists after images, need to use padding.
+    static constexpr size_t MAX_SAMPLER_COUNT{8};
+    static constexpr size_t MAX_IMAGES_COUNT{64};
 public:
     static VkDescriptorSetLayout addressesDescriptorSetLayout;
     static VkDescriptorSetLayout textureDescriptorSetLayout;
