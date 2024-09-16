@@ -37,8 +37,8 @@ RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
             } {
                 // Render binding 1 (to be 3)
                 DescriptorLayoutBuilder layoutBuilder;
-                layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_SAMPLER, samplerCount);
-                layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageCount);
+                layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_SAMPLER, MAX_SAMPLER_COUNT);
+                layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_IMAGES_COUNT);
 
                 textureDescriptorSetLayout = layoutBuilder.build(creator->getDevice(), VK_SHADER_STAGE_FRAGMENT_BIT
                                                                  , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
@@ -169,6 +169,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
         }
     }
     assert(samplers.size() == gltf.samplers.size() + samplerOffset);
+    assert(samplers.size() <= MAX_SAMPLER_COUNT);
 
     constexpr uint32_t imageOffset = 1; // default texture at 0
     assert(Engine::whiteImage.image != VK_NULL_HANDLE);
@@ -185,6 +186,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
         }
     }
     assert(images.size() == gltf.images.size() + imageOffset);
+    assert(images.size() <= MAX_IMAGES_COUNT);
 
     // Binding Images/Samplers
     {
@@ -196,7 +198,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
                 textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, samplerInfo, false});
             }
 
-            size_t remaining = samplerCount - samplers.size();
+            size_t remaining = MAX_SAMPLER_COUNT - samplers.size();
             VkDescriptorImageInfo samplerInfo{};
             for (int i = 0; i < remaining; i++) {
                 textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, samplerInfo, true});
@@ -218,7 +220,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
 
     // Materials
     std::vector<Material> materials;
-    uint32_t materialOffset = 1; // default material at 0
+    int32_t materialOffset = 1; // default material at 0
     materials.emplace_back();
     materials[0].textureImageIndices = glm::vec4(0, 0, 0, 0);
     materials[0].textureSamplerIndices = glm::vec4(0, 0, 0, 0);
@@ -300,7 +302,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
         bool hasTransparentPrimitives = false;
         for (fastgltf::Primitive& p : mesh.primitives) {
             size_t initialVtx = meshVertices.size();
-            glm::uint32_t primitiveMaterialIndex{0};
+            glm::int32_t primitiveMaterialIndex{-1};
 
             if (p.materialIndex.has_value()) {
                 primitiveMaterialIndex = p.materialIndex.value() + materialOffset;
@@ -463,6 +465,8 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
                                           , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
                                             VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
                                           , VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+    fmt::print("GLTF: {} | Samplers: {} | Images: {} | Materials: {} | Meshes: {} | Instances: {}\n", gltfFilepath, samplers.size() - samplerOffset, images.size() - imageOffset, materials.size() - materialOffset, meshes.size(), instanceCount);
 }
 
 void RenderObject::draw(const VkCommandBuffer cmd, VkPipelineLayout pipelineLayout)

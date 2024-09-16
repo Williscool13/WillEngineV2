@@ -43,7 +43,7 @@ public:
 
     VkDescriptorBufferBindingInfoEXT getDescriptorBufferBindingInfo();
 
-    VkDeviceSize getDescriptorBufferSize() const { return descriptorBufferSize; }
+    [[nodiscard]] VkDeviceSize getDescriptorBufferSize() const { return descriptorBufferSize; }
 
 protected:
     /**

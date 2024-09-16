@@ -79,8 +79,6 @@ public:
 
     void draw();
 
-    void drawCompute(VkCommandBuffer cmd);
-
     void drawEnvironment(VkCommandBuffer cmd);
 
     void drawRender(VkCommandBuffer cmd);
@@ -111,8 +109,6 @@ private: // Initialization
     void initDearImgui();
 
     void initPipelines();
-
-    void initComputePipelines();
 
     void initRenderPipelines();
 
@@ -169,12 +165,6 @@ private: // Scene
     Environment* environment{nullptr};
 
 private: // Pipelines
-    VkDescriptorSetLayout computeImageDescriptorSetLayout;
-    DescriptorBufferSampler computeImageDescriptorBuffer;
-    VkPipelineLayout computePipelineLayout;
-
-    VkPipeline computePipeline;
-
     // Render
     VkPipelineLayout renderPipelineLayout{VK_NULL_HANDLE};
     VkPipeline renderPipeline{VK_NULL_HANDLE};

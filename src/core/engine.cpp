@@ -213,25 +213,6 @@ void Engine::run()
                 ImGui::Text("Rotation (%.2f, %.2f, %.2f)", cameraRotation.x, cameraRotation.y, cameraRotation.z);
                 ImGui::Text("Position: (%.2f, %.2f, %.2f)", cameraPosition.x, cameraPosition.y, cameraPosition.z);
 
-                if (ImGui::TreeNode("Matrices")) {
-                    glm::mat4 viewMatrix = camera.getViewMatrix();
-                    ImGui::Text("View Matrix");
-                    for (int i = 0; i < 4; i++)
-                        ImGui::Text("%.2f %.2f %.2f %.2f", viewMatrix[i][0], viewMatrix[i][1], viewMatrix[i][2], viewMatrix[i][3]);
-
-                    glm::mat4 projMatrix = camera.getProjMatrix();
-                    ImGui::Text("Projection Matrix");
-                    for (int i = 0; i < 4; i++)
-                        ImGui::Text("%.2f %.2f %.2f %.2f", projMatrix[i][0], projMatrix[i][1], projMatrix[i][2], projMatrix[i][3]);
-
-                    glm::mat4 viewProjMatrix = camera.getViewProjMatrix();
-                    ImGui::Text("View-Projection Matrix");
-                    for (int i = 0; i < 4; i++)
-                        ImGui::Text("%.2f %.2f %.2f %.2f", viewProjMatrix[i][0], viewProjMatrix[i][1], viewProjMatrix[i][2], viewProjMatrix[i][3]);
-
-                    ImGui::TreePop();
-                }
-
                 if (ImGui::TreeNode("Rotation Matrix")) {
                     glm::mat4 rotationMatrix = camera.getRotationMatrixWS();
                     for (int i = 0; i < 4; i++)
@@ -287,22 +268,17 @@ void Engine::draw()
     drawExtent.height = std::min(swapchainExtent.height, drawImage.imageExtent.height); // * _renderScale;
     drawExtent.width = std::min(swapchainExtent.width, drawImage.imageExtent.width); // * _renderScale;
 
-    // draw compute into _drawImage
-    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
-    drawCompute(cmd);
-
     // draw geometry into _drawImage
-    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
     VkClearValue depthClearValue = {0.0f, 0};
     VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue,
-                                                                           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
     VkRenderingInfo renderInfo = vk_helpers::renderingInfo(drawExtent, &colorAttachment, &depthAttachment);
     vkCmdBeginRendering(cmd, &renderInfo);
 
-    //drawEnvironment(cmd);
+    drawEnvironment(cmd);
     drawRender(cmd);
 
     vkCmdEndRendering(cmd);
@@ -363,28 +339,6 @@ void Engine::draw()
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     frameTime = frameTime * 0.99f + elapsed.count() / 1000.0f * 0.01f;
     drawTime = drawTime * 0.99f + elapsed.count() / 1000.0f * 0.01f;
-}
-
-void Engine::drawCompute(VkCommandBuffer cmd)
-{
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, computePipeline);
-    // Push Constants
-    //vkCmdPushConstants(cmd, _backgroundEffectPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ComputePushConstants), &selected._data);
-
-
-    VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1]{};
-    //descriptor_buffer_binding_info[0] = computeImageDescriptorBuffer.get_descriptor_buffer_binding_info(_device);
-    descriptorBufferBindingInfo[0] = computeImageDescriptorBuffer.getDescriptorBufferBindingInfo();
-    vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
-    uint32_t bufferIndexImage = 0;
-    VkDeviceSize bufferOffset = 0;
-
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, computePipelineLayout
-                                       , 0, 1, &bufferIndexImage, &bufferOffset);
-
-
-    // Execute at 8x8 thread groups
-    vkCmdDispatch(cmd, std::ceil(drawExtent.width / 16.0), std::ceil(drawExtent.height / 16.0), 1);
 }
 
 void Engine::drawEnvironment(VkCommandBuffer cmd)
@@ -566,6 +520,8 @@ void Engine::initVulkan()
     features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
     features12.bufferDeviceAddress = true;
     features12.descriptorIndexing = true;
+    features12.runtimeDescriptorArray = true;
+    features12.shaderSampledImageArrayNonUniformIndexing = true;
 
     VkPhysicalDeviceFeatures other_features{};
     other_features.multiDrawIndirect = true;
@@ -739,83 +695,8 @@ void Engine::initDearImgui()
 
 void Engine::initPipelines()
 {
-    initComputePipelines();
     initEnvironmentPipeline();
     initRenderPipelines();
-}
-
-void Engine::initComputePipelines()
-{ {
-        DescriptorLayoutBuilder builder;
-        builder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-        computeImageDescriptorSetLayout = builder.build(
-            device, VK_SHADER_STAGE_COMPUTE_BIT,
-            nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
-        );
-    }
-
-    VkDescriptorImageInfo drawImageDescriptor{};
-    drawImageDescriptor.imageView = drawImage.imageView;
-    drawImageDescriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
-
-    // needs to match the order of the bindings in the layout
-    std::vector<DescriptorImageData> storageImage = {
-        {VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, drawImageDescriptor}
-    };
-
-    computeImageDescriptorBuffer = DescriptorBufferSampler(instance, device, physicalDevice, allocator, computeImageDescriptorSetLayout);
-    computeImageDescriptorBuffer.setupData(device, storageImage);
-
-    mainDeletionQueue.pushFunction([&]() {
-        vkDestroyDescriptorSetLayout(device, computeImageDescriptorSetLayout, nullptr);
-        computeImageDescriptorBuffer.destroy(device, allocator);
-    });
-
-    // Layout
-    //  Descriptors
-    VkPipelineLayoutCreateInfo backgroundEffectLayoutCreateInfo{};
-    backgroundEffectLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    backgroundEffectLayoutCreateInfo.pNext = nullptr;
-    backgroundEffectLayoutCreateInfo.pSetLayouts = &computeImageDescriptorSetLayout;
-    backgroundEffectLayoutCreateInfo.setLayoutCount = 1;
-    //  Push Constants
-    /*VkPushConstantRange pushConstant{};
-    pushConstant.offset = 0;
-    pushConstant.size = sizeof(ComputePushConstants);
-    pushConstant.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;*/
-    backgroundEffectLayoutCreateInfo.pPushConstantRanges = nullptr;
-    backgroundEffectLayoutCreateInfo.pushConstantRangeCount = 0;
-
-    VK_CHECK(vkCreatePipelineLayout(device, &backgroundEffectLayoutCreateInfo, nullptr, &computePipelineLayout));
-
-    VkShaderModule gradientShader;
-    if (!vk_helpers::loadShaderModule("shaders\\compute.comp.spv", device, &gradientShader)) {
-        throw std::runtime_error("Error when building the compute shader (compute.comp.spv)");
-    }
-
-    VkPipelineShaderStageCreateInfo stageinfo{};
-    stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    stageinfo.pNext = nullptr;
-    stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageinfo.module = gradientShader;
-    stageinfo.pName = "main"; // entry point in shader
-
-    VkComputePipelineCreateInfo computePipelineCreateInfo{};
-    computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    computePipelineCreateInfo.pNext = nullptr;
-    computePipelineCreateInfo.layout = computePipelineLayout;
-    computePipelineCreateInfo.stage = stageinfo;
-    computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
-
-    VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &computePipeline));
-
-    // Cleanup
-    vkDestroyShaderModule(device, gradientShader, nullptr);
-
-    mainDeletionQueue.pushFunction([&]() {
-        vkDestroyPipelineLayout(device, computePipelineLayout, nullptr);
-        vkDestroyPipeline(device, computePipeline, nullptr);
-    });
 }
 
 void Engine::initRenderPipelines()
@@ -877,7 +758,7 @@ void Engine::initRenderPipelines()
 
         vertexAttributes[4].binding = 0;
         vertexAttributes[4].location = 4;
-        vertexAttributes[4].format = VK_FORMAT_R32_UINT;
+        vertexAttributes[4].format = VK_FORMAT_R32_SINT;
         vertexAttributes[4].offset = offsetof(Vertex, materialIndex);
 
         renderPipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 5);
@@ -885,7 +766,7 @@ void Engine::initRenderPipelines()
 
     renderPipelineBuilder.setShaders(vertShader, fragShader);
     renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-    renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_COUNTER_CLOCKWISE); // VK_CULL_MODE_BACK_BIT
+    renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE); // VK_CULL_MODE_BACK_BIT
     renderPipelineBuilder.disableMultisampling();
     renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
     renderPipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
