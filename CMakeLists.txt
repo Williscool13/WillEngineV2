@@ -23,20 +23,13 @@ find_package(Vulkan REQUIRED)
 set(SDL2_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/lib/SDL2.lib")
 set(SDL2MAIN_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/lib/SDL2main.lib")
 
-# GLM
 add_subdirectory(extern/glm)
-# fmt
 add_subdirectory(extern/fmt)
-# volk
 add_subdirectory(extern/volk)
-# vkb
 add_subdirectory(extern/vk-bootstrap)
-# fastgltf
 add_subdirectory(extern/fastgltf)
-# simdjson
-add_subdirectory(extern/fastgltf/deps)
+add_subdirectory(extern/fastgltf/deps) # simdjson
 
-# ImGui setup
 set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/imgui)
 set(IMGUI_SOURCES
         ${IMGUI_DIR}/imgui.cpp

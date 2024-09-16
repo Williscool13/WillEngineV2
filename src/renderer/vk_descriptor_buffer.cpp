@@ -17,7 +17,6 @@ DescriptorBuffer::DescriptorBuffer(VkInstance instance, VkDevice device, VkPhysi
                                    VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount)
 {
     if (!devicePropertiesRetrieved) {
-        fmt::print("Descriptor Buffer: Doing First Time Setup\n");
         VkPhysicalDeviceProperties2KHR device_properties{};
         deviceDescriptorBufferProperties = {};
         deviceDescriptorBufferProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT;

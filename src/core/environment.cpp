@@ -11,7 +11,7 @@
 
 const VkExtent3D Environment::specularPrefilteredBaseExtents = {512, 512, 1};
 const VkExtent3D Environment::lutImageExtent = {512, 512, 1};
-const char* Environment::defaultEquiPath = "assets\\environments\\meadow_4k.hdr";
+const char* Environment::defaultEquiPath = "assets/environments/meadow_4k.hdr";
 
 int Environment::useCount = 0;
 VkDescriptorSetLayout Environment::equiImageDescriptorSetLayout = VK_NULL_HANDLE;
@@ -114,7 +114,6 @@ Environment::~Environment()
         lutDescriptorBuffer = DescriptorBufferSampler();
 
         layoutsCreated = false;
-        fmt::print("The last EnvironmentMap has been destroyed, uninitializing layouts and pipelines \n");
     }
 
     vkDestroySampler(device, sampler, nullptr);
@@ -133,17 +132,18 @@ Environment::~Environment()
 void Environment::loadCubemap(const char* path, int environmentMapIndex)
 {
     auto start = std::chrono::system_clock::now();
+    std::filesystem::path cubemapPath{path};
+
     EnvironmentMapData newEnvMapData{};
-    newEnvMapData.sourcePath = path;
+    newEnvMapData.sourcePath = cubemapPath.string();
     VkExtent3D extents = {cubemapResolution, cubemapResolution, 1};
 
 
     assert(environmentMapIndex < MAX_ENVIRONMENT_MAPS && environmentMapIndex >= 0);
     AllocatedImage equiImage;
     int width, height, channels;
-    float* imageData = stbi_loadf(path, &width, &height, &channels, 4);
+    float* imageData = stbi_loadf(newEnvMapData.sourcePath.c_str(), &width, &height, &channels, 4);
     if (imageData) {
-        fmt::print("Loaded Equirectangular Image \"{}\"({}x{}x{})\n", path, width, height, channels);
         equiImage = creator->createImage(imageData, width * height * 4 * sizeof(float), VkExtent3D{(uint32_t) width, (uint32_t) height, 1},
                                          VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, true);
         stbi_image_free(imageData);
@@ -192,7 +192,7 @@ void Environment::loadCubemap(const char* path, int environmentMapIndex)
 
     auto end0 = std::chrono::system_clock::now();
     auto elapsed0 = std::chrono::duration_cast<std::chrono::microseconds>(end0 - start);
-    fmt::print("Cubemap: {}ms | ", elapsed0.count() / 1000.0f);
+    fmt::print("Environment Map: {} | Cubemap {}ms | ",path, elapsed0.count() / 1000.0f);
     newEnvMapData.specDiffCubemap = creator->createCubemap(specularPrefilteredBaseExtents, VK_FORMAT_R32G32B32A32_SFLOAT,
                                                            VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                                                            VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
@@ -414,7 +414,6 @@ void Environment::generateLutImmediate(Engine* engine)
 
 void Environment::initializeStatics(Engine* engine)
 {
-    fmt::print("Layouts not created yet, doing first time setup\n");
     //  Equirectangular Image Descriptor Set Layout
     {
         DescriptorLayoutBuilder layoutBuilder;
