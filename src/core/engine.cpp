@@ -759,7 +759,7 @@ void Engine::initRenderPipelines()
 
         vertexAttributes[4].binding = 0;
         vertexAttributes[4].location = 4;
-        vertexAttributes[4].format = VK_FORMAT_R32_SINT;
+        vertexAttributes[4].format = VK_FORMAT_R32_UINT;
         vertexAttributes[4].offset = offsetof(Vertex, materialIndex);
 
         renderPipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 5);
@@ -839,8 +839,8 @@ void Engine::initScene()
     environment->loadCubemap(Environment::defaultEquiPath, 0);
 
     //testRenderObject = new RenderObject{this, "assets/models/BoxTextured/glTF/BoxTextured.gltf"};
-    //testRenderObject = new RenderObject{this, "assets/models/structure_mat.glb"};
-    testRenderObject = new RenderObject{this, "assets/models/structure.glb"};
+    testRenderObject = new RenderObject{this, "assets/models/structure_mat.glb"};
+    //testRenderObject = new RenderObject{this, "assets/models/structure.glb"};
     //testRenderObject = new RenderObject{this, "assets/models/Suzanne/glTF/Suzanne.gltf"};
     //testRenderObject = new RenderObject{this, "assets/models/glTF/Sponza.gltf"};
     testGameObject = testRenderObject->GenerateGameObject();

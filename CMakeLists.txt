@@ -6,15 +6,6 @@ set(CMAKE_CXX_STANDARD 20)
 add_definitions(-DVK_NO_PROTOTYPES)
 add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE)
 add_definitions(-DGLM_ENABLE_EXPERIMENTAL)
-add_compile_definitions(
-        "VMA_DEBUG_LOG(format,...)=do { printf(format, __VA_ARGS__); printf(\"\\n\"); } while(false)"
-        VMA_DEBUG_GLOBAL_MUTEX
-        VMA_DEBUG_ALIGNMENT=1
-        VMA_DEBUG_MARGIN=16
-        VMA_DEBUG_INITIALIZE_ALLOCATIONS=1
-        VMA_DEBUG_DETECT_CORRUPTION=1
-        VMA_RECORDING_ENABLED=1
-)
 
 # Vulkan
 find_package(Vulkan REQUIRED)
@@ -99,43 +90,6 @@ target_include_directories(WillEngine PRIVATE
         ${IMGUI_DIR}                                                        # ImGui
         ${IMGUI_DIR}/backends                                               # ImGui backends
 )
-
-# Some AI BS. IDK what it does, but it works.
-function(copy_directory src dst)
-    file(GLOB_RECURSE source_files "${src}/*")
-
-    # Create a valid target name
-    file(RELATIVE_PATH rel_src "${CMAKE_SOURCE_DIR}" "${src}")
-    file(RELATIVE_PATH rel_dst "${CMAKE_SOURCE_DIR}" "${dst}")
-    string(REPLACE "/" "_" target_name "copy_${rel_src}_to_${rel_dst}")
-    string(REPLACE "\\" "_" target_name "${target_name}")
-    string(REPLACE ":" "_" target_name "${target_name}")
-
-    add_custom_command(
-            OUTPUT ${dst}/timestamp
-            COMMAND ${CMAKE_COMMAND} -E copy_directory ${src} ${dst}
-            COMMAND ${CMAKE_COMMAND} -E touch ${dst}/timestamp
-            DEPENDS ${source_files}
-            COMMENT "Copying ${src} to ${dst}"
-    )
-    add_custom_target(${target_name} ALL DEPENDS ${dst}/timestamp)
-endfunction()
-
-set(SHADER_SRC "${CMAKE_CURRENT_SOURCE_DIR}/shaders")
-set(SHADER_DST "${CMAKE_CURRENT_BINARY_DIR}/shaders")
-set(ASSETS_SRC "${CMAKE_CURRENT_SOURCE_DIR}/assets")
-set(ASSETS_DST "${CMAKE_CURRENT_BINARY_DIR}/assets")
-
-copy_directory(${SHADER_SRC} ${SHADER_DST})
-copy_directory(${ASSETS_SRC} ${ASSETS_DST})
-
-file(RELATIVE_PATH rel_shader_src "${CMAKE_SOURCE_DIR}" "${SHADER_SRC}")
-file(RELATIVE_PATH rel_shader_dst "${CMAKE_SOURCE_DIR}" "${SHADER_DST}")
-string(REPLACE "/" "_" shader_copy_target "copy_${rel_shader_src}_to_${rel_shader_dst}")
-string(REPLACE "\\" "_" shader_copy_target "${shader_copy_target}")
-string(REPLACE ":" "_" shader_copy_target "${shader_copy_target}")
-
-
 
 
 

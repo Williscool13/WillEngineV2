@@ -35,13 +35,13 @@ layout (location = 0) in vec3 position;
 layout (location = 1) in vec3 normal;
 layout (location = 2) in vec4 color;
 layout (location = 3) in vec2 uv;
-layout (location = 4) in int materialIndex;
+layout (location = 4) in uint materialIndex;
 
 layout (location = 0) out vec3 outPosition;
 layout (location = 1) out vec3 outNormal;
 layout (location = 2) out vec4 outColor;
 layout (location = 3) out vec2 outUV;
-layout (location = 4) out flat int outMaterialIndex;
+layout (location = 4) out flat uint outMaterialIndex;
 
 
 layout (push_constant) uniform PushConstants {
@@ -54,7 +54,7 @@ void main() {
 
     // use world matrix when it becomes available
     outPosition = position;
-    outNormal = normal;
+    outNormal = inverse(transpose(mat3(model))) *  normal;
     outColor = color;
     outUV = uv;
     outMaterialIndex = materialIndex;

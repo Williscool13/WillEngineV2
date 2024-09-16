@@ -238,12 +238,6 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
             material.metalRoughFactors.y = gltfMaterial.pbrData.roughnessFactor;
             material.alphaCutoff.x = 0.5f;
 
-            material.textureImageIndices.x = -1;
-            material.textureSamplerIndices.x = -1;
-            material.textureImageIndices.y = -1;
-            material.textureSamplerIndices.y = -1;
-
-
             switch (gltfMaterial.alphaMode) {
                 case fastgltf::AlphaMode::Opaque:
                     material.alphaCutoff.x = 1.0f;
@@ -302,7 +296,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
         bool hasTransparentPrimitives = false;
         for (fastgltf::Primitive& p : mesh.primitives) {
             size_t initialVtx = meshVertices.size();
-            glm::int32_t primitiveMaterialIndex{-1};
+            glm::uint32_t primitiveMaterialIndex{0};
 
             if (p.materialIndex.has_value()) {
                 primitiveMaterialIndex = p.materialIndex.value() + materialOffset;
