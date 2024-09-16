@@ -1,5 +1,7 @@
 # WillEngineV2
 
+This is my second attempt at my own 3d game engine.
+
 ## Table of Contents
 - [Prerequisites](#prerequisites)
 - [Getting Started](#getting-started)
@@ -7,14 +9,20 @@
 - [Setting Up Symlinks](#setting-up-symlinks)
 - [Troubleshooting](#troubleshooting)
 - [Additional Notes](#additional-notes)
+- [Contact Me](#contact-me)
 
 ## Prerequisites
 
 - Git
 - CMake (3.x or later)
 - A C++ compiler (e.g., GCC, Clang, MSVC)
+- VulkanSDK (1.3.x)
+- SDL2 
+  - SDL2.dll is available in this repository
 
 ## Getting Started
+
+This engine only supports Windows at the moment and all instructions and setup will only be outlined for Windows.
 
 1. Clone the repository:
    ```sh
@@ -43,10 +51,8 @@
 
 ## Setting Up Symlinks
 
-After building the project, you need to set up symlinks for the shaders and assets directories. 
-To avoid creating unnecessary copies. For simplicity, you may simply copy the entire shaders and assets folder instead.
-
-### Windows
+After building the project, you need to set up symlinks for the shaders and assets directories to avoid creating unnecessary copies. 
+For simplicity, you may simply copy the entire shaders and assets folder instead.
 
 Open a Command Prompt as administrator in your build directory and run:
 
@@ -63,7 +69,18 @@ mklink /D assets ..\assets
 
 If you're prompted for an SDL2.dll, copy the SDL2.dll from this repository into the working directory of your built project.
 
+### assert(m_init) failed in `VulkanBootstrap.h in Line 132`
+
+This error is often caused by vkb failing to find a suitable GPU to use. It could be that your GPUs do not support Vulkan 1.3 or the use of some vulkan extensions (in this case Descriptor Buffers).
+You can verify this by checking what extensions your GPU supports at https://vulkan.gpuinfo.org/.
+
+Unfortunately there isn't much that can be done if you get this error. 
+
+
 ## Additional Notes
 
 - Make sure you have the necessary permissions to create symlinks on your system.
-- For Windows users, you may need to enable Developer Mode or run your IDE as administrator to create symlinks.
+
+## Contact Me
+
+If you have any troubles with the code or would like to discuss game engine/rendering architecture, please feel free to contact me at twtw40@gmail.com.
