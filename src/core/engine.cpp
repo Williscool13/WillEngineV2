@@ -913,9 +913,9 @@ void Engine::initScene()
 
     //testRenderObject = new RenderObject{this, "assets/models/BoxTextured/glTF/BoxTextured.gltf"};
     //testRenderObject = new RenderObject{this, "assets/models/structure_mat.glb"};
-    testRenderObject = new RenderObject{this, "assets/models/structure.glb"};
+    //testRenderObject = new RenderObject{this, "assets/models/structure.glb"};
     //testRenderObject = new RenderObject{this, "assets/models/Suzanne/glTF/Suzanne.gltf"};
-    //testRenderObject = new RenderObject{this, "assets/models/glTF/Sponza.gltf"};
+    testRenderObject = new RenderObject{this, "assets/models/sponza2/Sponza.gltf"};
     testGameObject = testRenderObject->GenerateGameObject();
     scene.addGameObject(testGameObject);
 }
