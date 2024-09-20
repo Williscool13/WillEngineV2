@@ -94,7 +94,7 @@ private:
 
     static int renderObjectCount;
     static constexpr size_t MAX_SAMPLER_COUNT{8};
-    static constexpr size_t MAX_IMAGES_COUNT{64};
+    static constexpr size_t MAX_IMAGES_COUNT{80};
 public:
     static VkDescriptorSetLayout addressesDescriptorSetLayout;
     static VkDescriptorSetLayout textureDescriptorSetLayout;
