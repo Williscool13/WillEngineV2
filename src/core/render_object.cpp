@@ -463,30 +463,6 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
     fmt::print("GLTF: {} | Samplers: {} | Images: {} | Materials: {} | Meshes: {} | Instances: {}\n", gltfFilepath, samplers.size() - samplerOffset, images.size() - imageOffset, materials.size() - materialOffset, meshes.size(), instanceCount);
 }
 
-void RenderObject::draw(const VkCommandBuffer cmd, VkPipelineLayout pipelineLayout)
-{
-    if (vertexBuffer.buffer == VK_NULL_HANDLE) {
-        return;
-    }
-
-    // bind descriptors
-    VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];
-    descriptorBufferBindingInfo[0] = addressesDescriptorBuffer.getDescriptorBufferBindingInfo();
-    descriptorBufferBindingInfo[1] = textureDescriptorBuffer.getDescriptorBufferBindingInfo();
-    vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
-
-    VkDeviceSize zeroOffset{0};
-    const uint32_t addressIndex{0};
-    const uint32_t texturesIndex{1};
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &addressIndex, &zeroOffset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &texturesIndex, &zeroOffset);
-
-    VkDeviceSize offsets{0};
-    vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer.buffer, &offsets);
-    vkCmdBindIndexBuffer(cmd, indexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexedIndirect(cmd, drawIndirectBuffer.buffer, 0, drawIndirectCommands.size(), sizeof(VkDrawIndexedIndirectCommand));
-}
-
 GameObject* RenderObject::GenerateGameObject()
 {
     auto* superRoot = new GameObject();

@@ -41,7 +41,7 @@ public:
 
     void freeDescriptorBuffer(int index);
 
-    VkDescriptorBufferBindingInfoEXT getDescriptorBufferBindingInfo();
+    VkDescriptorBufferBindingInfoEXT getDescriptorBufferBindingInfo() const;
 
     [[nodiscard]] VkDeviceSize getDescriptorBufferSize() const { return descriptorBufferSize; }
 
@@ -70,7 +70,7 @@ protected:
      */
     int maxObjectCount{10};
 
-    virtual VkBufferUsageFlagBits getBufferUsageFlags() = 0;
+    virtual VkBufferUsageFlagBits getBufferUsageFlags() const = 0;
 
     /**
      * Physical device properties that are the same for all descriptor buffers (assuming device is the same)
@@ -104,7 +104,7 @@ public:
      */
     int setupData(VkDevice device, std::vector<DescriptorUniformData>& uniformBuffers);
 
-    VkBufferUsageFlagBits getBufferUsageFlags() override;
+    VkBufferUsageFlagBits getBufferUsageFlags() const override;
 };
 
 class DescriptorBufferSampler : public DescriptorBuffer {
@@ -124,7 +124,7 @@ public:
      */
     int setupData(VkDevice device, const std::vector<DescriptorImageData>& imageBuffers, int index = -1);
 
-    VkBufferUsageFlagBits getBufferUsageFlags() override;
+    VkBufferUsageFlagBits getBufferUsageFlags() const override;
 };
 
 #endif //VKDESCRIPTORBUFFER_H

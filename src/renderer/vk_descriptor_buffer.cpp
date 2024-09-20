@@ -52,7 +52,7 @@ void DescriptorBuffer::freeDescriptorBuffer(int index)
     freeIndices.push_back(index);
 }
 
-VkDescriptorBufferBindingInfoEXT DescriptorBuffer::getDescriptorBufferBindingInfo()
+VkDescriptorBufferBindingInfoEXT DescriptorBuffer::getDescriptorBufferBindingInfo() const
 {
     VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info{};
     descriptor_buffer_binding_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT;
@@ -129,7 +129,7 @@ int DescriptorBufferUniform::setupData(VkDevice device, std::vector<DescriptorUn
     return descriptorBufferIndex;
 }
 
-VkBufferUsageFlagBits DescriptorBufferUniform::getBufferUsageFlags()
+VkBufferUsageFlagBits DescriptorBufferUniform::getBufferUsageFlags() const
 {
     return VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT;
 }
@@ -245,7 +245,7 @@ int DescriptorBufferSampler::setupData(VkDevice device, const std::vector<Descri
     return descriptorBufferIndex;
 }
 
-VkBufferUsageFlagBits DescriptorBufferSampler::getBufferUsageFlags()
+VkBufferUsageFlagBits DescriptorBufferSampler::getBufferUsageFlags() const
 {
     return static_cast<VkBufferUsageFlagBits>(VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT | VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT);
 }
