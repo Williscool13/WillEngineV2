@@ -60,7 +60,14 @@ public:
 
     void updateInstanceData(const InstanceData& value, int32_t index) const;
 
-    void draw(VkCommandBuffer cmd, VkPipelineLayout pipelineLayout);
+    [[nodiscard]] bool canDraw() const { return vertexBuffer.buffer != VK_NULL_HANDLE; }
+
+    const DescriptorBufferUniform& getAddressesDescriptorBuffer() { return addressesDescriptorBuffer; }
+    const DescriptorBufferSampler& getTextureDescriptorBuffer() { return textureDescriptorBuffer; }
+    [[nodiscard]] const AllocatedBuffer& getVertexBuffer() const { return vertexBuffer; }
+    [[nodiscard]] const AllocatedBuffer& getIndexBuffer() const { return indexBuffer; }
+    [[nodiscard]] const AllocatedBuffer& getIndirectBuffer() const { return drawIndirectBuffer; }
+    [[nodiscard]] size_t getDrawIndirectCommandCount() const { return drawIndirectCommands.size(); }
 
 private: // Drawing
     AllocatedBuffer vertexBuffer{};

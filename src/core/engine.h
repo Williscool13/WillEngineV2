@@ -79,6 +79,8 @@ public:
 
     void draw();
 
+    void updateScene();
+
     void drawEnvironment(VkCommandBuffer cmd);
 
     void drawRender(VkCommandBuffer cmd);
@@ -106,7 +108,12 @@ private: // Initialization
      */
     void initDefaultData();
 
+    /**
+     * Initializes all dear imgui vulkan/SDL2 integration. Mostly copied from imgui's samples
+     */
     void initDearImgui();
+
+    void initDescriptors();
 
     void initPipelines();
 
@@ -164,6 +171,14 @@ private: // Scene
 
     Environment* environment{nullptr};
 
+private: // Scene Descriptors
+    VkDescriptorSetLayout sceneUniformDescriptorSetLayout{VK_NULL_HANDLE};
+    DescriptorBufferUniform sceneUniformDescriptorBuffer;
+    AllocatedBuffer sceneDataBuffer;
+
+    VkDescriptorSetLayout sceneSamplerDescriptorSetLayout{VK_NULL_HANDLE};
+    DescriptorBufferSampler sceneSamplerDescriptorBuffer;
+
 private: // Pipelines
     // Render
     VkPipelineLayout renderPipelineLayout{VK_NULL_HANDLE};
@@ -173,8 +188,8 @@ private: // Pipelines
 
 
     // Environment
-    VkPipelineLayout environmentPipelineLayout;
-    VkPipeline environmentPipeline;
+    VkPipelineLayout environmentPipelineLayout{VK_NULL_HANDLE};
+    VkPipeline environmentPipeline{VK_NULL_HANDLE};
 
 
 private: // Swapchain

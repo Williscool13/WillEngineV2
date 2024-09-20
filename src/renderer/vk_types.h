@@ -10,6 +10,22 @@
 #include <vulkan/vulkan_core.h>
 #include <glm/glm.hpp>
 
+
+enum class MaterialType
+{
+    OPAQUE      = 0,
+    TRANSPARENT = 1,
+    MASK        = 2,
+};
+
+enum class LightType
+{
+    DIRECTIONAL = 0,
+    POINT       = 1,
+    SPOT        = 2,
+    // AREA = 3,
+};
+
 struct CubemapImageView {
     VkImageView imageView;
     VkExtent3D imageExtent;
@@ -35,9 +51,19 @@ struct AllocatedCubemap {
     AllocatedImage allocatedImage;
     std::vector<CubemapImageView> cubemapImageViews;
     int mipLevels; //should be equal to cubemapImageViews.size()
-
 };
 
+
+struct SceneData
+{;
+    glm::mat4 viewProj{1.0f};
+    glm::vec4 cameraWorldPos{0.0f};
+};
+
+struct LightData
+{
+
+};
 
 struct Vertex
 {
@@ -68,13 +94,6 @@ struct Material
 struct InstanceData
 {
     glm::mat4 modelMatrix;
-};
-
-enum class MaterialType
-{
-    OPAQUE = 0,
-    TRANSPARENT = 1,
-    MASK = 2,
 };
 
 #endif //VKTYPES_H

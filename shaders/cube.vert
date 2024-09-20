@@ -25,11 +25,19 @@ layout(buffer_reference, std430) readonly buffer MaterialData
     Material materials[];
 };
 
-layout(set = 0, binding = 0) uniform addresses // to be moved to set 2
+layout(set = 0, binding = 0) uniform addresses
 {
-    MaterialData materialBufferDeviceAddress;
-    ModelData modelBufferDeviceAddress;
+   MaterialData materialBufferDeviceAddress;
+   ModelData modelBufferDeviceAddress;
 } bufferAddresses;
+
+/**layout(set = 2, binding = 0) uniform sceneUniforms
+{
+    //mat4 view;
+    //mat4 proj;
+    //mat4 viewproj;
+    //vec4 cameraPos; // w is for alignment
+} sceneData;*/
 
 layout (location = 0) in vec3 position;
 layout (location = 1) in vec3 normal;
@@ -45,19 +53,25 @@ layout (location = 4) out flat uint outMaterialIndex;
 
 
 layout (push_constant) uniform PushConstants {
-    mat4 vp;
+    mat4 viewProj;  // (64)
+    vec4 cameraPos; // (16) - w is for alignment
+                    // (16)
+                    // (16)
+                    // (16)
 } pushConstants;
 
 void main() {
 
     mat4 model = bufferAddresses.modelBufferDeviceAddress.models[gl_InstanceIndex].modelMatrix;
 
+    vec4 mPos =  model * vec4(position, 1.0); // why is this red underlined in CLion?!?!?!?!
+
     // use world matrix when it becomes available
-    outPosition = position;
+    outPosition = mPos.xyz;
     outNormal = inverse(transpose(mat3(model))) *  normal;
     outColor = color;
     outUV = uv;
     outMaterialIndex = materialIndex;
 
-    gl_Position = pushConstants.vp * model * vec4(position, 1.0);
+    gl_Position = pushConstants.viewProj * mPos;
 }

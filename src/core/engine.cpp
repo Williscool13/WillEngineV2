@@ -59,6 +59,8 @@ void Engine::init()
 
     initScene();
 
+    initDescriptors();
+
     initPipelines();
 
 
@@ -245,6 +247,8 @@ void Engine::draw()
 {
     camera.update();
 
+    updateScene();
+
     auto start = std::chrono::system_clock::now();
 
     // GPU -> VPU sync (fence)
@@ -342,6 +346,18 @@ void Engine::draw()
     drawTime = drawTime * 0.99f + elapsed.count() / 1000.0f * 0.01f;
 }
 
+void Engine::updateScene()
+{
+    /*SceneData newData{};
+    newData.view = camera.getViewMatrix();
+    newData.proj = camera.getProjMatrix();
+    newData.viewProj = newData.proj * newData.view;
+    newData.cameraWorldPos = camera.getPosition();
+
+    auto p_scene_data = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
+    memcpy(p_scene_data, &newData, sizeof(SceneData));*/
+}
+
 void Engine::drawEnvironment(VkCommandBuffer cmd)
 {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, environmentPipeline);
@@ -406,14 +422,37 @@ void Engine::drawRender(VkCommandBuffer cmd)
         vkCmdSetScissor(cmd, 0, 1, &scissor);
     }
 
-    glm::mat4 view = camera.getViewMatrix();
-    glm::mat4 proj = camera.getProjMatrix();
+    if (!testRenderObject->canDraw()) {
+        return;
+    }
 
-    //view = glm::lookAt(glm::vec3(5.0f, 0.0f, 0.0f), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    glm::mat4 mvp = proj * view;
-    vkCmdPushConstants(cmd, renderPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &mvp);
+    SceneData sceneData{};
+    sceneData.viewProj = camera.getViewProjMatrix();
+    sceneData.cameraWorldPos = camera.getPosition();
+    vkCmdPushConstants(cmd, renderPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SceneData), &sceneData);
 
-    testRenderObject->draw(cmd, renderPipelineLayout);
+
+    VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[4];
+    descriptorBufferBindingInfo[0] = testRenderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
+    descriptorBufferBindingInfo[1] = testRenderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
+    descriptorBufferBindingInfo[2] = sceneUniformDescriptorBuffer.getDescriptorBufferBindingInfo();
+    descriptorBufferBindingInfo[3] = environment->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo();
+    vkCmdBindDescriptorBuffersEXT(cmd, 4, descriptorBufferBindingInfo);
+
+    constexpr VkDeviceSize zeroOffset{0};
+    constexpr uint32_t addressIndex{0};
+    constexpr uint32_t texturesIndex{1};
+    constexpr uint32_t sceneUniformIndex{2};
+    constexpr uint32_t environmentIndex{3};
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipelineLayout, 0, 1, &addressIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipelineLayout, 1, 1, &texturesIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipelineLayout, 2, 1, &sceneUniformIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipelineLayout, 3, 1, &environmentIndex, &zeroOffset);
+
+    VkDeviceSize offsets{0};
+    vkCmdBindVertexBuffers(cmd, 0, 1, &testRenderObject->getVertexBuffer().buffer, &offsets);
+    vkCmdBindIndexBuffer(cmd, testRenderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexedIndirect(cmd, testRenderObject->getIndirectBuffer().buffer, 0, testRenderObject->getDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
 }
 
 void Engine::drawImgui(VkCommandBuffer cmd, VkImageView targetImageView)
@@ -694,6 +733,32 @@ void Engine::initDearImgui()
     ImGui_ImplVulkan_CreateFontsTexture();
 }
 
+void Engine::initDescriptors()
+{
+    {
+        DescriptorLayoutBuilder layoutBuilder;
+        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        sceneUniformDescriptorSetLayout = layoutBuilder.build(device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT
+            , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+
+    }
+
+    sceneDataBuffer = createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    sceneUniformDescriptorBuffer = DescriptorBufferUniform(instance, device, physicalDevice, allocator, sceneUniformDescriptorSetLayout, 1);
+
+    std::vector<DescriptorUniformData> sceneDataBuffers{};
+    sceneDataBuffers.resize(1);
+    sceneDataBuffers[0] = DescriptorUniformData{.uniformBuffer = sceneDataBuffer, .allocSize = sizeof(SceneData)};
+    sceneUniformDescriptorBuffer.setupData(device, sceneDataBuffers);
+
+
+    mainDeletionQueue.pushFunction([&]() {
+        vkDestroyDescriptorSetLayout(device, sceneUniformDescriptorSetLayout, nullptr);
+        destroyBuffer(sceneDataBuffer);
+        sceneUniformDescriptorBuffer.destroy(device, allocator);
+    });
+}
+
 void Engine::initPipelines()
 {
     initEnvironmentPipeline();
@@ -703,16 +768,24 @@ void Engine::initPipelines()
 void Engine::initRenderPipelines()
 {
     VkPipelineLayoutCreateInfo layout_info = vk_helpers::pipelineLayoutCreateInfo();
-    VkDescriptorSetLayout descriptorLayout[2];
+    VkDescriptorSetLayout descriptorLayout[4];
+
+    assert(RenderObject::addressesDescriptorSetLayout != VK_NULL_HANDLE);
+    assert(RenderObject::textureDescriptorSetLayout != VK_NULL_HANDLE);
+    assert(sceneUniformDescriptorSetLayout != VK_NULL_HANDLE);
+    assert(Environment::layoutsCreated);
+
     descriptorLayout[0] = RenderObject::addressesDescriptorSetLayout;
     descriptorLayout[1] = RenderObject::textureDescriptorSetLayout;
+    descriptorLayout[2] = sceneUniformDescriptorSetLayout;
+    descriptorLayout[3] = Environment::environmentMapDescriptorSetLayout;
     layout_info.pSetLayouts = descriptorLayout;
-    layout_info.setLayoutCount = 2;
+    layout_info.setLayoutCount = 4;
 
     VkPushConstantRange pushConstants{};
     pushConstants.offset = 0;
-    pushConstants.size = sizeof(glm::mat4);
-    pushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    pushConstants.size = sizeof(SceneData);
+    pushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
     layout_info.pPushConstantRanges = &pushConstants;
     layout_info.pushConstantRangeCount = 1;
 
@@ -839,8 +912,8 @@ void Engine::initScene()
     environment->loadCubemap(Environment::defaultEquiPath, 0);
 
     //testRenderObject = new RenderObject{this, "assets/models/BoxTextured/glTF/BoxTextured.gltf"};
-    testRenderObject = new RenderObject{this, "assets/models/structure_mat.glb"};
-    //testRenderObject = new RenderObject{this, "assets/models/structure.glb"};
+    //testRenderObject = new RenderObject{this, "assets/models/structure_mat.glb"};
+    testRenderObject = new RenderObject{this, "assets/models/structure.glb"};
     //testRenderObject = new RenderObject{this, "assets/models/Suzanne/glTF/Suzanne.gltf"};
     //testRenderObject = new RenderObject{this, "assets/models/glTF/Sponza.gltf"};
     testGameObject = testRenderObject->GenerateGameObject();
