@@ -2,6 +2,8 @@
 
 #extension GL_EXT_buffer_reference : require
 
+layout(local_size_x = 64) in;
+
 struct MeshBounds
 {
     vec3 position;
@@ -33,13 +35,21 @@ layout(buffer_reference, std430) buffer ModelBuffer
 };
 
 
-layout(set = 0, binding = 0) uniform buffers
+layout(set = 0, binding = 0) uniform bufferData
 {
     MeshBoundsBuffer boundsBuffer;
     CommandBuffer commandBuffer;
     uint commandBufferCount;
     ModelBuffer modelMatrixBuffer;
-};
+} buffers;
+
+layout (push_constant) uniform PushConstants {
+    mat4 viewProj;  // (64)
+    vec4 cameraPos; // (16) - w is for alignment
+    // (16)
+    // (16)
+    // (16)
+} pushConstants;
 
 bool check_is_visible(mat4 mat, vec3 origin, float radius)
 {
@@ -68,8 +78,14 @@ bool check_is_visible(mat4 mat, vec3 origin, float radius)
     return true;
 }
 
-
 void main()
 {
+    uint invocationId = gl_GlobalInvocationID.x;
+    if (invocationId >= buffers.commandBufferCount) { return; }
+
+    mat4 modelMatrix = buffers.modelMatrixBuffer.modelMatrices[invocationId];
+
+    // only ever modify instanceCount to frustum Cull
+    buffers.commandBuffer.commands[invocationId].instanceCount = 0;
 
 }

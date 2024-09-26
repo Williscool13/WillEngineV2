@@ -16,7 +16,7 @@
 
 VkDescriptorSetLayout RenderObject::addressesDescriptorSetLayout{VK_NULL_HANDLE};
 VkDescriptorSetLayout RenderObject::textureDescriptorSetLayout{VK_NULL_HANDLE};
-VkDescriptorSetLayout RenderObject::computeCullingDescriptorSetLayout{VK_NULL_HANDLE};
+VkDescriptorSetLayout RenderObject::frustumCullingDescriptorSetLayout{VK_NULL_HANDLE};
 int RenderObject::renderObjectCount{0};
 
 RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
@@ -31,8 +31,7 @@ RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
                 DescriptorLayoutBuilder layoutBuilder;
                 layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
                 addressesDescriptorSetLayout = layoutBuilder.build(creator->getDevice(),
-                                                                   VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT |
-                                                                   VK_SHADER_STAGE_COMPUTE_BIT
+                                                                   VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
                                                                    , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
             } {
                 // Render binding 1
@@ -45,7 +44,7 @@ RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
             } {
                 DescriptorLayoutBuilder layoutBuilder;
                 layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-                computeCullingDescriptorSetLayout = layoutBuilder.build(creator->getDevice(), VK_SHADER_STAGE_COMPUTE_BIT
+                frustumCullingDescriptorSetLayout = layoutBuilder.build(creator->getDevice(), VK_SHADER_STAGE_COMPUTE_BIT
                                                                         , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
             }
         }
@@ -78,12 +77,17 @@ RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
     creator->copyBuffer(meshBoundsStaging, meshBoundsBuffer, sizeof(BoundingSphere) * boundingSpheres.size());
     creator->destroyBuffer(meshBoundsStaging);
 
-    computeCullingDescriptorBuffer = DescriptorBufferUniform(engine->getInstance(), engine->getDevice(), engine->getPhysicalDevice(),
-                                                             engine->getAllocator(), computeCullingDescriptorSetLayout, 1);
-    computeBufferAddresses = creator->createBuffer(sizeof(ComputeCullingBuffers),
+    frustumCullingDescriptorBuffer = DescriptorBufferUniform(engine->getInstance(), engine->getDevice(), engine->getPhysicalDevice(),
+                                                             engine->getAllocator(), frustumCullingDescriptorSetLayout, 1);
+    frustumBufferAddresses = creator->createBuffer(sizeof(FrustumCullingBuffers),
                                                    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                                                    VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
                                                    , VMA_MEMORY_USAGE_GPU_ONLY);
+    DescriptorUniformData cullingAddressesUniformData;
+    cullingAddressesUniformData.allocSize = sizeof(FrustumCullingBuffers);
+    cullingAddressesUniformData.uniformBuffer = frustumBufferAddresses;
+    std::vector cullingUniforms = {cullingAddressesUniformData};
+    frustumCullingDescriptorBuffer.setupData(creator->getDevice(), cullingUniforms);
 }
 
 RenderObject::~RenderObject()
@@ -92,11 +96,8 @@ RenderObject::~RenderObject()
     if (renderObjectCount == 0) {
         vkDestroyDescriptorSetLayout(creator->getDevice(), addressesDescriptorSetLayout, nullptr);
         vkDestroyDescriptorSetLayout(creator->getDevice(), textureDescriptorSetLayout, nullptr);
-        vkDestroyDescriptorSetLayout(creator->getDevice(), computeCullingDescriptorSetLayout, nullptr);
+        vkDestroyDescriptorSetLayout(creator->getDevice(), frustumCullingDescriptorSetLayout, nullptr);
     }
-
-    //vkDestroyPipelineLayout(creator->_device, _computeCullingPipelineLayout, nullptr);
-    //vkDestroyPipeline(creator->_device, _computeCullingPipeline, nullptr);
 
     creator->destroyBuffer(indexBuffer);
     creator->destroyBuffer(vertexBuffer);
@@ -110,11 +111,11 @@ RenderObject::~RenderObject()
     }
 
     creator->destroyBuffer(meshBoundsBuffer);
-    creator->destroyBuffer(computeBufferAddresses);
+    creator->destroyBuffer(frustumBufferAddresses);
 
     textureDescriptorBuffer.destroy(creator->getDevice(), creator->getAllocator());
     addressesDescriptorBuffer.destroy(creator->getDevice(), creator->getAllocator());
-    computeCullingDescriptorBuffer.destroy(creator->getDevice(), creator->getAllocator());
+    frustumCullingDescriptorBuffer.destroy(creator->getDevice(), creator->getAllocator());
 
     for (auto& image : images) {
         if (image.image == Engine::errorCheckerboardImage.image
@@ -481,8 +482,7 @@ GameObject* RenderObject::generateGameObject()
     superRoot->refreshTransforms();
 
     uploadIndirectBuffer();
-
-
+    updateComputeCullingBuffer();
     return superRoot;
 }
 
@@ -560,7 +560,7 @@ void RenderObject::uploadIndirectBuffer()
     AllocatedBuffer indirectStaging = creator->createStagingBuffer(drawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
     memcpy(indirectStaging.info.pMappedData, drawIndirectCommands.data(), drawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
     drawIndirectBuffer = creator->createBuffer(drawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand)
-                                               , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT
+                                               , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
                                                , VMA_MEMORY_USAGE_GPU_ONLY);
 
     creator->copyBuffer(indirectStaging, drawIndirectBuffer, drawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
@@ -572,14 +572,14 @@ void RenderObject::updateComputeCullingBuffer()
     if (drawIndirectBuffer.buffer == VK_NULL_HANDLE || instanceBuffer.buffer == VK_NULL_HANDLE || meshBoundsBuffer.buffer == VK_NULL_HANDLE) {
         return;
     }
-    ComputeCullingBuffers cullingBuffers{};
+    FrustumCullingBuffers cullingBuffers{};
     cullingBuffers.commandBuffer = creator->getBufferAddress(drawIndirectBuffer);
     cullingBuffers.commandBufferCount = drawIndirectCommands.size();
     cullingBuffers.modelMatrixBuffer = creator->getBufferAddress(instanceBuffer);
     cullingBuffers.meshBoundsBuffer = creator->getBufferAddress(meshBoundsBuffer);
 
-    AllocatedBuffer computeCullingStaging = creator->createStagingBuffer(sizeof(ComputeCullingBuffers));
-    memcpy(computeCullingStaging.info.pMappedData, &cullingBuffers, sizeof(ComputeCullingBuffers));
-    creator->copyBuffer(computeCullingStaging, computeBufferAddresses, sizeof(ComputeCullingBuffers));
-    creator->destroyBuffer(computeCullingStaging);
+    AllocatedBuffer frustumCullingStaging = creator->createStagingBuffer(sizeof(FrustumCullingBuffers));
+    memcpy(frustumCullingStaging.info.pMappedData, &cullingBuffers, sizeof(FrustumCullingBuffers));
+    creator->copyBuffer(frustumCullingStaging, frustumBufferAddresses, sizeof(FrustumCullingBuffers));
+    creator->destroyBuffer(frustumCullingStaging);
 }

@@ -2,7 +2,7 @@
 // Created by William on 2024-09-26.
 //
 
-#include "BoundingSphere.h"
+#include "bounding_sphere.h"
 
 #include "glm/glm.hpp"
 #include "glm/gtx/norm.hpp"
