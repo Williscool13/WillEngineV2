@@ -342,8 +342,8 @@ void Engine::draw()
 
     auto end = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    frameTime = frameTime * 0.99f + elapsed.count() / 1000.0f * 0.01f;
-    drawTime = drawTime * 0.99f + elapsed.count() / 1000.0f * 0.01f;
+    frameTime = frameTime * 0.99 + elapsed.count() / 1000.0 * 0.01f;
+    drawTime = drawTime * 0.99 + elapsed.count() / 1000.0 * 0.01f;
 }
 
 void Engine::updateScene()
@@ -472,7 +472,7 @@ void Engine::cleanup()
 
 
     delete environment;
-    delete testGameObject;
+    delete testGameObject1;
     delete testRenderObject;
     // destroy all other resources
     mainDeletionQueue.flush();
@@ -762,10 +762,16 @@ void Engine::initDescriptors()
 void Engine::initPipelines()
 {
     initEnvironmentPipeline();
-    initRenderPipelines();
+    initRenderPipeline();
+    initFrustumCullingPipeline();
 }
 
-void Engine::initRenderPipelines()
+void Engine::initFrustumCullingPipeline()
+{
+
+}
+
+void Engine::initRenderPipeline()
 {
     VkPipelineLayoutCreateInfo layout_info = vk_helpers::pipelineLayoutCreateInfo();
     VkDescriptorSetLayout descriptorLayout[4];
@@ -916,8 +922,17 @@ void Engine::initScene()
     //testRenderObject = new RenderObject{this, "assets/models/structure.glb"};
     //testRenderObject = new RenderObject{this, "assets/models/Suzanne/glTF/Suzanne.gltf"};
     testRenderObject = new RenderObject{this, "assets/models/sponza2/Sponza.gltf"};
-    testGameObject = testRenderObject->GenerateGameObject();
-    scene.addGameObject(testGameObject);
+    testGameObject1 = testRenderObject->generateGameObject();
+    testGameObject2 = testRenderObject->generateGameObject();
+    scene.addGameObject(testGameObject1);
+    scene.addGameObject(testGameObject2);
+
+    testGameObject1->transform.setScale(0.05f);
+    testGameObject1->refreshTransforms();
+
+    testGameObject2->transform.setScale(0.05f);
+    testGameObject2->transform.translate(glm::vec3(2.0f, 0.0f, 0.0f));
+    testGameObject2->refreshTransforms();
 }
 
 void Engine::immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const

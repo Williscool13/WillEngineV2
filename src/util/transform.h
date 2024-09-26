@@ -75,6 +75,11 @@ public:
         this->scale = scale;
         trsDirty = true;
     }
+    void setScale(const float scale)
+    {
+        this->scale = glm::vec3(scale);
+        trsDirty = true;
+    }
     void setTransform(const Transform& transform)
     {
         setTranslation(transform.getTranslation());

@@ -117,7 +117,9 @@ private: // Initialization
 
     void initPipelines();
 
-    void initRenderPipelines();
+    void initFrustumCullingPipeline();
+
+    void initRenderPipeline();
 
     void initEnvironmentPipeline();
 
@@ -157,8 +159,8 @@ private: // Rendering
     FrameData &getCurrentFrame() { return frames[frameNumber % FRAME_OVERLAP]; };
     bool stopRendering{false};
 
-    float frameTime{};
-    float drawTime{};
+    double frameTime{};
+    double drawTime{};
 
     // Immediate Mode
     VkFence immFence{VK_NULL_HANDLE};
@@ -168,6 +170,10 @@ private: // Rendering
 private: // Scene
     FreeCamera camera{};
     Scene scene{};
+
+    RenderObject* testRenderObject{nullptr};
+    GameObject* testGameObject1{nullptr};
+    GameObject* testGameObject2{nullptr};
 
     Environment* environment{nullptr};
 
@@ -183,8 +189,10 @@ private: // Pipelines
     // Render
     VkPipelineLayout renderPipelineLayout{VK_NULL_HANDLE};
     VkPipeline renderPipeline{VK_NULL_HANDLE};
-    RenderObject* testRenderObject{nullptr};
-    GameObject* testGameObject{nullptr};
+
+    // Frustum Culling
+    VkPipelineLayout frustumCullingPipelineLayout{VK_NULL_HANDLE};
+    VkPipeline frustumCullingPipeline{VK_NULL_HANDLE};
 
 
     // Environment
@@ -229,6 +237,12 @@ public: // Buffers
 
     AllocatedBuffer createStagingBuffer(size_t allocSize) const;
 
+    /**
+     *
+     * @param src
+     * @param dst destination AllocatedBuffer. Must have already been created.
+     * @param size
+     */
     void copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, VkDeviceSize size) const;
 
     VkDeviceAddress getBufferAddress(const AllocatedBuffer& buffer) const;

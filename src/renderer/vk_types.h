@@ -96,4 +96,12 @@ struct InstanceData
     glm::mat4 modelMatrix;
 };
 
+struct ComputeCullingBuffers
+{
+    VkDeviceAddress meshBoundsBuffer;
+    VkDeviceAddress commandBuffer;
+    uint32_t commandBufferCount;
+    VkDeviceAddress modelMatrixBuffer;
+};
+
 #endif //VKTYPES_H

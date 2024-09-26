@@ -31,14 +31,6 @@ layout(set = 0, binding = 0) uniform addresses
    ModelData modelBufferDeviceAddress;
 } bufferAddresses;
 
-/**layout(set = 2, binding = 0) uniform sceneUniforms
-{
-    //mat4 view;
-    //mat4 proj;
-    //mat4 viewproj;
-    //vec4 cameraPos; // w is for alignment
-} sceneData;*/
-
 layout (location = 0) in vec3 position;
 layout (location = 1) in vec3 normal;
 layout (location = 2) in vec4 color;

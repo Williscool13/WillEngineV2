@@ -51,7 +51,6 @@ glm::mat4 GameObject::getModelMatrix()
 void GameObject::refreshTransforms()
 {
     isTransformDirty = true;
-    //transform.setDirty();
 
     for (auto& child : children) {
         child->refreshTransforms();

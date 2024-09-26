@@ -76,6 +76,9 @@ private: // Transform
     bool isTransformDirty{true};
 
 public:
+    /**
+     * If modified, after finish all modifications, call \code refreshTransform\endcode
+     */
     Transform transform{};
 
     /**
