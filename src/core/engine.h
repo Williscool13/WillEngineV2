@@ -79,11 +79,11 @@ public:
 
     void draw();
 
-    void updateScene();
+    void drawEnvironment(VkCommandBuffer cmd) const;
 
-    void drawEnvironment(VkCommandBuffer cmd);
+    void cullRender(VkCommandBuffer cmd) const;
 
-    void drawRender(VkCommandBuffer cmd);
+    void drawRender(VkCommandBuffer cmd) const;
 
     void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
 
@@ -247,7 +247,7 @@ public: // Buffers
 
     VkDeviceAddress getBufferAddress(const AllocatedBuffer& buffer) const;
 
-    void destroyBuffer(const AllocatedBuffer& buffer) const;
+    void destroyBuffer(AllocatedBuffer& buffer) const;
 
 public: // Images
     AllocatedImage createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;

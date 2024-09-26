@@ -10,7 +10,6 @@
 #include "input.h"
 #include "../renderer/vk_pipelines.h"
 #include "../util/time_utils.h"
-#include "draw/draw_structure.h"
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
@@ -62,7 +61,6 @@ void Engine::init()
     initDescriptors();
 
     initPipelines();
-
 
 
     auto end = std::chrono::system_clock::now();
@@ -243,11 +241,28 @@ void Engine::run()
     }
 }
 
+void Engine::cullRender(const VkCommandBuffer cmd) const
+{
+    // GPU Frustum Culling
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipeline);
+
+    VkDescriptorBufferBindingInfoEXT frustumCullingBindingInfo[1]{};
+
+    frustumCullingBindingInfo[0] = testRenderObject->getComputeAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
+    vkCmdBindDescriptorBuffersEXT(cmd, 1, frustumCullingBindingInfo);
+
+
+    VkDeviceSize offset{0};
+    uint32_t addressesIndex{0};
+
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipelineLayout, 0, 1, &addressesIndex, &offset);
+
+    vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(testRenderObject->getInstanceBufferSize()) / 64.0f)), 1, 1);
+}
+
 void Engine::draw()
 {
     camera.update();
-
-    updateScene();
 
     auto start = std::chrono::system_clock::now();
 
@@ -270,6 +285,8 @@ void Engine::draw()
     VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
+    cullRender(cmd);
+
     drawExtent.height = std::min(swapchainExtent.height, drawImage.imageExtent.height); // * _renderScale;
     drawExtent.width = std::min(swapchainExtent.width, drawImage.imageExtent.width); // * _renderScale;
 
@@ -279,7 +296,8 @@ void Engine::draw()
 
     VkClearValue depthClearValue = {0.0f, 0};
     VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue,
+                                                                           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
     VkRenderingInfo renderInfo = vk_helpers::renderingInfo(drawExtent, &colorAttachment, &depthAttachment);
     vkCmdBeginRendering(cmd, &renderInfo);
 
@@ -346,19 +364,7 @@ void Engine::draw()
     drawTime = drawTime * 0.99 + elapsed.count() / 1000.0 * 0.01f;
 }
 
-void Engine::updateScene()
-{
-    /*SceneData newData{};
-    newData.view = camera.getViewMatrix();
-    newData.proj = camera.getProjMatrix();
-    newData.viewProj = newData.proj * newData.view;
-    newData.cameraWorldPos = camera.getPosition();
-
-    auto p_scene_data = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
-    memcpy(p_scene_data, &newData, sizeof(SceneData));*/
-}
-
-void Engine::drawEnvironment(VkCommandBuffer cmd)
+void Engine::drawEnvironment(VkCommandBuffer cmd) const
 {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, environmentPipeline);
 
@@ -398,7 +404,7 @@ void Engine::drawEnvironment(VkCommandBuffer cmd)
     vkCmdDraw(cmd, 3, 1, 0, 0);
 }
 
-void Engine::drawRender(VkCommandBuffer cmd)
+void Engine::drawRender(VkCommandBuffer cmd) const
 {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipeline);
 
@@ -452,7 +458,8 @@ void Engine::drawRender(VkCommandBuffer cmd)
     VkDeviceSize offsets{0};
     vkCmdBindVertexBuffers(cmd, 0, 1, &testRenderObject->getVertexBuffer().buffer, &offsets);
     vkCmdBindIndexBuffer(cmd, testRenderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexedIndirect(cmd, testRenderObject->getIndirectBuffer().buffer, 0, testRenderObject->getDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
+    vkCmdDrawIndexedIndirect(cmd, testRenderObject->getIndirectBuffer().buffer, 0, testRenderObject->getInstanceBufferSize(),
+                             sizeof(VkDrawIndexedIndirectCommand));
 }
 
 void Engine::drawImgui(VkCommandBuffer cmd, VkImageView targetImageView)
@@ -488,7 +495,7 @@ void Engine::cleanup()
     vkDestroyDescriptorPool(device, imguiPool, nullptr);
 
     // Main Rendering Command and Fence
-    for (auto& frame: frames) {
+    for (auto& frame : frames) {
         vkDestroyCommandPool(device, frame._commandPool, nullptr);
 
         //destroy sync objects
@@ -617,7 +624,7 @@ void Engine::initCommands()
 {
     VkCommandPoolCreateInfo commandPoolInfo = vk_helpers::commandPoolCreateInfo(graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
-    for (auto& frame: frames) {
+    for (auto& frame : frames) {
         VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &frame._commandPool));
         VkCommandBufferAllocateInfo cmdAllocInfo = vk_helpers::commandBufferAllocateInfo(frame._commandPool);
         VK_CHECK(vkAllocateCommandBuffers(device, &cmdAllocInfo, &frame._mainCommandBuffer));
@@ -634,7 +641,7 @@ void Engine::initSyncStructures()
     VkFenceCreateInfo fenceCreateInfo = vk_helpers::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
     VkSemaphoreCreateInfo semaphoreCreateInfo = vk_helpers::semaphoreCreateInfo();
 
-    for (auto& frame: frames) {
+    for (auto& frame : frames) {
         VK_CHECK(vkCreateFence(device, &fenceCreateInfo, nullptr, &frame._renderFence));
 
         VK_CHECK(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &frame._swapchainSemaphore));
@@ -652,7 +659,7 @@ void Engine::initDefaultData()
     AllocatedImage newImage = createImage(VkExtent3D{1, 1, 1}, VK_FORMAT_R8G8B8A8_UNORM,
                                           VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, false);
     destroyImage(newImage);
-    whiteImage = createImage((void *) &white, 4, VkExtent3D{1, 1, 1}, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
+    whiteImage = createImage((void*) &white, 4, VkExtent3D{1, 1, 1}, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
 
 
     //checkerboard image
@@ -705,7 +712,7 @@ void Engine::initDearImgui()
 
     // Need to LoadFunction when using VOLK/using VK_NO_PROTOTYPES
     ImGui_ImplVulkan_LoadFunctions([](const char* function_name, void* vulkan_instance) {
-        return vkGetInstanceProcAddr(*(static_cast<VkInstance *>(vulkan_instance)), function_name);
+        return vkGetInstanceProcAddr(*(static_cast<VkInstance*>(vulkan_instance)), function_name);
     }, &instance);
 
     // Setup Platform/Renderer backends
@@ -734,16 +741,16 @@ void Engine::initDearImgui()
 }
 
 void Engine::initDescriptors()
-{
-    {
+{ {
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        sceneUniformDescriptorSetLayout = layoutBuilder.build(device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT
+        sceneUniformDescriptorSetLayout = layoutBuilder.build(
+            device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT
             , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-
     }
 
-    sceneDataBuffer = createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    sceneDataBuffer = createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                   VMA_MEMORY_USAGE_CPU_TO_GPU);
     sceneUniformDescriptorBuffer = DescriptorBufferUniform(instance, device, physicalDevice, allocator, sceneUniformDescriptorSetLayout, 1);
 
     std::vector<DescriptorUniformData> sceneDataBuffers{};
@@ -768,7 +775,50 @@ void Engine::initPipelines()
 
 void Engine::initFrustumCullingPipeline()
 {
+    assert(RenderObject::frustumCullingDescriptorSetLayout != VK_NULL_HANDLE);
+    VkPushConstantRange pushConstants{};
+    pushConstants.offset = 0;
+    pushConstants.size = sizeof(SceneData);
+    pushConstants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
+    VkPipelineLayoutCreateInfo frustumCullingPipelineLayoutCreateInfo{};
+    frustumCullingPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    frustumCullingPipelineLayoutCreateInfo.pNext = nullptr;
+    frustumCullingPipelineLayoutCreateInfo.pSetLayouts = &RenderObject::frustumCullingDescriptorSetLayout;
+    frustumCullingPipelineLayoutCreateInfo.setLayoutCount = 1;
+    frustumCullingPipelineLayoutCreateInfo.pPushConstantRanges = &pushConstants;
+    frustumCullingPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+
+    VK_CHECK(vkCreatePipelineLayout(device, &frustumCullingPipelineLayoutCreateInfo, nullptr, &frustumCullingPipelineLayout));
+
+    VkShaderModule computeShader;
+    if (!vk_helpers::loadShaderModule("shaders/frustumCull.comp.spv", device, &computeShader)) {
+        fmt::print("Error when building the compute shader (frustumCull.comp.spv)\n");
+        abort();
+    }
+
+    VkPipelineShaderStageCreateInfo stageinfo{};
+    stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stageinfo.pNext = nullptr;
+    stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    stageinfo.module = computeShader;
+    stageinfo.pName = "main"; // entry point in shader
+
+    VkComputePipelineCreateInfo frustumCullingPipelineCreateInfo{};
+    frustumCullingPipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    frustumCullingPipelineCreateInfo.pNext = nullptr;
+    frustumCullingPipelineCreateInfo.layout = frustumCullingPipelineLayout;
+    frustumCullingPipelineCreateInfo.stage = stageinfo;
+    frustumCullingPipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+
+    VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &frustumCullingPipelineCreateInfo, nullptr, &frustumCullingPipeline));
+
+    vkDestroyShaderModule(device, computeShader, nullptr);
+
+    mainDeletionQueue.pushFunction([&]() {
+        vkDestroyPipelineLayout(device, frustumCullingPipelineLayout, nullptr);
+        vkDestroyPipeline(device, frustumCullingPipeline, nullptr);
+    });
 }
 
 void Engine::initRenderPipeline()
@@ -997,9 +1047,10 @@ VkDeviceAddress Engine::getBufferAddress(const AllocatedBuffer& buffer) const
     return srcPtr;
 }
 
-void Engine::destroyBuffer(const AllocatedBuffer& buffer) const
+void Engine::destroyBuffer(AllocatedBuffer& buffer) const
 {
     vmaDestroyBuffer(allocator, buffer.buffer, buffer.allocation);
+    buffer.buffer = VK_NULL_HANDLE;
 }
 
 AllocatedImage Engine::createImage(const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped) const

@@ -12,7 +12,7 @@
 #include "game_object.h"
 #include "../renderer/vk_types.h"
 #include "../renderer/vk_descriptor_buffer.h"
-#include "../renderer/acceleration-structures/BoundingSphere.h"
+#include "../renderer/acceleration-structures/bounding_sphere.h"
 
 class Engine;
 class RenderObject;
@@ -36,10 +36,13 @@ struct RenderObjectReference
  * Exists after initialized at program start.
  * Only deleted when application is exiting.
  */
-class RenderObject {
+class RenderObject
+{
 public:
     RenderObject() = default;
+
     RenderObject(Engine* engine, std::string_view gltfFilepath);
+
     ~RenderObject();
 
 private:
@@ -76,6 +79,9 @@ public:
     [[nodiscard]] const AllocatedBuffer& getIndirectBuffer() const { return drawIndirectBuffer; }
     [[nodiscard]] size_t getDrawIndirectCommandCount() const { return drawIndirectCommands.size(); }
 
+    const DescriptorBufferUniform& getComputeAddressesDescriptorBuffer() { return frustumCullingDescriptorBuffer; }
+    [[nodiscard]] uint32_t getInstanceBufferSize() const { return instanceBufferSize; }
+
 private: // Drawing
     AllocatedBuffer vertexBuffer{};
     AllocatedBuffer indexBuffer{};
@@ -93,8 +99,8 @@ private: // Drawing
     DescriptorBufferUniform addressesDescriptorBuffer;
     DescriptorBufferSampler textureDescriptorBuffer;
 
-    AllocatedBuffer computeBufferAddresses;
-    DescriptorBufferUniform computeCullingDescriptorBuffer;
+    AllocatedBuffer frustumBufferAddresses;
+    DescriptorBufferUniform frustumCullingDescriptorBuffer;
 
     void recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent);
 
@@ -112,19 +118,24 @@ private: // Drawing
      */
     void uploadIndirectBuffer();
 
+    /**
+     * Updates the compute culling buffer with updated buffer addresses of the instance and indirect buffers
+     * \n Should be called after updating either the instance/indirect buffer
+     */
     void updateComputeCullingBuffer();
+
 private:
     Engine* creator{nullptr};
 
     static int renderObjectCount;
     static constexpr size_t MAX_SAMPLER_COUNT{8};
     static constexpr size_t MAX_IMAGES_COUNT{80};
+
 public:
     static VkDescriptorSetLayout addressesDescriptorSetLayout;
     static VkDescriptorSetLayout textureDescriptorSetLayout;
-    static VkDescriptorSetLayout computeCullingDescriptorSetLayout;
+    static VkDescriptorSetLayout frustumCullingDescriptorSetLayout;
 };
-
 
 
 #endif //RENDER_OBJECT_H

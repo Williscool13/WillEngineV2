@@ -96,7 +96,7 @@ struct InstanceData
     glm::mat4 modelMatrix;
 };
 
-struct ComputeCullingBuffers
+struct FrustumCullingBuffers
 {
     VkDeviceAddress meshBoundsBuffer;
     VkDeviceAddress commandBuffer;
