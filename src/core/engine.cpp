@@ -241,25 +241,6 @@ void Engine::run()
     }
 }
 
-void Engine::cullRender(const VkCommandBuffer cmd) const
-{
-    // GPU Frustum Culling
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipeline);
-
-    VkDescriptorBufferBindingInfoEXT frustumCullingBindingInfo[1]{};
-
-    frustumCullingBindingInfo[0] = testRenderObject->getComputeAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
-    vkCmdBindDescriptorBuffersEXT(cmd, 1, frustumCullingBindingInfo);
-
-
-    VkDeviceSize offset{0};
-    uint32_t addressesIndex{0};
-
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipelineLayout, 0, 1, &addressesIndex, &offset);
-
-    vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(testRenderObject->getInstanceBufferSize()) / 64.0f)), 1, 1);
-}
-
 void Engine::draw()
 {
     camera.update();
@@ -402,6 +383,30 @@ void Engine::drawEnvironment(VkCommandBuffer cmd) const
     sceneData.viewproj = proj * view;
     vkCmdPushConstants(cmd, environmentPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(EnvironmentSceneData), &sceneData);
     vkCmdDraw(cmd, 3, 1, 0, 0);
+}
+
+void Engine::cullRender(VkCommandBuffer cmd) const
+{
+    // GPU Frustum Culling
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipeline);
+
+    SceneData sceneData{};
+    sceneData.viewProj = camera.getViewProjMatrix();
+    sceneData.cameraWorldPos = camera.getPosition();
+    vkCmdPushConstants(cmd, frustumCullingPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(SceneData), &sceneData);
+
+    VkDescriptorBufferBindingInfoEXT frustumCullingBindingInfo[1]{};
+
+    frustumCullingBindingInfo[0] = testRenderObject->getComputeAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
+    vkCmdBindDescriptorBuffersEXT(cmd, 1, frustumCullingBindingInfo);
+
+
+    VkDeviceSize offset{0};
+    uint32_t addressesIndex{0};
+
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipelineLayout, 0, 1, &addressesIndex, &offset);
+
+    vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(testRenderObject->getInstanceBufferSize()) / 64.0f)), 1, 1);
 }
 
 void Engine::drawRender(VkCommandBuffer cmd) const
@@ -974,8 +979,14 @@ void Engine::initScene()
     testRenderObject = new RenderObject{this, "assets/models/sponza2/Sponza.gltf"};
     testGameObject1 = testRenderObject->generateGameObject();
     testGameObject2 = testRenderObject->generateGameObject();
+    testGameObject3 = testRenderObject->generateGameObject();
+    testGameObject4 = testRenderObject->generateGameObject();
+    testGameObject5 = testRenderObject->generateGameObject();
     scene.addGameObject(testGameObject1);
     scene.addGameObject(testGameObject2);
+    scene.addGameObject(testGameObject3);
+    scene.addGameObject(testGameObject4);
+    scene.addGameObject(testGameObject5);
 
     testGameObject1->transform.setScale(0.05f);
     testGameObject1->refreshTransforms();
@@ -983,6 +994,18 @@ void Engine::initScene()
     testGameObject2->transform.setScale(0.05f);
     testGameObject2->transform.translate(glm::vec3(2.0f, 0.0f, 0.0f));
     testGameObject2->refreshTransforms();
+
+    testGameObject3->transform.setScale(0.05f);
+    testGameObject3->transform.translate(glm::vec3(-2.0f, 0.0f, 0.0f));
+    testGameObject3->refreshTransforms();
+
+    testGameObject4->transform.setScale(0.05f);
+    testGameObject4->transform.translate(glm::vec3(0.0f, -2.0f, 0.0f));
+    testGameObject4->refreshTransforms();
+
+    testGameObject5->transform.setScale(0.05f);
+    testGameObject5->transform.translate(glm::vec3(0.0f, 2.0f, 0.0f));
+    testGameObject5->refreshTransforms();
 }
 
 void Engine::immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const

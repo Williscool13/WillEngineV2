@@ -106,11 +106,10 @@ RenderObject::~RenderObject()
     creator->destroyBuffer(bufferAddresses);
 
     creator->destroyBuffer(materialBuffer);
-    if (instanceBuffer.buffer != VK_NULL_HANDLE) {
-        creator->destroyBuffer(instanceBuffer);
-    }
+    creator->destroyBuffer(instanceBuffer);
 
     creator->destroyBuffer(meshBoundsBuffer);
+    creator->destroyBuffer(meshIndicesBuffer);
     creator->destroyBuffer(frustumBufferAddresses);
 
     textureDescriptorBuffer.destroy(creator->getDevice(), creator->getAllocator());
@@ -514,6 +513,8 @@ void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, Gam
 
         gameObject->setRenderObjectReference(this, static_cast<int32_t>(instanceIndex));
         drawIndirectCommands.push_back(drawCommand);
+        meshIndices.push_back(renderNode.meshIndex);
+        assert(drawIndirectCommands.size() == meshIndices.size());
     }
 
     gameObject->transform.setTransform(renderNode.transform);
@@ -572,6 +573,26 @@ void RenderObject::updateComputeCullingBuffer()
     if (drawIndirectBuffer.buffer == VK_NULL_HANDLE || instanceBuffer.buffer == VK_NULL_HANDLE || meshBoundsBuffer.buffer == VK_NULL_HANDLE) {
         return;
     }
+
+    // both should be equal in all cases
+    if (drawIndirectCommands.empty() || meshIndices.empty()) {
+        return;
+    }
+
+    if (meshIndicesBuffer.buffer != VK_NULL_HANDLE) {
+        creator->destroyBuffer(meshIndicesBuffer);
+    }
+
+    AllocatedBuffer meshIndicesStaging = creator->createStagingBuffer(meshIndices.size() * sizeof(uint32_t));
+    memcpy(meshIndicesStaging.info.pMappedData, meshIndices.data(), meshIndices.size() * sizeof(uint32_t));
+    meshIndicesBuffer = creator->createBuffer(meshIndices.size() * sizeof(uint32_t)
+                                               , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+                                               , VMA_MEMORY_USAGE_GPU_ONLY);
+
+    creator->copyBuffer(meshIndicesStaging, meshIndicesBuffer, meshIndices.size() * sizeof(uint32_t));
+    creator->destroyBuffer(meshIndicesStaging);
+
+
     FrustumCullingBuffers cullingBuffers{};
     cullingBuffers.commandBuffer = creator->getBufferAddress(drawIndirectBuffer);
     cullingBuffers.commandBufferCount = drawIndirectCommands.size();
@@ -582,4 +603,7 @@ void RenderObject::updateComputeCullingBuffer()
     memcpy(frustumCullingStaging.info.pMappedData, &cullingBuffers, sizeof(FrustumCullingBuffers));
     creator->copyBuffer(frustumCullingStaging, frustumBufferAddresses, sizeof(FrustumCullingBuffers));
     creator->destroyBuffer(frustumCullingStaging);
+
+
+
 }

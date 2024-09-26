@@ -33,6 +33,10 @@ layout(buffer_reference, std430) buffer ModelBuffer
 {
     mat4 modelMatrices[];
 };
+layout(buffer_reference, std430) buffer MeshIndexBuffer
+{
+    int indices[];
+};
 
 
 layout(set = 0, binding = 0) uniform bufferData
@@ -41,6 +45,8 @@ layout(set = 0, binding = 0) uniform bufferData
     CommandBuffer commandBuffer;
     uint commandBufferCount;
     ModelBuffer modelMatrixBuffer;
+    MeshIndexBuffer meshIndices;
+    vec3 padding;
 } buffers;
 
 layout (push_constant) uniform PushConstants {
@@ -51,7 +57,7 @@ layout (push_constant) uniform PushConstants {
     // (16)
 } pushConstants;
 
-bool check_is_visible(mat4 mat, vec3 origin, float radius)
+int checkIsVisible(mat4 mat, vec3 origin, float radius)
 {
     uint plane_index = 0;
     for (uint i = 0; i < 3; ++i)
@@ -71,11 +77,11 @@ bool check_is_visible(mat4 mat, vec3 origin, float radius)
             plane.xyzw /= sqrt(dot(plane.xyz, plane.xyz));
             if (dot(origin, plane.xyz) + plane.w + radius < 0)
             {
-                return false;
+                return 0;
             }
         }
     }
-    return true;
+    return 1;
 }
 
 void main()
@@ -84,8 +90,18 @@ void main()
     if (invocationId >= buffers.commandBufferCount) { return; }
 
     mat4 modelMatrix = buffers.modelMatrixBuffer.modelMatrices[invocationId];
+    int meshIndex = buffers.meshIndices.indices[invocationId];
+
+    MeshBounds bounds = buffers.boundsBuffer.meshBounds[meshIndex];
+
+    vec3 position = bounds.position;
+    float radius = bounds.radius;
+
+    // transform position to clip space
+    position = vec3(modelMatrix * vec4(position, 1.0));
+    int visible = checkIsVisible(pushConstants.viewProj, position, radius);
 
     // only ever modify instanceCount to frustum Cull
-    buffers.commandBuffer.commands[invocationId].instanceCount = 0;
-
+    //buffers.commandBuffer.commands[invocationId].instanceCount = visible;
+    //buffers.commandBuffer.commands[invocationId].instanceCount = 1;
 }

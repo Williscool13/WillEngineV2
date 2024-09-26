@@ -174,6 +174,9 @@ private: // Scene
     RenderObject* testRenderObject{nullptr};
     GameObject* testGameObject1{nullptr};
     GameObject* testGameObject2{nullptr};
+    GameObject* testGameObject3{nullptr};
+    GameObject* testGameObject4{nullptr};
+    GameObject* testGameObject5{nullptr};
 
     Environment* environment{nullptr};
 
