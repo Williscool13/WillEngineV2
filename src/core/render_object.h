@@ -12,6 +12,7 @@
 #include "game_object.h"
 #include "../renderer/vk_types.h"
 #include "../renderer/vk_descriptor_buffer.h"
+#include "../renderer/acceleration-structures/BoundingSphere.h"
 
 class Engine;
 class RenderObject;
@@ -48,19 +49,25 @@ private:
     std::vector<VkSampler> samplers;
     std::vector<AllocatedImage> images;
     std::vector<Mesh> meshes;
+    std::vector<BoundingSphere> boundingSpheres;
 
     std::vector<RenderNode> renderNodes;
     std::vector<int32_t> topNodes;
 
     std::vector<VkDrawIndexedIndirectCommand> drawIndirectCommands;
-    std::vector<InstanceData> instanceDatas;
+    uint32_t instanceBufferSize{0};
+
+    /**
+     * The number of mesh instances in the whole model
+     */
+    uint32_t instanceCount{0};
 
 public:
-    GameObject* GenerateGameObject();
+    GameObject* generateGameObject();
 
     void updateInstanceData(const InstanceData& value, int32_t index) const;
 
-    [[nodiscard]] bool canDraw() const { return vertexBuffer.buffer != VK_NULL_HANDLE; }
+    [[nodiscard]] bool canDraw() const { return instanceBufferSize > 0; }
 
     const DescriptorBufferUniform& getAddressesDescriptorBuffer() { return addressesDescriptorBuffer; }
     const DescriptorBufferSampler& getTextureDescriptorBuffer() { return textureDescriptorBuffer; }
@@ -80,15 +87,32 @@ private: // Drawing
     AllocatedBuffer materialBuffer{};
     AllocatedBuffer instanceBuffer{};
 
+    // Culling
+    AllocatedBuffer meshBoundsBuffer{};
 
     DescriptorBufferUniform addressesDescriptorBuffer;
     DescriptorBufferSampler textureDescriptorBuffer;
 
+    AllocatedBuffer computeBufferAddresses;
+    DescriptorBufferUniform computeCullingDescriptorBuffer;
 
-    void RecursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent);
+    void recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent);
 
-    void UploadIndirect();
+    /**
+     * Expands the instance buffer of the render object by \code count\endcode amount.
+     * \n Should be called whenever new instances are created
+     * @param count
+     * @param copy if true, will attempt to copy previous buffer into the new buffer
+     */
+    void expandInstanceBuffer(uint32_t count, bool copy = true);
 
+    /**
+     * Uploads the indirect buffer of the render object
+     * \n Should be called whenever the indirect buffer is expanded
+     */
+    void uploadIndirectBuffer();
+
+    void updateComputeCullingBuffer();
 private:
     Engine* creator{nullptr};
 
@@ -99,7 +123,6 @@ public:
     static VkDescriptorSetLayout addressesDescriptorSetLayout;
     static VkDescriptorSetLayout textureDescriptorSetLayout;
     static VkDescriptorSetLayout computeCullingDescriptorSetLayout;
-
 };
 
 

@@ -105,7 +105,7 @@ void Scene::displayGameObject(GameObject* obj, int depth)
     //}
 
     if (isOpen) {
-        for (GameObject* child: obj->getChildren()) {
+        for (GameObject* child : obj->getChildren()) {
             displayGameObject(child, depth + 1);
         }
         ImGui::TreePop();
@@ -121,7 +121,7 @@ void Scene::parentGameObject(GameObject* obj)
     if (currParent == nullptr) { return; }
     // get index in scene Root
     int index{-1};
-    std::vector<GameObject *>& currChildren = currParent->getChildren();
+    std::vector<GameObject*>& currChildren = currParent->getChildren();
     index = getIndexInVector(obj, currChildren);
     if (index == -1 || index == 0) { return; }
 
@@ -139,7 +139,7 @@ void Scene::unparentGameObject(GameObject* obj)
 
     // get index of in scene Root
     int index{-1};
-    std::vector<GameObject *>& parentParentChildren = parentParent->getChildren();
+    std::vector<GameObject*>& parentParentChildren = parentParent->getChildren();
     index = getIndexInVector(parent, parentParentChildren);
     if (index == -1) { return; }
 
@@ -158,7 +158,7 @@ void Scene::moveObject(GameObject* obj, int diff)
     assert(diff != 0);
 
     int index{-1};
-    std::vector<GameObject *>& parentChildren = obj->getParent()->getChildren();
+    std::vector<GameObject*>& parentChildren = obj->getParent()->getChildren();
     index = getIndexInVector(obj, parentChildren);
     // couldn't find. big error.
     if (index == -1) { return; }
@@ -175,20 +175,26 @@ void Scene::moveObject(GameObject* obj, int diff)
 
 void Scene::imguiSceneGraph()
 {
-    ImGui::Begin("Scene Graph");
-
-    if (sceneRoot != nullptr && !sceneRoot->getChildren().empty()) {
-        for (GameObject* child: sceneRoot->getChildren()) {
-            displayGameObject(child, 0);
+    if (ImGui::Begin("Scene Graph")) {
+        if (sceneRoot != nullptr && !sceneRoot->getChildren().empty()) {
+            for (GameObject* child : sceneRoot->getChildren()) {
+                displayGameObject(child, 0);
+            }
+        } else {
+            ImGui::Text("Scene is empty");
         }
-    } else {
-        ImGui::Text("Scene is empty");
     }
+    ImGui::End();
 
+
+    if (ImGui::Begin("Test")) {
+        // can select a gameobject
+        // text fields to modify the model matrix of said gameobject
+    }
     ImGui::End();
 }
 
-int Scene::getIndexInVector(GameObject* obj, std::vector<GameObject *> vector)
+int Scene::getIndexInVector(GameObject* obj, std::vector<GameObject*> vector)
 {
     for (int i = 0; i < vector.size(); i++) {
         if (vector[i] == obj) {
