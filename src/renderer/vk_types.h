@@ -96,12 +96,17 @@ struct InstanceData
     glm::mat4 modelMatrix;
 };
 
+/**
+ * commandbuffer, modelMatrix, and meshIndices should be of equal length at all times.
+ */
 struct FrustumCullingBuffers
 {
     VkDeviceAddress meshBoundsBuffer;
     VkDeviceAddress commandBuffer;
     uint32_t commandBufferCount;
     VkDeviceAddress modelMatrixBuffer;
+    VkDeviceAddress meshIndicesBuffer;
+    glm::vec3 padding;
 };
 
 #endif //VKTYPES_H

@@ -58,6 +58,11 @@ private:
     std::vector<int32_t> topNodes;
 
     std::vector<VkDrawIndexedIndirectCommand> drawIndirectCommands;
+    /**
+     * The mesh indices corresponding to each indirect draw command.
+     * Should always be equal to the length of \code drawIndirectCommands\endcode
+     */
+    std::vector<uint32_t> meshIndices;
     uint32_t instanceBufferSize{0};
 
     /**
@@ -100,6 +105,7 @@ private: // Drawing
     DescriptorBufferSampler textureDescriptorBuffer;
 
     AllocatedBuffer frustumBufferAddresses;
+    AllocatedBuffer meshIndicesBuffer{};
     DescriptorBufferUniform frustumCullingDescriptorBuffer;
 
     void recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent);
