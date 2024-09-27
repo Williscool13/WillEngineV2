@@ -1,6 +1,5 @@
 //
 // Created by William on 2024-08-24.
-//
 
 #include "render_object.h"
 
@@ -14,8 +13,17 @@
 #include "glm/detail/type_quat.hpp"
 #include "glm/gtx/matrix_decompose.hpp"
 
+/**
+ * Material and Instance Buffer Addresses
+ */
 VkDescriptorSetLayout RenderObject::addressesDescriptorSetLayout{VK_NULL_HANDLE};
+/**
+ * Sampler and Image Arrays
+ */
 VkDescriptorSetLayout RenderObject::textureDescriptorSetLayout{VK_NULL_HANDLE};
+/**
+ * Frustum Culling Data Buffer Addresses
+ */
 VkDescriptorSetLayout RenderObject::frustumCullingDescriptorSetLayout{VK_NULL_HANDLE};
 int RenderObject::renderObjectCount{0};
 

@@ -51,12 +51,12 @@ namespace vk_helpers
 
     VkSemaphoreSubmitInfo semaphoreSubmitInfo(VkPipelineStageFlags2 stageMask, VkSemaphore semaphore);
 
-    VkRenderingAttachmentInfo attachmentInfo(VkImageView view, VkClearValue *clear,
+    VkRenderingAttachmentInfo attachmentInfo(VkImageView view, VkClearValue* clear,
                                              VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/);
 
-    VkRenderingInfo renderingInfo(VkExtent2D renderExtent, VkRenderingAttachmentInfo *colorAttachment, VkRenderingAttachmentInfo *depthAttachment);
+    VkRenderingInfo renderingInfo(VkExtent2D renderExtent, VkRenderingAttachmentInfo* colorAttachment, VkRenderingAttachmentInfo* depthAttachment);
 
-    VkSubmitInfo2 submitInfo(VkCommandBufferSubmitInfo *cmd, VkSemaphoreSubmitInfo *signalSemaphoreInfo, VkSemaphoreSubmitInfo *waitSemaphoreInfo);
+    VkSubmitInfo2 submitInfo(VkCommandBufferSubmitInfo* cmd, VkSemaphoreSubmitInfo* signalSemaphoreInfo, VkSemaphoreSubmitInfo* waitSemaphoreInfo);
 
     VkPresentInfoKHR presentInfo();
 
@@ -80,6 +80,8 @@ namespace vk_helpers
 
     void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout);
 
+    void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageAspectFlags aspectMask, VkImageLayout targetLayout);
+
     void copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize);
 
     void generateMipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize);
@@ -88,7 +90,8 @@ namespace vk_helpers
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo();
 
     VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shaderModule,
-                                                                  const char *entry = "main");
+                                                                  const char* entry = "main");
+
     /**
      * Loads a shader module from the file paths specified
      * @param filePath
@@ -96,14 +99,15 @@ namespace vk_helpers
      * @param outShaderModule
      * @return
      */
-    bool loadShaderModule(const char *filePath, VkDevice device, VkShaderModule *outShaderModule);
+    bool loadShaderModule(const char* filePath, VkDevice device, VkShaderModule* outShaderModule);
 
 
     VkFilter extractFilter(fastgltf::Filter filter);
 
     VkSamplerMipmapMode extractMipmapMode(fastgltf::Filter filter);
 
-    std::optional<AllocatedImage> loadImage(const Engine* engine, const fastgltf::Asset& asset, const fastgltf::Image& image, const std::filesystem::path& parentFolder);
+    std::optional<AllocatedImage> loadImage(const Engine* engine, const fastgltf::Asset& asset, const fastgltf::Image& image,
+                                            const std::filesystem::path& parentFolder);
 
     /**
      * Loads a fastgltf texture.
@@ -114,8 +118,35 @@ namespace vk_helpers
      * @param imageOffset
      * @param samplerOffset
      */
-    void loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, float& imageIndex, float& samplerIndex, uint32_t
+    void loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, float& imageIndex, float& samplerIndex,
+                     uint32_t
                      imageOffset = 0, uint32_t samplerOffset = 0);
+
+    /**
+     * Saves the AllocatedImage to the specified save path.
+     * @param engine
+     * @param image
+     * @param imageLayout the image layout at the time of copying, usually VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL for depth
+     * @param aspectFlag usually VK_IMAGE_ASPECT_COLOR_BIT, VK_IMAGE_ASPECT_DEPTH_BIT for depth
+     * @param formatSize usually \code sizeof(float)\endcode, depends on aspectFlag
+     * @param channelCount usually 4, 1 for depth
+     * @param savePath
+     */
+    void saveImage(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag, size_t formatSize,
+                   uint32_t channelCount, const char* savePath);
+
+    /**
+     * Save the Allocated image as a grayscaled image. The image must be a format with only 1 channel (e.g. R32 or D32)
+     * @param engine
+     * @param image
+     * @param imageLayout
+     * @param aspectFlag
+     * @param formatSize
+     * @param savePath
+     * @param valueTransform function applied to the color value before it is converted into 8 bits
+     */
+    void saveGrayscaleImage(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+                            size_t formatSize, const char* savePath, const std::function<float(float)>& valueTransform);
 }
 
 

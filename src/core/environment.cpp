@@ -18,6 +18,9 @@ VkDescriptorSetLayout Environment::equiImageDescriptorSetLayout = VK_NULL_HANDLE
 VkDescriptorSetLayout Environment::cubemapStorageDescriptorSetLayout = VK_NULL_HANDLE;
 VkDescriptorSetLayout Environment::cubemapDescriptorSetLayout = VK_NULL_HANDLE;
 VkDescriptorSetLayout Environment::lutDescriptorSetLayout = VK_NULL_HANDLE;
+/**
+ * Diff/Spec Irradiance Cubemap (LOD 1-4 spec, LOD 5 diff), and 2D-LUT
+ */
 VkDescriptorSetLayout Environment::environmentMapDescriptorSetLayout = VK_NULL_HANDLE;
 
 VkPipelineLayout Environment::equiToCubemapPipelineLayout = VK_NULL_HANDLE;

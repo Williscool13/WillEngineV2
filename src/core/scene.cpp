@@ -187,11 +187,11 @@ void Scene::imguiSceneGraph()
     ImGui::End();
 
 
-    if (ImGui::Begin("Test")) {
+    /*if (ImGui::Begin("Gameobject Selection")) {
         // can select a gameobject
         // text fields to modify the model matrix of said gameobject
     }
-    ImGui::End();
+    ImGui::End();*/
 }
 
 int Scene::getIndexInVector(GameObject* obj, std::vector<GameObject*> vector)
