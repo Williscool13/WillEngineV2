@@ -28,6 +28,8 @@ public:
 
     VkPipeline buildPipeline(VkDevice device, VkPipelineCreateFlagBits flags);
 
+    void setShaders(VkShaderModule vertexShader);
+
     void setShaders(VkShaderModule vertexShader, VkShaderModule fragmentShader);
 
     /**
@@ -42,12 +44,17 @@ public:
 
     void setupInputAssembly(VkPrimitiveTopology topology);
 
-    void setupRasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace);
+    void setupRasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace, bool rasterizerDiscardEnable = false);
 
     void setupMultisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples
                             , float minSampleShading, const VkSampleMask* pSampleMask
                             , VkBool32 alphaToCoverageEnable, VkBool32 alphaToOneEnable);
 
+    /**
+     * Defines the renderer attachment format. If either is set to \code VK_FORMAT_UNDEFINED\endcode then it won't be set up.
+     * @param colorattachmentFormat
+     * @param depthAttachmentFormat
+     */
     void setupRenderer(VkFormat colorattachmentFormat, VkFormat depthAttachmentFormat);
 
     /**

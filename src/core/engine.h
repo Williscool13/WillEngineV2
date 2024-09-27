@@ -83,6 +83,8 @@ public:
 
     void cullRender(VkCommandBuffer cmd) const;
 
+    void drawDepthPrepass(VkCommandBuffer cmd) const;
+
     void drawRender(VkCommandBuffer cmd) const;
 
     void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
@@ -118,6 +120,8 @@ private: // Initialization
     void initPipelines();
 
     void initFrustumCullingPipeline();
+
+    void initDepthPrepassPipeline();
 
     void initRenderPipeline();
 
@@ -189,19 +193,21 @@ private: // Scene Descriptors
     DescriptorBufferSampler sceneSamplerDescriptorBuffer;
 
 private: // Pipelines
-    // Render
-    VkPipelineLayout renderPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline renderPipeline{VK_NULL_HANDLE};
-
     // Frustum Culling
     VkPipelineLayout frustumCullingPipelineLayout{VK_NULL_HANDLE};
     VkPipeline frustumCullingPipeline{VK_NULL_HANDLE};
 
+    // Depth Prepass
+    VkPipelineLayout depthPrepassPipelineLayout{VK_NULL_HANDLE};
+    VkPipeline depthPrepassPipeline{VK_NULL_HANDLE};
+
+    // Render
+    VkPipelineLayout renderPipelineLayout{VK_NULL_HANDLE};
+    VkPipeline renderPipeline{VK_NULL_HANDLE};
 
     // Environment
     VkPipelineLayout environmentPipelineLayout{VK_NULL_HANDLE};
     VkPipeline environmentPipeline{VK_NULL_HANDLE};
-
 
 private: // Swapchain
     VkSwapchainKHR swapchain{};
@@ -226,6 +232,8 @@ private: // Draw Images
 
     void createDrawImages(uint32_t width, uint32_t height);
 
+    AllocatedImage depthPrepassImage{};
+
 public: // Default Data
     static AllocatedImage whiteImage;
     static AllocatedImage errorCheckerboardImage;
@@ -239,6 +247,8 @@ public: // Buffers
     AllocatedBuffer createBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) const;
 
     AllocatedBuffer createStagingBuffer(size_t allocSize) const;
+
+    AllocatedBuffer createReceivingBuffer(size_t allocSize) const;
 
     /**
      *

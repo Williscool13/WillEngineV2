@@ -213,16 +213,21 @@ void Engine::run()
                 ImGui::Text("View Direction: (%.2f, %.2f, %.2f)", viewDir.x, viewDir.y, viewDir.z);
                 ImGui::Text("Rotation (%.2f, %.2f, %.2f)", cameraRotation.x, cameraRotation.y, cameraRotation.z);
                 ImGui::Text("Position: (%.2f, %.2f, %.2f)", cameraPosition.x, cameraPosition.y, cameraPosition.z);
+            }
+            ImGui::End();
 
-                if (ImGui::TreeNode("Rotation Matrix")) {
-                    glm::mat4 rotationMatrix = camera.getRotationMatrixWS();
-                    for (int i = 0; i < 4; i++)
-                        ImGui::Text("%.2f %.2f %.2f %.2f", rotationMatrix[i][0], rotationMatrix[i][1], rotationMatrix[i][2], rotationMatrix[i][3]);
-
-                    ImGui::TreePop();
+            if (ImGui::Begin("Save Depth Prepass")) {
+                if (ImGui::Button("Save Depth Prepass Now!")) {
+                    std::filesystem::path path = std::filesystem::current_path() / "test.png";
+                    auto depthNormalize = [](float depth) {
+                        return log(1.0f + depth * 10.0f) / log(11.0f);
+                    };
+                    vk_helpers::saveGrayscaleImage(this, depthPrepassImage, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT,
+                                          sizeof(float), path.string().c_str(), depthNormalize);
                 }
             }
             ImGui::End();
+
 
             scene.imguiSceneGraph();
 
@@ -274,8 +279,17 @@ void Engine::draw()
     // draw geometry into _drawImage
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    vk_helpers::transitionImage(cmd, depthPrepassImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
-    VkClearValue depthClearValue = {0.0f, 0};
+    VkClearValue depthClearValue = {0.0f, 0.0f};
+    VkRenderingAttachmentInfo depthPrepassAttachment = vk_helpers::attachmentInfo(depthPrepassImage.imageView, &depthClearValue,
+                                                                                  VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    VkRenderingInfo depthPrepassRenderInfo = vk_helpers::renderingInfo(drawExtent, nullptr, &depthPrepassAttachment);
+    vkCmdBeginRendering(cmd, &depthPrepassRenderInfo);
+    drawDepthPrepass(cmd);
+    vkCmdEndRendering(cmd);
+
+
     VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue,
                                                                            VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
@@ -409,6 +423,51 @@ void Engine::cullRender(VkCommandBuffer cmd) const
     vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(testRenderObject->getInstanceBufferSize()) / 64.0f)), 1, 1);
 }
 
+void Engine::drawDepthPrepass(VkCommandBuffer cmd) const
+{
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, depthPrepassPipeline);
+    // Dynamic States
+    {
+        //  Viewport
+        VkViewport viewport = {};
+        viewport.x = 0;
+        viewport.y = 0;
+        viewport.width = drawExtent.width;
+        viewport.height = drawExtent.height;
+        viewport.minDepth = 0.f;
+        viewport.maxDepth = 1.f;
+        vkCmdSetViewport(cmd, 0, 1, &viewport);
+        //  Scissor
+        VkRect2D scissor = {};
+        scissor.offset.x = 0;
+        scissor.offset.y = 0;
+        scissor.extent.width = drawExtent.width;
+        scissor.extent.height = drawExtent.height;
+        vkCmdSetScissor(cmd, 0, 1, &scissor);
+    }
+
+    if (!testRenderObject->canDraw()) {
+        return;
+    }
+
+    const glm::mat4 viewProj = camera.getViewProjMatrix();
+    vkCmdPushConstants(cmd, depthPrepassPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &viewProj);
+
+    VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1];
+    descriptorBufferBindingInfo[0] = testRenderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
+    vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
+
+    constexpr VkDeviceSize zeroOffset{0};
+    constexpr uint32_t addressIndex{0};
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, depthPrepassPipelineLayout, 0, 1, &addressIndex, &zeroOffset);
+
+    VkDeviceSize offsets{0};
+    vkCmdBindVertexBuffers(cmd, 0, 1, &testRenderObject->getVertexBuffer().buffer, &offsets);
+    vkCmdBindIndexBuffer(cmd, testRenderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexedIndirect(cmd, testRenderObject->getIndirectBuffer().buffer, 0, testRenderObject->getInstanceBufferSize(),
+                             sizeof(VkDrawIndexedIndirectCommand));
+}
+
 void Engine::drawRender(VkCommandBuffer cmd) const
 {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipeline);
@@ -518,6 +577,9 @@ void Engine::cleanup()
     vmaDestroyImage(allocator, drawImage.image, drawImage.allocation);
     vkDestroyImageView(device, depthImage.imageView, nullptr);
     vmaDestroyImage(allocator, depthImage.image, depthImage.allocation);
+    vkDestroyImageView(device, depthPrepassImage.imageView, nullptr);
+    vmaDestroyImage(allocator, depthPrepassImage.image, depthPrepassImage.allocation);
+
     // Swapchain
     vkDestroySwapchainKHR(device, swapchain, nullptr);
     for (int i = 0; i < swapchainImageViews.size(); i++) {
@@ -774,6 +836,7 @@ void Engine::initDescriptors()
 void Engine::initPipelines()
 {
     initEnvironmentPipeline();
+    initDepthPrepassPipeline();
     initRenderPipeline();
     initFrustumCullingPipeline();
 }
@@ -826,9 +889,69 @@ void Engine::initFrustumCullingPipeline()
     });
 }
 
+void Engine::initDepthPrepassPipeline()
+{
+    VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
+    VkDescriptorSetLayout descriptorLayout[1];
+    descriptorLayout[0] = RenderObject::addressesDescriptorSetLayout;
+    layoutInfo.pSetLayouts = descriptorLayout;
+    layoutInfo.setLayoutCount = 1;
+    VkPushConstantRange pushConstants{};
+    pushConstants.offset = 0;
+    pushConstants.size = sizeof(glm::mat4);
+    pushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    layoutInfo.pPushConstantRanges = &pushConstants;
+    layoutInfo.pushConstantRangeCount = 1;
+
+    VK_CHECK(vkCreatePipelineLayout(device, &layoutInfo, nullptr, &depthPrepassPipelineLayout));
+
+    VkShaderModule vertShader;
+    if (!vk_helpers::loadShaderModule("shaders/depthPrepass.vert.spv", device, &vertShader)) {
+        throw std::runtime_error("Error when building the cube vertex shader module(depthPrepass.vert.spv)\n");
+    }
+    VkShaderModule fragShader;
+    if (!vk_helpers::loadShaderModule("shaders/depthPrepass.frag.spv", device, &fragShader)) {
+        throw std::runtime_error("Error when building the cube vertex shader module(depthPrepass.frag.spv)\n");
+    }
+
+    PipelineBuilder depthPrepassPipelineBuilder; {
+        VkVertexInputBindingDescription mainBinding{};
+        mainBinding.binding = 0;
+        mainBinding.stride = sizeof(Vertex);
+        mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        VkVertexInputAttributeDescription vertexAttributes[1];
+        vertexAttributes[0].binding = 0;
+        vertexAttributes[0].location = 0;
+        vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+        vertexAttributes[0].offset = offsetof(Vertex, position);
+
+        depthPrepassPipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 1);
+    }
+
+    depthPrepassPipelineBuilder.setShaders(vertShader, fragShader);
+    depthPrepassPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    depthPrepassPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE); // VK_CULL_MODE_BACK_BIT
+    depthPrepassPipelineBuilder.disableMultisampling();
+    depthPrepassPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
+    depthPrepassPipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+    depthPrepassPipelineBuilder.setupRenderer(VK_FORMAT_UNDEFINED, depthPrepassImage.imageFormat);
+    depthPrepassPipelineBuilder.setupPipelineLayout(depthPrepassPipelineLayout);
+
+    depthPrepassPipeline = depthPrepassPipelineBuilder.buildPipeline(device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+
+    vkDestroyShaderModule(device, vertShader, nullptr);
+    vkDestroyShaderModule(device, fragShader, nullptr);
+
+    mainDeletionQueue.pushFunction([&]() {
+        vkDestroyPipelineLayout(device, depthPrepassPipelineLayout, nullptr);
+        vkDestroyPipeline(device, depthPrepassPipeline, nullptr);
+    });
+}
+
 void Engine::initRenderPipeline()
 {
-    VkPipelineLayoutCreateInfo layout_info = vk_helpers::pipelineLayoutCreateInfo();
+    VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
     VkDescriptorSetLayout descriptorLayout[4];
 
     assert(RenderObject::addressesDescriptorSetLayout != VK_NULL_HANDLE);
@@ -838,28 +961,28 @@ void Engine::initRenderPipeline()
 
     descriptorLayout[0] = RenderObject::addressesDescriptorSetLayout;
     descriptorLayout[1] = RenderObject::textureDescriptorSetLayout;
-    descriptorLayout[2] = sceneUniformDescriptorSetLayout;
+    descriptorLayout[2] = sceneUniformDescriptorSetLayout; // currently not used.
     descriptorLayout[3] = Environment::environmentMapDescriptorSetLayout;
-    layout_info.pSetLayouts = descriptorLayout;
-    layout_info.setLayoutCount = 4;
+    layoutInfo.pSetLayouts = descriptorLayout;
+    layoutInfo.setLayoutCount = 4;
 
     VkPushConstantRange pushConstants{};
     pushConstants.offset = 0;
     pushConstants.size = sizeof(SceneData);
     pushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-    layout_info.pPushConstantRanges = &pushConstants;
-    layout_info.pushConstantRangeCount = 1;
+    layoutInfo.pPushConstantRanges = &pushConstants;
+    layoutInfo.pushConstantRangeCount = 1;
 
-    VK_CHECK(vkCreatePipelineLayout(device, &layout_info, nullptr, &renderPipelineLayout));
+    VK_CHECK(vkCreatePipelineLayout(device, &layoutInfo, nullptr, &renderPipelineLayout));
 
 
     VkShaderModule vertShader;
-    if (!vk_helpers::loadShaderModule("shaders/cube.vert.spv", device, &vertShader)) {
-        throw std::runtime_error("Error when building the cube vertex shader module(cube.vert.spv)\n");
+    if (!vk_helpers::loadShaderModule("shaders/pbr.vert.spv", device, &vertShader)) {
+        throw std::runtime_error("Error when building the cube vertex shader module(pbr.vert.spv)\n");
     }
     VkShaderModule fragShader;
-    if (!vk_helpers::loadShaderModule("shaders/cube.frag.spv", device, &fragShader)) {
-        fmt::print("Error when building the cube fragment shader module(cube.frag.spv)\n");
+    if (!vk_helpers::loadShaderModule("shaders/pbr.frag.spv", device, &fragShader)) {
+        fmt::print("Error when building the cube fragment shader module(pbr.frag.spv)\n");
     }
 
     PipelineBuilder renderPipelineBuilder; {
@@ -1048,6 +1171,11 @@ AllocatedBuffer Engine::createBuffer(size_t allocSize, VkBufferUsageFlags usage,
 AllocatedBuffer Engine::createStagingBuffer(size_t allocSize) const
 {
     return createBuffer(allocSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+}
+
+AllocatedBuffer Engine::createReceivingBuffer(size_t allocSize) const
+{
+    return createBuffer(allocSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU);
 }
 
 void Engine::copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, const VkDeviceSize size) const
@@ -1257,12 +1385,12 @@ void Engine::createDrawImages(uint32_t width, uint32_t height)
     drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
     drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     drawImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
-    VkImageCreateInfo rimg_info = vk_helpers::imageCreateInfo(drawImage.imageFormat, drawImageUsages, drawImageExtent);
+    VkImageCreateInfo renderImageInfo = vk_helpers::imageCreateInfo(drawImage.imageFormat, drawImageUsages, drawImageExtent);
 
-    VmaAllocationCreateInfo rimg_allocinfo = {};
-    rimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    rimg_allocinfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    vmaCreateImage(allocator, &rimg_info, &rimg_allocinfo, &drawImage.image, &drawImage.allocation, nullptr);
+    VmaAllocationCreateInfo renderImageAllocationInfo = {};
+    renderImageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    renderImageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    vmaCreateImage(allocator, &renderImageInfo, &renderImageAllocationInfo, &drawImage.image, &drawImage.allocation, nullptr);
 
     VkImageViewCreateInfo rview_info = vk_helpers::imageviewCreateInfo(drawImage.imageFormat, drawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
     VK_CHECK(vkCreateImageView(device, &rview_info, nullptr, &drawImage.imageView));
@@ -1274,15 +1402,24 @@ void Engine::createDrawImages(uint32_t width, uint32_t height)
     depthImage.imageExtent = depthImageExtent;
     VkImageUsageFlags depthImageUsages{};
     depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
-    VkImageCreateInfo dimg_info = vk_helpers::imageCreateInfo(depthImage.imageFormat, depthImageUsages, depthImageExtent);
+    VkImageCreateInfo depthImageInfo = vk_helpers::imageCreateInfo(depthImage.imageFormat, depthImageUsages, depthImageExtent);
 
-    VmaAllocationCreateInfo dimg_allocinfo = {};
-    dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    dimg_allocinfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-    vmaCreateImage(allocator, &dimg_info, &dimg_allocinfo, &depthImage.image, &depthImage.allocation, nullptr);
+    VmaAllocationCreateInfo depthImageAllocationInfo = {};
+    depthImageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    depthImageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    vmaCreateImage(allocator, &depthImageInfo, &depthImageAllocationInfo, &depthImage.image, &depthImage.allocation, nullptr);
 
-    VkImageViewCreateInfo dview_info = vk_helpers::imageviewCreateInfo(depthImage.imageFormat, depthImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
-    VK_CHECK(vkCreateImageView(device, &dview_info, nullptr, &depthImage.imageView));
+    VkImageViewCreateInfo depthViewInfo = vk_helpers::imageviewCreateInfo(depthImage.imageFormat, depthImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
+    VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthImage.imageView));
+
+    // Depth Prepass
+    depthPrepassImage.imageFormat = VK_FORMAT_D32_SFLOAT;
+    depthPrepassImage.imageExtent = depthImageExtent;
+    depthImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    depthImageInfo = vk_helpers::imageCreateInfo(depthImage.imageFormat, depthImageUsages, depthImageExtent);
+    vmaCreateImage(allocator, &depthImageInfo, &depthImageAllocationInfo, &depthPrepassImage.image, &depthPrepassImage.allocation, nullptr);
+    VkImageViewCreateInfo prepassDepthViewInfo = vk_helpers::imageviewCreateInfo(depthPrepassImage.imageFormat, depthPrepassImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
+    VK_CHECK(vkCreateImageView(device, &prepassDepthViewInfo, nullptr, &depthPrepassImage.imageView));
 
     drawExtent = {width, height};
 }

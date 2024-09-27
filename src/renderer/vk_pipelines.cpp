@@ -80,6 +80,15 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkPipelineCreateFlagB
     }
 }
 
+void PipelineBuilder::setShaders(VkShaderModule vertexShader)
+{
+    shaderStages.clear();
+
+    shaderStages.push_back(
+        vk_helpers::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, vertexShader)
+    );
+}
+
 void PipelineBuilder::setShaders(VkShaderModule vertexShader, VkShaderModule fragmentShader)
 {
     shaderStages.clear();
@@ -109,7 +118,7 @@ void PipelineBuilder::setupInputAssembly(VkPrimitiveTopology topology)
     inputAssembly.primitiveRestartEnable = VK_FALSE;
 }
 
-void PipelineBuilder::setupRasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace)
+void PipelineBuilder::setupRasterization(const VkPolygonMode polygonMode, const VkCullModeFlags cullMode, const VkFrontFace frontFace, bool rasterizerDiscardEnable)
 {
     // Draw Mode
     rasterizer.polygonMode = polygonMode;
@@ -118,6 +127,8 @@ void PipelineBuilder::setupRasterization(VkPolygonMode polygonMode, VkCullModeFl
     // Culling
     rasterizer.cullMode = cullMode;
     rasterizer.frontFace = frontFace;
+
+    rasterizer.rasterizerDiscardEnable = rasterizerDiscardEnable;
 }
 
 void PipelineBuilder::setupMultisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples, float minSampleShading,
@@ -136,12 +147,16 @@ void PipelineBuilder::setupMultisampling(VkBool32 sampleShadingEnable, VkSampleC
 void PipelineBuilder::setupRenderer(VkFormat colorattachmentFormat, VkFormat depthAttachmentFormat)
 {
     // Color Format
-    colorAttachmentFormat = colorattachmentFormat;
-    renderInfo.colorAttachmentCount = 1;
-    renderInfo.pColorAttachmentFormats = &colorAttachmentFormat;
+    if (colorattachmentFormat != VK_FORMAT_UNDEFINED) {
+        colorAttachmentFormat = colorattachmentFormat;
+        renderInfo.colorAttachmentCount = 1;
+        renderInfo.pColorAttachmentFormats = &colorAttachmentFormat;
+    }
 
     // Depth Format
-    renderInfo.depthAttachmentFormat = depthAttachmentFormat;
+    if (depthAttachmentFormat != VK_FORMAT_UNDEFINED) {
+        renderInfo.depthAttachmentFormat = depthAttachmentFormat;
+    }
 }
 
 void PipelineBuilder::setupDepthStencil(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp, VkBool32 depthBoundsTestEnable,
