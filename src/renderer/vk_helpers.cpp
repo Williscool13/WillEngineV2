@@ -693,7 +693,7 @@ void vk_helpers::saveImage(const Engine* engine, const AllocatedImage& image, Vk
     const auto imageData = static_cast<float*>(data);
 
     const auto byteImageData = new uint8_t[image.imageExtent.width * image.imageExtent.height * 4];
-    constexpr auto powEight = static_cast<float>(pow(2, 8) - 1);
+    const auto powEight = static_cast<float>(pow(2, 8) - 1);
     for (size_t i = 0; i < image.imageExtent.width * image.imageExtent.height; ++i) {
         for (int j = 0; j < channelCount; j++) {
             const auto value = static_cast<uint8_t>(imageData[i * channelCount] * powEight);
@@ -744,7 +744,7 @@ void vk_helpers::saveGrayscaleImage(const Engine* engine, const AllocatedImage& 
     const auto imageData = static_cast<float*>(data);
 
     const auto byteImageData = new uint8_t[image.imageExtent.width * image.imageExtent.height * 4];
-    constexpr auto powEight = static_cast<float>(pow(2, 8) - 1);
+    const auto powEight = static_cast<float>(pow(2, 8) - 1);
     for (size_t i = 0; i < image.imageExtent.width * image.imageExtent.height; ++i) {
         const float floatValue = valueTransform(imageData[i]);
         const auto value = static_cast<uint8_t>(floatValue * powEight);
