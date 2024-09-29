@@ -50,7 +50,7 @@ struct DeletionQueue
     void flush()
     {
         // reverse iterate the deletion queue to execute all the functions
-        for (auto& it: deletors) {
+        for (auto& it : deletors) {
             (it)();
         }
 
@@ -160,7 +160,7 @@ private: // Rendering
     // Main
     int frameNumber{0};
     FrameData frames[FRAME_OVERLAP]{};
-    FrameData &getCurrentFrame() { return frames[frameNumber % FRAME_OVERLAP]; };
+    FrameData& getCurrentFrame() { return frames[frameNumber % FRAME_OVERLAP]; };
     bool stopRendering{false};
 
     double frameTime{};
@@ -221,6 +221,22 @@ private: // Swapchain
     void createSwapchain(uint32_t width, uint32_t height);
 
     void resizeSwapchain();
+
+private: // Render Targets
+    /**
+     * 8.8.8 Normals - 8 unused
+     */
+    AllocatedImage renderTargetNormals{};
+    /**
+     * 8.8.8 RGB Albedo - 8 unused
+     */
+    AllocatedImage albedoRenderTarget{};
+    /**
+     * 8 Metallic, 8 Roughness, 8 Emissive,
+     */
+    AllocatedImage pbrRenderTarget{};
+
+    void createRenderTargets(uint32_t width, uint32_t height);
 
 private: // Draw Images
     // todo: In anticipation of deferred rendering, not implementing MSAA

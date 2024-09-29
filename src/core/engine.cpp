@@ -223,7 +223,7 @@ void Engine::run()
                         return log(1.0f + depth * 10.0f) / log(11.0f);
                     };
                     vk_helpers::saveGrayscaleImage(this, depthPrepassImage, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT,
-                                          sizeof(float), path.string().c_str(), depthNormalize);
+                                                   sizeof(float), path.string().c_str(), depthNormalize);
                 }
             }
             ImGui::End();
@@ -361,6 +361,12 @@ void Engine::draw()
 
 void Engine::drawEnvironment(VkCommandBuffer cmd) const
 {
+#ifndef NDEBUG
+    VkDebugUtilsLabelEXT label = {};
+    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+    label.pLabelName = "Environment Map";
+    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
+#endif
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, environmentPipeline);
 
     VkViewport viewport = {};
@@ -397,10 +403,20 @@ void Engine::drawEnvironment(VkCommandBuffer cmd) const
     sceneData.viewproj = proj * view;
     vkCmdPushConstants(cmd, environmentPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(EnvironmentSceneData), &sceneData);
     vkCmdDraw(cmd, 3, 1, 0, 0);
+#ifndef NDEBUG
+    vkCmdEndDebugUtilsLabelEXT(cmd);
+#endif
 }
 
 void Engine::cullRender(VkCommandBuffer cmd) const
 {
+#ifndef NDEBUG
+    VkDebugUtilsLabelEXT label = {};
+    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+    label.pLabelName = "Frustum Culling";
+    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
+#endif
+
     // GPU Frustum Culling
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipeline);
 
@@ -421,10 +437,20 @@ void Engine::cullRender(VkCommandBuffer cmd) const
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipelineLayout, 0, 1, &addressesIndex, &offset);
 
     vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(testRenderObject->getInstanceBufferSize()) / 64.0f)), 1, 1);
+#ifndef NDEBUG
+    vkCmdEndDebugUtilsLabelEXT(cmd);
+#endif
 }
 
 void Engine::drawDepthPrepass(VkCommandBuffer cmd) const
 {
+#ifndef NDEBUG
+    VkDebugUtilsLabelEXT label = {};
+    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+    label.pLabelName = "Depth Prepass";
+    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
+#endif
+
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, depthPrepassPipeline);
     // Dynamic States
     {
@@ -466,10 +492,21 @@ void Engine::drawDepthPrepass(VkCommandBuffer cmd) const
     vkCmdBindIndexBuffer(cmd, testRenderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdDrawIndexedIndirect(cmd, testRenderObject->getIndirectBuffer().buffer, 0, testRenderObject->getInstanceBufferSize(),
                              sizeof(VkDrawIndexedIndirectCommand));
+
+#ifndef NDEBUG
+    vkCmdEndDebugUtilsLabelEXT(cmd);
+#endif
 }
 
 void Engine::drawRender(VkCommandBuffer cmd) const
 {
+#ifndef NDEBUG
+    VkDebugUtilsLabelEXT label = {};
+    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+    label.pLabelName = "Main Render Pass";
+    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
+#endif
+
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipeline);
 
     // Dynamic States
@@ -524,15 +561,30 @@ void Engine::drawRender(VkCommandBuffer cmd) const
     vkCmdBindIndexBuffer(cmd, testRenderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdDrawIndexedIndirect(cmd, testRenderObject->getIndirectBuffer().buffer, 0, testRenderObject->getInstanceBufferSize(),
                              sizeof(VkDrawIndexedIndirectCommand));
+
+#ifndef NDEBUG
+    vkCmdEndDebugUtilsLabelEXT(cmd);
+#endif
 }
 
 void Engine::drawImgui(VkCommandBuffer cmd, VkImageView targetImageView)
 {
+#ifndef NDEBUG
+    VkDebugUtilsLabelEXT label = {};
+    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+    label.pLabelName = "DearImgui Draw Pass";
+    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
+#endif
+
     VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(targetImageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     VkRenderingInfo renderInfo = vk_helpers::renderingInfo(swapchainExtent, &colorAttachment, nullptr);
     vkCmdBeginRendering(cmd, &renderInfo);
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
     vkCmdEndRendering(cmd);
+
+#ifndef NDEBUG
+    vkCmdEndDebugUtilsLabelEXT(cmd);
+#endif
 }
 
 void Engine::cleanup()
@@ -573,12 +625,13 @@ void Engine::cleanup()
     vkDestroyFence(device, immFence, nullptr);
 
     // Draw Images
-    vkDestroyImageView(device, drawImage.imageView, nullptr);
-    vmaDestroyImage(allocator, drawImage.image, drawImage.allocation);
-    vkDestroyImageView(device, depthImage.imageView, nullptr);
-    vmaDestroyImage(allocator, depthImage.image, depthImage.allocation);
-    vkDestroyImageView(device, depthPrepassImage.imageView, nullptr);
-    vmaDestroyImage(allocator, depthPrepassImage.image, depthPrepassImage.allocation);
+    destroyImage(drawImage);
+    destroyImage(depthImage);
+    destroyImage(depthPrepassImage);
+
+    destroyImage(renderTargetNormals);
+    destroyImage(albedoRenderTarget);
+    destroyImage(pbrRenderTarget);
 
     // Swapchain
     vkDestroySwapchainKHR(device, swapchain, nullptr);
@@ -606,11 +659,19 @@ void Engine::initVulkan()
 
     vkb::InstanceBuilder builder;
 
+#ifndef NDEBUG
+    std::vector<const char*> enabledInstanceExtensions;
+    enabledInstanceExtensions.push_back("VK_EXT_debug_utils");
+#endif
+
     // make the vulkan instance, with basic debug features
     auto inst_ret = builder.set_app_name("Will's Vulkan Renderer")
             .request_validation_layers(USE_VALIDATION_LAYERS)
             .use_default_debug_messenger()
             .require_api_version(1, 3)
+#ifndef NDEBUG
+            .enable_extensions(enabledInstanceExtensions)
+#endif
             .build();
 
     vkb::Instance vkb_inst = inst_ret.value();
@@ -1373,6 +1434,36 @@ void Engine::resizeSwapchain()
     fmt::print("Window extent has been updated to {}x{}\n", windowExtent.width, windowExtent.height);
 }
 
+void Engine::createRenderTargets(uint32_t width, uint32_t height)
+{
+    const auto generateRenderTarget = std::function([this, width, height](VkFormat renderTargetFormat) {
+        const VkExtent3D imageExtent = {width, height, 1};
+        VkImageUsageFlags usageFlags{};
+        usageFlags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+        usageFlags |= VK_IMAGE_USAGE_STORAGE_BIT;
+        VmaAllocationCreateInfo renderImageAllocationInfo = {};
+        renderImageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        renderImageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+        AllocatedImage renderTarget{};
+        renderTarget.imageFormat = renderTargetFormat;
+        renderTarget.imageExtent = imageExtent;
+        const VkImageCreateInfo imageInfo = vk_helpers::imageCreateInfo(renderTarget.imageFormat, usageFlags, imageExtent);
+        vmaCreateImage(allocator, &imageInfo, &renderImageAllocationInfo, &renderTarget.image, &renderTarget.allocation,
+                       nullptr);
+
+        const VkImageViewCreateInfo imageViewInfo = vk_helpers::imageviewCreateInfo(renderTarget.imageFormat, renderTarget.image,
+                                                                                    VK_IMAGE_ASPECT_COLOR_BIT);
+        VK_CHECK(vkCreateImageView(device, &imageViewInfo, nullptr, &renderTarget.imageView));
+
+        return renderTarget;
+    });
+
+    renderTargetNormals = generateRenderTarget(VK_FORMAT_R8G8B8A8_SNORM);
+    albedoRenderTarget = generateRenderTarget(VK_FORMAT_R8G8B8A8_UNORM);
+    pbrRenderTarget = generateRenderTarget(VK_FORMAT_R8G8B8A8_UNORM);
+}
+
 void Engine::createDrawImages(uint32_t width, uint32_t height)
 {
     // Draw Image
@@ -1418,7 +1509,8 @@ void Engine::createDrawImages(uint32_t width, uint32_t height)
     depthImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     depthImageInfo = vk_helpers::imageCreateInfo(depthImage.imageFormat, depthImageUsages, depthImageExtent);
     vmaCreateImage(allocator, &depthImageInfo, &depthImageAllocationInfo, &depthPrepassImage.image, &depthPrepassImage.allocation, nullptr);
-    VkImageViewCreateInfo prepassDepthViewInfo = vk_helpers::imageviewCreateInfo(depthPrepassImage.imageFormat, depthPrepassImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
+    VkImageViewCreateInfo prepassDepthViewInfo = vk_helpers::imageviewCreateInfo(depthPrepassImage.imageFormat, depthPrepassImage.image,
+                                                                                 VK_IMAGE_ASPECT_DEPTH_BIT);
     VK_CHECK(vkCreateImageView(device, &prepassDepthViewInfo, nullptr, &depthPrepassImage.imageView));
 
     drawExtent = {width, height};
