@@ -100,15 +100,9 @@ void main() {
     vec3 finalColor = (diffuse + specular) * lightData.mainLight.color * nDotL;
     finalColor += ambient;
 
-/**vec3 corrected_ambient = ambient / (ambient + vec3(1.0f)); // Reinhard
-    corrected_ambient = pow(corrected_ambient, vec3(1.0f / 2.2f)); // gamma correction
-    finalColor += corrected_ambient;
 
-    FragColor = vec4(finalColor, albedo.w);*/
-
-    vec3 correctedFinalColor = finalColor / (finalColor + vec3(1.0f)); // Reinhard
+    vec3 correctedFinalColor = finalColor / (finalColor + vec3(1.0f)); // Reinhard Tonemapping
     correctedFinalColor = pow(correctedFinalColor, vec3(1.0f / 2.2f)); // gamma correction
 
     imageStore(outputImage, texCoord, vec4(correctedFinalColor, albedo.w));
-    //FragColor = vec4(correctedFinalColor, albedo.w);
 }
