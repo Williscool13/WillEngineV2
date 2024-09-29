@@ -1,0 +1,114 @@
+#version 460
+
+#include "pbr.glsl"
+#include "environment.glsl"
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout (rgba8_snorm, set = 0, binding = 0) uniform image2D normalRenderTarget;
+layout (rgba8, set = 0, binding = 1) uniform image2D albedoRenderTarget;
+layout (rgba8, set = 0, binding = 2) uniform image2D pbrRenderTarget;
+layout (r32f, set = 0, binding = 3) uniform image2D depthBuffer;
+layout (rgba32f, set = 0, binding = 4) uniform image2D outputImage;
+
+layout (std140, set = 1, binding = 0) uniform CameraData {
+    mat4 invProjection;
+    mat4 invView;
+    vec3 cameraPos;
+    float pad;
+} cameraData;
+
+
+struct DirectionalLight {
+    vec3 direction;
+    float intensity;
+    vec3 color;
+    float pad;
+};
+
+struct PointLight {
+    vec4 position;
+    vec3 color;
+    float radius;
+};
+
+layout (std140, set = 2, binding = 1) uniform LightData {
+    DirectionalLight mainLight;
+    PointLight pointLights[6];
+} lightData;
+
+vec3 reconstructPosition(ivec2 texCoord, float depth) {
+    // Get normalized device coordinates
+    vec2 texSize = vec2(imageSize(depthBuffer));
+    vec2 ndc = (vec2(texCoord) + 0.5) / texSize * 2.0 - 1.0;
+
+    // Reconstruct view-space position
+    vec4 positionVS = cameraData.invProjection * vec4(ndc, depth, 1.0);
+    positionVS /= positionVS.w;
+
+    // Transform to world-space
+    vec4 positionWS = cameraData.invView * positionVS;
+
+    return positionWS.xyz;
+}
+
+void main() {
+    ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
+
+    float depth = imageLoad(depthBuffer, texCoord).r;
+    vec3 position = reconstructPosition(texCoord, depth);
+    vec3 normal = imageLoad(normalRenderTarget, texCoord).rgb;
+    vec4 albedo = imageLoad(albedoRenderTarget, texCoord);
+
+    vec4 pbrData = imageLoad(pbrRenderTarget, texCoord);
+    float roughness = pbrData.g;
+    float metallic = pbrData.r;
+    float emissive = pbrData.b;
+
+
+    vec3 N = imageLoad(normalRenderTarget, texCoord).xyz;
+    vec3 V = normalize(cameraData.cameraPos.xyz - position);
+
+    vec3 L = normalize(lightData.mainLight.direction); // for point lights, light.pos - inPosition
+    vec3 H = normalize(V + L);
+
+    // SPECULAR
+    float NDF = D_GGX(N, H, roughness);
+    float G = G_SCHLICKGGX_SMITH(N, V, L, roughness);
+    vec3 F0 = mix(vec3(0.04), albedo.xyz, metallic);
+    vec3 F = F_SCHLICK(V, H, F0);
+
+    vec3 numerator = NDF * G * F;
+    float denominator = 4.0f * max(dot(N, V), 0.0f) * max(dot(N, L), 0.0f);
+    vec3 specular = numerator / max(denominator, 0.001f);
+
+    vec3 kS = F;
+    vec3 kD = vec3(1.0f) - kS;
+    kD *= 1.0f - metallic;
+
+    // DIFFUSE
+    float nDotL = max(dot(N, L), 0.0f);
+    vec3 diffuse = Lambert(kD, albedo.xyz);
+
+    // REFLECTIONS
+    vec3 irradiance = DiffuseIrradiance(N);
+    vec3 reflection_diffuse = irradiance * albedo.xyz;
+
+    vec3 reflection_specular = SpecularReflection(V, N, roughness, F);
+    vec3 ambient = (kD * reflection_diffuse + reflection_specular);
+
+    vec3 finalColor = (diffuse + specular) * lightData.mainLight.color * nDotL;
+    finalColor += ambient;
+
+/**vec3 corrected_ambient = ambient / (ambient + vec3(1.0f)); // Reinhard
+    corrected_ambient = pow(corrected_ambient, vec3(1.0f / 2.2f)); // gamma correction
+    finalColor += corrected_ambient;
+
+    FragColor = vec4(finalColor, albedo.w);*/
+
+    vec3 correctedFinalColor = finalColor / (finalColor + vec3(1.0f)); // Reinhard
+    correctedFinalColor = pow(correctedFinalColor, vec3(1.0f / 2.2f)); // gamma correction
+
+    imageStore(outputImage, texCoord, vec4(correctedFinalColor, albedo.w));
+    //FragColor = vec4(correctedFinalColor, albedo.w);
+}
