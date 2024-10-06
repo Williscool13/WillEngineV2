@@ -222,7 +222,7 @@ void Engine::run()
                 if (ImGui::Button("Save Draw Image")) {
                     if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
                         std::filesystem::path path = file_utils::imagesSavePath/ "drawImage.png";
-                        vk_helpers::saveImageRGBA32F(this, drawImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
+                        vk_helpers::saveImageRGBA16F(this, drawImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
                                                      path.string().c_str());
                     }
                 }
