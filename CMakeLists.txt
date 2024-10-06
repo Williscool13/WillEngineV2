@@ -15,6 +15,7 @@ set(SDL2_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/lib/SDL2.lib")
 set(SDL2MAIN_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/lib/SDL2main.lib")
 
 add_subdirectory(extern/glm)
+# add_subdirectory(extern/half/half)
 add_subdirectory(extern/fmt)
 add_subdirectory(extern/volk)
 add_subdirectory(extern/vk-bootstrap)
@@ -43,9 +44,17 @@ set(FASTGLTF_SOURCES
         src/util/file_utils.h
 )
 
+set(HALF_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/half)
+set(HALF_SOURCES
+        ${HALF_DIR}/half/dummy.cpp
+        ${HALF_DIR}/half/half.hpp
+)
+
+
 add_executable(WillEngine main.cpp
         ${IMGUI_SOURCES}
         ${FASTGLTF_SOURCES}
+        ${HALF_SOURCES}
         src/core/Engine.cpp
         src/core/Engine.h
         src/renderer/vk_helpers.cpp

@@ -8,6 +8,7 @@
 #include <stb_image.h>
 #include <stb_image_write.h>
 
+#include "../../extern/half/half/half.hpp"
 #include "../core/engine.h"
 
 VkImageCreateInfo vk_helpers::imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
@@ -742,7 +743,7 @@ void vk_helpers::saveImageRGBA32F(const Engine* engine, const AllocatedImage& im
     const auto powEight = static_cast<float>(pow(2, 8) - 1);
     for (size_t i = 0; i < image.imageExtent.width * image.imageExtent.height; ++i) {
         for (int j = 0; j < channelCount; j++) {
-            const auto value = static_cast<uint8_t>(imageData[i * channelCount] * powEight);
+            const auto value = static_cast<uint8_t>(imageData[i * channelCount + j] * powEight);
             byteImageData[i * 4 + j] = value;
         }
 
@@ -760,8 +761,9 @@ void vk_helpers::saveImageRGBA32F(const Engine* engine, const AllocatedImage& im
 void vk_helpers::saveImageRGBA16F(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
     const char* savePath, bool overrideAlpha)
 {
+    using half_float::half;
     constexpr int channelCount = 4;
-    const size_t dataSize = image.imageExtent.width * image.imageExtent.height * channelCount * sizeof(float);
+    const size_t dataSize = image.imageExtent.width * image.imageExtent.height * channelCount * sizeof(half);
     AllocatedBuffer receivingBuffer = engine->createReceivingBuffer(dataSize);
 
     engine->immediateSubmit([&](VkCommandBuffer cmd) {
@@ -783,13 +785,13 @@ void vk_helpers::saveImageRGBA16F(const Engine* engine, const AllocatedImage& im
     });
 
     void* data = receivingBuffer.info.pMappedData;
-    const auto imageData = static_cast<float*>(data);
+    const auto imageData = static_cast<half*>(data);
 
     const auto byteImageData = new uint8_t[image.imageExtent.width * image.imageExtent.height * 4];
-    const auto powEight = static_cast<float>(pow(2, 8) - 1);
+    const auto powEight = static_cast<half>(powf(2, 8) - 1);
     for (size_t i = 0; i < image.imageExtent.width * image.imageExtent.height; ++i) {
         for (int j = 0; j < channelCount; j++) {
-            const auto value = static_cast<uint8_t>(imageData[i * channelCount] * powEight);
+            const auto value = static_cast<uint8_t>(imageData[i * channelCount + j] * powEight);
             byteImageData[i * 4 + j] = value;
         }
 
