@@ -665,10 +665,56 @@ void vk_helpers::loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& te
     }
 }
 
-void vk_helpers::saveImage(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-                           size_t formatSize, uint32_t channelCount, const char* savePath)
+void vk_helpers::saveImageRGBA8(const Engine* engine, const AllocatedImage& image, const VkImageLayout imageLayout, const VkImageAspectFlags aspectFlag,
+                                const char* savePath, const bool overrideAlpha)
 {
-    const size_t dataSize = image.imageExtent.width * image.imageExtent.height * channelCount * formatSize;
+    constexpr int channelCount = 4;
+    const size_t dataSize = image.imageExtent.width * image.imageExtent.height * channelCount * sizeof(uint8_t);
+    AllocatedBuffer receivingBuffer = engine->createReceivingBuffer(dataSize);
+
+    engine->immediateSubmit([&](VkCommandBuffer cmd) {
+        VkBufferImageCopy bufferCopyRegion{};
+        bufferCopyRegion.imageSubresource.aspectMask = aspectFlag;
+        bufferCopyRegion.imageSubresource.mipLevel = 0;
+        bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
+        bufferCopyRegion.imageSubresource.layerCount = 1;
+        bufferCopyRegion.imageExtent = image.imageExtent;
+        bufferCopyRegion.bufferOffset = 0;
+        bufferCopyRegion.bufferRowLength = 0;
+        bufferCopyRegion.bufferImageHeight = 0;
+
+        vk_helpers::transitionImage(cmd, image.image, imageLayout, aspectFlag, VK_IMAGE_LAYOUT_GENERAL);
+
+        vkCmdCopyImageToBuffer(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer.buffer, 1, &bufferCopyRegion);
+
+        vk_helpers::transitionImage(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout);
+    });
+
+    void* data = receivingBuffer.info.pMappedData;
+    const auto imageData = static_cast<uint8_t*>(data);
+    const auto byteImageData = new uint8_t[image.imageExtent.width * image.imageExtent.height * 4];
+
+    for (size_t i = 0; i < image.imageExtent.width * image.imageExtent.height; ++i) {
+        for (int j = 0; j < channelCount; j++) {
+            byteImageData[i * 4 + j] = imageData[i * channelCount];
+        }
+
+        if (overrideAlpha) {
+            byteImageData[i * 4 + 3] = 255;
+        }
+    }
+
+    stbi_write_png(savePath, image.imageExtent.width, image.imageExtent.height, 4, byteImageData, image.imageExtent.width);
+
+    delete[] byteImageData;
+    engine->destroyBuffer(receivingBuffer);
+}
+
+void vk_helpers::saveImageRGBA32F(const Engine* engine, const AllocatedImage& image, const VkImageLayout imageLayout, const VkImageAspectFlags aspectFlag,
+                                  const char* savePath, const bool overrideAlpha)
+{
+    constexpr int channelCount = 4;
+    const size_t dataSize = image.imageExtent.width * image.imageExtent.height * channelCount * sizeof(float);
     AllocatedBuffer receivingBuffer = engine->createReceivingBuffer(dataSize);
 
     engine->immediateSubmit([&](VkCommandBuffer cmd) {
@@ -699,16 +745,11 @@ void vk_helpers::saveImage(const Engine* engine, const AllocatedImage& image, Vk
             const auto value = static_cast<uint8_t>(imageData[i * channelCount] * powEight);
             byteImageData[i * 4 + j] = value;
         }
-        // 4 channels target
-        const int remaining = 4 - channelCount;
-        for (int j = remaining; j < channelCount; j++) {
-            const auto value = static_cast<uint8_t>(imageData[i * channelCount] * powEight);
-            byteImageData[i * 4 + j] = value;
+
+        if (overrideAlpha) {
+            byteImageData[i * 4 + 3] = 255;
         }
-
-        byteImageData[i * 4 + 3] = 255;
     }
-
 
     stbi_write_png(savePath, image.imageExtent.width, image.imageExtent.height, 4, byteImageData, image.imageExtent.width * 4);
 
@@ -716,10 +757,57 @@ void vk_helpers::saveImage(const Engine* engine, const AllocatedImage& image, Vk
     engine->destroyBuffer(receivingBuffer);
 }
 
-void vk_helpers::saveGrayscaleImage(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-    size_t formatSize, const char* savePath, const std::function<float(float)>& valueTransform)
+void vk_helpers::saveImageRGBA16F(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+    const char* savePath, bool overrideAlpha)
 {
-    const size_t dataSize = image.imageExtent.width * image.imageExtent.height * 1 * formatSize;
+    constexpr int channelCount = 4;
+    const size_t dataSize = image.imageExtent.width * image.imageExtent.height * channelCount * sizeof(float);
+    AllocatedBuffer receivingBuffer = engine->createReceivingBuffer(dataSize);
+
+    engine->immediateSubmit([&](VkCommandBuffer cmd) {
+        VkBufferImageCopy bufferCopyRegion{};
+        bufferCopyRegion.imageSubresource.aspectMask = aspectFlag;
+        bufferCopyRegion.imageSubresource.mipLevel = 0;
+        bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
+        bufferCopyRegion.imageSubresource.layerCount = 1;
+        bufferCopyRegion.imageExtent = image.imageExtent;
+        bufferCopyRegion.bufferOffset = 0;
+        bufferCopyRegion.bufferRowLength = 0;
+        bufferCopyRegion.bufferImageHeight = 0;
+
+        vk_helpers::transitionImage(cmd, image.image, imageLayout, aspectFlag, VK_IMAGE_LAYOUT_GENERAL);
+
+        vkCmdCopyImageToBuffer(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer.buffer, 1, &bufferCopyRegion);
+
+        vk_helpers::transitionImage(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout);
+    });
+
+    void* data = receivingBuffer.info.pMappedData;
+    const auto imageData = static_cast<float*>(data);
+
+    const auto byteImageData = new uint8_t[image.imageExtent.width * image.imageExtent.height * 4];
+    const auto powEight = static_cast<float>(pow(2, 8) - 1);
+    for (size_t i = 0; i < image.imageExtent.width * image.imageExtent.height; ++i) {
+        for (int j = 0; j < channelCount; j++) {
+            const auto value = static_cast<uint8_t>(imageData[i * channelCount] * powEight);
+            byteImageData[i * 4 + j] = value;
+        }
+
+        if (overrideAlpha) {
+            byteImageData[i * 4 + 3] = 255;
+        }
+    }
+
+    stbi_write_png(savePath, image.imageExtent.width, image.imageExtent.height, 4, byteImageData, image.imageExtent.width * 4);
+
+    delete[] byteImageData;
+    engine->destroyBuffer(receivingBuffer);
+}
+
+void vk_helpers::saveImageR32F(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+                               const char* savePath, const std::function<float(float)>& valueTransform)
+{
+    const size_t dataSize = image.imageExtent.width * image.imageExtent.height * 1 * sizeof(float);
     AllocatedBuffer receivingBuffer = engine->createReceivingBuffer(dataSize);
 
     engine->immediateSubmit([&](VkCommandBuffer cmd) {
