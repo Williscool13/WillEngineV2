@@ -15,6 +15,7 @@
 #include <fastgltf/tools.hpp>
 
 #include "render_object.h"
+#include "../util/file_utils.h"
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -216,14 +217,25 @@ void Engine::run()
             }
             ImGui::End();
 
-            if (ImGui::Begin("Save Depth Prepass")) {
-                if (ImGui::Button("Save Depth Prepass Now!")) {
-                    std::filesystem::path path = std::filesystem::current_path() / "test.png";
-                    auto depthNormalize = [](float depth) {
-                        return log(1.0f + depth * 10.0f) / log(11.0f);
-                    };
-                    vk_helpers::saveGrayscaleImage(this, depthPrepassImage, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT,
-                                                   sizeof(float), path.string().c_str(), depthNormalize);
+            //const auto imagesPath = std::filesystem::current_path() / "images";
+            if (ImGui::Begin("Save Render Targets")) {
+                if (ImGui::Button("Save Draw Image")) {
+                    if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
+                        std::filesystem::path path = file_utils::imagesSavePath/ "drawImage.png";
+                        vk_helpers::saveImageRGBA32F(this, drawImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
+                                                     path.string().c_str());
+                    }
+                }
+
+                if (ImGui::Button("Save Depth Prepass")) {
+                    if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
+                        std::filesystem::path path = file_utils::imagesSavePath / "depthPrepass.png";
+                        auto depthNormalize = [](const float depth) {
+                            return logf(1.0f + depth * 15.0f) / logf(16.0f);
+                        };
+                        vk_helpers::saveImageR32F(this, depthPrepassImage, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT,
+                                                  path.string().c_str(), depthNormalize);
+                    }
                 }
             }
             ImGui::End();

@@ -39,6 +39,8 @@ set(FASTGLTF_SOURCES
         ${FASTGLTF_DIR}/src/io.cpp
         src/renderer/acceleration-structures/bounding_sphere.cpp
         src/renderer/acceleration-structures/bounding_sphere.h
+        src/util/file_utils.cpp
+        src/util/file_utils.h
 )
 
 add_executable(WillEngine main.cpp

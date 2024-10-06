@@ -92,10 +92,10 @@ void main() {
 
     // REFLECTIONS
     vec3 irradiance = DiffuseIrradiance(N);
-    vec3 reflection_diffuse = irradiance * albedo.xyz;
+    vec3 reflectionDiffuse = irradiance * albedo.xyz;
 
-    vec3 reflection_specular = SpecularReflection(V, N, roughness, F);
-    vec3 ambient = (kD * reflection_diffuse + reflection_specular);
+    vec3 reflectionSpecular = SpecularReflection(V, N, roughness, F);
+    vec3 ambient = (kD * reflectionDiffuse + reflectionSpecular);
 
     vec3 finalColor = (diffuse + specular) * lightData.mainLight.color * nDotL;
     finalColor += ambient;
