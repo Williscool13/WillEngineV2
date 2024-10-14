@@ -15,7 +15,6 @@ set(SDL2_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/lib/SDL2.lib")
 set(SDL2MAIN_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/lib/SDL2main.lib")
 
 add_subdirectory(extern/glm)
-# add_subdirectory(extern/half/half)
 add_subdirectory(extern/fmt)
 add_subdirectory(extern/volk)
 add_subdirectory(extern/vk-bootstrap)

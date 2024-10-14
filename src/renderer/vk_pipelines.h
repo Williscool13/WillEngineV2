@@ -50,12 +50,7 @@ public:
                             , float minSampleShading, const VkSampleMask* pSampleMask
                             , VkBool32 alphaToCoverageEnable, VkBool32 alphaToOneEnable);
 
-    /**
-     * Defines the renderer attachment format. If either is set to \code VK_FORMAT_UNDEFINED\endcode then it won't be set up.
-     * @param colorattachmentFormat
-     * @param depthAttachmentFormat
-     */
-    void setupRenderer(VkFormat colorattachmentFormat, VkFormat depthAttachmentFormat);
+    void setupRenderer(const std::vector<VkFormat> colorattachmentFormat, VkFormat depthAttachmentFormat);
 
     /**
      * Set up the depth and stencil for this pipeline
@@ -110,7 +105,9 @@ private:
     VkPipelineDepthStencilStateCreateInfo depthStencil{};
 
     VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
-    VkFormat colorAttachmentFormat{};
+
+    // keep to avoid dangling pointer for color attachment (referenced by pointer)
+    std::vector<VkFormat> colorAttachmentFormats;
 };
 
 

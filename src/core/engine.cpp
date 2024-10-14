@@ -6,6 +6,7 @@
 #include "engine.h"
 
 #include <filesystem>
+#include <stb_image_write.h>
 
 #include "input.h"
 #include "../renderer/vk_pipelines.h"
@@ -221,9 +222,24 @@ void Engine::run()
             if (ImGui::Begin("Save Render Targets")) {
                 if (ImGui::Button("Save Draw Image")) {
                     if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
-                        std::filesystem::path path = file_utils::imagesSavePath/ "drawImage.png";
-                        vk_helpers::saveImageRGBA16F(this, drawImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
-                                                     path.string().c_str());
+                        std::filesystem::path path = file_utils::imagesSavePath / "drawImage.png";
+                        vk_helpers::saveImageRGBA16SFLOAT(this, drawImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
+                                                          path.string().c_str());
+                    } else {
+                        fmt::print(" Failed to find/create image save path directory");
+                    }
+                }
+
+                if (ImGui::Button("Save Depth Image")) {
+                    if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
+                        std::filesystem::path path = file_utils::imagesSavePath / "depthImage.png";
+                        auto depthNormalize = [](const float depth) {
+                            return logf(1.0f + depth * 15.0f) / logf(16.0f);
+                        };
+                        vk_helpers::saveImageR32F(this, depthImage, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT,
+                                                  path.string().c_str(), depthNormalize);
+                    } else {
+                        fmt::print(" Failed to find/create image save path directory");
                     }
                 }
 
@@ -235,6 +251,58 @@ void Engine::run()
                         };
                         vk_helpers::saveImageR32F(this, depthPrepassImage, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT,
                                                   path.string().c_str(), depthNormalize);
+                    } else {
+                        fmt::print(" Failed to find/create image save path directory");
+                    }
+                }
+
+                if (ImGui::Button("Save Normal Render Target")) {
+                    if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
+                        std::filesystem::path path = file_utils::imagesSavePath / "normalRT.png";
+                        auto unpackFunc = [](const uint64_t packedColor) {
+                            glm::vec4 pixel = glm::unpackSnorm4x16(packedColor);
+                            pixel.r = pixel.r * 0.5f + 0.5f;
+                            pixel.g = pixel.g * 0.5f + 0.5f;
+                            pixel.b = pixel.b * 0.5f + 0.5f;
+                            pixel.a = 1.0f;
+                            return pixel;
+                        };
+
+                        vk_helpers::savePacked64Bit(this, normalRenderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                                    VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
+                    } else {
+                        fmt::print(" Failed to save normal render target");
+                    }
+                }
+
+                if (ImGui::Button("Save Albedo Render Target")) {
+                    if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
+                        std::filesystem::path path = file_utils::imagesSavePath / "albedoRT.png";
+                        auto unpackFunc = [](const uint64_t packedColor) {
+                            glm::vec4 pixel = glm::unpackUnorm4x16(packedColor);
+                            pixel.a = 1.0f;
+                            return pixel;
+                        };
+
+                        vk_helpers::savePacked64Bit(this, albedoRenderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                                    VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
+                    } else {
+                        fmt::print(" Failed to save albedo render target");
+                    }
+                }
+
+                if (ImGui::Button("Save PBR Render Target")) {
+                    if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
+                        std::filesystem::path path = file_utils::imagesSavePath / "pbrRT.png";
+                        auto unpackFunc = [](const uint64_t packedColor) {
+                            glm::vec4 pixel = glm::unpackUnorm4x16(packedColor);
+                            pixel.a = 1.0f;
+                            return pixel;
+                        };
+                        vk_helpers::savePacked64Bit(this, albedoRenderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                                    VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
+                    } else {
+                        fmt::print(" Failed to save pbr render target");
                     }
                 }
             }
@@ -299,8 +367,40 @@ void Engine::draw()
     VkRenderingInfo depthPrepassRenderInfo = vk_helpers::renderingInfo(drawExtent, nullptr, &depthPrepassAttachment);
     vkCmdBeginRendering(cmd, &depthPrepassRenderInfo);
     drawDepthPrepass(cmd);
-    vkCmdEndRendering(cmd);
+    vkCmdEndRendering(cmd); {
+        vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
+        VkRenderingAttachmentInfo normalAttachment = vk_helpers::attachmentInfo(normalRenderTarget.imageView, nullptr,
+                                                                                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkRenderingAttachmentInfo albedoAttachment = vk_helpers::attachmentInfo(albedoRenderTarget.imageView, nullptr,
+                                                                                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkRenderingAttachmentInfo pbrAttachment = vk_helpers::attachmentInfo(pbrRenderTarget.imageView, nullptr,
+                                                                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+        VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue,
+                                                                               VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+        VkRenderingInfo renderInfo{};
+        renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+        renderInfo.pNext = nullptr;
+
+        VkRenderingAttachmentInfo deferredAttachments[3];
+        deferredAttachments[0] = normalAttachment;
+        deferredAttachments[1] = albedoAttachment;
+        deferredAttachments[2] = pbrAttachment;
+
+        renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, drawExtent};
+        renderInfo.layerCount = 1;
+        renderInfo.colorAttachmentCount = 3;
+        renderInfo.pColorAttachments = deferredAttachments;
+        renderInfo.pDepthAttachment = &depthAttachment;
+        renderInfo.pStencilAttachment = nullptr;
+
+        vkCmdBeginRendering(cmd, &renderInfo);
+        drawDeferredMrt(cmd);
+        vkCmdEndRendering(cmd);
+    }
 
     VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue,
@@ -510,6 +610,68 @@ void Engine::drawDepthPrepass(VkCommandBuffer cmd) const
 #endif
 }
 
+void Engine::drawDeferredMrt(VkCommandBuffer cmd) const
+{
+#ifndef NDEBUG
+    VkDebugUtilsLabelEXT label = {};
+    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+    label.pLabelName = "Deferred Geometry Pass";
+    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
+#endif
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredPipeline);
+
+
+    // Dynamic States
+    {
+        //  Viewport
+        VkViewport viewport = {};
+        viewport.x = 0;
+        viewport.y = 0;
+        viewport.width = drawExtent.width;
+        viewport.height = drawExtent.height;
+        viewport.minDepth = 0.f;
+        viewport.maxDepth = 1.f;
+        vkCmdSetViewport(cmd, 0, 1, &viewport);
+        //  Scissor
+        VkRect2D scissor = {};
+        scissor.offset.x = 0;
+        scissor.offset.y = 0;
+        scissor.extent.width = drawExtent.width;
+        scissor.extent.height = drawExtent.height;
+        vkCmdSetScissor(cmd, 0, 1, &scissor);
+    }
+
+    if (!testRenderObject->canDraw()) {
+        return;
+    }
+
+    const glm::mat4 viewProj = camera.getViewProjMatrix();
+    vkCmdPushConstants(cmd, deferredPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &viewProj);
+
+    VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo2[2];
+    descriptorBufferBindingInfo2[0] = testRenderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
+    descriptorBufferBindingInfo2[1] = testRenderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
+    vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo2);
+
+    constexpr VkDeviceSize zeroOffset{0};
+    constexpr uint32_t addressIndex{0};
+    constexpr uint32_t texturesIndex{1};
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredPipelineLayout, 0, 1, &addressIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredPipelineLayout, 1, 1, &texturesIndex, &zeroOffset);
+
+    constexpr VkDeviceSize offsets{0};
+    vkCmdBindVertexBuffers(cmd, 0, 1, &testRenderObject->getVertexBuffer().buffer, &offsets);
+    vkCmdBindIndexBuffer(cmd, testRenderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexedIndirect(cmd, testRenderObject->getIndirectBuffer().buffer, 0, testRenderObject->getInstanceBufferSize(),
+                             sizeof(VkDrawIndexedIndirectCommand));
+#ifndef NDEBUG
+    vkCmdEndDebugUtilsLabelEXT(cmd);
+#endif
+}
+
+void Engine::drawDeferredGeometry(VkCommandBuffer cmd) const
+{}
+
 void Engine::drawRender(VkCommandBuffer cmd) const
 {
 #ifndef NDEBUG
@@ -641,7 +803,7 @@ void Engine::cleanup()
     destroyImage(depthImage);
     destroyImage(depthPrepassImage);
 
-    destroyImage(renderTargetNormals);
+    destroyImage(normalRenderTarget);
     destroyImage(albedoRenderTarget);
     destroyImage(pbrRenderTarget);
 
@@ -758,6 +920,7 @@ void Engine::initSwapchain()
 {
     createSwapchain(windowExtent.width, windowExtent.height);
     createDrawImages(windowExtent.width, windowExtent.height);
+    createRenderTargets(windowExtent.width, windowExtent.height);
 }
 
 void Engine::initCommands()
@@ -910,6 +1073,7 @@ void Engine::initPipelines()
 {
     initEnvironmentPipeline();
     initDepthPrepassPipeline();
+    initDeferredPipeline();
     initRenderPipeline();
     initFrustumCullingPipeline();
 }
@@ -1008,7 +1172,7 @@ void Engine::initDepthPrepassPipeline()
     depthPrepassPipelineBuilder.disableMultisampling();
     depthPrepassPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
     depthPrepassPipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    depthPrepassPipelineBuilder.setupRenderer(VK_FORMAT_UNDEFINED, depthPrepassImage.imageFormat);
+    depthPrepassPipelineBuilder.setupRenderer({}, depthPrepassImage.imageFormat);
     depthPrepassPipelineBuilder.setupPipelineLayout(depthPrepassPipelineLayout);
 
     depthPrepassPipeline = depthPrepassPipelineBuilder.buildPipeline(device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
@@ -1019,6 +1183,92 @@ void Engine::initDepthPrepassPipeline()
     mainDeletionQueue.pushFunction([&]() {
         vkDestroyPipelineLayout(device, depthPrepassPipelineLayout, nullptr);
         vkDestroyPipeline(device, depthPrepassPipeline, nullptr);
+    });
+}
+
+void Engine::initDeferredPipeline()
+{
+    VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
+    VkDescriptorSetLayout descriptorLayout[2];
+
+    assert(RenderObject::addressesDescriptorSetLayout != VK_NULL_HANDLE);
+    assert(RenderObject::textureDescriptorSetLayout != VK_NULL_HANDLE);
+    descriptorLayout[0] = RenderObject::addressesDescriptorSetLayout;
+    descriptorLayout[1] = RenderObject::textureDescriptorSetLayout;
+    layoutInfo.pSetLayouts = descriptorLayout;
+    layoutInfo.setLayoutCount = 2;
+
+    VkPushConstantRange pushConstants{};
+    pushConstants.offset = 0;
+    pushConstants.size = sizeof(glm::mat4);
+    pushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    layoutInfo.pPushConstantRanges = &pushConstants;
+    layoutInfo.pushConstantRangeCount = 1;
+
+    VK_CHECK(vkCreatePipelineLayout(device, &layoutInfo, nullptr, &deferredPipelineLayout));
+    VkShaderModule vertShader;
+    if (!vk_helpers::loadShaderModule("shaders/deferred.vert.spv", device, &vertShader)) {
+        throw std::runtime_error("Error when building the deferred vertex shader module(deferred.vert.spv)\n");
+    }
+    VkShaderModule fragShader;
+    if (!vk_helpers::loadShaderModule("shaders/deferred.frag.spv", device, &fragShader)) {
+        fmt::print("Error when building the deferred fragment shader module(deferred.frag.spv)\n");
+    }
+    PipelineBuilder renderPipelineBuilder; {
+        VkVertexInputBindingDescription mainBinding{};
+        mainBinding.binding = 0;
+        mainBinding.stride = sizeof(Vertex);
+        mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+
+        VkVertexInputAttributeDescription vertexAttributes[5];
+        vertexAttributes[0].binding = 0;
+        vertexAttributes[0].location = 0;
+        vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+        vertexAttributes[0].offset = offsetof(Vertex, position);
+
+
+        vertexAttributes[1].binding = 0;
+        vertexAttributes[1].location = 1;
+        vertexAttributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+        vertexAttributes[1].offset = offsetof(Vertex, normal);
+
+        vertexAttributes[2].binding = 0;
+        vertexAttributes[2].location = 2;
+        vertexAttributes[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+        vertexAttributes[2].offset = offsetof(Vertex, color);
+
+        vertexAttributes[3].binding = 0;
+        vertexAttributes[3].location = 3;
+        vertexAttributes[3].format = VK_FORMAT_R32G32_SFLOAT;
+        vertexAttributes[3].offset = offsetof(Vertex, uv);
+
+        vertexAttributes[4].binding = 0;
+        vertexAttributes[4].location = 4;
+        vertexAttributes[4].format = VK_FORMAT_R32_UINT;
+        vertexAttributes[4].offset = offsetof(Vertex, materialIndex);
+
+        renderPipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 5);
+    }
+
+    renderPipelineBuilder.setShaders(vertShader, fragShader);
+    renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE); // VK_CULL_MODE_BACK_BIT
+    renderPipelineBuilder.disableMultisampling();
+    renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
+    renderPipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+    renderPipelineBuilder.setupRenderer({normalRenderTarget.imageFormat, albedoRenderTarget.imageFormat, pbrRenderTarget.imageFormat},
+                                        depthImage.imageFormat);
+    renderPipelineBuilder.setupPipelineLayout(deferredPipelineLayout);
+
+    deferredPipeline = renderPipelineBuilder.buildPipeline(device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+
+    vkDestroyShaderModule(device, vertShader, nullptr);
+    vkDestroyShaderModule(device, fragShader, nullptr);
+
+    mainDeletionQueue.pushFunction([&]() {
+        vkDestroyPipelineLayout(device, deferredPipelineLayout, nullptr);
+        vkDestroyPipeline(device, deferredPipeline, nullptr);
     });
 }
 
@@ -1047,7 +1297,6 @@ void Engine::initRenderPipeline()
     layoutInfo.pushConstantRangeCount = 1;
 
     VK_CHECK(vkCreatePipelineLayout(device, &layoutInfo, nullptr, &renderPipelineLayout));
-
 
     VkShaderModule vertShader;
     if (!vk_helpers::loadShaderModule("shaders/pbr.vert.spv", device, &vertShader)) {
@@ -1101,7 +1350,7 @@ void Engine::initRenderPipeline()
     renderPipelineBuilder.disableMultisampling();
     renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
     renderPipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    renderPipelineBuilder.setupRenderer(drawImage.imageFormat, depthImage.imageFormat);
+    renderPipelineBuilder.setupRenderer({drawImage.imageFormat}, depthImage.imageFormat);
     renderPipelineBuilder.setupPipelineLayout(renderPipelineLayout);
 
     renderPipeline = renderPipelineBuilder.buildPipeline(device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
@@ -1149,7 +1398,7 @@ void Engine::initEnvironmentPipeline()
     renderPipelineBuilder.disableMultisampling();
     renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
     renderPipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    renderPipelineBuilder.setupRenderer(drawImage.imageFormat, depthImage.imageFormat);
+    renderPipelineBuilder.setupRenderer({drawImage.imageFormat}, depthImage.imageFormat);
     renderPipelineBuilder.setupPipelineLayout(environmentPipelineLayout);
 
     environmentPipeline = renderPipelineBuilder.buildPipeline(device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
@@ -1448,11 +1697,12 @@ void Engine::resizeSwapchain()
 
 void Engine::createRenderTargets(uint32_t width, uint32_t height)
 {
-    const auto generateRenderTarget = std::function([this, width, height](VkFormat renderTargetFormat) {
+    const auto generateRenderTarget = std::function([this, width, height](const VkFormat renderTargetFormat) {
         const VkExtent3D imageExtent = {width, height, 1};
         VkImageUsageFlags usageFlags{};
         usageFlags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         usageFlags |= VK_IMAGE_USAGE_STORAGE_BIT;
+        usageFlags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         VmaAllocationCreateInfo renderImageAllocationInfo = {};
         renderImageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         renderImageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
@@ -1471,9 +1721,10 @@ void Engine::createRenderTargets(uint32_t width, uint32_t height)
         return renderTarget;
     });
 
-    renderTargetNormals = generateRenderTarget(VK_FORMAT_R8G8B8A8_SNORM);
-    albedoRenderTarget = generateRenderTarget(VK_FORMAT_R8G8B8A8_UNORM);
-    pbrRenderTarget = generateRenderTarget(VK_FORMAT_R8G8B8A8_UNORM);
+    //normalRenderTarget = generateRenderTarget(VK_FORMAT_R8G8B8A8_SNORM);
+    normalRenderTarget = generateRenderTarget(VK_FORMAT_R16G16B16A16_SNORM);
+    albedoRenderTarget = generateRenderTarget(VK_FORMAT_R16G16B16A16_UNORM);
+    pbrRenderTarget = generateRenderTarget(VK_FORMAT_R16G16B16A16_UNORM);
 }
 
 void Engine::createDrawImages(uint32_t width, uint32_t height)
@@ -1505,6 +1756,7 @@ void Engine::createDrawImages(uint32_t width, uint32_t height)
     depthImage.imageExtent = depthImageExtent;
     VkImageUsageFlags depthImageUsages{};
     depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+    depthImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
     VkImageCreateInfo depthImageInfo = vk_helpers::imageCreateInfo(depthImage.imageFormat, depthImageUsages, depthImageExtent);
 
     VmaAllocationCreateInfo depthImageAllocationInfo = {};

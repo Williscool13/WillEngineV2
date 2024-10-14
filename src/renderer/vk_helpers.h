@@ -21,6 +21,8 @@
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
 
+#include "glm/gtc/packing.hpp"
+
 class Engine;
 
 namespace vk_helpers
@@ -122,43 +124,20 @@ namespace vk_helpers
                      uint32_t
                      imageOffset = 0, uint32_t samplerOffset = 0);
 
-
-    /**
-     * Saves the AllocatedImage to the specified save path.
-     * \n This function expects the data of the image to range from [0, 255]
-     * @param engine
-     * @param image
-     * @param imageLayout the image layout at the time of copying. Will be restored to this layout after saving completes
-     * @param aspectFlag
-     * @param savePath
-     * @param overrideAlpha
-     */
-    void saveImageRGBA8(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-                        const char* savePath, bool overrideAlpha = true);
-
-    /**
-     * Saves the AllocatedImage to the specified save path.
-     * \n This function expects the data of the image to range from [0.0f, 1.0f]
-     * @param engine
-     * @param image
-     * @param imageLayout the image layout at the time of copying, usually VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL for depth
-     * @param aspectFlag usually VK_IMAGE_ASPECT_COLOR_BIT
-     * @param savePath
-     */
     void saveImageRGBA32F(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
                           const char* savePath, bool overrideAlpha = true);
 
-    void saveImageRGBA16F(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-                          const char* savePath, bool overrideAlpha = true);
+    void saveImageRGBA16SFLOAT(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+                               const char* savePath, bool overrideAlpha = true);
+
+    void savePacked32Bit(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+                         const char* savePath, const std::function<glm::vec4(uint32_t)>& unpackingFunction);
+
+    void savePacked64Bit(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+                         const char* savePath, const std::function<glm::vec4(uint64_t)>& unpackingFunction);
 
     /**
      * Save the Allocated image as a grayscaled image. The image must be a format with only 1 channel (e.g. R32 or D32)
-     * @param engine
-     * @param image
-     * @param imageLayout
-     * @param aspectFlag
-     * @param savePath
-     * @param valueTransform function applied to the color value before it is converted into 8 bits
      */
     void saveImageR32F(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
                        const char* savePath, const std::function<float(float)>& valueTransform);
