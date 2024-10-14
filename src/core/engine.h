@@ -85,6 +85,10 @@ public:
 
     void drawDepthPrepass(VkCommandBuffer cmd) const;
 
+    void drawDeferredMrt(VkCommandBuffer cmd) const;
+
+    void drawDeferredGeometry(VkCommandBuffer cmd) const;
+
     void drawRender(VkCommandBuffer cmd) const;
 
     void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
@@ -122,6 +126,8 @@ private: // Initialization
     void initFrustumCullingPipeline();
 
     void initDepthPrepassPipeline();
+
+    void initDeferredPipeline();
 
     void initRenderPipeline();
 
@@ -201,6 +207,9 @@ private: // Pipelines
     VkPipelineLayout depthPrepassPipelineLayout{VK_NULL_HANDLE};
     VkPipeline depthPrepassPipeline{VK_NULL_HANDLE};
 
+    VkPipelineLayout deferredPipelineLayout{VK_NULL_HANDLE};
+    VkPipeline deferredPipeline{VK_NULL_HANDLE};
+
     // Render
     VkPipelineLayout renderPipelineLayout{VK_NULL_HANDLE};
     VkPipeline renderPipeline{VK_NULL_HANDLE};
@@ -226,7 +235,7 @@ private: // Render Targets
     /**
      * 8.8.8 Normals - 8 unused
      */
-    AllocatedImage renderTargetNormals{};
+    AllocatedImage normalRenderTarget{};
     /**
      * 8.8.8 RGB Albedo - 8 unused
      */

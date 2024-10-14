@@ -47,21 +47,6 @@ layout (set = 0, binding = 0) uniform addresses
 layout (set = 1, binding = 0) uniform sampler samplers[];
 layout (set = 1, binding = 1) uniform texture2D textures[];
 
-/**layout(set = 2, binding = 0) uniform sceneUniforms
-{
-} sceneData;*/
-
-layout(set = 3, binding = 0) uniform samplerCube environmentDiffuseAndSpecular;
-layout(set = 3, binding = 1) uniform sampler2D lut;
-
-layout (push_constant) uniform PushConstants {
-    mat4 viewProj;  // (64)
-    vec4 cameraPos; // (16) - w is for alignment
-    // (16)
-    // (16)
-    // (16)
-} pushConstants;
-
 void main() {
     Material m = bufferAddresses.materialBufferDeviceAddress.materials[inMaterialIndex];
     vec3 albedo = vec3(1.0f);
@@ -86,7 +71,12 @@ void main() {
 
     // check cutoff if applicable
 
-    normalTarget = vec4(normalize(inNormal), 0.0f);
+    normalTarget = vec4(normalize(inNormal), 1.0f);
+    //normalTarget = vec4(1.0f);
+
     albedoTarget = vec4(albedo, 0.0f);
+    //albedoTarget = vec4(255.0f);
+
     pbrTarget = vec4(metallic, roughness, 0.0f, 0.0f);
+    //pbrTarget = vec4(1.0f);
 }

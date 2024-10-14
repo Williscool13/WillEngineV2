@@ -30,14 +30,17 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkPipelineCreateFlagB
     }
 
     // Color Blending
-    VkPipelineColorBlendStateCreateInfo colorBlending = {}; {
-        colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
-        colorBlending.pNext = nullptr;
-        colorBlending.logicOpEnable = VK_FALSE;
-        colorBlending.logicOp = VK_LOGIC_OP_COPY;
-        colorBlending.attachmentCount = 1;
-        colorBlending.pAttachments = &colorBlendAttachment;
+    VkPipelineColorBlendStateCreateInfo colorBlending = {};
+    colorBlending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    colorBlending.pNext = nullptr;
+    colorBlending.logicOpEnable = VK_FALSE;
+    colorBlending.logicOp = VK_LOGIC_OP_COPY;
+    colorBlending.attachmentCount = colorAttachmentFormats.size();
+    auto* blendAttachments = new VkPipelineColorBlendAttachmentState[colorAttachmentFormats.size()];
+    for (int i = 0; i < colorAttachmentFormats.size(); i++) {
+        blendAttachments[i] = colorBlendAttachment;
     }
+    colorBlending.pAttachments = blendAttachments;
 
     // (Not used in this codebase) Vertex Attribute Input
     VkPipelineVertexInputStateCreateInfo _vertexInputInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
@@ -67,12 +70,15 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkPipelineCreateFlagB
 
     // Dynamic state
     VkDynamicState state[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-    VkPipelineDynamicStateCreateInfo dynamicInfo = generateDynamicStates(state, 2);
+    const VkPipelineDynamicStateCreateInfo dynamicInfo = generateDynamicStates(state, 2);
     pipelineInfo.pDynamicState = &dynamicInfo;
 
     // Create Pipeline
     VkPipeline newPipeline;
-    if (vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline) != VK_SUCCESS) {
+    const VkResult response = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &newPipeline);
+    delete blendAttachments;
+
+    if (response != VK_SUCCESS) {
         fmt::print("failed to create pipeline");
         return VK_NULL_HANDLE;
     } else {
@@ -102,7 +108,8 @@ void PipelineBuilder::setShaders(VkShaderModule vertexShader, VkShaderModule fra
     );
 }
 
-void PipelineBuilder::setupVertexInput(VkVertexInputBindingDescription* bindings, uint32_t bindingCount, VkVertexInputAttributeDescription* attributes,
+void PipelineBuilder::setupVertexInput(VkVertexInputBindingDescription* bindings, uint32_t bindingCount,
+                                       VkVertexInputAttributeDescription* attributes,
                                        uint32_t attributeCount)
 {
     vertexInputEnabled = true;
@@ -118,7 +125,8 @@ void PipelineBuilder::setupInputAssembly(VkPrimitiveTopology topology)
     inputAssembly.primitiveRestartEnable = VK_FALSE;
 }
 
-void PipelineBuilder::setupRasterization(const VkPolygonMode polygonMode, const VkCullModeFlags cullMode, const VkFrontFace frontFace, bool rasterizerDiscardEnable)
+void PipelineBuilder::setupRasterization(const VkPolygonMode polygonMode, const VkCullModeFlags cullMode, const VkFrontFace frontFace,
+                                         bool rasterizerDiscardEnable)
 {
     // Draw Mode
     rasterizer.polygonMode = polygonMode;
@@ -144,13 +152,13 @@ void PipelineBuilder::setupMultisampling(VkBool32 sampleShadingEnable, VkSampleC
     multisampling.alphaToOneEnable = alphaToOneEnable;
 }
 
-void PipelineBuilder::setupRenderer(VkFormat colorattachmentFormat, VkFormat depthAttachmentFormat)
+void PipelineBuilder::setupRenderer(const std::vector<VkFormat> colorattachmentFormat, const VkFormat depthAttachmentFormat)
 {
     // Color Format
-    if (colorattachmentFormat != VK_FORMAT_UNDEFINED) {
-        colorAttachmentFormat = colorattachmentFormat;
-        renderInfo.colorAttachmentCount = 1;
-        renderInfo.pColorAttachmentFormats = &colorAttachmentFormat;
+    if (!colorattachmentFormat.empty()) {
+        colorAttachmentFormats = colorattachmentFormat;
+        renderInfo.colorAttachmentCount = colorAttachmentFormats.size();
+        renderInfo.pColorAttachmentFormats = colorAttachmentFormats.data();
     }
 
     // Depth Format

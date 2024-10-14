@@ -43,7 +43,6 @@ layout (location = 2) out vec4 outColor;
 layout (location = 3) out vec2 outUV;
 layout (location = 4) out flat uint outMaterialIndex;
 
-
 layout (push_constant) uniform PushConstants {
     mat4 viewProj;  // (64)
     vec4 cameraPos; // (16) - w is for alignment
@@ -53,9 +52,7 @@ layout (push_constant) uniform PushConstants {
 } pushConstants;
 
 void main() {
-
     mat4 model = bufferAddresses.modelBufferDeviceAddress.models[gl_InstanceIndex].modelMatrix;
-
     vec4 mPos = model * vec4(position, 1.0); // why is this red underlined in CLion?!?!?!?!
 
     // use world matrix when it becomes available
