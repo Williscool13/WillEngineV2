@@ -5,18 +5,18 @@
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
-layout (rgba8_snorm, set = 0, binding = 0) uniform image2D normalRenderTarget;
-layout (rgba8, set = 0, binding = 1) uniform image2D albedoRenderTarget;
-layout (rgba8, set = 0, binding = 2) uniform image2D pbrRenderTarget;
+layout (rgba16f, set = 0, binding = 0) uniform image2D normalRenderTarget;
+layout (rgba16f, set = 0, binding = 1) uniform image2D albedoRenderTarget;
+layout (rgba16f, set = 0, binding = 2) uniform image2D pbrRenderTarget;
 layout (r32f, set = 0, binding = 3) uniform image2D depthBuffer;
-layout (rgba32f, set = 0, binding = 4) uniform image2D outputImage;
+layout (rgba16f, set = 0, binding = 4) uniform image2D outputImage;
 
-layout (std140, set = 1, binding = 0) uniform CameraData {
+/**layout (std140, set = 1, binding = 0) uniform CameraData {
     mat4 invProjection;
     mat4 invView;
     vec3 cameraPos;
     float pad;
-} cameraData;
+} cameraData;*/
 
 
 struct DirectionalLight {
@@ -32,12 +32,15 @@ struct PointLight {
     float radius;
 };
 
-layout (std140, set = 2, binding = 1) uniform LightData {
+/**layout (std140, set = 2, binding = 0) uniform LightData {
     DirectionalLight mainLight;
     PointLight pointLights[6];
-} lightData;
+} lightData;*/
 
-vec3 reconstructPosition(ivec2 texCoord, float depth) {
+//layout(set = 3, binding = 0) uniform samplerCube environmentDiffuseAndSpecular;
+//layout(set = 3, binding = 1) uniform sampler2D lut;
+
+/**vec3 reconstructPosition(ivec2 texCoord, float depth) {
     // Get normalized device coordinates
     vec2 texSize = vec2(imageSize(depthBuffer));
     vec2 ndc = (vec2(texCoord) + 0.5) / texSize * 2.0 - 1.0;
@@ -50,12 +53,21 @@ vec3 reconstructPosition(ivec2 texCoord, float depth) {
     vec4 positionWS = cameraData.invView * positionVS;
 
     return positionWS.xyz;
-}
+}*/
+
+layout (push_constant) uniform PushConstants {
+    int width;
+    int height;
+    int debug;
+} pushConstants;
 
 void main() {
     ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
+    if (texCoord.x > pushConstants.width || texCoord.y > pushConstants.height) {
+        return;
+    }
 
-    float depth = imageLoad(depthBuffer, texCoord).r;
+    /**float depth = imageLoad(depthBuffer, texCoord).r;
     vec3 position = reconstructPosition(texCoord, depth);
     vec3 normal = imageLoad(normalRenderTarget, texCoord).rgb;
     vec4 albedo = imageLoad(albedoRenderTarget, texCoord);
@@ -90,7 +102,7 @@ void main() {
     float nDotL = max(dot(N, L), 0.0f);
     vec3 diffuse = Lambert(kD, albedo.xyz);
 
-    // REFLECTIONS
+    // IBL REFLECTIONS
     vec3 irradiance = DiffuseIrradiance(N);
     vec3 reflectionDiffuse = irradiance * albedo.xyz;
 
@@ -104,5 +116,6 @@ void main() {
     vec3 correctedFinalColor = finalColor / (finalColor + vec3(1.0f)); // Reinhard Tonemapping
     correctedFinalColor = pow(correctedFinalColor, vec3(1.0f / 2.2f)); // gamma correction
 
-    imageStore(outputImage, texCoord, vec4(correctedFinalColor, albedo.w));
+    imageStore(outputImage, texCoord, vec4(correctedFinalColor, albedo.w));*/
+    imageStore(outputImage, texCoord, vec4(1.0f, 0.0f, 0.0f, 1.0f));
 }

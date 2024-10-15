@@ -83,11 +83,9 @@ public:
 
     void cullRender(VkCommandBuffer cmd) const;
 
-    void drawDepthPrepass(VkCommandBuffer cmd) const;
-
     void drawDeferredMrt(VkCommandBuffer cmd) const;
 
-    void drawDeferredGeometry(VkCommandBuffer cmd) const;
+    void drawDeferredResolve(VkCommandBuffer cmd) const;
 
     void drawRender(VkCommandBuffer cmd) const;
 
@@ -125,9 +123,9 @@ private: // Initialization
 
     void initFrustumCullingPipeline();
 
-    void initDepthPrepassPipeline();
+    void initDeferredMrtPipeline();
 
-    void initDeferredPipeline();
+    void initDeferredResolvePipeline();
 
     void initRenderPipeline();
 
@@ -203,12 +201,15 @@ private: // Pipelines
     VkPipelineLayout frustumCullingPipelineLayout{VK_NULL_HANDLE};
     VkPipeline frustumCullingPipeline{VK_NULL_HANDLE};
 
-    // Depth Prepass
-    VkPipelineLayout depthPrepassPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline depthPrepassPipeline{VK_NULL_HANDLE};
+    // deferred MRT
+    VkPipelineLayout deferredMrtPipelineLayout{VK_NULL_HANDLE};
+    VkPipeline deferredMrtPipeline{VK_NULL_HANDLE};
 
-    VkPipelineLayout deferredPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline deferredPipeline{VK_NULL_HANDLE};
+    // deferred resolve
+    DescriptorBufferSampler deferredResolveDescriptorBuffer{};
+    VkDescriptorSetLayout deferredResolveRenderTargetLayout{VK_NULL_HANDLE};
+    VkPipelineLayout deferredResolvePipelineLayout{VK_NULL_HANDLE};
+    VkPipeline deferredResolvePipeline{VK_NULL_HANDLE};
 
     // Render
     VkPipelineLayout renderPipelineLayout{VK_NULL_HANDLE};
@@ -233,15 +234,15 @@ private: // Swapchain
 
 private: // Render Targets
     /**
-     * 8.8.8 Normals - 8 unused
+     * 10.10.10 Normals - 2 unused
      */
     AllocatedImage normalRenderTarget{};
     /**
-     * 8.8.8 RGB Albedo - 8 unused
+     * 10.10.10 RGB Albedo - 2 unused
      */
     AllocatedImage albedoRenderTarget{};
     /**
-     * 8 Metallic, 8 Roughness, 8 Emissive,
+     * 8 Metallic, 8 Roughness, 8 emissive (unused), 8 Unused
      */
     AllocatedImage pbrRenderTarget{};
 
@@ -256,8 +257,6 @@ private: // Draw Images
     float maxRenderScale{1.0f};
 
     void createDrawImages(uint32_t width, uint32_t height);
-
-    AllocatedImage depthPrepassImage{};
 
 public: // Default Data
     static AllocatedImage whiteImage;
