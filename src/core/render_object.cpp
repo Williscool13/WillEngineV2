@@ -569,7 +569,8 @@ void RenderObject::uploadIndirectBuffer()
     AllocatedBuffer indirectStaging = creator->createStagingBuffer(drawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
     memcpy(indirectStaging.info.pMappedData, drawIndirectCommands.data(), drawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
     drawIndirectBuffer = creator->createBuffer(drawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand)
-                                               , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+                                               , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
+                                                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
                                                , VMA_MEMORY_USAGE_GPU_ONLY);
 
     creator->copyBuffer(indirectStaging, drawIndirectBuffer, drawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
@@ -594,8 +595,8 @@ void RenderObject::updateComputeCullingBuffer()
     AllocatedBuffer meshIndicesStaging = creator->createStagingBuffer(meshIndices.size() * sizeof(uint32_t));
     memcpy(meshIndicesStaging.info.pMappedData, meshIndices.data(), meshIndices.size() * sizeof(uint32_t));
     meshIndicesBuffer = creator->createBuffer(meshIndices.size() * sizeof(uint32_t)
-                                               , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
-                                               , VMA_MEMORY_USAGE_GPU_ONLY);
+                                              , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+                                              , VMA_MEMORY_USAGE_GPU_ONLY);
 
     creator->copyBuffer(meshIndicesStaging, meshIndicesBuffer, meshIndices.size() * sizeof(uint32_t));
     creator->destroyBuffer(meshIndicesStaging);
@@ -611,7 +612,4 @@ void RenderObject::updateComputeCullingBuffer()
     memcpy(frustumCullingStaging.info.pMappedData, &cullingBuffers, sizeof(FrustumCullingBuffers));
     creator->copyBuffer(frustumCullingStaging, frustumBufferAddresses, sizeof(FrustumCullingBuffers));
     creator->destroyBuffer(frustumCullingStaging);
-
-
-
 }

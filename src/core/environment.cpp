@@ -286,7 +286,7 @@ void Environment::equiToCubemapImmediate(AllocatedImage& _cubemapImage, int _cub
 
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, equiToCubemapPipeline);
 
-        vk_helpers::transitionImage(cmd, _cubemapImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+        vk_helpers::transitionImage(cmd, _cubemapImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
         VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info[2] = {
             equiImageDescriptorBuffer.getDescriptorBufferBindingInfo(),
@@ -312,14 +312,14 @@ void Environment::equiToCubemapImmediate(AllocatedImage& _cubemapImage, int _cub
         assert(extents.width % 16 == 0 && extents.height % 16 == 0);
         vkCmdDispatch(cmd, extents.width / 16, extents.height / 16, 6);
 
-        vk_helpers::transitionImage(cmd, _cubemapImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        vk_helpers::transitionImage(cmd, _cubemapImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     });
 }
 
 void Environment::cubemapToDiffuseSpecularImmediate(AllocatedCubemap& cubemapMips, int _cubemapSampleDescriptorIndex)
 {
     creator->immediateSubmit([&](VkCommandBuffer cmd) {
-        vk_helpers::transitionImage(cmd, cubemapMips.allocatedImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+        vk_helpers::transitionImage(cmd, cubemapMips.allocatedImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
 
         VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info[2] = {
@@ -385,14 +385,14 @@ void Environment::cubemapToDiffuseSpecularImmediate(AllocatedCubemap& cubemapMip
         }
 
 
-        vk_helpers::transitionImage(cmd, cubemapMips.allocatedImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        vk_helpers::transitionImage(cmd, cubemapMips.allocatedImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     });
 }
 
 void Environment::generateLutImmediate(Engine* engine)
 {
     engine->immediateSubmit([&](VkCommandBuffer cmd) {
-        vk_helpers::transitionImage(cmd, lutImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+        vk_helpers::transitionImage(cmd, lutImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, lutPipeline);
 
@@ -411,7 +411,7 @@ void Environment::generateLutImmediate(Engine* engine)
         uint32_t z_disp = 1;
         vkCmdDispatch(cmd, x_disp, y_disp, z_disp);
 
-        vk_helpers::transitionImage(cmd, lutImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        vk_helpers::transitionImage(cmd, lutImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     });
 }
 

@@ -55,10 +55,18 @@ struct AllocatedCubemap {
 
 
 struct SceneData
-{;
+{
     glm::mat4 viewProj{1.0f};
     glm::vec4 cameraWorldPos{0.0f};
 };
+
+struct DeferredResolveData
+{
+    uint32_t width{1700};
+    uint32_t height{900};
+    uint32_t debug{0};
+};
+
 
 struct LightData
 {

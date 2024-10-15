@@ -259,7 +259,7 @@ VkDeviceSize vk_helpers::getAlignedSize(VkDeviceSize value, VkDeviceSize alignme
 }
 
 
-void vk_helpers::transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout)
+void vk_helpers::transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout, VkImageAspectFlags aspectFlags)
 {
     VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
     imageBarrier.pNext = nullptr;
@@ -272,9 +272,8 @@ void vk_helpers::transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayo
     imageBarrier.oldLayout = currentLayout;
     imageBarrier.newLayout = targetLayout;
 
-    VkImageAspectFlags aspectMask = (targetLayout == VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL)
-                                        ? VK_IMAGE_ASPECT_DEPTH_BIT
-                                        : VK_IMAGE_ASPECT_COLOR_BIT;
+    const VkImageAspectFlags aspectMask = aspectFlags;
+
     imageBarrier.subresourceRange = imageSubresourceRange(aspectMask);
     imageBarrier.image = image;
 
@@ -416,7 +415,7 @@ void vk_helpers::generateMipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D 
     }
 
     // transition all mip levels into the final read_only layout
-    transitionImage(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+    transitionImage(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
 VkPipelineLayoutCreateInfo vk_helpers::pipelineLayoutCreateInfo()
@@ -689,7 +688,7 @@ void vk_helpers::saveImageRGBA32F(const Engine* engine, const AllocatedImage& im
 
         vkCmdCopyImageToBuffer(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer.buffer, 1, &bufferCopyRegion);
 
-        vk_helpers::transitionImage(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout);
+        vk_helpers::transitionImage(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout, VK_IMAGE_ASPECT_COLOR_BIT);
     });
 
     void* data = receivingBuffer.info.pMappedData;
@@ -737,7 +736,7 @@ void vk_helpers::saveImageRGBA16SFLOAT(const Engine* engine, const AllocatedImag
 
         vkCmdCopyImageToBuffer(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer.buffer, 1, &bufferCopyRegion);
 
-        vk_helpers::transitionImage(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout);
+        vk_helpers::transitionImage(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout, VK_IMAGE_ASPECT_COLOR_BIT);
     });
 
     void* data = receivingBuffer.info.pMappedData;
@@ -783,7 +782,7 @@ void vk_helpers::savePacked32Bit(const Engine* engine, const AllocatedImage& ima
 
         vkCmdCopyImageToBuffer(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer.buffer, 1, &bufferCopyRegion);
 
-        vk_helpers::transitionImage(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout);
+        vk_helpers::transitionImage(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout, VK_IMAGE_ASPECT_COLOR_BIT);
     });
 
     void* data = receivingBuffer.info.pMappedData;
@@ -827,7 +826,7 @@ void vk_helpers::savePacked64Bit(const Engine* engine, const AllocatedImage& ima
 
         vkCmdCopyImageToBuffer(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer.buffer, 1, &bufferCopyRegion);
 
-        vk_helpers::transitionImage(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout);
+        vk_helpers::transitionImage(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout, VK_IMAGE_ASPECT_COLOR_BIT);
     });
 
     void* data = receivingBuffer.info.pMappedData;
@@ -871,7 +870,7 @@ void vk_helpers::saveImageR32F(const Engine* engine, const AllocatedImage& image
 
         vkCmdCopyImageToBuffer(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer.buffer, 1, &bufferCopyRegion);
 
-        vk_helpers::transitionImage(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout);
+        vk_helpers::transitionImage(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout, VK_IMAGE_ASPECT_COLOR_BIT);
     });
 
     void* data = receivingBuffer.info.pMappedData;
