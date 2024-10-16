@@ -451,7 +451,7 @@ void Environment::initializeStatics(Engine* engine)
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // 1 cubemap  - diffuse/spec
         layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // 1 2d image - lut
-        environmentMapDescriptorSetLayout = layoutBuilder.build(engine->getDevice(), VK_SHADER_STAGE_FRAGMENT_BIT
+        environmentMapDescriptorSetLayout = layoutBuilder.build(engine->getDevice(), VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT
                                                                 , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
 

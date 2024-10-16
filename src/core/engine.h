@@ -189,8 +189,11 @@ private: // Scene
     Environment* environment{nullptr};
 
 private: // Scene Descriptors
-    VkDescriptorSetLayout sceneUniformDescriptorSetLayout{VK_NULL_HANDLE};
-    DescriptorBufferUniform sceneUniformDescriptorBuffer;
+    VkDescriptorSetLayout sceneDataDescriptorSetLayout{VK_NULL_HANDLE};
+    DescriptorBufferUniform sceneDataDescriptorBuffer;
+    /**
+     * Descriptor for \code SceneData\endcode
+     */
     AllocatedBuffer sceneDataBuffer;
 
     VkDescriptorSetLayout sceneSamplerDescriptorSetLayout{VK_NULL_HANDLE};

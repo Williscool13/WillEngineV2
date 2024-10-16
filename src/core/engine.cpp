@@ -316,25 +316,40 @@ void Engine::draw()
 {
     camera.update();
 
-    auto start = std::chrono::system_clock::now();
+    const auto start = std::chrono::system_clock::now();
 
-    // GPU -> VPU sync (fence)
+    // GPU -> CPU sync (fence)
     VK_CHECK(vkWaitForFences(device, 1, &getCurrentFrame()._renderFence, true, 1000000000));
     VK_CHECK(vkResetFences(device, 1, &getCurrentFrame()._renderFence));
 
     // GPU -> GPU sync (semaphore)
     uint32_t swapchainImageIndex;
-    VkResult e = vkAcquireNextImageKHR(device, swapchain, 1000000000, getCurrentFrame()._swapchainSemaphore, nullptr, &swapchainImageIndex);
+    const VkResult e = vkAcquireNextImageKHR(device, swapchain, 1000000000, getCurrentFrame()._swapchainSemaphore, nullptr, &swapchainImageIndex);
     if (e == VK_ERROR_OUT_OF_DATE_KHR || e == VK_SUBOPTIMAL_KHR) {
         resizeRequested = true;
         fmt::print("Swapchain out of date or suboptimal, resize requested (At Acquire)\n");
         return;
     }
 
+    // Update scene data
+    {
+        const auto pSceneData = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
+        pSceneData->view = camera.getViewMatrix();
+        pSceneData->proj = camera.getProjMatrix();
+        pSceneData->viewProj = camera.getViewProjMatrix();
+        pSceneData->invView = glm::inverse(pSceneData->view);
+        pSceneData->invProj = glm::inverse(pSceneData->proj);
+        pSceneData->invViewProj = glm::inverse(pSceneData->viewProj);
+        pSceneData->cameraWorldPos = camera.getPosition();
+        const glm::mat4 cameraLook = glm::lookAt(glm::vec3(0), camera.getViewDirectionWS(), glm::vec3(0, 1, 0));
+        const auto proj = camera.getProjMatrix();
+        pSceneData->viewProjCameraLookDirection = proj * cameraLook;
+    }
+
     // Start Command Buffer Recording
     VkCommandBuffer cmd = getCurrentFrame()._mainCommandBuffer;
     VK_CHECK(vkResetCommandBuffer(cmd, 0));
-    VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
+    const VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
     cullRender(cmd);
@@ -342,11 +357,12 @@ void Engine::draw()
     drawExtent.height = std::min(swapchainExtent.height, drawImage.imageExtent.height); // * _renderScale;
     drawExtent.width = std::min(swapchainExtent.width, drawImage.imageExtent.width); // * _renderScale;
 
-    // draw geometry into _drawImage
-
-
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+    vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    drawEnvironment(cmd);
     drawDeferredMrt(cmd);
 
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -365,7 +381,6 @@ void Engine::draw()
                                                                            VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
     VkRenderingInfo renderInfo = vk_helpers::renderingInfo(drawExtent, &colorAttachment, &depthAttachment);
     vkCmdBeginRendering(cmd, &renderInfo);
-    drawEnvironment(cmd);
     drawRender(cmd);
     vkCmdEndRendering(cmd);*/
 
@@ -435,6 +450,14 @@ void Engine::drawEnvironment(VkCommandBuffer cmd) const
     label.pLabelName = "Environment Map";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 #endif
+
+    VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkClearValue depthClearValue = {0.0f, 0.0f};
+    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue,
+                                                                           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    const VkRenderingInfo renderInfo = vk_helpers::renderingInfo(drawExtent, &colorAttachment, &depthAttachment);
+    vkCmdBeginRendering(cmd, &renderInfo);
+
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, environmentPipeline);
 
     VkViewport viewport = {};
@@ -453,24 +476,19 @@ void Engine::drawEnvironment(VkCommandBuffer cmd) const
     scissor.extent.height = drawExtent.height;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    DescriptorBufferSampler& cubemapSampler = environment->getCubemapDescriptorBuffer();
 
-    VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1];
-    descriptorBufferBindingInfo[0] = cubemapSampler.getDescriptorBufferBindingInfo();
-    vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
-    uint32_t imageBufferIndex = 0;
-    VkDeviceSize imageBufferOffset = 0;
+    VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];
+    descriptorBufferBindingInfo[0] = environment->getCubemapDescriptorBuffer().getDescriptorBufferBindingInfo();
+    descriptorBufferBindingInfo[1] = sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
+    vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
+    constexpr uint32_t imageBufferIndex{0};
+    constexpr uint32_t sceneDataBufferIndex{1};
+    constexpr VkDeviceSize zeroOffset{0};
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, environmentPipelineLayout, 0, 1, &imageBufferIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, environmentPipelineLayout, 1, 1, &sceneDataBufferIndex, &zeroOffset);
 
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, environmentPipelineLayout
-                                       , 0, 1, &imageBufferIndex, &imageBufferOffset);
-
-
-    EnvironmentSceneData sceneData{};
-    auto view = glm::lookAt(glm::vec3(0), camera.getViewDirectionWS(), glm::vec3(0, 1, 0));
-    auto proj = camera.getProjMatrix();
-    sceneData.viewproj = proj * view;
-    vkCmdPushConstants(cmd, environmentPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(EnvironmentSceneData), &sceneData);
     vkCmdDraw(cmd, 3, 1, 0, 0);
+    vkCmdEndRendering(cmd);
 #ifndef NDEBUG
     vkCmdEndDebugUtilsLabelEXT(cmd);
 #endif
@@ -484,25 +502,20 @@ void Engine::cullRender(VkCommandBuffer cmd) const
     label.pLabelName = "Frustum Culling";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 #endif
-
     // GPU Frustum Culling
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipeline);
 
-    SceneData sceneData{};
-    sceneData.viewProj = camera.getViewProjMatrix();
-    sceneData.cameraWorldPos = camera.getPosition();
-    vkCmdPushConstants(cmd, frustumCullingPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(SceneData), &sceneData);
-
-    VkDescriptorBufferBindingInfoEXT frustumCullingBindingInfo[1]{};
-
+    VkDescriptorBufferBindingInfoEXT frustumCullingBindingInfo[2]{};
     frustumCullingBindingInfo[0] = testRenderObject->getComputeAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
-    vkCmdBindDescriptorBuffersEXT(cmd, 1, frustumCullingBindingInfo);
+    frustumCullingBindingInfo[1] = sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
+    vkCmdBindDescriptorBuffersEXT(cmd, 2, frustumCullingBindingInfo);
 
-
-    VkDeviceSize offset{0};
-    uint32_t addressesIndex{0};
+    constexpr VkDeviceSize offset{0};
+    constexpr uint32_t addressesIndex{0};
+    constexpr uint32_t sceneDataIndex{1};
 
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipelineLayout, 0, 1, &addressesIndex, &offset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipelineLayout, 1, 1, &sceneDataIndex, &offset);
 
     vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(testRenderObject->getInstanceBufferSize()) / 64.0f)), 1, 1);
 #ifndef NDEBUG
@@ -518,10 +531,6 @@ void Engine::drawDeferredMrt(VkCommandBuffer cmd) const
     label.pLabelName = "Deferred MRT Pass";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 #endif
-    vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-
     VkRenderingAttachmentInfo normalAttachment = vk_helpers::attachmentInfo(normalRenderTarget.imageView, nullptr,
                                                                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     VkRenderingAttachmentInfo albedoAttachment = vk_helpers::attachmentInfo(albedoRenderTarget.imageView, nullptr,
@@ -579,19 +588,19 @@ void Engine::drawDeferredMrt(VkCommandBuffer cmd) const
         return;
     }
 
-    const glm::mat4 viewProj = camera.getViewProjMatrix();
-    vkCmdPushConstants(cmd, deferredMrtPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &viewProj);
-
-    VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo2[2];
-    descriptorBufferBindingInfo2[0] = testRenderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
-    descriptorBufferBindingInfo2[1] = testRenderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
-    vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo2);
+    VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[3];
+    descriptorBufferBindingInfo[0] = testRenderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
+    descriptorBufferBindingInfo[1] = testRenderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
+    descriptorBufferBindingInfo[2] = sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
+    vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptorBufferBindingInfo);
 
     constexpr VkDeviceSize zeroOffset{0};
     constexpr uint32_t addressIndex{0};
     constexpr uint32_t texturesIndex{1};
+    constexpr uint32_t sceneDataIndex{2};
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 0, 1, &addressIndex, &zeroOffset);
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 1, 1, &texturesIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 2, 1, &sceneDataIndex, &zeroOffset);
 
     constexpr VkDeviceSize offsets{0};
     vkCmdBindVertexBuffers(cmd, 0, 1, &testRenderObject->getVertexBuffer().buffer, &offsets);
@@ -620,16 +629,23 @@ void Engine::drawDeferredResolve(VkCommandBuffer cmd) const
     deferredResolveData.debug = 0;
     vkCmdPushConstants(cmd, deferredResolvePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(DeferredResolveData), &deferredResolveData);
 
-
-    VkDescriptorBufferBindingInfoEXT deferredResolveBindingInfos[1]{};
+    VkDescriptorBufferBindingInfoEXT deferredResolveBindingInfos[4]{};
     deferredResolveBindingInfos[0] = deferredResolveDescriptorBuffer.getDescriptorBufferBindingInfo();
-    vkCmdBindDescriptorBuffersEXT(cmd, 1, deferredResolveBindingInfos);
+    deferredResolveBindingInfos[1] = sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
+    deferredResolveBindingInfos[2] = sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(); //todo: lights
+    deferredResolveBindingInfos[3] = environment->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo();
+    vkCmdBindDescriptorBuffersEXT(cmd, 4, deferredResolveBindingInfos);
 
+    constexpr VkDeviceSize zeroOffset{0};
+    constexpr uint32_t addressIndex{0};
+    constexpr uint32_t sceneDataIndex{1};
+    constexpr uint32_t lightsIndex{2};
+    constexpr uint32_t environmentIndex{3};
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 0, 1, &addressIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 1, 1, &sceneDataIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 2, 1, &lightsIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 3, 1, &environmentIndex, &zeroOffset);
 
-    constexpr VkDeviceSize offset{0};
-    constexpr uint32_t addressesIndex{0};
-
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 0, 1, &addressesIndex, &offset);
 
     const auto x = static_cast<uint32_t>(std::ceil(static_cast<float>(drawExtent.width) / 16.0f));
     const auto y = static_cast<uint32_t>(std::ceil(static_cast<float>(drawExtent.height) / 16.0f));
@@ -674,16 +690,10 @@ void Engine::drawRender(VkCommandBuffer cmd) const
         return;
     }
 
-    SceneData sceneData{};
-    sceneData.viewProj = camera.getViewProjMatrix();
-    sceneData.cameraWorldPos = camera.getPosition();
-    vkCmdPushConstants(cmd, renderPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(SceneData), &sceneData);
-
-
     VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[4];
     descriptorBufferBindingInfo[0] = testRenderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
     descriptorBufferBindingInfo[1] = testRenderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
-    descriptorBufferBindingInfo[2] = sceneUniformDescriptorBuffer.getDescriptorBufferBindingInfo();
+    descriptorBufferBindingInfo[2] = sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
     descriptorBufferBindingInfo[3] = environment->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo();
     vkCmdBindDescriptorBuffersEXT(cmd, 4, descriptorBufferBindingInfo);
 
@@ -1013,25 +1023,23 @@ void Engine::initDescriptors()
 { {
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        sceneUniformDescriptorSetLayout = layoutBuilder.build(
+        sceneDataDescriptorSetLayout = layoutBuilder.build(
             device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT
             , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
 
-    sceneDataBuffer = createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                   VMA_MEMORY_USAGE_CPU_TO_GPU);
-    sceneUniformDescriptorBuffer = DescriptorBufferUniform(instance, device, physicalDevice, allocator, sceneUniformDescriptorSetLayout, 1);
+    sceneDataBuffer = createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    sceneDataDescriptorBuffer = DescriptorBufferUniform(instance, device, physicalDevice, allocator, sceneDataDescriptorSetLayout, 1);
 
-    std::vector<DescriptorUniformData> sceneDataBuffers{};
-    sceneDataBuffers.resize(1);
+    std::vector<DescriptorUniformData> sceneDataBuffers{1};
     sceneDataBuffers[0] = DescriptorUniformData{.uniformBuffer = sceneDataBuffer, .allocSize = sizeof(SceneData)};
-    sceneUniformDescriptorBuffer.setupData(device, sceneDataBuffers);
+    sceneDataDescriptorBuffer.setupData(device, sceneDataBuffers);
 
 
     mainDeletionQueue.pushFunction([&]() {
-        vkDestroyDescriptorSetLayout(device, sceneUniformDescriptorSetLayout, nullptr);
+        vkDestroyDescriptorSetLayout(device, sceneDataDescriptorSetLayout, nullptr);
         destroyBuffer(sceneDataBuffer);
-        sceneUniformDescriptorBuffer.destroy(device, allocator);
+        sceneDataDescriptorBuffer.destroy(device, allocator);
     });
 }
 
@@ -1047,18 +1055,15 @@ void Engine::initPipelines()
 void Engine::initFrustumCullingPipeline()
 {
     assert(RenderObject::frustumCullingDescriptorSetLayout != VK_NULL_HANDLE);
-    VkPushConstantRange pushConstants{};
-    pushConstants.offset = 0;
-    pushConstants.size = sizeof(SceneData);
-    pushConstants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+    const VkDescriptorSetLayout layouts[2] = {RenderObject::frustumCullingDescriptorSetLayout, sceneDataDescriptorSetLayout};
 
     VkPipelineLayoutCreateInfo frustumCullingPipelineLayoutCreateInfo{};
     frustumCullingPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     frustumCullingPipelineLayoutCreateInfo.pNext = nullptr;
-    frustumCullingPipelineLayoutCreateInfo.pSetLayouts = &RenderObject::frustumCullingDescriptorSetLayout;
-    frustumCullingPipelineLayoutCreateInfo.setLayoutCount = 1;
-    frustumCullingPipelineLayoutCreateInfo.pPushConstantRanges = &pushConstants;
-    frustumCullingPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+    frustumCullingPipelineLayoutCreateInfo.pSetLayouts = layouts;
+    frustumCullingPipelineLayoutCreateInfo.setLayoutCount = 2;
+    frustumCullingPipelineLayoutCreateInfo.pPushConstantRanges = nullptr;
+    frustumCullingPipelineLayoutCreateInfo.pushConstantRangeCount = 0;
 
     VK_CHECK(vkCreatePipelineLayout(device, &frustumCullingPipelineLayoutCreateInfo, nullptr, &frustumCullingPipelineLayout));
 
@@ -1094,22 +1099,19 @@ void Engine::initFrustumCullingPipeline()
 
 void Engine::initDeferredMrtPipeline()
 {
-    VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
-    VkDescriptorSetLayout descriptorLayout[2];
-
     assert(RenderObject::addressesDescriptorSetLayout != VK_NULL_HANDLE);
     assert(RenderObject::textureDescriptorSetLayout != VK_NULL_HANDLE);
+
+    VkDescriptorSetLayout descriptorLayout[3];
     descriptorLayout[0] = RenderObject::addressesDescriptorSetLayout;
     descriptorLayout[1] = RenderObject::textureDescriptorSetLayout;
-    layoutInfo.pSetLayouts = descriptorLayout;
-    layoutInfo.setLayoutCount = 2;
+    descriptorLayout[2] = sceneDataDescriptorSetLayout;;
 
-    VkPushConstantRange pushConstants{};
-    pushConstants.offset = 0;
-    pushConstants.size = sizeof(glm::mat4);
-    pushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    layoutInfo.pPushConstantRanges = &pushConstants;
-    layoutInfo.pushConstantRangeCount = 1;
+    VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
+    layoutInfo.pSetLayouts = descriptorLayout;
+    layoutInfo.setLayoutCount = 3;
+    layoutInfo.pPushConstantRanges = nullptr;
+    layoutInfo.pushConstantRangeCount = 0;
 
     VK_CHECK(vkCreatePipelineLayout(device, &layoutInfo, nullptr, &deferredMrtPipelineLayout));
     VkShaderModule vertShader;
@@ -1229,11 +1231,15 @@ void Engine::initDeferredResolvePipeline()
     // todo: Descriptor set layout needs [set 1 - camera data] [set 2 - light data] [set 3 - environment data]
     VkDescriptorSetLayout setLayouts[4];
     setLayouts[0] = deferredResolveRenderTargetLayout;
+    setLayouts[1] = sceneDataDescriptorSetLayout;
+    setLayouts[2] = sceneDataDescriptorSetLayout; // todo: lights
+    setLayouts[3] = Environment::environmentMapDescriptorSetLayout;
+
     VkPipelineLayoutCreateInfo deferredResolvePipelineLayoutCreateInfo{};
     deferredResolvePipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     deferredResolvePipelineLayoutCreateInfo.pNext = nullptr;
-    deferredResolvePipelineLayoutCreateInfo.pSetLayouts = &deferredResolveRenderTargetLayout;
-    deferredResolvePipelineLayoutCreateInfo.setLayoutCount = 1;
+    deferredResolvePipelineLayoutCreateInfo.pSetLayouts = setLayouts;
+    deferredResolvePipelineLayoutCreateInfo.setLayoutCount = 4;
     deferredResolvePipelineLayoutCreateInfo.pPushConstantRanges = &pushConstants;
     deferredResolvePipelineLayoutCreateInfo.pushConstantRangeCount = 1;
 
@@ -1278,22 +1284,17 @@ void Engine::initRenderPipeline()
 
     assert(RenderObject::addressesDescriptorSetLayout != VK_NULL_HANDLE);
     assert(RenderObject::textureDescriptorSetLayout != VK_NULL_HANDLE);
-    assert(sceneUniformDescriptorSetLayout != VK_NULL_HANDLE);
+    assert(sceneDataDescriptorSetLayout != VK_NULL_HANDLE);
     assert(Environment::layoutsCreated);
 
     descriptorLayout[0] = RenderObject::addressesDescriptorSetLayout;
     descriptorLayout[1] = RenderObject::textureDescriptorSetLayout;
-    descriptorLayout[2] = sceneUniformDescriptorSetLayout; // currently not used.
+    descriptorLayout[2] = sceneDataDescriptorSetLayout;
     descriptorLayout[3] = Environment::environmentMapDescriptorSetLayout;
     layoutInfo.pSetLayouts = descriptorLayout;
     layoutInfo.setLayoutCount = 4;
-
-    VkPushConstantRange pushConstants{};
-    pushConstants.offset = 0;
-    pushConstants.size = sizeof(SceneData);
-    pushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-    layoutInfo.pPushConstantRanges = &pushConstants;
-    layoutInfo.pushConstantRangeCount = 1;
+    layoutInfo.pPushConstantRanges = nullptr;
+    layoutInfo.pushConstantRangeCount = 0;
 
     VK_CHECK(vkCreatePipelineLayout(device, &layoutInfo, nullptr, &renderPipelineLayout));
 
@@ -1367,17 +1368,13 @@ void Engine::initEnvironmentPipeline()
 {
     assert(Environment::layoutsCreated);
 
-    const VkDescriptorSetLayout layouts[1] = {Environment::cubemapDescriptorSetLayout};
+    const VkDescriptorSetLayout layouts[2] = {Environment::cubemapDescriptorSetLayout, sceneDataDescriptorSetLayout};
 
     VkPipelineLayoutCreateInfo layout_info = vk_helpers::pipelineLayoutCreateInfo();
-    layout_info.setLayoutCount = 1;
+    layout_info.setLayoutCount = 2;
     layout_info.pSetLayouts = layouts;
-    VkPushConstantRange environmentPushConstantRange{};
-    environmentPushConstantRange.offset = 0;
-    environmentPushConstantRange.size = sizeof(EnvironmentSceneData);
-    environmentPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-    layout_info.pPushConstantRanges = &environmentPushConstantRange;
-    layout_info.pushConstantRangeCount = 1;
+    layout_info.pPushConstantRanges = nullptr;
+    layout_info.pushConstantRangeCount = 0;
 
     VK_CHECK(vkCreatePipelineLayout(device, &layout_info, nullptr, &environmentPipelineLayout));
 

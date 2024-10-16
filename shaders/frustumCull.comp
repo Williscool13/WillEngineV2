@@ -49,13 +49,16 @@ layout(set = 0, binding = 0) uniform bufferData
     vec3 padding;
 } buffers;
 
-layout (push_constant) uniform PushConstants {
-    mat4 viewProj;  // (64)
-    vec4 cameraPos; // (16) - w is for alignment
-    // (16)
-    // (16)
-    // (16)
-} pushConstants;
+layout (std140, set = 1, binding = 0) uniform SceneData {
+    mat4 view;
+    mat4 proj;
+    mat4 viewProj;
+    mat4 invView;
+    mat4 invProjection;
+    mat4 invViewProjection;
+    mat4 viewProjCameraLookDirection;
+    vec4 cameraPos;
+} sceneData;
 
 int checkIsVisible(mat4 mat, vec3 origin, float radius)
 {
@@ -99,7 +102,7 @@ void main()
 
     // transform position to clip space
     position = vec3(modelMatrix * vec4(position, 1.0));
-    int visible = checkIsVisible(pushConstants.viewProj, position, radius);
+    int visible = checkIsVisible(sceneData.viewProj, position, radius);
 
     // only ever modify instanceCount to frustum Cull
     //buffers.commandBuffer.commands[invocationId].instanceCount = visible;

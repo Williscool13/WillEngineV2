@@ -40,11 +40,6 @@ struct EnvironmentMapData {
 	AllocatedImage specDiffCubemap;
 };
 
-struct EnvironmentSceneData
-{
-	glm::mat4 viewproj;
-};
-
 
 class Environment {
 public:
