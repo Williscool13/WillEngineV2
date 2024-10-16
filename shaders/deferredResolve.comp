@@ -2,6 +2,7 @@
 
 #include "pbr.glsl"
 #include "environment.glsl"
+#include "lights.glsl"
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
@@ -11,49 +12,49 @@ layout (rgba16f, set = 0, binding = 2) uniform image2D pbrRenderTarget;
 layout (r32f, set = 0, binding = 3) uniform image2D depthBuffer;
 layout (rgba16f, set = 0, binding = 4) uniform image2D outputImage;
 
-/**layout (std140, set = 1, binding = 0) uniform CameraData {
-    mat4 invProjection;
+layout (std140, set = 1, binding = 0) uniform SceneData {
+    mat4 view;
+    mat4 proj;
+    mat4 viewProj;
     mat4 invView;
-    vec3 cameraPos;
-    float pad;
-} cameraData;*/
+    mat4 invProjection;
+    mat4 invViewProjection;
+    mat4 viewProjCameraLookDirection;
+    vec4 cameraPos;
+} sceneData;
 
-
-struct DirectionalLight {
-    vec3 direction;
-    float intensity;
-    vec3 color;
-    float pad;
-};
-
-struct PointLight {
-    vec4 position;
-    vec3 color;
-    float radius;
-};
-
+layout (std140, set = 2, binding = 0) uniform SceneDatae {
+    mat4 view;
+    mat4 proj;
+    mat4 viewProj;
+    mat4 invView;
+    mat4 invProjection;
+    mat4 invViewProjection;
+    mat4 viewProjCameraLookDirection;
+    vec4 cameraPos;
+} lightDataHehe;
 /**layout (std140, set = 2, binding = 0) uniform LightData {
     DirectionalLight mainLight;
     PointLight pointLights[6];
 } lightData;*/
 
-//layout(set = 3, binding = 0) uniform samplerCube environmentDiffuseAndSpecular;
-//layout(set = 3, binding = 1) uniform sampler2D lut;
+layout(set = 3, binding = 0) uniform samplerCube environmentDiffuseAndSpecular;
+layout(set = 3, binding = 1) uniform sampler2D lut;
 
-/**vec3 reconstructPosition(ivec2 texCoord, float depth) {
+vec3 reconstructPosition(ivec2 texCoord, float depth) {
     // Get normalized device coordinates
     vec2 texSize = vec2(imageSize(depthBuffer));
     vec2 ndc = (vec2(texCoord) + 0.5) / texSize * 2.0 - 1.0;
 
     // Reconstruct view-space position
-    vec4 positionVS = cameraData.invProjection * vec4(ndc, depth, 1.0);
+    vec4 positionVS = sceneData.invProjection * vec4(ndc, depth, 1.0);
     positionVS /= positionVS.w;
 
     // Transform to world-space
-    vec4 positionWS = cameraData.invView * positionVS;
+    vec4 positionWS = sceneData.invView * positionVS;
 
     return positionWS.xyz;
-}*/
+}
 
 layout (push_constant) uniform PushConstants {
     int width;
@@ -67,7 +68,7 @@ void main() {
         return;
     }
 
-    /**float depth = imageLoad(depthBuffer, texCoord).r;
+    float depth = imageLoad(depthBuffer, texCoord).r;
     vec3 position = reconstructPosition(texCoord, depth);
     vec3 normal = imageLoad(normalRenderTarget, texCoord).rgb;
     vec4 albedo = imageLoad(albedoRenderTarget, texCoord);
@@ -79,9 +80,12 @@ void main() {
 
 
     vec3 N = imageLoad(normalRenderTarget, texCoord).xyz;
-    vec3 V = normalize(cameraData.cameraPos.xyz - position);
+    vec3 V = normalize(sceneData.cameraPos.xyz - position);
 
-    vec3 L = normalize(lightData.mainLight.direction); // for point lights, light.pos - inPosition
+
+    vec3 mainLightDirTest = normalize(vec3(0.5f, 0.5f, 0.0f));
+    vec3 L = normalize(mainLightDirTest); // for point lights, light.pos - inPosition
+    //vec3 L = normalize(lightData.mainLight.direction); // for point lights, light.pos - inPosition
     vec3 H = normalize(V + L);
 
     // SPECULAR
@@ -103,19 +107,24 @@ void main() {
     vec3 diffuse = Lambert(kD, albedo.xyz);
 
     // IBL REFLECTIONS
-    vec3 irradiance = DiffuseIrradiance(N);
+    vec3 irradiance = DiffuseIrradiance(environmentDiffuseAndSpecular, N);
     vec3 reflectionDiffuse = irradiance * albedo.xyz;
 
-    vec3 reflectionSpecular = SpecularReflection(V, N, roughness, F);
+    vec3 reflectionSpecular = SpecularReflection(environmentDiffuseAndSpecular, lut, V, N, roughness, F);
     vec3 ambient = (kD * reflectionDiffuse + reflectionSpecular);
 
-    vec3 finalColor = (diffuse + specular) * lightData.mainLight.color * nDotL;
+    vec3 finalColor = (diffuse + specular) * vec3(1.0f) * nDotL;
+    //vec3 finalColor = (diffuse + specular) * lightData.mainLight.color * nDotL;
     finalColor += ambient;
 
 
     vec3 correctedFinalColor = finalColor / (finalColor + vec3(1.0f)); // Reinhard Tonemapping
     correctedFinalColor = pow(correctedFinalColor, vec3(1.0f / 2.2f)); // gamma correction
 
-    imageStore(outputImage, texCoord, vec4(correctedFinalColor, albedo.w));*/
-    imageStore(outputImage, texCoord, vec4(1.0f, 0.0f, 0.0f, 1.0f));
+    imageStore(outputImage, texCoord, vec4(correctedFinalColor, albedo.w));
+
+    //vec4 pix = imageLoad(normalRenderTarget, texCoord);
+    //pix.w = 1.0f;
+    //imageStore(outputImage, texCoord, pix);
+    //imageStore(outputImage, texCoord, vec4(1.0f, 0.0f, 0.0f, 1.0f));
 }

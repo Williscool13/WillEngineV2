@@ -31,6 +31,17 @@ layout (set = 0, binding = 0) uniform addresses
     ModelData modelBufferDeviceAddress;
 } bufferAddresses;
 
+layout (std140, set = 2, binding = 0) uniform CameraData {
+    mat4 view;
+    mat4 proj;
+    mat4 viewProj;
+    mat4 invView;
+    mat4 invProjection;
+    mat4 invViewProjection;
+    mat4 viewProjCameraLookDirection;
+    vec4 cameraPos;
+} sceneData;
+
 layout (location = 0) in vec3 position;
 layout (location = 1) in vec3 normal;
 layout (location = 2) in vec4 color;
@@ -43,14 +54,6 @@ layout (location = 2) out vec4 outColor;
 layout (location = 3) out vec2 outUV;
 layout (location = 4) out flat uint outMaterialIndex;
 
-layout (push_constant) uniform PushConstants {
-    mat4 viewProj;  // (64)
-    vec4 cameraPos; // (16) - w is for alignment
-    // (16)
-    // (16)
-    // (16)
-} pushConstants;
-
 void main() {
     mat4 model = bufferAddresses.modelBufferDeviceAddress.models[gl_InstanceIndex].modelMatrix;
     vec4 mPos = model * vec4(position, 1.0); // why is this red underlined in CLion?!?!?!?!
@@ -62,5 +65,5 @@ void main() {
     outUV = uv;
     outMaterialIndex = materialIndex;
 
-    gl_Position = pushConstants.viewProj * mPos;
+    gl_Position = sceneData.viewProj * mPos;
 }

@@ -56,7 +56,13 @@ struct AllocatedCubemap {
 
 struct SceneData
 {
+    glm::mat4 view{1.0f};
+    glm::mat4 proj{1.0f};
     glm::mat4 viewProj{1.0f};
+    glm::mat4 invView{1.0f};
+    glm::mat4 invProj{1.0f};
+    glm::mat4 invViewProj{1.0f};
+    glm::mat4 viewProjCameraLookDirection{1.0f};
     glm::vec4 cameraWorldPos{0.0f};
 };
 
