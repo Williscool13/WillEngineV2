@@ -141,6 +141,21 @@ void Engine::run()
             }
             ImGui::End();
 
+            if (ImGui::Begin("SpectateCamera")) {
+                // Modify spectateCameraPosition
+                if (ImGui::TreeNode("Camera Position")) {
+                    ImGui::DragFloat3("Position", &spectateCameraPosition.x, 0.1f);
+                    ImGui::TreePop();
+                }
+
+                // Modify spectateCameraLookAt
+                if (ImGui::TreeNode("Camera Look At")) {
+                    ImGui::DragFloat3("Look At", &spectateCameraLookAt.x, 0.1f);
+                    ImGui::TreePop();
+                }
+            }
+            ImGui::End();
+
             if (ImGui::Begin("Input Details")) {
                 ImGui::Text("Mouse Buttons:");
                 ImGui::Columns(4, "MouseButtonsColumns", true);
@@ -346,6 +361,19 @@ void Engine::draw()
         pSceneData->viewProjCameraLookDirection = proj * cameraLook;
     }
 
+    {
+        const auto pSpectateSceneData = static_cast<SceneData*>(spectateSceneDataBuffer.info.pMappedData);
+        auto newView = glm::lookAt(spectateCameraPosition, spectateCameraLookAt, glm::vec3(0.f,1.0f,0.f));
+        pSpectateSceneData->view = newView;
+        pSpectateSceneData->proj = camera.getProjMatrix();
+        pSpectateSceneData->viewProj = pSpectateSceneData->proj * pSpectateSceneData->view;
+        pSpectateSceneData->invView = glm::inverse(pSpectateSceneData->view);
+        pSpectateSceneData->invProj = glm::inverse(pSpectateSceneData->proj);
+        pSpectateSceneData->invViewProj = glm::inverse(pSpectateSceneData->viewProj);
+        pSpectateSceneData->cameraWorldPos = glm::vec4(spectateCameraPosition, 0.f);
+        pSpectateSceneData->viewProjCameraLookDirection = newView;
+    }
+
     // Start Command Buffer Recording
     VkCommandBuffer cmd = getCurrentFrame()._mainCommandBuffer;
     VK_CHECK(vkResetCommandBuffer(cmd, 0));
@@ -362,8 +390,7 @@ void Engine::draw()
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    //drawEnvironment(cmd);
-
+    drawEnvironment(cmd);
     drawDeferredMrt(cmd);
 
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -371,26 +398,19 @@ void Engine::draw()
     vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_DEPTH_BIT);
-    auto clear = [cmd](VkImage image) {
-        constexpr VkClearColorValue clearValue{0.0f};
-        const VkImageSubresourceRange clearRange = vk_helpers::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT);
-        vkCmdClearColorImage(cmd, image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
-    };
-
-    //clear(drawImage.image);
     drawDeferredResolve(cmd);
 
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
 
-    /*VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     VkClearValue depthClearValue = {0.0f, 0.0f};
     VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue,
                                                                            VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
     VkRenderingInfo renderInfo = vk_helpers::renderingInfo(drawExtent, &colorAttachment, &depthAttachment);
     vkCmdBeginRendering(cmd, &renderInfo);
     drawRender(cmd);
-    vkCmdEndRendering(cmd);*/
+    vkCmdEndRendering(cmd);
 
 
     // copy Draw Image into Swapchain Image
@@ -681,8 +701,8 @@ void Engine::drawRender(VkCommandBuffer cmd) const
         VkViewport viewport = {};
         viewport.x = 0;
         viewport.y = 0;
-        viewport.width = drawExtent.width;
-        viewport.height = drawExtent.height;
+        viewport.width = drawExtent.width/3.0f;
+        viewport.height = drawExtent.height/3.0f;
         viewport.minDepth = 0.f;
         viewport.maxDepth = 1.f;
         vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -690,8 +710,8 @@ void Engine::drawRender(VkCommandBuffer cmd) const
         VkRect2D scissor = {};
         scissor.offset.x = 0;
         scissor.offset.y = 0;
-        scissor.extent.width = drawExtent.width;
-        scissor.extent.height = drawExtent.height;
+        scissor.extent.width = drawExtent.width/3.0f;
+        scissor.extent.height = drawExtent.height/3.0f;
         vkCmdSetScissor(cmd, 0, 1, &scissor);
     }
 
@@ -702,7 +722,7 @@ void Engine::drawRender(VkCommandBuffer cmd) const
     VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[4];
     descriptorBufferBindingInfo[0] = testRenderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
     descriptorBufferBindingInfo[1] = testRenderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
-    descriptorBufferBindingInfo[2] = sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
+    descriptorBufferBindingInfo[2] = spectateSceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
     descriptorBufferBindingInfo[3] = environment->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo();
     vkCmdBindDescriptorBuffersEXT(cmd, 4, descriptorBufferBindingInfo);
 
@@ -1049,6 +1069,16 @@ void Engine::initDescriptors()
         vkDestroyDescriptorSetLayout(device, sceneDataDescriptorSetLayout, nullptr);
         destroyBuffer(sceneDataBuffer);
         sceneDataDescriptorBuffer.destroy(device, allocator);
+    });
+
+
+    spectateSceneDataBuffer = createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    spectateSceneDataDescriptorBuffer = DescriptorBufferUniform(instance, device, physicalDevice, allocator, sceneDataDescriptorSetLayout, 1);
+    sceneDataBuffers[0] = DescriptorUniformData{.uniformBuffer = spectateSceneDataBuffer, .allocSize = sizeof(SceneData)};
+    spectateSceneDataDescriptorBuffer.setupData(device, sceneDataBuffers);
+    mainDeletionQueue.pushFunction([&]() {
+        destroyBuffer(spectateSceneDataBuffer);
+        spectateSceneDataDescriptorBuffer.destroy(device, allocator);
     });
 }
 

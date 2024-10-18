@@ -60,6 +60,15 @@ layout (std140, set = 1, binding = 0) uniform SceneData {
     vec4 cameraPos;
 } sceneData;
 
+vec3 getScale(mat4 m) {
+    return vec3(
+    length(m[0].xyz),
+    length(m[1].xyz),
+    length(m[2].xyz)
+    );
+}
+
+
 int checkIsVisible(mat4 mat, vec3 origin, float radius)
 {
     uint plane_index = 0;
@@ -95,18 +104,21 @@ void main()
     uint modelMatrixId = buffers.commandBuffer.commands[invocationId].firstInstance;
     mat4 modelMatrix = buffers.modelMatrixBuffer.modelMatrices[modelMatrixId];
 
-    int meshIndex = buffers.meshIndices.indices[invocationId];
-
-    MeshBounds bounds = buffers.boundsBuffer.meshBounds[meshIndex];
+    int meshBoundIndex = buffers.meshIndices.indices[invocationId];
+    MeshBounds bounds = buffers.boundsBuffer.meshBounds[meshBoundIndex];
 
     vec3 position = bounds.position;
     float radius = bounds.radius;
+    vec3 scale = getScale(modelMatrix);
+    float maxScale = max(max(scale.x, scale.y), scale.z);
 
     // transform position to clip space
     position = vec3(modelMatrix * vec4(position, 1.0));
-    int visible = checkIsVisible(sceneData.viewProj, position, radius);
+    // scale radius w/ model scale
+    float worldRadius = radius * maxScale;
+
+    int visible = checkIsVisible(sceneData.viewProj, position, worldRadius);
 
     // only ever modify instanceCount to frustum Cull
-    //buffers.commandBuffer.commands[invocationId].instanceCount = visible;
-    buffers.commandBuffer.commands[invocationId].instanceCount = 0;
+    buffers.commandBuffer.commands[invocationId].instanceCount = uint(visible);
 }
