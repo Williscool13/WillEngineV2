@@ -57,18 +57,18 @@ private:
     std::vector<RenderNode> renderNodes;
     std::vector<int32_t> topNodes;
 
-    std::vector<VkDrawIndexedIndirectCommand> drawIndirectCommands;
-    /**
-     * The mesh indices corresponding to each indirect draw command.
-     * Should always be equal to the length of \code drawIndirectCommands\endcode
-     */
-    std::vector<uint32_t> meshIndices;
+    std::vector<DrawIndirectData> drawIndirectData;
     uint32_t instanceBufferSize{0};
 
     /**
      * The number of mesh instances in the whole model
      */
     uint32_t instanceCount{0};
+
+    /**
+     * The number of mesh instances that have been instantiated
+     */
+    uint32_t activeInstanceCount{0};
 
 public:
     GameObject* generateGameObject();
@@ -82,10 +82,9 @@ public:
     [[nodiscard]] const AllocatedBuffer& getVertexBuffer() const { return vertexBuffer; }
     [[nodiscard]] const AllocatedBuffer& getIndexBuffer() const { return indexBuffer; }
     [[nodiscard]] const AllocatedBuffer& getIndirectBuffer() const { return drawIndirectBuffer; }
-    [[nodiscard]] size_t getDrawIndirectCommandCount() const { return drawIndirectCommands.size(); }
+    [[nodiscard]] size_t getDrawIndirectCommandCount() const { return drawIndirectData.size(); }
 
     const DescriptorBufferUniform& getComputeAddressesDescriptorBuffer() { return frustumCullingDescriptorBuffer; }
-    [[nodiscard]] uint32_t getInstanceBufferSize() const { return instanceBufferSize; }
 
 private: // Drawing
     AllocatedBuffer vertexBuffer{};

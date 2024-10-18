@@ -81,7 +81,7 @@ public:
 
     void drawEnvironment(VkCommandBuffer cmd) const;
 
-    void cullRender(VkCommandBuffer cmd) const;
+    void frustumCull(VkCommandBuffer cmd) const;
 
     void drawDeferredMrt(VkCommandBuffer cmd) const;
 

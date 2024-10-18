@@ -352,7 +352,7 @@ void Engine::draw()
     const VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
-    cullRender(cmd);
+    frustumCull(cmd);
 
     drawExtent.height = std::min(swapchainExtent.height, drawImage.imageExtent.height); // * _renderScale;
     drawExtent.width = std::min(swapchainExtent.width, drawImage.imageExtent.width); // * _renderScale;
@@ -362,7 +362,8 @@ void Engine::draw()
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    drawEnvironment(cmd);
+    //drawEnvironment(cmd);
+
     drawDeferredMrt(cmd);
 
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -370,6 +371,13 @@ void Engine::draw()
     vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+    auto clear = [cmd](VkImage image) {
+        constexpr VkClearColorValue clearValue{0.0f};
+        const VkImageSubresourceRange clearRange = vk_helpers::imageSubresourceRange(VK_IMAGE_ASPECT_COLOR_BIT);
+        vkCmdClearColorImage(cmd, image, VK_IMAGE_LAYOUT_GENERAL, &clearValue, 1, &clearRange);
+    };
+
+    //clear(drawImage.image);
     drawDeferredResolve(cmd);
 
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -494,7 +502,7 @@ void Engine::drawEnvironment(VkCommandBuffer cmd) const
 #endif
 }
 
-void Engine::cullRender(VkCommandBuffer cmd) const
+void Engine::frustumCull(VkCommandBuffer cmd) const
 {
 #ifndef NDEBUG
     VkDebugUtilsLabelEXT label = {};
@@ -517,7 +525,7 @@ void Engine::cullRender(VkCommandBuffer cmd) const
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipelineLayout, 0, 1, &addressesIndex, &offset);
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipelineLayout, 1, 1, &sceneDataIndex, &offset);
 
-    vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(testRenderObject->getInstanceBufferSize()) / 64.0f)), 1, 1);
+    vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(testRenderObject->getDrawIndirectCommandCount()) / 64.0f)), 1, 1);
 #ifndef NDEBUG
     vkCmdEndDebugUtilsLabelEXT(cmd);
 #endif
@@ -531,11 +539,12 @@ void Engine::drawDeferredMrt(VkCommandBuffer cmd) const
     label.pLabelName = "Deferred MRT Pass";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 #endif
-    VkRenderingAttachmentInfo normalAttachment = vk_helpers::attachmentInfo(normalRenderTarget.imageView, nullptr,
+    VkClearValue colorClear = {0.0f, 0.0f};
+    VkRenderingAttachmentInfo normalAttachment = vk_helpers::attachmentInfo(normalRenderTarget.imageView, &colorClear,
                                                                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo albedoAttachment = vk_helpers::attachmentInfo(albedoRenderTarget.imageView, nullptr,
+    VkRenderingAttachmentInfo albedoAttachment = vk_helpers::attachmentInfo(albedoRenderTarget.imageView, &colorClear,
                                                                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo pbrAttachment = vk_helpers::attachmentInfo(pbrRenderTarget.imageView, nullptr,
+    VkRenderingAttachmentInfo pbrAttachment = vk_helpers::attachmentInfo(pbrRenderTarget.imageView, &colorClear,
                                                                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     VkClearValue depthClearValue = {0.0f, 0.0f};
@@ -605,7 +614,7 @@ void Engine::drawDeferredMrt(VkCommandBuffer cmd) const
     constexpr VkDeviceSize offsets{0};
     vkCmdBindVertexBuffers(cmd, 0, 1, &testRenderObject->getVertexBuffer().buffer, &offsets);
     vkCmdBindIndexBuffer(cmd, testRenderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexedIndirect(cmd, testRenderObject->getIndirectBuffer().buffer, 0, testRenderObject->getInstanceBufferSize(),
+    vkCmdDrawIndexedIndirect(cmd, testRenderObject->getIndirectBuffer().buffer, 0, testRenderObject->getDrawIndirectCommandCount(),
                              sizeof(VkDrawIndexedIndirectCommand));
 #ifndef NDEBUG
     vkCmdEndDebugUtilsLabelEXT(cmd);
@@ -710,7 +719,7 @@ void Engine::drawRender(VkCommandBuffer cmd) const
     VkDeviceSize offsets{0};
     vkCmdBindVertexBuffers(cmd, 0, 1, &testRenderObject->getVertexBuffer().buffer, &offsets);
     vkCmdBindIndexBuffer(cmd, testRenderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexedIndirect(cmd, testRenderObject->getIndirectBuffer().buffer, 0, testRenderObject->getInstanceBufferSize(),
+    vkCmdDrawIndexedIndirect(cmd, testRenderObject->getIndirectBuffer().buffer, 0, testRenderObject->getDrawIndirectCommandCount(),
                              sizeof(VkDrawIndexedIndirectCommand));
 
 #ifndef NDEBUG
@@ -1419,20 +1428,20 @@ void Engine::initScene()
     //testRenderObject = new RenderObject{this, "assets/models/Suzanne/glTF/Suzanne.gltf"};
     testRenderObject = new RenderObject{this, "assets/models/sponza2/Sponza.gltf"};
     testGameObject1 = testRenderObject->generateGameObject();
-    testGameObject2 = testRenderObject->generateGameObject();
+    /*testGameObject2 = testRenderObject->generateGameObject();
     testGameObject3 = testRenderObject->generateGameObject();
     testGameObject4 = testRenderObject->generateGameObject();
-    testGameObject5 = testRenderObject->generateGameObject();
+    testGameObject5 = testRenderObject->generateGameObject();*/
     scene.addGameObject(testGameObject1);
-    scene.addGameObject(testGameObject2);
+    /*scene.addGameObject(testGameObject2);
     scene.addGameObject(testGameObject3);
     scene.addGameObject(testGameObject4);
-    scene.addGameObject(testGameObject5);
+    scene.addGameObject(testGameObject5);*/
 
     testGameObject1->transform.setScale(0.05f);
     testGameObject1->refreshTransforms();
 
-    testGameObject2->transform.setScale(0.05f);
+    /*testGameObject2->transform.setScale(0.05f);
     testGameObject2->transform.translate(glm::vec3(2.0f, 0.0f, 0.0f));
     testGameObject2->refreshTransforms();
 
@@ -1446,7 +1455,7 @@ void Engine::initScene()
 
     testGameObject5->transform.setScale(0.05f);
     testGameObject5->transform.translate(glm::vec3(0.0f, 2.0f, 0.0f));
-    testGameObject5->refreshTransforms();
+    testGameObject5->refreshTransforms();*/
 }
 
 void Engine::immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const
@@ -1512,7 +1521,7 @@ VkDeviceAddress Engine::getBufferAddress(const AllocatedBuffer& buffer) const
 {
     VkBufferDeviceAddressInfo addressInfo{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR};
     addressInfo.buffer = buffer.buffer;
-    VkDeviceAddress srcPtr = vkGetBufferDeviceAddress(device, &addressInfo);
+    const VkDeviceAddress srcPtr = vkGetBufferDeviceAddress(device, &addressInfo);
     return srcPtr;
 }
 
@@ -1556,10 +1565,9 @@ AllocatedImage Engine::createImage(const VkExtent3D size, const VkFormat format,
     return newImage;
 }
 
-AllocatedImage Engine::createImage(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,
-                                   bool mipmapped /*= false*/) const
+AllocatedImage Engine::createImage(const void* data, const size_t dataSize, const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped /*= false*/) const
 {
-    size_t data_size = dataSize;
+    const size_t data_size = dataSize;
     AllocatedBuffer uploadbuffer = createBuffer(data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
     memcpy(uploadbuffer.info.pMappedData, data, data_size);
@@ -1626,7 +1634,7 @@ void Engine::destroyImage(const AllocatedImage& img) const
     vmaDestroyImage(allocator, img.image, img.allocation);
 }
 
-void Engine::createSwapchain(uint32_t width, uint32_t height)
+void Engine::createSwapchain(const uint32_t width, const uint32_t height)
 {
     vkb::SwapchainBuilder swapchainBuilder{physicalDevice, device, surface};
 
@@ -1685,6 +1693,7 @@ void Engine::createRenderTargets(uint32_t width, uint32_t height)
         usageFlags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         usageFlags |= VK_IMAGE_USAGE_STORAGE_BIT;
         usageFlags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        usageFlags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         VmaAllocationCreateInfo renderImageAllocationInfo = {};
         renderImageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         renderImageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
