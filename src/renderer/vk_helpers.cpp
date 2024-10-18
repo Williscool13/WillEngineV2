@@ -870,7 +870,7 @@ void vk_helpers::saveImageR32F(const Engine* engine, const AllocatedImage& image
 
         vkCmdCopyImageToBuffer(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer.buffer, 1, &bufferCopyRegion);
 
-        vk_helpers::transitionImage(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::transitionImage(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout, aspectFlag);
     });
 
     void* data = receivingBuffer.info.pMappedData;

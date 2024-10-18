@@ -198,8 +198,8 @@ private: // Scene Descriptors
 
     DescriptorBufferUniform spectateSceneDataDescriptorBuffer;
     AllocatedBuffer spectateSceneDataBuffer;
-    glm::vec3 spectateCameraPosition{-0.4f, 0.4f, 0.f};
-    glm::vec3 spectateCameraLookAt{0.5f, -0.3f, 0.f};
+    glm::vec3 spectateCameraPosition{-9.0f, 1.0f, 0.f};
+    glm::vec3 spectateCameraLookAt{0.5f, 1.8f, 0.f};
 
 private: // Pipelines
     // Frustum Culling

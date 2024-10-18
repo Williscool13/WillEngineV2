@@ -313,7 +313,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
     for (fastgltf::Mesh& mesh : gltf.meshes) {
         meshes.emplace_back();
         Mesh& currentMesh = meshes.back();
-
+        boundingSpheres.reserve(boundingSpheres.size() + mesh.primitives.size());
         for (fastgltf::Primitive& p : mesh.primitives) {
             currentMesh.primitives.emplace_back();
             Primitive& currentPrimitive = currentMesh.primitives.back();
