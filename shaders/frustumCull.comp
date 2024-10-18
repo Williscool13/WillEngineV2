@@ -92,7 +92,9 @@ void main()
     uint invocationId = gl_GlobalInvocationID.x;
     if (invocationId >= buffers.commandBufferCount) { return; }
 
-    mat4 modelMatrix = buffers.modelMatrixBuffer.modelMatrices[invocationId];
+    uint modelMatrixId = buffers.commandBuffer.commands[invocationId].firstInstance;
+    mat4 modelMatrix = buffers.modelMatrixBuffer.modelMatrices[modelMatrixId];
+
     int meshIndex = buffers.meshIndices.indices[invocationId];
 
     MeshBounds bounds = buffers.boundsBuffer.meshBounds[meshIndex];
@@ -106,5 +108,5 @@ void main()
 
     // only ever modify instanceCount to frustum Cull
     //buffers.commandBuffer.commands[invocationId].instanceCount = visible;
-    //buffers.commandBuffer.commands[invocationId].instanceCount = 1;
+    buffers.commandBuffer.commands[invocationId].instanceCount = 0;
 }

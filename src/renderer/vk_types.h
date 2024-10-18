@@ -88,12 +88,18 @@ struct Vertex
     glm::uint32_t materialIndex{0};
 };
 
-struct Mesh
+struct Primitive
 {
     uint32_t firstIndex{0}; // ID of the instance (used to get model matrix)
     uint32_t indexCount{0};
     int32_t vertexOffset{0};
     bool hasTransparents{false};
+    uint32_t boundingSphereIndex{0};
+};
+
+struct Mesh
+{
+    std::vector<Primitive> primitives;
 };
 
 struct Material
@@ -108,6 +114,12 @@ struct Material
 struct InstanceData
 {
     glm::mat4 modelMatrix;
+};
+
+struct DrawIndirectData
+{
+    VkDrawIndexedIndirectCommand indirectCommand{};
+    uint32_t boundingSphereIndex{0};
 };
 
 /**

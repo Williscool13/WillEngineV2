@@ -311,25 +311,30 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
     for (fastgltf::Mesh& mesh : gltf.meshes) {
-        std::vector<Vertex> meshVertices;
-        std::vector<uint32_t> meshIndices;
-        bool hasTransparentPrimitives = false;
+        meshes.emplace_back();
+        Mesh& currentMesh = meshes.back();
+
         for (fastgltf::Primitive& p : mesh.primitives) {
-            size_t initialVtx = meshVertices.size();
+            currentMesh.primitives.emplace_back();
+            Primitive& currentPrimitive = currentMesh.primitives.back();
+
+            std::vector<Vertex> primitiveVertices{};
+            std::vector<uint32_t> primitiveIndices{};
+
             glm::uint32_t primitiveMaterialIndex{0};
 
             if (p.materialIndex.has_value()) {
                 primitiveMaterialIndex = p.materialIndex.value() + materialOffset;
-                hasTransparentPrimitives |= (static_cast<MaterialType>(materials[primitiveMaterialIndex].alphaCutoff.y) == MaterialType::TRANSPARENT);
+                currentPrimitive.hasTransparents = (static_cast<MaterialType>(materials[primitiveMaterialIndex].alphaCutoff.y) == MaterialType::TRANSPARENT);
             }
 
             // load indexes
             {
                 const fastgltf::Accessor& indexaccessor = gltf.accessors[p.indicesAccessor.value()];
-                meshIndices.reserve(meshIndices.size() + indexaccessor.count);
+                primitiveIndices.reserve(indexaccessor.count);
 
                 fastgltf::iterateAccessor<std::uint32_t>(gltf, indexaccessor, [&](std::uint32_t idx) {
-                    meshIndices.push_back(idx + static_cast<uint32_t>(initialVtx));
+                    primitiveIndices.push_back(idx);
                 });
             }
 
@@ -338,13 +343,13 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
                 // position is a REQUIRED property in gltf. No need to check if it exists
                 const fastgltf::Attribute* positionIt = p.findAttribute("POSITION");
                 const fastgltf::Accessor& posAccessor = gltf.accessors[positionIt->accessorIndex];
-                meshVertices.resize(meshVertices.size() + posAccessor.count);
+                primitiveVertices.resize(posAccessor.count);
 
                 fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, posAccessor, [&](fastgltf::math::fvec3 v, size_t index) {
                     Vertex newvtx{};
                     newvtx.position = {v.x(), v.y(), v.z()};
                     newvtx.materialIndex = primitiveMaterialIndex;
-                    meshVertices[initialVtx + index] = newvtx;
+                    primitiveVertices[index] = newvtx;
                 });
             }
 
@@ -353,7 +358,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
             if (normals != p.attributes.end()) {
                 fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, gltf.accessors[normals->accessorIndex],
                                                                           [&](fastgltf::math::fvec3 n, size_t index) {
-                                                                              meshVertices[initialVtx + index].normal = {n.x(), n.y(), n.z()};
+                                                                              primitiveVertices[index].normal = {n.x(), n.y(), n.z()};
                                                                           });
             }
 
@@ -362,7 +367,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
             if (uvs != p.attributes.end()) {
                 fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(gltf, gltf.accessors[uvs->accessorIndex],
                                                                           [&](fastgltf::math::fvec2 uv, size_t index) {
-                                                                              meshVertices[initialVtx + index].uv = {uv.x(), uv.y()};
+                                                                              primitiveVertices[index].uv = {uv.x(), uv.y()};
                                                                           });
             }
 
@@ -371,24 +376,22 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
             if (colors != p.attributes.end()) {
                 fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec4>(gltf, gltf.accessors[colors->accessorIndex],
                                                                           [&](fastgltf::math::fvec4 color, size_t index) {
-                                                                              meshVertices[initialVtx + index].color = {
+                                                                              primitiveVertices[index].color = {
                                                                                   color.x(), color.y(), color.z(), color.w()
                                                                               };
                                                                           });
             }
+
+            boundingSpheres.emplace_back(primitiveVertices);
+
+            currentPrimitive.firstIndex = static_cast<uint32_t>(indices.size());
+            currentPrimitive.vertexOffset = static_cast<int32_t>(vertices.size());
+            currentPrimitive.indexCount = static_cast<uint32_t>(primitiveIndices.size());
+            currentPrimitive.boundingSphereIndex = static_cast<uint32_t>(boundingSpheres.size() - 1);
+
+            vertices.insert(vertices.end(), primitiveVertices.begin(), primitiveVertices.end());
+            indices.insert(indices.end(), primitiveIndices.begin(), primitiveIndices.end());
         }
-
-        meshes.push_back(
-            {
-                .firstIndex = static_cast<uint32_t>(indices.size()),
-                .indexCount = static_cast<uint32_t>(meshIndices.size()),
-                .vertexOffset = static_cast<int32_t>(vertices.size()),
-                .hasTransparents = hasTransparentPrimitives
-            });
-        vertices.insert(vertices.end(), meshVertices.begin(), meshVertices.end());
-        indices.insert(indices.end(), meshIndices.begin(), meshIndices.end());
-
-        boundingSpheres.emplace_back(meshVertices);
     }
     // Upload the vertices and indices into their buffers
     {
@@ -509,20 +512,26 @@ void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, Gam
     const auto gameObject = new GameObject();
 
     if (renderNode.meshIndex != -1) {
-        size_t instanceIndex = drawIndirectCommands.size();
+        // InstanceIndex is used to know which model matrix to use form the model matrix array
+        // All primitives in a mesh use the same model matrix
+        const size_t instanceIndex = activeInstanceCount;
 
-        VkDrawIndexedIndirectCommand drawCommand;
-        drawCommand.firstIndex = meshes[renderNode.meshIndex].firstIndex;
-        drawCommand.indexCount = meshes[renderNode.meshIndex].indexCount;
-        drawCommand.vertexOffset = meshes[renderNode.meshIndex].vertexOffset;
+        const std::vector<Primitive>& meshPrimitives = meshes[renderNode.meshIndex].primitives;
+        drawIndirectData.reserve(drawIndirectData.size() + meshPrimitives.size());
 
-        drawCommand.instanceCount = 1;
-        drawCommand.firstInstance = instanceIndex;
+        for (const Primitive primitive : meshPrimitives) {
+            drawIndirectData.emplace_back();
+            DrawIndirectData& indirectData = drawIndirectData.back();
+            indirectData.indirectCommand.firstIndex = primitive.firstIndex;
+            indirectData.indirectCommand.indexCount = primitive.indexCount;
+            indirectData.indirectCommand.vertexOffset = primitive.vertexOffset;
+            indirectData.indirectCommand.instanceCount = 1;
+            indirectData.indirectCommand.firstInstance = instanceIndex;
+            indirectData.boundingSphereIndex = primitive.boundingSphereIndex;
+        }
 
         gameObject->setRenderObjectReference(this, static_cast<int32_t>(instanceIndex));
-        drawIndirectCommands.push_back(drawCommand);
-        meshIndices.push_back(renderNode.meshIndex);
-        assert(drawIndirectCommands.size() == meshIndices.size());
+        activeInstanceCount++;
     }
 
     gameObject->transform.setTransform(renderNode.transform);
@@ -562,18 +571,24 @@ void RenderObject::uploadIndirectBuffer()
         creator->destroyBuffer(drawIndirectBuffer);
     }
 
-    if (drawIndirectCommands.empty()) {
+    if (drawIndirectData.empty()) {
         return;
     }
 
-    AllocatedBuffer indirectStaging = creator->createStagingBuffer(drawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-    memcpy(indirectStaging.info.pMappedData, drawIndirectCommands.data(), drawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-    drawIndirectBuffer = creator->createBuffer(drawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand)
+    std::vector<VkDrawIndexedIndirectCommand> drawCommands;
+    drawCommands.reserve(drawIndirectData.size());
+    for (DrawIndirectData drawData : drawIndirectData) {
+        drawCommands.push_back(drawData.indirectCommand);
+    }
+
+    AllocatedBuffer indirectStaging = creator->createStagingBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+    memcpy(indirectStaging.info.pMappedData, drawCommands.data(), drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+    drawIndirectBuffer = creator->createBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand)
                                                , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
                                                  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
                                                , VMA_MEMORY_USAGE_GPU_ONLY);
 
-    creator->copyBuffer(indirectStaging, drawIndirectBuffer, drawIndirectCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+    creator->copyBuffer(indirectStaging, drawIndirectBuffer, drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
     creator->destroyBuffer(indirectStaging);
 }
 
@@ -583,28 +598,34 @@ void RenderObject::updateComputeCullingBuffer()
         return;
     }
 
-    // both should be equal in all cases
-    if (drawIndirectCommands.empty() || meshIndices.empty()) {
+    if (drawIndirectData.empty()) {
         return;
     }
 
+    // destroy because it might have a new size
     if (meshIndicesBuffer.buffer != VK_NULL_HANDLE) {
         creator->destroyBuffer(meshIndicesBuffer);
     }
 
-    AllocatedBuffer meshIndicesStaging = creator->createStagingBuffer(meshIndices.size() * sizeof(uint32_t));
-    memcpy(meshIndicesStaging.info.pMappedData, meshIndices.data(), meshIndices.size() * sizeof(uint32_t));
-    meshIndicesBuffer = creator->createBuffer(meshIndices.size() * sizeof(uint32_t)
+    std::vector<uint32_t> primitiveSphereBounds;
+    primitiveSphereBounds.reserve(drawIndirectData.size());
+    for (const DrawIndirectData& drawData : drawIndirectData) {
+        primitiveSphereBounds.push_back(drawData.boundingSphereIndex);
+    }
+
+    AllocatedBuffer meshIndicesStaging = creator->createStagingBuffer(primitiveSphereBounds.size() * sizeof(uint32_t));
+    memcpy(meshIndicesStaging.info.pMappedData, primitiveSphereBounds.data(), primitiveSphereBounds.size() * sizeof(uint32_t));
+    meshIndicesBuffer = creator->createBuffer(primitiveSphereBounds.size() * sizeof(uint32_t)
                                               , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
                                               , VMA_MEMORY_USAGE_GPU_ONLY);
 
-    creator->copyBuffer(meshIndicesStaging, meshIndicesBuffer, meshIndices.size() * sizeof(uint32_t));
+    creator->copyBuffer(meshIndicesStaging, meshIndicesBuffer, primitiveSphereBounds.size() * sizeof(uint32_t));
     creator->destroyBuffer(meshIndicesStaging);
 
 
     FrustumCullingBuffers cullingBuffers{};
     cullingBuffers.commandBuffer = creator->getBufferAddress(drawIndirectBuffer);
-    cullingBuffers.commandBufferCount = drawIndirectCommands.size();
+    cullingBuffers.commandBufferCount = drawIndirectData.size();
     cullingBuffers.modelMatrixBuffer = creator->getBufferAddress(instanceBuffer);
     cullingBuffers.meshBoundsBuffer = creator->getBufferAddress(meshBoundsBuffer);
 
