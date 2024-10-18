@@ -14,7 +14,7 @@
 class Input
 {
 public:
-    static Input &Get()
+    static Input& Get()
     {
         static Input instance{};
         return instance;
@@ -60,8 +60,9 @@ public:
 
     float getMouseX() const { return mouseX; }
     float getMouseY() const { return mouseY; }
-    float getMouseDeltaX() const { return mouseDeltaX; }
-    float getMouseDeltaY() const { return mouseDeltaY; }
+    float getMouseXDelta() const { return mouseXDelta; }
+    float getMouseYDelta() const { return mouseYDelta; }
+    float getMouseWheelDelta() const { return mouseWheelDelta; }
 
     bool isInFocus() const { return inFocus; }
 
@@ -71,8 +72,10 @@ private:
 
     float mouseX{0.0f};
     float mouseY{0.0f};
-    float mouseDeltaX{0.0f};
-    float mouseDeltaY{0.0f};
+    float mouseXDelta{0.0f};
+    float mouseYDelta{0.0f};
+    float mouseWheelDelta{0.0f};
+
     bool windowInputFocus{false};
     bool inFocus{false};
 

@@ -20,12 +20,19 @@ void FreeCamera::update()
     }
 
     glm::vec3 velocity{0.f};
+    float verticalMove{0.f};
 
     if (input.isKeyDown(SDLK_d)) {
         velocity.x += 1.0f;
     }
     if (input.isKeyDown(SDLK_a)) {
         velocity.x -= 1.0f;
+    }
+    if (input.isKeyDown(SDLK_q)) {
+        verticalMove -= 1.0f;
+    }
+    if (input.isKeyDown(SDLK_e)) {
+        verticalMove += 1.0f;
     }
 
     // I guess vulkan is negative Z forward?!
@@ -37,11 +44,13 @@ void FreeCamera::update()
     }
 
     const float deltaTime = TimeUtils::Get().getDeltaTime();
-    velocity *= deltaTime;
+    speed += input.getMouseWheelDelta() * deltaTime;
 
+    velocity *= deltaTime * speed;
+    verticalMove *= deltaTime * speed;
 
-    const float yaw = glm::radians(-input.getMouseDeltaX() * deltaTime * 10.0f);
-    const float pitch = glm::radians(-input.getMouseDeltaY() * deltaTime * 10.0f);
+    const float yaw = glm::radians(-input.getMouseXDelta() * deltaTime * 10.0f);
+    const float pitch = glm::radians(-input.getMouseYDelta() * deltaTime * 10.0f);
 
     const glm::quat currentRotation = transform.getRotation();
     const glm::vec3 forward = currentRotation * glm::vec3(0.0f, 0.0f, -1.0f);
@@ -60,6 +69,7 @@ void FreeCamera::update()
 
     const glm::mat4 rotationMatrix = getRotationMatrixWS();
     transform.translate(glm::vec3(rotationMatrix * glm::vec4(velocity, 0.f)));
+    transform.translate(glm::vec3(0.f, verticalMove, 0.f));
 
     updateViewMatrix();
 }

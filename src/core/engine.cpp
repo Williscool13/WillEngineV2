@@ -203,7 +203,7 @@ void Engine::run()
                 ImGui::Separator();
 
                 ImGui::Text("Mouse Position: (%.1f, %.1f)", input.getMouseX(), input.getMouseY());
-                ImGui::Text("Mouse Delta: (%.1f, %.1f)", input.getMouseDeltaX(), input.getMouseDeltaY());
+                ImGui::Text("Mouse Delta: (%.1f, %.1f)", input.getMouseXDelta(), input.getMouseYDelta());
             }
             ImGui::End();
 
@@ -1596,7 +1596,7 @@ AllocatedImage Engine::createImage(const void* data, size_t dataSize, VkExtent3D
     return newImage;
 }
 
-AllocatedImage Engine::createCubemap(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
+AllocatedImage Engine::createCubemap(const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped) const
 {
     AllocatedImage newImage{};
     newImage.imageFormat = format;
@@ -1618,20 +1618,6 @@ AllocatedImage Engine::createCubemap(VkExtent3D size, VkFormat format, VkImageUs
     VK_CHECK(vkCreateImageView(device, &view_info, nullptr, &newImage.imageView));
 
     return newImage;
-}
-
-int Engine::getChannelCount(VkFormat format)
-{
-    switch (format) {
-        case VK_FORMAT_R8G8B8A8_UNORM:
-            return 4;
-        case VK_FORMAT_R8G8B8_UNORM:
-            return 3;
-        case VK_FORMAT_R8_UNORM:
-            return 1;
-        default:
-            return 0;
-    }
 }
 
 void Engine::destroyImage(const AllocatedImage& img) const
@@ -1667,8 +1653,8 @@ void Engine::resizeSwapchain()
     vkDeviceWaitIdle(device);
 
     vkDestroySwapchainKHR(device, swapchain, nullptr);
-    for (int i = 0; i < swapchainImageViews.size(); i++) {
-        vkDestroyImageView(device, swapchainImageViews[i], nullptr);
+    for (VkImageView swapchainImage : swapchainImageViews) {
+        vkDestroyImageView(device, swapchainImage, nullptr);
     }
 
     int w, h;
@@ -1717,13 +1703,9 @@ void Engine::createRenderTargets(uint32_t width, uint32_t height)
         return renderTarget;
     });
 
-    //normalRenderTarget = generateRenderTarget(VK_FORMAT_R8G8B8A8_SNORM);
-    /*normalRenderTarget = generateRenderTarget(VK_FORMAT_A2R10G10B10_SNORM_PACK32);
-    albedoRenderTarget = generateRenderTarget(VK_FORMAT_A2R10G10B10_UNORM_PACK32);
-    pbrRenderTarget = generateRenderTarget(VK_FORMAT_R8G8B8A8_UNORM);*/
-    normalRenderTarget = generateRenderTarget(VK_FORMAT_R16G16B16A16_SNORM);
-    albedoRenderTarget = generateRenderTarget(VK_FORMAT_R16G16B16A16_UNORM);
-    pbrRenderTarget = generateRenderTarget(VK_FORMAT_R16G16B16A16_UNORM);
+    normalRenderTarget = generateRenderTarget(VK_FORMAT_R8G8B8A8_SNORM);
+    albedoRenderTarget = generateRenderTarget(VK_FORMAT_R8G8B8A8_UNORM);
+    pbrRenderTarget = generateRenderTarget(VK_FORMAT_R8G8B8A8_UNORM);
 }
 
 void Engine::createDrawImages(uint32_t width, uint32_t height)

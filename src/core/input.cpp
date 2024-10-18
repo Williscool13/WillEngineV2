@@ -37,8 +37,6 @@ Input::Input()
     keyStateData[SDLK_n] = {};
     keyStateData[SDLK_m] = {};
 
-
-
     mouseStateData[SDL_BUTTON_LEFT - 1] = {};
     mouseStateData[SDL_BUTTON_RIGHT - 1] = {};
     mouseStateData[SDL_BUTTON_MIDDLE - 1] = {};
@@ -50,7 +48,8 @@ void Input::processEvent(const SDL_Event& event)
 {
     switch (event.type) {
         case SDL_KEYDOWN:
-        case SDL_KEYUP: {
+        case SDL_KEYUP:
+        {
             const auto it = keyStateData.find(event.key.keysym.sym);
             if (it != keyStateData.end()) {
                 UpdateInputState(it->second, event.type == SDL_KEYDOWN);
@@ -58,7 +57,8 @@ void Input::processEvent(const SDL_Event& event)
             break;
         }
         case SDL_MOUSEBUTTONDOWN:
-        case SDL_MOUSEBUTTONUP: {
+        case SDL_MOUSEBUTTONUP:
+        {
             const auto it = mouseStateData.find(event.button.button - 1);
             if (it != mouseStateData.end()) {
                 UpdateInputState(it->second, event.type == SDL_MOUSEBUTTONDOWN);
@@ -66,11 +66,18 @@ void Input::processEvent(const SDL_Event& event)
             break;
         }
         case SDL_MOUSEMOTION:
-            mouseDeltaX += static_cast<float>(event.motion.xrel);
-            mouseDeltaY += static_cast<float>(event.motion.yrel);
+        {
+            mouseXDelta += static_cast<float>(event.motion.xrel);
+            mouseYDelta += static_cast<float>(event.motion.yrel);
             mouseX = static_cast<float>(event.motion.x);
             mouseY = static_cast<float>(event.motion.y);
             break;
+        }
+        case SDL_MOUSEWHEEL:
+        {
+            mouseWheelDelta += event.wheel.preciseY;
+            break;
+        }
         default:
             break;
     }
@@ -87,18 +94,18 @@ void Input::updateFocus(Uint32 sdlWindowFlags)
 
 void Input::frameReset()
 {
-    for (std::pair<const int, InputStateData>& key: keyStateData) {
+    for (std::pair<const int, InputStateData>& key : keyStateData) {
         key.second.pressed = false;
         key.second.released = false;
     }
 
-    for (std::pair<const uint8_t, InputStateData>& mouse: mouseStateData) {
+    for (std::pair<const uint8_t, InputStateData>& mouse : mouseStateData) {
         mouse.second.pressed = false;
         mouse.second.released = false;
     }
 
-    mouseDeltaX = 0;
-    mouseDeltaY = 0;
+    mouseXDelta = 0;
+    mouseYDelta = 0;
 }
 
 void Input::UpdateInputState(InputStateData& inputButton, bool isPressed)

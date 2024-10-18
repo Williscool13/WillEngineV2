@@ -15,6 +15,9 @@ public:
     virtual ~FreeCamera() = default;
 
     void update() override;
+
+private:
+    float speed{1.0f};
 };
 
 #endif //FREE_CAMERA_H
