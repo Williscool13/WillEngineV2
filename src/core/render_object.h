@@ -95,7 +95,7 @@ private: // Drawing
     AllocatedBuffer bufferAddresses;
     //  the actual buffers
     AllocatedBuffer materialBuffer{};
-    AllocatedBuffer instanceBuffer{};
+    AllocatedBuffer modelMatrixBuffer{};
 
     // Culling
     AllocatedBuffer meshBoundsBuffer{};

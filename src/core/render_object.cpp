@@ -114,7 +114,7 @@ RenderObject::~RenderObject()
     creator->destroyBuffer(bufferAddresses);
 
     creator->destroyBuffer(materialBuffer);
-    creator->destroyBuffer(instanceBuffer);
+    creator->destroyBuffer(modelMatrixBuffer);
 
     creator->destroyBuffer(meshBoundsBuffer);
     creator->destroyBuffer(meshIndicesBuffer);
@@ -498,11 +498,11 @@ GameObject* RenderObject::generateGameObject()
 
 void RenderObject::updateInstanceData(const InstanceData& value, const int32_t index) const
 {
-    if (instanceBuffer.buffer == VK_NULL_HANDLE) {
+    if (modelMatrixBuffer.buffer == VK_NULL_HANDLE) {
         return;
     }
     // TODO: Null pointer during destruction here
-    auto basePtr = static_cast<char*>(instanceBuffer.info.pMappedData);
+    auto basePtr = static_cast<char*>(modelMatrixBuffer.info.pMappedData);
     void* target = basePtr + index * sizeof(InstanceData);
     memcpy(target, &value, sizeof(InstanceData));
 }
@@ -555,13 +555,13 @@ void RenderObject::expandInstanceBuffer(const uint32_t count, const bool copy)
                                                                      , VMA_MEMORY_USAGE_CPU_TO_GPU);
 
     if (copy && oldBufferSize > 0) {
-        creator->copyBuffer(instanceBuffer, tempInstanceBuffer, oldBufferSize * sizeof(InstanceData));
-        creator->destroyBuffer(instanceBuffer);
+        creator->copyBuffer(modelMatrixBuffer, tempInstanceBuffer, oldBufferSize * sizeof(InstanceData));
+        creator->destroyBuffer(modelMatrixBuffer);
     }
 
-    instanceBuffer = tempInstanceBuffer;
+    modelMatrixBuffer = tempInstanceBuffer;
 
-    const VkDeviceAddress instanceBufferAddress = creator->getBufferAddress(instanceBuffer);
+    const VkDeviceAddress instanceBufferAddress = creator->getBufferAddress(modelMatrixBuffer);
     memcpy(static_cast<char*>(bufferAddresses.info.pMappedData) + sizeof(VkDeviceAddress), &instanceBufferAddress, sizeof(VkDeviceAddress));
 }
 
@@ -594,7 +594,7 @@ void RenderObject::uploadIndirectBuffer()
 
 void RenderObject::updateComputeCullingBuffer()
 {
-    if (drawIndirectBuffer.buffer == VK_NULL_HANDLE || instanceBuffer.buffer == VK_NULL_HANDLE || meshBoundsBuffer.buffer == VK_NULL_HANDLE) {
+    if (drawIndirectBuffer.buffer == VK_NULL_HANDLE || modelMatrixBuffer.buffer == VK_NULL_HANDLE || meshBoundsBuffer.buffer == VK_NULL_HANDLE) {
         return;
     }
 
@@ -626,8 +626,9 @@ void RenderObject::updateComputeCullingBuffer()
     FrustumCullingBuffers cullingBuffers{};
     cullingBuffers.commandBuffer = creator->getBufferAddress(drawIndirectBuffer);
     cullingBuffers.commandBufferCount = drawIndirectData.size();
-    cullingBuffers.modelMatrixBuffer = creator->getBufferAddress(instanceBuffer);
+    cullingBuffers.modelMatrixBuffer = creator->getBufferAddress(modelMatrixBuffer);
     cullingBuffers.meshBoundsBuffer = creator->getBufferAddress(meshBoundsBuffer);
+    cullingBuffers.meshIndicesBuffer = creator->getBufferAddress(meshIndicesBuffer);
 
     AllocatedBuffer frustumCullingStaging = creator->createStagingBuffer(sizeof(FrustumCullingBuffers));
     memcpy(frustumCullingStaging.info.pMappedData, &cullingBuffers, sizeof(FrustumCullingBuffers));

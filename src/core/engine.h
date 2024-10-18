@@ -196,8 +196,10 @@ private: // Scene Descriptors
      */
     AllocatedBuffer sceneDataBuffer;
 
-    VkDescriptorSetLayout sceneSamplerDescriptorSetLayout{VK_NULL_HANDLE};
-    DescriptorBufferSampler sceneSamplerDescriptorBuffer;
+    DescriptorBufferUniform spectateSceneDataDescriptorBuffer;
+    AllocatedBuffer spectateSceneDataBuffer;
+    glm::vec3 spectateCameraPosition{-0.4f, 0.4f, 0.f};
+    glm::vec3 spectateCameraLookAt{0.5f, -0.3f, 0.f};
 
 private: // Pipelines
     // Frustum Culling
