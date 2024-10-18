@@ -295,9 +295,8 @@ public: // Images
     AllocatedImage createImage(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,
                                bool mipmapped = false) const;
 
-    AllocatedImage createCubemap(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+    AllocatedImage createCubemap(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
 
-    static int getChannelCount(VkFormat format); // todo: move this static into vkhelpers
     void destroyImage(const AllocatedImage& img) const;
 };
 
