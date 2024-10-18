@@ -260,8 +260,8 @@ void Engine::run()
                 if (ImGui::Button("Save Normal Render Target")) {
                     if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
                         std::filesystem::path path = file_utils::imagesSavePath / "normalRT.png";
-                        auto unpackFunc = [](const uint64_t packedColor) {
-                            glm::vec4 pixel = glm::unpackSnorm4x16(packedColor);
+                        auto unpackFunc = [](const uint32_t packedColor) {
+                            glm::vec4 pixel = glm::unpackSnorm4x8(packedColor);
                             pixel.r = pixel.r * 0.5f + 0.5f;
                             pixel.g = pixel.g * 0.5f + 0.5f;
                             pixel.b = pixel.b * 0.5f + 0.5f;
@@ -269,7 +269,7 @@ void Engine::run()
                             return pixel;
                         };
 
-                        vk_helpers::savePacked64Bit(this, normalRenderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                        vk_helpers::savePacked32Bit(this, normalRenderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                                     VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
                     } else {
                         fmt::print(" Failed to save normal render target");
@@ -279,13 +279,13 @@ void Engine::run()
                 if (ImGui::Button("Save Albedo Render Target")) {
                     if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
                         std::filesystem::path path = file_utils::imagesSavePath / "albedoRT.png";
-                        auto unpackFunc = [](const uint64_t packedColor) {
-                            glm::vec4 pixel = glm::unpackUnorm4x16(packedColor);
+                        auto unpackFunc = [](const uint32_t packedColor) {
+                            glm::vec4 pixel = glm::unpackUnorm4x8(packedColor);
                             pixel.a = 1.0f;
                             return pixel;
                         };
 
-                        vk_helpers::savePacked64Bit(this, albedoRenderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                        vk_helpers::savePacked32Bit(this, albedoRenderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                                     VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
                     } else {
                         fmt::print(" Failed to save albedo render target");
@@ -295,12 +295,12 @@ void Engine::run()
                 if (ImGui::Button("Save PBR Render Target")) {
                     if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
                         std::filesystem::path path = file_utils::imagesSavePath / "pbrRT.png";
-                        auto unpackFunc = [](const uint64_t packedColor) {
-                            glm::vec4 pixel = glm::unpackUnorm4x16(packedColor);
+                        auto unpackFunc = [](const uint32_t packedColor) {
+                            glm::vec4 pixel = glm::unpackUnorm4x8(packedColor);
                             pixel.a = 1.0f;
                             return pixel;
                         };
-                        vk_helpers::savePacked64Bit(this, pbrRenderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                        vk_helpers::savePacked32Bit(this, pbrRenderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                                     VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
                     } else {
                         fmt::print(" Failed to save pbr render target");
