@@ -9,7 +9,7 @@ layout (local_size_x = 16, local_size_y = 16) in;
 layout (rgba16f, set = 0, binding = 0) uniform image2D normalRenderTarget;
 layout (rgba16f, set = 0, binding = 1) uniform image2D albedoRenderTarget;
 layout (rgba16f, set = 0, binding = 2) uniform image2D pbrRenderTarget;
-layout (r32f, set = 0, binding = 3) uniform image2D depthBuffer;
+layout (set = 0, binding = 3) uniform sampler2D depthBuffer;
 layout (rgba16f, set = 0, binding = 4) uniform image2D outputImage;
 
 layout (std140, set = 1, binding = 0) uniform SceneData {
@@ -41,9 +41,15 @@ layout (std140, set = 2, binding = 0) uniform SceneDatae {
 layout(set = 3, binding = 0) uniform samplerCube environmentDiffuseAndSpecular;
 layout(set = 3, binding = 1) uniform sampler2D lut;
 
+layout (push_constant) uniform PushConstants {
+    int width;
+    int height;
+    int debug;
+} pushConstants;
+
 vec3 reconstructPosition(ivec2 texCoord, float depth) {
     // Get normalized device coordinates
-    vec2 texSize = vec2(imageSize(depthBuffer));
+    vec2 texSize = vec2(pushConstants.width, pushConstants.height);
     vec2 ndc = (vec2(texCoord) + 0.5) / texSize * 2.0 - 1.0;
 
     // Reconstruct view-space position
@@ -56,11 +62,13 @@ vec3 reconstructPosition(ivec2 texCoord, float depth) {
     return positionWS.xyz;
 }
 
-layout (push_constant) uniform PushConstants {
-    int width;
-    int height;
-    int debug;
-} pushConstants;
+float LinearizeDepth(float depth)
+{
+    float near = 10000.0;
+    float far = 0.01;
+    float z = depth * 2.0 - 1.0; // Convert to NDC
+    return (2.0 * near * far) / (far + near - z * (far - near));
+}
 
 void main() {
     ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
@@ -68,10 +76,13 @@ void main() {
         return;
     }
 
-    float depth = imageLoad(depthBuffer, texCoord).r;
+    vec2 uv = (vec2(texCoord) + 0.5) / vec2(pushConstants.width, pushConstants.height);
+    float depth = texture(depthBuffer, uv).r;
+
+    vec4 albedo = imageLoad(albedoRenderTarget, texCoord);
+    //float depth = imageLoad(depthBuffer, texCoord).r;
     vec3 position = reconstructPosition(texCoord, depth);
     vec3 normal = imageLoad(normalRenderTarget, texCoord).rgb;
-    vec4 albedo = imageLoad(albedoRenderTarget, texCoord);
 
     vec4 pbrData = imageLoad(pbrRenderTarget, texCoord);
     float roughness = pbrData.g;
@@ -123,8 +134,10 @@ void main() {
 
     imageStore(outputImage, texCoord, vec4(correctedFinalColor, albedo.w));
 
-    //vec4 pix = imageLoad(normalRenderTarget, texCoord);
-    //pix.w = 1.0f;
-    //imageStore(outputImage, texCoord, pix);
-    //imageStore(outputImage, texCoord, vec4(1.0f, 0.0f, 0.0f, 1.0f));
+    // Depth Vis
+    /**float linearDepth = LinearizeDepth(depth);
+    float normalizedLinearDepth = linearDepth / 25.0;
+    vec4 fragColor = vec4(vec3(normalizedLinearDepth), 1.0);
+    imageStore(outputImage, texCoord, vec4(vec3(normalizedLinearDepth), 1.0f));*/
+
 }

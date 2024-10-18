@@ -393,15 +393,15 @@ void Engine::draw()
     drawEnvironment(cmd);
     drawDeferredMrt(cmd);
 
-    vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL , VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL , VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL , VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL , VK_IMAGE_ASPECT_DEPTH_BIT);
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_DEPTH_BIT);
     drawDeferredResolve(cmd);
 
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+    vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL , VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
 
     VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     VkClearValue depthClearValue = {0.0f, 0.0f};
@@ -666,11 +666,11 @@ void Engine::drawDeferredResolve(VkCommandBuffer cmd) const
     vkCmdBindDescriptorBuffersEXT(cmd, 4, deferredResolveBindingInfos);
 
     constexpr VkDeviceSize zeroOffset{0};
-    constexpr uint32_t addressIndex{0};
+    constexpr uint32_t renderTargetsIndex{0};
     constexpr uint32_t sceneDataIndex{1};
     constexpr uint32_t lightsIndex{2};
     constexpr uint32_t environmentIndex{3};
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 0, 1, &addressIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 0, 1, &renderTargetsIndex, &zeroOffset);
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 1, 1, &sceneDataIndex, &zeroOffset);
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 2, 1, &lightsIndex, &zeroOffset);
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 3, 1, &environmentIndex, &zeroOffset);
@@ -1228,7 +1228,7 @@ void Engine::initDeferredResolvePipeline()
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         layoutBuilder.addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-        layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         layoutBuilder.addBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         deferredResolveRenderTargetLayout = layoutBuilder.build(device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
@@ -1246,7 +1246,7 @@ void Engine::initDeferredResolvePipeline()
             .imageView = pbrRenderTarget.imageView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
         };
         const VkDescriptorImageInfo depthImageTarget{
-            .imageView = depthImage.imageView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+            .sampler = defaultSamplerNearest, .imageView = depthImage.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         };
         const VkDescriptorImageInfo drawImageTarget{
             .imageView = drawImage.imageView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
@@ -1254,7 +1254,7 @@ void Engine::initDeferredResolvePipeline()
         renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, normalTarget, false}); // normal rt
         renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, albedoTarget, false}); // albedo rt
         renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, pbrDataTarget, false}); // pbr rt
-        renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, depthImageTarget, false}); // depth image
+        renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, depthImageTarget, false}); // depth image
         renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, drawImageTarget, false}); // target image
 
 
@@ -1458,34 +1458,34 @@ void Engine::initScene()
     //testRenderObject = new RenderObject{this, "assets/models/Suzanne/glTF/Suzanne.gltf"};
     testRenderObject = new RenderObject{this, "assets/models/sponza2/Sponza.gltf"};
     testGameObject1 = testRenderObject->generateGameObject();
-    /*testGameObject2 = testRenderObject->generateGameObject();
+    testGameObject2 = testRenderObject->generateGameObject();
     testGameObject3 = testRenderObject->generateGameObject();
     testGameObject4 = testRenderObject->generateGameObject();
-    testGameObject5 = testRenderObject->generateGameObject();*/
+    testGameObject5 = testRenderObject->generateGameObject();
     scene.addGameObject(testGameObject1);
-    /*scene.addGameObject(testGameObject2);
+    scene.addGameObject(testGameObject2);
     scene.addGameObject(testGameObject3);
     scene.addGameObject(testGameObject4);
-    scene.addGameObject(testGameObject5);*/
+    scene.addGameObject(testGameObject5);
 
-    testGameObject1->transform.setScale(0.05f);
+    testGameObject1->transform.setScale(1.f);
     testGameObject1->refreshTransforms();
 
-    /*testGameObject2->transform.setScale(0.05f);
-    testGameObject2->transform.translate(glm::vec3(2.0f, 0.0f, 0.0f));
+    testGameObject2->transform.setScale(1.0f);
+    testGameObject2->transform.translate(glm::vec3(100.0f, 0.0f, 0.0f));
     testGameObject2->refreshTransforms();
 
-    testGameObject3->transform.setScale(0.05f);
-    testGameObject3->transform.translate(glm::vec3(-2.0f, 0.0f, 0.0f));
+    testGameObject3->transform.setScale(1.0f);
+    testGameObject3->transform.translate(glm::vec3(-100.0f, 0.0f, 0.0f));
     testGameObject3->refreshTransforms();
 
-    testGameObject4->transform.setScale(0.05f);
-    testGameObject4->transform.translate(glm::vec3(0.0f, -2.0f, 0.0f));
+    testGameObject4->transform.setScale(1.0f);
+    testGameObject4->transform.translate(glm::vec3(0.0f, -100.0f, 0.0f));
     testGameObject4->refreshTransforms();
 
-    testGameObject5->transform.setScale(0.05f);
-    testGameObject5->transform.translate(glm::vec3(0.0f, 2.0f, 0.0f));
-    testGameObject5->refreshTransforms();*/
+    testGameObject5->transform.setScale(1.0f);
+    testGameObject5->transform.translate(glm::vec3(0.0f, 100.0f, 0.0f));
+    testGameObject5->refreshTransforms();
 }
 
 void Engine::immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const
@@ -1777,6 +1777,7 @@ void Engine::createDrawImages(uint32_t width, uint32_t height)
     VkImageUsageFlags depthImageUsages{};
     depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
     depthImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    depthImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
     VkImageCreateInfo depthImageInfo = vk_helpers::imageCreateInfo(depthImage.imageFormat, depthImageUsages, depthImageExtent);
 
     VmaAllocationCreateInfo depthImageAllocationInfo = {};
