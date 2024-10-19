@@ -6,9 +6,9 @@
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
-layout (rgba16f, set = 0, binding = 0) uniform image2D normalRenderTarget;
-layout (rgba16f, set = 0, binding = 1) uniform image2D albedoRenderTarget;
-layout (rgba16f, set = 0, binding = 2) uniform image2D pbrRenderTarget;
+layout (set = 0, binding = 0) uniform sampler2D normalRenderTarget;
+layout (set = 0, binding = 1) uniform sampler2D albedoRenderTarget;
+layout (set = 0, binding = 2) uniform sampler2D pbrRenderTarget;
 layout (set = 0, binding = 3) uniform sampler2D depthBuffer;
 layout (rgba16f, set = 0, binding = 4) uniform image2D outputImage;
 
@@ -38,8 +38,8 @@ layout (std140, set = 2, binding = 0) uniform SceneDatae {
     PointLight pointLights[6];
 } lightData;*/
 
-layout(set = 3, binding = 0) uniform samplerCube environmentDiffuseAndSpecular;
-layout(set = 3, binding = 1) uniform sampler2D lut;
+layout (set = 3, binding = 0) uniform samplerCube environmentDiffuseAndSpecular;
+layout (set = 3, binding = 1) uniform sampler2D lut;
 
 layout (push_constant) uniform PushConstants {
     int width;
@@ -71,26 +71,27 @@ float LinearizeDepth(float depth)
 }
 
 void main() {
-    ivec2 texCoord = ivec2(gl_GlobalInvocationID.xy);
-    if (texCoord.x > pushConstants.width || texCoord.y > pushConstants.height) {
+    ivec2 screenPos = ivec2(gl_GlobalInvocationID.xy);
+    if (screenPos.x > pushConstants.width || screenPos.y > pushConstants.height) {
         return;
     }
 
-    vec2 uv = (vec2(texCoord) + 0.5) / vec2(pushConstants.width, pushConstants.height);
+    vec2 uv = (vec2(screenPos) + 0.5) / vec2(pushConstants.width, pushConstants.height);
+    vec4 albedo = texture(albedoRenderTarget, uv);
+    if (albedo.w != 1) {
+        return;
+    }
     float depth = texture(depthBuffer, uv).r;
+    vec3 normal = texture(normalRenderTarget, uv).rgb;
+    vec4 pbrData = texture(pbrRenderTarget, uv);
+    vec3 position = reconstructPosition(screenPos, depth);
 
-    vec4 albedo = imageLoad(albedoRenderTarget, texCoord);
-    //float depth = imageLoad(depthBuffer, texCoord).r;
-    vec3 position = reconstructPosition(texCoord, depth);
-    vec3 normal = imageLoad(normalRenderTarget, texCoord).rgb;
-
-    vec4 pbrData = imageLoad(pbrRenderTarget, texCoord);
     float roughness = pbrData.g;
     float metallic = pbrData.r;
     float emissive = pbrData.b;
 
 
-    vec3 N = imageLoad(normalRenderTarget, texCoord).xyz;
+    vec3 N = normal;
     vec3 V = normalize(sceneData.cameraPos.xyz - position);
 
 
@@ -132,10 +133,10 @@ void main() {
     vec3 correctedFinalColor = finalColor / (finalColor + vec3(1.0f)); // Reinhard Tonemapping
     correctedFinalColor = pow(correctedFinalColor, vec3(1.0f / 2.2f)); // gamma correction
 
-    imageStore(outputImage, texCoord, vec4(correctedFinalColor, albedo.w));
+    imageStore(outputImage, screenPos, vec4(correctedFinalColor, albedo.w));
 
     // Depth Vis
-    /**float linearDepth = LinearizeDepth(depth);
+/**float linearDepth = LinearizeDepth(depth);
     float normalizedLinearDepth = linearDepth / 25.0;
     vec4 fragColor = vec4(vec3(normalizedLinearDepth), 1.0);
     imageStore(outputImage, texCoord, vec4(vec3(normalizedLinearDepth), 1.0f));*/

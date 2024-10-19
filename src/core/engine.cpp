@@ -94,15 +94,15 @@ void Engine::run()
 
             if (e.type == SDL_WINDOWEVENT) {
                 if (e.window.event == SDL_WINDOWEVENT_MINIMIZED) {
-                    stopRendering = true;
+                    bStopRendering = true;
                 }
                 if (e.window.event == SDL_WINDOWEVENT_RESTORED) {
-                    stopRendering = false;
+                    bStopRendering = false;
                 }
                 if (e.type == SDL_WINDOWEVENT) {
-                    if (!resizeRequested) {
+                    if (!bResizeRequested) {
                         if (e.window.event == SDL_WINDOWEVENT_RESIZED || e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-                            resizeRequested = true;
+                            bResizeRequested = true;
                             fmt::print("Window resized, resize requested\n");
                         }
                     }
@@ -118,12 +118,12 @@ void Engine::run()
         input.updateFocus(SDL_GetWindowFlags(window));
         time.update();
 
-        if (resizeRequested) {
+        if (bResizeRequested) {
             resizeSwapchain();
         }
 
         // Minimized
-        if (stopRendering) {
+        if (bStopRendering) {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
             continue;
         }
@@ -138,21 +138,6 @@ void Engine::run()
                 ImGui::Text("Frame Time: %.2f ms", frameTime);
                 ImGui::Text("Draw Time: %.2f ms", drawTime);
                 ImGui::Text("Delta Time: %.2f ms", time.getDeltaTime() * 1000.0f);
-            }
-            ImGui::End();
-
-            if (ImGui::Begin("SpectateCamera")) {
-                // Modify spectateCameraPosition
-                if (ImGui::TreeNode("Camera Position")) {
-                    ImGui::DragFloat3("Position", &spectateCameraPosition.x, 0.1f);
-                    ImGui::TreePop();
-                }
-
-                // Modify spectateCameraLookAt
-                if (ImGui::TreeNode("Camera Look At")) {
-                    ImGui::DragFloat3("Look At", &spectateCameraLookAt.x, 0.1f);
-                    ImGui::TreePop();
-                }
             }
             ImGui::End();
 
@@ -222,7 +207,7 @@ void Engine::run()
             }
             ImGui::End();
 
-            if (ImGui::Begin("Camera Details")) {
+            if (ImGui::Begin("Camera")) {
                 glm::vec3 viewDir = camera.getViewDirectionWS();
                 glm::vec3 cameraRotation = camera.transform.getEulerAngles();
                 cameraRotation = glm::degrees(cameraRotation);
@@ -230,6 +215,23 @@ void Engine::run()
                 ImGui::Text("View Direction: (%.2f, %.2f, %.2f)", viewDir.x, viewDir.y, viewDir.z);
                 ImGui::Text("Rotation (%.2f, %.2f, %.2f)", cameraRotation.x, cameraRotation.y, cameraRotation.z);
                 ImGui::Text("Position: (%.2f, %.2f, %.2f)", cameraPosition.x, cameraPosition.y, cameraPosition.z);
+
+                if (ImGui::BeginChild("Spectate")) {
+                    ImGui::Checkbox("Enabled Spectate Camera", &bSpectateCameraActive);
+                    if (bSpectateCameraActive) {
+                        if (ImGui::TreeNode("Camera Position")) {
+                            ImGui::DragFloat3("Position", &spectateCameraPosition.x, 0.1f);
+                            ImGui::TreePop();
+                        }
+
+                        // Modify spectateCameraLookAt
+                        if (ImGui::TreeNode("Camera Look At")) {
+                            ImGui::DragFloat3("Look At", &spectateCameraLookAt.x, 0.1f);
+                            ImGui::TreePop();
+                        }
+                    }
+                }
+                ImGui::EndChild();
             }
             ImGui::End();
 
@@ -341,7 +343,7 @@ void Engine::draw()
     uint32_t swapchainImageIndex;
     const VkResult e = vkAcquireNextImageKHR(device, swapchain, 1000000000, getCurrentFrame()._swapchainSemaphore, nullptr, &swapchainImageIndex);
     if (e == VK_ERROR_OUT_OF_DATE_KHR || e == VK_SUBOPTIMAL_KHR) {
-        resizeRequested = true;
+        bResizeRequested = true;
         fmt::print("Swapchain out of date or suboptimal, resize requested (At Acquire)\n");
         return;
     }
@@ -360,10 +362,10 @@ void Engine::draw()
         const auto proj = camera.getProjMatrix();
         pSceneData->viewProjCameraLookDirection = proj * cameraLook;
     }
-
+    // Update spectate scene data
     {
         const auto pSpectateSceneData = static_cast<SceneData*>(spectateSceneDataBuffer.info.pMappedData);
-        auto newView = glm::lookAt(spectateCameraPosition, spectateCameraLookAt, glm::vec3(0.f,1.0f,0.f));
+        auto newView = glm::lookAt(spectateCameraPosition, spectateCameraLookAt, glm::vec3(0.f, 1.0f, 0.f));
         pSpectateSceneData->view = newView;
         pSpectateSceneData->proj = camera.getProjMatrix();
         pSpectateSceneData->viewProj = pSpectateSceneData->proj * pSpectateSceneData->view;
@@ -385,32 +387,38 @@ void Engine::draw()
     drawExtent.height = std::min(swapchainExtent.height, drawImage.imageExtent.height); // * _renderScale;
     drawExtent.width = std::min(swapchainExtent.width, drawImage.imageExtent.width); // * _renderScale;
 
-    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+
     drawEnvironment(cmd);
     drawDeferredMrt(cmd);
 
-    vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL , VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL , VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL , VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL , VK_IMAGE_ASPECT_DEPTH_BIT);
+    vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+
     drawDeferredResolve(cmd);
 
+    if (bSpectateCameraActive) {
+        DEBUG_drawSpectate(cmd);
+    }
+
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL , VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+    vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
 
     VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     VkClearValue depthClearValue = {0.0f, 0.0f};
     VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue,
                                                                            VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
     VkRenderingInfo renderInfo = vk_helpers::renderingInfo(drawExtent, &colorAttachment, &depthAttachment);
-    vkCmdBeginRendering(cmd, &renderInfo);
+    /*vkCmdBeginRendering(cmd, &renderInfo);
     drawRender(cmd);
-    vkCmdEndRendering(cmd);
+    vkCmdEndRendering(cmd);*/
 
 
     // copy Draw Image into Swapchain Image
@@ -460,7 +468,7 @@ void Engine::draw()
     frameNumber++;
 
     if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
-        resizeRequested = true;
+        bResizeRequested = true;
         fmt::print("Swapchain out of date or suboptimal, resize requested (At Present)\n");
     }
 
@@ -684,67 +692,148 @@ void Engine::drawDeferredResolve(VkCommandBuffer cmd) const
 #endif
 }
 
-void Engine::drawRender(VkCommandBuffer cmd) const
+void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd) const
 {
-#ifndef NDEBUG
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
     label.pLabelName = "Main Render Pass";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
-#endif
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipeline);
-
-    // Dynamic States
+    // layout transition #1
     {
-        //  Viewport
-        VkViewport viewport = {};
-        viewport.x = 0;
-        viewport.y = 0;
-        viewport.width = drawExtent.width/3.0f;
-        viewport.height = drawExtent.height/3.0f;
-        viewport.minDepth = 0.f;
-        viewport.maxDepth = 1.f;
-        vkCmdSetViewport(cmd, 0, 1, &viewport);
-        //  Scissor
-        VkRect2D scissor = {};
-        scissor.offset.x = 0;
-        scissor.offset.y = 0;
-        scissor.extent.width = drawExtent.width/3.0f;
-        scissor.extent.height = drawExtent.height/3.0f;
-        vkCmdSetScissor(cmd, 0, 1, &scissor);
+        vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+        vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     }
 
-    if (!testRenderObject->canDraw()) {
-        return;
+    // mrt
+    {
+        VkClearValue colorClear = {0.0f, 0.0f};
+        VkRenderingAttachmentInfo normalAttachment = vk_helpers::attachmentInfo(normalRenderTarget.imageView, &colorClear,
+                                                                                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkRenderingAttachmentInfo albedoAttachment = vk_helpers::attachmentInfo(albedoRenderTarget.imageView, &colorClear,
+                                                                                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkRenderingAttachmentInfo pbrAttachment = vk_helpers::attachmentInfo(pbrRenderTarget.imageView, &colorClear,
+                                                                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+        VkClearValue depthClearValue = {0.0f, 0.0f};
+
+        VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue,
+                                                                               VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+        VkRenderingInfo renderInfo{};
+        renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+        renderInfo.pNext = nullptr;
+
+        VkRenderingAttachmentInfo deferredAttachments[3];
+        deferredAttachments[0] = normalAttachment;
+        deferredAttachments[1] = albedoAttachment;
+        deferredAttachments[2] = pbrAttachment;
+
+        renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, drawExtent};
+        renderInfo.layerCount = 1;
+        renderInfo.colorAttachmentCount = 3;
+        renderInfo.pColorAttachments = deferredAttachments;
+        renderInfo.pDepthAttachment = &depthAttachment;
+        renderInfo.pStencilAttachment = nullptr;
+
+        vkCmdBeginRendering(cmd, &renderInfo);
+
+
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipeline);
+
+
+        // Dynamic States
+        {
+            //  Viewport
+            VkViewport viewport = {};
+            viewport.x = 0;
+            viewport.y = 0;
+            viewport.width = drawExtent.width / 3.0f;
+            viewport.height = drawExtent.height / 3.0f;
+            viewport.minDepth = 0.f;
+            viewport.maxDepth = 1.f;
+            vkCmdSetViewport(cmd, 0, 1, &viewport);
+            //  Scissor
+            VkRect2D scissor = {};
+            scissor.offset.x = 0;
+            scissor.offset.y = 0;
+            scissor.extent.width = drawExtent.width / 3.0f;
+            scissor.extent.height = drawExtent.height / 3.0f;
+            vkCmdSetScissor(cmd, 0, 1, &scissor);
+        }
+
+        if (!testRenderObject->canDraw()) {
+            return;
+        }
+
+        VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[3];
+        descriptorBufferBindingInfo[0] = testRenderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
+        descriptorBufferBindingInfo[1] = testRenderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
+        descriptorBufferBindingInfo[2] = spectateSceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
+        vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptorBufferBindingInfo);
+
+        constexpr VkDeviceSize zeroOffset{0};
+        constexpr uint32_t addressIndex{0};
+        constexpr uint32_t texturesIndex{1};
+        constexpr uint32_t sceneDataIndex{2};
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 0, 1, &addressIndex, &zeroOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 1, 1, &texturesIndex, &zeroOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 2, 1, &sceneDataIndex, &zeroOffset);
+
+        constexpr VkDeviceSize offsets{0};
+        vkCmdBindVertexBuffers(cmd, 0, 1, &testRenderObject->getVertexBuffer().buffer, &offsets);
+        vkCmdBindIndexBuffer(cmd, testRenderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexedIndirect(cmd, testRenderObject->getIndirectBuffer().buffer, 0, testRenderObject->getDrawIndirectCommandCount(),
+                                 sizeof(VkDrawIndexedIndirectCommand));
+
+        vkCmdEndRendering(cmd);
     }
 
-    VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[4];
-    descriptorBufferBindingInfo[0] = testRenderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
-    descriptorBufferBindingInfo[1] = testRenderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
-    descriptorBufferBindingInfo[2] = spectateSceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
-    descriptorBufferBindingInfo[3] = environment->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo();
-    vkCmdBindDescriptorBuffersEXT(cmd, 4, descriptorBufferBindingInfo);
+    // layout transition #2
+    {
+        vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+        vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    }
 
-    constexpr VkDeviceSize zeroOffset{0};
-    constexpr uint32_t addressIndex{0};
-    constexpr uint32_t texturesIndex{1};
-    constexpr uint32_t sceneUniformIndex{2};
-    constexpr uint32_t environmentIndex{3};
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipelineLayout, 0, 1, &addressIndex, &zeroOffset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipelineLayout, 1, 1, &texturesIndex, &zeroOffset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipelineLayout, 2, 1, &sceneUniformIndex, &zeroOffset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipelineLayout, 3, 1, &environmentIndex, &zeroOffset);
+    // resolve
+    {
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipeline);
 
-    VkDeviceSize offsets{0};
-    vkCmdBindVertexBuffers(cmd, 0, 1, &testRenderObject->getVertexBuffer().buffer, &offsets);
-    vkCmdBindIndexBuffer(cmd, testRenderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexedIndirect(cmd, testRenderObject->getIndirectBuffer().buffer, 0, testRenderObject->getDrawIndirectCommandCount(),
-                             sizeof(VkDrawIndexedIndirectCommand));
+        DeferredResolveData deferredResolveData;
+        deferredResolveData.width = drawExtent.width;
+        deferredResolveData.height = drawExtent.height;
+        deferredResolveData.debug = 0;
+        vkCmdPushConstants(cmd, deferredResolvePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(DeferredResolveData), &deferredResolveData);
 
-#ifndef NDEBUG
+        VkDescriptorBufferBindingInfoEXT deferredResolveBindingInfos[4]{};
+        deferredResolveBindingInfos[0] = deferredResolveDescriptorBuffer.getDescriptorBufferBindingInfo();
+        deferredResolveBindingInfos[1] = spectateSceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
+        deferredResolveBindingInfos[2] = spectateSceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(); //todo: lights
+        deferredResolveBindingInfos[3] = environment->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo();
+        vkCmdBindDescriptorBuffersEXT(cmd, 4, deferredResolveBindingInfos);
+
+        constexpr VkDeviceSize zeroOffset{0};
+        constexpr uint32_t renderTargetsIndex{0};
+        constexpr uint32_t sceneDataIndex{1};
+        constexpr uint32_t lightsIndex{2};
+        constexpr uint32_t environmentIndex{3};
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 0, 1, &renderTargetsIndex, &zeroOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 1, 1, &sceneDataIndex, &zeroOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 2, 1, &lightsIndex, &zeroOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 3, 1, &environmentIndex, &zeroOffset);
+
+
+        const auto x = static_cast<uint32_t>(std::ceil(static_cast<float>(drawExtent.width) / 16.0f));
+        const auto y = static_cast<uint32_t>(std::ceil(static_cast<float>(drawExtent.height) / 16.0f));
+        vkCmdDispatch(cmd, x, y, 1);
+    }
+
     vkCmdEndDebugUtilsLabelEXT(cmd);
-#endif
 }
 
 void Engine::drawImgui(VkCommandBuffer cmd, VkImageView targetImageView)
@@ -1087,7 +1176,6 @@ void Engine::initPipelines()
     initEnvironmentPipeline();
     initDeferredMrtPipeline();
     initDeferredResolvePipeline();
-    initRenderPipeline();
     initFrustumCullingPipeline();
 }
 
@@ -1225,9 +1313,9 @@ void Engine::initDeferredResolvePipeline()
     //
     {
         DescriptorLayoutBuilder layoutBuilder;
-        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-        layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-        layoutBuilder.addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        layoutBuilder.addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         layoutBuilder.addBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         deferredResolveRenderTargetLayout = layoutBuilder.build(device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
@@ -1237,13 +1325,13 @@ void Engine::initDeferredResolvePipeline()
         std::vector<DescriptorImageData> renderTargetDescriptors;
         renderTargetDescriptors.reserve(5);
         const VkDescriptorImageInfo normalTarget{
-            .imageView = normalRenderTarget.imageView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+            .sampler = defaultSamplerNearest, .imageView = normalRenderTarget.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         };
         const VkDescriptorImageInfo albedoTarget{
-            .imageView = albedoRenderTarget.imageView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+            .sampler = defaultSamplerNearest, .imageView = albedoRenderTarget.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         };
         const VkDescriptorImageInfo pbrDataTarget{
-            .imageView = pbrRenderTarget.imageView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+            .sampler = defaultSamplerNearest, .imageView = pbrRenderTarget.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         };
         const VkDescriptorImageInfo depthImageTarget{
             .sampler = defaultSamplerNearest, .imageView = depthImage.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
@@ -1251,9 +1339,9 @@ void Engine::initDeferredResolvePipeline()
         const VkDescriptorImageInfo drawImageTarget{
             .imageView = drawImage.imageView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
         };
-        renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, normalTarget, false}); // normal rt
-        renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, albedoTarget, false}); // albedo rt
-        renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, pbrDataTarget, false}); // pbr rt
+        renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, normalTarget, false}); // normal rt
+        renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, albedoTarget, false}); // albedo rt
+        renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, pbrDataTarget, false}); // pbr rt
         renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, depthImageTarget, false}); // depth image
         renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, drawImageTarget, false}); // target image
 
@@ -1313,93 +1401,6 @@ void Engine::initDeferredResolvePipeline()
         deferredResolveDescriptorBuffer.destroy(device, allocator);
         vkDestroyPipelineLayout(device, deferredResolvePipelineLayout, nullptr);
         vkDestroyPipeline(device, deferredResolvePipeline, nullptr);
-    });
-}
-
-void Engine::initRenderPipeline()
-{
-    VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
-    VkDescriptorSetLayout descriptorLayout[4];
-
-    assert(RenderObject::addressesDescriptorSetLayout != VK_NULL_HANDLE);
-    assert(RenderObject::textureDescriptorSetLayout != VK_NULL_HANDLE);
-    assert(sceneDataDescriptorSetLayout != VK_NULL_HANDLE);
-    assert(Environment::layoutsCreated);
-
-    descriptorLayout[0] = RenderObject::addressesDescriptorSetLayout;
-    descriptorLayout[1] = RenderObject::textureDescriptorSetLayout;
-    descriptorLayout[2] = sceneDataDescriptorSetLayout;
-    descriptorLayout[3] = Environment::environmentMapDescriptorSetLayout;
-    layoutInfo.pSetLayouts = descriptorLayout;
-    layoutInfo.setLayoutCount = 4;
-    layoutInfo.pPushConstantRanges = nullptr;
-    layoutInfo.pushConstantRangeCount = 0;
-
-    VK_CHECK(vkCreatePipelineLayout(device, &layoutInfo, nullptr, &renderPipelineLayout));
-
-    VkShaderModule vertShader;
-    if (!vk_helpers::loadShaderModule("shaders/pbr.vert.spv", device, &vertShader)) {
-        throw std::runtime_error("Error when building the cube vertex shader module(pbr.vert.spv)\n");
-    }
-    VkShaderModule fragShader;
-    if (!vk_helpers::loadShaderModule("shaders/pbr.frag.spv", device, &fragShader)) {
-        fmt::print("Error when building the cube fragment shader module(pbr.frag.spv)\n");
-    }
-
-    PipelineBuilder renderPipelineBuilder; {
-        VkVertexInputBindingDescription mainBinding{};
-        mainBinding.binding = 0;
-        mainBinding.stride = sizeof(Vertex);
-        mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-
-
-        VkVertexInputAttributeDescription vertexAttributes[5];
-        vertexAttributes[0].binding = 0;
-        vertexAttributes[0].location = 0;
-        vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-        vertexAttributes[0].offset = offsetof(Vertex, position);
-
-
-        vertexAttributes[1].binding = 0;
-        vertexAttributes[1].location = 1;
-        vertexAttributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        vertexAttributes[1].offset = offsetof(Vertex, normal);
-
-        vertexAttributes[2].binding = 0;
-        vertexAttributes[2].location = 2;
-        vertexAttributes[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-        vertexAttributes[2].offset = offsetof(Vertex, color);
-
-        vertexAttributes[3].binding = 0;
-        vertexAttributes[3].location = 3;
-        vertexAttributes[3].format = VK_FORMAT_R32G32_SFLOAT;
-        vertexAttributes[3].offset = offsetof(Vertex, uv);
-
-        vertexAttributes[4].binding = 0;
-        vertexAttributes[4].location = 4;
-        vertexAttributes[4].format = VK_FORMAT_R32_UINT;
-        vertexAttributes[4].offset = offsetof(Vertex, materialIndex);
-
-        renderPipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 5);
-    }
-
-    renderPipelineBuilder.setShaders(vertShader, fragShader);
-    renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-    renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE); // VK_CULL_MODE_BACK_BIT
-    renderPipelineBuilder.disableMultisampling();
-    renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
-    renderPipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    renderPipelineBuilder.setupRenderer({drawImage.imageFormat}, depthImage.imageFormat);
-    renderPipelineBuilder.setupPipelineLayout(renderPipelineLayout);
-
-    renderPipeline = renderPipelineBuilder.buildPipeline(device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-
-    vkDestroyShaderModule(device, vertShader, nullptr);
-    vkDestroyShaderModule(device, fragShader, nullptr);
-
-    mainDeletionQueue.pushFunction([&]() {
-        vkDestroyPipelineLayout(device, renderPipelineLayout, nullptr);
-        vkDestroyPipeline(device, renderPipeline, nullptr);
     });
 }
 
@@ -1711,7 +1712,7 @@ void Engine::resizeSwapchain()
 
     createSwapchain(windowExtent.width, windowExtent.height);
 
-    resizeRequested = false;
+    bResizeRequested = false;
     fmt::print("Window extent has been updated to {}x{}\n", windowExtent.width, windowExtent.height);
 }
 
@@ -1724,6 +1725,7 @@ void Engine::createRenderTargets(uint32_t width, uint32_t height)
         usageFlags |= VK_IMAGE_USAGE_STORAGE_BIT;
         usageFlags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         usageFlags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+        usageFlags |= VK_IMAGE_USAGE_SAMPLED_BIT;
         VmaAllocationCreateInfo renderImageAllocationInfo = {};
         renderImageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         renderImageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
