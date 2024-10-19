@@ -311,6 +311,30 @@ void Engine::run()
             }
             ImGui::End();
 
+            if (ImGui::Begin("Environment Map")) {
+                auto activeEnvironmentMapIndices = environment->getActiveEnvironmentMaps();
+                std::vector indices(activeEnvironmentMapIndices.begin(), activeEnvironmentMapIndices.end());
+                std::sort(indices.begin(), indices.end());  // Sort for consistent order in UI
+
+                auto it = std::ranges::find(indices, environmentMapindex);
+                int currentIndex = (it != indices.end()) ? static_cast<int>(std::distance(indices.begin(), it)) : 0;
+
+                auto getLabel = [](void* data, int idx, const char** out_text) -> bool {
+                    static std::string label;  // Static to ensure the c_str() remains valid
+                    const auto& indices = *static_cast<const std::vector<uint32_t>*>(data);
+                    label = "Environment Map " + std::to_string(indices[idx]);
+                    *out_text = label.c_str();
+                    return true;
+                };
+
+                if (ImGui::Combo("Select Environment Map", &currentIndex, getLabel, &indices, static_cast<int>(indices.size())))
+                {
+                    environmentMapindex = indices[currentIndex];
+                }
+
+                ImGui::Text("Currently selected: Environment Map %u", environmentMapindex);
+            }
+            ImGui::End();
 
             scene.imguiSceneGraph();
 
@@ -517,10 +541,12 @@ void Engine::drawEnvironment(VkCommandBuffer cmd) const
     descriptorBufferBindingInfo[0] = environment->getCubemapDescriptorBuffer().getDescriptorBufferBindingInfo();
     descriptorBufferBindingInfo[1] = sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
     vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
-    constexpr uint32_t imageBufferIndex{0};
+    constexpr uint32_t environmentIndex{0};
     constexpr uint32_t sceneDataBufferIndex{1};
     constexpr VkDeviceSize zeroOffset{0};
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, environmentPipelineLayout, 0, 1, &imageBufferIndex, &zeroOffset);
+    const VkDeviceSize environmentMapOffset{environment->getEnvironmentMapOffset(environmentMapindex)};
+
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, environmentPipelineLayout, 0, 1, &environmentIndex, &environmentMapOffset);
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, environmentPipelineLayout, 1, 1, &sceneDataBufferIndex, &zeroOffset);
 
     vkCmdDraw(cmd, 3, 1, 0, 0);
@@ -678,10 +704,11 @@ void Engine::drawDeferredResolve(VkCommandBuffer cmd) const
     constexpr uint32_t sceneDataIndex{1};
     constexpr uint32_t lightsIndex{2};
     constexpr uint32_t environmentIndex{3};
+    const VkDeviceSize environmentMapOffset{environment->getDiffSpecMapOffset(environmentMapindex)};
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 0, 1, &renderTargetsIndex, &zeroOffset);
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 1, 1, &sceneDataIndex, &zeroOffset);
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 2, 1, &lightsIndex, &zeroOffset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 3, 1, &environmentIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 3, 1, &environmentIndex, &environmentMapOffset);
 
 
     const auto x = static_cast<uint32_t>(std::ceil(static_cast<float>(drawExtent.width) / 16.0f));
@@ -822,10 +849,11 @@ void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd) const
         constexpr uint32_t sceneDataIndex{1};
         constexpr uint32_t lightsIndex{2};
         constexpr uint32_t environmentIndex{3};
+        const VkDeviceSize environmentMapOffset{environment->getDiffSpecMapOffset(environmentMapindex)};
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 0, 1, &renderTargetsIndex, &zeroOffset);
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 1, 1, &sceneDataIndex, &zeroOffset);
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 2, 1, &lightsIndex, &zeroOffset);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 3, 1, &environmentIndex, &zeroOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 3, 1, &environmentIndex, &environmentMapOffset);
 
 
         const auto x = static_cast<uint32_t>(std::ceil(static_cast<float>(drawExtent.width) / 16.0f));
@@ -1451,7 +1479,15 @@ void Engine::initEnvironmentPipeline()
 void Engine::initScene()
 {
     environment = new Environment(this);
-    environment->loadCubemap(Environment::defaultEquiPath, 0);
+    const std::filesystem::path envMapSource = "assets/environments";
+    environment->loadCubemap((envMapSource / "meadow_4k.hdr").string().c_str(), 0);
+    //environment->loadCubemap((envMapSource / "wasteland_clouds_4k.hdr").string().c_str(), 1);
+    environment->loadCubemap((envMapSource / "wasteland_clouds_puresky_4k.hdr").string().c_str(), 2);
+    //environment->loadCubemap((envMapSource / "kloppenheim_06_puresky_4k.hdr").string().c_str(), 3);
+    environment->loadCubemap((envMapSource / "kloofendal_overcast_puresky_4k.hdr").string().c_str(), 4);
+    //environment->loadCubemap((envMapSource / "mud_road_puresky_4k.hdr").string().c_str(), 5);
+    //environment->loadCubemap((envMapSource / "sunflowers_puresky_4k.hdr").string().c_str(), 6);
+    environment->loadCubemap((envMapSource / "belfast_sunset_puresky_4k.hdr").string().c_str(), 7);
 
     //testRenderObject = new RenderObject{this, "assets/models/BoxTextured/glTF/BoxTextured.gltf"};
     //testRenderObject = new RenderObject{this, "assets/models/structure_mat.glb"};

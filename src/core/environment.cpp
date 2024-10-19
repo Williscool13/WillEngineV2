@@ -11,7 +11,6 @@
 
 const VkExtent3D Environment::specularPrefilteredBaseExtents = {512, 512, 1};
 const VkExtent3D Environment::lutImageExtent = {512, 512, 1};
-const char* Environment::defaultEquiPath = "assets/environments/meadow_4k.hdr";
 
 int Environment::useCount = 0;
 VkDescriptorSetLayout Environment::equiImageDescriptorSetLayout = VK_NULL_HANDLE;
@@ -40,8 +39,6 @@ bool Environment::layoutsCreated = false;
 Environment::Environment(Engine* creator)
 {
     this->creator = creator;
-    device = creator->getDevice();
-    allocator = creator->getAllocator();
 
     VkSamplerCreateInfo sampl = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
 
@@ -55,27 +52,24 @@ Environment::Environment(Engine* creator)
     sampl.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     sampl.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 
-    vkCreateSampler(device, &sampl, nullptr, &sampler);
+    vkCreateSampler(creator->getDevice(), &sampl, nullptr, &sampler);
 
     if (!layoutsCreated) {
         initializeStatics(creator);
         layoutsCreated = true;
     }
 
-    equiImageDescriptorBuffer = DescriptorBufferSampler(creator->getInstance(), creator->getDevice()
-                                                        , creator->getPhysicalDevice(), creator->getAllocator(), equiImageDescriptorSetLayout, 1);
+    auto* inst = creator->getInstance();
+    auto* dev = creator->getDevice();
+    auto* physDev = creator->getPhysicalDevice();
+    auto* allo = creator->getAllocator();
+    equiImageDescriptorBuffer = DescriptorBufferSampler(inst, dev, physDev, allo, equiImageDescriptorSetLayout, 1);
     // 0 is original cubemap, 1 is diff irr, 2 is spec pref, 3 to 13 is for 10 mip levels of spec pref
-    cubemapStorageDescriptorBuffer = DescriptorBufferSampler(creator->getInstance(), creator->getDevice()
-                                                             , creator->getPhysicalDevice(), creator->getAllocator(),
-                                                             cubemapStorageDescriptorSetLayout, 12);
+    cubemapStorageDescriptorBuffer = DescriptorBufferSampler(inst, dev, physDev, allo, cubemapStorageDescriptorSetLayout, 12);
 
     // sample cubemap
-    cubemapDescriptorBuffer = DescriptorBufferSampler(creator->getInstance(), creator->getDevice()
-                                                      , creator->getPhysicalDevice(), creator->getAllocator(), cubemapDescriptorSetLayout,
-                                                      MAX_ENVIRONMENT_MAPS);
-    diffSpecMapDescriptorBuffer = DescriptorBufferSampler(creator->getInstance(), creator->getDevice()
-                                                           , creator->getPhysicalDevice(), creator->getAllocator(), environmentMapDescriptorSetLayout,
-                                                           MAX_ENVIRONMENT_MAPS);
+    cubemapDescriptorBuffer = DescriptorBufferSampler(inst, dev, physDev, allo, cubemapDescriptorSetLayout, MAX_ENVIRONMENT_MAPS);
+    diffSpecMapDescriptorBuffer = DescriptorBufferSampler(inst, dev, physDev, allo, environmentMapDescriptorSetLayout, MAX_ENVIRONMENT_MAPS);
 
 
     useCount++;
@@ -85,25 +79,25 @@ Environment::~Environment()
 {
     useCount--;
     if (useCount == 0 && layoutsCreated) {
-        vkDestroyDescriptorSetLayout(device, equiImageDescriptorSetLayout, nullptr);
-        vkDestroyDescriptorSetLayout(device, cubemapStorageDescriptorSetLayout, nullptr);
-        vkDestroyDescriptorSetLayout(device, cubemapDescriptorSetLayout, nullptr);
-        vkDestroyDescriptorSetLayout(device, lutDescriptorSetLayout, nullptr);
-        vkDestroyDescriptorSetLayout(device, environmentMapDescriptorSetLayout, nullptr);
+        vkDestroyDescriptorSetLayout(creator->getDevice(), equiImageDescriptorSetLayout, nullptr);
+        vkDestroyDescriptorSetLayout(creator->getDevice(), cubemapStorageDescriptorSetLayout, nullptr);
+        vkDestroyDescriptorSetLayout(creator->getDevice(), cubemapDescriptorSetLayout, nullptr);
+        vkDestroyDescriptorSetLayout(creator->getDevice(), lutDescriptorSetLayout, nullptr);
+        vkDestroyDescriptorSetLayout(creator->getDevice(), environmentMapDescriptorSetLayout, nullptr);
         equiImageDescriptorSetLayout = VK_NULL_HANDLE;
         cubemapStorageDescriptorSetLayout = VK_NULL_HANDLE;
         cubemapDescriptorSetLayout = VK_NULL_HANDLE;
         lutDescriptorSetLayout = VK_NULL_HANDLE;
         environmentMapDescriptorSetLayout = VK_NULL_HANDLE;
 
-        vkDestroyPipelineLayout(device, equiToCubemapPipelineLayout, nullptr);
-        vkDestroyPipeline(device, equiToCubemapPipeline, nullptr);
-        vkDestroyPipelineLayout(device, cubemapToDiffusePipelineLayout, nullptr);
-        vkDestroyPipeline(device, cubemapToDiffusePipeline, nullptr);
-        vkDestroyPipelineLayout(device, cubemapToSpecularPipelineLayout, nullptr);
-        vkDestroyPipeline(device, cubemapToSpecularPipeline, nullptr);
-        vkDestroyPipelineLayout(device, lutPipelineLayout, nullptr);
-        vkDestroyPipeline(device, lutPipeline, nullptr);
+        vkDestroyPipelineLayout(creator->getDevice(), equiToCubemapPipelineLayout, nullptr);
+        vkDestroyPipeline(creator->getDevice(), equiToCubemapPipeline, nullptr);
+        vkDestroyPipelineLayout(creator->getDevice(), cubemapToDiffusePipelineLayout, nullptr);
+        vkDestroyPipeline(creator->getDevice(), cubemapToDiffusePipeline, nullptr);
+        vkDestroyPipelineLayout(creator->getDevice(), cubemapToSpecularPipelineLayout, nullptr);
+        vkDestroyPipeline(creator->getDevice(), cubemapToSpecularPipeline, nullptr);
+        vkDestroyPipelineLayout(creator->getDevice(), lutPipelineLayout, nullptr);
+        vkDestroyPipeline(creator->getDevice(), lutPipeline, nullptr);
         equiToCubemapPipelineLayout = VK_NULL_HANDLE;
         equiToCubemapPipeline = VK_NULL_HANDLE;
         cubemapToDiffusePipelineLayout = VK_NULL_HANDLE;
@@ -111,7 +105,7 @@ Environment::~Environment()
         cubemapToSpecularPipelineLayout = VK_NULL_HANDLE;
         cubemapToSpecularPipeline = VK_NULL_HANDLE;
 
-        lutDescriptorBuffer.destroy(device, allocator);
+        lutDescriptorBuffer.destroy(creator->getDevice(), creator->getAllocator());
         creator->destroyImage(lutImage);
         lutImage = {};
         lutDescriptorBuffer = DescriptorBufferSampler();
@@ -119,14 +113,14 @@ Environment::~Environment()
         layoutsCreated = false;
     }
 
-    vkDestroySampler(device, sampler, nullptr);
+    vkDestroySampler(creator->getDevice(), sampler, nullptr);
 
-    cubemapStorageDescriptorBuffer.destroy(device, allocator);
-    cubemapDescriptorBuffer.destroy(device, allocator);
-    equiImageDescriptorBuffer.destroy(device, allocator);
-    diffSpecMapDescriptorBuffer.destroy(device, allocator);
+    cubemapStorageDescriptorBuffer.destroy(creator->getDevice(), creator->getAllocator());
+    cubemapDescriptorBuffer.destroy(creator->getDevice(), creator->getAllocator());
+    equiImageDescriptorBuffer.destroy(creator->getDevice(), creator->getAllocator());
+    diffSpecMapDescriptorBuffer.destroy(creator->getDevice(), creator->getAllocator());
 
-    for (EnvironmentMapData& envMap: environmentMaps) {
+    for (EnvironmentMapData& envMap : environmentMaps) {
         creator->destroyImage(envMap.cubemapImage);
         creator->destroyImage(envMap.specDiffCubemap);
     }
@@ -163,7 +157,6 @@ void Environment::loadCubemap(const char* path, int environmentMapIndex)
                                                         VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
 
     // add new cubemap image to descriptor buffer
-    {}
     VkDescriptorImageInfo equiImageDescriptorInfo{};
     equiImageDescriptorInfo.sampler = sampler;
     equiImageDescriptorInfo.imageView = equiImage.imageView;
@@ -171,7 +164,7 @@ void Environment::loadCubemap(const char* path, int environmentMapIndex)
 
     // needs to match the order of the bindings in the layout
     std::vector<DescriptorImageData> combined_descriptor = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, equiImageDescriptorInfo}};
-    equiImageDescriptorBuffer.setupData(device, combined_descriptor);
+    equiImageDescriptorBuffer.setupData(creator->getDevice(), combined_descriptor);
 
 
     VkDescriptorImageInfo cubemapDescriptor{};
@@ -179,10 +172,10 @@ void Environment::loadCubemap(const char* path, int environmentMapIndex)
     cubemapDescriptor.imageView = newEnvMapData.cubemapImage.imageView;
     cubemapDescriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
     std::vector<DescriptorImageData> cubemapStorageDescriptor = {{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, cubemapDescriptor}};
-    int cubemapIndex = cubemapStorageDescriptorBuffer.setupData(device, cubemapStorageDescriptor);
+    int cubemapIndex = cubemapStorageDescriptorBuffer.setupData(creator->getDevice(), cubemapStorageDescriptor);
     cubemapDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     std::vector<DescriptorImageData> cubemapSamplerDescriptor = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, cubemapDescriptor}};
-    cubemapDescriptorBuffer.setupData(device, cubemapSamplerDescriptor, environmentMapIndex);
+    cubemapDescriptorBuffer.setupData(creator->getDevice(), cubemapSamplerDescriptor, environmentMapIndex);
 
 
     equiToCubemapImmediate(newEnvMapData.cubemapImage, cubemapIndex);
@@ -195,14 +188,12 @@ void Environment::loadCubemap(const char* path, int environmentMapIndex)
 
     auto end0 = std::chrono::system_clock::now();
     auto elapsed0 = std::chrono::duration_cast<std::chrono::microseconds>(end0 - start);
-    fmt::print("Environment Map: {} | Cubemap {}ms | ",path, elapsed0.count() / 1000.0f);
+    fmt::print("Environment Map: {} | Cubemap {}ms | ", path, elapsed0.count() / 1000.0f);
     newEnvMapData.specDiffCubemap = creator->createCubemap(specularPrefilteredBaseExtents, VK_FORMAT_R32G32B32A32_SFLOAT,
                                                            VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                                                            VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
                                                            VK_IMAGE_USAGE_STORAGE_BIT, true);
 
-
-    int diffuseIndex = diffuseIrradianceMipLevel;
 
     AllocatedCubemap specDiffCubemap = {};
     specDiffCubemap.allocatedImage = newEnvMapData.specDiffCubemap;
@@ -215,14 +206,14 @@ void Environment::loadCubemap(const char* path, int environmentMapIndex)
         VkImageViewCreateInfo view_info = vk_helpers::cubemapViewCreateInfo(newEnvMapData.specDiffCubemap.imageFormat,
                                                                             newEnvMapData.specDiffCubemap.image, VK_IMAGE_ASPECT_COLOR_BIT);
         view_info.subresourceRange.baseMipLevel = i;
-        VK_CHECK(vkCreateImageView(device, &view_info, nullptr, &cubemapImageView.imageView));
+        VK_CHECK(vkCreateImageView(creator->getDevice(), &view_info, nullptr, &cubemapImageView.imageView));
 
         auto length = static_cast<uint32_t>(specularPrefilteredBaseExtents.width / pow(2, i)); // w and h always equal
         cubemapImageView.imageExtent = {length, length, 1};
         float roughness{};
         int j = i;
-        if (i > 5) { j = i - 1; }
-        if (i == 5) { roughness = -1; } // diffuse irradiance map
+        if (i > diffuseIrradianceMipLevel) { j = i - 1; }
+        if (i == diffuseIrradianceMipLevel) { roughness = -1; } // diffuse irradiance map
         else { roughness = static_cast<float>(j) / static_cast<float>(specularPrefilteredMipLevels - 2); }
 
         cubemapImageView.roughness = roughness;
@@ -234,7 +225,7 @@ void Environment::loadCubemap(const char* path, int environmentMapIndex)
 
         std::vector<DescriptorImageData> prefilteredCubemapStorageDescriptor = {{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, prefilteredCubemapStorage}};
 
-        int descriptorBufferIndex = cubemapStorageDescriptorBuffer.setupData(device, prefilteredCubemapStorageDescriptor);
+        int descriptorBufferIndex = cubemapStorageDescriptorBuffer.setupData(creator->getDevice(), prefilteredCubemapStorageDescriptor);
         cubemapImageView.descriptorBufferIndex = descriptorBufferIndex;
 
         specDiffCubemap.cubemapImageViews[i] = cubemapImageView;
@@ -243,14 +234,14 @@ void Environment::loadCubemap(const char* path, int environmentMapIndex)
     cubemapToDiffuseSpecularImmediate(specDiffCubemap, environmentMapIndex);
     // can safely destroy all the mip level image views
     for (int i = 0; i < specDiffCubemap.mipLevels; i++) {
-        vkDestroyImageView(device, specDiffCubemap.cubemapImageViews[i].imageView, nullptr);
+        vkDestroyImageView(creator->getDevice(), specDiffCubemap.cubemapImageViews[i].imageView, nullptr);
         cubemapStorageDescriptorBuffer.freeDescriptorBuffer(specDiffCubemap.cubemapImageViews[i].descriptorBufferIndex);
     }
 
 
     auto end1 = std::chrono::system_clock::now();
     auto elapsed1 = std::chrono::duration_cast<std::chrono::microseconds>(end1 - end0);
-    fmt::print("Diff/Spec Maps {}ms | ", elapsed1.count() / 1000.0f);
+    fmt::print("D/S Map {}ms | ", elapsed1.count() / 1000.0f);
 
 
     VkDescriptorImageInfo diffSpecDescriptorInfo{};
@@ -268,15 +259,16 @@ void Environment::loadCubemap(const char* path, int environmentMapIndex)
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, lutDescriptorInfo}
     };
 
-    diffSpecMapDescriptorBuffer.setupData(device, combinedDescriptor2, environmentMapIndex);
+    diffSpecMapDescriptorBuffer.setupData(creator->getDevice(), combinedDescriptor2, environmentMapIndex);
 
     environmentMaps[environmentMapIndex] = newEnvMapData;
 
+    activeEnvironmentMapIndices.insert(environmentMapIndex);
 
     auto end3 = std::chrono::system_clock::now();
     auto elapsed3 = std::chrono::duration_cast<std::chrono::microseconds>(end3 - start);
 
-    fmt::print("Total Time {}ms\n", elapsed3.count() / 1000.0f);
+    fmt::print("Total {}ms\n", elapsed3.count() / 1000.0f);
 }
 
 void Environment::equiToCubemapImmediate(AllocatedImage& _cubemapImage, int _cubemapStorageDescriptorIndex)
