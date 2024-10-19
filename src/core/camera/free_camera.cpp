@@ -45,8 +45,16 @@ void FreeCamera::update()
 
     const float deltaTime = TimeUtils::Get().getDeltaTime();
 
-    speed *= glm::pow(1.15f, input.getMouseWheelDelta());
-    speed = glm::clamp(speed, 0.1f, 10.0f);
+    constexpr float minSpeed = 0.1f;
+    constexpr float maxSpeed = 10.0f;
+    constexpr float sensitivity = 0.1f;
+
+    float logSpeed = glm::log(speed);
+    logSpeed += sensitivity * input.getMouseWheelDelta();
+    speed = glm::exp(logSpeed);
+    speed = glm::clamp(speed, minSpeed, maxSpeed);
+    /*speed *= glm::pow(1.15f, input.getMouseWheelDelta());
+    speed = glm::clamp(speed, 0.1f, 10.0f);*/
 
     velocity *= deltaTime * speed;
     verticalMove *= deltaTime * speed;

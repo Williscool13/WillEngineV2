@@ -87,7 +87,7 @@ public:
 
     void drawDeferredResolve(VkCommandBuffer cmd) const;
 
-    void drawRender(VkCommandBuffer cmd) const;
+    void DEBUG_drawSpectate(VkCommandBuffer cmd) const;
 
     void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
 
@@ -127,8 +127,6 @@ private: // Initialization
 
     void initDeferredResolvePipeline();
 
-    void initRenderPipeline();
-
     void initEnvironmentPipeline();
 
     void initScene();
@@ -165,7 +163,7 @@ private: // Rendering
     int frameNumber{0};
     FrameData frames[FRAME_OVERLAP]{};
     FrameData& getCurrentFrame() { return frames[frameNumber % FRAME_OVERLAP]; };
-    bool stopRendering{false};
+    bool bStopRendering{false};
 
     double frameTime{};
     double drawTime{};
@@ -190,14 +188,14 @@ private: // Scene
 
 private: // Scene Descriptors
     VkDescriptorSetLayout sceneDataDescriptorSetLayout{VK_NULL_HANDLE};
+
     DescriptorBufferUniform sceneDataDescriptorBuffer;
-    /**
-     * Descriptor for \code SceneData\endcode
-     */
     AllocatedBuffer sceneDataBuffer;
 
+    bool bSpectateCameraActive{false};
     DescriptorBufferUniform spectateSceneDataDescriptorBuffer;
     AllocatedBuffer spectateSceneDataBuffer;
+
     glm::vec3 spectateCameraPosition{-9.0f, 1.0f, 0.f};
     glm::vec3 spectateCameraLookAt{0.5f, 1.8f, 0.f};
 
@@ -216,10 +214,6 @@ private: // Pipelines
     VkPipelineLayout deferredResolvePipelineLayout{VK_NULL_HANDLE};
     VkPipeline deferredResolvePipeline{VK_NULL_HANDLE};
 
-    // Render
-    VkPipelineLayout renderPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline renderPipeline{VK_NULL_HANDLE};
-
     // Environment
     VkPipelineLayout environmentPipelineLayout{VK_NULL_HANDLE};
     VkPipeline environmentPipeline{VK_NULL_HANDLE};
@@ -231,7 +225,7 @@ private: // Swapchain
     std::vector<VkImageView> swapchainImageViews;
     VkExtent2D swapchainExtent{};
 
-    bool resizeRequested{false};
+    bool bResizeRequested{false};
 
     void createSwapchain(uint32_t width, uint32_t height);
 
