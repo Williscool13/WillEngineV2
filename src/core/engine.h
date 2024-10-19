@@ -185,6 +185,7 @@ private: // Scene
     GameObject* testGameObject5{nullptr};
 
     Environment* environment{nullptr};
+    int32_t environmentMapindex{7};
 
 private: // Scene Descriptors
     VkDescriptorSetLayout sceneDataDescriptorSetLayout{VK_NULL_HANDLE};
