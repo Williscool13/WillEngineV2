@@ -482,7 +482,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
         primitiveCount += mesh.primitives.size();
     }
     fmt::print("GLTF: {} | Sampl: {} | Imag: {} | Mats: {} | Mesh: {} | Prim: {} | Inst: {}\n",
-        file_utils::getFileName(gltfFilepath), samplers.size() - samplerOffset, images.size() - imageOffset, materials.size() - materialOffset, meshes.size(), primitiveCount, instanceCount);
+               file_utils::getFileName(gltfFilepath), samplers.size() - samplerOffset, images.size() - imageOffset, materials.size() - materialOffset, meshes.size(), primitiveCount, instanceCount);
 }
 
 GameObject* RenderObject::generateGameObject()
@@ -494,11 +494,27 @@ GameObject* RenderObject::generateGameObject()
         recursiveGenerateGameObject(renderNodes[rootNode], superRoot);
     }
 
-    superRoot->refreshTransforms();
+    superRoot->dirty();
 
     uploadIndirectBuffer();
     updateComputeCullingBuffer();
     return superRoot;
+}
+
+InstanceData* RenderObject::getInstanceData(const int32_t index) const
+{
+    if (modelMatrixBuffer.buffer == VK_NULL_HANDLE) { return nullptr; }
+
+    if (index < 0 || index >= activeInstanceCount) {
+        assert(false && "Instance index out of bounds");
+        return nullptr;
+    }
+    const auto basePtr = static_cast<char*>(modelMatrixBuffer.info.pMappedData);
+    void* target = basePtr + index * sizeof(InstanceData);
+
+    assert(reinterpret_cast<uintptr_t>(target) % alignof(InstanceData) == 0 && "Misaligned instance data access");
+
+    return static_cast<InstanceData*>(target);
 }
 
 void RenderObject::updateInstanceData(const InstanceData& value, const int32_t index) const
@@ -510,6 +526,7 @@ void RenderObject::updateInstanceData(const InstanceData& value, const int32_t i
     auto basePtr = static_cast<char*>(modelMatrixBuffer.info.pMappedData);
     void* target = basePtr + index * sizeof(InstanceData);
     memcpy(target, &value, sizeof(InstanceData));
+    //memcpy(target, &value, sizeof(InstanceData));
 }
 
 void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent)
@@ -540,7 +557,7 @@ void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, Gam
     }
 
     gameObject->transform.setTransform(renderNode.transform);
-    gameObject->refreshTransforms();
+    gameObject->dirty();
     parent->addChild(gameObject, false);
 
     for (const auto& child : renderNode.children) {
@@ -548,10 +565,10 @@ void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, Gam
     }
 }
 
-void RenderObject::expandInstanceBuffer(const uint32_t count, const bool copy)
+void RenderObject::expandInstanceBuffer(const uint32_t countToAdd, const bool copy)
 {
     const uint32_t oldBufferSize = instanceBufferSize;
-    instanceBufferSize += count;
+    instanceBufferSize += countToAdd;
     // CPU_TO_GPU because it can be modified any time by gameobjects
     const AllocatedBuffer tempInstanceBuffer = creator->createBuffer(instanceBufferSize * sizeof(InstanceData)
                                                                      , VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |

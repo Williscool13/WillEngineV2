@@ -10,29 +10,33 @@ layout (set = 0, binding = 0) uniform sampler2D normalRenderTarget;
 layout (set = 0, binding = 1) uniform sampler2D albedoRenderTarget;
 layout (set = 0, binding = 2) uniform sampler2D pbrRenderTarget;
 layout (set = 0, binding = 3) uniform sampler2D depthBuffer;
-layout (rgba16f, set = 0, binding = 4) uniform image2D outputImage;
+layout (set = 0, binding = 4) uniform sampler2D velocityBuffer;
+
+layout (rgba16f, set = 0, binding = 5) uniform image2D outputImage;
 
 layout (std140, set = 1, binding = 0) uniform SceneData {
     mat4 view;
     mat4 proj;
     mat4 viewProj;
+    vec4 cameraPos;
+    mat4 viewProjCameraLookDirection;
+
     mat4 invView;
     mat4 invProjection;
     mat4 invViewProjection;
-    mat4 viewProjCameraLookDirection;
-    vec4 cameraPos;
+
+    mat4 prevView;
+    mat4 prevProj;
+    mat4 prevViewProj;
+    vec4 jitter;
+    vec2 renderTargetSize;
+    int frameNumber; // either 0 or 1
+    float deltaTime;
 } sceneData;
 
 layout (std140, set = 2, binding = 0) uniform SceneDatae {
-    mat4 view;
-    mat4 proj;
-    mat4 viewProj;
-    mat4 invView;
-    mat4 invProjection;
-    mat4 invViewProjection;
-    mat4 viewProjCameraLookDirection;
-    vec4 cameraPos;
-} lightDataHehe;
+    float dummy;
+} dummy;
 /**layout (std140, set = 2, binding = 0) uniform LightData {
     DirectionalLight mainLight;
     PointLight pointLights[6];
@@ -86,6 +90,27 @@ void main() {
     vec4 pbrData = texture(pbrRenderTarget, uv);
     vec3 position = reconstructPosition(screenPos, depth);
 
+
+    if (pushConstants.debug == 1) {
+        // Velocity
+        vec2 velocity = texture(velocityBuffer, uv).rg;
+        velocity = velocity / sceneData.deltaTime;
+
+        vec4 debugColor = vec4(velocity.x, velocity.y, 0.0, 0.0);
+        imageStore(outputImage, screenPos, debugColor);
+        return;
+    }
+    else if (pushConstants.debug == 2) {
+        // Depth
+        float linearDepth = LinearizeDepth(depth);
+        float normalizedLinearDepth = linearDepth / 25.0;
+        vec4 fragColor = vec4(vec3(normalizedLinearDepth), 1.0);
+        imageStore(outputImage, screenPos, vec4(vec3(normalizedLinearDepth), 1.0f));
+        return;
+    }
+
+
+
     float roughness = pbrData.g;
     float metallic = pbrData.r;
     float emissive = pbrData.b;
@@ -134,11 +159,4 @@ void main() {
     correctedFinalColor = pow(correctedFinalColor, vec3(1.0f / 2.2f)); // gamma correction
 
     imageStore(outputImage, screenPos, vec4(correctedFinalColor, albedo.w));
-
-    // Depth Vis
-/**float linearDepth = LinearizeDepth(depth);
-    float normalizedLinearDepth = linearDepth / 25.0;
-    vec4 fragColor = vec4(vec3(normalizedLinearDepth), 1.0);
-    imageStore(outputImage, texCoord, vec4(vec3(normalizedLinearDepth), 1.0f));*/
-
 }
