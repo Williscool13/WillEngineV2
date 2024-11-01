@@ -46,10 +46,12 @@ layout (std140, set = 2, binding = 0) uniform SceneData {
     mat4 prevView;
     mat4 prevProj;
     mat4 prevViewProj;
+
     vec4 jitter;
+
     vec2 renderTargetSize;
     int frameNumber; // either 0 or 1
-    int pad;
+    float deltaTime;
 } sceneData;
 
 layout (location = 0) in vec3 position;
@@ -90,5 +92,5 @@ void main() {
     outPrevMvpPosition = sceneData.prevViewProj * prevModel * vec4(position, 1.0);
 
 
-    gl_Position = sceneData.viewProj * worldPos;
+    gl_Position = outCurrMvpPosition;
 }

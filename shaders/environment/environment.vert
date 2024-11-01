@@ -20,10 +20,12 @@ layout (std140, set = 1, binding = 0) uniform SceneData {
     mat4 prevView;
     mat4 prevProj;
     mat4 prevViewProj;
+
     vec4 jitter;
+
     vec2 renderTargetSize;
     int frameNumber; // either 0 or 1
-    int pad;
+    float deltaTime;
 } sceneData;
 
 layout(location = 0) out vec3 fragPosition;
