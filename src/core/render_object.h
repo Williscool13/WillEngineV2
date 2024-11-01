@@ -71,7 +71,9 @@ private:
     uint32_t activeInstanceCount{0};
 
 public:
-    GameObject* generateGameObject();
+   GameObject* generateGameObject();
+
+    InstanceData* getInstanceData(int32_t index) const;
 
     void updateInstanceData(const InstanceData& value, int32_t index) const;
 
@@ -112,10 +114,10 @@ private: // Drawing
     /**
      * Expands the instance buffer of the render object by \code count\endcode amount.
      * \n Should be called whenever new instances are created
-     * @param count
+     * @param countToAdd
      * @param copy if true, will attempt to copy previous buffer into the new buffer
      */
-    void expandInstanceBuffer(uint32_t count, bool copy = true);
+    void expandInstanceBuffer(uint32_t countToAdd, bool copy = true);
 
     /**
      * Uploads the indirect buffer of the render object

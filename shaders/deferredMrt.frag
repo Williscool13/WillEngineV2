@@ -8,6 +8,8 @@ layout (location = 1) in vec3 inNormal;
 layout (location = 2) in vec4 inColor;
 layout (location = 3) in vec2 inUV;
 layout (location = 4) in flat uint inMaterialIndex;
+layout (location = 5) in vec4 inCurrMvpPosition;
+layout (location = 6) in vec4 inPrevMvpPosition;
 
 layout (location = 0) out vec4 normalTarget; // 8,8,8 normal 8 unused
 layout (location = 1) out vec4 albedoTarget; // 8,8,8 albedo 8 coverage
@@ -17,7 +19,8 @@ layout (location = 3) out vec2 velocityTarget;    // 16 X, 16 Y
 
 struct Model
 {
-    mat4 modelMatrix;
+    mat4 modelMatrix1;
+    mat4 modelMatrix2;
 };
 
 struct Material
@@ -75,4 +78,9 @@ void main() {
     normalTarget = vec4(normalize(inNormal), 1.0f);
     albedoTarget = vec4(albedo, 1.0f);
     pbrTarget = vec4(metallic, roughness, 0.0f, 0.0f);
+
+    vec2 currNDC = (inCurrMvpPosition.xy / inCurrMvpPosition.w);
+    vec2 prevNDC = (inPrevMvpPosition.xy / inPrevMvpPosition.w);
+    velocityTarget = (currNDC - prevNDC) * 0.5;
+    velocityTarget = vec2(velocityTarget.x, -velocityTarget.y);
 }

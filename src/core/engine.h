@@ -79,6 +79,10 @@ public:
 
     void draw();
 
+    void updateSceneData();
+
+    void updateSceneObjects();
+
     void drawEnvironment(VkCommandBuffer cmd) const;
 
     void frustumCull(VkCommandBuffer cmd) const;
@@ -162,7 +166,8 @@ private: // Rendering
     // Main
     int frameNumber{0};
     FrameData frames[FRAME_OVERLAP]{};
-    FrameData& getCurrentFrame() { return frames[frameNumber % FRAME_OVERLAP]; };
+    int getCurrentFrameOverlap() const { return frameNumber % FRAME_OVERLAP; }
+    FrameData& getCurrentFrame() { return frames[frameNumber % FRAME_OVERLAP]; }
     bool bStopRendering{false};
 
     double frameTime{};
@@ -186,6 +191,8 @@ private: // Scene
 
     Environment* environment{nullptr};
     int32_t environmentMapindex{7};
+
+    int32_t deferredDebug{0};
 
 private: // Scene Descriptors
     VkDescriptorSetLayout sceneDataDescriptorSetLayout{VK_NULL_HANDLE};
@@ -249,7 +256,7 @@ private: // Render Targets
     /**
      * 16 X and 16 Y
      */
-    AllocatedImage velocityTarget{};
+    AllocatedImage velocityRenderTarget{};
 
     void createRenderTargets(uint32_t width, uint32_t height);
 

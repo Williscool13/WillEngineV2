@@ -48,22 +48,48 @@ glm::mat4 GameObject::getModelMatrix()
     return cachedWorldTransform;
 }
 
-void GameObject::refreshTransforms()
+void GameObject::dirty()
 {
     isTransformDirty = true;
+    isModelPendingUpdate = true;
 
-    for (auto& child : children) {
-        child->refreshTransforms();
+    for (const auto& child : children) {
+        child->dirty();
+    }
+}
+
+void GameObject::recursiveUpdateModelMatrix(const int32_t frameCount)
+{
+    if (isStatic) {
+        // if a gameobject is static, all its children must necessarily be static.
+        return;
     }
 
-    if (instanceOwner != nullptr) {
-        InstanceData instanceData{.modelMatrix = getModelMatrix()};
-        instanceOwner->updateInstanceData(instanceData, instanceIndex);
+
+    if (pRenderObject) {
+        if (InstanceData* pInstanceData = pRenderObject->getInstanceData(instanceIndex)) {
+            if (isModelPendingUpdate) {
+                const glm::mat4 newTransform = getModelMatrix();
+                if (frameCount == 0) {
+                    pInstanceData->modelMatrix0 = newTransform;
+                } else {
+                    pInstanceData->modelMatrix1 = newTransform;
+                }
+                wasModelUpdatedLastFrame = true;
+            } else if (wasModelUpdatedLastFrame) {
+                if (frameCount == 0) {
+                    pInstanceData->modelMatrix1 = pInstanceData->modelMatrix0;
+                } else {
+                    pInstanceData->modelMatrix0 = pInstanceData->modelMatrix1;
+                }
+                wasModelUpdatedLastFrame = false;
+            }
+        }
     }
-    /*// If no callbacks, dirty transforms are not calculated unless necessary
-    for (const TransformChangedCallback& callback : transformCallbacks) {
-        callback(getModelMatrix());
-    }*/
+
+    for (auto child : children) {
+        child->recursiveUpdateModelMatrix(frameCount);
+    }
 }
 
 void GameObject::addChild(GameObject* child, bool maintainWorldPosition)
@@ -95,7 +121,7 @@ void GameObject::addChild(GameObject* child, bool maintainWorldPosition)
 
         // Set the new local position, rotation, and scale
         child->transform.setTransform(newLocalPosition, newLocalRotation, newLocalScale);
-        child->refreshTransforms();
+        child->dirty();
     }
 }
 
@@ -134,7 +160,7 @@ void GameObject::unparent()
     transform.setTranslation(worldPosition);
     transform.setRotation(worldRotation);
     transform.setScale(worldScale);
-    refreshTransforms();
+    dirty();
 }
 
 GameObject* GameObject::getParent()

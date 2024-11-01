@@ -138,72 +138,11 @@ void Engine::run()
                 ImGui::Text("Frame Time: %.2f ms", frameTime);
                 ImGui::Text("Draw Time: %.2f ms", drawTime);
                 ImGui::Text("Delta Time: %.2f ms", time.getDeltaTime() * 1000.0f);
-            }
-            ImGui::End();
 
-            if (ImGui::Begin("Input Details")) {
-                ImGui::Text("Mouse Buttons:");
-                ImGui::Columns(4, "MouseButtonsColumns", true);
                 ImGui::Separator();
-                ImGui::Text("Button");
-                ImGui::NextColumn();
-                ImGui::Text("Pressed");
-                ImGui::NextColumn();
-                ImGui::Text("Released");
-                ImGui::NextColumn();
-                ImGui::Text("State");
-                ImGui::NextColumn();
-                ImGui::Separator();
-
-                const char* mouseButtons[] = {"LMB", "RMB", "MMB", "M4", "M5"};
-                const uint8_t mouseButtonCodes[] = {0, 2, 1, 3, 4};
-
-                for (int i = 0; i < 5; ++i) {
-                    ImGui::Text("%s", mouseButtons[i]);
-                    ImGui::NextColumn();
-                    ImGui::Text("%s", input.isMousePressed(mouseButtonCodes[i]) ? "Yes" : "No");
-                    ImGui::NextColumn();
-                    ImGui::Text("%s", input.isMouseReleased(mouseButtonCodes[i]) ? "Yes" : "No");
-                    ImGui::NextColumn();
-                    ImGui::Text("%s", input.isMouseDown(mouseButtonCodes[i]) ? "Down" : "Up");
-                    ImGui::NextColumn();
-                }
-
-                ImGui::Columns(1);
-                ImGui::Separator();
-
-                ImGui::Text("Keyboard:");
-                ImGui::Columns(4, "KeyboardColumns", true);
-                ImGui::Separator();
-                ImGui::Text("Key");
-                ImGui::NextColumn();
-                ImGui::Text("Pressed");
-                ImGui::NextColumn();
-                ImGui::Text("Released");
-                ImGui::NextColumn();
-                ImGui::Text("State");
-                ImGui::NextColumn();
-                ImGui::Separator();
-
-                const char* keys[] = {"W", "A", "S", "D", "Space", "C", "Left Shift"};
-                const SDL_Keycode keyCodes[] = {SDLK_w, SDLK_a, SDLK_s, SDLK_d, SDLK_SPACE, SDLK_c, SDLK_LSHIFT};
-
-                for (int i = 0; i < 7; ++i) {
-                    ImGui::Text("%s", keys[i]);
-                    ImGui::NextColumn();
-                    ImGui::Text("%s", input.isKeyPressed(keyCodes[i]) ? "Yes" : "No");
-                    ImGui::NextColumn();
-                    ImGui::Text("%s", input.isKeyReleased(keyCodes[i]) ? "Yes" : "No");
-                    ImGui::NextColumn();
-                    ImGui::Text("%s", input.isKeyDown(keyCodes[i]) ? "Down" : "Up");
-                    ImGui::NextColumn();
-                }
-
-                ImGui::Columns(1);
-                ImGui::Separator();
-
-                ImGui::Text("Mouse Position: (%.1f, %.1f)", input.getMouseX(), input.getMouseY());
-                ImGui::Text("Mouse Delta: (%.1f, %.1f)", input.getMouseXDelta(), input.getMouseYDelta());
+                const char* debugLabels[] = {"None", "Velocity Buffer", "Depth Buffer"};
+                ImGui::Text("Debug View");
+                ImGui::Combo("Debug View", &deferredDebug, debugLabels, IM_ARRAYSIZE(debugLabels));
             }
             ImGui::End();
 
@@ -215,6 +154,72 @@ void Engine::run()
                 ImGui::Text("View Direction: (%.2f, %.2f, %.2f)", viewDir.x, viewDir.y, viewDir.z);
                 ImGui::Text("Rotation (%.2f, %.2f, %.2f)", cameraRotation.x, cameraRotation.y, cameraRotation.z);
                 ImGui::Text("Position: (%.2f, %.2f, %.2f)", cameraPosition.x, cameraPosition.y, cameraPosition.z);
+
+                if (ImGui::BeginChild("Input Details")) {
+                    ImGui::Text("Mouse Buttons:");
+                    ImGui::Columns(4, "MouseButtonsColumns", true);
+                    ImGui::Separator();
+                    ImGui::Text("Button");
+                    ImGui::NextColumn();
+                    ImGui::Text("Pressed");
+                    ImGui::NextColumn();
+                    ImGui::Text("Released");
+                    ImGui::NextColumn();
+                    ImGui::Text("State");
+                    ImGui::NextColumn();
+                    ImGui::Separator();
+
+                    const char* mouseButtons[] = {"LMB", "RMB", "MMB", "M4", "M5"};
+                    const uint8_t mouseButtonCodes[] = {0, 2, 1, 3, 4};
+
+                    for (int i = 0; i < 5; ++i) {
+                        ImGui::Text("%s", mouseButtons[i]);
+                        ImGui::NextColumn();
+                        ImGui::Text("%s", input.isMousePressed(mouseButtonCodes[i]) ? "Yes" : "No");
+                        ImGui::NextColumn();
+                        ImGui::Text("%s", input.isMouseReleased(mouseButtonCodes[i]) ? "Yes" : "No");
+                        ImGui::NextColumn();
+                        ImGui::Text("%s", input.isMouseDown(mouseButtonCodes[i]) ? "Down" : "Up");
+                        ImGui::NextColumn();
+                    }
+
+                    ImGui::Columns(1);
+                    ImGui::Separator();
+
+                    ImGui::Text("Keyboard:");
+                    ImGui::Columns(4, "KeyboardColumns", true);
+                    ImGui::Separator();
+                    ImGui::Text("Key");
+                    ImGui::NextColumn();
+                    ImGui::Text("Pressed");
+                    ImGui::NextColumn();
+                    ImGui::Text("Released");
+                    ImGui::NextColumn();
+                    ImGui::Text("State");
+                    ImGui::NextColumn();
+                    ImGui::Separator();
+
+                    const char* keys[] = {"W", "A", "S", "D", "Space", "C", "Left Shift"};
+                    const SDL_Keycode keyCodes[] = {SDLK_w, SDLK_a, SDLK_s, SDLK_d, SDLK_SPACE, SDLK_c, SDLK_LSHIFT};
+
+                    for (int i = 0; i < 7; ++i) {
+                        ImGui::Text("%s", keys[i]);
+                        ImGui::NextColumn();
+                        ImGui::Text("%s", input.isKeyPressed(keyCodes[i]) ? "Yes" : "No");
+                        ImGui::NextColumn();
+                        ImGui::Text("%s", input.isKeyReleased(keyCodes[i]) ? "Yes" : "No");
+                        ImGui::NextColumn();
+                        ImGui::Text("%s", input.isKeyDown(keyCodes[i]) ? "Down" : "Up");
+                        ImGui::NextColumn();
+                    }
+
+                    ImGui::Columns(1);
+                    ImGui::Separator();
+
+                    ImGui::Text("Mouse Position: (%.1f, %.1f)", input.getMouseX(), input.getMouseY());
+                    ImGui::Text("Mouse Delta: (%.1f, %.1f)", input.getMouseXDelta(), input.getMouseYDelta());
+                }
+                ImGui::EndChild();
 
                 if (ImGui::BeginChild("Spectate")) {
                     ImGui::Checkbox("Enabled Spectate Camera", &bSpectateCameraActive);
@@ -355,12 +360,79 @@ void Engine::run()
             GameObject* root = scene.DEBUG_getSceneRoot();
 
             root->transform.translate(glm::vec3(1.0f, 0.0f, 0.0f));
-            root->refreshTransforms();
+            root->dirty();
         }
 
 
         draw();
     }
+}
+
+void Engine::updateSceneData()
+{
+    // Update scene data
+    {
+        const auto pSceneData = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
+        if (frameNumber == 0) {
+            pSceneData->prevView = camera.getViewMatrix();
+            pSceneData->prevProj = camera.getProjMatrix();
+            pSceneData->prevViewProj = camera.getViewProjMatrix();
+        } else {
+            pSceneData->prevView = pSceneData->view;
+            pSceneData->prevProj = pSceneData->proj;
+            pSceneData->prevViewProj = pSceneData->viewProj;
+        }
+
+        pSceneData->view = camera.getViewMatrix();
+        pSceneData->proj = camera.getProjMatrix();
+        pSceneData->viewProj = camera.getViewProjMatrix();
+        pSceneData->invView = glm::inverse(pSceneData->view);
+        pSceneData->invProj = glm::inverse(pSceneData->proj);
+        pSceneData->invViewProj = glm::inverse(pSceneData->viewProj);
+        pSceneData->cameraWorldPos = camera.getPosition();
+        const glm::mat4 cameraLook = glm::lookAt(glm::vec3(0), camera.getViewDirectionWS(), glm::vec3(0, 1, 0));
+        const auto proj = camera.getProjMatrix();
+        pSceneData->viewProjCameraLookDirection = proj * cameraLook;
+
+        pSceneData->frameNumber = getCurrentFrameOverlap();
+
+        pSceneData->jitter = glm::vec4(0.0f);
+        pSceneData->renderTargetSize = {1700, 900};
+        pSceneData->deltaTime = TimeUtils::Get().getDeltaTime();
+    }
+    // Update spectate scene data
+    {
+        const auto pSpectateSceneData = static_cast<SceneData*>(spectateSceneDataBuffer.info.pMappedData);
+        auto newView = glm::lookAt(spectateCameraPosition, spectateCameraLookAt, glm::vec3(0.f, 1.0f, 0.f));
+
+        if (frameNumber == 0) {
+            pSpectateSceneData->prevView = newView;
+            pSpectateSceneData->prevProj = camera.getProjMatrix();
+            pSpectateSceneData->prevViewProj = pSpectateSceneData->proj * newView;
+        } else {
+            pSpectateSceneData->prevView = pSpectateSceneData->view;
+            pSpectateSceneData->prevProj = pSpectateSceneData->proj;
+            pSpectateSceneData->prevViewProj = pSpectateSceneData->viewProj;
+        }
+
+        pSpectateSceneData->view = newView;
+        pSpectateSceneData->proj = camera.getProjMatrix();
+        pSpectateSceneData->viewProj = pSpectateSceneData->proj * pSpectateSceneData->view;
+        pSpectateSceneData->invView = glm::inverse(pSpectateSceneData->view);
+        pSpectateSceneData->invProj = glm::inverse(pSpectateSceneData->proj);
+        pSpectateSceneData->invViewProj = glm::inverse(pSpectateSceneData->viewProj);
+        pSpectateSceneData->cameraWorldPos = glm::vec4(spectateCameraPosition, 0.f);
+        pSpectateSceneData->viewProjCameraLookDirection = newView;
+    }
+}
+
+void Engine::updateSceneObjects()
+{
+    testGameObject1->recursiveUpdateModelMatrix(getCurrentFrameOverlap());
+    testGameObject2->recursiveUpdateModelMatrix(getCurrentFrameOverlap());
+    testGameObject3->recursiveUpdateModelMatrix(getCurrentFrameOverlap());
+    testGameObject4->recursiveUpdateModelMatrix(getCurrentFrameOverlap());
+    testGameObject5->recursiveUpdateModelMatrix(getCurrentFrameOverlap());
 }
 
 void Engine::draw()
@@ -382,33 +454,8 @@ void Engine::draw()
         return;
     }
 
-    // Update scene data
-    {
-        const auto pSceneData = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
-        pSceneData->view = camera.getViewMatrix();
-        pSceneData->proj = camera.getProjMatrix();
-        pSceneData->viewProj = camera.getViewProjMatrix();
-        pSceneData->invView = glm::inverse(pSceneData->view);
-        pSceneData->invProj = glm::inverse(pSceneData->proj);
-        pSceneData->invViewProj = glm::inverse(pSceneData->viewProj);
-        pSceneData->cameraWorldPos = camera.getPosition();
-        const glm::mat4 cameraLook = glm::lookAt(glm::vec3(0), camera.getViewDirectionWS(), glm::vec3(0, 1, 0));
-        const auto proj = camera.getProjMatrix();
-        pSceneData->viewProjCameraLookDirection = proj * cameraLook;
-    }
-    // Update spectate scene data
-    {
-        const auto pSpectateSceneData = static_cast<SceneData*>(spectateSceneDataBuffer.info.pMappedData);
-        auto newView = glm::lookAt(spectateCameraPosition, spectateCameraLookAt, glm::vec3(0.f, 1.0f, 0.f));
-        pSpectateSceneData->view = newView;
-        pSpectateSceneData->proj = camera.getProjMatrix();
-        pSpectateSceneData->viewProj = pSpectateSceneData->proj * pSpectateSceneData->view;
-        pSpectateSceneData->invView = glm::inverse(pSpectateSceneData->view);
-        pSpectateSceneData->invProj = glm::inverse(pSpectateSceneData->proj);
-        pSpectateSceneData->invViewProj = glm::inverse(pSpectateSceneData->viewProj);
-        pSpectateSceneData->cameraWorldPos = glm::vec4(spectateCameraPosition, 0.f);
-        pSpectateSceneData->viewProjCameraLookDirection = newView;
-    }
+    updateSceneData();
+    updateSceneObjects();
 
     // Start Command Buffer Recording
     VkCommandBuffer cmd = getCurrentFrame()._mainCommandBuffer;
@@ -421,18 +468,20 @@ void Engine::draw()
     drawExtent.height = std::min(swapchainExtent.height, drawImage.imageExtent.height); // * _renderScale;
     drawExtent.width = std::min(swapchainExtent.width, drawImage.imageExtent.width); // * _renderScale;
 
+    vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    drawEnvironment(cmd);
+
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
-    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-
-    drawEnvironment(cmd);
+    vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     drawDeferredMrt(cmd);
 
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -442,21 +491,8 @@ void Engine::draw()
         DEBUG_drawSpectate(cmd);
     }
 
-    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
-
-    VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkClearValue depthClearValue = {0.0f, 0.0f};
-    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue,
-                                                                           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-    VkRenderingInfo renderInfo = vk_helpers::renderingInfo(drawExtent, &colorAttachment, &depthAttachment);
-    /*vkCmdBeginRendering(cmd, &renderInfo);
-    drawRender(cmd);
-    vkCmdEndRendering(cmd);*/
-
-
     // copy Draw Image into Swapchain Image
-    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::copyImageToImage(cmd, drawImage.image, swapchainImages[swapchainImageIndex], drawExtent, swapchainExtent);
 
@@ -472,12 +508,9 @@ void Engine::draw()
 
     // Submission
     VkCommandBufferSubmitInfo cmdinfo = vk_helpers::commandBufferSubmitInfo(cmd);
-
-    VkSemaphoreSubmitInfo waitInfo = vk_helpers::semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
-                                                                     getCurrentFrame()._swapchainSemaphore);
+    VkSemaphoreSubmitInfo waitInfo = vk_helpers::semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, getCurrentFrame()._swapchainSemaphore);
     VkSemaphoreSubmitInfo signalInfo = vk_helpers::semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, getCurrentFrame()._renderSemaphore);
-
-    VkSubmitInfo2 submit = vk_helpers::submitInfo(&cmdinfo, &signalInfo, &waitInfo);
+    const VkSubmitInfo2 submit = vk_helpers::submitInfo(&cmdinfo, &signalInfo, &waitInfo);
 
     //submit command buffer to the queue and execute it.
     // _renderFence will now block until the graphic commands finish execution
@@ -496,7 +529,7 @@ void Engine::draw()
 
     presentInfo.pImageIndices = &swapchainImageIndex;
 
-    VkResult presentResult = vkQueuePresentKHR(graphicsQueue, &presentInfo);
+    const VkResult presentResult = vkQueuePresentKHR(graphicsQueue, &presentInfo);
 
     //increase the number of frames drawn
     frameNumber++;
@@ -506,8 +539,8 @@ void Engine::draw()
         fmt::print("Swapchain out of date or suboptimal, resize requested (At Present)\n");
     }
 
-    auto end = std::chrono::system_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    const auto end = std::chrono::system_clock::now();
+    const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     frameTime = frameTime * 0.99 + elapsed.count() / 1000.0 * 0.01f;
     drawTime = drawTime * 0.99 + elapsed.count() / 1000.0 * 0.01f;
 }
@@ -610,8 +643,8 @@ void Engine::drawDeferredMrt(VkCommandBuffer cmd) const
                                                                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     VkRenderingAttachmentInfo pbrAttachment = vk_helpers::attachmentInfo(pbrRenderTarget.imageView, &colorClear,
                                                                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo velocityAttachment = vk_helpers::attachmentInfo(velocityTarget.imageView, &colorClear,
-                                                                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo velocityAttachment = vk_helpers::attachmentInfo(velocityRenderTarget.imageView, &colorClear,
+                                                                              VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     VkClearValue depthClearValue = {0.0f, 0.0f};
 
@@ -702,7 +735,7 @@ void Engine::drawDeferredResolve(VkCommandBuffer cmd) const
     DeferredResolveData deferredResolveData;
     deferredResolveData.width = drawExtent.width;
     deferredResolveData.height = drawExtent.height;
-    deferredResolveData.debug = 0;
+    deferredResolveData.debug = deferredDebug;
     vkCmdPushConstants(cmd, deferredResolvePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(DeferredResolveData), &deferredResolveData);
 
     VkDescriptorBufferBindingInfoEXT deferredResolveBindingInfos[4]{};
@@ -941,7 +974,7 @@ void Engine::cleanup()
     destroyImage(normalRenderTarget);
     destroyImage(albedoRenderTarget);
     destroyImage(pbrRenderTarget);
-    destroyImage(velocityTarget);
+    destroyImage(velocityRenderTarget);
 
     // Swapchain
     vkDestroySwapchainKHR(device, swapchain, nullptr);
@@ -1337,7 +1370,7 @@ void Engine::initDeferredMrtPipeline()
     renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
     renderPipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
     renderPipelineBuilder.setupRenderer(
-        {normalRenderTarget.imageFormat, albedoRenderTarget.imageFormat, pbrRenderTarget.imageFormat, velocityTarget.imageFormat}
+        {normalRenderTarget.imageFormat, albedoRenderTarget.imageFormat, pbrRenderTarget.imageFormat, velocityRenderTarget.imageFormat}
         , depthImage.imageFormat);
     renderPipelineBuilder.setupPipelineLayout(deferredMrtPipelineLayout);
 
@@ -1361,7 +1394,8 @@ void Engine::initDeferredResolvePipeline()
         layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         layoutBuilder.addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
         layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-        layoutBuilder.addBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+        layoutBuilder.addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        layoutBuilder.addBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         deferredResolveRenderTargetLayout = layoutBuilder.build(device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
     //
@@ -1380,6 +1414,9 @@ void Engine::initDeferredResolvePipeline()
         const VkDescriptorImageInfo depthImageTarget{
             .sampler = defaultSamplerNearest, .imageView = depthImage.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         };
+        const VkDescriptorImageInfo velocityTarget{
+            .sampler = defaultSamplerNearest, .imageView = velocityRenderTarget.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        };
         const VkDescriptorImageInfo drawImageTarget{
             .imageView = drawImage.imageView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
         };
@@ -1387,6 +1424,7 @@ void Engine::initDeferredResolvePipeline()
         renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, albedoTarget, false}); // albedo rt
         renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, pbrDataTarget, false}); // pbr rt
         renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, depthImageTarget, false}); // depth image
+        renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, velocityTarget, false}); // depth image
         renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, drawImageTarget, false}); // target image
 
 
@@ -1523,23 +1561,23 @@ void Engine::initScene()
     scene.addGameObject(testGameObject5);
 
     testGameObject1->transform.setScale(1.f);
-    testGameObject1->refreshTransforms();
+    testGameObject1->dirty();
 
     testGameObject2->transform.setScale(1.0f);
     testGameObject2->transform.translate(glm::vec3(100.0f, 0.0f, 0.0f));
-    testGameObject2->refreshTransforms();
+    testGameObject2->dirty();
 
     testGameObject3->transform.setScale(1.0f);
     testGameObject3->transform.translate(glm::vec3(-100.0f, 0.0f, 0.0f));
-    testGameObject3->refreshTransforms();
+    testGameObject3->dirty();
 
     testGameObject4->transform.setScale(1.0f);
     testGameObject4->transform.translate(glm::vec3(0.0f, -100.0f, 0.0f));
-    testGameObject4->refreshTransforms();
+    testGameObject4->dirty();
 
     testGameObject5->transform.setScale(1.0f);
     testGameObject5->transform.translate(glm::vec3(0.0f, 100.0f, 0.0f));
-    testGameObject5->refreshTransforms();
+    testGameObject5->dirty();
 }
 
 void Engine::immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const
@@ -1800,7 +1838,7 @@ void Engine::createRenderTargets(uint32_t width, uint32_t height)
     normalRenderTarget = generateRenderTarget(VK_FORMAT_R8G8B8A8_SNORM);
     albedoRenderTarget = generateRenderTarget(VK_FORMAT_R8G8B8A8_UNORM);
     pbrRenderTarget = generateRenderTarget(VK_FORMAT_R8G8B8A8_UNORM);
-    velocityTarget = generateRenderTarget(VK_FORMAT_R16G16_SFLOAT);
+    velocityRenderTarget = generateRenderTarget(VK_FORMAT_R16G16_SFLOAT);
 }
 
 void Engine::createDrawImages(uint32_t width, uint32_t height)
