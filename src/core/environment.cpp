@@ -126,7 +126,7 @@ Environment::~Environment()
     }
 }
 
-void Environment::loadCubemap(const char* path, int environmentMapIndex)
+void Environment::loadEnvironment(const char* name, const char* path, int environmentMapIndex)
 {
     auto start = std::chrono::system_clock::now();
     std::filesystem::path cubemapPath{path};
@@ -263,7 +263,7 @@ void Environment::loadCubemap(const char* path, int environmentMapIndex)
 
     environmentMaps[environmentMapIndex] = newEnvMapData;
 
-    activeEnvironmentMapIndices.insert(environmentMapIndex);
+    activeEnvironmentMapNames.insert({environmentMapIndex, name});
 
     auto end3 = std::chrono::system_clock::now();
     auto elapsed3 = std::chrono::duration_cast<std::chrono::microseconds>(end3 - start);
@@ -271,7 +271,7 @@ void Environment::loadCubemap(const char* path, int environmentMapIndex)
     fmt::print("Total {}ms\n", elapsed3.count() / 1000.0f);
 }
 
-void Environment::equiToCubemapImmediate(AllocatedImage& _cubemapImage, int _cubemapStorageDescriptorIndex)
+void Environment::equiToCubemapImmediate(const AllocatedImage& _cubemapImage, const int _cubemapStorageDescriptorIndex) const
 {
     creator->immediateSubmit([&](VkCommandBuffer cmd) {
         VkExtent3D extents = {cubemapResolution, cubemapResolution, 1};
@@ -416,14 +416,14 @@ void Environment::initializeStatics(Engine* engine)
         equiImageDescriptorSetLayout = layoutBuilder.build(engine->getDevice(), VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT
                                                            , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
-    //  Cubemap Descriptor Set Layout
+    //  (Storage) Cubemap Descriptor Set Layout
     {
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
         cubemapStorageDescriptorSetLayout = layoutBuilder.build(engine->getDevice(), VK_SHADER_STAGE_COMPUTE_BIT
                                                                 , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
-    //  SAMPLER cubemaps
+    //  (Sampler) Cubemap Descriptor Set Layout
     {
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -438,7 +438,7 @@ void Environment::initializeStatics(Engine* engine)
                                                      , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
 
-    // Full Cubemap Descriptor - Used in actual code
+    // Full Cubemap Descriptor - contains PBR IBL data
     {
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // 1 cubemap  - diffuse/spec
@@ -446,7 +446,6 @@ void Environment::initializeStatics(Engine* engine)
         environmentMapDescriptorSetLayout = layoutBuilder.build(engine->getDevice(), VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT
                                                                 , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
-
 
     // equi to cubemap pipeline
     {
