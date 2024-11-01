@@ -8,6 +8,7 @@
 #include <../../extern/stb/stb_image.h>
 //#include <chrono.h>
 #include "engine.h"
+#include "../util/file_utils.h"
 
 const VkExtent3D Environment::specularPrefilteredBaseExtents = {512, 512, 1};
 const VkExtent3D Environment::lutImageExtent = {512, 512, 1};
@@ -188,7 +189,7 @@ void Environment::loadEnvironment(const char* name, const char* path, int enviro
 
     auto end0 = std::chrono::system_clock::now();
     auto elapsed0 = std::chrono::duration_cast<std::chrono::microseconds>(end0 - start);
-    fmt::print("Environment Map: {} | Cubemap {}ms | ", path, elapsed0.count() / 1000.0f);
+    fmt::print("Environment Map: {} | Cubemap {:.1f}ms | ", file_utils::getFileName(path), elapsed0.count() / 1000.0f);
     newEnvMapData.specDiffCubemap = creator->createCubemap(specularPrefilteredBaseExtents, VK_FORMAT_R32G32B32A32_SFLOAT,
                                                            VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                                                            VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
@@ -241,7 +242,7 @@ void Environment::loadEnvironment(const char* name, const char* path, int enviro
 
     auto end1 = std::chrono::system_clock::now();
     auto elapsed1 = std::chrono::duration_cast<std::chrono::microseconds>(end1 - end0);
-    fmt::print("D/S Map {}ms | ", elapsed1.count() / 1000.0f);
+    fmt::print("D/S Map {:.1f}ms | ", elapsed1.count() / 1000.0f);
 
 
     VkDescriptorImageInfo diffSpecDescriptorInfo{};
@@ -268,7 +269,7 @@ void Environment::loadEnvironment(const char* name, const char* path, int enviro
     auto end3 = std::chrono::system_clock::now();
     auto elapsed3 = std::chrono::duration_cast<std::chrono::microseconds>(end3 - start);
 
-    fmt::print("Total {}ms\n", elapsed3.count() / 1000.0f);
+    fmt::print("Total {:.1f}ms\n", elapsed3.count() / 1000.0f);
 }
 
 void Environment::equiToCubemapImmediate(const AllocatedImage& _cubemapImage, const int _cubemapStorageDescriptorIndex) const

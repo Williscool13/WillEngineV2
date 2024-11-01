@@ -610,6 +610,8 @@ void Engine::drawDeferredMrt(VkCommandBuffer cmd) const
                                                                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     VkRenderingAttachmentInfo pbrAttachment = vk_helpers::attachmentInfo(pbrRenderTarget.imageView, &colorClear,
                                                                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo velocityAttachment = vk_helpers::attachmentInfo(velocityTarget.imageView, &colorClear,
+                                                                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     VkClearValue depthClearValue = {0.0f, 0.0f};
 
@@ -619,14 +621,15 @@ void Engine::drawDeferredMrt(VkCommandBuffer cmd) const
     renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     renderInfo.pNext = nullptr;
 
-    VkRenderingAttachmentInfo deferredAttachments[3];
+    VkRenderingAttachmentInfo deferredAttachments[4];
     deferredAttachments[0] = normalAttachment;
     deferredAttachments[1] = albedoAttachment;
     deferredAttachments[2] = pbrAttachment;
+    deferredAttachments[3] = velocityAttachment;
 
     renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, drawExtent};
     renderInfo.layerCount = 1;
-    renderInfo.colorAttachmentCount = 3;
+    renderInfo.colorAttachmentCount = 4;
     renderInfo.pColorAttachments = deferredAttachments;
     renderInfo.pDepthAttachment = &depthAttachment;
     renderInfo.pStencilAttachment = nullptr;
@@ -938,6 +941,7 @@ void Engine::cleanup()
     destroyImage(normalRenderTarget);
     destroyImage(albedoRenderTarget);
     destroyImage(pbrRenderTarget);
+    destroyImage(velocityTarget);
 
     // Swapchain
     vkDestroySwapchainKHR(device, swapchain, nullptr);
@@ -1332,7 +1336,9 @@ void Engine::initDeferredMrtPipeline()
     renderPipelineBuilder.disableMultisampling();
     renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
     renderPipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    renderPipelineBuilder.setupRenderer({normalRenderTarget.imageFormat, albedoRenderTarget.imageFormat, pbrRenderTarget.imageFormat}, depthImage.imageFormat);
+    renderPipelineBuilder.setupRenderer(
+        {normalRenderTarget.imageFormat, albedoRenderTarget.imageFormat, pbrRenderTarget.imageFormat, velocityTarget.imageFormat}
+        , depthImage.imageFormat);
     renderPipelineBuilder.setupPipelineLayout(deferredMrtPipelineLayout);
 
     deferredMrtPipeline = renderPipelineBuilder.buildPipeline(device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
@@ -1794,6 +1800,7 @@ void Engine::createRenderTargets(uint32_t width, uint32_t height)
     normalRenderTarget = generateRenderTarget(VK_FORMAT_R8G8B8A8_SNORM);
     albedoRenderTarget = generateRenderTarget(VK_FORMAT_R8G8B8A8_UNORM);
     pbrRenderTarget = generateRenderTarget(VK_FORMAT_R8G8B8A8_UNORM);
+    velocityTarget = generateRenderTarget(VK_FORMAT_R16G16_SFLOAT);
 }
 
 void Engine::createDrawImages(uint32_t width, uint32_t height)

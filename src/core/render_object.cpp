@@ -10,6 +10,7 @@
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
 
+#include "../util/file_utils.h"
 #include "glm/detail/type_quat.hpp"
 #include "glm/gtx/matrix_decompose.hpp"
 
@@ -476,8 +477,12 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
         }
     }
 
-    fmt::print("GLTF: {} | Samplers: {} | Images: {} | Materials: {} | Meshes: {} | Instances: {}\n", gltfFilepath, samplers.size() - samplerOffset,
-               images.size() - imageOffset, materials.size() - materialOffset, meshes.size(), instanceCount);
+    int primitiveCount{0};
+    for (const Mesh& mesh : meshes) {
+        primitiveCount += mesh.primitives.size();
+    }
+    fmt::print("GLTF: {} | Sampl: {} | Imag: {} | Mats: {} | Mesh: {} | Prim: {} | Inst: {}\n",
+        file_utils::getFileName(gltfFilepath), samplers.size() - samplerOffset, images.size() - imageOffset, materials.size() - materialOffset, meshes.size(), primitiveCount, instanceCount);
 }
 
 GameObject* RenderObject::generateGameObject()
