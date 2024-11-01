@@ -6,7 +6,6 @@
 #include "engine.h"
 
 #include <filesystem>
-#include <stb_image_write.h>
 
 #include "input.h"
 #include "../renderer/vk_pipelines.h"
@@ -34,10 +33,10 @@ AllocatedImage Engine::errorCheckerboardImage{};
 void Engine::init()
 {
     fmt::print("Initializing Will Engine V2\n");
-    auto start = std::chrono::system_clock::now(); {
+    const auto start = std::chrono::system_clock::now(); {
         // We initialize SDL and create a window with it.
         SDL_Init(SDL_INIT_VIDEO);
-        auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+        constexpr auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
         window = SDL_CreateWindow(
             "Will Engine V2",
@@ -65,8 +64,8 @@ void Engine::init()
     initPipelines();
 
 
-    auto end = std::chrono::system_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    const auto end = std::chrono::system_clock::now();
+    const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     fmt::print("Finished Initialization in {} seconds\n", static_cast<float>(elapsed.count()) / 1000000.0f);
     fmt::print("----------------------------------------\n");
 }
@@ -200,7 +199,7 @@ void Engine::run()
                     ImGui::Separator();
 
                     const char* keys[] = {"W", "A", "S", "D", "Space", "C", "Left Shift"};
-                    const SDL_Keycode keyCodes[] = {SDLK_w, SDLK_a, SDLK_s, SDLK_d, SDLK_SPACE, SDLK_c, SDLK_LSHIFT};
+                    constexpr SDL_Keycode keyCodes[] = {SDLK_w, SDLK_a, SDLK_s, SDLK_d, SDLK_SPACE, SDLK_c, SDLK_LSHIFT};
 
                     for (int i = 0; i < 7; ++i) {
                         ImGui::Text("%s", keys[i]);
@@ -333,6 +332,8 @@ void Engine::run()
                     const std::vector<std::pair<int32_t, std::string> >* pairs;
                 };
 
+                // ReSharper disable once CppParameterMayBeConst
+                // ReSharper disable once CppParameterMayBeConstPtrOrRef
                 auto getLabel = [](void* data, int idx, const char** out_text) -> bool {
                     static std::string label;
                     const auto& pairs = *static_cast<const ComboData*>(data)->pairs;
@@ -368,7 +369,7 @@ void Engine::run()
     }
 }
 
-void Engine::updateSceneData()
+void Engine::updateSceneData() const
 {
     // Update scene data
     {
@@ -403,7 +404,7 @@ void Engine::updateSceneData()
     // Update spectate scene data
     {
         const auto pSpectateSceneData = static_cast<SceneData*>(spectateSceneDataBuffer.info.pMappedData);
-        auto newView = glm::lookAt(spectateCameraPosition, spectateCameraLookAt, glm::vec3(0.f, 1.0f, 0.f));
+        const auto newView = glm::lookAt(spectateCameraPosition, spectateCameraLookAt, glm::vec3(0.f, 1.0f, 0.f));
 
         if (frameNumber == 0) {
             pSpectateSceneData->prevView = newView;
@@ -426,7 +427,7 @@ void Engine::updateSceneData()
     }
 }
 
-void Engine::updateSceneObjects()
+void Engine::updateSceneObjects() const
 {
     testGameObject1->recursiveUpdateModelMatrix(getCurrentFrameOverlap());
     testGameObject2->recursiveUpdateModelMatrix(getCurrentFrameOverlap());
@@ -458,7 +459,7 @@ void Engine::draw()
     updateSceneObjects();
 
     // Start Command Buffer Recording
-    VkCommandBuffer cmd = getCurrentFrame()._mainCommandBuffer;
+    const auto cmd = getCurrentFrame()._mainCommandBuffer;
     VK_CHECK(vkResetCommandBuffer(cmd, 0));
     const VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
@@ -541,10 +542,13 @@ void Engine::draw()
 
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    frameTime = frameTime * 0.99 + elapsed.count() / 1000.0 * 0.01f;
-    drawTime = drawTime * 0.99 + elapsed.count() / 1000.0 * 0.01f;
+    const float elapsedMs = static_cast<float>(elapsed.count()) / 1000.0f;
+
+    frameTime = frameTime * 0.99f + elapsedMs * 0.01f;
+    drawTime = drawTime * 0.99f + elapsedMs * 0.01f;
 }
 
+// ReSharper disable once CppParameterMayBeConst
 void Engine::drawEnvironment(VkCommandBuffer cmd) const
 {
 #ifndef NDEBUG
@@ -556,8 +560,7 @@ void Engine::drawEnvironment(VkCommandBuffer cmd) const
 
     VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     VkClearValue depthClearValue = {0.0f, 0.0f};
-    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue,
-                                                                           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
     const VkRenderingInfo renderInfo = vk_helpers::renderingInfo(drawExtent, &colorAttachment, &depthAttachment);
     vkCmdBeginRendering(cmd, &renderInfo);
 
@@ -566,8 +569,8 @@ void Engine::drawEnvironment(VkCommandBuffer cmd) const
     VkViewport viewport = {};
     viewport.x = 0;
     viewport.y = 0;
-    viewport.width = drawExtent.width;
-    viewport.height = drawExtent.height;
+    viewport.width = static_cast<float>(drawExtent.width);
+    viewport.height = static_cast<float>(drawExtent.height);
     viewport.minDepth = 0.f;
     viewport.maxDepth = 1.f;
     vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -599,6 +602,7 @@ void Engine::drawEnvironment(VkCommandBuffer cmd) const
 #endif
 }
 
+// ReSharper disable once CppParameterMayBeConst
 void Engine::frustumCull(VkCommandBuffer cmd) const
 {
 #ifndef NDEBUG
@@ -679,8 +683,8 @@ void Engine::drawDeferredMrt(VkCommandBuffer cmd) const
         VkViewport viewport = {};
         viewport.x = 0;
         viewport.y = 0;
-        viewport.width = drawExtent.width;
-        viewport.height = drawExtent.height;
+        viewport.width = static_cast<float>(drawExtent.width);
+        viewport.height = static_cast<float>(drawExtent.height);
         viewport.minDepth = 0.f;
         viewport.maxDepth = 1.f;
         vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -722,6 +726,7 @@ void Engine::drawDeferredMrt(VkCommandBuffer cmd) const
     vkCmdEndRendering(cmd);
 }
 
+// ReSharper disable once CppParameterMayBeConst
 void Engine::drawDeferredResolve(VkCommandBuffer cmd) const
 {
 #ifndef NDEBUG
@@ -823,8 +828,10 @@ void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd) const
             VkViewport viewport = {};
             viewport.x = 0;
             viewport.y = 0;
-            viewport.width = drawExtent.width / 3.0f;
-            viewport.height = drawExtent.height / 3.0f;
+            float shrinkedWidth = static_cast<float>(drawExtent.width) / 3.0f;
+            float shrinkedHeight = static_cast<float>(drawExtent.height) / 3.0f;
+            viewport.width = shrinkedWidth;
+            viewport.height = shrinkedHeight;
             viewport.minDepth = 0.f;
             viewport.maxDepth = 1.f;
             vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -832,8 +839,8 @@ void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd) const
             VkRect2D scissor = {};
             scissor.offset.x = 0;
             scissor.offset.y = 0;
-            scissor.extent.width = drawExtent.width / 3.0f;
-            scissor.extent.height = drawExtent.height / 3.0f;
+            scissor.extent.width = static_cast<uint32_t>(shrinkedWidth);
+            scissor.extent.height = static_cast<uint32_t>(shrinkedHeight);
             vkCmdSetScissor(cmd, 0, 1, &scissor);
         }
 
@@ -910,7 +917,8 @@ void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd) const
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }
 
-void Engine::drawImgui(VkCommandBuffer cmd, VkImageView targetImageView)
+// ReSharper disable twice CppParameterMayBeConst
+void Engine::drawImgui(VkCommandBuffer cmd, VkImageView targetImageView) const
 {
 #ifndef NDEBUG
     VkDebugUtilsLabelEXT label = {};
@@ -920,7 +928,7 @@ void Engine::drawImgui(VkCommandBuffer cmd, VkImageView targetImageView)
 #endif
 
     VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(targetImageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingInfo renderInfo = vk_helpers::renderingInfo(swapchainExtent, &colorAttachment, nullptr);
+    const VkRenderingInfo renderInfo = vk_helpers::renderingInfo(swapchainExtent, &colorAttachment, nullptr);
     vkCmdBeginRendering(cmd, &renderInfo);
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
     vkCmdEndRendering(cmd);
@@ -954,7 +962,7 @@ void Engine::cleanup()
     vkDestroyDescriptorPool(device, imguiPool, nullptr);
 
     // Main Rendering Command and Fence
-    for (auto& frame : frames) {
+    for (const auto& frame : frames) {
         vkDestroyCommandPool(device, frame._commandPool, nullptr);
 
         //destroy sync objects
@@ -978,8 +986,8 @@ void Engine::cleanup()
 
     // Swapchain
     vkDestroySwapchainKHR(device, swapchain, nullptr);
-    for (int i = 0; i < swapchainImageViews.size(); i++) {
-        vkDestroyImageView(device, swapchainImageViews[i], nullptr);
+    for (const auto swapchainImageView : swapchainImageViews) {
+        vkDestroyImageView(device, swapchainImageView, nullptr);
     }
 
     // Vulkan Boilerplate
@@ -1094,7 +1102,7 @@ void Engine::initSwapchain()
 
 void Engine::initCommands()
 {
-    VkCommandPoolCreateInfo commandPoolInfo = vk_helpers::commandPoolCreateInfo(graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+    const VkCommandPoolCreateInfo commandPoolInfo = vk_helpers::commandPoolCreateInfo(graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
     for (auto& frame : frames) {
         VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &frame._commandPool));
@@ -1104,14 +1112,14 @@ void Engine::initCommands()
 
     // Immediate Rendering
     VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &immCommandPool));
-    VkCommandBufferAllocateInfo immCmdAllocInfo = vk_helpers::commandBufferAllocateInfo(immCommandPool);
+    const VkCommandBufferAllocateInfo immCmdAllocInfo = vk_helpers::commandBufferAllocateInfo(immCommandPool);
     VK_CHECK(vkAllocateCommandBuffers(device, &immCmdAllocInfo, &immCommandBuffer));
 }
 
 void Engine::initSyncStructures()
 {
-    VkFenceCreateInfo fenceCreateInfo = vk_helpers::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
-    VkSemaphoreCreateInfo semaphoreCreateInfo = vk_helpers::semaphoreCreateInfo();
+    const VkFenceCreateInfo fenceCreateInfo = vk_helpers::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
+    const VkSemaphoreCreateInfo semaphoreCreateInfo = vk_helpers::semaphoreCreateInfo();
 
     for (auto& frame : frames) {
         VK_CHECK(vkCreateFence(device, &fenceCreateInfo, nullptr, &frame._renderFence));
@@ -1124,19 +1132,19 @@ void Engine::initSyncStructures()
     VK_CHECK(vkCreateFence(device, &fenceCreateInfo, nullptr, &immFence));
 }
 
-void Engine::initDefaultData()
+void Engine::initDefaultData() const
 {
     // white image
     uint32_t white = packUnorm4x8(glm::vec4(1, 1, 1, 1));
-    AllocatedImage newImage = createImage(VkExtent3D{1, 1, 1}, VK_FORMAT_R8G8B8A8_UNORM,
-                                          VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, false);
+    const AllocatedImage newImage = createImage(VkExtent3D{1, 1, 1}, VK_FORMAT_R8G8B8A8_UNORM,
+                                                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, false);
     destroyImage(newImage);
     whiteImage = createImage((void*) &white, 4, VkExtent3D{1, 1, 1}, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
 
 
     //checkerboard image
-    uint32_t black = glm::packUnorm4x8(glm::vec4(0, 0, 0, 0));
-    uint32_t magenta = glm::packUnorm4x8(glm::vec4(1, 0, 1, 1));
+    const uint32_t black = glm::packUnorm4x8(glm::vec4(0, 0, 0, 0));
+    const uint32_t magenta = glm::packUnorm4x8(glm::vec4(1, 0, 1, 1));
     std::array<uint32_t, 16 * 16> pixels{}; //for 16x16 checkerboard texture
     for (int x = 0; x < 16; x++) {
         for (int y = 0; y < 16; y++) {
@@ -1159,7 +1167,7 @@ void Engine::initDearImgui()
     // DearImGui implementation, basically copied directly from the Vulkan/SDl2 from DearImGui samples.
     // Because this project uses VOLK, additionally need to load functions.
     // DYNAMIC RENDERING (NOT RENDER PASS)
-    VkDescriptorPoolSize pool_sizes[] =
+    constexpr VkDescriptorPoolSize pool_sizes[] =
     {
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
     };
@@ -1585,14 +1593,14 @@ void Engine::immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function
     VK_CHECK(vkResetFences(device, 1, &immFence));
     VK_CHECK(vkResetCommandBuffer(immCommandBuffer, 0));
 
-    VkCommandBuffer cmd = immCommandBuffer;
-    VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+    const auto cmd = immCommandBuffer;
+    const VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
     function(cmd);
     VK_CHECK(vkEndCommandBuffer(cmd));
 
     VkCommandBufferSubmitInfo cmdSubmitInfo = vk_helpers::commandBufferSubmitInfo(cmd);
-    VkSubmitInfo2 submitInfo = vk_helpers::submitInfo(&cmdSubmitInfo, nullptr, nullptr);
+    const VkSubmitInfo2 submitInfo = vk_helpers::submitInfo(&cmdSubmitInfo, nullptr, nullptr);
 
     VK_CHECK(vkQueueSubmit2(graphicsQueue, 1, &submitInfo, immFence));
 
@@ -1694,7 +1702,7 @@ AllocatedImage Engine::createImage(const void* data, const size_t dataSize, cons
 
     memcpy(uploadbuffer.info.pMappedData, data, data_size);
 
-    AllocatedImage newImage = createImage(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, mipmapped);
+    const AllocatedImage newImage = createImage(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, mipmapped);
 
     immediateSubmit([&](VkCommandBuffer cmd) {
         vk_helpers::transitionImage(cmd, newImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -1739,7 +1747,7 @@ AllocatedImage Engine::createCubemap(const VkExtent3D size, const VkFormat forma
     // always allocate images on dedicated GPU memory
     VmaAllocationCreateInfo allocinfo = {};
     allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+    allocinfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
     VK_CHECK(vmaCreateImage(allocator, &img_info, &allocinfo, &newImage.image, &newImage.allocation, nullptr));
 
     VkImageViewCreateInfo view_info = vk_helpers::cubemapViewCreateInfo(format, newImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -1783,7 +1791,7 @@ void Engine::resizeSwapchain()
     vkDeviceWaitIdle(device);
 
     vkDestroySwapchainKHR(device, swapchain, nullptr);
-    for (VkImageView swapchainImage : swapchainImageViews) {
+    for (const auto swapchainImage : swapchainImageViews) {
         vkDestroyImageView(device, swapchainImage, nullptr);
     }
 

@@ -79,9 +79,9 @@ public:
 
     void draw();
 
-    void updateSceneData();
+    void updateSceneData() const;
 
-    void updateSceneObjects();
+    void updateSceneObjects() const;
 
     void drawEnvironment(VkCommandBuffer cmd) const;
 
@@ -93,7 +93,7 @@ public:
 
     void DEBUG_drawSpectate(VkCommandBuffer cmd) const;
 
-    void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
+    void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView) const;
 
     /**
      * Cleans up vulkan resources when application has exited. Destroys resources in opposite order of initialization
@@ -114,7 +114,7 @@ private: // Initialization
     * Initialization of default textures and samplers for all models to use.
     * Used in cases where models don't have an albedo texture, they will fallback to he white texture (sometimes only vertex colors are assigned)
      */
-    void initDefaultData();
+    void initDefaultData() const;
 
     /**
      * Initializes all dear imgui vulkan/SDL2 integration. Mostly copied from imgui's samples
@@ -166,7 +166,7 @@ private: // Rendering
     // Main
     int frameNumber{0};
     FrameData frames[FRAME_OVERLAP]{};
-    int getCurrentFrameOverlap() const { return frameNumber % FRAME_OVERLAP; }
+    int32_t getCurrentFrameOverlap() const { return static_cast<int32_t>(frameNumber % FRAME_OVERLAP); }
     FrameData& getCurrentFrame() { return frames[frameNumber % FRAME_OVERLAP]; }
     bool bStopRendering{false};
 

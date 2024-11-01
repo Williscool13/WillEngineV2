@@ -1,6 +1,6 @@
 #version 450
-#extension GL_EXT_buffer_reference : require
-#extension GL_EXT_nonuniform_qualifier : enable
+#extension GL_EXT_buffer_reference: require
+#extension GL_EXT_nonuniform_qualifier: enable
 
 // world space
 layout (location = 0) in vec3 inPosition;
@@ -56,8 +56,8 @@ void main() {
     vec3 albedo = vec3(1.0f);
 
     int colorSamplerIndex = int(m.textureSamplerIndices.x);
-    int colorImageIndex =	 int(m.textureImageIndices.x);
-    if (colorSamplerIndex >= 0){
+    int colorImageIndex = int(m.textureImageIndices.x);
+    if (colorSamplerIndex >= 0) {
         albedo = texture(sampler2D(textures[nonuniformEXT(colorImageIndex)], samplers[nonuniformEXT(colorSamplerIndex)]), inUV).xyz;
     }
     albedo = albedo.xyz * inColor.rgb * m.colorFactor.rgb;
@@ -67,7 +67,7 @@ void main() {
 
     float metallic = m.metalRoughFactors.x;
     float roughness = m.metalRoughFactors.y;
-    if (metalSamplerIndex >= 0){
+    if (metalSamplerIndex >= 0) {
         vec4 metalRoughSample = texture(sampler2D(textures[nonuniformEXT(metalImageIndex)], samplers[nonuniformEXT(metalSamplerIndex)]), inUV);
         metallic *= metalRoughSample.b;
         roughness *= metalRoughSample.g;
