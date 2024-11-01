@@ -12,12 +12,6 @@
 #include "../core/engine.h"
 
 
-class RenderObject;
-
-namespace vk_loader {
-    RenderObject* loadGltf(Engine* engine, std::string_view filepath);
-};
-
 
 
 #endif //VK_LOADER_H

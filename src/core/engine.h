@@ -246,6 +246,11 @@ private: // Render Targets
      */
     AllocatedImage pbrRenderTarget{};
 
+    /**
+     * 16 X and 16 Y
+     */
+    AllocatedImage velocityTarget{};
+
     void createRenderTargets(uint32_t width, uint32_t height);
 
 private: // Draw Images

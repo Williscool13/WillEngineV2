@@ -12,6 +12,7 @@ layout (location = 4) in flat uint inMaterialIndex;
 layout (location = 0) out vec4 normalTarget; // 8,8,8 normal 8 unused
 layout (location = 1) out vec4 albedoTarget; // 8,8,8 albedo 8 coverage
 layout (location = 2) out vec4 pbrTarget;    // 8 metallic, 8 roughness, 8 emissive (unused), 8 unused
+layout (location = 3) out vec2 velocityTarget;    // 16 X, 16 Y
 
 
 struct Model
