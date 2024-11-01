@@ -312,27 +312,37 @@ void Engine::run()
             ImGui::End();
 
             if (ImGui::Begin("Environment Map")) {
-                auto activeEnvironmentMapIndices = environment->getActiveEnvironmentMaps();
-                std::vector indices(activeEnvironmentMapIndices.begin(), activeEnvironmentMapIndices.end());
-                std::sort(indices.begin(), indices.end());  // Sort for consistent order in UI
+                const std::unordered_map<int32_t, const char*>& activeEnvironmentMapNames = environment->getActiveEnvironmentMapNames();
 
-                auto it = std::ranges::find(indices, environmentMapindex);
-                int currentIndex = (it != indices.end()) ? static_cast<int>(std::distance(indices.begin(), it)) : 0;
+                std::vector<std::pair<int32_t, std::string> > indexNamePairs;
+                for (std::pair<const int, const char*> kvp : activeEnvironmentMapNames) {
+                    indexNamePairs.emplace_back(kvp.first, kvp.second);
+                }
+                std::sort(indexNamePairs.begin(), indexNamePairs.end());
+                auto it = std::ranges::find_if(indexNamePairs, [this](const auto& pair) {
+                    return pair.first == environmentMapindex;
+                });
+                int currentIndex = (it != indexNamePairs.end()) ? static_cast<int>(std::distance(indexNamePairs.begin(), it)) : 0;
+                struct ComboData
+                {
+                    const std::vector<std::pair<int32_t, std::string> >* pairs;
+                };
 
                 auto getLabel = [](void* data, int idx, const char** out_text) -> bool {
-                    static std::string label;  // Static to ensure the c_str() remains valid
-                    const auto& indices = *static_cast<const std::vector<uint32_t>*>(data);
-                    label = "Environment Map " + std::to_string(indices[idx]);
+                    static std::string label;
+                    const auto& pairs = *static_cast<const ComboData*>(data)->pairs;
+                    label = pairs[idx].second;
                     *out_text = label.c_str();
                     return true;
                 };
 
-                if (ImGui::Combo("Select Environment Map", &currentIndex, getLabel, &indices, static_cast<int>(indices.size())))
-                {
-                    environmentMapindex = indices[currentIndex];
+                ComboData data{&indexNamePairs};
+                if (ImGui::Combo("Select Environment Map", &currentIndex, getLabel, &data, static_cast<int>(indexNamePairs.size()))) {
+                    environmentMapindex = indexNamePairs[currentIndex].first;
                 }
 
-                ImGui::Text("Currently selected: Environment Map %u", environmentMapindex);
+                // Show both name and index in the status text
+                ImGui::Text("Currently selected: %s (ID: %u)", indexNamePairs[currentIndex].second.c_str(), environmentMapindex);
             }
             ImGui::End();
 
@@ -1478,16 +1488,17 @@ void Engine::initEnvironmentPipeline()
 
 void Engine::initScene()
 {
+    // There is limit of 10!
     environment = new Environment(this);
     const std::filesystem::path envMapSource = "assets/environments";
-    environment->loadCubemap((envMapSource / "meadow_4k.hdr").string().c_str(), 0);
+    environment->loadEnvironment("Meadow", (envMapSource / "meadow_4k.hdr").string().c_str(), 0);
     //environment->loadCubemap((envMapSource / "wasteland_clouds_4k.hdr").string().c_str(), 1);
-    environment->loadCubemap((envMapSource / "wasteland_clouds_puresky_4k.hdr").string().c_str(), 2);
+    environment->loadEnvironment("Wasteland", (envMapSource / "wasteland_clouds_puresky_4k.hdr").string().c_str(), 2);
     //environment->loadCubemap((envMapSource / "kloppenheim_06_puresky_4k.hdr").string().c_str(), 3);
-    environment->loadCubemap((envMapSource / "kloofendal_overcast_puresky_4k.hdr").string().c_str(), 4);
+    environment->loadEnvironment("Overcast Sky", (envMapSource / "kloofendal_overcast_puresky_4k.hdr").string().c_str(), 4);
     //environment->loadCubemap((envMapSource / "mud_road_puresky_4k.hdr").string().c_str(), 5);
     //environment->loadCubemap((envMapSource / "sunflowers_puresky_4k.hdr").string().c_str(), 6);
-    environment->loadCubemap((envMapSource / "belfast_sunset_puresky_4k.hdr").string().c_str(), 7);
+    environment->loadEnvironment("Sunset Sky", (envMapSource / "belfast_sunset_puresky_4k.hdr").string().c_str(), 7);
 
     //testRenderObject = new RenderObject{this, "assets/models/BoxTextured/glTF/BoxTextured.gltf"};
     //testRenderObject = new RenderObject{this, "assets/models/structure_mat.glb"};

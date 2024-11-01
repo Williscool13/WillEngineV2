@@ -71,27 +71,33 @@ public:
 
     ~Environment();
 
-    void loadCubemap(const char* path, int environmentMapIndex = 0);
+    void loadEnvironment(const char* name, const char* path, int environmentMapIndex = 0);
 
     DescriptorBufferSampler& getEquiImageDescriptorBuffer() { return equiImageDescriptorBuffer; }
     DescriptorBufferSampler& getCubemapDescriptorBuffer() { return cubemapDescriptorBuffer; }
 
-    const std::unordered_set<int32_t>& getActiveEnvironmentMaps() { return activeEnvironmentMapIndices; }
+    const std::unordered_map<int32_t, const char*>& getActiveEnvironmentMapNames() { return activeEnvironmentMapNames; }
 
     DescriptorBufferSampler& getDiffSpecMapDescriptorBuffer() { return diffSpecMapDescriptorBuffer; }
 
     [[nodiscard]] uint32_t getEnvironmentMapOffset(const int32_t index) const
     {
-        return cubemapDescriptorBuffer.getDescriptorBufferSize() * (activeEnvironmentMapIndices.contains(index) ? index : 0);
+        if (activeEnvironmentMapNames.contains(index)) {
+            return cubemapDescriptorBuffer.getDescriptorBufferSize() * index;
+        }
+        return 0;
     }
 
     [[nodiscard]] uint32_t getDiffSpecMapOffset(const int32_t index) const
     {
-        return diffSpecMapDescriptorBuffer.getDescriptorBufferSize() * (activeEnvironmentMapIndices.contains(index) ? index : 0);
+        if (activeEnvironmentMapNames.contains(index)) {
+            return diffSpecMapDescriptorBuffer.getDescriptorBufferSize() * index;
+        }
+        return 0;
     }
 
 private:
-    std::unordered_set<int32_t> activeEnvironmentMapIndices{};
+    std::unordered_map<int32_t, const char*> activeEnvironmentMapNames{};
 
 private:
     Engine* creator{};
@@ -142,7 +148,7 @@ private:
     static AllocatedImage lutImage; // same for all environment maps
 
 
-    void equiToCubemapImmediate(AllocatedImage& cubemapImage, int cubemapStorageDescriptorIndex);
+    void equiToCubemapImmediate(const AllocatedImage& cubemapImage, int cubemapStorageDescriptorIndex) const;
 
     void cubemapToDiffuseSpecularImmediate(AllocatedCubemap& cubemapMips, int cubemapSampleDescriptorIndex);
 
