@@ -69,7 +69,9 @@ struct SceneData
     glm::mat4 prevView;
     glm::mat4 prevProj;
     glm::mat4 prevViewProj;
+
     glm::vec4 jitter;
+
     glm::vec2 renderTargetSize;
     int32_t frameNumber; // either 0 or 1
     float deltaTime;

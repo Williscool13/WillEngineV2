@@ -16,6 +16,7 @@
 
 #include "render_object.h"
 #include "../util/file_utils.h"
+#include "../util/halton.h"
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -142,6 +143,24 @@ void Engine::run()
                 const char* debugLabels[] = {"None", "Velocity Buffer", "Depth Buffer"};
                 ImGui::Text("Debug View");
                 ImGui::Combo("Debug View", &deferredDebug, debugLabels, IM_ARRAYSIZE(debugLabels));
+
+                ImGui::Separator();
+                if (ImGui::BeginChild("Spectate")) {
+                    ImGui::Checkbox("Enabled Spectate Camera", &bSpectateCameraActive);
+                    if (bSpectateCameraActive) {
+                        if (ImGui::TreeNode("Camera Position")) {
+                            ImGui::DragFloat3("Position", &spectateCameraPosition.x, 0.1f);
+                            ImGui::TreePop();
+                        }
+
+                        // Modify spectateCameraLookAt
+                        if (ImGui::TreeNode("Camera Look At")) {
+                            ImGui::DragFloat3("Look At", &spectateCameraLookAt.x, 0.1f);
+                            ImGui::TreePop();
+                        }
+                    }
+                }
+                ImGui::EndChild();
             }
             ImGui::End();
 
@@ -217,23 +236,6 @@ void Engine::run()
 
                     ImGui::Text("Mouse Position: (%.1f, %.1f)", input.getMouseX(), input.getMouseY());
                     ImGui::Text("Mouse Delta: (%.1f, %.1f)", input.getMouseXDelta(), input.getMouseYDelta());
-                }
-                ImGui::EndChild();
-
-                if (ImGui::BeginChild("Spectate")) {
-                    ImGui::Checkbox("Enabled Spectate Camera", &bSpectateCameraActive);
-                    if (bSpectateCameraActive) {
-                        if (ImGui::TreeNode("Camera Position")) {
-                            ImGui::DragFloat3("Position", &spectateCameraPosition.x, 0.1f);
-                            ImGui::TreePop();
-                        }
-
-                        // Modify spectateCameraLookAt
-                        if (ImGui::TreeNode("Camera Look At")) {
-                            ImGui::DragFloat3("Look At", &spectateCameraLookAt.x, 0.1f);
-                            ImGui::TreePop();
-                        }
-                    }
                 }
                 ImGui::EndChild();
             }
@@ -374,6 +376,10 @@ void Engine::updateSceneData() const
     // Update scene data
     {
         const auto pSceneData = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
+        const glm::vec2 currentJitter = HaltonSequence::getJitter(frameNumber, {1700, 900});
+        const glm::vec2 prevJitter = HaltonSequence::getJitter(frameNumber > 0 ? frameNumber - 1 : 0, {1700, 900});
+        pSceneData->jitter = glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y);
+
         if (frameNumber == 0) {
             pSceneData->prevView = camera.getViewMatrix();
             pSceneData->prevProj = camera.getProjMatrix();
@@ -384,20 +390,22 @@ void Engine::updateSceneData() const
             pSceneData->prevViewProj = pSceneData->viewProj;
         }
 
-        pSceneData->view = camera.getViewMatrix();
-        pSceneData->proj = camera.getProjMatrix();
-        pSceneData->viewProj = camera.getViewProjMatrix();
+        const glm::mat4 view = camera.getViewMatrix();
+        glm::mat4 proj = camera.getProjMatrix();
+        proj[2][0] += currentJitter.x;
+        proj[2][1] += currentJitter.y;
+
+        pSceneData->view = view;
+        pSceneData->proj = proj;
+        pSceneData->viewProj = proj * view;
         pSceneData->invView = glm::inverse(pSceneData->view);
         pSceneData->invProj = glm::inverse(pSceneData->proj);
         pSceneData->invViewProj = glm::inverse(pSceneData->viewProj);
         pSceneData->cameraWorldPos = camera.getPosition();
         const glm::mat4 cameraLook = glm::lookAt(glm::vec3(0), camera.getViewDirectionWS(), glm::vec3(0, 1, 0));
-        const auto proj = camera.getProjMatrix();
         pSceneData->viewProjCameraLookDirection = proj * cameraLook;
 
         pSceneData->frameNumber = getCurrentFrameOverlap();
-
-        pSceneData->jitter = glm::vec4(0.0f);
         pSceneData->renderTargetSize = {1700, 900};
         pSceneData->deltaTime = TimeUtils::Get().getDeltaTime();
     }
@@ -406,10 +414,16 @@ void Engine::updateSceneData() const
         const auto pSpectateSceneData = static_cast<SceneData*>(spectateSceneDataBuffer.info.pMappedData);
         const auto newView = glm::lookAt(spectateCameraPosition, spectateCameraLookAt, glm::vec3(0.f, 1.0f, 0.f));
 
+        // Get current jitter for spectate camera
+        const glm::vec2 currentJitter = HaltonSequence::getJitter(frameNumber, {1700, 900});
+        const glm::vec2 prevJitter = HaltonSequence::getJitter(frameNumber > 0 ? frameNumber - 1 : 0, {1700, 900});
+        pSpectateSceneData->jitter = glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y);
+
         if (frameNumber == 0) {
             pSpectateSceneData->prevView = newView;
-            pSpectateSceneData->prevProj = camera.getProjMatrix();
-            pSpectateSceneData->prevViewProj = pSpectateSceneData->proj * newView;
+            const auto proj = camera.getProjMatrix();
+            pSpectateSceneData->prevProj = proj;
+            pSpectateSceneData->prevViewProj = proj * newView;
         } else {
             pSpectateSceneData->prevView = pSpectateSceneData->view;
             pSpectateSceneData->prevProj = pSpectateSceneData->proj;
@@ -417,8 +431,13 @@ void Engine::updateSceneData() const
         }
 
         pSpectateSceneData->view = newView;
-        pSpectateSceneData->proj = camera.getProjMatrix();
-        pSpectateSceneData->viewProj = pSpectateSceneData->proj * pSpectateSceneData->view;
+        auto proj = camera.getProjMatrix();
+        // Apply jitter to spectate camera projection
+        proj[2][0] += currentJitter.x;
+        proj[2][1] += currentJitter.y;
+
+        pSpectateSceneData->proj = proj;
+        pSpectateSceneData->viewProj = proj * pSpectateSceneData->view;
         pSpectateSceneData->invView = glm::inverse(pSpectateSceneData->view);
         pSpectateSceneData->invProj = glm::inverse(pSpectateSceneData->proj);
         pSpectateSceneData->invViewProj = glm::inverse(pSpectateSceneData->viewProj);
@@ -781,7 +800,8 @@ void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd) const
     {
         vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
         vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-        vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
         vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
         vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     }
@@ -795,6 +815,8 @@ void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd) const
                                                                                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         VkRenderingAttachmentInfo pbrAttachment = vk_helpers::attachmentInfo(pbrRenderTarget.imageView, &colorClear,
                                                                              VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkRenderingAttachmentInfo velocityAttachment = vk_helpers::attachmentInfo(velocityRenderTarget.imageView, &colorClear,
+                                                                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
         VkClearValue depthClearValue = {0.0f, 0.0f};
 
@@ -804,14 +826,15 @@ void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd) const
         renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
         renderInfo.pNext = nullptr;
 
-        VkRenderingAttachmentInfo deferredAttachments[3];
+        VkRenderingAttachmentInfo deferredAttachments[4];
         deferredAttachments[0] = normalAttachment;
         deferredAttachments[1] = albedoAttachment;
         deferredAttachments[2] = pbrAttachment;
+        deferredAttachments[3] = velocityAttachment;
 
         renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, drawExtent};
         renderInfo.layerCount = 1;
-        renderInfo.colorAttachmentCount = 3;
+        renderInfo.colorAttachmentCount = 4;
         renderInfo.pColorAttachments = deferredAttachments;
         renderInfo.pDepthAttachment = &depthAttachment;
         renderInfo.pStencilAttachment = nullptr;
@@ -876,6 +899,7 @@ void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd) const
         vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
         vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
         vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
         vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
         vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     }

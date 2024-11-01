@@ -37,10 +37,6 @@ set(FASTGLTF_SOURCES
         ${FASTGLTF_DIR}/src/base64.cpp
         ${FASTGLTF_DIR}/src/fastgltf.cpp
         ${FASTGLTF_DIR}/src/io.cpp
-        src/renderer/acceleration-structures/bounding_sphere.cpp
-        src/renderer/acceleration-structures/bounding_sphere.h
-        src/util/file_utils.cpp
-        src/util/file_utils.h
 )
 
 set(HALF_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/half)
@@ -56,6 +52,20 @@ add_executable(WillEngine main.cpp
         ${HALF_SOURCES}
         src/core/Engine.cpp
         src/core/Engine.h
+        src/core/render_object.cpp
+        src/core/render_object.h
+        src/core/environment.cpp
+        src/core/environment.h
+        src/core/scene.cpp
+        src/core/scene.h
+        src/core/input.cpp
+        src/core/input.h
+        src/core/game_object.cpp
+        src/core/game_object.h
+        src/core/camera/free_camera.cpp
+        src/core/camera/free_camera.h
+        src/core/camera/camera.cpp
+        src/core/camera/camera.h
         src/renderer/vk_helpers.cpp
         src/renderer/vk_helpers.h
         src/renderer/vk_types.cpp
@@ -64,29 +74,22 @@ add_executable(WillEngine main.cpp
         src/renderer/vk_descriptors.h
         src/renderer/vk_descriptor_buffer.cpp
         src/renderer/vk_descriptor_buffer.h
-        src/util/math_constants.h
+        src/renderer/vk_loader.cpp
+        src/renderer/vk_loader.h
         src/renderer/vk_pipelines.cpp
         src/renderer/vk_pipelines.h
-        src/core/scene.cpp
-        src/core/scene.h
-        src/core/camera/camera.cpp
-        src/core/camera/camera.h
-        src/core/input.cpp
-        src/core/input.h
-        src/core/game_object.cpp
-        src/core/game_object.h
+        src/renderer/acceleration-structures/bounding_sphere.cpp
+        src/renderer/acceleration-structures/bounding_sphere.h
+        src/util/math_constants.h
         src/util/time_utils.cpp
         src/util/time_utils.h
         src/util/transform.cpp
         src/util/transform.h
-        src/core/camera/free_camera.cpp
-        src/core/camera/free_camera.h
-        src/core/render_object.cpp
-        src/core/render_object.h
-        src/core/environment.cpp
-        src/core/environment.h
-        src/renderer/vk_loader.cpp
-        src/renderer/vk_loader.h)
+        src/util/file_utils.cpp
+        src/util/file_utils.h
+        src/util/halton.cpp
+        src/util/halton.h
+)
 
 
 target_include_directories(WillEngine PRIVATE

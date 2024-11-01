@@ -51,6 +51,28 @@ layout (set = 0, binding = 0) uniform Addresses
 layout (set = 1, binding = 0) uniform sampler samplers[];
 layout (set = 1, binding = 1) uniform texture2D textures[];
 
+layout (std140, set = 2, binding = 0) uniform SceneData {
+    mat4 view;
+    mat4 proj;
+    mat4 viewProj;
+    vec4 cameraPos;
+    mat4 viewProjCameraLookDirection;
+
+    mat4 invView;
+    mat4 invProjection;
+    mat4 invViewProjection;
+
+    mat4 prevView;
+    mat4 prevProj;
+    mat4 prevViewProj;
+
+    vec4 jitter;
+
+    vec2 renderTargetSize;
+    int frameNumber; // either 0 or 1
+    float deltaTime;
+} sceneData;
+
 void main() {
     Material m = bufferAddresses.materialBufferDeviceAddress.materials[inMaterialIndex];
     vec3 albedo = vec3(1.0f);
@@ -81,6 +103,10 @@ void main() {
 
     vec2 currNDC = (inCurrMvpPosition.xy / inCurrMvpPosition.w);
     vec2 prevNDC = (inPrevMvpPosition.xy / inPrevMvpPosition.w);
-    velocityTarget = (currNDC - prevNDC) * 0.5;
-    velocityTarget = vec2(velocityTarget.x, -velocityTarget.y);
+
+    // take into account jitter
+    vec2 velocity = ((currNDC - prevNDC) - (sceneData.jitter.xy - sceneData.jitter.zw)) * 0.5;
+
+    // flip because y down
+    velocityTarget = vec2(velocity.x, -velocity.y);
 }
