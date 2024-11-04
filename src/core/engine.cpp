@@ -19,11 +19,12 @@
 #include "../util/halton.h"
 
 #ifdef NDEBUG
-#define USE_VALIDATION_LAYERS false
+//#define USE_VALIDATION_LAYERS false
 #else
 #define USE_VALIDATION_LAYERS true
 #endif
 
+#define USE_VALIDATION_LAYERS true
 
 VkSampler Engine::defaultSamplerLinear{VK_NULL_HANDLE};
 VkSampler Engine::defaultSamplerNearest{VK_NULL_HANDLE};
@@ -816,7 +817,7 @@ void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd) const
         VkRenderingAttachmentInfo pbrAttachment = vk_helpers::attachmentInfo(pbrRenderTarget.imageView, &colorClear,
                                                                              VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         VkRenderingAttachmentInfo velocityAttachment = vk_helpers::attachmentInfo(velocityRenderTarget.imageView, &colorClear,
-                                                                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                                                                                  VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
         VkClearValue depthClearValue = {0.0f, 0.0f};
 
@@ -1034,7 +1035,7 @@ void Engine::initVulkan()
 
     vkb::InstanceBuilder builder;
 
-#ifndef NDEBUG
+#if DEBUG
     std::vector<const char*> enabledInstanceExtensions;
     enabledInstanceExtensions.push_back("VK_EXT_debug_utils");
 #endif
@@ -1044,7 +1045,7 @@ void Engine::initVulkan()
             .request_validation_layers(USE_VALIDATION_LAYERS)
             .use_default_debug_messenger()
             .require_api_version(1, 3)
-#ifndef NDEBUG
+#if DEBUG
             .enable_extensions(enabledInstanceExtensions)
 #endif
             .build();
@@ -1357,43 +1358,38 @@ void Engine::initDeferredMrtPipeline()
         fmt::print("Error when building the deferred fragment shader module(deferredMrt.frag.spv)\n");
     }
     PipelineBuilder renderPipelineBuilder;
-    //
-    {
-        VkVertexInputBindingDescription mainBinding{};
-        mainBinding.binding = 0;
-        mainBinding.stride = sizeof(Vertex);
-        mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    VkVertexInputBindingDescription mainBinding{};
+    mainBinding.binding = 0;
+    mainBinding.stride = sizeof(Vertex);
+    mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
+    VkVertexInputAttributeDescription vertexAttributes[5];
+    vertexAttributes[0].binding = 0;
+    vertexAttributes[0].location = 0;
+    vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    vertexAttributes[0].offset = offsetof(Vertex, position);
 
-        VkVertexInputAttributeDescription vertexAttributes[5];
-        vertexAttributes[0].binding = 0;
-        vertexAttributes[0].location = 0;
-        vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-        vertexAttributes[0].offset = offsetof(Vertex, position);
+    vertexAttributes[1].binding = 0;
+    vertexAttributes[1].location = 1;
+    vertexAttributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    vertexAttributes[1].offset = offsetof(Vertex, normal);
 
+    vertexAttributes[2].binding = 0;
+    vertexAttributes[2].location = 2;
+    vertexAttributes[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    vertexAttributes[2].offset = offsetof(Vertex, color);
 
-        vertexAttributes[1].binding = 0;
-        vertexAttributes[1].location = 1;
-        vertexAttributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        vertexAttributes[1].offset = offsetof(Vertex, normal);
+    vertexAttributes[3].binding = 0;
+    vertexAttributes[3].location = 3;
+    vertexAttributes[3].format = VK_FORMAT_R32G32_SFLOAT;
+    vertexAttributes[3].offset = offsetof(Vertex, uv);
 
-        vertexAttributes[2].binding = 0;
-        vertexAttributes[2].location = 2;
-        vertexAttributes[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-        vertexAttributes[2].offset = offsetof(Vertex, color);
+    vertexAttributes[4].binding = 0;
+    vertexAttributes[4].location = 4;
+    vertexAttributes[4].format = VK_FORMAT_R32_UINT;
+    vertexAttributes[4].offset = offsetof(Vertex, materialIndex);
 
-        vertexAttributes[3].binding = 0;
-        vertexAttributes[3].location = 3;
-        vertexAttributes[3].format = VK_FORMAT_R32G32_SFLOAT;
-        vertexAttributes[3].offset = offsetof(Vertex, uv);
-
-        vertexAttributes[4].binding = 0;
-        vertexAttributes[4].location = 4;
-        vertexAttributes[4].format = VK_FORMAT_R32_UINT;
-        vertexAttributes[4].offset = offsetof(Vertex, materialIndex);
-
-        renderPipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 5);
-    }
+    renderPipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 5);
 
     renderPipelineBuilder.setShaders(vertShader, fragShader);
     renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
