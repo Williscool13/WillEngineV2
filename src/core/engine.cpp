@@ -19,18 +19,16 @@
 #include "../util/halton.h"
 
 #ifdef NDEBUG
-//#define USE_VALIDATION_LAYERS false
+#define USE_VALIDATION_LAYERS false
 #else
 #define USE_VALIDATION_LAYERS true
 #endif
-
-#define USE_VALIDATION_LAYERS true
 
 VkSampler Engine::defaultSamplerLinear{VK_NULL_HANDLE};
 VkSampler Engine::defaultSamplerNearest{VK_NULL_HANDLE};
 AllocatedImage Engine::whiteImage{};
 AllocatedImage Engine::errorCheckerboardImage{};
-
+VkDescriptorSetLayout Engine::emptyDescriptorSetLayout;
 
 void Engine::init()
 {
@@ -571,12 +569,10 @@ void Engine::draw()
 // ReSharper disable once CppParameterMayBeConst
 void Engine::drawEnvironment(VkCommandBuffer cmd) const
 {
-#ifndef NDEBUG
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
     label.pLabelName = "Environment Map";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
-#endif
 
     VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     VkClearValue depthClearValue = {0.0f, 0.0f};
@@ -604,76 +600,66 @@ void Engine::drawEnvironment(VkCommandBuffer cmd) const
 
 
     VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];
-    descriptorBufferBindingInfo[0] = environment->getCubemapDescriptorBuffer().getDescriptorBufferBindingInfo();
-    descriptorBufferBindingInfo[1] = sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
+    descriptorBufferBindingInfo[0] = sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
+    descriptorBufferBindingInfo[1] = environment->getCubemapDescriptorBuffer().getDescriptorBufferBindingInfo();
     vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
-    constexpr uint32_t environmentIndex{0};
-    constexpr uint32_t sceneDataBufferIndex{1};
+    constexpr uint32_t sceneDataBufferIndex{0};
+    constexpr uint32_t environmentIndex{1};
     constexpr VkDeviceSize zeroOffset{0};
     const VkDeviceSize environmentMapOffset{environment->getEnvironmentMapOffset(environmentMapindex)};
 
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, environmentPipelineLayout, 0, 1, &environmentIndex, &environmentMapOffset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, environmentPipelineLayout, 1, 1, &sceneDataBufferIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, environmentPipelineLayout, 0, 1, &sceneDataBufferIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, environmentPipelineLayout, 1, 1, &environmentIndex, &environmentMapOffset);
 
     vkCmdDraw(cmd, 3, 1, 0, 0);
     vkCmdEndRendering(cmd);
-#ifndef NDEBUG
+
     vkCmdEndDebugUtilsLabelEXT(cmd);
-#endif
 }
 
 // ReSharper disable once CppParameterMayBeConst
 void Engine::frustumCull(VkCommandBuffer cmd) const
 {
-#ifndef NDEBUG
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
     label.pLabelName = "Frustum Culling";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
-#endif
+
     // GPU Frustum Culling
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipeline);
 
     VkDescriptorBufferBindingInfoEXT frustumCullingBindingInfo[2]{};
-    frustumCullingBindingInfo[0] = testRenderObject->getComputeAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
-    frustumCullingBindingInfo[1] = sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
+    frustumCullingBindingInfo[0] = sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
+    frustumCullingBindingInfo[1] = testRenderObject->getComputeAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
     vkCmdBindDescriptorBuffersEXT(cmd, 2, frustumCullingBindingInfo);
 
     constexpr VkDeviceSize offset{0};
-    constexpr uint32_t addressesIndex{0};
-    constexpr uint32_t sceneDataIndex{1};
+    constexpr uint32_t sceneDataIndex{0};
+    constexpr uint32_t addressesIndex{1};
 
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipelineLayout, 0, 1, &addressesIndex, &offset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipelineLayout, 1, 1, &sceneDataIndex, &offset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipelineLayout, 0, 1, &sceneDataIndex, &offset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipelineLayout, 1, 1, &addressesIndex, &offset);
 
     vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(testRenderObject->getDrawIndirectCommandCount()) / 64.0f)), 1, 1);
-#ifndef NDEBUG
+
     vkCmdEndDebugUtilsLabelEXT(cmd);
-#endif
 }
 
 void Engine::drawDeferredMrt(VkCommandBuffer cmd) const
 {
-#ifndef NDEBUG
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
     label.pLabelName = "Deferred MRT Pass";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
-#endif
-    VkClearValue colorClear = {0.0f, 0.0f};
-    VkRenderingAttachmentInfo normalAttachment = vk_helpers::attachmentInfo(normalRenderTarget.imageView, &colorClear,
-                                                                            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo albedoAttachment = vk_helpers::attachmentInfo(albedoRenderTarget.imageView, &colorClear,
-                                                                            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo pbrAttachment = vk_helpers::attachmentInfo(pbrRenderTarget.imageView, &colorClear,
-                                                                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo velocityAttachment = vk_helpers::attachmentInfo(velocityRenderTarget.imageView, &colorClear,
-                                                                              VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-    VkClearValue depthClearValue = {0.0f, 0.0f};
+    VkClearValue clearValue = {0.0f, 0.0f};
 
-    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue,
-                                                                           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo normalAttachment = vk_helpers::attachmentInfo(normalRenderTarget.imageView, &clearValue, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo albedoAttachment = vk_helpers::attachmentInfo(albedoRenderTarget.imageView, &clearValue, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo pbrAttachment = vk_helpers::attachmentInfo(pbrRenderTarget.imageView, &clearValue, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo velocityAttachment = vk_helpers::attachmentInfo(velocityRenderTarget.imageView, &clearValue, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &clearValue, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
     VkRenderingInfo renderInfo{};
     renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     renderInfo.pNext = nullptr;
@@ -692,8 +678,6 @@ void Engine::drawDeferredMrt(VkCommandBuffer cmd) const
     renderInfo.pStencilAttachment = nullptr;
 
     vkCmdBeginRendering(cmd, &renderInfo);
-
-
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipeline);
 
 
@@ -722,39 +706,38 @@ void Engine::drawDeferredMrt(VkCommandBuffer cmd) const
     }
 
     VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[3];
-    descriptorBufferBindingInfo[0] = testRenderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
-    descriptorBufferBindingInfo[1] = testRenderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
-    descriptorBufferBindingInfo[2] = sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
+    descriptorBufferBindingInfo[0] = sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
+    descriptorBufferBindingInfo[1] = testRenderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
+    descriptorBufferBindingInfo[2] = testRenderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
     vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptorBufferBindingInfo);
 
     constexpr VkDeviceSize zeroOffset{0};
-    constexpr uint32_t addressIndex{0};
-    constexpr uint32_t texturesIndex{1};
-    constexpr uint32_t sceneDataIndex{2};
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 0, 1, &addressIndex, &zeroOffset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 1, 1, &texturesIndex, &zeroOffset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 2, 1, &sceneDataIndex, &zeroOffset);
+    constexpr uint32_t sceneDataIndex{0};
+    constexpr uint32_t addressIndex{1};
+    constexpr uint32_t texturesIndex{2};
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 0, 1, &sceneDataIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 1, 1, &addressIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 2, 1, &texturesIndex, &zeroOffset);
 
     constexpr VkDeviceSize offsets{0};
     vkCmdBindVertexBuffers(cmd, 0, 1, &testRenderObject->getVertexBuffer().buffer, &offsets);
     vkCmdBindIndexBuffer(cmd, testRenderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
     vkCmdDrawIndexedIndirect(cmd, testRenderObject->getIndirectBuffer().buffer, 0, testRenderObject->getDrawIndirectCommandCount(),
                              sizeof(VkDrawIndexedIndirectCommand));
-#ifndef NDEBUG
+
     vkCmdEndDebugUtilsLabelEXT(cmd);
-#endif
+
     vkCmdEndRendering(cmd);
 }
 
 // ReSharper disable once CppParameterMayBeConst
 void Engine::drawDeferredResolve(VkCommandBuffer cmd) const
 {
-#ifndef NDEBUG
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
     label.pLabelName = "Deferred Resolve Pass";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
-#endif
+
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipeline);
 
     DeferredResolveData deferredResolveData;
@@ -763,31 +746,27 @@ void Engine::drawDeferredResolve(VkCommandBuffer cmd) const
     deferredResolveData.debug = deferredDebug;
     vkCmdPushConstants(cmd, deferredResolvePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(DeferredResolveData), &deferredResolveData);
 
-    VkDescriptorBufferBindingInfoEXT deferredResolveBindingInfos[4]{};
-    deferredResolveBindingInfos[0] = deferredResolveDescriptorBuffer.getDescriptorBufferBindingInfo();
-    deferredResolveBindingInfos[1] = sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
-    deferredResolveBindingInfos[2] = sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(); //todo: lights
-    deferredResolveBindingInfos[3] = environment->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo();
-    vkCmdBindDescriptorBuffersEXT(cmd, 4, deferredResolveBindingInfos);
+    VkDescriptorBufferBindingInfoEXT deferredResolveBindingInfos[3]{};
+    deferredResolveBindingInfos[0] = sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
+    deferredResolveBindingInfos[1] = deferredResolveDescriptorBuffer.getDescriptorBufferBindingInfo();
+    deferredResolveBindingInfos[2] = environment->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo();
+    vkCmdBindDescriptorBuffersEXT(cmd, 3, deferredResolveBindingInfos);
 
     constexpr VkDeviceSize zeroOffset{0};
-    constexpr uint32_t renderTargetsIndex{0};
-    constexpr uint32_t sceneDataIndex{1};
-    constexpr uint32_t lightsIndex{2};
-    constexpr uint32_t environmentIndex{3};
+    constexpr uint32_t sceneDataIndex{0};
+    constexpr uint32_t renderTargetsIndex{1};
+    constexpr uint32_t environmentIndex{2};
     const VkDeviceSize environmentMapOffset{environment->getDiffSpecMapOffset(environmentMapindex)};
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 0, 1, &renderTargetsIndex, &zeroOffset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 1, 1, &sceneDataIndex, &zeroOffset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 2, 1, &lightsIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 0, 1, &sceneDataIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 1, 1, &renderTargetsIndex, &zeroOffset);
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 3, 1, &environmentIndex, &environmentMapOffset);
 
 
     const auto x = static_cast<uint32_t>(std::ceil(static_cast<float>(drawExtent.width) / 16.0f));
     const auto y = static_cast<uint32_t>(std::ceil(static_cast<float>(drawExtent.height) / 16.0f));
     vkCmdDispatch(cmd, x, y, 1);
-#ifndef NDEBUG
+
     vkCmdEndDebugUtilsLabelEXT(cmd);
-#endif
 }
 
 void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd) const
@@ -810,19 +789,14 @@ void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd) const
     // mrt
     {
         VkClearValue colorClear = {0.0f, 0.0f};
-        VkRenderingAttachmentInfo normalAttachment = vk_helpers::attachmentInfo(normalRenderTarget.imageView, &colorClear,
-                                                                                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        VkRenderingAttachmentInfo albedoAttachment = vk_helpers::attachmentInfo(albedoRenderTarget.imageView, &colorClear,
-                                                                                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        VkRenderingAttachmentInfo pbrAttachment = vk_helpers::attachmentInfo(pbrRenderTarget.imageView, &colorClear,
-                                                                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        VkRenderingAttachmentInfo velocityAttachment = vk_helpers::attachmentInfo(velocityRenderTarget.imageView, &colorClear,
-                                                                                  VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkRenderingAttachmentInfo normalAttachment = vk_helpers::attachmentInfo(normalRenderTarget.imageView, &colorClear, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkRenderingAttachmentInfo albedoAttachment = vk_helpers::attachmentInfo(albedoRenderTarget.imageView, &colorClear, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkRenderingAttachmentInfo pbrAttachment = vk_helpers::attachmentInfo(pbrRenderTarget.imageView, &colorClear, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        VkRenderingAttachmentInfo velocityAttachment = vk_helpers::attachmentInfo(velocityRenderTarget.imageView, &colorClear, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
         VkClearValue depthClearValue = {0.0f, 0.0f};
 
-        VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue,
-                                                                               VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+        VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
         VkRenderingInfo renderInfo{};
         renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
         renderInfo.pNext = nullptr;
@@ -873,24 +847,24 @@ void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd) const
         }
 
         VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[3];
-        descriptorBufferBindingInfo[0] = testRenderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
-        descriptorBufferBindingInfo[1] = testRenderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
-        descriptorBufferBindingInfo[2] = spectateSceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
+        descriptorBufferBindingInfo[0] = spectateSceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
+        descriptorBufferBindingInfo[1] = testRenderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
+        descriptorBufferBindingInfo[2] = testRenderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
         vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptorBufferBindingInfo);
 
         constexpr VkDeviceSize zeroOffset{0};
-        constexpr uint32_t addressIndex{0};
-        constexpr uint32_t texturesIndex{1};
-        constexpr uint32_t sceneDataIndex{2};
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 0, 1, &addressIndex, &zeroOffset);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 1, 1, &texturesIndex, &zeroOffset);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 2, 1, &sceneDataIndex, &zeroOffset);
+        constexpr uint32_t sceneDataIndex{0};
+        constexpr uint32_t addressIndex{1};
+        constexpr uint32_t texturesIndex{2};
+
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 0, 1, &sceneDataIndex, &zeroOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 1, 1, &addressIndex, &zeroOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 2, 1, &texturesIndex, &zeroOffset);
 
         constexpr VkDeviceSize offsets{0};
         vkCmdBindVertexBuffers(cmd, 0, 1, &testRenderObject->getVertexBuffer().buffer, &offsets);
         vkCmdBindIndexBuffer(cmd, testRenderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexedIndirect(cmd, testRenderObject->getIndirectBuffer().buffer, 0, testRenderObject->getDrawIndirectCommandCount(),
-                                 sizeof(VkDrawIndexedIndirectCommand));
+        vkCmdDrawIndexedIndirect(cmd, testRenderObject->getIndirectBuffer().buffer, 0, testRenderObject->getDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
 
         vkCmdEndRendering(cmd);
     }
@@ -915,23 +889,20 @@ void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd) const
         deferredResolveData.debug = 0;
         vkCmdPushConstants(cmd, deferredResolvePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(DeferredResolveData), &deferredResolveData);
 
-        VkDescriptorBufferBindingInfoEXT deferredResolveBindingInfos[4]{};
-        deferredResolveBindingInfos[0] = deferredResolveDescriptorBuffer.getDescriptorBufferBindingInfo();
-        deferredResolveBindingInfos[1] = spectateSceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
-        deferredResolveBindingInfos[2] = spectateSceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(); //todo: lights
-        deferredResolveBindingInfos[3] = environment->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo();
-        vkCmdBindDescriptorBuffersEXT(cmd, 4, deferredResolveBindingInfos);
+        VkDescriptorBufferBindingInfoEXT deferredResolveBindingInfos[3]{};
+        deferredResolveBindingInfos[0] = spectateSceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
+        deferredResolveBindingInfos[1] = deferredResolveDescriptorBuffer.getDescriptorBufferBindingInfo();
+        deferredResolveBindingInfos[2] = environment->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo();
+        vkCmdBindDescriptorBuffersEXT(cmd, 3, deferredResolveBindingInfos);
 
         constexpr VkDeviceSize zeroOffset{0};
-        constexpr uint32_t renderTargetsIndex{0};
-        constexpr uint32_t sceneDataIndex{1};
-        constexpr uint32_t lightsIndex{2};
+        constexpr uint32_t sceneDataIndex{0};
+        constexpr uint32_t renderTargetsIndex{1};
         constexpr uint32_t environmentIndex{3};
         const VkDeviceSize environmentMapOffset{environment->getDiffSpecMapOffset(environmentMapindex)};
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 0, 1, &renderTargetsIndex, &zeroOffset);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 1, 1, &sceneDataIndex, &zeroOffset);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 2, 1, &lightsIndex, &zeroOffset);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 3, 1, &environmentIndex, &environmentMapOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 0, 1, &sceneDataIndex, &zeroOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 1, 1, &renderTargetsIndex, &zeroOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 2, 1, &environmentIndex, &environmentMapOffset);
 
 
         const auto x = static_cast<uint32_t>(std::ceil(static_cast<float>(drawExtent.width) / 16.0f));
@@ -945,12 +916,10 @@ void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd) const
 // ReSharper disable twice CppParameterMayBeConst
 void Engine::drawImgui(VkCommandBuffer cmd, VkImageView targetImageView) const
 {
-#ifndef NDEBUG
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
     label.pLabelName = "DearImgui Draw Pass";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
-#endif
 
     VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(targetImageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     const VkRenderingInfo renderInfo = vk_helpers::renderingInfo(swapchainExtent, &colorAttachment, nullptr);
@@ -958,9 +927,7 @@ void Engine::drawImgui(VkCommandBuffer cmd, VkImageView targetImageView) const
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
     vkCmdEndRendering(cmd);
 
-#ifndef NDEBUG
     vkCmdEndDebugUtilsLabelEXT(cmd);
-#endif
 }
 
 void Engine::cleanup()
@@ -981,6 +948,7 @@ void Engine::cleanup()
     destroyImage(errorCheckerboardImage);
     vkDestroySampler(device, defaultSamplerNearest, nullptr);
     vkDestroySampler(device, defaultSamplerLinear, nullptr);
+    vkDestroyDescriptorSetLayout(device, emptyDescriptorSetLayout, nullptr);
 
     // ImGui
     ImGui_ImplVulkan_Shutdown();
@@ -1035,19 +1003,16 @@ void Engine::initVulkan()
 
     vkb::InstanceBuilder builder;
 
-#if DEBUG
+
     std::vector<const char*> enabledInstanceExtensions;
     enabledInstanceExtensions.push_back("VK_EXT_debug_utils");
-#endif
 
     // make the vulkan instance, with basic debug features
     auto inst_ret = builder.set_app_name("Will's Vulkan Renderer")
             .request_validation_layers(USE_VALIDATION_LAYERS)
             .use_default_debug_messenger()
             .require_api_version(1, 3)
-#if DEBUG
             .enable_extensions(enabledInstanceExtensions)
-#endif
             .build();
 
     vkb::Instance vkb_inst = inst_ret.value();
@@ -1160,31 +1125,48 @@ void Engine::initSyncStructures()
 void Engine::initDefaultData() const
 {
     // white image
-    uint32_t white = packUnorm4x8(glm::vec4(1, 1, 1, 1));
-    const AllocatedImage newImage = createImage(VkExtent3D{1, 1, 1}, VK_FORMAT_R8G8B8A8_UNORM,
-                                                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, false);
-    destroyImage(newImage);
-    whiteImage = createImage((void*) &white, 4, VkExtent3D{1, 1, 1}, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
-
-
-    //checkerboard image
-    const uint32_t black = glm::packUnorm4x8(glm::vec4(0, 0, 0, 0));
-    const uint32_t magenta = glm::packUnorm4x8(glm::vec4(1, 0, 1, 1));
-    std::array<uint32_t, 16 * 16> pixels{}; //for 16x16 checkerboard texture
-    for (int x = 0; x < 16; x++) {
-        for (int y = 0; y < 16; y++) {
-            pixels[y * 16 + x] = ((x % 2) ^ (y % 2)) ? magenta : black;
-        }
+    {
+        const uint32_t white = packUnorm4x8(glm::vec4(1, 1, 1, 1));
+        const AllocatedImage newImage = createImage(VkExtent3D{1, 1, 1}, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                                                    false);
+        destroyImage(newImage);
+        whiteImage = createImage(&white, 4, VkExtent3D{1, 1, 1}, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
     }
-    errorCheckerboardImage = createImage(pixels.data(), 16 * 16 * 4, VkExtent3D{16, 16, 1}, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
-
-    VkSamplerCreateInfo sampl = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
-    sampl.magFilter = VK_FILTER_NEAREST;
-    sampl.minFilter = VK_FILTER_NEAREST;
-    vkCreateSampler(device, &sampl, nullptr, &defaultSamplerNearest);
-    sampl.magFilter = VK_FILTER_LINEAR;
-    sampl.minFilter = VK_FILTER_LINEAR;
-    vkCreateSampler(device, &sampl, nullptr, &defaultSamplerLinear);
+    //checkerboard image
+    {
+        const uint32_t black = glm::packUnorm4x8(glm::vec4(0, 0, 0, 0));
+        const uint32_t magenta = glm::packUnorm4x8(glm::vec4(1, 0, 1, 1));
+        std::array<uint32_t, 16 * 16> pixels{}; //for 16x16 checkerboard texture
+        for (int x = 0; x < 16; x++) {
+            for (int y = 0; y < 16; y++) {
+                pixels[y * 16 + x] = ((x % 2) ^ (y % 2)) ? magenta : black;
+            }
+        }
+        errorCheckerboardImage = createImage(pixels.data(), 16 * 16 * 4, VkExtent3D{16, 16, 1}, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
+    }
+    // default nearest sampler
+    {
+        VkSamplerCreateInfo sampl = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+        sampl.magFilter = VK_FILTER_NEAREST;
+        sampl.minFilter = VK_FILTER_NEAREST;
+        sampl.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        vkCreateSampler(device, &sampl, nullptr, &defaultSamplerNearest);
+    }
+    // default linear sampler
+    {
+        VkSamplerCreateInfo sampl = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+        sampl.magFilter = VK_FILTER_LINEAR;
+        sampl.minFilter = VK_FILTER_LINEAR;
+        sampl.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        vkCreateSampler(device, &sampl, nullptr, &defaultSamplerLinear);
+    }
+    // default "empty" descriptor set layout
+    {
+        DescriptorLayoutBuilder layoutBuilder;
+        emptyDescriptorSetLayout = layoutBuilder.build(device,
+                                                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
+                                                       nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    }
 }
 
 void Engine::initDearImgui()
@@ -1246,7 +1228,9 @@ void Engine::initDearImgui()
 }
 
 void Engine::initDescriptors()
-{ {
+{
+    //
+    {
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
         sceneDataDescriptorSetLayout = layoutBuilder.build(
@@ -1290,7 +1274,11 @@ void Engine::initPipelines()
 void Engine::initFrustumCullingPipeline()
 {
     assert(RenderObject::frustumCullingDescriptorSetLayout != VK_NULL_HANDLE);
-    const VkDescriptorSetLayout layouts[2] = {RenderObject::frustumCullingDescriptorSetLayout, sceneDataDescriptorSetLayout};
+    const VkDescriptorSetLayout layouts[2] =
+    {
+        sceneDataDescriptorSetLayout,
+        RenderObject::frustumCullingDescriptorSetLayout,
+    };
 
     VkPipelineLayoutCreateInfo frustumCullingPipelineLayoutCreateInfo{};
     frustumCullingPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -1338,9 +1326,10 @@ void Engine::initDeferredMrtPipeline()
     assert(RenderObject::textureDescriptorSetLayout != VK_NULL_HANDLE);
 
     VkDescriptorSetLayout descriptorLayout[3];
-    descriptorLayout[0] = RenderObject::addressesDescriptorSetLayout;
-    descriptorLayout[1] = RenderObject::textureDescriptorSetLayout;
-    descriptorLayout[2] = sceneDataDescriptorSetLayout;;
+    descriptorLayout[0] = sceneDataDescriptorSetLayout;
+    descriptorLayout[1] = RenderObject::addressesDescriptorSetLayout;
+    descriptorLayout[2] = RenderObject::textureDescriptorSetLayout;
+
 
     VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
     layoutInfo.pSetLayouts = descriptorLayout;
@@ -1465,11 +1454,10 @@ void Engine::initDeferredResolvePipeline()
     pushConstants.size = sizeof(DeferredResolveData);
     pushConstants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    // todo: Descriptor set layout needs [set 1 - camera data] [set 2 - light data] [set 3 - environment data]
     VkDescriptorSetLayout setLayouts[4];
-    setLayouts[0] = deferredResolveRenderTargetLayout;
-    setLayouts[1] = sceneDataDescriptorSetLayout;
-    setLayouts[2] = sceneDataDescriptorSetLayout; // todo: lights
+    setLayouts[0] = sceneDataDescriptorSetLayout;
+    setLayouts[1] = deferredResolveRenderTargetLayout;
+    setLayouts[2] = emptyDescriptorSetLayout; // todo: lights
     setLayouts[3] = Environment::environmentMapDescriptorSetLayout;
 
     VkPipelineLayoutCreateInfo deferredResolvePipelineLayoutCreateInfo{};
@@ -1518,7 +1506,11 @@ void Engine::initEnvironmentPipeline()
 {
     assert(Environment::layoutsCreated);
 
-    const VkDescriptorSetLayout layouts[2] = {Environment::cubemapDescriptorSetLayout, sceneDataDescriptorSetLayout};
+    const VkDescriptorSetLayout layouts[2] =
+    {
+        sceneDataDescriptorSetLayout,
+        Environment::cubemapDescriptorSetLayout,
+    };
 
     VkPipelineLayoutCreateInfo layout_info = vk_helpers::pipelineLayoutCreateInfo();
     layout_info.setLayoutCount = 2;
@@ -1529,12 +1521,12 @@ void Engine::initEnvironmentPipeline()
     VK_CHECK(vkCreatePipelineLayout(device, &layout_info, nullptr, &environmentPipelineLayout));
 
     VkShaderModule vertShader;
-    if (!vk_helpers::loadShaderModule("shaders/environment/environment.vert.spv", device, &vertShader)) {
-        throw std::runtime_error("Error when building the triangle vertex shader module(compute.comp.spv)");
+    if (!vk_helpers::loadShaderModule("shaders/environment.vert.spv", device, &vertShader)) {
+        throw std::runtime_error("Error when building the vertex shader module(environment.vert.spv)");
     }
     VkShaderModule fragShader;
-    if (!vk_helpers::loadShaderModule("shaders/environment/environment.frag.spv", device, &fragShader)) {
-        fmt::print("Error when building the triangle fragment shader module\n");
+    if (!vk_helpers::loadShaderModule("shaders/environment.frag.spv", device, &fragShader)) {
+        fmt::print("Error when building the fragment shader module(environment.frag.spv)\n");
     }
 
     PipelineBuilder renderPipelineBuilder;

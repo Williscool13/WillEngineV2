@@ -117,8 +117,8 @@ struct Material
 {
     glm::vec4 colorFactor{1.0f};
     glm::vec4 metalRoughFactors{0.0f, 1.0f, 0.0f, 0.0f}; // x: metallic, y: roughness
-    glm::vec4 textureImageIndices{-1};   // x: color image, y: metallic image, z: pad, w: pad
-    glm::vec4 textureSamplerIndices{-1}; // x: color sampler, y: metallic sampler, z: pad, w: pad
+    glm::ivec4 textureImageIndices{-1};   // x: color image, y: metallic image, z: pad, w: pad
+    glm::ivec4 textureSamplerIndices{-1}; // x: color sampler, y: metallic sampler, z: pad, w: pad
     glm::vec4 alphaCutoff{1.0f, 0.0f, 0.0f, 0.0f}; // x: alpha cutoff, y: alpha mode, z: padding, w: padding
 };
 

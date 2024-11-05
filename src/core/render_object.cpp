@@ -28,7 +28,7 @@ VkDescriptorSetLayout RenderObject::textureDescriptorSetLayout{VK_NULL_HANDLE};
 VkDescriptorSetLayout RenderObject::frustumCullingDescriptorSetLayout{VK_NULL_HANDLE};
 int RenderObject::renderObjectCount{0};
 
-RenderObject::RenderObject(Engine* engine, std::string_view gltfFilepath)
+RenderObject::RenderObject(Engine* engine, const std::string_view gltfFilepath)
 {
     creator = engine;
 
@@ -135,7 +135,7 @@ RenderObject::~RenderObject()
         creator->destroyImage(image);
     }
 
-    for (auto& sampler : samplers) {
+    for (const auto& sampler : samplers) {
         if (sampler == Engine::defaultSamplerNearest
             || sampler == Engine::defaultSamplerLinear) {
             //dont destroy the default samplers
@@ -334,7 +334,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
                 const fastgltf::Accessor& indexaccessor = gltf.accessors[p.indicesAccessor.value()];
                 primitiveIndices.reserve(indexaccessor.count);
 
-                fastgltf::iterateAccessor<std::uint32_t>(gltf, indexaccessor, [&](std::uint32_t idx) {
+                fastgltf::iterateAccessor<std::uint32_t>(gltf, indexaccessor, [&](const std::uint32_t idx) {
                     primitiveIndices.push_back(idx);
                 });
             }
@@ -346,7 +346,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
                 const fastgltf::Accessor& posAccessor = gltf.accessors[positionIt->accessorIndex];
                 primitiveVertices.resize(posAccessor.count);
 
-                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, posAccessor, [&](fastgltf::math::fvec3 v, size_t index) {
+                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, posAccessor, [&](fastgltf::math::fvec3 v, const size_t index) {
                     Vertex newvtx{};
                     newvtx.position = {v.x(), v.y(), v.z()};
                     newvtx.materialIndex = primitiveMaterialIndex;
@@ -357,30 +357,27 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
             // load vertex normals
             const fastgltf::Attribute* normals = p.findAttribute("NORMAL");
             if (normals != p.attributes.end()) {
-                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, gltf.accessors[normals->accessorIndex],
-                                                                          [&](fastgltf::math::fvec3 n, size_t index) {
-                                                                              primitiveVertices[index].normal = {n.x(), n.y(), n.z()};
-                                                                          });
+                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, gltf.accessors[normals->accessorIndex], [&](fastgltf::math::fvec3 n, const size_t index) {
+                    primitiveVertices[index].normal = {n.x(), n.y(), n.z()};
+                });
             }
 
             // load UVs
             const fastgltf::Attribute* uvs = p.findAttribute("TEXCOORD_0");
             if (uvs != p.attributes.end()) {
-                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(gltf, gltf.accessors[uvs->accessorIndex],
-                                                                          [&](fastgltf::math::fvec2 uv, size_t index) {
-                                                                              primitiveVertices[index].uv = {uv.x(), uv.y()};
-                                                                          });
+                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(gltf, gltf.accessors[uvs->accessorIndex], [&](fastgltf::math::fvec2 uv, const size_t index) {
+                    primitiveVertices[index].uv = {uv.x(), uv.y()};
+                });
             }
 
             // load vertex colors
             const fastgltf::Attribute* colors = p.findAttribute("COLOR_0");
             if (colors != p.attributes.end()) {
-                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec4>(gltf, gltf.accessors[colors->accessorIndex],
-                                                                          [&](fastgltf::math::fvec4 color, size_t index) {
-                                                                              primitiveVertices[index].color = {
-                                                                                  color.x(), color.y(), color.z(), color.w()
-                                                                              };
-                                                                          });
+                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec4>(gltf, gltf.accessors[colors->accessorIndex], [&](fastgltf::math::fvec4 color, const size_t index) {
+                    primitiveVertices[index].color = {
+                        color.x(), color.y(), color.z(), color.w()
+                    };
+                });
             }
 
             boundingSpheres.emplace_back(primitiveVertices);
@@ -435,13 +432,13 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
                         }
                     }
 
-                    glm::vec3 translation = glm::vec3(glmMatrix[3]);
-                    glm::vec3 scale = glm::vec3(
+                    const auto translation = glm::vec3(glmMatrix[3]);
+                    const glm::vec3 scale = glm::vec3(
                         glm::length(glm::vec3(glmMatrix[0])),
                         glm::length(glm::vec3(glmMatrix[1])),
                         glm::length(glm::vec3(glmMatrix[2]))
                     );
-                    glm::quat rotation = glm::quat_cast(glmMatrix);
+                    const glm::quat rotation = glm::quat_cast(glmMatrix);
 
                     renderNode.transform = Transform(translation, rotation, scale);
                 },
@@ -515,18 +512,6 @@ InstanceData* RenderObject::getInstanceData(const int32_t index) const
     assert(reinterpret_cast<uintptr_t>(target) % alignof(InstanceData) == 0 && "Misaligned instance data access");
 
     return static_cast<InstanceData*>(target);
-}
-
-void RenderObject::updateInstanceData(const InstanceData& value, const int32_t index) const
-{
-    if (modelMatrixBuffer.buffer == VK_NULL_HANDLE) {
-        return;
-    }
-    // TODO: Null pointer during destruction here
-    auto basePtr = static_cast<char*>(modelMatrixBuffer.info.pMappedData);
-    void* target = basePtr + index * sizeof(InstanceData);
-    memcpy(target, &value, sizeof(InstanceData));
-    //memcpy(target, &value, sizeof(InstanceData));
 }
 
 void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent)

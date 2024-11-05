@@ -350,7 +350,7 @@ void vk_helpers::copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage d
 
 void vk_helpers::generateMipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize)
 {
-    int mipLevels = int(std::floor(std::log2(std::max(imageSize.width, imageSize.height)))) + 1;
+    const int mipLevels = static_cast<int>(std::floor(std::log2(std::max(imageSize.width, imageSize.height)))) + 1;
     for (int mip = 0; mip < mipLevels; mip++) {
         VkExtent2D halfSize = imageSize;
         halfSize.width /= 2;
@@ -591,7 +591,7 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
                     imagesize.height = height;
                     imagesize.depth = 1;
                     size_t size = width * height * 4;
-                    newImage = engine->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
+                    newImage = engine->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
 
                     stbi_image_free(data);
                 }
@@ -605,8 +605,7 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
                     imagesize.height = height;
                     imagesize.depth = 1;
                     size_t size = width * height * 4;
-                    newImage = engine->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT,
-                                                   false);
+                    newImage = engine->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
 
                     stbi_image_free(data);
                 }
@@ -628,9 +627,8 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
                                        imagesize.width = width;
                                        imagesize.height = height;
                                        imagesize.depth = 1;
-                                       size_t size = width * height * 4;
-                                       newImage = engine->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM,
-                                                                      VK_IMAGE_USAGE_SAMPLED_BIT, false);
+                                       const size_t size = width * height * 4;
+                                       newImage = engine->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
                                        stbi_image_free(data);
                                    }
                                }
@@ -648,8 +646,8 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
     }
 }
 
-void vk_helpers::loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, float& imageIndex,
-                             float& samplerIndex, const uint32_t imageOffset, const uint32_t samplerOffset)
+void vk_helpers::loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, int& imageIndex,
+                             int& samplerIndex, const uint32_t imageOffset, const uint32_t samplerOffset)
 {
     if (!texture.has_value()) {
         return;

@@ -75,8 +75,6 @@ public:
 
     InstanceData* getInstanceData(int32_t index) const;
 
-    void updateInstanceData(const InstanceData& value, int32_t index) const;
-
     [[nodiscard]] bool canDraw() const { return instanceBufferSize > 0; }
 
     const DescriptorBufferUniform& getAddressesDescriptorBuffer() { return addressesDescriptorBuffer; }
