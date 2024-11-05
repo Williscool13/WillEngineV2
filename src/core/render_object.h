@@ -73,7 +73,7 @@ private:
 public:
    GameObject* generateGameObject();
 
-    InstanceData* getInstanceData(int32_t index) const;
+    [[nodiscard]] InstanceData* getInstanceData(int32_t index) const;
 
     [[nodiscard]] bool canDraw() const { return instanceBufferSize > 0; }
 
