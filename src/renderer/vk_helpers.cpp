@@ -11,7 +11,7 @@
 #include "../../extern/half/half/half.hpp"
 #include "../core/engine.h"
 
-VkImageCreateInfo vk_helpers::imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
+VkImageCreateInfo vk_helpers::imageCreateInfo(const VkFormat format, const VkImageUsageFlags usageFlags, const VkExtent3D extent)
 {
     VkImageCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -34,7 +34,7 @@ VkImageCreateInfo vk_helpers::imageCreateInfo(VkFormat format, VkImageUsageFlags
     return info;
 }
 
-VkImageCreateInfo vk_helpers::cubemapCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
+VkImageCreateInfo vk_helpers::cubemapCreateInfo(const VkFormat format, const VkImageUsageFlags usageFlags, const VkExtent3D extent)
 {
     VkImageCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -60,7 +60,7 @@ VkImageCreateInfo vk_helpers::cubemapCreateInfo(VkFormat format, VkImageUsageFla
     return info;
 }
 
-VkImageViewCreateInfo vk_helpers::imageviewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags)
+VkImageViewCreateInfo vk_helpers::imageviewCreateInfo(const VkFormat format, const VkImage image, const VkImageAspectFlags aspectFlags)
 {
     // Identical to imageCreateInfo, but is imageView instead
     VkImageViewCreateInfo info = {};
@@ -80,7 +80,7 @@ VkImageViewCreateInfo vk_helpers::imageviewCreateInfo(VkFormat format, VkImage i
     return info;
 }
 
-VkImageViewCreateInfo vk_helpers::cubemapViewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags)
+VkImageViewCreateInfo vk_helpers::cubemapViewCreateInfo(const VkFormat format, const VkImage image, const VkImageAspectFlags aspectFlags)
 {
     // build a image-view for the depth image to use for rendering
     VkImageViewCreateInfo info = {};
@@ -99,7 +99,7 @@ VkImageViewCreateInfo vk_helpers::cubemapViewCreateInfo(VkFormat format, VkImage
     return info;
 }
 
-VkImageSubresourceRange vk_helpers::imageSubresourceRange(VkImageAspectFlags aspectMask)
+VkImageSubresourceRange vk_helpers::imageSubresourceRange(const VkImageAspectFlags aspectMask)
 {
     VkImageSubresourceRange subImage{};
     subImage.aspectMask = aspectMask;
@@ -114,7 +114,7 @@ VkImageSubresourceRange vk_helpers::imageSubresourceRange(VkImageAspectFlags asp
 }
 
 
-VkCommandPoolCreateInfo vk_helpers::commandPoolCreateInfo(uint32_t queueFamilyIndex, VkCommandPoolCreateFlags flags /*= 0*/)
+VkCommandPoolCreateInfo vk_helpers::commandPoolCreateInfo(uint32_t queueFamilyIndex, const VkCommandPoolCreateFlags flags /*= 0*/)
 {
     VkCommandPoolCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -123,7 +123,8 @@ VkCommandPoolCreateInfo vk_helpers::commandPoolCreateInfo(uint32_t queueFamilyIn
     return info;
 }
 
-VkCommandBufferAllocateInfo vk_helpers::commandBufferAllocateInfo(VkCommandPool pool, uint32_t count /*= 1*/)
+// ReSharper disable once CppParameterMayBeConst
+VkCommandBufferAllocateInfo vk_helpers::commandBufferAllocateInfo(VkCommandPool pool, const uint32_t count /*= 1*/)
 {
     VkCommandBufferAllocateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -135,7 +136,7 @@ VkCommandBufferAllocateInfo vk_helpers::commandBufferAllocateInfo(VkCommandPool 
     return info;
 }
 
-VkCommandBufferBeginInfo vk_helpers::commandBufferBeginInfo(VkCommandBufferUsageFlags flags)
+VkCommandBufferBeginInfo vk_helpers::commandBufferBeginInfo(const VkCommandBufferUsageFlags flags)
 {
     VkCommandBufferBeginInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -146,6 +147,7 @@ VkCommandBufferBeginInfo vk_helpers::commandBufferBeginInfo(VkCommandBufferUsage
     return info;
 }
 
+// ReSharper disable once CppParameterMayBeConst
 VkCommandBufferSubmitInfo vk_helpers::commandBufferSubmitInfo(VkCommandBuffer cmd)
 {
     VkCommandBufferSubmitInfo info{};
@@ -158,7 +160,7 @@ VkCommandBufferSubmitInfo vk_helpers::commandBufferSubmitInfo(VkCommandBuffer cm
 }
 
 
-VkFenceCreateInfo vk_helpers::fenceCreateInfo(VkFenceCreateFlags flags /*= 0*/)
+VkFenceCreateInfo vk_helpers::fenceCreateInfo(const VkFenceCreateFlags flags /*= 0*/)
 {
     VkFenceCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -167,7 +169,7 @@ VkFenceCreateInfo vk_helpers::fenceCreateInfo(VkFenceCreateFlags flags /*= 0*/)
     return info;
 }
 
-VkSemaphoreCreateInfo vk_helpers::semaphoreCreateInfo(VkSemaphoreCreateFlags flags /*= 0*/)
+VkSemaphoreCreateInfo vk_helpers::semaphoreCreateInfo(const VkSemaphoreCreateFlags flags /*= 0*/)
 {
     VkSemaphoreCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -176,7 +178,8 @@ VkSemaphoreCreateInfo vk_helpers::semaphoreCreateInfo(VkSemaphoreCreateFlags fla
     return info;
 }
 
-VkSemaphoreSubmitInfo vk_helpers::semaphoreSubmitInfo(VkPipelineStageFlags2 stageMask, VkSemaphore semaphore)
+// ReSharper disable once CppParameterMayBeConst
+VkSemaphoreSubmitInfo vk_helpers::semaphoreSubmitInfo(const VkPipelineStageFlags2 stageMask, VkSemaphore semaphore)
 {
     VkSemaphoreSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
@@ -189,7 +192,8 @@ VkSemaphoreSubmitInfo vk_helpers::semaphoreSubmitInfo(VkPipelineStageFlags2 stag
     return submitInfo;
 }
 
-VkRenderingAttachmentInfo vk_helpers::attachmentInfo(VkImageView view, VkClearValue* clear, VkImageLayout layout)
+// ReSharper disable once CppParameterMayBeConst
+VkRenderingAttachmentInfo vk_helpers::attachmentInfo(VkImageView view, const VkClearValue* clear, const VkImageLayout layout)
 {
     VkRenderingAttachmentInfo colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -206,8 +210,7 @@ VkRenderingAttachmentInfo vk_helpers::attachmentInfo(VkImageView view, VkClearVa
     return colorAttachment;
 }
 
-VkRenderingInfo vk_helpers::renderingInfo(VkExtent2D renderExtent, VkRenderingAttachmentInfo* colorAttachment,
-                                          VkRenderingAttachmentInfo* depthAttachment)
+VkRenderingInfo vk_helpers::renderingInfo(const VkExtent2D renderExtent, const VkRenderingAttachmentInfo* colorAttachment, const VkRenderingAttachmentInfo* depthAttachment)
 {
     VkRenderingInfo renderInfo{};
     renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -223,8 +226,7 @@ VkRenderingInfo vk_helpers::renderingInfo(VkExtent2D renderExtent, VkRenderingAt
     return renderInfo;
 }
 
-VkSubmitInfo2 vk_helpers::submitInfo(VkCommandBufferSubmitInfo* cmd, VkSemaphoreSubmitInfo* signalSemaphoreInfo,
-                                     VkSemaphoreSubmitInfo* waitSemaphoreInfo)
+VkSubmitInfo2 vk_helpers::submitInfo(const VkCommandBufferSubmitInfo* cmd, const VkSemaphoreSubmitInfo* signalSemaphoreInfo, const VkSemaphoreSubmitInfo* waitSemaphoreInfo)
 {
     VkSubmitInfo2 info = {};
     info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
@@ -242,18 +244,19 @@ VkSubmitInfo2 vk_helpers::submitInfo(VkCommandBufferSubmitInfo* cmd, VkSemaphore
     return info;
 }
 
+// ReSharper disable twice CppParameterMayBeConst
 VkDeviceAddress vk_helpers::getDeviceAddress(VkDevice device, VkBuffer buffer)
 {
     VkBufferDeviceAddressInfo deviceAdressInfo{};
     deviceAdressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
     deviceAdressInfo.buffer = buffer;
-    uint64_t address = vkGetBufferDeviceAddress(device, &deviceAdressInfo);
+    const uint64_t address = vkGetBufferDeviceAddress(device, &deviceAdressInfo);
 
     return address;
 }
 
 
-VkDeviceSize vk_helpers::getAlignedSize(VkDeviceSize value, VkDeviceSize alignment)
+VkDeviceSize vk_helpers::getAlignedSize(const VkDeviceSize value, VkDeviceSize alignment)
 {
     return (value + alignment - 1) & ~(alignment - 1);
 }
@@ -366,7 +369,7 @@ void vk_helpers::generateMipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D 
         imageBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         imageBarrier.newLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
 
-        VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        constexpr VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
         imageBarrier.subresourceRange = imageSubresourceRange(aspectMask);
         imageBarrier.subresourceRange.levelCount = 1;
         imageBarrier.subresourceRange.baseMipLevel = mip;
@@ -449,7 +452,7 @@ VkPipelineShaderStageCreateInfo vk_helpers::pipelineShaderStageCreateInfo(VkShad
 
 bool vk_helpers::loadShaderModule(const char* filePath, VkDevice device, VkShaderModule* outShaderModule)
 {
-    std::filesystem::path shaderPath(filePath);
+    const std::filesystem::path shaderPath(filePath);
 
     // open the file. With cursor at the end
     std::ifstream file(shaderPath, std::ios::ate | std::ios::binary);
@@ -461,7 +464,7 @@ bool vk_helpers::loadShaderModule(const char* filePath, VkDevice device, VkShade
 
     // find what the size of the file is by looking up the location of the cursor
     // because the cursor is at the end, it gives the size directly in bytes
-    size_t fileSize = (size_t) file.tellg();
+    const size_t fileSize = (size_t) file.tellg();
 
     // spirv expects the buffer to be on uint32, so make sure to reserve a int
     // vector big enough for the entire file
@@ -471,7 +474,7 @@ bool vk_helpers::loadShaderModule(const char* filePath, VkDevice device, VkShade
     file.seekg(0);
 
     // load the entire file into the buffer
-    file.read((char*) buffer.data(), fileSize);
+    file.read(reinterpret_cast<char*>(buffer.data()), fileSize);
 
     // now that the file is loaded into the buffer, we can close it
     file.close();
@@ -542,8 +545,8 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
                 assert(fileName.fileByteOffset == 0); // We don't support offsets with stbi.
                 assert(fileName.uri.isLocalPath()); // We're only capable of loading
                 // local files.
-                std::wstring widePath(fileName.uri.path().begin(), fileName.uri.path().end());
-                std::filesystem::path fullPath = parentFolder / widePath;
+                const std::wstring widePath(fileName.uri.path().begin(), fileName.uri.path().end());
+                const std::filesystem::path fullPath = parentFolder / widePath;
 
                 //std::string extension = getFileExtension(fullpath);
                 /*if (isKTXFile(extension)) {
@@ -584,19 +587,21 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
                     ktxTexture_Destroy(kTexture);
                 }*/
 
+                // ReSharper disable once CppTooWideScope
                 unsigned char* data = stbi_load(fullPath.string().c_str(), &width, &height, &nrChannels, 4);
                 if (data) {
                     VkExtent3D imagesize;
                     imagesize.width = width;
                     imagesize.height = height;
                     imagesize.depth = 1;
-                    size_t size = width * height * 4;
-                    newImage = engine->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
+                    const size_t size = width * height * 4;
+                    newImage = engine->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
 
                     stbi_image_free(data);
                 }
             },
             [&](const fastgltf::sources::Array& vector) {
+                // ReSharper disable once CppTooWideScope
                 unsigned char* data = stbi_load_from_memory(reinterpret_cast<const unsigned char*>(vector.bytes.data()),
                                                             static_cast<int>(vector.bytes.size()), &width, &height, &nrChannels, 4);
                 if (data) {
@@ -604,8 +609,8 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
                     imagesize.width = width;
                     imagesize.height = height;
                     imagesize.depth = 1;
-                    size_t size = width * height * 4;
-                    newImage = engine->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
+                    const size_t size = width * height * 4;
+                    newImage = engine->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
 
                     stbi_image_free(data);
                 }
@@ -619,6 +624,7 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
                 std::visit(fastgltf::visitor{
                                [](auto& arg) {},
                                [&](const fastgltf::sources::Array& vector) {
+                                   // ReSharper disable once CppTooWideScope
                                    unsigned char* data = stbi_load_from_memory(
                                        reinterpret_cast<const stbi_uc*>(vector.bytes.data() + bufferView.byteOffset),
                                        static_cast<int>(bufferView.byteLength), &width, &height, &nrChannels, 4);
@@ -628,7 +634,7 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
                                        imagesize.height = height;
                                        imagesize.depth = 1;
                                        const size_t size = width * height * 4;
-                                       newImage = engine->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
+                                       newImage = engine->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
                                        stbi_image_free(data);
                                    }
                                }

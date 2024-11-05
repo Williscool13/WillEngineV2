@@ -2,7 +2,8 @@
 
 #extension GL_EXT_buffer_reference : require
 
-#include "main.glsl"
+#include "scene.glsl"
+#include "structure.glsl"
 
 layout(local_size_x = 64) in;
 
@@ -36,7 +37,7 @@ layout(buffer_reference, std430) buffer MeshIndexBuffer
     int indices[];
 };
 
-// layout (std140, set = 0, binding = 0) uniform SceneData - main.glsl
+// layout (std140, set = 0, binding = 0) uniform SceneData - scene.glsl
 
 layout(set = 1, binding = 0) uniform bufferData
 {
@@ -83,26 +84,17 @@ void main()
 
     uint modelMatrixId = buffers.commandBuffer.commands[invocationId].firstInstance;
     Model models = buffers.modelMatrixBuffer.models[modelMatrixId];
-    mat4 currModel;
-    mat4 prevModel;
-    if(sceneData.frameNumber == 0){
-        currModel = models.modelMatrix1;
-        prevModel = models.modelMatrix2;
-    } else {
-        currModel = models.modelMatrix2;
-        prevModel = models.modelMatrix1;
-    }
 
     int meshBoundIndex = buffers.meshIndices.indices[invocationId];
     MeshBounds bounds = buffers.boundsBuffer.meshBounds[meshBoundIndex];
 
     vec3 position = bounds.position;
     float radius = bounds.radius;
-    vec3 scale =  vec3(length(currModel[0].xyz), length(currModel[1].xyz), length(currModel[2].xyz));
+    vec3 scale =  vec3(length(models.currentModelMatrix[0].xyz), length(models.currentModelMatrix[1].xyz), length(models.currentModelMatrix[2].xyz));
     float maxScale = max(max(scale.x, scale.y), scale.z);
 
     // transform position to clip space
-    position = vec3(currModel * vec4(position, 1.0));
+    position = vec3(models.currentModelMatrix * vec4(position, 1.0));
     // scale radius w/ model scale
     float worldRadius = radius * maxScale;
 

@@ -2,7 +2,9 @@
 #extension GL_EXT_buffer_reference: require
 #extension GL_EXT_nonuniform_qualifier: enable
 
-#include "main.glsl"
+#include "scene.glsl"
+#include "structure.glsl"
+
 
 // world space
 layout (location = 0) in vec3 inPosition;
@@ -18,7 +20,7 @@ layout (location = 1) out vec4 albedoTarget; // 8,8,8 albedo 8 coverage
 layout (location = 2) out vec4 pbrTarget;    // 8 metallic, 8 roughness, 8 emissive (unused), 8 unused
 layout (location = 3) out vec2 velocityTarget;    // 16 X, 16 Y
 
-// layout (std140, set = 0, binding = 0) uniform SceneData - main.glsl
+// layout (std140, set = 0, binding = 0) uniform SceneData - scene.glsl
 
 layout (set = 1, binding = 0) uniform Addresses
 {

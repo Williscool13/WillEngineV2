@@ -139,6 +139,9 @@ void Engine::run()
                 ImGui::Text("Delta Time: %.2f ms", time.getDeltaTime() * 1000.0f);
 
                 ImGui::Separator();
+                ImGui::Checkbox("Enable Jitter", &bEnableJitter);
+
+                ImGui::Separator();
                 const char* debugLabels[] = {"None", "Velocity Buffer", "Depth Buffer"};
                 ImGui::Text("Debug View");
                 ImGui::Combo("Debug View", &deferredDebug, debugLabels, IM_ARRAYSIZE(debugLabels));
@@ -375,9 +378,6 @@ void Engine::updateSceneData() const
     // Update scene data
     {
         const auto pSceneData = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
-        const glm::vec2 currentJitter = HaltonSequence::getJitter(frameNumber, {1700, 900});
-        const glm::vec2 prevJitter = HaltonSequence::getJitter(frameNumber > 0 ? frameNumber - 1 : 0, {1700, 900});
-        pSceneData->jitter = glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y);
 
         if (frameNumber == 0) {
             pSceneData->prevView = camera.getViewMatrix();
@@ -391,8 +391,14 @@ void Engine::updateSceneData() const
 
         const glm::mat4 view = camera.getViewMatrix();
         glm::mat4 proj = camera.getProjMatrix();
-        proj[2][0] += currentJitter.x;
-        proj[2][1] += currentJitter.y;
+
+        if (bEnableJitter) {
+            const glm::vec2 currentJitter = HaltonSequence::getJitter(frameNumber, {1700, 900});
+            const glm::vec2 prevJitter = HaltonSequence::getJitter(frameNumber > 0 ? frameNumber - 1 : 0, {1700, 900});
+            pSceneData->jitter = glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y);
+            proj[2][0] += currentJitter.x;
+            proj[2][1] += currentJitter.y;
+        }
 
         pSceneData->view = view;
         pSceneData->proj = proj;
@@ -1736,8 +1742,7 @@ AllocatedImage Engine::createImage(const void* data, const size_t dataSize, cons
         if (mipmapped) {
             vk_helpers::generateMipmaps(cmd, newImage.image, VkExtent2D{newImage.imageExtent.width, newImage.imageExtent.height});
         } else {
-            vk_helpers::transitionImage(cmd, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+            vk_helpers::transitionImage(cmd, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
         }
     });
 

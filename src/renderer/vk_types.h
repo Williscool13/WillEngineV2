@@ -124,8 +124,8 @@ struct Material
 
 struct InstanceData
 {
-    glm::mat4 modelMatrix0;
-    glm::mat4 modelMatrix1;
+    glm::mat4 currentModelMatrix;
+    glm::mat4 previousModelMatrix;
 };
 
 struct DrawIndirectData
