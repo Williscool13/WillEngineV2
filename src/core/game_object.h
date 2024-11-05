@@ -52,19 +52,19 @@ public: // Hierarchy
 
 private: // Transform
     glm::mat4 cachedWorldTransform{};
-    bool isTransformDirty{true};
-    bool isModelPendingUpdate{true};
+    bool bIsTransformDirty{true};
+    bool bModelPendingUpdate{true};
 
 public:
     /**
      * If true, the model matrix will never be updated from defaults.
      */
-    bool isStatic{false};
+    bool bIsStatic{false};
 
     /**
      *
      */
-    bool wasModelUpdatedLastFrame{true};
+    bool bModelUpdatedLastFrame{true};
     Transform transform{};
 
     /**

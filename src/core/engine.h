@@ -203,9 +203,10 @@ private: // Scene Descriptors
     bool bSpectateCameraActive{false};
     DescriptorBufferUniform spectateSceneDataDescriptorBuffer;
     AllocatedBuffer spectateSceneDataBuffer;
-
     glm::vec3 spectateCameraPosition{-9.0f, 1.0f, 0.f};
     glm::vec3 spectateCameraLookAt{0.5f, 1.8f, 0.f};
+
+    bool bEnableJitter{true};
 
 private: // Pipelines
     // Frustum Culling

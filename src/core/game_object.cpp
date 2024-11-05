@@ -37,21 +37,21 @@ GameObject::~GameObject()
 
 glm::mat4 GameObject::getModelMatrix()
 {
-    if (isTransformDirty) {
+    if (bIsTransformDirty) {
         if (parent != nullptr) {
             cachedWorldTransform = parent->getModelMatrix() * transform.getTRSMatrix();
         } else {
             cachedWorldTransform = transform.getTRSMatrix();
         }
-        isTransformDirty = false;
+        bIsTransformDirty = false;
     }
     return cachedWorldTransform;
 }
 
 void GameObject::dirty()
 {
-    isTransformDirty = true;
-    isModelPendingUpdate = true;
+    bIsTransformDirty = true;
+    bModelPendingUpdate = true;
 
     for (const auto& child : children) {
         child->dirty();
@@ -60,7 +60,7 @@ void GameObject::dirty()
 
 void GameObject::recursiveUpdateModelMatrix(const int32_t frameCount)
 {
-    if (isStatic) {
+    if (bIsStatic) {
         // if a gameobject is static, all its children must necessarily be static.
         return;
     }
@@ -68,26 +68,20 @@ void GameObject::recursiveUpdateModelMatrix(const int32_t frameCount)
 
     if (pRenderObject) {
         if (InstanceData* pInstanceData = pRenderObject->getInstanceData(instanceIndex)) {
-            if (isModelPendingUpdate) {
-                const glm::mat4 newTransform = getModelMatrix();
-                if (frameCount == 0) {
-                    pInstanceData->modelMatrix0 = newTransform;
-                } else {
-                    pInstanceData->modelMatrix1 = newTransform;
+            if (bModelPendingUpdate) {
+                if (bModelUpdatedLastFrame) {
+                    pInstanceData->previousModelMatrix = pInstanceData->currentModelMatrix;
                 }
-                wasModelUpdatedLastFrame = true;
-            } else if (wasModelUpdatedLastFrame) {
-                if (frameCount == 0) {
-                    pInstanceData->modelMatrix1 = pInstanceData->modelMatrix0;
-                } else {
-                    pInstanceData->modelMatrix0 = pInstanceData->modelMatrix1;
-                }
-                wasModelUpdatedLastFrame = false;
+                pInstanceData->currentModelMatrix = getModelMatrix();
+                bModelUpdatedLastFrame = true;
+            } else if (bModelUpdatedLastFrame) {
+                pInstanceData->previousModelMatrix = pInstanceData->currentModelMatrix;
+                bModelUpdatedLastFrame = false;
             }
         }
     }
 
-    for (auto child : children) {
+    for (GameObject* child : children) {
         child->recursiveUpdateModelMatrix(frameCount);
     }
 }
