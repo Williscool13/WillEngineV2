@@ -19,7 +19,7 @@
 struct DescriptorImageData {
     VkDescriptorType type{VK_DESCRIPTOR_TYPE_SAMPLER};
     VkDescriptorImageInfo imageInfo{};
-    bool padding{false};
+    bool bIsPadding{false};
 };
 
 struct DescriptorUniformData {

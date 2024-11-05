@@ -180,7 +180,7 @@ int DescriptorBufferSampler::setupData(VkDevice device, const std::vector<Descri
     }
 
     for (const DescriptorImageData currentData : imageBuffers) {
-        if (currentData.padding) {
+        if (currentData.bIsPadding) {
             size_t descriptorSize;
             switch (currentData.type) {
                 case VK_DESCRIPTOR_TYPE_SAMPLER:

@@ -83,9 +83,9 @@ public:
 
     void updateSceneObjects() const;
 
-    void drawEnvironment(VkCommandBuffer cmd) const;
-
     void frustumCull(VkCommandBuffer cmd) const;
+
+    void drawEnvironment(VkCommandBuffer cmd) const;
 
     void drawDeferredMrt(VkCommandBuffer cmd) const;
 
@@ -127,11 +127,13 @@ private: // Initialization
 
     void initFrustumCullingPipeline();
 
+    void initEnvironmentPipeline();
+
     void initDeferredMrtPipeline();
 
     void initDeferredResolvePipeline();
 
-    void initEnvironmentPipeline();
+    void initTaaPipeline();
 
     void initScene();
 
@@ -139,6 +141,9 @@ public:
     void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const;
 
 private: // Vulkan Boilerplate
+    /**
+     * The extents of the window. Used to initialize the swapchain image.
+     */
     VkExtent2D windowExtent{1700, 900};
     SDL_Window* window{nullptr};
 
@@ -227,6 +232,12 @@ private: // Pipelines
     VkPipelineLayout environmentPipelineLayout{VK_NULL_HANDLE};
     VkPipeline environmentPipeline{VK_NULL_HANDLE};
 
+    // TAA
+    DescriptorBufferSampler taaDescriptorBuffer{};
+    VkDescriptorSetLayout taaDescriptorSetLayout{VK_NULL_HANDLE};
+    VkPipelineLayout taaPipelinelayout{VK_NULL_HANDLE};
+    VkPipeline taaPipeline{VK_NULL_HANDLE};
+
 private: // Swapchain
     VkSwapchainKHR swapchain{};
     VkFormat swapchainImageFormat{};
@@ -242,34 +253,44 @@ private: // Swapchain
 
 private: // Render Targets
     /**
-     * 10.10.10 Normals - 2 unused
+     * All graphics operation in this program operate with these extent.
+     */
+    const VkExtent2D renderExtent{1920, 1080};
+    const VkFormat drawImageFormat{VK_FORMAT_R16G16B16A16_SFLOAT};
+    const VkFormat depthImageFormat{VK_FORMAT_D32_SFLOAT};
+
+    void createDrawResources(uint32_t width, uint32_t height);
+
+    AllocatedImage drawImage{};
+    AllocatedImage depthImage{};
+
+    /**
+     * 8.8.8 Normals - 8 unused
      */
     AllocatedImage normalRenderTarget{};
     /**
-     * 10.10.10 RGB Albedo - 2 unused
+     * 8.8.8 RGB Albedo - 8 unused
      */
     AllocatedImage albedoRenderTarget{};
     /**
      * 8 Metallic, 8 Roughness, 8 emissive (unused), 8 Unused
      */
     AllocatedImage pbrRenderTarget{};
-
     /**
      * 16 X and 16 Y
      */
     AllocatedImage velocityRenderTarget{};
 
-    void createRenderTargets(uint32_t width, uint32_t height);
+    /**
+     * The results of the TAA pass will be outputted into this buffer
+     */
+    AllocatedImage taaResolveBuffer{};
 
-private: // Draw Images
-    // todo: In anticipation of deferred rendering, not implementing MSAA
-    AllocatedImage drawImage{};
-    AllocatedImage depthImage{};
-    VkExtent2D drawExtent{};
-    float renderScale{1.0f};
-    float maxRenderScale{1.0f};
+    /**
+     * A copy of the previous TAA Resolve Buffer
+     */
+    AllocatedImage historyBuffer{};
 
-    void createDrawImages(uint32_t width, uint32_t height);
 
 public: // Default Data
     static AllocatedImage whiteImage;

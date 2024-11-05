@@ -181,7 +181,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
             sampl.magFilter = vk_helpers::extractFilter(gltfSampler.magFilter.value_or(fastgltf::Filter::Nearest));
             sampl.minFilter = vk_helpers::extractFilter(gltfSampler.minFilter.value_or(fastgltf::Filter::Nearest));
 
-            sampl.mipmapMode = vk_helpers::extractMipmapMode(gltfSampler.minFilter.value_or(fastgltf::Filter::Nearest));
+            sampl.mipmapMode = vk_helpers::extractMipmapMode(gltfSampler.minFilter.value_or(fastgltf::Filter::Linear));
 
             VkSampler newSampler;
             vkCreateSampler(engine->getDevice(), &sampl, nullptr, &newSampler);
