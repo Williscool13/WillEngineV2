@@ -275,6 +275,7 @@ public: // Default Data
     static AllocatedImage errorCheckerboardImage;
     static VkSampler defaultSamplerLinear;
     static VkSampler defaultSamplerNearest;
+    static VkDescriptorSetLayout emptyDescriptorSetLayout;
 
 private: // DearImgui
     VkDescriptorPool imguiPool{VK_NULL_HANDLE};

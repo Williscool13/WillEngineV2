@@ -2,10 +2,10 @@
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
-layout(set = 0, binding = 0) uniform sampler2D sourceImage;
-layout(set = 1, binding = 0, rgba32f) writeonly uniform imageCube cubemap;
+layout (set = 0, binding = 0) uniform sampler2D sourceImage;
+layout (set = 1, binding = 0, rgba32f) writeonly uniform imageCube cubemap;
 
-layout(push_constant) uniform PushConstants {
+layout (push_constant) uniform PushConstants {
     bool invertY;
 } pushConstants;
 
@@ -39,10 +39,10 @@ void main() {
 
     vec4 color;
     if (pushConstants.invertY) {
-		color = texture(sourceImage, vec2(sphericalUV.x, 1.0 - sphericalUV.y));
-	} else {
-		color = texture(sourceImage, sphericalUV);
-	}
+        color = texture(sourceImage, vec2(sphericalUV.x, 1.0 - sphericalUV.y));
+    } else {
+        color = texture(sourceImage, sphericalUV);
+    }
 
     imageStore(cubemap, storePos, color);
 }

@@ -2,12 +2,12 @@
 
 layout (local_size_x = 8, local_size_y = 8) in;
 
-layout(set = 0, binding = 0, rg32f) writeonly uniform image2D lut;
+layout (set = 0, binding = 0, rg32f) writeonly uniform image2D lut;
 
 
 const float PI = 3.14159265359;
 
-float RadicalInverse_VdC(uint bits) 
+float RadicalInverse_VdC(uint bits)
 {
     bits = (bits << 16u) | (bits >> 16u);
     bits = ((bits & 0x55555555u) << 1u) | ((bits & 0xAAAAAAAAu) >> 1u);
@@ -19,38 +19,38 @@ float RadicalInverse_VdC(uint bits)
 // ----------------------------------------------------------------------------
 vec2 Hammersley(uint i, uint N)
 {
-    return vec2(float(i)/float(N), RadicalInverse_VdC(i));
-}  
+    return vec2(float(i) / float(N), RadicalInverse_VdC(i));
+}
 
 vec3 ImportanceSampleGGX(vec2 Xi, vec3 N, float roughness)
 {
-    float a = roughness*roughness; // note squared. No idea why.
-	
+    float a = roughness * roughness; // note squared. No idea why.
+
     float phi = 2.0 * PI * Xi.x;
-    float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a*a - 1.0) * Xi.y));
-    float sinTheta = sqrt(1.0 - cosTheta*cosTheta);
-	
+    float cosTheta = sqrt((1.0 - Xi.y) / (1.0 + (a * a - 1.0) * Xi.y));
+    float sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+
     // from spherical coordinates to cartesian coordinates
     vec3 H;
     H.x = cos(phi) * sinTheta;
     H.y = sin(phi) * sinTheta;
     H.z = cosTheta;
-	
+
     // from tangent-space vector to world-space sample vector
-    vec3 up        = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
-    vec3 tangent   = normalize(cross(up, N));
+    vec3 up = abs(N.z) < 0.999 ? vec3(0.0, 0.0, 1.0) : vec3(1.0, 0.0, 0.0);
+    vec3 tangent = normalize(cross(up, N));
     vec3 bitangent = cross(N, tangent);
-	
+
     vec3 sampleVec = tangent * H.x + bitangent * H.y + N * H.z;
     return normalize(sampleVec);
-}  
+}
 
 float GeometrySchlickGGX(float NdotV, float roughness)
 {
     float a = roughness;
     float k = (a * a) / 2.0;
 
-    float nom   = NdotV;
+    float nom = NdotV;
     float denom = NdotV * (1.0 - k) + k;
 
     return nom / denom;
@@ -64,13 +64,13 @@ float GeometrySmith(vec3 N, vec3 V, vec3 L, float roughness)
     float ggx1 = GeometrySchlickGGX(NdotL, roughness);
 
     return ggx1 * ggx2;
-}  
+}
 
 
 vec2 IntegrateBRDF(float NdotV, float roughness)
 {
     vec3 V;
-    V.x = sqrt(1.0 - NdotV*NdotV);
+    V.x = sqrt(1.0 - NdotV * NdotV);
     V.y = 0.0;
     V.z = NdotV;
 
@@ -80,17 +80,17 @@ vec2 IntegrateBRDF(float NdotV, float roughness)
     vec3 N = vec3(0.0, 0.0, 1.0);
 
     const uint SAMPLE_COUNT = 1024u;
-    for(uint i = 0u; i < SAMPLE_COUNT; ++i)
+    for (uint i = 0u; i < SAMPLE_COUNT; ++i)
     {
         vec2 Xi = Hammersley(i, SAMPLE_COUNT);
-        vec3 H  = ImportanceSampleGGX(Xi, N, roughness);
-        vec3 L  = normalize(2.0 * dot(V, H) * H - V);
+        vec3 H = ImportanceSampleGGX(Xi, N, roughness);
+        vec3 L = normalize(2.0 * dot(V, H) * H - V);
 
         float NdotL = max(L.z, 0.0);
         float NdotH = max(H.z, 0.0);
         float VdotH = max(dot(V, H), 0.0);
 
-        if(NdotL > 0.0)
+        if (NdotL > 0.0)
         {
             float G = GeometrySmith(N, V, L, roughness);
             float G_Vis = (G * VdotH) / (NdotH * NdotV);
@@ -105,15 +105,15 @@ vec2 IntegrateBRDF(float NdotV, float roughness)
     return vec2(A, B);
 }
 // ----------------------------------------------------------------------------
-void main() 
+void main()
 {
     ivec2 id = ivec2(gl_GlobalInvocationID.xy);
     ivec2 im = imageSize(lut).xy;
     if (id.x >= im.x || id.y >= im.y) return;
 
-	vec2 TexCoords = (vec2(id) + vec2(0.5f)) / vec2(im);
+    vec2 TexCoords = (vec2(id) + vec2(0.5f)) / vec2(im);
     vec2 integratedBRDF = IntegrateBRDF(TexCoords.x, TexCoords.y);
 
-    imageStore(lut, id, vec4(integratedBRDF,0.0,0.0));
+    imageStore(lut, id, vec4(integratedBRDF, 0.0, 0.0));
 }
 
