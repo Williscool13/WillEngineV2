@@ -142,14 +142,24 @@ void Engine::run()
                 ImGui::Text("Delta Time: %.2f ms", time.getDeltaTime() * 1000.0f);
 
                 ImGui::Separator();
+                ImGui::Text("TAA Properties:");
                 ImGui::Checkbox("Enable TAA", &bEnableTaa);
-                ImGui::InputFloat("TAA Min Blend", &taaMinBlend);
-                ImGui::InputFloat("TAA Max Blend", &taaMaxBlend);
-                ImGui::InputFloat("TAA Velocity Rejection Weight", &taaVelocityRejectionWeight);
+                if (bEnableTaa) {
+                    ImGui::SetNextItemWidth(100);
+                    ImGui::InputFloat("Min Blend", &taaMinBlend);
+                    ImGui::SetNextItemWidth(100);
+                    ImGui::InputFloat("Max Blend", &taaMaxBlend);
+                    ImGui::SetNextItemWidth(100);
+                    ImGui::InputFloat("Velocity Rejection Weight", &taaVelocityRejectionWeight);
+                    ImGui::SetNextItemWidth(100);
+                    ImGui::InputFloat("Depth Rejection Weight", &taaDepthRejectionWeight);
+                }
+
 
                 ImGui::Separator();
                 const char* debugLabels[] = {"None", "Velocity Buffer", "Depth Buffer"};
                 ImGui::Text("Debug View");
+                ImGui::SetNextItemWidth(100);
                 ImGui::Combo("Debug View", &deferredDebug, debugLabels, IM_ARRAYSIZE(debugLabels));
 
                 ImGui::Separator();
@@ -487,12 +497,15 @@ void Engine::draw()
 
     drawDeferredResolve(cmd);
 
-    if (bEnableTaa) {
+    if (bEnableTaa && deferredDebug == 0) {
         vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
         if (frameNumber == 0) {
             vk_helpers::transitionImage(cmd, historyBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+            vk_helpers::transitionImage(cmd, depthHistoryBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+
         } else {
             vk_helpers::transitionImage(cmd, historyBuffer.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+            vk_helpers::transitionImage(cmd, depthHistoryBuffer.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
         }
         vk_helpers::transitionImage(cmd, taaResolveBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -500,8 +513,12 @@ void Engine::draw()
 
         vk_helpers::transitionImage(cmd, taaResolveBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
         vk_helpers::transitionImage(cmd, historyBuffer.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-
         vk_helpers::copyImageToImage(cmd, taaResolveBuffer.image, historyBuffer.image, renderExtent, renderExtent);
+
+        vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+        vk_helpers::transitionImage(cmd, depthHistoryBuffer.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+        vk_helpers::copyDepthToDepth(cmd, depthImage.image, depthHistoryBuffer.image, renderExtent, renderExtent);
+
 
         vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
         vk_helpers::copyImageToImage(cmd, taaResolveBuffer.image, swapchainImages[swapchainImageIndex], renderExtent, swapchainExtent);
@@ -786,6 +803,7 @@ void Engine::drawTaa(VkCommandBuffer cmd) const
     taaProperties.minBlend = taaMinBlend;
     taaProperties.maxBlend = taaMaxBlend;
     taaProperties.velocityWeight = taaVelocityRejectionWeight;
+    taaProperties.depthWeight = taaDepthRejectionWeight;
     vkCmdPushConstants(cmd, taaPipelinelayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(TaaProperties), &taaProperties);
 
     VkDescriptorBufferBindingInfoEXT taaBindingInfo[1]{};
@@ -1013,6 +1031,7 @@ void Engine::cleanup()
     destroyImage(velocityRenderTarget);
     destroyImage(taaResolveBuffer);
     destroyImage(historyBuffer);
+    destroyImage(depthHistoryBuffer);
 
 
     // Swapchain
@@ -1594,8 +1613,10 @@ void Engine::initTaaPipeline()
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // drawImage
         layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // history
-        layoutBuilder.addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // velocity
-        layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // taa resolve buffer
+        layoutBuilder.addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // depthImage
+        layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // depthHistory
+        layoutBuilder.addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // velocity
+        layoutBuilder.addBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // taa resolve buffer
         taaDescriptorSetLayout = layoutBuilder.build(device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
     //
@@ -1608,6 +1629,12 @@ void Engine::initTaaPipeline()
         const VkDescriptorImageInfo history{
             .sampler = defaultSamplerNearest, .imageView = historyBuffer.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         };
+        const VkDescriptorImageInfo depth{
+            .sampler = defaultSamplerNearest, .imageView = depthImage.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        };
+        const VkDescriptorImageInfo depthHistory{
+            .sampler = defaultSamplerNearest, .imageView = depthHistoryBuffer.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        };
         const VkDescriptorImageInfo velocity{
             .sampler = defaultSamplerNearest, .imageView = velocityRenderTarget.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         };
@@ -1616,6 +1643,8 @@ void Engine::initTaaPipeline()
         };
         taaDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, draw, false});
         taaDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, history, false});
+        taaDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, depth, false});
+        taaDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, depthHistory, false});
         taaDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, velocity, false});
         taaDescriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, taaResolve, false});
 
@@ -2019,7 +2048,7 @@ void Engine::createDrawResources(uint32_t width, uint32_t height)
         pbrRenderTarget = generateRenderTarget(VK_FORMAT_R8G8B8A8_UNORM);
         velocityRenderTarget = generateRenderTarget(VK_FORMAT_R16G16_SFLOAT);
     }
-    //
+    // TAA Resolve
     {
         taaResolveBuffer.imageFormat = drawImageFormat;
         const VkExtent3D drawImageExtent = {renderExtent.width, renderExtent.height, 1};
@@ -2039,7 +2068,7 @@ void Engine::createDrawResources(uint32_t width, uint32_t height)
         const VkImageViewCreateInfo taaResolveImageViewInfo = vk_helpers::imageviewCreateInfo(taaResolveBuffer.imageFormat, taaResolveBuffer.image, VK_IMAGE_ASPECT_COLOR_BIT);
         VK_CHECK(vkCreateImageView(device, &taaResolveImageViewInfo, nullptr, &taaResolveBuffer.imageView));
     }
-    //
+    // Draw History
     {
         historyBuffer.imageFormat = drawImageFormat;
         const VkExtent3D drawImageExtent = {renderExtent.width, renderExtent.height, 1};
@@ -2057,5 +2086,24 @@ void Engine::createDrawResources(uint32_t width, uint32_t height)
 
         const VkImageViewCreateInfo historyBufferImageViewInfo = vk_helpers::imageviewCreateInfo(historyBuffer.imageFormat, historyBuffer.image, VK_IMAGE_ASPECT_COLOR_BIT);
         VK_CHECK(vkCreateImageView(device, &historyBufferImageViewInfo, nullptr, &historyBuffer.imageView));
+    }
+    // Depth History
+    {
+        depthHistoryBuffer.imageFormat = depthImageFormat;
+        VkExtent3D depthImageExtent = {width, height, 1};
+        depthHistoryBuffer.imageExtent = depthImageExtent;
+        VkImageUsageFlags depthHistoryBufferUsages{};
+        depthHistoryBufferUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
+        depthHistoryBufferUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+        VkImageCreateInfo depthImageInfo = vk_helpers::imageCreateInfo(depthHistoryBuffer.imageFormat, depthHistoryBufferUsages, depthImageExtent);
+
+        VmaAllocationCreateInfo depthImageAllocationInfo = {};
+        depthImageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        depthImageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        vmaCreateImage(allocator, &depthImageInfo, &depthImageAllocationInfo, &depthHistoryBuffer.image, &depthHistoryBuffer.allocation, nullptr);
+
+        VkImageViewCreateInfo depthViewInfo = vk_helpers::imageviewCreateInfo(depthHistoryBuffer.imageFormat, depthHistoryBuffer.image, VK_IMAGE_ASPECT_DEPTH_BIT);
+        VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthHistoryBuffer.imageView));
     }
 }

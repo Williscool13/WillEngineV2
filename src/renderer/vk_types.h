@@ -155,6 +155,7 @@ struct TaaProperties
     float minBlend;
     float maxBlend;
     float velocityWeight;
+    float depthWeight;
 };
 
 #endif //VKTYPES_H

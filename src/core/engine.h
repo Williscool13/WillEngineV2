@@ -216,9 +216,10 @@ private: // Scene Descriptors
     glm::vec3 spectateCameraLookAt{0.5f, 1.8f, 0.f};
 
     bool bEnableTaa{true};
-    float taaMinBlend{0.1f};
-    float taaMaxBlend{0.4f};
-    float taaVelocityRejectionWeight{2.0f};
+    float taaMinBlend{0.03f}; // 0.1f
+    float taaMaxBlend{0.2f}; // 0.2f
+    float taaVelocityRejectionWeight{2.0f}; // 4.0f
+    float taaDepthRejectionWeight{50.0f}; // 100.0f
 
 
 private: // Pipelines
@@ -298,6 +299,12 @@ private: // Render Targets
      * A copy of the previous TAA Resolve Buffer
      */
     AllocatedImage historyBuffer{};
+
+
+    /**
+     * A copy of the previous frame's depth buffer
+     */
+    AllocatedImage depthHistoryBuffer{};
 
 
 public: // Default Data
