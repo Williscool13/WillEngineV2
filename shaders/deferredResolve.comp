@@ -123,13 +123,6 @@ void main() {
     imageStore(outputImage, screenPos, vec4(correctedFinalColor, albedo.w));
 
 
-
-
-
-
-
-
-
     if (pushConstants.debug == 1) {
         // Velocity
         vec2 velocity = texture(velocityBuffer, uv).rg;

@@ -147,4 +147,12 @@ struct FrustumCullingBuffers
     glm::vec3 padding;
 };
 
+struct TaaProperties
+{
+    int32_t width;
+    int32_t height;
+    glm::vec2 texelSize;
+    float blendFactor;
+};
+
 #endif //VKTYPES_H

@@ -37,8 +37,9 @@ void Engine::init()
     const auto start = std::chrono::system_clock::now(); {
         // We initialize SDL and create a window with it.
         SDL_Init(SDL_INIT_VIDEO);
-        //constexpr auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN |  SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE);
-        constexpr auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+        constexpr auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE);
+        windowExtent = {1920, 1080};
+        //constexpr auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
         window = SDL_CreateWindow(
             "Will Engine V2",
@@ -141,7 +142,7 @@ void Engine::run()
                 ImGui::Text("Delta Time: %.2f ms", time.getDeltaTime() * 1000.0f);
 
                 ImGui::Separator();
-                ImGui::Checkbox("Enable Jitter", &bEnableJitter);
+                ImGui::Checkbox("Enable TAA", &bEnableTaa);
 
                 ImGui::Separator();
                 const char* debugLabels[] = {"None", "Velocity Buffer", "Depth Buffer"};
@@ -377,79 +378,51 @@ void Engine::run()
 
 void Engine::updateSceneData() const
 {
+    const bool bIsFrameZero = frameNumber == 0;
+    const glm::vec2 currentJitter = HaltonSequence::getJitter(frameNumber, {renderExtent.width, renderExtent.height});
+    const glm::vec2 prevJitter = HaltonSequence::getJitter(frameNumber > 0 ? frameNumber - 1 : 0, {renderExtent.width, renderExtent.height});
+
     // Update scene data
     {
         const auto pSceneData = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
 
-        if (frameNumber == 0) {
-            pSceneData->prevView = camera.getViewMatrix();
-            pSceneData->prevProj = camera.getProjMatrix();
-            pSceneData->prevViewProj = camera.getViewProjMatrix();
-        } else {
-            pSceneData->prevView = pSceneData->view;
-            pSceneData->prevProj = pSceneData->proj;
-            pSceneData->prevViewProj = pSceneData->viewProj;
-        }
+        pSceneData->prevView = bIsFrameZero ? camera.getViewMatrix() : pSceneData->view;
+        pSceneData->prevProj = bIsFrameZero ? camera.getProjMatrix() : pSceneData->proj;
+        pSceneData->prevViewProj = bIsFrameZero ? camera.getViewProjMatrix() : pSceneData->viewProj;
+        pSceneData->jitter = bEnableTaa ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
 
-        const glm::mat4 view = camera.getViewMatrix();
-        glm::mat4 proj = camera.getProjMatrix();
-
-        if (bEnableJitter) {
-            const glm::vec2 currentJitter = HaltonSequence::getJitter(frameNumber, {1700, 900});
-            const glm::vec2 prevJitter = HaltonSequence::getJitter(frameNumber > 0 ? frameNumber - 1 : 0, {1700, 900});
-            pSceneData->jitter = glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y);
-            proj[2][0] += currentJitter.x;
-            proj[2][1] += currentJitter.y;
-        }
-
-        pSceneData->view = view;
-        pSceneData->proj = proj;
-        pSceneData->viewProj = proj * view;
+        pSceneData->view = camera.getViewMatrix();
+        pSceneData->proj = camera.getProjMatrix();
+        pSceneData->viewProj = pSceneData->proj * pSceneData->view;
         pSceneData->invView = glm::inverse(pSceneData->view);
         pSceneData->invProj = glm::inverse(pSceneData->proj);
         pSceneData->invViewProj = glm::inverse(pSceneData->viewProj);
         pSceneData->cameraWorldPos = camera.getPosition();
         const glm::mat4 cameraLook = glm::lookAt(glm::vec3(0), camera.getViewDirectionWS(), glm::vec3(0, 1, 0));
-        pSceneData->viewProjCameraLookDirection = proj * cameraLook;
+        pSceneData->viewProjCameraLookDirection = pSceneData->proj * cameraLook;
 
         pSceneData->frameNumber = getCurrentFrameOverlap();
-        pSceneData->renderTargetSize = {1700, 900};
+        pSceneData->renderTargetSize = {renderExtent.width, renderExtent.height};
         pSceneData->deltaTime = TimeUtils::Get().getDeltaTime();
     }
     // Update spectate scene data
     {
         const auto pSpectateSceneData = static_cast<SceneData*>(spectateSceneDataBuffer.info.pMappedData);
-        const auto newView = glm::lookAt(spectateCameraPosition, spectateCameraLookAt, glm::vec3(0.f, 1.0f, 0.f));
+        const auto spectateView = glm::lookAt(spectateCameraPosition, spectateCameraLookAt, glm::vec3(0.f, 1.0f, 0.f));
 
-        // Get current jitter for spectate camera
-        const glm::vec2 currentJitter = HaltonSequence::getJitter(frameNumber, {1700, 900});
-        const glm::vec2 prevJitter = HaltonSequence::getJitter(frameNumber > 0 ? frameNumber - 1 : 0, {1700, 900});
+        pSpectateSceneData->prevView = bIsFrameZero ? spectateView : pSpectateSceneData->view;
+        pSpectateSceneData->prevProj = bIsFrameZero ? camera.getProjMatrix() : pSpectateSceneData->proj;
+        pSpectateSceneData->prevViewProj = bIsFrameZero ? camera.getProjMatrix() * spectateView : pSpectateSceneData->viewProj;
         pSpectateSceneData->jitter = glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y);
 
-        if (frameNumber == 0) {
-            pSpectateSceneData->prevView = newView;
-            const auto proj = camera.getProjMatrix();
-            pSpectateSceneData->prevProj = proj;
-            pSpectateSceneData->prevViewProj = proj * newView;
-        } else {
-            pSpectateSceneData->prevView = pSpectateSceneData->view;
-            pSpectateSceneData->prevProj = pSpectateSceneData->proj;
-            pSpectateSceneData->prevViewProj = pSpectateSceneData->viewProj;
-        }
-
-        pSpectateSceneData->view = newView;
-        auto proj = camera.getProjMatrix();
-        // Apply jitter to spectate camera projection
-        proj[2][0] += currentJitter.x;
-        proj[2][1] += currentJitter.y;
-
-        pSpectateSceneData->proj = proj;
-        pSpectateSceneData->viewProj = proj * pSpectateSceneData->view;
+        pSpectateSceneData->view = spectateView;
+        pSpectateSceneData->proj = camera.getProjMatrix();
+        pSpectateSceneData->viewProj = pSpectateSceneData->proj * pSpectateSceneData->view;
         pSpectateSceneData->invView = glm::inverse(pSpectateSceneData->view);
         pSpectateSceneData->invProj = glm::inverse(pSpectateSceneData->proj);
         pSpectateSceneData->invViewProj = glm::inverse(pSpectateSceneData->viewProj);
         pSpectateSceneData->cameraWorldPos = glm::vec4(spectateCameraPosition, 0.f);
-        pSpectateSceneData->viewProjCameraLookDirection = newView;
+        pSpectateSceneData->viewProjCameraLookDirection = spectateView;
     }
 }
 
@@ -511,18 +484,37 @@ void Engine::draw()
 
     drawDeferredResolve(cmd);
 
-    if (bSpectateCameraActive) {
-        DEBUG_drawSpectate(cmd);
+    if (bEnableTaa) {
+        vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        if (frameNumber == 0) {
+            vk_helpers::transitionImage(cmd, historyBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        } else {
+            vk_helpers::transitionImage(cmd, historyBuffer.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        }
+        vk_helpers::transitionImage(cmd, taaResolveBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+
+        drawTaa(cmd);
+
+        vk_helpers::transitionImage(cmd, taaResolveBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::transitionImage(cmd, historyBuffer.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+
+        vk_helpers::copyImageToImage(cmd, taaResolveBuffer.image, historyBuffer.image, renderExtent, renderExtent);
+
+        vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::copyImageToImage(cmd, taaResolveBuffer.image, swapchainImages[swapchainImageIndex], renderExtent, swapchainExtent);
+    } else {
+        if (bSpectateCameraActive) {
+            DEBUG_drawSpectate(cmd);
+        }
+
+        // Copy Draw Image into Swapchain Image
+        vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::copyImageToImage(cmd, drawImage.image, swapchainImages[swapchainImageIndex], renderExtent, swapchainExtent);
     }
 
-    // copy Draw Image into Swapchain Image
-    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::copyImageToImage(cmd, drawImage.image, swapchainImages[swapchainImageIndex], renderExtent, swapchainExtent);
-
     // draw ImGui into Swapchain Image
-    vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     drawImgui(cmd, swapchainImageViews[swapchainImageIndex]);
 
     vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -766,6 +758,38 @@ void Engine::drawDeferredResolve(VkCommandBuffer cmd) const
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 1, 1, &renderTargetsIndex, &zeroOffset);
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, deferredResolvePipelineLayout, 3, 1, &environmentIndex, &environmentMapOffset);
 
+
+    const auto x = static_cast<uint32_t>(std::ceil(static_cast<float>(renderExtent.width) / 16.0f));
+    const auto y = static_cast<uint32_t>(std::ceil(static_cast<float>(renderExtent.height) / 16.0f));
+    vkCmdDispatch(cmd, x, y, 1);
+
+    vkCmdEndDebugUtilsLabelEXT(cmd);
+}
+
+// ReSharper disable once CppParameterMayBeConst
+void Engine::drawTaa(VkCommandBuffer cmd) const
+{
+    VkDebugUtilsLabelEXT label = {};
+    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+    label.pLabelName = "Compute TAA Pass";
+    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, taaPipeline);
+
+    TaaProperties taaProperties{};
+    taaProperties.width = static_cast<int32_t>(renderExtent.width);
+    taaProperties.height = static_cast<int32_t>(renderExtent.height);
+    taaProperties.texelSize = {1.0f / static_cast<float>(renderExtent.width), 1.0f / static_cast<float>(renderExtent.height)};
+    taaProperties.blendFactor = 0.1f;
+    vkCmdPushConstants(cmd, taaPipelinelayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(TaaProperties), &taaProperties);
+
+    VkDescriptorBufferBindingInfoEXT taaBindingInfo[1]{};
+    taaBindingInfo[0] = taaDescriptorBuffer.getDescriptorBufferBindingInfo();
+    vkCmdBindDescriptorBuffersEXT(cmd, 1, taaBindingInfo);
+
+    constexpr VkDeviceSize zeroOffset{0};
+    constexpr uint32_t taaDataIndex{0};
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, taaPipelinelayout, 0, 1, &taaDataIndex, &zeroOffset);
 
     const auto x = static_cast<uint32_t>(std::ceil(static_cast<float>(renderExtent.width) / 16.0f));
     const auto y = static_cast<uint32_t>(std::ceil(static_cast<float>(renderExtent.height) / 16.0f));
@@ -1585,21 +1609,63 @@ void Engine::initTaaPipeline()
         const VkDescriptorImageInfo taaResolve{
             .imageView = taaResolveBuffer.imageView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
         };
-        taaDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, draw, false}); // normal rt
-        taaDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, history, false}); // albedo rt
-        taaDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, velocity, false}); // pbr rt
-        taaDescriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, taaResolve, false}); // target image
+        taaDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, draw, false});
+        taaDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, history, false});
+        taaDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, velocity, false});
+        taaDescriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, taaResolve, false});
 
 
         taaDescriptorBuffer = DescriptorBufferSampler(instance, device, physicalDevice, allocator, taaDescriptorSetLayout, 1);
         taaDescriptorBuffer.setupData(device, taaDescriptors);
     }
 
+    VkPushConstantRange pushConstants{};
+    pushConstants.offset = 0;
+    pushConstants.size = sizeof(TaaProperties);
+    pushConstants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayout setLayouts[1];
+    setLayouts[0] = taaDescriptorSetLayout;
+
+    VkPipelineLayoutCreateInfo taaPipelineLayoutCreateInfo{};
+    taaPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    taaPipelineLayoutCreateInfo.pNext = nullptr;
+    taaPipelineLayoutCreateInfo.pSetLayouts = setLayouts;
+    taaPipelineLayoutCreateInfo.setLayoutCount = 1;
+    taaPipelineLayoutCreateInfo.pPushConstantRanges = &pushConstants;
+    taaPipelineLayoutCreateInfo.pushConstantRangeCount = 1;
+
+    VK_CHECK(vkCreatePipelineLayout(device, &taaPipelineLayoutCreateInfo, nullptr, &taaPipelinelayout));
+
+    VkShaderModule computeShader;
+    if (!vk_helpers::loadShaderModule("shaders/taa.comp.spv", device, &computeShader)) {
+        fmt::print("Error when building the compute shader (taa.comp.spv)\n");
+        abort();
+    }
+
+    VkPipelineShaderStageCreateInfo stageinfo{};
+    stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stageinfo.pNext = nullptr;
+    stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    stageinfo.module = computeShader;
+    stageinfo.pName = "main"; // entry point in shader
+
+    VkComputePipelineCreateInfo taaPipelienCreateInfo{};
+    taaPipelienCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    taaPipelienCreateInfo.pNext = nullptr;
+    taaPipelienCreateInfo.layout = taaPipelinelayout;
+    taaPipelienCreateInfo.stage = stageinfo;
+    taaPipelienCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+
+    VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &taaPipelienCreateInfo, nullptr, &taaPipeline));
+
+    vkDestroyShaderModule(device, computeShader, nullptr);
+
     mainDeletionQueue.pushFunction([&]() {
         vkDestroyDescriptorSetLayout(device, taaDescriptorSetLayout, nullptr);
         taaDescriptorBuffer.destroy(device, allocator);
-        //vkDestroyPipelineLayout(device, taaPipelinelayout, nullptr);
-        //vkDestroyPipeline(device, taaPipeline, nullptr);
+        vkDestroyPipelineLayout(device, taaPipelinelayout, nullptr);
+        vkDestroyPipeline(device, taaPipeline, nullptr);
     });
 }
 

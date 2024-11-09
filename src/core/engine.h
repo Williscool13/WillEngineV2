@@ -91,7 +91,11 @@ public:
 
     void drawDeferredResolve(VkCommandBuffer cmd) const;
 
+    void drawTaa(VkCommandBuffer cmd) const;
+
     void DEBUG_drawSpectate(VkCommandBuffer cmd) const;
+
+
 
     void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView) const;
 
@@ -211,7 +215,7 @@ private: // Scene Descriptors
     glm::vec3 spectateCameraPosition{-9.0f, 1.0f, 0.f};
     glm::vec3 spectateCameraLookAt{0.5f, 1.8f, 0.f};
 
-    bool bEnableJitter{true};
+    bool bEnableTaa{true};
 
 private: // Pipelines
     // Frustum Culling
