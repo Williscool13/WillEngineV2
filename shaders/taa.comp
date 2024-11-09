@@ -1,5 +1,7 @@
 #version 460
 
+#include "colors.glsl"
+
 layout (local_size_x = 16, local_size_y = 16) in;
 
 
@@ -13,55 +15,71 @@ layout (push_constant) uniform PushConstants {
     int width;
     int height;
     vec2 texelSize;
-    float blendFactor;
+    float minBlend;
+    float maxBlend;
 } push;
+
+void getSampleBounds(vec2 uv, out vec3 minColor, out vec3 maxColor, out vec3 avgColor) {
+    minColor = vec3(1.0);
+    maxColor = vec3(0.0);
+    avgColor = vec3(0.0);
+    float totalWeight = 0.0;
+
+    // 3x3 kernel sampling
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            vec2 offset = vec2(x, y) * push.texelSize;
+            vec3 sampleColor = texture(currentFrame, uv + offset).rgb;
+
+            // Convert to YCoCg for better clamping
+            // Recommended by Brian Karis of Unreal, see TAA Survey by Lei Yang, Shiqiu Liu, and Marco Salvi
+            vec3 YCoCgSample = RGBToYCoCg(sampleColor);
+
+            // Basic distance-based weight
+            float weight = 1.0 / (1.0 + abs(x) + abs(y));
+
+            minColor = min(minColor, YCoCgSample);
+            maxColor = max(maxColor, YCoCgSample);
+            avgColor += YCoCgSample * weight;
+            totalWeight += weight;
+        }
+    }
+
+    avgColor /= totalWeight;
+}
 
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
     if (pixel.x >= push.width || pixel.y >= push.height) {
         return;
     }
-
-    // Get current pixel UV
     vec2 uv = (vec2(pixel) + 0.5) * push.texelSize;
 
-    // Sample current frame
-    vec3 currentColor = texture(currentFrame, uv).rgb;
+    vec3 currentColorRGB = texture(currentFrame, uv).rgb;
+    vec3 currentColor = RGBToYCoCg(currentColorRGB);
 
-    // Get velocity and find where this pixel was in previous frame
+    // Motion Vector Reprojection
+    // velocity [-1, 1]
     vec2 velocity = texture(velocityBuffer, uv).rg;
     vec2 historyUv = uv - velocity;
 
-    // Check if reprojected UV is within bounds
-    bool validHistory = all(greaterThanEqual(historyUv, vec2(0.0))) &&
-    all(lessThan(historyUv, vec2(1.0)));
+    // History UV Validation
+    bool validHistory = all(greaterThanEqual(historyUv, vec2(0.0))) && all(lessThan(historyUv, vec2(1.0)));
 
-    // Sample history (use current color if history is invalid)
-    vec3 historyColor = validHistory ? texture(historyFrame, historyUv).rgb : currentColor;
+    // Neighborhood Clamping
+    vec3 minColor, maxColor, avgColor;
+    getSampleBounds(uv, minColor, maxColor, avgColor);
 
-    // Simple box clamp to prevent ghosting
-    vec3 minColor = currentColor;
-    vec3 maxColor = currentColor;
-
-    // Sample 3x3 neighborhood
-    for (int x = -1; x <= 1; x++) {
-        for (int y = -1; y <= 1; y++) {
-            if (x == 0 && y == 0) continue; // Skip center (already sampled)
-
-            vec2 offset = vec2(x, y) * push.texelSize;
-            vec3 neighborColor = texture(currentFrame, uv + offset).rgb;
-
-            minColor = min(minColor, neighborColor);
-            maxColor = max(maxColor, neighborColor);
-        }
-    }
-
-    // Clamp history color to neighborhood bounds
+    vec3 historyColor = validHistory ? RGBToYCoCg(texture(historyFrame, historyUv).rgb) :  currentColor;
+    // Clamp to the same limits as current color
     historyColor = clamp(historyColor, minColor, maxColor);
 
-    // Simple blend between history and current
-    float blend = validHistory ? push.blendFactor : 1.0;
-    vec3 finalColor = mix(historyColor, currentColor, blend);
+    float velocityLength = length(velocity);
+    float blend = mix(push.minBlend, push.maxBlend, smoothstep(0.0, 0.2, velocityLength));
+    blend = validHistory ? blend : 1.0;
 
-    imageStore(outputImage, pixel, vec4(finalColor, 1.0));
+    vec3 finalColorYCoCg = mix(historyColor, currentColor, blend);
+    vec3 finalColorRGB = YCoCgToRGB(finalColorYCoCg);
+
+    imageStore(outputImage, pixel, vec4(finalColorRGB, 1.0));
 }
