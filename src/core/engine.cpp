@@ -145,6 +145,7 @@ void Engine::run()
                 ImGui::Checkbox("Enable TAA", &bEnableTaa);
                 ImGui::InputFloat("TAA Min Blend", &taaMinBlend);
                 ImGui::InputFloat("TAA Max Blend", &taaMaxBlend);
+                ImGui::InputFloat("TAA Velocity Rejection Weight", &taaVelocityRejectionWeight);
 
                 ImGui::Separator();
                 const char* debugLabels[] = {"None", "Velocity Buffer", "Depth Buffer"};
@@ -784,6 +785,7 @@ void Engine::drawTaa(VkCommandBuffer cmd) const
     taaProperties.texelSize = {1.0f / static_cast<float>(renderExtent.width), 1.0f / static_cast<float>(renderExtent.height)};
     taaProperties.minBlend = taaMinBlend;
     taaProperties.maxBlend = taaMaxBlend;
+    taaProperties.velocityWeight = taaVelocityRejectionWeight;
     vkCmdPushConstants(cmd, taaPipelinelayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(TaaProperties), &taaProperties);
 
     VkDescriptorBufferBindingInfoEXT taaBindingInfo[1]{};

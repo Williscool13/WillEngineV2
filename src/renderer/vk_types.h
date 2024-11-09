@@ -154,6 +154,7 @@ struct TaaProperties
     glm::vec2 texelSize;
     float minBlend;
     float maxBlend;
+    float velocityWeight;
 };
 
 #endif //VKTYPES_H
