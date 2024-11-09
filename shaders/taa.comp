@@ -17,6 +17,7 @@ layout (push_constant) uniform PushConstants {
     vec2 texelSize;
     float minBlend;
     float maxBlend;
+    float velocityWeight;
 } push;
 
 struct NeighborhoodStats {
@@ -25,6 +26,29 @@ struct NeighborhoodStats {
     vec3 mean;
     vec3 variance;
 };
+
+float getVelocityConfidence(vec2 uv, vec2 centralVelocity) {
+    // Compares the velocity of the target pixel w/ the velocity of adjacent pixels to improve TAA in discontinuities/disoccluision
+    float confidence = 1.0;
+    float totalWeight = 0.0;
+
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            if (x == 0 && y == 0) continue;
+
+            vec2 offset = vec2(x, y) * push.texelSize;
+            vec2 neighborVelocity = texture(velocityBuffer, uv + offset).rg;
+            float velocityDiff = length(neighborVelocity - centralVelocity);
+            float weight = 1.0 / (1.0 + abs(x) + abs(y));
+
+            confidence -= weight * velocityDiff * push.velocityWeight;
+            totalWeight += weight;
+        }
+    }
+
+    confidence /= totalWeight;
+    return clamp(confidence, 0.0, 1.0);
+}
 
 void getSampleBounds(vec2 uv, out NeighborhoodStats stats) {
     stats.min = vec3(1.0);
@@ -84,19 +108,28 @@ void main() {
     // History UV Validation
     bool validHistory = all(greaterThanEqual(historyUv, vec2(0.0))) && all(lessThan(historyUv, vec2(1.0)));
 
+    // Velocity Weighting (Reject if variation too great w/ adjacent velocities)
+    float velocityConfidence = getVelocityConfidence(uv, velocity);
+
     // Neighborhood Clamping
     NeighborhoodStats stats;
     getSampleBounds(uv, stats);
     vec3 sigma = sqrt(max(vec3(0.0), stats.variance));
+    sigma.x *= 1.0;       // Luma (Y)
+    sigma.yz *= 1.25;     // Chroma (Co,Cg)
     vec3 minColor = stats.mean - sigma;
     vec3 maxColor = stats.mean + sigma;
+    minColor = max(minColor, stats.min);
+    maxColor = min(maxColor, stats.max);
 
     vec3 historyColor = validHistory ? RGBToYCoCg(texture(historyFrame, historyUv).rgb) : currentColor;
     // Clamp to the same limits as current color
     historyColor = clamp(historyColor, minColor, maxColor);
 
     float velocityLength = length(velocity);
-    float blend = mix(push.minBlend, push.maxBlend, smoothstep(0.0, 0.2, velocityLength));
+    float baseBlend = mix(push.minBlend, push.maxBlend, smoothstep(0.0, 0.2, velocityLength));
+
+    float blend = mix(max(baseBlend, 0.5), baseBlend, velocityConfidence);
     blend = validHistory ? blend : 1.0;
 
     vec3 finalColorYCoCg = mix(historyColor, currentColor, blend);
