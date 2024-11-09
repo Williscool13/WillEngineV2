@@ -63,7 +63,7 @@ void main() {
     vec2 prevNDC = (inPrevMvpPosition.xy / inPrevMvpPosition.w);
 
     // take into account jitter
-    vec2 velocity = ((currNDC - prevNDC) - (sceneData.jitter.xy - sceneData.jitter.zw)) * 0.5;
+    vec2 velocity = ((currNDC - prevNDC) - (sceneData.jitter.xy - sceneData.jitter.zw));
 
     // flip because y down
     velocityTarget = vec2(velocity.x, -velocity.y);

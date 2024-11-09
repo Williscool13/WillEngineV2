@@ -6,6 +6,7 @@
 #define HALTON_H
 
 #include <glm/glm.hpp>
+#include <fmt/format.h>
 
 class HaltonSequence
 {
@@ -21,8 +22,15 @@ public:
         float x = halton(frameIndex, 2);
         float y = halton(frameIndex, 3);
 
-        // Scale to screen dims
-        return {(x - 0.5f) / screenDims.x, (y - 0.5f) / screenDims.y};
+        // Convert from [0,1] to [-0.5,0.5] pixels
+        x = x - 0.5f;
+        y = y - 0.5f;
+
+        constexpr float jitterScale = 1.0f;  // Adjust this to taste
+        x *= jitterScale;
+        y *= jitterScale;
+
+        return {x / screenDims.x, y / screenDims.y};
     }
 
 private:
@@ -48,9 +56,6 @@ private:
         return r;
     }
 };
-
-class halton
-{};
 
 
 #endif //HALTON_H

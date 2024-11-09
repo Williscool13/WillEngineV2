@@ -38,9 +38,13 @@ void main() {
     outColor = color;
     outUV = uv;
     outMaterialIndex = materialIndex;
-    outCurrMvpPosition = sceneData.viewProj * worldPos;
-    outPrevMvpPosition = sceneData.prevViewProj * models.previousModelMatrix * vec4(position, 1.0);
 
+    vec4 currClipPos = sceneData.viewProj * worldPos;
+    vec4 prevClipPos = sceneData.prevViewProj * models.previousModelMatrix * vec4(position, 1.0);
+    currClipPos.xy += currClipPos.w * sceneData.jitter.xy;  // Current jitter
+    prevClipPos.xy += prevClipPos.w * sceneData.jitter.zw;
+    outCurrMvpPosition = currClipPos;
+    outPrevMvpPosition = prevClipPos;
 
-    gl_Position = outCurrMvpPosition;
+    gl_Position = currClipPos;
 }
