@@ -19,33 +19,51 @@ layout (push_constant) uniform PushConstants {
     float maxBlend;
 } push;
 
-void getSampleBounds(vec2 uv, out vec3 minColor, out vec3 maxColor, out vec3 avgColor) {
-    minColor = vec3(1.0);
-    maxColor = vec3(0.0);
-    avgColor = vec3(0.0);
+struct NeighborhoodStats {
+    vec3 min;
+    vec3 max;
+    vec3 mean;
+    vec3 variance;
+};
+
+void getSampleBounds(vec2 uv, out NeighborhoodStats stats) {
+    stats.min = vec3(1.0);
+    stats.max = vec3(0.0);
+    stats.mean = vec3(0.0);
+    stats.variance = vec3(0.0);
+
     float totalWeight = 0.0;
 
-    // 3x3 kernel sampling
     for (int x = -1; x <= 1; x++) {
         for (int y = -1; y <= 1; y++) {
             vec2 offset = vec2(x, y) * push.texelSize;
-            vec3 sampleColor = texture(currentFrame, uv + offset).rgb;
+            vec3 sampleRGB = texture(currentFrame, uv + offset).rgb;
+            vec3 YCoCgSample = RGBToYCoCg(sampleRGB);
 
-            // Convert to YCoCg for better clamping
-            // Recommended by Brian Karis of Unreal, see TAA Survey by Lei Yang, Shiqiu Liu, and Marco Salvi
-            vec3 YCoCgSample = RGBToYCoCg(sampleColor);
-
-            // Basic distance-based weight
             float weight = 1.0 / (1.0 + abs(x) + abs(y));
 
-            minColor = min(minColor, YCoCgSample);
-            maxColor = max(maxColor, YCoCgSample);
-            avgColor += YCoCgSample * weight;
+            stats.mean += YCoCgSample * weight;
             totalWeight += weight;
+
+            // Still track min/max for fallback
+            stats.min = min(stats.min, YCoCgSample);
+            stats.max = max(stats.max, YCoCgSample);
         }
     }
+    stats.mean /= totalWeight;
 
-    avgColor /= totalWeight;
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            vec2 offset = vec2(x, y) * push.texelSize;
+            vec3 sampleRGB = texture(currentFrame, uv + offset).rgb;
+            vec3 YCoCgSample = RGBToYCoCg(sampleRGB);
+
+            float weight = 1.0 / (1.0 + abs(x) + abs(y));
+            vec3 diff = YCoCgSample - stats.mean;
+            stats.variance += diff * diff * weight;
+        }
+    }
+    stats.variance /= totalWeight;
 }
 
 void main() {
@@ -67,10 +85,13 @@ void main() {
     bool validHistory = all(greaterThanEqual(historyUv, vec2(0.0))) && all(lessThan(historyUv, vec2(1.0)));
 
     // Neighborhood Clamping
-    vec3 minColor, maxColor, avgColor;
-    getSampleBounds(uv, minColor, maxColor, avgColor);
+    NeighborhoodStats stats;
+    getSampleBounds(uv, stats);
+    vec3 sigma = sqrt(max(vec3(0.0), stats.variance));
+    vec3 minColor = stats.mean - sigma;
+    vec3 maxColor = stats.mean + sigma;
 
-    vec3 historyColor = validHistory ? RGBToYCoCg(texture(historyFrame, historyUv).rgb) :  currentColor;
+    vec3 historyColor = validHistory ? RGBToYCoCg(texture(historyFrame, historyUv).rgb) : currentColor;
     // Clamp to the same limits as current color
     historyColor = clamp(historyColor, minColor, maxColor);
 
