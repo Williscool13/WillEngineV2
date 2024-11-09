@@ -216,6 +216,8 @@ private: // Scene Descriptors
     glm::vec3 spectateCameraLookAt{0.5f, 1.8f, 0.f};
 
     bool bEnableTaa{true};
+    float taaMinBlend{0.01f};
+    float taaMaxBlend{0.1f};
 
 private: // Pipelines
     // Frustum Culling

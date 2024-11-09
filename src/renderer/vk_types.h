@@ -152,7 +152,8 @@ struct TaaProperties
     int32_t width;
     int32_t height;
     glm::vec2 texelSize;
-    float blendFactor;
+    float minBlend;
+    float maxBlend;
 };
 
 #endif //VKTYPES_H
