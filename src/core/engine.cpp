@@ -34,20 +34,31 @@ void Engine::init()
 {
     fmt::print("----------------------------------------\n");
     fmt::print("Initializing Will Engine V2\n");
-    const auto start = std::chrono::system_clock::now(); {
+    const auto start = std::chrono::system_clock::now();
+
+    //
+    {
         // We initialize SDL and create a window with it.
         SDL_Init(SDL_INIT_VIDEO);
         constexpr auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE);
         windowExtent = {1920, 1080};
         //constexpr auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
+
         window = SDL_CreateWindow(
-            "Will Engine V2",
+            ENGINE_NAME,
             SDL_WINDOWPOS_UNDEFINED,
             SDL_WINDOWPOS_UNDEFINED,
             static_cast<int>(windowExtent.width), // narrowing
             static_cast<int>(windowExtent.height), // narrowing
             window_flags);
+
+        if (SDL_Surface* icon = SDL_LoadBMP("assets/icons/WillEngine.bmp")) {
+            SDL_SetWindowIcon(window, icon);
+            SDL_FreeSurface(icon);
+        } else {
+            fmt::print("Failed to load window icon: {}\n", SDL_GetError());
+        }
     }
 
     initVulkan();
@@ -332,6 +343,17 @@ void Engine::run()
                         fmt::print(" Failed to save pbr render target");
                     }
                 }
+
+                if (ImGui::Button("Save TAA Resolve Target")) {
+                    if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
+                        if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
+                            std::filesystem::path path = file_utils::imagesSavePath / "taaResolve.png";
+                            vk_helpers::saveImageRGBA16SFLOAT(this, taaResolveTarget, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str());
+                        } else {
+                            fmt::print(" Failed to find/create image save path directory");
+                        }
+                    }
+                }
             }
             ImGui::End();
 
@@ -502,26 +524,30 @@ void Engine::draw()
         if (frameNumber == 0) {
             vk_helpers::transitionImage(cmd, historyBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
             vk_helpers::transitionImage(cmd, depthHistoryBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
-
         } else {
             vk_helpers::transitionImage(cmd, historyBuffer.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
             vk_helpers::transitionImage(cmd, depthHistoryBuffer.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
         }
-        vk_helpers::transitionImage(cmd, taaResolveBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
         drawTaa(cmd);
 
-        vk_helpers::transitionImage(cmd, taaResolveBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
         vk_helpers::transitionImage(cmd, historyBuffer.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-        vk_helpers::copyImageToImage(cmd, taaResolveBuffer.image, historyBuffer.image, renderExtent, renderExtent);
+        vk_helpers::copyImageToImage(cmd, taaResolveTarget.image, historyBuffer.image, renderExtent, renderExtent);
 
         vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
         vk_helpers::transitionImage(cmd, depthHistoryBuffer.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
         vk_helpers::copyDepthToDepth(cmd, depthImage.image, depthHistoryBuffer.image, renderExtent, renderExtent);
 
+        vk_helpers::transitionImage(cmd, postProcessOutputBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+
+        drawPostProcess(cmd);
+
+        vk_helpers::transitionImage(cmd, postProcessOutputBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
         vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-        vk_helpers::copyImageToImage(cmd, taaResolveBuffer.image, swapchainImages[swapchainImageIndex], renderExtent, swapchainExtent);
+        vk_helpers::copyImageToImage(cmd, postProcessOutputBuffer.image, swapchainImages[swapchainImageIndex], renderExtent, swapchainExtent);
     } else {
         if (bSpectateCameraActive) {
             DEBUG_drawSpectate(cmd);
@@ -821,6 +847,35 @@ void Engine::drawTaa(VkCommandBuffer cmd) const
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }
 
+// ReSharper disable once CppParameterMayBeConst
+void Engine::drawPostProcess(VkCommandBuffer cmd) const
+{
+    VkDebugUtilsLabelEXT label = {};
+    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+    label.pLabelName = "Post Process Pass";
+    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, postProcessPipeline);
+    PostProcessData data{};
+    data.width = static_cast<int32_t>(renderExtent.width);
+    data.height = static_cast<int32_t>(renderExtent.height);
+    vkCmdPushConstants(cmd, postProcessPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PostProcessData), &data);
+
+    VkDescriptorBufferBindingInfoEXT bindingInfos[1]{};
+    bindingInfos[0] = postProcessDescriptorBuffer.getDescriptorBufferBindingInfo();
+    vkCmdBindDescriptorBuffersEXT(cmd, 1, bindingInfos);
+
+    constexpr VkDeviceSize zeroOffset{0};
+    constexpr uint32_t dataIndex{0};
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, postProcessPipelineLayout, 0, 1, &dataIndex, &zeroOffset);
+
+    const auto x = static_cast<uint32_t>(std::ceil(static_cast<float>(renderExtent.width) / 16.0f));
+    const auto y = static_cast<uint32_t>(std::ceil(static_cast<float>(renderExtent.height) / 16.0f));
+    vkCmdDispatch(cmd, x, y, 1);
+
+    vkCmdEndDebugUtilsLabelEXT(cmd);
+}
+
 void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd) const
 {
     VkDebugUtilsLabelEXT label = {};
@@ -1029,9 +1084,10 @@ void Engine::cleanup()
     destroyImage(albedoRenderTarget);
     destroyImage(pbrRenderTarget);
     destroyImage(velocityRenderTarget);
-    destroyImage(taaResolveBuffer);
+    destroyImage(taaResolveTarget);
     destroyImage(historyBuffer);
     destroyImage(depthHistoryBuffer);
+    destroyImage(postProcessOutputBuffer);
 
 
     // Swapchain
@@ -1325,6 +1381,7 @@ void Engine::initPipelines()
     initDeferredMrtPipeline();
     initDeferredResolvePipeline();
     initTaaPipeline();
+    initPostProcessPipeline();
 }
 
 void Engine::initFrustumCullingPipeline()
@@ -1639,7 +1696,7 @@ void Engine::initTaaPipeline()
             .sampler = defaultSamplerNearest, .imageView = velocityRenderTarget.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         };
         const VkDescriptorImageInfo taaResolve{
-            .imageView = taaResolveBuffer.imageView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+            .imageView = taaResolveTarget.imageView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
         };
         taaDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, draw, false});
         taaDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, history, false});
@@ -1700,6 +1757,83 @@ void Engine::initTaaPipeline()
         taaDescriptorBuffer.destroy(device, allocator);
         vkDestroyPipelineLayout(device, taaPipelinelayout, nullptr);
         vkDestroyPipeline(device, taaPipeline, nullptr);
+    });
+}
+
+void Engine::initPostProcessPipeline()
+{
+    //
+    {
+        DescriptorLayoutBuilder layoutBuilder;
+        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // taa resolve image
+        layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // post process result
+        postProcessDescriptorLayout = layoutBuilder.build(device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    }
+    //
+    {
+        std::vector<DescriptorImageData> descriptors;
+        descriptors.reserve(2);
+        const VkDescriptorImageInfo inputImage{
+            .sampler = defaultSamplerNearest, .imageView = taaResolveTarget.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        };
+        const VkDescriptorImageInfo postProcessResult{
+            .imageView = postProcessOutputBuffer.imageView, .imageLayout = VK_IMAGE_LAYOUT_GENERAL
+        };
+        descriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, inputImage, false});
+        descriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, postProcessResult, false});
+
+
+        postProcessDescriptorBuffer = DescriptorBufferSampler(instance, device, physicalDevice, allocator, postProcessDescriptorLayout, 1);
+        postProcessDescriptorBuffer.setupData(device, descriptors);
+    }
+
+    VkPushConstantRange pushConstants{};
+    pushConstants.offset = 0;
+    pushConstants.size = sizeof(PostProcessData);
+    pushConstants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+
+    VkDescriptorSetLayout setLayouts[1];
+    setLayouts[0] = postProcessDescriptorLayout;
+
+    VkPipelineLayoutCreateInfo layoutCreateInfo{};
+    layoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    layoutCreateInfo.pNext = nullptr;
+    layoutCreateInfo.pSetLayouts = setLayouts;
+    layoutCreateInfo.setLayoutCount = 1;
+    layoutCreateInfo.pPushConstantRanges = &pushConstants;
+    layoutCreateInfo.pushConstantRangeCount = 1;
+
+    VK_CHECK(vkCreatePipelineLayout(device, &layoutCreateInfo, nullptr, &postProcessPipelineLayout));
+
+    VkShaderModule computeShader;
+    if (!vk_helpers::loadShaderModule("shaders/postProcess.comp.spv", device, &computeShader)) {
+        fmt::print("Error when building the compute shader (postProcess.comp.spv)\n");
+        abort();
+    }
+
+    VkPipelineShaderStageCreateInfo stageinfo{};
+    stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stageinfo.pNext = nullptr;
+    stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    stageinfo.module = computeShader;
+    stageinfo.pName = "main"; // entry point in shader
+
+    VkComputePipelineCreateInfo pipelineCreateInfo{};
+    pipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pipelineCreateInfo.pNext = nullptr;
+    pipelineCreateInfo.layout = postProcessPipelineLayout;
+    pipelineCreateInfo.stage = stageinfo;
+    pipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+
+    VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &pipelineCreateInfo, nullptr, &postProcessPipeline));
+
+    vkDestroyShaderModule(device, computeShader, nullptr);
+
+    mainDeletionQueue.pushFunction([&]() {
+        vkDestroyDescriptorSetLayout(device, postProcessDescriptorLayout, nullptr);
+        postProcessDescriptorBuffer.destroy(device, allocator);
+        vkDestroyPipelineLayout(device, postProcessPipelineLayout, nullptr);
+        vkDestroyPipeline(device, postProcessPipeline, nullptr);
     });
 }
 
@@ -2050,23 +2184,23 @@ void Engine::createDrawResources(uint32_t width, uint32_t height)
     }
     // TAA Resolve
     {
-        taaResolveBuffer.imageFormat = drawImageFormat;
+        taaResolveTarget.imageFormat = drawImageFormat;
         const VkExtent3D drawImageExtent = {renderExtent.width, renderExtent.height, 1};
-        taaResolveBuffer.imageExtent = drawImageExtent;
+        taaResolveTarget.imageExtent = drawImageExtent;
         VkImageUsageFlags taaResolveUsages{};
         taaResolveUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
         taaResolveUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         taaResolveUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
-        const VkImageCreateInfo taaResolveImageInfo = vk_helpers::imageCreateInfo(taaResolveBuffer.imageFormat, taaResolveUsages, drawImageExtent);
+        const VkImageCreateInfo taaResolveImageInfo = vk_helpers::imageCreateInfo(taaResolveTarget.imageFormat, taaResolveUsages, drawImageExtent);
 
         VmaAllocationCreateInfo taaResolveAllocationInfo = {};
         taaResolveAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         taaResolveAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vmaCreateImage(allocator, &taaResolveImageInfo, &taaResolveAllocationInfo, &taaResolveBuffer.image, &taaResolveBuffer.allocation, nullptr);
+        vmaCreateImage(allocator, &taaResolveImageInfo, &taaResolveAllocationInfo, &taaResolveTarget.image, &taaResolveTarget.allocation, nullptr);
 
-        const VkImageViewCreateInfo taaResolveImageViewInfo = vk_helpers::imageviewCreateInfo(taaResolveBuffer.imageFormat, taaResolveBuffer.image, VK_IMAGE_ASPECT_COLOR_BIT);
-        VK_CHECK(vkCreateImageView(device, &taaResolveImageViewInfo, nullptr, &taaResolveBuffer.imageView));
+        const VkImageViewCreateInfo taaResolveImageViewInfo = vk_helpers::imageviewCreateInfo(taaResolveTarget.imageFormat, taaResolveTarget.image, VK_IMAGE_ASPECT_COLOR_BIT);
+        VK_CHECK(vkCreateImageView(device, &taaResolveImageViewInfo, nullptr, &taaResolveTarget.imageView));
     }
     // Draw History
     {
@@ -2105,5 +2239,23 @@ void Engine::createDrawResources(uint32_t width, uint32_t height)
 
         VkImageViewCreateInfo depthViewInfo = vk_helpers::imageviewCreateInfo(depthHistoryBuffer.imageFormat, depthHistoryBuffer.image, VK_IMAGE_ASPECT_DEPTH_BIT);
         VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthHistoryBuffer.imageView));
+    }
+    // Post Process Result
+    {
+        postProcessOutputBuffer.imageFormat = drawImageFormat;
+        const VkExtent3D drawImageExtent = {renderExtent.width, renderExtent.height, 1};
+        postProcessOutputBuffer.imageExtent = drawImageExtent;
+        VkImageUsageFlags usageFlags{};
+        usageFlags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        usageFlags |= VK_IMAGE_USAGE_SAMPLED_BIT;
+        const VkImageCreateInfo imageCreateInfo = vk_helpers::imageCreateInfo(postProcessOutputBuffer.imageFormat, usageFlags, drawImageExtent);
+
+        VmaAllocationCreateInfo imageAllocationInfo = {};
+        imageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        imageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        vmaCreateImage(allocator, &imageCreateInfo, &imageAllocationInfo, &postProcessOutputBuffer.image, &postProcessOutputBuffer.allocation, nullptr);
+
+        VkImageViewCreateInfo rview_info = vk_helpers::imageviewCreateInfo(postProcessOutputBuffer.imageFormat, postProcessOutputBuffer.image, VK_IMAGE_ASPECT_COLOR_BIT);
+        VK_CHECK(vkCreateImageView(device, &rview_info, nullptr, &postProcessOutputBuffer.imageView));
     }
 }

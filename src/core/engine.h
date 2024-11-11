@@ -37,6 +37,7 @@
 #include "render_object.h"
 
 constexpr unsigned int FRAME_OVERLAP = 2;
+constexpr char ENGINE_NAME[] = "Will Engine";
 
 struct DeletionQueue
 {
@@ -93,8 +94,9 @@ public:
 
     void drawTaa(VkCommandBuffer cmd) const;
 
-    void DEBUG_drawSpectate(VkCommandBuffer cmd) const;
+    void drawPostProcess(VkCommandBuffer cmd) const;
 
+    void DEBUG_drawSpectate(VkCommandBuffer cmd) const;
 
 
     void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView) const;
@@ -139,6 +141,8 @@ private: // Initialization
 
     void initTaaPipeline();
 
+    void initPostProcessPipeline();
+
     void initScene();
 
 public:
@@ -173,7 +177,7 @@ public:
 
 private: // Rendering
     // Main
-    int frameNumber{0};
+    int64_t frameNumber{0};
     FrameData frames[FRAME_OVERLAP]{};
     int32_t getCurrentFrameOverlap() const { return static_cast<int32_t>(frameNumber % FRAME_OVERLAP); }
     FrameData& getCurrentFrame() { return frames[frameNumber % FRAME_OVERLAP]; }
@@ -216,8 +220,8 @@ private: // Scene Descriptors
     glm::vec3 spectateCameraLookAt{0.5f, 1.8f, 0.f};
 
     bool bEnableTaa{true};
-    float taaMinBlend{0.03f}; // 0.1f
-    float taaMaxBlend{0.2f}; // 0.2f
+    float taaMinBlend{0.05f}; // 0.1f
+    float taaMaxBlend{0.30f}; // 0.2f
     float taaVelocityRejectionWeight{2.0f}; // 4.0f
     float taaDepthRejectionWeight{50.0f}; // 100.0f
 
@@ -246,6 +250,12 @@ private: // Pipelines
     VkDescriptorSetLayout taaDescriptorSetLayout{VK_NULL_HANDLE};
     VkPipelineLayout taaPipelinelayout{VK_NULL_HANDLE};
     VkPipeline taaPipeline{VK_NULL_HANDLE};
+
+    // PostProcess
+    DescriptorBufferSampler postProcessDescriptorBuffer{};
+    VkDescriptorSetLayout postProcessDescriptorLayout{VK_NULL_HANDLE};
+    VkPipelineLayout postProcessPipelineLayout{VK_NULL_HANDLE};
+    VkPipeline postProcessPipeline{VK_NULL_HANDLE};
 
 private: // Swapchain
     VkSwapchainKHR swapchain{};
@@ -293,7 +303,7 @@ private: // Render Targets
     /**
      * The results of the TAA pass will be outputted into this buffer
      */
-    AllocatedImage taaResolveBuffer{};
+    AllocatedImage taaResolveTarget{};
 
     /**
      * A copy of the previous TAA Resolve Buffer
@@ -306,6 +316,8 @@ private: // Render Targets
      */
     AllocatedImage depthHistoryBuffer{};
 
+
+    AllocatedImage postProcessOutputBuffer{};
 
 public: // Default Data
     static AllocatedImage whiteImage;

@@ -116,12 +116,7 @@ void main() {
     //vec3 finalColor = (diffuse + specular) * lightData.mainLight.color * nDotL;
     finalColor += ambient;
 
-
-    vec3 correctedFinalColor = finalColor / (finalColor + vec3(1.0f)); // Reinhard Tonemapping
-    correctedFinalColor = pow(correctedFinalColor, vec3(1.0f / 2.2f)); // gamma correction
-
-    imageStore(outputImage, screenPos, vec4(correctedFinalColor, albedo.w));
-
+    imageStore(outputImage, screenPos, vec4(finalColor, albedo.w));
 
     if (pushConstants.debug == 1) {
         // Velocity
