@@ -26,7 +26,7 @@ public:
         x = x - 0.5f;
         y = y - 0.5f;
 
-        constexpr float jitterScale = 1.0f;  // Adjust this to taste
+        constexpr float jitterScale = 1.0f;
         x *= jitterScale;
         y *= jitterScale;
 

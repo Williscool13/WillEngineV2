@@ -158,4 +158,10 @@ struct TaaProperties
     float depthWeight;
 };
 
+struct PostProcessData
+{
+    int32_t width;
+    int32_t height;
+};
+
 #endif //VKTYPES_H
