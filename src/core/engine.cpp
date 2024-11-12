@@ -344,11 +344,11 @@ void Engine::run()
                     }
                 }
 
-                if (ImGui::Button("Save TAA Resolve Target")) {
+                if (ImGui::Button("Save Post Process Resolve Target")) {
                     if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
                         if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
-                            std::filesystem::path path = file_utils::imagesSavePath / "taaResolve.png";
-                            vk_helpers::saveImageRGBA16SFLOAT(this, taaResolveTarget, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str());
+                            std::filesystem::path path = file_utils::imagesSavePath / "postProcesResolve.png";
+                            vk_helpers::saveImageRGBA16SFLOAT(this, postProcessOutputBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str());
                         } else {
                             fmt::print(" Failed to find/create image save path directory");
                         }
@@ -414,8 +414,9 @@ void Engine::run()
 void Engine::updateSceneData() const
 {
     const bool bIsFrameZero = frameNumber == 0;
-    const glm::vec2 currentJitter = HaltonSequence::getJitter(frameNumber, {renderExtent.width, renderExtent.height});
-    const glm::vec2 prevJitter = HaltonSequence::getJitter(frameNumber > 0 ? frameNumber - 1 : 0, {renderExtent.width, renderExtent.height});
+
+    const glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber, {renderExtent.width, renderExtent.height});
+    const glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(frameNumber > 0 ? frameNumber - 1 : 0, {renderExtent.width, renderExtent.height});
 
     // Update scene data
     {
@@ -518,46 +519,33 @@ void Engine::draw()
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     drawDeferredResolve(cmd);
+    if (bSpectateCameraActive) { DEBUG_drawSpectate(cmd); }
 
-    if (bEnableTaa && deferredDebug == 0) {
-        vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-        if (frameNumber == 0) {
-            vk_helpers::transitionImage(cmd, historyBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-            vk_helpers::transitionImage(cmd, depthHistoryBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
-        } else {
-            vk_helpers::transitionImage(cmd, historyBuffer.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-            vk_helpers::transitionImage(cmd, depthHistoryBuffer.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
-        }
-        vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    // TAA
+    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    const VkImageLayout originLayout = frameNumber == 0 ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    vk_helpers::transitionImage(cmd, historyBuffer.image, originLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, depthHistoryBuffer.image, originLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+    vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    drawTaa(cmd);
 
-        drawTaa(cmd);
+    // Save current TAA Resolve to History
+    vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, historyBuffer.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::copyImageToImage(cmd, taaResolveTarget.image, historyBuffer.image, renderExtent, renderExtent);
+    // Save current Depth to Depth History
+    vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+    vk_helpers::transitionImage(cmd, depthHistoryBuffer.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+    vk_helpers::copyDepthToDepth(cmd, depthImage.image, depthHistoryBuffer.image, renderExtent, renderExtent);
 
-        vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-        vk_helpers::transitionImage(cmd, historyBuffer.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-        vk_helpers::copyImageToImage(cmd, taaResolveTarget.image, historyBuffer.image, renderExtent, renderExtent);
+    // Post-Process
+    vk_helpers::transitionImage(cmd, postProcessOutputBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    drawPostProcess(cmd);
+    vk_helpers::transitionImage(cmd, postProcessOutputBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-        vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
-        vk_helpers::transitionImage(cmd, depthHistoryBuffer.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
-        vk_helpers::copyDepthToDepth(cmd, depthImage.image, depthHistoryBuffer.image, renderExtent, renderExtent);
-
-        vk_helpers::transitionImage(cmd, postProcessOutputBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
-
-        drawPostProcess(cmd);
-
-        vk_helpers::transitionImage(cmd, postProcessOutputBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-
-        vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-        vk_helpers::copyImageToImage(cmd, postProcessOutputBuffer.image, swapchainImages[swapchainImageIndex], renderExtent, swapchainExtent);
-    } else {
-        if (bSpectateCameraActive) {
-            DEBUG_drawSpectate(cmd);
-        }
-
-        // Copy Draw Image into Swapchain Image
-        vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-        vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-        vk_helpers::copyImageToImage(cmd, drawImage.image, swapchainImages[swapchainImageIndex], renderExtent, swapchainExtent);
-    }
+    // Final Swapchain Copy
+    vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::copyImageToImage(cmd, postProcessOutputBuffer.image, swapchainImages[swapchainImageIndex], renderExtent, swapchainExtent);
 
     // draw ImGui into Swapchain Image
     vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -830,6 +818,7 @@ void Engine::drawTaa(VkCommandBuffer cmd) const
     taaProperties.maxBlend = taaMaxBlend;
     taaProperties.velocityWeight = taaVelocityRejectionWeight;
     taaProperties.depthWeight = taaDepthRejectionWeight;
+    taaProperties.bEnabled = bEnableTaa;
     vkCmdPushConstants(cmd, taaPipelinelayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(TaaProperties), &taaProperties);
 
     VkDescriptorBufferBindingInfoEXT taaBindingInfo[1]{};

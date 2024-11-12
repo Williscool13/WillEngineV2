@@ -11,13 +11,33 @@
 class HaltonSequence
 {
 public:
+    // Pre-computed 8-point Halton sequence (base 2, 3)
+    static constexpr glm::vec2 HALTON_SEQUENCE[8] = {
+        glm::vec2(0.0f, 0.0f),
+        glm::vec2(0.5f, 0.333333f),
+        glm::vec2(0.25f, 0.666667f),
+        glm::vec2(0.75f, 0.111111f),
+        glm::vec2(0.125f, 0.444444f),
+        glm::vec2(0.625f, 0.777778f),
+        glm::vec2(0.375f, 0.222222f),
+        glm::vec2(0.875f, 0.555556f)
+    };
+
+    static glm::vec2 getJitterHardcoded(const uint32_t frameNumber, const glm::vec2& screenDims) {
+        // Get the sequence point for this frame (wrapping around every 8 frames)
+        const glm::vec2 halton = HALTON_SEQUENCE[frameNumber % 8];
+
+        // Convert from [0,1] to [-0.5,0.5] range and scale by pixel size
+        return (halton - 0.5f) / glm::vec2(screenDims);
+    }
+
     /**
      * Get 2D jitter offset for given frame index, scaled to pixel size
      * @param frameIndex
      * @param screenDims
      * @return
      */
-    static glm::vec2 getJitter(uint32_t frameIndex, const glm::vec2& screenDims)
+    static glm::vec2 getJitter(const uint32_t frameIndex, const glm::vec2& screenDims)
     {
         float x = halton(frameIndex, 2);
         float y = halton(frameIndex, 3);
@@ -41,7 +61,7 @@ private:
      * @param base
      * @return
      */
-    static float halton(uint32_t index, uint32_t base)
+    static float halton(uint32_t index, const uint32_t base)
     {
         float f = 1.0f;
         float r = 0.0f;
