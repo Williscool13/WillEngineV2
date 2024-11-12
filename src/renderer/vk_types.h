@@ -156,6 +156,7 @@ struct TaaProperties
     float maxBlend;
     float velocityWeight;
     float depthWeight;
+    bool bEnabled;
 };
 
 struct PostProcessData

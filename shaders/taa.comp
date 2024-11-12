@@ -19,45 +19,62 @@ layout (push_constant) uniform PushConstants {
     float maxBlend;
     float velocityWeight;
     float depthWeight;
+    bool bEnabled;
 } push;
 
 void getNeighborhoodBounds(vec2 uv, out vec3 minColor, out vec3 maxColor) {
-    // First pass: gather samples and compute mean
-    vec3 mean = vec3(0.0);
+    // https://developer.download.nvidia.com/gameworks/events/GDC2016/msalvi_temporal_supersampling.pdf
+
+    const int radius = 1;
+    const int sampleCount = (2 * radius + 1) * (2 * radius + 1);
+    vec3 samples[9]; // hard-coded
+
+    // Track min/max for box clamping
     minColor = vec3(1.0);
     maxColor = vec3(0.0);
-    vec3 samples[9];
-    int sampleCount = 0;
 
-    for (int x = -1; x <= 1; x++) {
-        for (int y = -1; y <= 1; y++) {
+    // First moment (mean)
+    vec3 mean = vec3(0.0);
+    int idx = 0;
+    for (int y = -radius; y <= radius; y++) {
+        for (int x = -radius; x <= radius; x++) {
             vec2 offset = vec2(x, y) * push.texelSize;
             vec3 sampleRGB = texture(drawImage, uv + offset).rgb;
             vec3 sampleYCoCg = RGBToYCoCg(sampleRGB);
 
-        samples[sampleCount++] = sampleYCoCg;
+        samples[idx++] = sampleYCoCg;
+        mean += sampleYCoCg;
+
+        // Track min/max for box clipping
         minColor = min(minColor, sampleYCoCg);
         maxColor = max(maxColor, sampleYCoCg);
-        mean += sampleYCoCg;
         }
     }
-    mean /= 9.0;
+    mean /= float(sampleCount);
 
-    // Second pass: compute variance
+    // Second moment (variance)
     vec3 variance = vec3(0.0);
-    for (int i = 0; i < 9; i++) {
+    for (int i = 0; i < sampleCount; i++) {
         vec3 diff = samples[i] - mean;
         variance += diff * diff;
     }
-    variance /= 9.0;
+    variance /= float(sampleCount);
 
-    // Compute standard deviation and expand bounds
-    vec3 stdDev = sqrt(max(variance, vec3(0.0)));
-    stdDev.x *= 1.0;       // Luma (Y)
-    stdDev.yz *= 1.25;     // Chroma (Co,Cg)
+    // Standard deviation
+    vec3 stdDev = sqrt(variance);
 
-    minColor = max(minColor, mean - stdDev);
-    maxColor = min(maxColor, mean + stdDev);
+    // adjustible values, maybe move to push constant
+    float gammaLuma = 1.0 + mean.x * 2.0; // 1.0
+    vec2 gammaChroma = vec2(1.25) + abs(mean.yz) * 2.0; // 1.25
+
+    stdDev.x *= gammaLuma;
+    stdDev.yz *= gammaChroma;
+
+    vec3 boxMin = mean - stdDev;
+    vec3 boxMax = mean + stdDev;
+
+    minColor = max(boxMin, minColor);
+    maxColor = min(boxMax, maxColor);
 }
 
 void main() {
@@ -66,22 +83,21 @@ void main() {
         return;
     }
     vec2 uv = (vec2(pixel) + 0.5) * push.texelSize;
-
-    // Get current color
     vec3 currentColorRGB = texture(drawImage, uv).rgb;
+    if (!push.bEnabled){
+        imageStore(outputImage, pixel, vec4(currentColorRGB, 1.0));
+        return;
+    }
+
     vec3 currentColor = RGBToYCoCg(currentColorRGB);
 
-    // Sample history using velocity
     vec2 velocity = texture(velocityBuffer, uv).rg;
     vec2 historyUv = uv - velocity;
 
-    // Basic history validation
-    bool validHistory = all(greaterThanEqual(historyUv, vec2(0.0))) &&
-    all(lessThan(historyUv, vec2(1.0)));
-
-    // Get history color
+    bool validHistory = all(greaterThanEqual(historyUv, vec2(0.0))) && all(lessThan(historyUv, vec2(1.0)));
     vec3 historyColor = validHistory ? RGBToYCoCg(texture(drawHistory, historyUv).rgb) : currentColor;
 
+    // Variance Clipping
     vec3 minColor, maxColor;
     getNeighborhoodBounds(uv, minColor, maxColor);
     historyColor = clamp(historyColor, minColor, maxColor);
