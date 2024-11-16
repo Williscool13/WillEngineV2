@@ -5,6 +5,7 @@
 
 #include "engine.h"
 
+#include <cmath>
 #include <filesystem>
 
 #include "input.h"
@@ -161,10 +162,21 @@ void Engine::run()
                     ImGui::SetNextItemWidth(100);
                     ImGui::InputFloat("Max Blend", &taaMaxBlend);
                     ImGui::SetNextItemWidth(100);
-                    ImGui::InputFloat("Velocity Rejection Weight", &taaVelocityRejectionWeight);
+                    ImGui::InputFloat("Velocity Rejection Weight", &taaVelocityWeight);
                     ImGui::SetNextItemWidth(100);
-                    ImGui::InputFloat("Depth Rejection Weight", &taaDepthRejectionWeight);
+                    ImGui::InputFloat("Velocity Depth Weight", &taaVelocityDepthWeight);
+                    ImGui::SetNextItemWidth(100);
+                    ImGui::InputFloat("Depth Discontinuity Weight", &taaDepthDiscontinuityWeight);
+                    ImGui::SetNextItemWidth(100);
+                    ImGui::SliderFloat("Depth Discontinuity Threshold", &taaDepthDiscontinuityThreshold, 0, 1, "%.2f");
+                    ImGui::Text("Taa Debug View");
+                    ImGui::SetNextItemWidth(100);
+                    const char* taaDebugLabels[] = {"None", "Confident", "Blend", "Depth", "Velocity"};
+                    ImGui::Combo("TAA Debug View", &taaDebug, taaDebugLabels, IM_ARRAYSIZE(taaDebugLabels));
+
                 }
+
+                ImGui::Checkbox("Enable Post-Process", &bEnablePostProcess);
 
 
                 ImGui::Separator();
@@ -172,6 +184,7 @@ void Engine::run()
                 ImGui::Text("Debug View");
                 ImGui::SetNextItemWidth(100);
                 ImGui::Combo("Debug View", &deferredDebug, debugLabels, IM_ARRAYSIZE(debugLabels));
+
 
                 ImGui::Separator();
                 if (ImGui::BeginChild("Spectate")) {
@@ -464,6 +477,23 @@ void Engine::updateSceneData() const
 
 void Engine::updateSceneObjects() const
 {
+    const Uint64 currentTime = SDL_GetTicks64();
+    constexpr auto originalPosition = glm::vec3{0.0, 2.0f, 0.0f};
+    const float timeSeconds = static_cast<float>(currentTime) / 1000.0f;
+    constexpr float amplitude = 1.0f;
+    constexpr float frequency = 0.25f;
+    const float offset = std::sin(timeSeconds * frequency * 2.0f * glm::pi<float>()) * amplitude;
+    const glm::vec3 vertical = originalPosition + glm::vec3{0.0f, offset, 0.0f};
+    const glm::vec3 horizontal = originalPosition + glm::vec3{0.0f, 0.0f, offset} + glm::vec3(2.0f, 0.0f, 0.0f);
+
+    cubeGameObject->transform.setTranslation(vertical);
+    cubeGameObject->dirty();
+    cubeGameObject2->transform.setTranslation(horizontal);
+    cubeGameObject2->dirty();
+
+
+    cubeGameObject->recursiveUpdateModelMatrix(getCurrentFrameOverlap());
+    cubeGameObject2->recursiveUpdateModelMatrix(getCurrentFrameOverlap());
     testGameObject1->recursiveUpdateModelMatrix(getCurrentFrameOverlap());
     testGameObject2->recursiveUpdateModelMatrix(getCurrentFrameOverlap());
     testGameObject3->recursiveUpdateModelMatrix(getCurrentFrameOverlap());
@@ -610,17 +640,20 @@ void Engine::frustumCull(VkCommandBuffer cmd) const
 
     VkDescriptorBufferBindingInfoEXT frustumCullingBindingInfo[2]{};
     frustumCullingBindingInfo[0] = sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
-    frustumCullingBindingInfo[1] = testRenderObject->getComputeAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
-    vkCmdBindDescriptorBuffersEXT(cmd, 2, frustumCullingBindingInfo);
-
     constexpr VkDeviceSize offset{0};
     constexpr uint32_t sceneDataIndex{0};
     constexpr uint32_t addressesIndex{1};
+    RenderObject* renderObjects[2]{testRenderObject, cube};
 
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipelineLayout, 0, 1, &sceneDataIndex, &offset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipelineLayout, 1, 1, &addressesIndex, &offset);
+    for (RenderObject* renderObject : renderObjects) {
+        frustumCullingBindingInfo[1] = renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
+        vkCmdBindDescriptorBuffersEXT(cmd, 2, frustumCullingBindingInfo);
 
-    vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(testRenderObject->getDrawIndirectCommandCount()) / 64.0f)), 1, 1);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipelineLayout, 0, 1, &sceneDataIndex, &offset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipelineLayout, 1, 1, &addressesIndex, &offset);
+
+        vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(renderObject->getDrawIndirectCommandCount()) / 64.0f)), 1, 1);
+    }
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }
@@ -732,29 +765,30 @@ void Engine::drawDeferredMrt(VkCommandBuffer cmd) const
         vkCmdSetScissor(cmd, 0, 1, &scissor);
     }
 
-    if (!testRenderObject->canDraw()) {
-        return;
-    }
-
     VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[3];
     descriptorBufferBindingInfo[0] = sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
-    descriptorBufferBindingInfo[1] = testRenderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
-    descriptorBufferBindingInfo[2] = testRenderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
-    vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptorBufferBindingInfo);
-
     constexpr VkDeviceSize zeroOffset{0};
     constexpr uint32_t sceneDataIndex{0};
     constexpr uint32_t addressIndex{1};
     constexpr uint32_t texturesIndex{2};
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 0, 1, &sceneDataIndex, &zeroOffset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 1, 1, &addressIndex, &zeroOffset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 2, 1, &texturesIndex, &zeroOffset);
 
-    constexpr VkDeviceSize offsets{0};
-    vkCmdBindVertexBuffers(cmd, 0, 1, &testRenderObject->getVertexBuffer().buffer, &offsets);
-    vkCmdBindIndexBuffer(cmd, testRenderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexedIndirect(cmd, testRenderObject->getIndirectBuffer().buffer, 0, testRenderObject->getDrawIndirectCommandCount(),
-                             sizeof(VkDrawIndexedIndirectCommand));
+    RenderObject* renderObjects[2]{testRenderObject, cube};
+
+    for (RenderObject* renderObject : renderObjects) {
+        if (!renderObject->canDraw()) { return; }
+
+        descriptorBufferBindingInfo[1] = renderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
+        descriptorBufferBindingInfo[2] = renderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
+        vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptorBufferBindingInfo);
+
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 0, 1, &sceneDataIndex, &zeroOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 1, 1, &addressIndex, &zeroOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 2, 1, &texturesIndex, &zeroOffset);
+
+        vkCmdBindVertexBuffers(cmd, 0, 1, &renderObject->getVertexBuffer().buffer, &zeroOffset);
+        vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexedIndirect(cmd, renderObject->getIndirectBuffer().buffer, 0, renderObject->getDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
+    }
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
 
@@ -814,11 +848,15 @@ void Engine::drawTaa(VkCommandBuffer cmd) const
     taaProperties.width = static_cast<int32_t>(renderExtent.width);
     taaProperties.height = static_cast<int32_t>(renderExtent.height);
     taaProperties.texelSize = {1.0f / static_cast<float>(renderExtent.width), 1.0f / static_cast<float>(renderExtent.height)};
+    taaProperties.depthBounds = {camera.getNearPlane(), camera.getFarPlane()};
     taaProperties.minBlend = taaMinBlend;
     taaProperties.maxBlend = taaMaxBlend;
-    taaProperties.velocityWeight = taaVelocityRejectionWeight;
-    taaProperties.depthWeight = taaDepthRejectionWeight;
+    taaProperties.velocityWeight = taaVelocityWeight;
+    taaProperties.velocityDepthWeight = taaVelocityDepthWeight;
+    taaProperties.depthDiscontinuityWeight = taaDepthDiscontinuityWeight;
+    taaProperties.depthDiscontinuityThreshold = taaDepthDiscontinuityThreshold;
     taaProperties.bEnabled = bEnableTaa;
+    taaProperties.taaDebug = taaDebug;
     vkCmdPushConstants(cmd, taaPipelinelayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(TaaProperties), &taaProperties);
 
     VkDescriptorBufferBindingInfoEXT taaBindingInfo[1]{};
@@ -848,6 +886,7 @@ void Engine::drawPostProcess(VkCommandBuffer cmd) const
     PostProcessData data{};
     data.width = static_cast<int32_t>(renderExtent.width);
     data.height = static_cast<int32_t>(renderExtent.height);
+    data.bEnable = bEnablePostProcess;
     vkCmdPushConstants(cmd, postProcessPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PostProcessData), &data);
 
     VkDescriptorBufferBindingInfoEXT bindingInfos[1]{};
@@ -938,29 +977,31 @@ void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd) const
             vkCmdSetScissor(cmd, 0, 1, &scissor);
         }
 
-        if (!testRenderObject->canDraw()) {
-            return;
-        }
-
         VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[3];
         descriptorBufferBindingInfo[0] = spectateSceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
-        descriptorBufferBindingInfo[1] = testRenderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
-        descriptorBufferBindingInfo[2] = testRenderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
-        vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptorBufferBindingInfo);
-
         constexpr VkDeviceSize zeroOffset{0};
         constexpr uint32_t sceneDataIndex{0};
         constexpr uint32_t addressIndex{1};
         constexpr uint32_t texturesIndex{2};
 
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 0, 1, &sceneDataIndex, &zeroOffset);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 1, 1, &addressIndex, &zeroOffset);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 2, 1, &texturesIndex, &zeroOffset);
+        RenderObject* renderObjects[2]{testRenderObject, cube};
 
-        constexpr VkDeviceSize offsets{0};
-        vkCmdBindVertexBuffers(cmd, 0, 1, &testRenderObject->getVertexBuffer().buffer, &offsets);
-        vkCmdBindIndexBuffer(cmd, testRenderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexedIndirect(cmd, testRenderObject->getIndirectBuffer().buffer, 0, testRenderObject->getDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
+        for (RenderObject* renderObject : renderObjects) {
+            if (!renderObject->canDraw()) { return; }
+
+            descriptorBufferBindingInfo[1] = renderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
+            descriptorBufferBindingInfo[2] = renderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
+            vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptorBufferBindingInfo);
+
+            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 0, 1, &sceneDataIndex, &zeroOffset);
+            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 1, 1, &addressIndex, &zeroOffset);
+            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, deferredMrtPipelineLayout, 2, 1, &texturesIndex, &zeroOffset);
+
+            constexpr VkDeviceSize offsets{0};
+            vkCmdBindVertexBuffers(cmd, 0, 1, &renderObject->getVertexBuffer().buffer, &offsets);
+            vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
+            vkCmdDrawIndexedIndirect(cmd, renderObject->getIndirectBuffer().buffer, 0, renderObject->getDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
+        }
 
         vkCmdEndRendering(cmd);
     }
@@ -1035,8 +1076,11 @@ void Engine::cleanup()
 
 
     delete environment;
+    delete cubeGameObject;
+    delete cubeGameObject2;
     delete testGameObject1;
     delete testRenderObject;
+    delete cube;
     // destroy all other resources
     mainDeletionQueue.flush();
 
@@ -1668,7 +1712,7 @@ void Engine::initTaaPipeline()
     //
     {
         std::vector<DescriptorImageData> taaDescriptors;
-        taaDescriptors.reserve(4);
+        taaDescriptors.reserve(6);
         const VkDescriptorImageInfo draw{
             .sampler = defaultSamplerNearest, .imageView = drawImage.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         };
@@ -1845,6 +1889,10 @@ void Engine::initScene()
     //testRenderObject = new RenderObject{this, "assets/models/structure.glb"};
     //testRenderObject = new RenderObject{this, "assets/models/Suzanne/glTF/Suzanne.gltf"};
     testRenderObject = new RenderObject{this, "assets/models/sponza2/Sponza.gltf"};
+    cube = new RenderObject{this, "assets/models/cube.gltf"};
+
+    cubeGameObject = cube->generateGameObject();
+    cubeGameObject2 = cube->generateGameObject();
     testGameObject1 = testRenderObject->generateGameObject();
     testGameObject2 = testRenderObject->generateGameObject();
     testGameObject3 = testRenderObject->generateGameObject();
@@ -1855,6 +1903,9 @@ void Engine::initScene()
     scene.addGameObject(testGameObject3);
     scene.addGameObject(testGameObject4);
     scene.addGameObject(testGameObject5);
+
+    scene.addGameObject(cubeGameObject);
+    scene.addGameObject(cubeGameObject2);
 
     testGameObject1->transform.setScale(1.f);
     testGameObject1->dirty();
@@ -1874,6 +1925,11 @@ void Engine::initScene()
     testGameObject5->transform.setScale(1.0f);
     testGameObject5->transform.translate(glm::vec3(0.0f, 100.0f, 0.0f));
     testGameObject5->dirty();
+
+    cubeGameObject->transform.setScale(0.05f);
+    cubeGameObject->dirty();
+    cubeGameObject2->transform.setScale(0.05f);
+    cubeGameObject2->dirty();
 }
 
 void Engine::immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const

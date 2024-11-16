@@ -84,7 +84,7 @@ public:
     [[nodiscard]] const AllocatedBuffer& getIndirectBuffer() const { return drawIndirectBuffer; }
     [[nodiscard]] size_t getDrawIndirectCommandCount() const { return drawIndirectData.size(); }
 
-    const DescriptorBufferUniform& getComputeAddressesDescriptorBuffer() { return frustumCullingDescriptorBuffer; }
+    const DescriptorBufferUniform& getFrustumCullingAddressesDescriptorBuffer() { return frustumCullingDescriptorBuffer; }
 
 private: // Drawing
     AllocatedBuffer vertexBuffer{};

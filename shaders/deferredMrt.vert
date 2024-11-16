@@ -41,7 +41,7 @@ void main() {
 
     vec4 currClipPos = sceneData.viewProj * worldPos;
     vec4 prevClipPos = sceneData.prevViewProj * models.previousModelMatrix * vec4(position, 1.0);
-    currClipPos.xy += currClipPos.w * sceneData.jitter.xy;  // Current jitter
+    currClipPos.xy += currClipPos.w * sceneData.jitter.xy;
     prevClipPos.xy += prevClipPos.w * sceneData.jitter.zw;
     outCurrMvpPosition = currClipPos;
     outPrevMvpPosition = prevClipPos;

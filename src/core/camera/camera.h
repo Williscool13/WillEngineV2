@@ -20,16 +20,20 @@ public:
     glm::mat4 getViewMatrix() const { return cachedViewMatrix; }
     glm::mat4 getProjMatrix() const { return cachedProjMatrix; }
     glm::mat4 getViewProjMatrix() const { return cachedViewProjMatrix; }
+    float getNearPlane() const { return cachedNear; }
+    float getFarPlane() const { return cachedFar; }
     /**
      * Generates the rotation matrix of the camera in world space using the \code pitch\endcode and \code yaw\endcode  properties
      * @return
      */
     glm::mat4 getRotationMatrixWS() const;
+
     /**
      * Gets the viewing direction of the camera in world space
      * @return
      */
     glm::vec3 getViewDirectionWS() const;
+
     /**
      * Updates the projection matrix. FOV is in degrees and converted to radians in this function
      * @param fov

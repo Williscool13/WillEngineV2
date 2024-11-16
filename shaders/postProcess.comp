@@ -9,6 +9,7 @@ layout (rgba16f, set = 0, binding = 1) uniform image2D outputImage;
 layout (push_constant) uniform PushConstants {
     int width;
     int height;
+    bool enable;
 } pushConstants;
 
 vec3 linearToSRGB(vec3 linearRGB) {
@@ -28,7 +29,12 @@ void main() {
     vec2 uv = (vec2(pixel) + 0.5) / vec2(pushConstants.width, pushConstants.height);
     vec3 linearColor = texture(inputImage, uv).rgb;
 
-    vec3 srgbColor = linearToSRGB(linearColor);
+    if (!pushConstants.enable) {
+        imageStore(outputImage, pixel, vec4(linearColor, 1.0));
+    } else {
+        vec3 srgbColor = linearToSRGB(linearColor);
+        imageStore(outputImage, pixel, vec4(srgbColor, 1.0));
+    }
 
-    imageStore(outputImage, pixel, vec4(srgbColor, 1.0));
+
 }
