@@ -152,17 +152,28 @@ struct TaaProperties
     int32_t width;
     int32_t height;
     glm::vec2 texelSize;
+    glm::vec2 depthBounds;
     float minBlend;
     float maxBlend;
+    /**
+     * The
+     */
     float velocityWeight;
-    float depthWeight;
+    /**
+     * The velocity rejection calculations are weighted based on the center pixel's depth
+     */
+    float velocityDepthWeight;
+    float depthDiscontinuityWeight;
+    float depthDiscontinuityThreshold;
     bool bEnabled;
+    int32_t taaDebug;
 };
 
 struct PostProcessData
 {
     int32_t width;
     int32_t height;
+    bool bEnable;
 };
 
 #endif //VKTYPES_H

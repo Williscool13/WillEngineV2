@@ -32,6 +32,7 @@
 #include "../renderer/vk_descriptors.h"
 #include "../renderer/vk_descriptor_buffer.h"
 #include "../renderer/vk_helpers.h"
+#include "../util/render_utils.h"
 #include "camera/free_camera.h"
 #include "environment.h"
 #include "render_object.h"
@@ -196,6 +197,9 @@ private: // Scene
     Scene scene{};
 
     RenderObject* testRenderObject{nullptr};
+    RenderObject* cube{nullptr};
+    GameObject* cubeGameObject{nullptr};
+    GameObject* cubeGameObject2{nullptr};
     GameObject* testGameObject1{nullptr};
     GameObject* testGameObject2{nullptr};
     GameObject* testGameObject3{nullptr};
@@ -206,6 +210,7 @@ private: // Scene
     int32_t environmentMapindex{7};
 
     int32_t deferredDebug{0};
+    int32_t taaDebug{0};
 
 private: // Scene Descriptors
     VkDescriptorSetLayout sceneDataDescriptorSetLayout{VK_NULL_HANDLE};
@@ -220,10 +225,18 @@ private: // Scene Descriptors
     glm::vec3 spectateCameraLookAt{0.5f, 1.8f, 0.f};
 
     bool bEnableTaa{true};
-    float taaMinBlend{0.05f}; // 0.1f
-    float taaMaxBlend{0.30f}; // 0.2f
-    float taaVelocityRejectionWeight{2.0f}; // 4.0f
-    float taaDepthRejectionWeight{50.0f}; // 100.0f
+    float taaMinBlend{0.75};
+    float taaMaxBlend{0.97f};
+    float taaVelocityWeight{100.0f};
+    float taaVelocityDepthWeight{12.5f};
+    float taaDepthDiscontinuityWeight{1.0f};
+    /**
+     * [0,1], used to decide when to discard history. Causes high aliasing
+     */
+    float taaDepthDiscontinuityThreshold{0.38f};
+
+
+    bool bEnablePostProcess{true};
 
 
 private: // Pipelines
@@ -275,6 +288,7 @@ private: // Render Targets
      * All graphics operation in this program operate with these extent.
      */
     const VkExtent2D renderExtent{1920, 1080};
+    //const VkExtent2D renderExtent{3840, 2160};
     const VkFormat drawImageFormat{VK_FORMAT_R16G16B16A16_SFLOAT};
     const VkFormat depthImageFormat{VK_FORMAT_D32_SFLOAT};
 

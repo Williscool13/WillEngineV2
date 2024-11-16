@@ -120,9 +120,7 @@ void main() {
 
     if (pushConstants.debug == 1) {
         // Velocity
-        vec2 velocity = texture(velocityBuffer, uv).rg;
-        velocity = velocity / sceneData.deltaTime;
-
+        vec2 velocity = texture(velocityBuffer, uv).rg * 10.0;
         vec4 debugColor = vec4(velocity.x, velocity.y, 0.0, 0.0);
         imageStore(outputImage, screenPos, debugColor);
         return;

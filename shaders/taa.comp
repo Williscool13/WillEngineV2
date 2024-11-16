@@ -1,6 +1,7 @@
 #version 460
 
 #include "colors.glsl"
+#include "depth.glsl"
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
@@ -15,67 +16,124 @@ layout (push_constant) uniform PushConstants {
     int width;
     int height;
     vec2 texelSize;
+    vec2 depthBounds;
     float minBlend;
     float maxBlend;
     float velocityWeight;
-    float depthWeight;
+    float velocityDepthWeight;
+    float depthDiscontinuityWeight;
+    float depthDiscontinuityThreshold;
     bool bEnabled;
+    int debug;
 } push;
 
-void getNeighborhoodBounds(vec2 uv, out vec3 minColor, out vec3 maxColor) {
+float getVelocityConfidence(vec2 uv, vec2 centralVelocity) {
+    // Moving along Z axis is significant change in velocity but not in NDC velocity. Scale velocity confidence w/ depth
+    float depth = linearizeDepth(texture(depthImage, uv).r, push.depthBounds.x, push.depthBounds.y);
+    float velocityScale = 1.0 + depth * push.velocityDepthWeight;
+
+    float totalDiff = 0.0;
+    float totalWeight = 0.0;
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            if (x == 0 && y == 0) continue;
+
+            vec2 offset = vec2(x, y) * push.texelSize;
+            vec2 neighborVelocity = texture(velocityBuffer, uv + offset).rg;
+            float velocityDiff = length(neighborVelocity - centralVelocity) * velocityScale;
+            float weight = 1.0 / (1.0 + abs(x) + abs(y));
+
+            totalDiff += velocityDiff * weight;
+            totalWeight += weight;
+        }
+    }
+    float avgDiff = totalDiff / totalWeight;
+    return exp(-avgDiff * push.velocityWeight);
+}
+
+vec3 varianceClipping(vec3 oldColor, vec3 newColor, vec2 uv) {
     // https://developer.download.nvidia.com/gameworks/events/GDC2016/msalvi_temporal_supersampling.pdf
+    // 3x3 kernel
+    const float totalSamples = 9.0;
+    vec3 mean = newColor;
+    vec3 squaredSum = newColor * newColor;
+    vec3 minColor = vec3(1.0);
+    vec3 maxColor = vec3(0.0);
 
-    const int radius = 1;
-    const int sampleCount = (2 * radius + 1) * (2 * radius + 1);
-    vec3 samples[9]; // hard-coded
+    for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+            if (x == 0 && y == 0) continue;
 
-    // Track min/max for box clamping
-    minColor = vec3(1.0);
-    maxColor = vec3(0.0);
-
-    // First moment (mean)
-    vec3 mean = vec3(0.0);
-    int idx = 0;
-    for (int y = -radius; y <= radius; y++) {
-        for (int x = -radius; x <= radius; x++) {
             vec2 offset = vec2(x, y) * push.texelSize;
             vec3 sampleRGB = texture(drawImage, uv + offset).rgb;
             vec3 sampleYCoCg = RGBToYCoCg(sampleRGB);
 
-        samples[idx++] = sampleYCoCg;
-        mean += sampleYCoCg;
+            mean += sampleYCoCg;
+            squaredSum += sampleYCoCg * sampleYCoCg;
 
-        // Track min/max for box clipping
-        minColor = min(minColor, sampleYCoCg);
-        maxColor = max(maxColor, sampleYCoCg);
+            minColor = min(minColor, sampleYCoCg);
+            maxColor = max(maxColor, sampleYCoCg);
         }
     }
-    mean /= float(sampleCount);
 
-    // Second moment (variance)
-    vec3 variance = vec3(0.0);
-    for (int i = 0; i < sampleCount; i++) {
-        vec3 diff = samples[i] - mean;
-        variance += diff * diff;
-    }
-    variance /= float(sampleCount);
+    mean /= totalSamples;
+    vec3 variance = (squaredSum / totalSamples) - (mean * mean);
+    vec3 stddev = sqrt(max(variance, vec3(0.0)));
 
-    // Standard deviation
-    vec3 stdDev = sqrt(variance);
+    vec3 gamma = vec3(1.0, 1.25, 1.25);
+    vec3 minc = mean - gamma * stddev;
+    vec3 maxc = mean + gamma * stddev;
 
-    // adjustible values, maybe move to push constant
-    float gammaLuma = 1.0 + mean.x * 2.0; // 1.0
-    vec2 gammaChroma = vec2(1.25) + abs(mean.yz) * 2.0; // 1.25
+    minc = max(minc, minColor);
+    maxc = min(maxc, maxColor);
 
-    stdDev.x *= gammaLuma;
-    stdDev.yz *= gammaChroma;
-
-    vec3 boxMin = mean - stdDev;
-    vec3 boxMax = mean + stdDev;
-
-    minColor = max(boxMin, minColor);
-    maxColor = min(boxMax, maxColor);
+    return clamp(oldColor, minc, maxc);
 }
+
+
+
+float getNeighborhoodDepthDiff(sampler2D depthTex, vec2 uv, float historyDepth) {
+    float maxDiff = 0.0;
+    for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+            vec2 offset = vec2(x, y) * push.texelSize;
+            float neighborDepth = texture(depthTex, uv + offset).r;
+            float diff = abs(neighborDepth - historyDepth) / min(neighborDepth, historyDepth);
+            maxDiff = max(maxDiff, diff);
+        }
+    }
+    return maxDiff;
+}
+
+float getDepthConfidence(vec2 uv, vec2 historyUv, float velocityLength) {
+    float currentDepth = linearizeReverseDepthRaw(texture(depthImage, uv).r, push.depthBounds.x, push.depthBounds.y);
+    float historyDepth = linearizeReverseDepthRaw(texture(depthHistory, historyUv).r, push.depthBounds.x, push.depthBounds.y);
+
+    float minDepth = 1.0;
+    float maxDepth = 0;
+
+    for (int x = -1; x <= 1; x++) {
+        for (int y = -1; y <= 1; y++) {
+            vec2 offset = vec2(x, y) * push.texelSize;
+            float neighborDepth = linearizeReverseDepthRaw(texture(depthImage, uv + offset).r, push.depthBounds.x, push.depthBounds.y);
+            minDepth = min(minDepth, neighborDepth);
+            maxDepth = max(maxDepth, neighborDepth);
+        }
+    }
+
+    float depthRange = maxDepth - minDepth;
+    float depthDiff = abs(historyDepth - currentDepth);
+
+
+    float epsilon = currentDepth * 0.0001;
+    float relativeDepthDiff = depthDiff / (depthRange + epsilon);
+    //return exp(-relativeDepthDiff * push.depthDiscontinuityWeight);
+    float maxDiff = getNeighborhoodDepthDiff(depthImage, uv, historyDepth);
+    return exp(-maxDiff * push.depthDiscontinuityWeight * velocityLength * 100);
+}
+
+
+
 
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
@@ -84,30 +142,73 @@ void main() {
     }
     vec2 uv = (vec2(pixel) + 0.5) * push.texelSize;
     vec3 currentColorRGB = texture(drawImage, uv).rgb;
-    if (!push.bEnabled){
+    if (!push.bEnabled) {
         imageStore(outputImage, pixel, vec4(currentColorRGB, 1.0));
         return;
     }
 
-    vec3 currentColor = RGBToYCoCg(currentColorRGB);
-
     vec2 velocity = texture(velocityBuffer, uv).rg;
     vec2 historyUv = uv - velocity;
 
+    vec3 currentColor = RGBToYCoCg(currentColorRGB);
+    vec3 historyColor = RGBToYCoCg(texture(drawHistory, historyUv).rgb);
+
     bool validHistory = all(greaterThanEqual(historyUv, vec2(0.0))) && all(lessThan(historyUv, vec2(1.0)));
-    vec3 historyColor = validHistory ? RGBToYCoCg(texture(drawHistory, historyUv).rgb) : currentColor;
 
-    // Variance Clipping
-    vec3 minColor, maxColor;
-    getNeighborhoodBounds(uv, minColor, maxColor);
-    historyColor = clamp(historyColor, minColor, maxColor);
+    // defining here for easier debugging
+    float velocityConfidence = 0.0f;
+    float depthConfidence = 0.0f;
+    float velocityLengthConfidence = 0.0f;
+    if (validHistory){
+        velocityConfidence = getVelocityConfidence(uv, velocity);
+        depthConfidence = getDepthConfidence(uv, historyUv, length(velocity));
+        //float velocityLength = length(velocity);
+        //float velocityLengthConfidence = 1.0 - smoothstep(0.0, 0.1, velocityLength);
+    }
 
-    // Simple static blend factor
-    float blend = validHistory ? 0.1 : 1.0; // 10% current, 90% history when valid
+    //float alpha = min(min(velocityConfidence, depthConfidence), velocityLengthConfidence);
+    float alpha = min(velocityConfidence, depthConfidence);
+    float blend = validHistory ? mix(push.minBlend, push.maxBlend, smoothstep(0.0, 0.2, alpha)) : 0.0;
 
-    // Blend and convert back to RGB
-    vec3 finalColorYCoCg = mix(historyColor, currentColor, blend);
-    vec3 finalColorRGB = YCoCgToRGB(finalColorYCoCg);
+    if (alpha < push.depthDiscontinuityThreshold){
+        blend = 0.0;
+    }
+    //float blend = validHistory ? 0.1f : 1.0f;
 
+    // Blending
+    historyColor = varianceClipping(historyColor, currentColor, uv);
+    vec3 historyColorRGB = YCoCgToRGB(historyColor);
+    vec3 finalColorRGB = mix(currentColorRGB, historyColorRGB, blend);
     imageStore(outputImage, pixel, vec4(finalColorRGB, 1.0));
+
+//    float cd = texture(depthImage, uv).r;
+//    float hd = texture(depthHistory, historyUv).r;
+//    float dd = abs(cd - hd) / min(cd, hd);
+//    //float dd = getNeighborhoodDepthDiff(depthImage, uv, hd);
+//    float dc = 1.0 - smoothstep(0.01, 0.5, dd);
+//
+//    float vl = length(velocity);
+//    float vc = 1.0 - smoothstep(0.0, 0.1, vl);
+//
+//    float cce = min(dc, vc);
+//    float fc = max(cce, 0.03);
+//    float alpha = clamp(0.1 + fc * 0.9, 0.1, 0.95);
+//
+//    vec3 hcrgb = YCoCgToRGB(historyColor);
+//    vec3 fcrgb = mix(currentColorRGB, hcrgb, alpha);
+//    imageStore(outputImage, pixel, vec4(fcrgb, 1.0));
+
+
+    if (push.debug == 1) {
+        imageStore(outputImage, pixel, vec4(vec3(blend), 1.0));
+    }
+    if (push.debug == 2) {
+        imageStore(outputImage, pixel, vec4(vec3(alpha), 1.0));
+    }
+    if (push.debug == 3) {
+        imageStore(outputImage, pixel, vec4(vec3(depthConfidence), 1.0));
+    }
+    if (push.debug == 4) {
+        imageStore(outputImage, pixel, vec4(vec3(velocityConfidence), 1.0));
+    }
 }
