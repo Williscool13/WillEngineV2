@@ -38,10 +38,10 @@ public:
      * Updates the projection matrix. FOV is in degrees and converted to radians in this function
      * @param fov
      * @param aspect
-     * @param farPlane
      * @param nearPlane
+     * @param farPlane
      */
-    virtual void updateProjMatrix(float fov, float aspect, float farPlane, float nearPlane);
+    virtual void updateProjMatrix(float fov, float aspect, float nearPlane, float farPlane);
 
     virtual void updateViewMatrix();
 
@@ -53,7 +53,7 @@ public:
 protected:
     Camera() = default;
 
-    Camera(float fov, float aspect, float farPlane, float nearPlane, bool flipY = true);
+    Camera(float fov, float aspect, float nearPlane, float farPlane, bool flipY = true);
 
     ~Camera() = default;
 
@@ -65,8 +65,8 @@ protected:
     // projection
     float cachedFov{75.0f};
     float cachedAspect{1920.0f / 1080.0f};
-    float cachedFar{10000.0f};
-    float cachedNear{0.1f};
+    float cachedNear{10000.0f};
+    float cachedFar{0.1f};
 
     glm::mat4 cachedViewMatrix{};
     glm::mat4 cachedProjMatrix{};

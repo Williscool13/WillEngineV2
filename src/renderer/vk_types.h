@@ -149,22 +149,20 @@ struct FrustumCullingBuffers
 
 struct TaaProperties
 {
-    int32_t width;
-    int32_t height;
     glm::vec2 texelSize;
     glm::vec2 depthBounds;
+    int32_t width;
+    int32_t height;
+    /**
+     * the minimum amount of history to be used for TAA. Lower means less of the history will be used at lower confidence
+     */
     float minBlend;
+    /**
+     * the maximum amount of history to be used for TAA
+     */
     float maxBlend;
-    /**
-     * The
-     */
     float velocityWeight;
-    /**
-     * The velocity rejection calculations are weighted based on the center pixel's depth
-     */
-    float velocityDepthWeight;
-    float depthDiscontinuityWeight;
-    float depthDiscontinuityThreshold;
+    float depthWeight;
     bool bEnabled;
     int32_t taaDebug;
 };

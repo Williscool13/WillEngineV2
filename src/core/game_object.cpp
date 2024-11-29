@@ -58,7 +58,7 @@ void GameObject::dirty()
     }
 }
 
-void GameObject::recursiveUpdateModelMatrix(const int32_t frameCount)
+void GameObject::recursiveUpdateModelMatrix()
 {
     if (bIsStatic) {
         // if a gameobject is static, all its children must necessarily be static.
@@ -82,7 +82,7 @@ void GameObject::recursiveUpdateModelMatrix(const int32_t frameCount)
     }
 
     for (GameObject* child : children) {
-        child->recursiveUpdateModelMatrix(frameCount);
+        child->recursiveUpdateModelMatrix();
     }
 }
 

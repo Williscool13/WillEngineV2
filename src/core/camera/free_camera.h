@@ -11,7 +11,7 @@
  */
 class FreeCamera : public Camera {
 public:
-    explicit FreeCamera(float fov = 75.0f, float aspectRatio = 1700.0f / 900.0f, float farPlane = 10000.0f, float nearPlane = 0.01f);
+    explicit FreeCamera(float fov = 75.0f, float aspectRatio = 1700.0f / 900.0f, float nearPlane = 100.0f, float farPlane = 0.0001f);
     virtual ~FreeCamera() = default;
 
     void update() override;

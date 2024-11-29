@@ -9,7 +9,7 @@
 #include "glm/common.hpp"
 #include "glm/gtc/constants.hpp"
 
-FreeCamera::FreeCamera(const float fov, const float aspect, const float farPlane, const float nearPlane) : Camera(fov, aspect, farPlane, nearPlane)
+FreeCamera::FreeCamera(const float fov, const float aspect, const float nearPlane, const float farPlane) : Camera(fov, aspect, nearPlane, farPlane)
 {}
 
 void FreeCamera::update()
@@ -43,21 +43,23 @@ void FreeCamera::update()
         velocity.z += 1.0f;
     }
 
+    if (input.isKeyPressed(SDLK_PERIOD)) {
+        speed += 1;
+    }
+    if (input.isKeyPressed(SDLK_COMMA)) {
+        speed -= 1;
+    }
+    speed = glm::clamp(speed, -2.0f, 3.0f);
     const float deltaTime = TimeUtils::Get().getDeltaTime();
 
-    constexpr float minSpeed = 0.1f;
-    constexpr float maxSpeed = 10.0f;
-    constexpr float sensitivity = 0.1f;
+    float scale = speed;
+    if (speed <= 0) {
+        scale -= 1;
+    }
+    const auto currentSpeed = static_cast<float>(glm::pow(10, scale));
 
-    float logSpeed = glm::log(speed);
-    logSpeed += sensitivity * input.getMouseWheelDelta();
-    speed = glm::exp(logSpeed);
-    speed = glm::clamp(speed, minSpeed, maxSpeed);
-    /*speed *= glm::pow(1.15f, input.getMouseWheelDelta());
-    speed = glm::clamp(speed, 0.1f, 10.0f);*/
-
-    velocity *= deltaTime * speed;
-    verticalMove *= deltaTime * speed;
+    velocity *= deltaTime * currentSpeed;
+    verticalMove *= deltaTime * currentSpeed;
 
     const float yaw = glm::radians(-input.getMouseXDelta() * deltaTime * 10.0f);
     const float pitch = glm::radians(-input.getMouseYDelta() * deltaTime * 10.0f);
@@ -78,8 +80,10 @@ void FreeCamera::update()
     transform.setRotation(newRotation);
 
     const glm::mat4 rotationMatrix = getRotationMatrixWS();
-    transform.translate(glm::vec3(rotationMatrix * glm::vec4(velocity, 0.f)));
-    transform.translate(glm::vec3(0.f, verticalMove, 0.f));
+    const auto finalVelocity = glm::vec3(rotationMatrix * glm::vec4(velocity, 0.f));
+    const auto finalVerticalMove = glm::vec3(0.f, verticalMove, 0.f);
+    transform.translate(finalVelocity);
+    transform.translate(finalVerticalMove);
 
     updateViewMatrix();
 }

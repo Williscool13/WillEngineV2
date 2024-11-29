@@ -156,22 +156,19 @@ void Engine::run()
                 ImGui::Separator();
                 ImGui::Text("TAA Properties:");
                 ImGui::Checkbox("Enable TAA", &bEnableTaa);
+                ImGui::Checkbox("Enable Jitter", &bEnableJitter);
                 if (bEnableTaa) {
                     ImGui::SetNextItemWidth(100);
                     ImGui::InputFloat("Min Blend", &taaMinBlend);
                     ImGui::SetNextItemWidth(100);
                     ImGui::InputFloat("Max Blend", &taaMaxBlend);
                     ImGui::SetNextItemWidth(100);
-                    ImGui::InputFloat("Velocity Rejection Weight", &taaVelocityWeight);
+                    ImGui::InputFloat("Velocity Weight", &taaVelocityWeight);
                     ImGui::SetNextItemWidth(100);
-                    ImGui::InputFloat("Velocity Depth Weight", &taaVelocityDepthWeight);
-                    ImGui::SetNextItemWidth(100);
-                    ImGui::InputFloat("Depth Discontinuity Weight", &taaDepthDiscontinuityWeight);
-                    ImGui::SetNextItemWidth(100);
-                    ImGui::SliderFloat("Depth Discontinuity Threshold", &taaDepthDiscontinuityThreshold, 0, 1, "%.2f");
+                    ImGui::InputFloat("Depth Weight", &taaDepthWeight);
                     ImGui::Text("Taa Debug View");
                     ImGui::SetNextItemWidth(100);
-                    const char* taaDebugLabels[] = {"None", "Confident", "Blend", "Depth", "Velocity"};
+                    const char* taaDebugLabels[] = {"None", "Confident", "Luma", "Depth", "Velocity", "Depth Delta"};
                     ImGui::Combo("TAA Debug View", &taaDebug, taaDebugLabels, IM_ARRAYSIZE(taaDebugLabels));
 
                 }
@@ -428,8 +425,8 @@ void Engine::updateSceneData() const
 {
     const bool bIsFrameZero = frameNumber == 0;
 
-    const glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber, {renderExtent.width, renderExtent.height});
-    const glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(frameNumber > 0 ? frameNumber - 1 : 0, {renderExtent.width, renderExtent.height});
+    glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber, {renderExtent.width, renderExtent.height});
+    glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(frameNumber > 0 ? frameNumber - 1 : 0, {renderExtent.width, renderExtent.height});
 
     // Update scene data
     {
@@ -438,7 +435,7 @@ void Engine::updateSceneData() const
         pSceneData->prevView = bIsFrameZero ? camera.getViewMatrix() : pSceneData->view;
         pSceneData->prevProj = bIsFrameZero ? camera.getProjMatrix() : pSceneData->proj;
         pSceneData->prevViewProj = bIsFrameZero ? camera.getViewProjMatrix() : pSceneData->viewProj;
-        pSceneData->jitter = bEnableTaa ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
+        pSceneData->jitter = bEnableJitter && bEnableTaa ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
 
         pSceneData->view = camera.getViewMatrix();
         pSceneData->proj = camera.getProjMatrix();
@@ -462,7 +459,7 @@ void Engine::updateSceneData() const
         pSpectateSceneData->prevView = bIsFrameZero ? spectateView : pSpectateSceneData->view;
         pSpectateSceneData->prevProj = bIsFrameZero ? camera.getProjMatrix() : pSpectateSceneData->proj;
         pSpectateSceneData->prevViewProj = bIsFrameZero ? camera.getProjMatrix() * spectateView : pSpectateSceneData->viewProj;
-        pSpectateSceneData->jitter = glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y);
+        pSpectateSceneData->jitter = bEnableJitter && bEnableTaa ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
 
         pSpectateSceneData->view = spectateView;
         pSpectateSceneData->proj = camera.getProjMatrix();
@@ -492,20 +489,22 @@ void Engine::updateSceneObjects() const
     cubeGameObject2->dirty();
 
 
-    cubeGameObject->recursiveUpdateModelMatrix(getCurrentFrameOverlap());
-    cubeGameObject2->recursiveUpdateModelMatrix(getCurrentFrameOverlap());
-    testGameObject1->recursiveUpdateModelMatrix(getCurrentFrameOverlap());
-    testGameObject2->recursiveUpdateModelMatrix(getCurrentFrameOverlap());
-    testGameObject3->recursiveUpdateModelMatrix(getCurrentFrameOverlap());
-    testGameObject4->recursiveUpdateModelMatrix(getCurrentFrameOverlap());
-    testGameObject5->recursiveUpdateModelMatrix(getCurrentFrameOverlap());
+    cubeGameObject->recursiveUpdateModelMatrix();
+    cubeGameObject2->recursiveUpdateModelMatrix();
+    testGameObject1->recursiveUpdateModelMatrix();
+    testGameObject2->recursiveUpdateModelMatrix();
+    testGameObject3->recursiveUpdateModelMatrix();
+    testGameObject4->recursiveUpdateModelMatrix();
+    testGameObject5->recursiveUpdateModelMatrix();
 }
 
 void Engine::draw()
 {
-    camera.update();
-
     const auto start = std::chrono::system_clock::now();
+
+    camera.update();
+    updateSceneData();
+    updateSceneObjects();
 
     // GPU -> CPU sync (fence)
     VK_CHECK(vkWaitForFences(device, 1, &getCurrentFrame()._renderFence, true, 1000000000));
@@ -519,9 +518,6 @@ void Engine::draw()
         fmt::print("Swapchain out of date or suboptimal, resize requested (At Acquire)\n");
         return;
     }
-
-    updateSceneData();
-    updateSceneObjects();
 
     // Start Command Buffer Recording
     const auto cmd = getCurrentFrame()._mainCommandBuffer;
@@ -852,9 +848,7 @@ void Engine::drawTaa(VkCommandBuffer cmd) const
     taaProperties.minBlend = taaMinBlend;
     taaProperties.maxBlend = taaMaxBlend;
     taaProperties.velocityWeight = taaVelocityWeight;
-    taaProperties.velocityDepthWeight = taaVelocityDepthWeight;
-    taaProperties.depthDiscontinuityWeight = taaDepthDiscontinuityWeight;
-    taaProperties.depthDiscontinuityThreshold = taaDepthDiscontinuityThreshold;
+    taaProperties.depthWeight = taaDepthWeight;
     taaProperties.bEnabled = bEnableTaa;
     taaProperties.taaDebug = taaDebug;
     vkCmdPushConstants(cmd, taaPipelinelayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(TaaProperties), &taaProperties);
