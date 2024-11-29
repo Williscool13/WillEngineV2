@@ -13,43 +13,17 @@ layout (set = 0, binding = 4) uniform sampler2D velocityBuffer;
 layout (rgba16f, set = 0, binding = 5) uniform image2D outputImage;
 
 layout (push_constant) uniform PushConstants {
-    int width;
-    int height;
     vec2 texelSize;
     vec2 depthBounds;
+    int width;
+    int height;
     float minBlend;
     float maxBlend;
     float velocityWeight;
-    float velocityDepthWeight;
-    float depthDiscontinuityWeight;
-    float depthDiscontinuityThreshold;
+    float depthWeight;
     bool bEnabled;
     int debug;
 } push;
-
-float getVelocityConfidence(vec2 uv, vec2 centralVelocity) {
-    // Moving along Z axis is significant change in velocity but not in NDC velocity. Scale velocity confidence w/ depth
-    float depth = linearizeDepth(texture(depthImage, uv).r, push.depthBounds.x, push.depthBounds.y);
-    float velocityScale = 1.0 + depth * push.velocityDepthWeight;
-
-    float totalDiff = 0.0;
-    float totalWeight = 0.0;
-    for (int x = -1; x <= 1; x++) {
-        for (int y = -1; y <= 1; y++) {
-            if (x == 0 && y == 0) continue;
-
-            vec2 offset = vec2(x, y) * push.texelSize;
-            vec2 neighborVelocity = texture(velocityBuffer, uv + offset).rg;
-            float velocityDiff = length(neighborVelocity - centralVelocity) * velocityScale;
-            float weight = 1.0 / (1.0 + abs(x) + abs(y));
-
-            totalDiff += velocityDiff * weight;
-            totalWeight += weight;
-        }
-    }
-    float avgDiff = totalDiff / totalWeight;
-    return exp(-avgDiff * push.velocityWeight);
-}
 
 vec3 varianceClipping(vec3 oldColor, vec3 newColor, vec2 uv) {
     // https://developer.download.nvidia.com/gameworks/events/GDC2016/msalvi_temporal_supersampling.pdf
@@ -90,50 +64,42 @@ vec3 varianceClipping(vec3 oldColor, vec3 newColor, vec2 uv) {
     return clamp(oldColor, minc, maxc);
 }
 
+float calculateDepthConfidence(vec2 uv, vec2 velocity) {
+    float centerDepth = texture(depthImage, uv).r;
+    float maxDepthDiff = 0.0;
 
-
-float getNeighborhoodDepthDiff(sampler2D depthTex, vec2 uv, float historyDepth) {
-    float maxDiff = 0.0;
     for (int y = -1; y <= 1; y++) {
         for (int x = -1; x <= 1; x++) {
+            if (x == 0 && y == 0) continue; // Skip center pixel
+
             vec2 offset = vec2(x, y) * push.texelSize;
-            float neighborDepth = texture(depthTex, uv + offset).r;
-            float diff = abs(neighborDepth - historyDepth) / min(neighborDepth, historyDepth);
-            maxDiff = max(maxDiff, diff);
+            vec2 sampleUv = uv + offset;
+
+            if (any(lessThan(sampleUv, vec2(0.0))) || any(greaterThan(sampleUv, vec2(1.0)))) {
+                continue;
+            }
+
+            float neighborDepth = texture(depthImage, sampleUv).r;
+
+            // Sample history using velocity-adjusted UV
+            vec2 historyUv = sampleUv - velocity;
+            float historyDepth = texture(depthHistory, historyUv).r;
+
+            float depthDiff = abs(neighborDepth - historyDepth);
+            float nearDepth = max(neighborDepth, historyDepth);
+            float relativeDepthDiff = depthDiff / max(nearDepth, 0.001);
+
+            maxDepthDiff = max(maxDepthDiff, relativeDepthDiff);
         }
     }
-    return maxDiff;
+
+    return exp(-maxDepthDiff * push.depthWeight);
 }
 
-float getDepthConfidence(vec2 uv, vec2 historyUv, float velocityLength) {
-    float currentDepth = linearizeReverseDepthRaw(texture(depthImage, uv).r, push.depthBounds.x, push.depthBounds.y);
-    float historyDepth = linearizeReverseDepthRaw(texture(depthHistory, historyUv).r, push.depthBounds.x, push.depthBounds.y);
-
-    float minDepth = 1.0;
-    float maxDepth = 0;
-
-    for (int x = -1; x <= 1; x++) {
-        for (int y = -1; y <= 1; y++) {
-            vec2 offset = vec2(x, y) * push.texelSize;
-            float neighborDepth = linearizeReverseDepthRaw(texture(depthImage, uv + offset).r, push.depthBounds.x, push.depthBounds.y);
-            minDepth = min(minDepth, neighborDepth);
-            maxDepth = max(maxDepth, neighborDepth);
-        }
-    }
-
-    float depthRange = maxDepth - minDepth;
-    float depthDiff = abs(historyDepth - currentDepth);
-
-
-    float epsilon = currentDepth * 0.0001;
-    float relativeDepthDiff = depthDiff / (depthRange + epsilon);
-    //return exp(-relativeDepthDiff * push.depthDiscontinuityWeight);
-    float maxDiff = getNeighborhoodDepthDiff(depthImage, uv, historyDepth);
-    return exp(-maxDiff * push.depthDiscontinuityWeight * velocityLength * 100);
+float calculateVelocityConfidence(vec2 velocity, float depth) {
+    float velocityLength = length(velocity);
+    return exp(-velocityLength * push.velocityWeight);
 }
-
-
-
 
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
@@ -141,74 +107,68 @@ void main() {
         return;
     }
     vec2 uv = (vec2(pixel) + 0.5) * push.texelSize;
-    vec3 currentColorRGB = texture(drawImage, uv).rgb;
+
     if (!push.bEnabled) {
-        imageStore(outputImage, pixel, vec4(currentColorRGB, 1.0));
+        imageStore(outputImage, pixel, texture(drawImage, uv));
         return;
     }
 
-    vec2 velocity = texture(velocityBuffer, uv).rg;
+    vec2 velocity = texture(velocityBuffer, uv).rg * 0.5f;
     vec2 historyUv = uv - velocity;
-
-    vec3 currentColor = RGBToYCoCg(currentColorRGB);
-    vec3 historyColor = RGBToYCoCg(texture(drawHistory, historyUv).rgb);
-
     bool validHistory = all(greaterThanEqual(historyUv, vec2(0.0))) && all(lessThan(historyUv, vec2(1.0)));
 
-    // defining here for easier debugging
+    vec3 currentColor = texture(drawImage, uv).rgb;
+    vec3 resultRGB;
     float velocityConfidence = 0.0f;
     float depthConfidence = 0.0f;
-    float velocityLengthConfidence = 0.0f;
-    if (validHistory){
-        velocityConfidence = getVelocityConfidence(uv, velocity);
-        depthConfidence = getDepthConfidence(uv, historyUv, length(velocity));
-        //float velocityLength = length(velocity);
-        //float velocityLengthConfidence = 1.0 - smoothstep(0.0, 0.1, velocityLength);
+    float confidence = 1.0;
+    float blend = 1.0;
+
+    if (!validHistory) {
+        resultRGB = currentColor;
+    } else {
+        float currentDepth = texture(depthImage, uv).r;
+        float historyDepth = texture(depthHistory, historyUv).r;
+
+        vec3 historyColor = texture(drawHistory, historyUv).rgb;
+
+        vec3 currentYCoCg = RGBToYCoCg(currentColor);
+        vec3 historyYCoCg = RGBToYCoCg(historyColor);
+        historyYCoCg = varianceClipping(historyYCoCg, currentYCoCg, uv);
+
+        velocityConfidence = calculateVelocityConfidence(velocity, currentDepth);
+        //depthConfidence = calculateDepthConfidence(uv, currentDepth, historyDepth);
+        depthConfidence = calculateDepthConfidence(uv, velocity);
+
+        confidence = min(confidence, velocityConfidence);
+        confidence = min(confidence, depthConfidence);
+
+        blend = mix(push.minBlend, push.maxBlend, smoothstep(0.0, 0.2, confidence));
+
+        vec3 resultYCoCg = mix(currentYCoCg, historyYCoCg, blend);
+        resultRGB = YCoCgToRGB(resultYCoCg);
     }
 
-    //float alpha = min(min(velocityConfidence, depthConfidence), velocityLengthConfidence);
-    float alpha = min(velocityConfidence, depthConfidence);
-    float blend = validHistory ? mix(push.minBlend, push.maxBlend, smoothstep(0.0, 0.2, alpha)) : 0.0;
-
-    if (alpha < push.depthDiscontinuityThreshold){
-        blend = 0.0;
-    }
-    //float blend = validHistory ? 0.1f : 1.0f;
-
-    // Blending
-    historyColor = varianceClipping(historyColor, currentColor, uv);
-    vec3 historyColorRGB = YCoCgToRGB(historyColor);
-    vec3 finalColorRGB = mix(currentColorRGB, historyColorRGB, blend);
-    imageStore(outputImage, pixel, vec4(finalColorRGB, 1.0));
-
-//    float cd = texture(depthImage, uv).r;
-//    float hd = texture(depthHistory, historyUv).r;
-//    float dd = abs(cd - hd) / min(cd, hd);
-//    //float dd = getNeighborhoodDepthDiff(depthImage, uv, hd);
-//    float dc = 1.0 - smoothstep(0.01, 0.5, dd);
-//
-//    float vl = length(velocity);
-//    float vc = 1.0 - smoothstep(0.0, 0.1, vl);
-//
-//    float cce = min(dc, vc);
-//    float fc = max(cce, 0.03);
-//    float alpha = clamp(0.1 + fc * 0.9, 0.1, 0.95);
-//
-//    vec3 hcrgb = YCoCgToRGB(historyColor);
-//    vec3 fcrgb = mix(currentColorRGB, hcrgb, alpha);
-//    imageStore(outputImage, pixel, vec4(fcrgb, 1.0));
 
 
-    if (push.debug == 1) {
-        imageStore(outputImage, pixel, vec4(vec3(blend), 1.0));
+    switch (push.debug) {
+        case 1:
+            imageStore(outputImage, pixel, vec4(vec3(confidence), 1.0));
+            return;
+        case 2:
+            imageStore(outputImage, pixel, vec4(vec3(validHistory ? 1.0f : 0.0f), 1.0));
+            return;
+        case 3:
+            imageStore(outputImage, pixel, vec4(vec3(depthConfidence), 1.0));
+            return;
+        case 4:
+            imageStore(outputImage, pixel, vec4(vec3(velocityConfidence), 1.0));
+            return;
+        case 5:
+            break;
+        default:
+            break;
     }
-    if (push.debug == 2) {
-        imageStore(outputImage, pixel, vec4(vec3(alpha), 1.0));
-    }
-    if (push.debug == 3) {
-        imageStore(outputImage, pixel, vec4(vec3(depthConfidence), 1.0));
-    }
-    if (push.debug == 4) {
-        imageStore(outputImage, pixel, vec4(vec3(velocityConfidence), 1.0));
-    }
+
+    imageStore(outputImage, pixel, vec4(resultRGB, 1.0));
 }

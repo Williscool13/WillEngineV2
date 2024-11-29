@@ -27,8 +27,8 @@ public:
         // Get the sequence point for this frame (wrapping around every 8 frames)
         const glm::vec2 halton = HALTON_SEQUENCE[frameNumber % 8];
 
-        // Convert from [0,1] to [-0.5,0.5] range and scale by pixel size
-        return (halton - 0.5f) / glm::vec2(screenDims);
+        //return glm::vec2((halton.x * 2.0f - 1.0f) / screenDims.x, -1.0f * (halton.y * 2.0f - 1.0f) / screenDims.y);
+        return (halton * 2.0f - 1.0f) / screenDims;
     }
 
     /**
@@ -39,18 +39,10 @@ public:
      */
     static glm::vec2 getJitter(const uint32_t frameIndex, const glm::vec2& screenDims)
     {
-        float x = halton(frameIndex, 2);
-        float y = halton(frameIndex, 3);
+        const float x = halton(frameIndex, 2);
+        const float y = halton(frameIndex, 3);
 
-        // Convert from [0,1] to [-0.5,0.5] pixels
-        x = x - 0.5f;
-        y = y - 0.5f;
-
-        constexpr float jitterScale = 1.0f;
-        x *= jitterScale;
-        y *= jitterScale;
-
-        return {x / screenDims.x, y / screenDims.y};
+        return (glm::vec2(x, y) * 2.0f - 1.0f) / screenDims;
     }
 
 private:

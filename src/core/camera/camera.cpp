@@ -8,10 +8,10 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-Camera::Camera(const float fov, const float aspect, const float farPlane, const float nearPlane, const bool flipY) : flipY(flipY)
+Camera::Camera(const float fov, const float aspect, const float nearPlane, const float farPlane, const bool flipY) : flipY(flipY)
 {
     // depth buffer is reversed in this engine.
-    updateProjMatrix(fov, aspect, farPlane, nearPlane);
+    updateProjMatrix(fov, aspect, nearPlane, farPlane);
     updateViewMatrix();
     updateViewProjMatrix();
 }
@@ -26,15 +26,15 @@ glm::vec3 Camera::getViewDirectionWS() const
     return -glm::vec3(glm::mat4_cast(transform.getRotation())[2]);
 }
 
-void Camera::updateProjMatrix(float fov, float aspect, float farPlane, float nearPlane)
+void Camera::updateProjMatrix(float fov, float aspect, float nearPlane, float farPlane)
 {
     // depth buffer is reversed in this engine.
-    cachedProjMatrix = glm::perspective(glm::radians(fov), aspect, farPlane, nearPlane);
+    cachedProjMatrix = glm::perspective(glm::radians(fov), aspect, nearPlane, farPlane);
     cachedProjMatrix[1][1] *= -1;
     cachedFov = fov;
     cachedAspect = aspect;
-    cachedFar = farPlane;
     cachedNear = nearPlane;
+    cachedFar = farPlane;
     updateViewProjMatrix();
 }
 

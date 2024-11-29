@@ -193,7 +193,7 @@ private: // Rendering
     VkCommandPool immCommandPool{VK_NULL_HANDLE};
 
 private: // Scene
-    FreeCamera camera{};
+    FreeCamera camera{45.0f, 1700.0f / 900.0f, 1000, 0.01};
     Scene scene{};
 
     RenderObject* testRenderObject{nullptr};
@@ -225,15 +225,11 @@ private: // Scene Descriptors
     glm::vec3 spectateCameraLookAt{0.5f, 1.8f, 0.f};
 
     bool bEnableTaa{true};
-    float taaMinBlend{0.75};
-    float taaMaxBlend{0.97f};
-    float taaVelocityWeight{100.0f};
-    float taaVelocityDepthWeight{12.5f};
-    float taaDepthDiscontinuityWeight{1.0f};
-    /**
-     * [0,1], used to decide when to discard history. Causes high aliasing
-     */
-    float taaDepthDiscontinuityThreshold{0.38f};
+    bool bEnableJitter{true};
+    float taaMinBlend{0.1f};
+    float taaMaxBlend{0.9f};
+    float taaVelocityWeight{400.0f};
+    float taaDepthWeight{1.0f};
 
 
     bool bEnablePostProcess{true};

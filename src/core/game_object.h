@@ -74,9 +74,8 @@ public:
 
     /**
      *
-     * @param frameCount the current frame count (either 0 or 1)
      */
-    void recursiveUpdateModelMatrix(int32_t frameCount);
+    void recursiveUpdateModelMatrix();
 
     glm::mat4 getModelMatrix();
 
