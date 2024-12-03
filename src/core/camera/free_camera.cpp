@@ -86,4 +86,12 @@ void FreeCamera::update()
     transform.translate(finalVerticalMove);
 
     updateViewMatrix();
+
+    this->velocity = finalVelocity + finalVerticalMove;
+}
+
+float FreeCamera::getZVelocity() const
+{
+    const auto viewSpaceVelocity = glm::vec3(cachedViewMatrix * glm::vec4(velocity, 0.0f));
+    return -viewSpaceVelocity.z;
 }

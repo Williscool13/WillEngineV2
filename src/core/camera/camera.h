@@ -47,6 +47,8 @@ public:
 
     void updateViewProjMatrix();
 
+    virtual float getZVelocity() const = 0;
+
 public:
     Transform transform;
 
@@ -60,7 +62,7 @@ protected:
 protected:
     virtual void update() {}
 
-    bool flipY;
+    bool flipY{true};
 
     // projection
     float cachedFov{75.0f};
@@ -71,6 +73,8 @@ protected:
     glm::mat4 cachedViewMatrix{};
     glm::mat4 cachedProjMatrix{};
     glm::mat4 cachedViewProjMatrix{};
+
+    glm::vec3 velocity{};
 };
 
 

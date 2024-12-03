@@ -193,7 +193,7 @@ private: // Rendering
     VkCommandPool immCommandPool{VK_NULL_HANDLE};
 
 private: // Scene
-    FreeCamera camera{45.0f, 1700.0f / 900.0f, 1000, 0.01};
+    FreeCamera camera{75.0f, 1700.0f / 900.0f, 1000, 0.01};
     Scene scene{};
 
     RenderObject* testRenderObject{nullptr};
@@ -226,10 +226,15 @@ private: // Scene Descriptors
 
     bool bEnableTaa{true};
     bool bEnableJitter{true};
-    float taaMinBlend{0.1f};
-    float taaMaxBlend{0.9f};
-    float taaVelocityWeight{400.0f};
-    float taaDepthWeight{1.0f};
+    float taaMinBlend{0.03f};
+    float taaMaxBlend{0.95f};
+    float taaVelocityWeight{200.0f};
+
+    // bool bEnableTaa{true};
+    // bool bEnableJitter{true};
+    // float taaMinBlend{0.1f};
+    // float taaMaxBlend{0.9f};
+    // float taaVelocityWeight{400.0f};
 
 
     bool bEnablePostProcess{true};

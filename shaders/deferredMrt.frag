@@ -62,5 +62,6 @@ void main() {
     vec2 currNDC = (inCurrMvpPosition.xy / inCurrMvpPosition.w);
     vec2 prevNDC = (inPrevMvpPosition.xy / inPrevMvpPosition.w);
     vec2 jitterDiff = (sceneData.jitter.xy - sceneData.jitter.zw);
-    velocityTarget = (currNDC - prevNDC) - jitterDiff;
+    velocityTarget = ((currNDC - prevNDC) - jitterDiff) * 0.5f;
+
 }
