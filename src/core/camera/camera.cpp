@@ -30,7 +30,7 @@ void Camera::updateProjMatrix(float fov, float aspect, float nearPlane, float fa
 {
     // depth buffer is reversed in this engine.
     cachedProjMatrix = glm::perspective(glm::radians(fov), aspect, nearPlane, farPlane);
-    cachedProjMatrix[1][1] *= -1;
+    if (flipY) { cachedProjMatrix[1][1] *= -1; }
     cachedFov = fov;
     cachedAspect = aspect;
     cachedNear = nearPlane;
@@ -40,11 +40,10 @@ void Camera::updateProjMatrix(float fov, float aspect, float nearPlane, float fa
 
 void Camera::updateViewMatrix()
 {
-    glm::vec3 position = transform.getTranslation();
-    glm::vec3 forward = getViewDirectionWS();
-    glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+    const glm::vec3 position = transform.getTranslation();
+    const glm::vec3 forward = getViewDirectionWS();
+    constexpr auto up = glm::vec3(0.0f, 1.0f, 0.0f);
     cachedViewMatrix = glm::lookAt(position, position + forward, up);
-    //cachedViewMatrix = glm::inverse(transform.getWorldMatrix());
     updateViewProjMatrix();
 }
 

@@ -20,7 +20,7 @@ layout (push_constant) uniform PushConstants {
     float minBlend;
     float maxBlend;
     float velocityWeight;
-    float depthWeight;
+    float zVelocity;
     bool bEnabled;
     int debug;
 } push;
@@ -64,40 +64,15 @@ vec3 varianceClipping(vec3 oldColor, vec3 newColor, vec2 uv) {
     return clamp(oldColor, minc, maxc);
 }
 
-float calculateDepthConfidence(vec2 uv, vec2 velocity) {
-    float centerDepth = texture(depthImage, uv).r;
-    float maxDepthDiff = 0.0;
-
-    for (int y = -1; y <= 1; y++) {
-        for (int x = -1; x <= 1; x++) {
-            if (x == 0 && y == 0) continue; // Skip center pixel
-
-            vec2 offset = vec2(x, y) * push.texelSize;
-            vec2 sampleUv = uv + offset;
-
-            if (any(lessThan(sampleUv, vec2(0.0))) || any(greaterThan(sampleUv, vec2(1.0)))) {
-                continue;
-            }
-
-            float neighborDepth = texture(depthImage, sampleUv).r;
-
-            // Sample history using velocity-adjusted UV
-            vec2 historyUv = sampleUv - velocity;
-            float historyDepth = texture(depthHistory, historyUv).r;
-
-            float depthDiff = abs(neighborDepth - historyDepth);
-            float nearDepth = max(neighborDepth, historyDepth);
-            float relativeDepthDiff = depthDiff / max(nearDepth, 0.001);
-
-            maxDepthDiff = max(maxDepthDiff, relativeDepthDiff);
-        }
-    }
-
-    return exp(-maxDepthDiff * push.depthWeight);
-}
-
-float calculateVelocityConfidence(vec2 velocity, float depth) {
+float calculateVelocityConfidence(vec2 velocity, vec2 uv) {
     float velocityLength = length(velocity);
+
+    // Disgusting rudimentary heuristic to fix some unbelievably undebuggable distortion/blending at the center area of the screen
+    vec2 centerDist = abs(vec2(0.5) - uv);
+    float distanceFromCenter = exp(-length(centerDist) * 16.0);
+    float zInfluence = abs(push.zVelocity) * distanceFromCenter * 0.25f;
+    velocityLength = max(velocityLength, zInfluence);
+
     return exp(-velocityLength * push.velocityWeight);
 }
 
@@ -113,37 +88,29 @@ void main() {
         return;
     }
 
-    vec2 velocity = texture(velocityBuffer, uv).rg * 0.5f;
+    vec2 velocity = texture(velocityBuffer, uv).rg;
     vec2 historyUv = uv - velocity;
     bool validHistory = all(greaterThanEqual(historyUv, vec2(0.0))) && all(lessThan(historyUv, vec2(1.0)));
 
     vec3 currentColor = texture(drawImage, uv).rgb;
     vec3 resultRGB;
     float velocityConfidence = 0.0f;
-    float depthConfidence = 0.0f;
-    float confidence = 1.0;
-    float blend = 1.0;
+
 
     if (!validHistory) {
         resultRGB = currentColor;
     } else {
         float currentDepth = texture(depthImage, uv).r;
         float historyDepth = texture(depthHistory, historyUv).r;
-
         vec3 historyColor = texture(drawHistory, historyUv).rgb;
 
         vec3 currentYCoCg = RGBToYCoCg(currentColor);
         vec3 historyYCoCg = RGBToYCoCg(historyColor);
         historyYCoCg = varianceClipping(historyYCoCg, currentYCoCg, uv);
 
-        velocityConfidence = calculateVelocityConfidence(velocity, currentDepth);
-        //depthConfidence = calculateDepthConfidence(uv, currentDepth, historyDepth);
-        depthConfidence = calculateDepthConfidence(uv, velocity);
+        velocityConfidence = calculateVelocityConfidence(velocity, uv);
 
-        confidence = min(confidence, velocityConfidence);
-        confidence = min(confidence, depthConfidence);
-
-        blend = mix(push.minBlend, push.maxBlend, smoothstep(0.0, 0.2, confidence));
+        float blend = mix(push.minBlend, push.maxBlend, smoothstep(0.0, 0.2, velocityConfidence));
 
         vec3 resultYCoCg = mix(currentYCoCg, historyYCoCg, blend);
         resultRGB = YCoCgToRGB(resultYCoCg);
@@ -153,19 +120,17 @@ void main() {
 
     switch (push.debug) {
         case 1:
-            imageStore(outputImage, pixel, vec4(vec3(confidence), 1.0));
             return;
         case 2:
             imageStore(outputImage, pixel, vec4(vec3(validHistory ? 1.0f : 0.0f), 1.0));
             return;
         case 3:
-            imageStore(outputImage, pixel, vec4(vec3(depthConfidence), 1.0));
             return;
         case 4:
             imageStore(outputImage, pixel, vec4(vec3(velocityConfidence), 1.0));
             return;
         case 5:
-            break;
+            return;
         default:
             break;
     }

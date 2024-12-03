@@ -162,7 +162,7 @@ struct TaaProperties
      */
     float maxBlend;
     float velocityWeight;
-    float depthWeight;
+    float zVelocity;
     bool bEnabled;
     int32_t taaDebug;
 };

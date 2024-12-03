@@ -164,8 +164,6 @@ void Engine::run()
                     ImGui::InputFloat("Max Blend", &taaMaxBlend);
                     ImGui::SetNextItemWidth(100);
                     ImGui::InputFloat("Velocity Weight", &taaVelocityWeight);
-                    ImGui::SetNextItemWidth(100);
-                    ImGui::InputFloat("Depth Weight", &taaDepthWeight);
                     ImGui::Text("Taa Debug View");
                     ImGui::SetNextItemWidth(100);
                     const char* taaDebugLabels[] = {"None", "Confident", "Luma", "Depth", "Velocity", "Depth Delta"};
@@ -848,7 +846,7 @@ void Engine::drawTaa(VkCommandBuffer cmd) const
     taaProperties.minBlend = taaMinBlend;
     taaProperties.maxBlend = taaMaxBlend;
     taaProperties.velocityWeight = taaVelocityWeight;
-    taaProperties.depthWeight = taaDepthWeight;
+    taaProperties.zVelocity = camera.getZVelocity();
     taaProperties.bEnabled = bEnableTaa;
     taaProperties.taaDebug = taaDebug;
     vkCmdPushConstants(cmd, taaPipelinelayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(TaaProperties), &taaProperties);
