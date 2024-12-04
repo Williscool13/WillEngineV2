@@ -69,7 +69,7 @@ float calculateVelocityConfidence(vec2 velocity, vec2 uv) {
 
     // Disgusting rudimentary heuristic to fix some unbelievably undebuggable distortion/blending at the center area of the screen
     vec2 centerDist = abs(vec2(0.5) - uv);
-    float distanceFromCenter = exp(-length(centerDist) * 16.0);
+    float distanceFromCenter = exp(-length(centerDist) * 8.0);
     float zInfluence = abs(push.zVelocity) * distanceFromCenter * 0.25f;
     velocityLength = max(velocityLength, zInfluence);
 

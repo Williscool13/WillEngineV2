@@ -186,6 +186,7 @@ private: // Rendering
 
     double frameTime{};
     double drawTime{};
+    double renderTime{};
 
     // Immediate Mode
     VkFence immFence{VK_NULL_HANDLE};

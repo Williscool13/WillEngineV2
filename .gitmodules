@@ -28,3 +28,6 @@
 [submodule "extern/half"]
 	path = extern/half
 	url = https://github.com/melowntech/half.git
+[submodule "extern/JoltPhysics"]
+	path = extern/JoltPhysics
+	url = https://github.com/jrouwe/JoltPhysics.git
