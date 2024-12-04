@@ -151,6 +151,7 @@ void Engine::run()
             if (ImGui::Begin("Main")) {
                 ImGui::Text("Frame Time: %.2f ms", frameTime);
                 ImGui::Text("Draw Time: %.2f ms", drawTime);
+                ImGui::Text("Render Time: %.2f ms", renderTime);
                 ImGui::Text("Delta Time: %.2f ms", time.getDeltaTime() * 1000.0f);
 
                 ImGui::Separator();
@@ -168,7 +169,6 @@ void Engine::run()
                     ImGui::SetNextItemWidth(100);
                     const char* taaDebugLabels[] = {"None", "Confident", "Luma", "Depth", "Velocity", "Depth Delta"};
                     ImGui::Combo("TAA Debug View", &taaDebug, taaDebugLabels, IM_ARRAYSIZE(taaDebugLabels));
-
                 }
 
                 ImGui::Checkbox("Enable Post-Process", &bEnablePostProcess);
@@ -500,10 +500,7 @@ void Engine::draw()
 {
     const auto start = std::chrono::system_clock::now();
 
-    camera.update();
-    updateSceneData();
-    updateSceneObjects();
-
+#pragma region Fence / Swapchain
     // GPU -> CPU sync (fence)
     VK_CHECK(vkWaitForFences(device, 1, &getCurrentFrame()._renderFence, true, 1000000000));
     VK_CHECK(vkResetFences(device, 1, &getCurrentFrame()._renderFence));
@@ -516,13 +513,20 @@ void Engine::draw()
         fmt::print("Swapchain out of date or suboptimal, resize requested (At Acquire)\n");
         return;
     }
+#pragma endregion
 
-    // Start Command Buffer Recording
+    camera.update();
+    updateSceneData();
+    updateSceneObjects();
+
+    const auto renderStart = std::chrono::system_clock::now();
+
     const auto cmd = getCurrentFrame()._mainCommandBuffer;
     VK_CHECK(vkResetCommandBuffer(cmd, 0));
-    const VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
+    const VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
+#pragma region Draw
     frustumCull(cmd);
 
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -571,14 +575,18 @@ void Engine::draw()
     vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::copyImageToImage(cmd, postProcessOutputBuffer.image, swapchainImages[swapchainImageIndex], renderExtent, swapchainExtent);
 
-    // draw ImGui into Swapchain Image
+    // draw ImGui onto Swapchain Image
     vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     drawImgui(cmd, swapchainImageViews[swapchainImageIndex]);
 
     vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    // End Command Buffer Recording
     VK_CHECK(vkEndCommandBuffer(cmd));
+#pragma endregion
+
+    const auto renderEnd = std::chrono::system_clock::now();
+    const float elapsedRenderMs = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(renderEnd - renderStart).count()) / 1000.0f;
+    renderTime = renderTime * 0.99 + elapsedRenderMs * 0.01f;
 
     // Submission
     const VkCommandBufferSubmitInfo cmdinfo = vk_helpers::commandBufferSubmitInfo(cmd);
