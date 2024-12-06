@@ -5,7 +5,7 @@
 #include "scene.h"
 
 #include <imgui.h>
-
+#include <ranges>
 #include <utility>
 
 Scene::Scene()

@@ -231,13 +231,6 @@ private: // Scene Descriptors
     float taaMaxBlend{0.95f};
     float taaVelocityWeight{200.0f};
 
-    // bool bEnableTaa{true};
-    // bool bEnableJitter{true};
-    // float taaMinBlend{0.1f};
-    // float taaMaxBlend{0.9f};
-    // float taaVelocityWeight{400.0f};
-
-
     bool bEnablePostProcess{true};
 
 
