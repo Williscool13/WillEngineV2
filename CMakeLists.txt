@@ -7,6 +7,9 @@ add_definitions(-DVK_NO_PROTOTYPES)
 add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE)
 add_definitions(-DGLM_ENABLE_EXPERIMENTAL)
 
+#add_definitions(-DJPH_PROFILE_ENABLED=0)
+#add_definitions(-DJPH_DEBUG_RENDERER=0)
+
 # Vulkan
 find_package(Vulkan REQUIRED)
 
@@ -14,12 +17,19 @@ find_package(Vulkan REQUIRED)
 set(SDL2_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/lib/SDL2.lib")
 set(SDL2MAIN_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/lib/SDL2main.lib")
 
+# Jolt Physics
+set(PHYSICS_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics")
+
 add_subdirectory(extern/glm)
 add_subdirectory(extern/fmt)
 add_subdirectory(extern/volk)
 add_subdirectory(extern/vk-bootstrap)
 add_subdirectory(extern/fastgltf)
 add_subdirectory(extern/fastgltf/deps) # simdjson
+
+include(extern/JoltPhysics/Jolt/Jolt.cmake)
+set(CMAKE_CXX_STANDARD 20) # Jolt sets it to 17
+
 
 set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/imgui)
 set(IMGUI_SOURCES
@@ -43,6 +53,10 @@ set(HALF_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/half)
 set(HALF_SOURCES
         ${HALF_DIR}/half/dummy.cpp
         ${HALF_DIR}/half/half.hpp
+        src/physics/physics.cpp
+        src/physics/physics.h
+        src/physics/physics_filters.cpp
+        src/physics/physics_filters.h
 )
 
 
@@ -102,6 +116,7 @@ target_include_directories(WillEngine PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/deps/simdjson           # simdjson
         ${IMGUI_DIR}                                                        # ImGui
         ${IMGUI_DIR}/backends                                               # ImGui backends
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
 )
 
 
@@ -123,4 +138,5 @@ target_link_libraries(WillEngine PRIVATE
         volk
         vk-bootstrap::vk-bootstrap
         fastgltf
+        Jolt
 )
