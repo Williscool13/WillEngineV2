@@ -319,13 +319,6 @@ private: // Render Targets
      */
     AllocatedImage historyBuffer{};
 
-
-    /**
-     * A copy of the previous frame's depth buffer
-     */
-    AllocatedImage depthHistoryBuffer{};
-
-
     AllocatedImage postProcessOutputBuffer{};
 
 public: // Default Data

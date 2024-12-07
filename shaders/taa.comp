@@ -8,9 +8,8 @@ layout (local_size_x = 16, local_size_y = 16) in;
 layout (set = 0, binding = 0) uniform sampler2D drawImage;
 layout (set = 0, binding = 1) uniform sampler2D drawHistory;
 layout (set = 0, binding = 2) uniform sampler2D depthImage;
-layout (set = 0, binding = 3) uniform sampler2D depthHistory;
-layout (set = 0, binding = 4) uniform sampler2D velocityBuffer;
-layout (rgba16f, set = 0, binding = 5) uniform image2D outputImage;
+layout (set = 0, binding = 3) uniform sampler2D velocityBuffer;
+layout (rgba16f, set = 0, binding = 4) uniform image2D outputImage;
 
 layout (push_constant) uniform PushConstants {
     vec2 texelSize;
@@ -101,7 +100,6 @@ void main() {
         resultRGB = currentColor;
     } else {
         float currentDepth = texture(depthImage, uv).r;
-        float historyDepth = texture(depthHistory, historyUv).r;
         vec3 historyColor = texture(drawHistory, historyUv).rgb;
 
         vec3 currentYCoCg = RGBToYCoCg(currentColor);
