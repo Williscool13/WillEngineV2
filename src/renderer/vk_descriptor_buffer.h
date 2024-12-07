@@ -6,6 +6,7 @@
 #ifndef VKDESCRIPTORBUFFER_H
 #define VKDESCRIPTORBUFFER_H
 
+#include <unordered_set>
 #include <vector>
 
 #include <vk_mem_alloc.h>
@@ -45,6 +46,8 @@ public:
 
     [[nodiscard]] VkDeviceSize getDescriptorBufferSize() const { return descriptorBufferSize; }
 
+    bool isIndexOccupied(const int index) const { return freeIndices.contains(index); }
+
 protected:
     /**
      * The underlying VkBuffer for this descriptor buffer
@@ -63,7 +66,7 @@ protected:
     VkDeviceSize descriptorBufferOffset{};
 
 
-    std::vector<int> freeIndices;
+    std::unordered_set<int> freeIndices;
     /**
      * Must be specified when this descriptor buffer is created.
      * \n Total descriptor buffer size will be offset + size * maxObjectCount
@@ -102,7 +105,7 @@ public:
      * @param uniformBuffers the uniform buffer and their corresponding total sizes to insert to the descriptor buffer
      * @return the index of the allocated descriptor set. Store and use when binding during draw call.
      */
-    int setupData(VkDevice device, std::vector<DescriptorUniformData>& uniformBuffers);
+    int32_t setupData(VkDevice device, std::vector<DescriptorUniformData>& uniformBuffers);
 
     VkBufferUsageFlagBits getBufferUsageFlags() const override;
 };
