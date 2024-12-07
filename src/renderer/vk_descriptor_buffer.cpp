@@ -35,8 +35,8 @@ DescriptorBuffer::DescriptorBuffer(VkInstance instance, VkDevice device, VkPhysi
     // Get Descriptor Buffer offset
     vkGetDescriptorSetLayoutBindingOffsetEXT(device, descriptorSetLayout, 0u, &descriptorBufferOffset);
 
-    freeIndices = std::vector<int>();
-    for (int i = 0; i < maxObjectCount; i++) { freeIndices.push_back(i); }
+    freeIndices = std::unordered_set<int>();
+    for (int i = 0; i < maxObjectCount; i++) { freeIndices.insert(i); }
 
     this->maxObjectCount = maxObjectCount;
 }
@@ -49,7 +49,7 @@ void DescriptorBuffer::destroy(VkDevice device, VmaAllocator allocator)
 
 void DescriptorBuffer::freeDescriptorBuffer(int index)
 {
-    freeIndices.push_back(index);
+    freeIndices.insert(index);
 }
 
 VkDescriptorBufferBindingInfoEXT DescriptorBuffer::getDescriptorBufferBindingInfo() const
@@ -87,7 +87,7 @@ int DescriptorBufferUniform::setupData(VkDevice device, std::vector<DescriptorUn
         throw DescriptorBufferException("Ran out of space in DescriptorBufferUniform");
     }
 
-    const int descriptorBufferIndex = freeIndices[0];
+    const int descriptorBufferIndex = *freeIndices.begin();
     freeIndices.erase(freeIndices.begin());
 
 
@@ -162,7 +162,7 @@ int DescriptorBufferSampler::setupData(VkDevice device, const std::vector<Descri
             throw DescriptorBufferException("No space in DescriptorBufferSampler\n");
         }
 
-        descriptorBufferIndex = freeIndices[0];
+        descriptorBufferIndex = *freeIndices.begin();
         freeIndices.erase(freeIndices.begin());
     } else {
         if (index >= maxObjectCount) {

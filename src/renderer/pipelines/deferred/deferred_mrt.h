@@ -1,0 +1,78 @@
+//
+// Created by William on 2024-12-07.
+//
+
+#ifndef DEFERRED_MRT_H
+#define DEFERRED_MRT_H
+
+#include <vulkan/vulkan_core.h>
+
+#include "src/core/render_object.h"
+#include "src/renderer/vk_descriptor_buffer.h"
+#include "src/renderer/vulkan_context.h"
+
+struct DeferredMrtPipelineCreateInfo {
+    VkDescriptorSetLayout sceneDataLayout;
+    VkDescriptorSetLayout addressesLayout;
+    VkDescriptorSetLayout textureLayout;
+};
+
+struct DeferredMrtDrawInfo {
+    std::vector<RenderObject*> renderObjects;
+    VkImageView normalTarget;
+    VkImageView albedoTarget;
+    VkImageView pbrTarget;
+    VkImageView velocityTarget;
+    VkImageView depthTarget;
+    VkExtent2D renderExtent;
+    DescriptorBufferUniform& sceneData;
+};
+
+struct DeferredMrtPipelineRenderInfo {
+    VkFormat normalFormat;
+    VkFormat albedoFormat;
+    VkFormat pbrFormat;
+    VkFormat velocityFormat;
+    VkFormat depthFormat;
+};
+
+class DeferredMrtPipeline
+{
+public:
+    explicit DeferredMrtPipeline(VulkanContext& context);
+
+    ~DeferredMrtPipeline();
+
+    void init(const DeferredMrtPipelineCreateInfo& createInfo, const DeferredMrtPipelineRenderInfo& renderInfo);
+
+    void draw(VkCommandBuffer cmd, DeferredMrtDrawInfo& drawInfo) const;
+
+private:
+    VulkanContext& context;
+    VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
+    VkPipeline pipeline{VK_NULL_HANDLE};
+
+    /**
+     * Transient (Lifetime is managed outside of this pipeline)
+     */
+    VkDescriptorSetLayout sceneDataLayout{VK_NULL_HANDLE};
+    /**
+     * Transient (Lifetime is managed outside of this pipeline)
+     */
+    VkDescriptorSetLayout addressesLayout{VK_NULL_HANDLE};
+    /**
+     * Transient (Lifetime is managed outside of this pipeline)
+     */
+    VkDescriptorSetLayout textureLayout{VK_NULL_HANDLE};
+
+    DeferredMrtPipelineRenderInfo renderFormats{};
+
+    void createPipelineLayout();
+
+    void createPipeline();
+
+    void cleanup();
+};
+
+
+#endif //DEFERRED_MRT_H

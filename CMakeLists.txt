@@ -30,6 +30,7 @@ add_subdirectory(extern/fastgltf/deps) # simdjson
 include(extern/JoltPhysics/Jolt/Jolt.cmake)
 set(CMAKE_CXX_STANDARD 20) # Jolt sets it to 17
 
+include_directories(${CMAKE_SOURCE_DIR})
 
 set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/imgui)
 set(IMGUI_SOURCES
@@ -57,6 +58,22 @@ set(HALF_SOURCES
         src/physics/physics.h
         src/physics/physics_filters.cpp
         src/physics/physics_filters.h
+        src/renderer/render_system.cpp
+        src/renderer/render_system.h
+        src/renderer/vulkan_context.cpp
+        src/renderer/vulkan_context.h
+        src/renderer/pipelines/deferred/deferred_mrt.cpp
+        src/renderer/pipelines/deferred/deferred_mrt.h
+        src/renderer/pipelines/deferred/deferred_resolve.cpp
+        src/renderer/pipelines/deferred/deferred_resolve.h
+        src/renderer/pipelines/acceleration_algorithms/frustum_cull_pipeline.cpp
+        src/renderer/pipelines/acceleration_algorithms/frustum_cull_pipeline.h
+        src/renderer/pipelines/post_processing/temporal_antialiasing.cpp
+        src/renderer/pipelines/post_processing/temporal_antialiasing.h
+        src/renderer/pipelines/environment_map_pipeline.cpp
+        src/renderer/pipelines/environment_map_pipeline.h
+        src/renderer/pipelines/post_processing/post_process.cpp
+        src/renderer/pipelines/post_processing/post_process.h
 )
 
 
@@ -92,8 +109,8 @@ add_executable(WillEngine main.cpp
         src/renderer/vk_loader.h
         src/renderer/vk_pipelines.cpp
         src/renderer/vk_pipelines.h
-        src/renderer/acceleration-structures/bounding_sphere.cpp
-        src/renderer/acceleration-structures/bounding_sphere.h
+        src/renderer/data_structures/bounding_sphere.cpp
+        src/renderer/data_structures/bounding_sphere.h
         src/util/math_constants.h
         src/util/time_utils.cpp
         src/util/time_utils.h

@@ -845,7 +845,6 @@ void Engine::drawTaa(VkCommandBuffer cmd) const
     taaProperties.width = static_cast<int32_t>(renderExtent.width);
     taaProperties.height = static_cast<int32_t>(renderExtent.height);
     taaProperties.texelSize = {1.0f / static_cast<float>(renderExtent.width), 1.0f / static_cast<float>(renderExtent.height)};
-    taaProperties.depthBounds = {camera.getNearPlane(), camera.getFarPlane()};
     taaProperties.minBlend = taaMinBlend;
     taaProperties.maxBlend = taaMaxBlend;
     taaProperties.velocityWeight = taaVelocityWeight;

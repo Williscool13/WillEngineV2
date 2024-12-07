@@ -150,7 +150,6 @@ struct FrustumCullingBuffers
 struct TaaProperties
 {
     glm::vec2 texelSize;
-    glm::vec2 depthBounds;
     int32_t width;
     int32_t height;
     /**
@@ -172,6 +171,7 @@ struct PostProcessData
     int32_t width;
     int32_t height;
     bool bEnable;
+    int32_t padding;
 };
 
 #endif //VKTYPES_H

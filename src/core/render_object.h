@@ -10,9 +10,9 @@
 #include <vulkan/vulkan_core.h>
 
 #include "game_object.h"
-#include "../renderer/vk_types.h"
-#include "../renderer/vk_descriptor_buffer.h"
-#include "../renderer/acceleration-structures/bounding_sphere.h"
+#include "src/renderer/vk_descriptor_buffer.h"
+#include "src/renderer/vk_types.h"
+#include "src/renderer/data_structures/bounding_sphere.h"
 
 class Engine;
 class RenderObject;
