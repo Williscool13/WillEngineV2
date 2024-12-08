@@ -32,6 +32,6 @@ void RenderObjectDescriptorLayout::cleanup() const
 {
     if (context.getDevice() != VK_NULL_HANDLE) {
         if (addressesLayout) vkDestroyDescriptorSetLayout(context.getDevice(), addressesLayout, nullptr);
-        if (addressesLayout) vkDestroyDescriptorSetLayout(context.getDevice(), addressesLayout, nullptr);
+        if (texturesLayout) vkDestroyDescriptorSetLayout(context.getDevice(), texturesLayout, nullptr);
     }
 }
