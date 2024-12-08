@@ -7,10 +7,11 @@
 
 
 #include <vulkan/vulkan_core.h>
-#include "../../vk_descriptor_buffer.h"
-#include "../../vulkan_context.h"
-#include "../../environment/environment.h"
 
+
+class VulkanContext;
+class DescriptorBufferSampler;
+class DescriptorBufferUniform;
 
 struct EnvironmentPipelineCreateInfo
 {
@@ -25,15 +26,9 @@ struct EnvironmentDrawInfo
     VkExtent2D renderExtent;
     VkImageView colorAttachment;
     VkImageView depthAttachment;
-    DescriptorBufferUniform& sceneData;
-    Environment* environment;
-    int32_t environmentMapIndex;
-};
-
-struct EnvironmentPipelineRenderInfo
-{
-    VkFormat colorFormat;
-    VkFormat depthFormat;
+    const DescriptorBufferUniform& sceneData;
+    const DescriptorBufferSampler& environmentMapData;
+    const VkDeviceSize environmentMapOffset;
 };
 
 class EnvironmentPipeline
@@ -43,7 +38,7 @@ public:
 
     ~EnvironmentPipeline();
 
-    void init(const EnvironmentPipelineCreateInfo& createInfo, const EnvironmentPipelineRenderInfo& renderInfo);
+    void init(const EnvironmentPipelineCreateInfo& createInfo);
 
     void draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& drawInfo) const;
 
@@ -60,7 +55,8 @@ private:
      * Transient (Lifetime is managed outside of this pipeline)
      */
     VkDescriptorSetLayout environmentMapLayout{VK_NULL_HANDLE};
-    EnvironmentPipelineRenderInfo renderFormats{};
+    VkFormat colorFormat{};
+    VkFormat depthFormat{};
 
     void cleanup();
 

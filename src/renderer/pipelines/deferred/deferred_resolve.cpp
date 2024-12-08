@@ -21,11 +21,11 @@ void DeferredResolvePipeline::init(const DeferredResolvePipelineCreateInfo& crea
     emptyLayout = createInfo.emptyLayout;
     environmentMapLayout = createInfo.environmentMapLayout;
 
-    resolveDescriptorBuffer = DescriptorBufferSampler(context.getInstance(), context.getDevice(), context.getPhysicalDevice(), context.getAllocator(), resolveTargetLayout, 1);
-
     createDescriptorLayouts();
     createPipelineLayout();
     createPipeline();
+
+    resolveDescriptorBuffer = DescriptorBufferSampler(context.getInstance(), context.getDevice(), context.getPhysicalDevice(), context.getAllocator(), resolveTargetLayout, 1);
 }
 
 void DeferredResolvePipeline::createDescriptorLayouts()
@@ -38,12 +38,7 @@ void DeferredResolvePipeline::createDescriptorLayouts()
     layoutBuilder.addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
     layoutBuilder.addBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
-    resolveTargetLayout = layoutBuilder.build(
-        context.getDevice(),
-        VK_SHADER_STAGE_COMPUTE_BIT,
-        nullptr,
-        VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
-    );
+    resolveTargetLayout = layoutBuilder.build(context.getDevice(), VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 }
 
 void DeferredResolvePipeline::createPipelineLayout()

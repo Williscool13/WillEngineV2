@@ -35,7 +35,7 @@ public:
 
     ~PostProcessPipeline();
 
-    void init(const PostProcessPipelineCreateInfo& createInfo);
+    void init();
 
     void draw(VkCommandBuffer cmd, const PostProcessDrawInfo& drawInfo) const;
 

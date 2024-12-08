@@ -37,6 +37,12 @@
 #include "src/renderer/vulkan_context.h"
 #include "src/renderer/environment/environment.h"
 
+class DeferredResolvePipeline;
+class DeferredMrtPipeline;
+class RenderObjectDescriptorLayout;
+class TaaPipeline;
+class PostProcessPipeline;
+class EnvironmentPipeline;
 class FrustumCullingPipeline;
 class FrustumCullingDescriptorLayouts;
 class EnvironmentDescriptorLayouts;
@@ -89,20 +95,7 @@ public:
 
     void updateSceneObjects() const;
 
-    void frustumCull(VkCommandBuffer cmd) const;
-
-    void drawEnvironment(VkCommandBuffer cmd) const;
-
-    void drawDeferredMrt(VkCommandBuffer cmd) const;
-
-    void drawDeferredResolve(VkCommandBuffer cmd) const;
-
-    void drawTaa(VkCommandBuffer cmd) const;
-
-    void drawPostProcess(VkCommandBuffer cmd) const;
-
-    void DEBUG_drawSpectate(VkCommandBuffer cmd) const;
-
+    void DEBUG_drawSpectate(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects) const;
 
     void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView) const;
 
@@ -125,18 +118,6 @@ private: // Initialization
     void initDearImgui();
 
     void initDescriptors();
-
-    void initPipelines();
-
-    void initEnvironmentPipeline();
-
-    void initDeferredMrtPipeline();
-
-    void initDeferredResolvePipeline();
-
-    void initTaaPipeline();
-
-    void initPostProcessPipeline();
 
     void initScene();
 
@@ -204,7 +185,7 @@ private: // Scene
     GameObject* testGameObject5{nullptr};
 
 
-    Environment* environment{nullptr};
+    Environment* environmentMap{nullptr};
     int32_t environmentMapindex{7};
 
     int32_t deferredDebug{0};
@@ -214,6 +195,7 @@ private: // Scene Descriptors
     EnvironmentDescriptorLayouts* environmentDescriptorLayouts = nullptr;
     SceneDescriptorLayouts* sceneDescriptorLayouts = nullptr;
     FrustumCullingDescriptorLayouts* frustumCullDescriptorLayouts = nullptr;
+    RenderObjectDescriptorLayout* renderObjectDescriptorLayout = nullptr;
 
     DescriptorBufferUniform sceneDataDescriptorBuffer;
     AllocatedBuffer sceneDataBuffer;
@@ -232,36 +214,23 @@ private: // Scene Descriptors
 
     bool bEnablePostProcess{true};
 
-
 private: // Pipelines
     // Frustum Culling
-    FrustumCullingPipeline* frustumCulling = nullptr;
+    FrustumCullingPipeline* frustumCullingPipeline{nullptr};
+
+    EnvironmentPipeline* environmentPipeline{nullptr};
 
     // deferred MRT
-    VkPipelineLayout deferredMrtPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline deferredMrtPipeline{VK_NULL_HANDLE};
+    DeferredMrtPipeline* deferredMrtPipeline{nullptr};
 
     // deferred resolve
-    DescriptorBufferSampler deferredResolveDescriptorBuffer{};
-    VkDescriptorSetLayout deferredResolveRenderTargetLayout{VK_NULL_HANDLE};
-    VkPipelineLayout deferredResolvePipelineLayout{VK_NULL_HANDLE};
-    VkPipeline deferredResolvePipeline{VK_NULL_HANDLE};
-
-    // Environment
-    VkPipelineLayout environmentPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline environmentPipeline{VK_NULL_HANDLE};
+    DeferredResolvePipeline* deferredResolvePipeline{nullptr};
 
     // TAA
-    DescriptorBufferSampler taaDescriptorBuffer{};
-    VkDescriptorSetLayout taaDescriptorSetLayout{VK_NULL_HANDLE};
-    VkPipelineLayout taaPipelinelayout{VK_NULL_HANDLE};
-    VkPipeline taaPipeline{VK_NULL_HANDLE};
+    TaaPipeline* taaPipeline{nullptr};
 
     // PostProcess
-    DescriptorBufferSampler postProcessDescriptorBuffer{};
-    VkDescriptorSetLayout postProcessDescriptorLayout{VK_NULL_HANDLE};
-    VkPipelineLayout postProcessPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline postProcessPipeline{VK_NULL_HANDLE};
+    PostProcessPipeline* postProcessPipeline{nullptr};
 
 private: // Swapchain
     VkSwapchainKHR swapchain{};
@@ -284,6 +253,10 @@ private: // Render Targets
     //const VkExtent2D renderExtent{3840, 2160};
     const VkFormat drawImageFormat{VK_FORMAT_R16G16B16A16_SFLOAT};
     const VkFormat depthImageFormat{VK_FORMAT_D32_SFLOAT};
+    const VkFormat velocityImageFormat{VK_FORMAT_R16G16_SFLOAT};
+    const VkFormat normalImageFormat{VK_FORMAT_R8G8B8A8_SNORM};
+    const VkFormat albedoImageFormat{VK_FORMAT_R8G8B8A8_UNORM};
+    const VkFormat pbrImageFormat{VK_FORMAT_R8G8B8A8_UNORM};
 
     void createDrawResources(uint32_t width, uint32_t height);
 

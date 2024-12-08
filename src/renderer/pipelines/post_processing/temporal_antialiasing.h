@@ -10,15 +10,6 @@
 #include "src/renderer/vulkan_context.h"
 #include "src/core/camera/camera.h"
 
-struct TaaPipelineCreateInfo
-{
-    VkFormat drawImageFormat;
-    VkFormat historyFormat;
-    VkFormat depthFormat;
-    VkFormat velocityFormat;
-    VkFormat outputFormat;
-};
-
 struct TaaDescriptorBufferInfo
 {
     VkImageView drawImage;
@@ -47,7 +38,7 @@ public:
 
     ~TaaPipeline();
 
-    void init(const TaaPipelineCreateInfo& createInfo);
+    void init();
 
     void draw(VkCommandBuffer cmd, const TaaDrawInfo& drawInfo) const;
 

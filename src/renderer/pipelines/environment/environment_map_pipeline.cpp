@@ -4,9 +4,9 @@
 
 #include "environment_map_pipeline.h"
 
-#include "../../vk_descriptors.h"
-#include "../../vk_helpers.h"
-#include "../../vk_pipelines.h"
+#include "src/renderer/vk_descriptor_buffer.h"
+#include "src/renderer/vk_pipelines.h"
+#include "src/renderer/vulkan_context.h"
 
 EnvironmentPipeline::EnvironmentPipeline(VulkanContext& context)
     : context(context)
@@ -17,11 +17,12 @@ EnvironmentPipeline::~EnvironmentPipeline()
     cleanup();
 }
 
-void EnvironmentPipeline::init(const EnvironmentPipelineCreateInfo& createInfo, const EnvironmentPipelineRenderInfo& renderInfo)
+void EnvironmentPipeline::init(const EnvironmentPipelineCreateInfo& createInfo)
 {
     sceneDataLayout = createInfo.sceneDataLayout;
     environmentMapLayout = createInfo.environmentMapLayout;
-    renderFormats = renderInfo;
+    colorFormat = createInfo.colorFormat;
+    depthFormat = createInfo.depthFormat;
 
     createPipelineLayout();
     createPipeline();
@@ -62,7 +63,7 @@ void EnvironmentPipeline::createPipeline()
     pipelineBuilder.disableMultisampling();
     pipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
     pipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    pipelineBuilder.setupRenderer({renderFormats.colorFormat}, renderFormats.depthFormat);
+    pipelineBuilder.setupRenderer({colorFormat}, depthFormat);
     pipelineBuilder.setupPipelineLayout(pipelineLayout);
 
     pipeline = pipelineBuilder.buildPipeline(context.getDevice(), VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
@@ -105,20 +106,20 @@ void EnvironmentPipeline::draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& d
 
     VkDescriptorBufferBindingInfoEXT bindingInfos[2];
     bindingInfos[0] = drawInfo.sceneData.getDescriptorBufferBindingInfo();
-    bindingInfos[1] = drawInfo.environment->getCubemapDescriptorBuffer().getDescriptorBufferBindingInfo();
+    bindingInfos[1] = drawInfo.environmentMapData.getDescriptorBufferBindingInfo();
     vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos);
 
     constexpr uint32_t sceneDataIndex{0};
     constexpr uint32_t environmentIndex{1};
     constexpr VkDeviceSize zeroOffset{0};
-    const VkDeviceSize environmentMapOffset = drawInfo.environment->getEnvironmentMapOffset(drawInfo.environmentMapIndex);
+    const VkDeviceSize environmentMapOffset = drawInfo.environmentMapOffset;
 
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &sceneDataIndex, &zeroOffset);
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &environmentIndex, &environmentMapOffset);
 
     vkCmdDraw(cmd, 3, 1, 0, 0);
-
     vkCmdEndRendering(cmd);
+
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }
 
