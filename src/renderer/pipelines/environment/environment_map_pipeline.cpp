@@ -4,9 +4,9 @@
 
 #include "environment_map_pipeline.h"
 
-#include "src/renderer/vk_descriptors.h"
-#include "src/renderer/vk_helpers.h"
-#include "src/renderer/vk_pipelines.h"
+#include "../../vk_descriptors.h"
+#include "../../vk_helpers.h"
+#include "../../vk_pipelines.h"
 
 EnvironmentPipeline::EnvironmentPipeline(VulkanContext& context)
     : context(context)

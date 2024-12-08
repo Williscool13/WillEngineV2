@@ -15,9 +15,14 @@
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
 
-#include "render_object.h"
 #include "../util/file_utils.h"
 #include "../util/halton.h"
+#include "src/renderer/environment/environment.h"
+#include "src/renderer/pipelines/acceleration_algorithms/frustum_culling_descriptor_layout.h"
+#include "src/renderer/pipelines/acceleration_algorithms/frustum_culling_pipeline.h"
+#include "src/renderer/render_object/render_object.h"
+#include "src/renderer/pipelines/environment/environment_descriptor_layouts.h"
+#include "src/renderer/scene/scene_descriptor_layouts.h"
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -62,20 +67,68 @@ void Engine::init()
         }
     }
 
-    initVulkan();
-    initSwapchain();
-    initCommands();
-    initSyncStructures();
+    context = new VulkanContext(window, true);
+    // keep old refs for compat during transition
+    device = context->device;
+    instance = context->instance;
+    surface = context->surface;
+    physicalDevice = context->physicalDevice;
+    graphicsQueue = context->graphicsQueue;
+    graphicsQueueFamily = context->graphicsQueueFamily;
+    allocator = context->allocator;
+    debug_messenger = context->debugMessenger;
 
+
+    createSwapchain(windowExtent.width, windowExtent.height);
+    createDrawResources(renderExtent.width, renderExtent.height);
+
+
+    // Command Pools
+    {
+        const VkCommandPoolCreateInfo commandPoolInfo = vk_helpers::commandPoolCreateInfo(graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+
+        for (auto& frame : frames) {
+            VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &frame._commandPool));
+            VkCommandBufferAllocateInfo cmdAllocInfo = vk_helpers::commandBufferAllocateInfo(frame._commandPool);
+            VK_CHECK(vkAllocateCommandBuffers(device, &cmdAllocInfo, &frame._mainCommandBuffer));
+        }
+
+        // Immediate Rendering
+        VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &immCommandPool));
+        const VkCommandBufferAllocateInfo immCmdAllocInfo = vk_helpers::commandBufferAllocateInfo(immCommandPool);
+        VK_CHECK(vkAllocateCommandBuffers(device, &immCmdAllocInfo, &immCommandBuffer));
+    }
+
+    // Sync Structures
+    {
+        const VkFenceCreateInfo fenceCreateInfo = vk_helpers::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
+        const VkSemaphoreCreateInfo semaphoreCreateInfo = vk_helpers::semaphoreCreateInfo();
+
+        for (auto& frame : frames) {
+            VK_CHECK(vkCreateFence(device, &fenceCreateInfo, nullptr, &frame._renderFence));
+
+            VK_CHECK(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &frame._swapchainSemaphore));
+            VK_CHECK(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &frame._renderSemaphore));
+        }
+
+        // Immediate Rendeirng
+        VK_CHECK(vkCreateFence(device, &fenceCreateInfo, nullptr, &immFence));
+    }
 
     initDefaultData();
 
     initDearImgui();
 
+    environmentDescriptorLayouts = new EnvironmentDescriptorLayouts(*context);
+    sceneDescriptorLayouts = new SceneDescriptorLayouts(*context);
+    frustumCullDescriptorLayouts = new FrustumCullingDescriptorLayouts(*context);
+
     initScene();
 
     initDescriptors();
 
+    frustumCulling = new FrustumCullingPipeline(*context);
+    frustumCulling->init({sceneDescriptorLayouts->getSceneDataLayout(), frustumCullDescriptorLayouts->getFrustumCullLayout()});
     initPipelines();
 
 
@@ -627,32 +680,13 @@ void Engine::draw()
 // ReSharper disable once CppParameterMayBeConst
 void Engine::frustumCull(VkCommandBuffer cmd) const
 {
-    VkDebugUtilsLabelEXT label = {};
-    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
-    label.pLabelName = "Frustum Culling";
-    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
-
-    // GPU Frustum Culling
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipeline);
-
-    VkDescriptorBufferBindingInfoEXT frustumCullingBindingInfo[2]{};
-    frustumCullingBindingInfo[0] = sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo();
-    constexpr VkDeviceSize offset{0};
-    constexpr uint32_t sceneDataIndex{0};
-    constexpr uint32_t addressesIndex{1};
-    RenderObject* renderObjects[2]{testRenderObject, cube};
-
-    for (RenderObject* renderObject : renderObjects) {
-        frustumCullingBindingInfo[1] = renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
-        vkCmdBindDescriptorBuffersEXT(cmd, 2, frustumCullingBindingInfo);
-
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipelineLayout, 0, 1, &sceneDataIndex, &offset);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, frustumCullingPipelineLayout, 1, 1, &addressesIndex, &offset);
-
-        vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(renderObject->getDrawIndirectCommandCount()) / 64.0f)), 1, 1);
-    }
-
-    vkCmdEndDebugUtilsLabelEXT(cmd);
+    std::vector<RenderObject*> renderObjects{testRenderObject, cube};
+    const DescriptorBufferUniform& sceneData = sceneDataDescriptorBuffer;
+    FrustumCullDrawInfo drawInfo{
+        .renderObjects = renderObjects,
+        .sceneData = sceneData,
+    };
+    frustumCulling->draw(cmd, drawInfo);
 }
 
 // ReSharper disable once CppParameterMayBeConst
@@ -1068,6 +1102,11 @@ void Engine::cleanup()
 
     vkDeviceWaitIdle(device);
 
+    delete environmentDescriptorLayouts;
+    delete sceneDescriptorLayouts;
+    delete frustumCullDescriptorLayouts;
+
+    delete frustumCulling;
 
     delete environment;
     delete cubeGameObject;
@@ -1132,132 +1171,6 @@ void Engine::cleanup()
     vkDestroyInstance(instance, nullptr);
 
     SDL_DestroyWindow(window);
-}
-
-void Engine::initVulkan()
-{
-    if (VkResult res = volkInitialize(); res != VK_SUCCESS) {
-        throw std::runtime_error("Failed to initialize volk");
-    }
-
-    vkb::InstanceBuilder builder;
-
-
-    std::vector<const char*> enabledInstanceExtensions;
-    enabledInstanceExtensions.push_back("VK_EXT_debug_utils");
-
-    // make the vulkan instance, with basic debug features
-    auto inst_ret = builder.set_app_name("Will's Vulkan Renderer")
-            .request_validation_layers(USE_VALIDATION_LAYERS)
-            .use_default_debug_messenger()
-            .require_api_version(1, 3)
-            .enable_extensions(enabledInstanceExtensions)
-            .build();
-
-    vkb::Instance vkb_inst = inst_ret.value();
-
-    // vulkan instance
-    instance = vkb_inst.instance;
-    volkLoadInstance(instance);
-    debug_messenger = vkb_inst.debug_messenger;
-
-    // sdl vulkan surface
-    SDL_Vulkan_CreateSurface(window, instance, &surface);
-
-
-    // vk 1.3
-    VkPhysicalDeviceVulkan13Features features{};
-    features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-    features.dynamicRendering = true;
-    features.synchronization2 = true;
-    // vk 1.2
-    VkPhysicalDeviceVulkan12Features features12{};
-    features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-    features12.bufferDeviceAddress = true;
-    features12.descriptorIndexing = true;
-    features12.runtimeDescriptorArray = true;
-    features12.shaderSampledImageArrayNonUniformIndexing = true;
-
-    VkPhysicalDeviceFeatures other_features{};
-    other_features.multiDrawIndirect = true;
-    // Descriptor Buffer Extension
-    VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptorBufferFeatures = {};
-    descriptorBufferFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_FEATURES_EXT;
-    descriptorBufferFeatures.descriptorBuffer = VK_TRUE;
-
-    // select gpu
-    vkb::PhysicalDeviceSelector selector{vkb_inst};
-    vkb::PhysicalDevice targetDevice = selector
-            .set_minimum_version(1, 3)
-            .set_required_features_13(features)
-            .set_required_features_12(features12)
-            .set_required_features(other_features)
-            .add_required_extension(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME)
-            .set_surface(surface)
-            .select()
-            .value();
-
-    vkb::DeviceBuilder deviceBuilder{targetDevice};
-    deviceBuilder.add_pNext(&descriptorBufferFeatures);
-    vkb::Device vkbDevice = deviceBuilder.build().value();
-
-    device = vkbDevice.device;
-    volkLoadDevice(device);
-    physicalDevice = targetDevice.physical_device;
-
-    // Graphics Queue
-    graphicsQueue = vkbDevice.get_queue(vkb::QueueType::graphics).value();
-    graphicsQueueFamily = vkbDevice.get_queue_index(vkb::QueueType::graphics).value();
-
-    // VMA
-    VmaAllocatorCreateInfo allocatorInfo = {};
-    allocatorInfo.physicalDevice = physicalDevice;
-    allocatorInfo.device = device;
-    allocatorInfo.instance = instance;
-    allocatorInfo.flags = VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-    VmaVulkanFunctions vulkanFunctions = {};
-    vulkanFunctions.vkGetInstanceProcAddr = vkGetInstanceProcAddr;
-    vulkanFunctions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
-    allocatorInfo.pVulkanFunctions = &vulkanFunctions;
-    vmaCreateAllocator(&allocatorInfo, &allocator);
-}
-
-void Engine::initSwapchain()
-{
-    createSwapchain(windowExtent.width, windowExtent.height);
-    createDrawResources(renderExtent.width, renderExtent.height);
-}
-
-void Engine::initCommands()
-{
-    const VkCommandPoolCreateInfo commandPoolInfo = vk_helpers::commandPoolCreateInfo(graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
-
-    for (auto& frame : frames) {
-        VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &frame._commandPool));
-        VkCommandBufferAllocateInfo cmdAllocInfo = vk_helpers::commandBufferAllocateInfo(frame._commandPool);
-        VK_CHECK(vkAllocateCommandBuffers(device, &cmdAllocInfo, &frame._mainCommandBuffer));
-    }
-
-    // Immediate Rendering
-    VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &immCommandPool));
-    const VkCommandBufferAllocateInfo immCmdAllocInfo = vk_helpers::commandBufferAllocateInfo(immCommandPool);
-    VK_CHECK(vkAllocateCommandBuffers(device, &immCmdAllocInfo, &immCommandBuffer));
-}
-
-void Engine::initSyncStructures()
-{
-    const VkFenceCreateInfo fenceCreateInfo = vk_helpers::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
-    const VkSemaphoreCreateInfo semaphoreCreateInfo = vk_helpers::semaphoreCreateInfo();
-
-    for (auto& frame : frames) {
-        VK_CHECK(vkCreateFence(device, &fenceCreateInfo, nullptr, &frame._renderFence));
-
-        VK_CHECK(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &frame._swapchainSemaphore));
-        VK_CHECK(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &frame._renderSemaphore));
-    }
-
-    // Immediate Rendeirng
-    VK_CHECK(vkCreateFence(device, &fenceCreateInfo, nullptr, &immFence));
 }
 
 void Engine::initDefaultData() const
@@ -1367,31 +1280,21 @@ void Engine::initDearImgui()
 
 void Engine::initDescriptors()
 {
-    //
-    {
-        DescriptorLayoutBuilder layoutBuilder;
-        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        sceneDataDescriptorSetLayout = layoutBuilder.build(
-            device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT
-            , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-    }
-
     sceneDataBuffer = createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-    sceneDataDescriptorBuffer = DescriptorBufferUniform(instance, device, physicalDevice, allocator, sceneDataDescriptorSetLayout, 1);
+    sceneDataDescriptorBuffer = DescriptorBufferUniform(instance, device, physicalDevice, allocator, sceneDescriptorLayouts->getSceneDataLayout(), 1);
     std::vector<DescriptorUniformData> sceneDataBuffers{1};
     sceneDataBuffers[0] = DescriptorUniformData{.uniformBuffer = sceneDataBuffer, .allocSize = sizeof(SceneData)};
     sceneDataDescriptorBuffer.setupData(device, sceneDataBuffers);
 
 
     mainDeletionQueue.pushFunction([&]() {
-        vkDestroyDescriptorSetLayout(device, sceneDataDescriptorSetLayout, nullptr);
         destroyBuffer(sceneDataBuffer);
         sceneDataDescriptorBuffer.destroy(device, allocator);
     });
 
 
     spectateSceneDataBuffer = createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-    spectateSceneDataDescriptorBuffer = DescriptorBufferUniform(instance, device, physicalDevice, allocator, sceneDataDescriptorSetLayout, 1);
+    spectateSceneDataDescriptorBuffer = DescriptorBufferUniform(instance, device, physicalDevice, allocator, sceneDescriptorLayouts->getSceneDataLayout(), 1);
     sceneDataBuffers[0] = DescriptorUniformData{.uniformBuffer = spectateSceneDataBuffer, .allocSize = sizeof(SceneData)};
     spectateSceneDataDescriptorBuffer.setupData(device, sceneDataBuffers);
     mainDeletionQueue.pushFunction([&]() {
@@ -1402,7 +1305,6 @@ void Engine::initDescriptors()
 
 void Engine::initPipelines()
 {
-    initFrustumCullingPipeline();
     initEnvironmentPipeline();
     initDeferredMrtPipeline();
     initDeferredResolvePipeline();
@@ -1410,64 +1312,11 @@ void Engine::initPipelines()
     initPostProcessPipeline();
 }
 
-void Engine::initFrustumCullingPipeline()
-{
-    assert(RenderObject::frustumCullingDescriptorSetLayout != VK_NULL_HANDLE);
-    const VkDescriptorSetLayout layouts[2] =
-    {
-        sceneDataDescriptorSetLayout,
-        RenderObject::frustumCullingDescriptorSetLayout,
-    };
-
-    VkPipelineLayoutCreateInfo frustumCullingPipelineLayoutCreateInfo{};
-    frustumCullingPipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    frustumCullingPipelineLayoutCreateInfo.pNext = nullptr;
-    frustumCullingPipelineLayoutCreateInfo.pSetLayouts = layouts;
-    frustumCullingPipelineLayoutCreateInfo.setLayoutCount = 2;
-    frustumCullingPipelineLayoutCreateInfo.pPushConstantRanges = nullptr;
-    frustumCullingPipelineLayoutCreateInfo.pushConstantRangeCount = 0;
-
-    VK_CHECK(vkCreatePipelineLayout(device, &frustumCullingPipelineLayoutCreateInfo, nullptr, &frustumCullingPipelineLayout));
-
-    VkShaderModule computeShader;
-    if (!vk_helpers::loadShaderModule("shaders/frustumCull.comp.spv", device, &computeShader)) {
-        fmt::print("Error when building the compute shader (frustumCull.comp.spv)\n");
-        abort();
-    }
-
-    VkPipelineShaderStageCreateInfo stageinfo{};
-    stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    stageinfo.pNext = nullptr;
-    stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageinfo.module = computeShader;
-    stageinfo.pName = "main"; // entry point in shader
-
-    VkComputePipelineCreateInfo frustumCullingPipelineCreateInfo{};
-    frustumCullingPipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    frustumCullingPipelineCreateInfo.pNext = nullptr;
-    frustumCullingPipelineCreateInfo.layout = frustumCullingPipelineLayout;
-    frustumCullingPipelineCreateInfo.stage = stageinfo;
-    frustumCullingPipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
-
-    VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &frustumCullingPipelineCreateInfo, nullptr, &frustumCullingPipeline));
-
-    vkDestroyShaderModule(device, computeShader, nullptr);
-
-    mainDeletionQueue.pushFunction([&]() {
-        vkDestroyPipelineLayout(device, frustumCullingPipelineLayout, nullptr);
-        vkDestroyPipeline(device, frustumCullingPipeline, nullptr);
-    });
-}
-
 void Engine::initEnvironmentPipeline()
 {
-    assert(Environment::layoutsCreated);
-
-    const VkDescriptorSetLayout layouts[2] =
-    {
-        sceneDataDescriptorSetLayout,
-        Environment::cubemapDescriptorSetLayout,
-    };
+    VkDescriptorSetLayout layouts[2];
+    layouts[0] = sceneDescriptorLayouts->getSceneDataLayout();
+    layouts[1] = environmentDescriptorLayouts->getCubemapSamplerLayout();
 
     VkPipelineLayoutCreateInfo layout_info = vk_helpers::pipelineLayoutCreateInfo();
     layout_info.setLayoutCount = 2;
@@ -1513,7 +1362,7 @@ void Engine::initDeferredMrtPipeline()
     assert(RenderObject::textureDescriptorSetLayout != VK_NULL_HANDLE);
 
     VkDescriptorSetLayout descriptorLayout[3];
-    descriptorLayout[0] = sceneDataDescriptorSetLayout;
+    descriptorLayout[0] = sceneDescriptorLayouts->getSceneDataLayout();
     descriptorLayout[1] = RenderObject::addressesDescriptorSetLayout;
     descriptorLayout[2] = RenderObject::textureDescriptorSetLayout;
 
@@ -1642,10 +1491,10 @@ void Engine::initDeferredResolvePipeline()
     pushConstants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
     VkDescriptorSetLayout setLayouts[4];
-    setLayouts[0] = sceneDataDescriptorSetLayout;
+    setLayouts[0] = sceneDescriptorLayouts->getSceneDataLayout();
     setLayouts[1] = deferredResolveRenderTargetLayout;
     setLayouts[2] = emptyDescriptorSetLayout; // todo: lights
-    setLayouts[3] = Environment::environmentMapDescriptorSetLayout;
+    setLayouts[3] = environmentDescriptorLayouts->getEnvironmentMapLayout();
 
     VkPipelineLayoutCreateInfo deferredResolvePipelineLayoutCreateInfo{};
     deferredResolvePipelineLayoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -1861,7 +1710,7 @@ void Engine::initPostProcessPipeline()
 void Engine::initScene()
 {
     // There is limit of 10!
-    environment = new Environment(this);
+    environment = new Environment(this, *context, *environmentDescriptorLayouts);
     const std::filesystem::path envMapSource = "assets/environments";
     environment->loadEnvironment("Meadow", (envMapSource / "meadow_4k.hdr").string().c_str(), 0);
     //environment->loadCubemap((envMapSource / "wasteland_clouds_4k.hdr").string().c_str(), 1);
@@ -1876,8 +1725,8 @@ void Engine::initScene()
     //testRenderObject = new RenderObject{this, "assets/models/structure_mat.glb"};
     //testRenderObject = new RenderObject{this, "assets/models/structure.glb"};
     //testRenderObject = new RenderObject{this, "assets/models/Suzanne/glTF/Suzanne.gltf"};
-    testRenderObject = new RenderObject{this, "assets/models/sponza2/Sponza.gltf"};
-    cube = new RenderObject{this, "assets/models/cube.gltf"};
+    testRenderObject = new RenderObject{this, "assets/models/sponza2/Sponza.gltf", frustumCullDescriptorLayouts->getFrustumCullLayout()};
+    cube = new RenderObject{this, "assets/models/cube.gltf", frustumCullDescriptorLayouts->getFrustumCullLayout()};
 
     cubeGameObject = cube->generateGameObject();
     cubeGameObject2 = cube->generateGameObject();

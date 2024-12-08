@@ -7,9 +7,9 @@
 
 #include <vulkan/vulkan_core.h>
 
-#include "src/core/environment.h"
 #include "src/renderer/vk_descriptor_buffer.h"
 #include "src/renderer/vulkan_context.h"
+#include "src/renderer/environment/environment.h"
 
 struct DeferredResolvePipelineCreateInfo
 {

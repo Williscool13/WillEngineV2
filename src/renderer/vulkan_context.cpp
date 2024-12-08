@@ -29,7 +29,7 @@ VulkanContext::VulkanContext(SDL_Window* window, bool useValidationLayers)
     vkb::Instance vkb_inst = inst_ret.value();
     instance = vkb_inst.instance;
     volkLoadInstance(instance);
-    debug_messenger = vkb_inst.debug_messenger;
+    debugMessenger = vkb_inst.debug_messenger;
 
     SDL_Vulkan_CreateSurface(window, instance, &surface);
 
@@ -100,8 +100,8 @@ VulkanContext::~VulkanContext()
     if (device) {
         vkDestroyDevice(device, nullptr);
     }
-    if (debug_messenger) {
-        vkDestroyDebugUtilsMessengerEXT(instance, debug_messenger, nullptr);
+    if (debugMessenger) {
+        vkDestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
     }
     if (instance) {
         vkDestroyInstance(instance, nullptr);
