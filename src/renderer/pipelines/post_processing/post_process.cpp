@@ -16,7 +16,7 @@ PostProcessPipeline::~PostProcessPipeline()
     cleanup();
 }
 
-void PostProcessPipeline::init(const PostProcessPipelineCreateInfo& createInfo)
+void PostProcessPipeline::init()
 {
     createDescriptorLayout();
     createPipelineLayout();
@@ -28,8 +28,8 @@ void PostProcessPipeline::init(const PostProcessPipelineCreateInfo& createInfo)
 void PostProcessPipeline::createDescriptorLayout()
 {
     DescriptorLayoutBuilder layoutBuilder;
-    layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+    layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // taa resolve image
+    layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // post process result
 
     descriptorSetLayout = layoutBuilder.build(context.getDevice(), VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 }

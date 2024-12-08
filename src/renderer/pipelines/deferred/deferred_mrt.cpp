@@ -145,8 +145,8 @@ void DeferredMrtPipeline::draw(VkCommandBuffer cmd, DeferredMrtDrawInfo& drawInf
     VkViewport viewport = {};
     viewport.x = 0;
     viewport.y = 0;
-    viewport.width = static_cast<float>(drawInfo.renderExtent.width);
-    viewport.height = static_cast<float>(drawInfo.renderExtent.height);
+    viewport.width = drawInfo.viewportRenderExtent[0];
+    viewport.height = drawInfo.viewportRenderExtent[1];
     viewport.minDepth = 0.f;
     viewport.maxDepth = 1.f;
     vkCmdSetViewport(cmd, 0, 1, &viewport);

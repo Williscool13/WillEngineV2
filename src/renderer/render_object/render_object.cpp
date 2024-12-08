@@ -12,48 +12,15 @@
 #include "glm/detail/type_quat.hpp"
 #include "glm/gtx/matrix_decompose.hpp"
 #include "src/core/engine.h"
-#include "src/renderer/vk_descriptors.h"
 #include "src/util/file_utils.h"
+#include "src/renderer/render_object/render_object_constants.h"
 
-/**
- * Material and Instance Buffer Addresses
- */
-VkDescriptorSetLayout RenderObject::addressesDescriptorSetLayout{VK_NULL_HANDLE};
-/**
- * Sampler and Image Arrays
- */
-VkDescriptorSetLayout RenderObject::textureDescriptorSetLayout{VK_NULL_HANDLE};
-int RenderObject::renderObjectCount{0};
 
-RenderObject::RenderObject(Engine* engine, const std::string_view gltfFilepath, VkDescriptorSetLayout frustumCullLayout)
+RenderObject::RenderObject(Engine* engine, const std::string_view gltfFilepath, const RenderObjectLayouts& descriptorLayouts)
 {
     creator = engine;
 
-    if (renderObjectCount == 0) {
-        // Descriptor Layouts
-        {
-            {
-                // Render binding 0
-                DescriptorLayoutBuilder layoutBuilder;
-                layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-                addressesDescriptorSetLayout = layoutBuilder.build(creator->getDevice(),
-                                                                   VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
-                                                                   , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-            } {
-                // Render binding 1
-                DescriptorLayoutBuilder layoutBuilder;
-                layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_SAMPLER, MAX_SAMPLER_COUNT);
-                layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, MAX_IMAGES_COUNT);
-
-                textureDescriptorSetLayout = layoutBuilder.build(creator->getDevice(), VK_SHADER_STAGE_FRAGMENT_BIT
-                                                                 , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-            }
-        }
-    }
-
-    renderObjectCount++;
-
-    parseModel(engine, gltfFilepath);
+    parseModel(engine, gltfFilepath, descriptorLayouts.texturesLayout);
 
     const VkDeviceAddress materialBufferAddress = engine->getBufferAddress(materialBuffer);
     bufferAddresses = engine->createBuffer(sizeof(VkDeviceAddress) * 2
@@ -61,7 +28,7 @@ RenderObject::RenderObject(Engine* engine, const std::string_view gltfFilepath, 
                                            VMA_MEMORY_USAGE_CPU_TO_GPU);
     memcpy(bufferAddresses.info.pMappedData, &materialBufferAddress, sizeof(VkDeviceAddress));
     addressesDescriptorBuffer = DescriptorBufferUniform(engine->getInstance(), engine->getDevice()
-                                                        , engine->getPhysicalDevice(), engine->getAllocator(), addressesDescriptorSetLayout, 1);
+                                                        , engine->getPhysicalDevice(), engine->getAllocator(), descriptorLayouts.addressesLayout, 1);
 
     DescriptorUniformData addressesUniformData;
     addressesUniformData.allocSize = sizeof(VkDeviceAddress) * 2;
@@ -79,7 +46,7 @@ RenderObject::RenderObject(Engine* engine, const std::string_view gltfFilepath, 
     creator->destroyBuffer(meshBoundsStaging);
 
     frustumCullingDescriptorBuffer = DescriptorBufferUniform(engine->getInstance(), engine->getDevice(), engine->getPhysicalDevice(),
-                                                             engine->getAllocator(), frustumCullLayout, 1);
+                                                             engine->getAllocator(), descriptorLayouts.frustumCullLayout, 1);
     frustumBufferAddresses = creator->createBuffer(sizeof(FrustumCullingBuffers),
                                                    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                                                    VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
@@ -93,12 +60,6 @@ RenderObject::RenderObject(Engine* engine, const std::string_view gltfFilepath, 
 
 RenderObject::~RenderObject()
 {
-    renderObjectCount--;
-    if (renderObjectCount == 0) {
-        vkDestroyDescriptorSetLayout(creator->getDevice(), addressesDescriptorSetLayout, nullptr);
-        vkDestroyDescriptorSetLayout(creator->getDevice(), textureDescriptorSetLayout, nullptr);
-    }
-
     creator->destroyBuffer(indexBuffer);
     creator->destroyBuffer(vertexBuffer);
     creator->destroyBuffer(drawIndirectBuffer);
@@ -136,7 +97,7 @@ RenderObject::~RenderObject()
     }
 }
 
-void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
+void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath, VkDescriptorSetLayout texturesLayout)
 {
     fastgltf::Parser parser{};
 
@@ -181,7 +142,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
         }
     }
     assert(samplers.size() == gltf.samplers.size() + samplerOffset);
-    assert(samplers.size() <= MAX_SAMPLER_COUNT);
+    assert(samplers.size() <= render_object_constants::MAX_SAMPLER_COUNT);
 
     constexpr uint32_t imageOffset = 1; // default texture at 0
     assert(Engine::whiteImage.image != VK_NULL_HANDLE);
@@ -198,7 +159,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
         }
     }
     assert(images.size() == gltf.images.size() + imageOffset);
-    assert(images.size() <= MAX_IMAGES_COUNT);
+    assert(images.size() <= render_object_constants::MAX_IMAGES_COUNT);
 
     // Binding Images/Samplers
     {
@@ -210,7 +171,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
                 textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, samplerInfo, false});
             }
 
-            size_t remaining = MAX_SAMPLER_COUNT - samplers.size();
+            size_t remaining = render_object_constants::MAX_SAMPLER_COUNT - samplers.size();
             VkDescriptorImageInfo samplerInfo{};
             for (int i = 0; i < remaining; i++) {
                 textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, samplerInfo, true});
@@ -226,7 +187,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath)
 
         // init descriptor buffer
         textureDescriptorBuffer = DescriptorBufferSampler(engine->getInstance(), engine->getDevice(), engine->getPhysicalDevice(),
-                                                          engine->getAllocator(), textureDescriptorSetLayout, 1);
+                                                          engine->getAllocator(), texturesLayout, 1);
         textureDescriptorBuffer.setupData(engine->getDevice(), textureDescriptors);
     }
 

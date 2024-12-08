@@ -16,13 +16,6 @@ struct DeferredResolvePipelineCreateInfo
     VkDescriptorSetLayout sceneDataLayout;
     VkDescriptorSetLayout environmentMapLayout;
     VkDescriptorSetLayout emptyLayout;
-
-    VkFormat normalFormat;
-    VkFormat albedoFormat;
-    VkFormat pbrFormat;
-    VkFormat depthFormat;
-    VkFormat velocityFormat;
-    VkFormat outputFormat;
 };
 
 struct DeferredResolveDescriptorBufferInfo
@@ -39,11 +32,13 @@ struct DeferredResolveDescriptorBufferInfo
 
 struct DeferredResolveDrawInfo
 {
-    VkExtent2D renderExtent;
-    int32_t debugMode;
-    DescriptorBufferUniform& sceneData;
-    Environment* environment;
-    int32_t environmentMapIndex;
+    VkExtent2D renderExtent{};
+    int32_t debugMode{};
+    const DescriptorBufferUniform& sceneData;
+    Environment* environment{nullptr};
+    int32_t environmentMapIndex{};
+
+    explicit DeferredResolveDrawInfo(const DescriptorBufferUniform& sceneData) : sceneData(sceneData) {}
 };
 
 class DeferredResolvePipeline
@@ -56,6 +51,8 @@ public:
     void init(const DeferredResolvePipelineCreateInfo& createInfo);
 
     void draw(VkCommandBuffer cmd, const DeferredResolveDrawInfo& drawInfo) const;
+
+    void setupDescriptorBuffer(const DeferredResolveDescriptorBufferInfo& drawInfo);
 
 private:
     VulkanContext& context;
@@ -88,8 +85,6 @@ private:
     void createPipelineLayout();
 
     void createPipeline();
-
-    void setupDescriptorBuffer(const DeferredResolveDescriptorBufferInfo& drawInfo);
 };
 
 

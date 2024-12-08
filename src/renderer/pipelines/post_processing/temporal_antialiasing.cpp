@@ -15,7 +15,7 @@ TaaPipeline::~TaaPipeline()
     cleanup();
 }
 
-void TaaPipeline::init(const TaaPipelineCreateInfo& createInfo)
+void TaaPipeline::init()
 {
     createDescriptorLayout();
     createPipelineLayout();

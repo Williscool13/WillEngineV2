@@ -11,24 +11,30 @@
 #include "src/renderer/vulkan_context.h"
 #include "src/renderer/render_object/render_object.h"
 
-struct DeferredMrtPipelineCreateInfo {
+struct DeferredMrtPipelineCreateInfo
+{
     VkDescriptorSetLayout sceneDataLayout;
     VkDescriptorSetLayout addressesLayout;
     VkDescriptorSetLayout textureLayout;
 };
 
-struct DeferredMrtDrawInfo {
-    std::vector<RenderObject*> renderObjects;
-    VkImageView normalTarget;
-    VkImageView albedoTarget;
-    VkImageView pbrTarget;
-    VkImageView velocityTarget;
-    VkImageView depthTarget;
-    VkExtent2D renderExtent;
-    DescriptorBufferUniform& sceneData;
+struct DeferredMrtDrawInfo
+{
+    std::vector<RenderObject*> renderObjects{};
+    VkImageView normalTarget{VK_NULL_HANDLE};
+    VkImageView albedoTarget{VK_NULL_HANDLE};
+    VkImageView pbrTarget{VK_NULL_HANDLE};
+    VkImageView velocityTarget{VK_NULL_HANDLE};
+    VkImageView depthTarget{VK_NULL_HANDLE};
+    VkExtent2D renderExtent{};
+    glm::vec2 viewportRenderExtent{};
+    const DescriptorBufferUniform& sceneData;
+
+    explicit DeferredMrtDrawInfo(const DescriptorBufferUniform& sceneData) : sceneData(sceneData) {}
 };
 
-struct DeferredMrtPipelineRenderInfo {
+struct DeferredMrtPipelineRenderInfo
+{
     VkFormat normalFormat;
     VkFormat albedoFormat;
     VkFormat pbrFormat;

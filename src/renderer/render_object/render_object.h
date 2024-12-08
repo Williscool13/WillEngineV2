@@ -32,6 +32,13 @@ struct RenderObjectReference
     int32_t instanceIndex;
 };
 
+struct RenderObjectLayouts
+{
+    VkDescriptorSetLayout frustumCullLayout;
+    VkDescriptorSetLayout addressesLayout;
+    VkDescriptorSetLayout texturesLayout;
+};
+
 /**
  * Lifetime: Program
  * Exists after initialized at program start.
@@ -42,12 +49,12 @@ class RenderObject
 public:
     RenderObject() = default;
 
-    RenderObject(Engine* engine, std::string_view gltfFilepath, VkDescriptorSetLayout frustumCullLayout);
+    RenderObject(Engine* engine, std::string_view gltfFilepath, const RenderObjectLayouts& descriptorLayouts);
 
     ~RenderObject();
 
 private:
-    void parseModel(Engine* engine, std::string_view gltfFilepath);
+    void parseModel(Engine* engine, std::string_view gltfFilepath, VkDescriptorSetLayout texturesLayout);
 
 private:
     std::vector<VkSampler> samplers;
@@ -132,14 +139,6 @@ private: // Drawing
 
 private:
     Engine* creator{nullptr};
-
-    static int renderObjectCount;
-    static constexpr size_t MAX_SAMPLER_COUNT{8};
-    static constexpr size_t MAX_IMAGES_COUNT{80};
-
-public:
-    static VkDescriptorSetLayout addressesDescriptorSetLayout;
-    static VkDescriptorSetLayout textureDescriptorSetLayout;
 };
 
 
