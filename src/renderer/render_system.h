@@ -8,7 +8,8 @@
 #include <vector>
 
 #include "vulkan_context.h"
-#include "../core/render_object.h"
+#include "render_object/render_object.h"
+
 
 class RenderSystem {
 

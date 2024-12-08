@@ -9,11 +9,12 @@
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
-#include "game_object.h"
 #include "src/renderer/vk_descriptor_buffer.h"
 #include "src/renderer/vk_types.h"
 #include "src/renderer/data_structures/bounding_sphere.h"
+#include "src/util/transform.h"
 
+class GameObject;
 class Engine;
 class RenderObject;
 
@@ -41,7 +42,7 @@ class RenderObject
 public:
     RenderObject() = default;
 
-    RenderObject(Engine* engine, std::string_view gltfFilepath);
+    RenderObject(Engine* engine, std::string_view gltfFilepath, VkDescriptorSetLayout frustumCullLayout);
 
     ~RenderObject();
 
@@ -139,7 +140,6 @@ private:
 public:
     static VkDescriptorSetLayout addressesDescriptorSetLayout;
     static VkDescriptorSetLayout textureDescriptorSetLayout;
-    static VkDescriptorSetLayout frustumCullingDescriptorSetLayout;
 };
 
 

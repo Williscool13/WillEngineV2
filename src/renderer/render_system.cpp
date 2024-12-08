@@ -3,6 +3,7 @@
 //
 
 #include "render_system.h"
+
 RenderSystem::RenderSystem(VulkanContext& context) : vulkanContext(context)
 {
 

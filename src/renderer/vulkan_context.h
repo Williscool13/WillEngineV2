@@ -13,6 +13,10 @@ class VulkanContext
 {
 public:
     VulkanContext(SDL_Window* window, bool useValidationLayers);
+    /**
+     * For Testing Only
+     */
+    VulkanContext() = default;
     ~VulkanContext();
 
     [[nodiscard]] VkInstance getInstance() const { return instance; }
@@ -23,7 +27,10 @@ public:
     [[nodiscard]] uint32_t getGraphicsQueueFamily() const { return graphicsQueueFamily; }
     [[nodiscard]] VkSurfaceKHR getSurface() const { return surface; }
 
-private:
+//private:
+    // public only for testing
+public:
+
     VkInstance instance{};
     VkSurfaceKHR surface{};
     VkPhysicalDevice physicalDevice{};
@@ -31,7 +38,7 @@ private:
     VkQueue graphicsQueue{};
     uint32_t graphicsQueueFamily{};
     VmaAllocator allocator{};
-    VkDebugUtilsMessengerEXT debug_messenger{};
+    VkDebugUtilsMessengerEXT debugMessenger{};
 };
 
 #endif //VULKAN_CONTEXT_H

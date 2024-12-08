@@ -4,8 +4,9 @@
 
 #include "game_object.h"
 
-#include "render_object.h"
 #include "glm/gtc/quaternion.hpp"
+#include "src/renderer/vk_types.h"
+#include "src/renderer/render_object/render_object.h"
 
 int GameObject::nextId = 0;
 

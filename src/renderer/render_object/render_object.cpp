@@ -3,16 +3,17 @@
 
 #include "render_object.h"
 
-#include "../renderer/vk_descriptors.h"
-#include "engine.h"
+
 
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
 
-#include "../util/file_utils.h"
 #include "glm/detail/type_quat.hpp"
 #include "glm/gtx/matrix_decompose.hpp"
+#include "src/core/engine.h"
+#include "src/renderer/vk_descriptors.h"
+#include "src/util/file_utils.h"
 
 /**
  * Material and Instance Buffer Addresses
@@ -22,13 +23,9 @@ VkDescriptorSetLayout RenderObject::addressesDescriptorSetLayout{VK_NULL_HANDLE}
  * Sampler and Image Arrays
  */
 VkDescriptorSetLayout RenderObject::textureDescriptorSetLayout{VK_NULL_HANDLE};
-/**
- * Frustum Culling Data Buffer Addresses
- */
-VkDescriptorSetLayout RenderObject::frustumCullingDescriptorSetLayout{VK_NULL_HANDLE};
 int RenderObject::renderObjectCount{0};
 
-RenderObject::RenderObject(Engine* engine, const std::string_view gltfFilepath)
+RenderObject::RenderObject(Engine* engine, const std::string_view gltfFilepath, VkDescriptorSetLayout frustumCullLayout)
 {
     creator = engine;
 
@@ -50,11 +47,6 @@ RenderObject::RenderObject(Engine* engine, const std::string_view gltfFilepath)
 
                 textureDescriptorSetLayout = layoutBuilder.build(creator->getDevice(), VK_SHADER_STAGE_FRAGMENT_BIT
                                                                  , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-            } {
-                DescriptorLayoutBuilder layoutBuilder;
-                layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-                frustumCullingDescriptorSetLayout = layoutBuilder.build(creator->getDevice(), VK_SHADER_STAGE_COMPUTE_BIT
-                                                                        , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
             }
         }
     }
@@ -87,7 +79,7 @@ RenderObject::RenderObject(Engine* engine, const std::string_view gltfFilepath)
     creator->destroyBuffer(meshBoundsStaging);
 
     frustumCullingDescriptorBuffer = DescriptorBufferUniform(engine->getInstance(), engine->getDevice(), engine->getPhysicalDevice(),
-                                                             engine->getAllocator(), frustumCullingDescriptorSetLayout, 1);
+                                                             engine->getAllocator(), frustumCullLayout, 1);
     frustumBufferAddresses = creator->createBuffer(sizeof(FrustumCullingBuffers),
                                                    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                                                    VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
@@ -105,7 +97,6 @@ RenderObject::~RenderObject()
     if (renderObjectCount == 0) {
         vkDestroyDescriptorSetLayout(creator->getDevice(), addressesDescriptorSetLayout, nullptr);
         vkDestroyDescriptorSetLayout(creator->getDevice(), textureDescriptorSetLayout, nullptr);
-        vkDestroyDescriptorSetLayout(creator->getDevice(), frustumCullingDescriptorSetLayout, nullptr);
     }
 
     creator->destroyBuffer(indexBuffer);

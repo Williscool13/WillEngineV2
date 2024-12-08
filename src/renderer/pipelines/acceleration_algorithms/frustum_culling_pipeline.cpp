@@ -2,18 +2,18 @@
 // Created by William on 2024-12-07.
 //
 
-#include "frustum_cull_pipeline.h"
+#include "frustum_culling_pipeline.h"
 
-FrustumCullPipeline::FrustumCullPipeline(VulkanContext& context)
+FrustumCullingPipeline::FrustumCullingPipeline(VulkanContext& context)
     : context(context)
 {}
 
-FrustumCullPipeline::~FrustumCullPipeline()
+FrustumCullingPipeline::~FrustumCullingPipeline()
 {
     cleanup();
 }
 
-void FrustumCullPipeline::init(const FrustumCullPipelineCreateInfo& createInfo)
+void FrustumCullingPipeline::init(const FrustumCullPipelineCreateInfo& createInfo)
 {
     sceneDataLayout = createInfo.sceneDataLayout;
     frustumCullLayout = createInfo.frustumCullLayout;
@@ -22,7 +22,7 @@ void FrustumCullPipeline::init(const FrustumCullPipelineCreateInfo& createInfo)
     createPipeline();
 }
 
-void FrustumCullPipeline::createPipelineLayout()
+void FrustumCullingPipeline::createPipelineLayout()
 {
     VkDescriptorSetLayout layouts[2];
     layouts[0] = sceneDataLayout;
@@ -32,11 +32,13 @@ void FrustumCullPipeline::createPipelineLayout()
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layoutInfo.setLayoutCount = 2;
     layoutInfo.pSetLayouts = layouts;
+    layoutInfo.pPushConstantRanges = nullptr;
+    layoutInfo.pushConstantRangeCount = 0;
 
     VK_CHECK(vkCreatePipelineLayout(context.getDevice(), &layoutInfo, nullptr, &pipelineLayout));
 }
 
-void FrustumCullPipeline::createPipeline()
+void FrustumCullingPipeline::createPipeline()
 {
     VkShaderModule computeShader;
     if (!vk_helpers::loadShaderModule("shaders/frustumCull.comp.spv", context.getDevice(), &computeShader)) {
@@ -62,7 +64,7 @@ void FrustumCullPipeline::createPipeline()
     vkDestroyShaderModule(context.getDevice(), computeShader, nullptr);
 }
 
-void FrustumCullPipeline::draw(VkCommandBuffer cmd, const FrustumCullDrawInfo& drawInfo) const
+void FrustumCullingPipeline::draw(VkCommandBuffer cmd, const FrustumCullDrawInfo& drawInfo) const
 {
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
@@ -90,7 +92,7 @@ void FrustumCullPipeline::draw(VkCommandBuffer cmd, const FrustumCullDrawInfo& d
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }
 
-void FrustumCullPipeline::cleanup()
+void FrustumCullingPipeline::cleanup()
 {
     if (pipeline) {
         vkDestroyPipeline(context.getDevice(), pipeline, nullptr);

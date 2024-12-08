@@ -5,13 +5,14 @@
 #ifndef ENVIRONMENT_H
 #define ENVIRONMENT_H
 #include <string>
-#include <unordered_set>
 #include <vulkan/vulkan_core.h>
 
-#include "../renderer/vk_descriptor_buffer.h"
+#include "src/renderer/vk_descriptor_buffer.h"
+#include "src/renderer/vk_types.h"
 
+class VulkanContext;
+class EnvironmentDescriptorLayouts;
 class Engine;
-
 
 struct EquiToCubePushConstantData
 {
@@ -48,26 +49,18 @@ struct EnvironmentMapData
 class Environment
 {
 public:
+    static constexpr float DIFFUFE_SAMPLE_DELTA{0.025f};
+    static constexpr int SPECULAR_SAMPLE_COUNT{2048};
+    // 1024 == .4k HDR file
+    static constexpr uint32_t CUBEMAP_RESOLUTION{1024};
+    static constexpr bool FLIP_Y{false};
     static constexpr int MAX_ENVIRONMENT_MAPS{10};
-    static constexpr int specularPrefilteredMipLevels{6};
-    static constexpr int diffuseIrradianceMipLevel{5};
-    static const VkExtent3D specularPrefilteredBaseExtents;
-    static const VkExtent3D lutImageExtent;
-    static bool layoutsCreated;
-    static int useCount;
-    static VkDescriptorSetLayout equiImageDescriptorSetLayout;
-    static VkDescriptorSetLayout cubemapStorageDescriptorSetLayout;
-    /**
-     * Final cubemap, for environment rendering
-     */
-    static VkDescriptorSetLayout cubemapDescriptorSetLayout;
-    static VkDescriptorSetLayout lutDescriptorSetLayout;
-    /**
-     * Final PBR data, used for pbr calculations (diff/spec and LUT)
-     */
-    static VkDescriptorSetLayout environmentMapDescriptorSetLayout;
+    static constexpr int SPECULAR_PREFILTERED_MIP_LEVELS{6};
+    static constexpr int DIFFUSE_IRRADIANCE_MIP_LEVEL{5};
+    static const VkExtent3D SPECULAR_PREFILTERED_BASE_EXTENTS;
+    static const VkExtent3D LUT_IMAGE_EXTENT;
 
-    explicit Environment(Engine* creator);
+    explicit Environment(Engine* creator, VulkanContext& context, EnvironmentDescriptorLayouts& environmentDescriptorLayouts);
 
     ~Environment();
 
@@ -97,41 +90,33 @@ public:
     }
 
 private:
-    std::unordered_map<int32_t, const char*> activeEnvironmentMapNames{};
-
-private:
     Engine* creator{};
-
-    bool flipY{false};
-
-    float diffuse_sample_delta{0.025f};
-    int specular_sample_count{2048};
-    // 1024 == .4k HDR file
-    uint32_t cubemapResolution{1024};
+    VulkanContext& context;
+    EnvironmentDescriptorLayouts& descriptorLayouts;
 
     DescriptorBufferSampler equiImageDescriptorBuffer;
-    // the 2 below are identical, but one is for storage and one is for sampled
     DescriptorBufferSampler cubemapStorageDescriptorBuffer;
     DescriptorBufferSampler cubemapDescriptorBuffer;
-
-    static DescriptorBufferSampler lutDescriptorBuffer;
+    DescriptorBufferSampler lutDescriptorBuffer;
     DescriptorBufferSampler diffSpecMapDescriptorBuffer;
 
     // Pipelines
-    static VkPipelineLayout equiToCubemapPipelineLayout;
-    static VkPipeline equiToCubemapPipeline;
+    VkPipelineLayout equiToCubemapPipelineLayout{VK_NULL_HANDLE};
+    VkPipeline equiToCubemapPipeline{VK_NULL_HANDLE};
 
-    static VkPipelineLayout cubemapToDiffusePipelineLayout;
-    static VkPipeline cubemapToDiffusePipeline;
-    static VkPipelineLayout cubemapToSpecularPipelineLayout;
-    static VkPipeline cubemapToSpecularPipeline;
+    VkPipelineLayout cubemapToDiffusePipelineLayout{VK_NULL_HANDLE};
+    VkPipeline cubemapToDiffusePipeline{VK_NULL_HANDLE};
+    VkPipelineLayout cubemapToSpecularPipelineLayout{VK_NULL_HANDLE};
+    VkPipeline cubemapToSpecularPipeline{VK_NULL_HANDLE};
 
     // Hardcoded LUT generation
-    static VkPipelineLayout lutPipelineLayout;
-    static VkPipeline lutPipeline;
-
+    VkPipelineLayout lutPipelineLayout{VK_NULL_HANDLE};
+    VkPipeline lutPipeline{VK_NULL_HANDLE};
+    AllocatedImage lutImage; // same for all environment maps
     VkSampler sampler{};
 
+
+    std::unordered_map<int32_t, const char*> activeEnvironmentMapNames{};
     EnvironmentMapData environmentMaps[10]{
         {"", VK_NULL_HANDLE, VK_NULL_HANDLE},
         {"", VK_NULL_HANDLE, VK_NULL_HANDLE},
@@ -145,16 +130,11 @@ private:
         {"", VK_NULL_HANDLE, VK_NULL_HANDLE},
     };
 
-    static AllocatedImage lutImage; // same for all environment maps
-
-
     void equiToCubemapImmediate(const AllocatedImage& cubemapImage, int cubemapStorageDescriptorIndex) const;
 
-    void cubemapToDiffuseSpecularImmediate(AllocatedCubemap& cubemapMips, int cubemapSampleDescriptorIndex);
+    void cubemapToDiffuseSpecularImmediate(const AllocatedCubemap& cubemapMips, int cubemapSampleDescriptorIndex) const;
 
-    static void generateLutImmediate(Engine* engine);
-
-    static void initializeStatics(Engine* engine);
+    void generateLutImmediate(const Engine* engine) const;
 };
 
 

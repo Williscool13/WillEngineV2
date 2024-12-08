@@ -34,9 +34,13 @@
 #include "../renderer/vk_helpers.h"
 #include "../util/render_utils.h"
 #include "camera/free_camera.h"
-#include "environment.h"
-#include "render_object.h"
+#include "src/renderer/vulkan_context.h"
+#include "src/renderer/environment/environment.h"
 
+class FrustumCullingPipeline;
+class FrustumCullingDescriptorLayouts;
+class EnvironmentDescriptorLayouts;
+class SceneDescriptorLayouts;
 constexpr unsigned int FRAME_OVERLAP = 2;
 constexpr char ENGINE_NAME[] = "Will Engine";
 
@@ -109,14 +113,6 @@ public:
     void cleanup();
 
 private: // Initialization
-    void initVulkan();
-
-    void initSwapchain();
-
-    void initCommands();
-
-    void initSyncStructures();
-
     /**
     * Initialization of default textures and samplers for all models to use.
     * Used in cases where models don't have an albedo texture, they will fallback to he white texture (sometimes only vertex colors are assigned)
@@ -131,8 +127,6 @@ private: // Initialization
     void initDescriptors();
 
     void initPipelines();
-
-    void initFrustumCullingPipeline();
 
     void initEnvironmentPipeline();
 
@@ -155,6 +149,8 @@ private: // Vulkan Boilerplate
      */
     VkExtent2D windowExtent{1700, 900};
     SDL_Window* window{nullptr};
+
+    VulkanContext* context = nullptr;
 
     VkInstance instance{};
     VkSurfaceKHR surface{};
@@ -194,7 +190,7 @@ private: // Rendering
     VkCommandPool immCommandPool{VK_NULL_HANDLE};
 
 private: // Scene
-    FreeCamera camera{75.0f, 1700.0f / 900.0f, 1000, 0.01};
+    FreeCamera camera{75.0f, 1920.0f / 1080.0f, 1000, 0.01};
     Scene scene{};
 
     RenderObject* testRenderObject{nullptr};
@@ -207,6 +203,7 @@ private: // Scene
     GameObject* testGameObject4{nullptr};
     GameObject* testGameObject5{nullptr};
 
+
     Environment* environment{nullptr};
     int32_t environmentMapindex{7};
 
@@ -214,7 +211,9 @@ private: // Scene
     int32_t taaDebug{0};
 
 private: // Scene Descriptors
-    VkDescriptorSetLayout sceneDataDescriptorSetLayout{VK_NULL_HANDLE};
+    EnvironmentDescriptorLayouts* environmentDescriptorLayouts = nullptr;
+    SceneDescriptorLayouts* sceneDescriptorLayouts = nullptr;
+    FrustumCullingDescriptorLayouts* frustumCullDescriptorLayouts = nullptr;
 
     DescriptorBufferUniform sceneDataDescriptorBuffer;
     AllocatedBuffer sceneDataBuffer;
@@ -236,8 +235,7 @@ private: // Scene Descriptors
 
 private: // Pipelines
     // Frustum Culling
-    VkPipelineLayout frustumCullingPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline frustumCullingPipeline{VK_NULL_HANDLE};
+    FrustumCullingPipeline* frustumCulling = nullptr;
 
     // deferred MRT
     VkPipelineLayout deferredMrtPipelineLayout{VK_NULL_HANDLE};

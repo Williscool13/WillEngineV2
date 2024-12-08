@@ -54,26 +54,10 @@ set(HALF_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/half)
 set(HALF_SOURCES
         ${HALF_DIR}/half/dummy.cpp
         ${HALF_DIR}/half/half.hpp
-        src/physics/physics.cpp
-        src/physics/physics.h
-        src/physics/physics_filters.cpp
-        src/physics/physics_filters.h
-        src/renderer/render_system.cpp
-        src/renderer/render_system.h
-        src/renderer/vulkan_context.cpp
-        src/renderer/vulkan_context.h
-        src/renderer/pipelines/deferred/deferred_mrt.cpp
-        src/renderer/pipelines/deferred/deferred_mrt.h
-        src/renderer/pipelines/deferred/deferred_resolve.cpp
-        src/renderer/pipelines/deferred/deferred_resolve.h
-        src/renderer/pipelines/acceleration_algorithms/frustum_cull_pipeline.cpp
-        src/renderer/pipelines/acceleration_algorithms/frustum_cull_pipeline.h
-        src/renderer/pipelines/post_processing/temporal_antialiasing.cpp
-        src/renderer/pipelines/post_processing/temporal_antialiasing.h
-        src/renderer/pipelines/environment_map_pipeline.cpp
-        src/renderer/pipelines/environment_map_pipeline.h
-        src/renderer/pipelines/post_processing/post_process.cpp
-        src/renderer/pipelines/post_processing/post_process.h
+        src/renderer/scene/scene_descriptor_layouts.cpp
+        src/renderer/scene/scene_descriptor_layouts.h
+        src/renderer/pipelines/acceleration_algorithms/frustum_culling_descriptor_layout.cpp
+        src/renderer/pipelines/acceleration_algorithms/frustum_culling_descriptor_layout.h
 )
 
 
@@ -83,10 +67,8 @@ add_executable(WillEngine main.cpp
         ${HALF_SOURCES}
         src/core/Engine.cpp
         src/core/Engine.h
-        src/core/render_object.cpp
-        src/core/render_object.h
-        src/core/environment.cpp
-        src/core/environment.h
+        src/renderer/render_object/render_object.cpp
+        src/renderer/render_object/render_object.h
         src/core/scene.cpp
         src/core/scene.h
         src/core/input.cpp
@@ -97,6 +79,30 @@ add_executable(WillEngine main.cpp
         src/core/camera/free_camera.h
         src/core/camera/camera.cpp
         src/core/camera/camera.h
+        src/physics/physics.cpp
+        src/physics/physics.h
+        src/physics/physics_filters.cpp
+        src/physics/physics_filters.h
+        src/renderer/render_system.cpp
+        src/renderer/render_system.h
+        src/renderer/vulkan_context.cpp
+        src/renderer/vulkan_context.h
+        src/renderer/environment/environment.cpp
+        src/renderer/environment/environment.h
+        src/renderer/pipelines/deferred/deferred_mrt.cpp
+        src/renderer/pipelines/deferred/deferred_mrt.h
+        src/renderer/pipelines/deferred/deferred_resolve.cpp
+        src/renderer/pipelines/deferred/deferred_resolve.h
+        src/renderer/pipelines/acceleration_algorithms/frustum_culling_pipeline.cpp
+        src/renderer/pipelines/acceleration_algorithms/frustum_culling_pipeline.h
+        src/renderer/pipelines/post_processing/temporal_antialiasing.cpp
+        src/renderer/pipelines/post_processing/temporal_antialiasing.h
+        src/renderer/pipelines/environment/environment_map_pipeline.cpp
+        src/renderer/pipelines/environment/environment_map_pipeline.h
+        src/renderer/pipelines/post_processing/post_process.cpp
+        src/renderer/pipelines/post_processing/post_process.h
+        src/renderer/pipelines/environment/environment_descriptor_layouts.cpp
+        src/renderer/pipelines/environment/environment_descriptor_layouts.h
         src/renderer/vk_helpers.cpp
         src/renderer/vk_helpers.h
         src/renderer/vk_types.cpp

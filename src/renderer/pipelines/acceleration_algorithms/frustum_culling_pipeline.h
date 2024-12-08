@@ -8,8 +8,9 @@
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
-#include "src/core/render_object.h"
+
 #include "src/renderer/vulkan_context.h"
+#include "src/renderer/render_object/render_object.h"
 
 struct FrustumCullPipelineCreateInfo
 {
@@ -20,15 +21,15 @@ struct FrustumCullPipelineCreateInfo
 struct FrustumCullDrawInfo
 {
     std::vector<RenderObject*> renderObjects;
-    DescriptorBufferUniform& sceneData;
+    const DescriptorBufferUniform& sceneData;
 };
 
-class FrustumCullPipeline
+class FrustumCullingPipeline
 {
 public:
-    explicit FrustumCullPipeline(VulkanContext& context);
+    explicit FrustumCullingPipeline(VulkanContext& context);
 
-    ~FrustumCullPipeline();
+    ~FrustumCullingPipeline();
 
     void init(const FrustumCullPipelineCreateInfo& createInfo);
 
