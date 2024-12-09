@@ -23,7 +23,7 @@ struct RenderNode
     Transform transform;
     std::vector<RenderNode> children;
     RenderNode* parent;
-    int meshIndex{-1};
+    int32_t meshIndex{-1};
 };
 
 struct RenderObjectReference
@@ -66,24 +66,36 @@ private:
     std::vector<int32_t> topNodes;
 
     std::vector<DrawIndirectData> drawIndirectData;
-    uint32_t instanceBufferSize{0};
 
     /**
-     * The number of mesh instances in the whole model
+     * The number of instances in the instance buffer
      */
-    uint32_t instanceCount{0};
+    uint32_t instanceBufferSize{0};
 
     /**
      * The number of mesh instances that have been instantiated
      */
-    uint32_t activeInstanceCount{0};
+    uint32_t currentInstanceCount{0};
 
 public:
-   GameObject* generateGameObject();
+    /**
+    * Generates a single game object with every single mesh in this render object, grouped under a single GameObject
+    * \n Hierarchy matches the hierarchy of the gltf object
+    * @return
+    */
+    GameObject* generateGameObject();
+
+    /**
+     * Generates a gameobject of the specified mesh
+     * @param meshIndex
+     * @param startingTransform
+     * @return
+     */
+    GameObject* generateGameObject(int32_t meshIndex, const Transform& startingTransform = {});
 
     [[nodiscard]] InstanceData* getInstanceData(int32_t index) const;
 
-    [[nodiscard]] bool canDraw() const { return instanceBufferSize > 0; }
+    [[nodiscard]] bool canDraw() const { return instanceBufferSize > 0 && currentInstanceCount > 0; }
 
     const DescriptorBufferUniform& getAddressesDescriptorBuffer() { return addressesDescriptorBuffer; }
     const DescriptorBufferSampler& getTextureDescriptorBuffer() { return textureDescriptorBuffer; }

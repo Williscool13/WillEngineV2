@@ -4,7 +4,6 @@
 #include "render_object.h"
 
 
-
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
@@ -266,6 +265,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath, VkD
     for (fastgltf::Mesh& mesh : gltf.meshes) {
         meshes.emplace_back();
         Mesh& currentMesh = meshes.back();
+        currentMesh.name = mesh.name;
         boundingSpheres.reserve(boundingSpheres.size() + mesh.primitives.size());
         for (fastgltf::Primitive& p : mesh.primitives) {
             currentMesh.primitives.emplace_back();
@@ -420,8 +420,13 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath, VkD
         if (renderNodes[i].parent == nullptr) {
             topNodes.push_back(i);
         }
+    }
 
-        if (renderNodes[i].meshIndex != -1) {
+
+    // Only used for Logging
+    uint32_t instanceCount{0};
+    for (const RenderNode& renderNode : renderNodes) {
+        if (renderNode.meshIndex != -1) {
             instanceCount++;
         }
     }
@@ -436,6 +441,14 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath, VkD
 
 GameObject* RenderObject::generateGameObject()
 {
+    // get number of meshes in the entire model
+    uint32_t instanceCount{0};
+    for (const RenderNode& renderNode : renderNodes) {
+        if (renderNode.meshIndex != -1) {
+            instanceCount++;
+        }
+    }
+
     expandInstanceBuffer(instanceCount);
 
     auto* superRoot = new GameObject();
@@ -450,11 +463,52 @@ GameObject* RenderObject::generateGameObject()
     return superRoot;
 }
 
+GameObject* RenderObject::generateGameObject(const int32_t meshIndex, const Transform& startingTransform)
+{
+    if (meshIndex >= meshes.size()) {
+        return nullptr;
+    }
+
+    expandInstanceBuffer(1);
+
+    auto* gameObject = new GameObject();
+
+    // InstanceIndex is used to know which model matrix to use form the model matrix array
+    // All primitives in a mesh use the same model matrix
+    const size_t instanceIndex = currentInstanceCount;
+
+    const std::vector<Primitive>& meshPrimitives = meshes[meshIndex].primitives;
+    drawIndirectData.reserve(drawIndirectData.size() + meshPrimitives.size());
+
+    for (const Primitive primitive : meshPrimitives) {
+        drawIndirectData.emplace_back();
+        DrawIndirectData& indirectData = drawIndirectData.back();
+        indirectData.indirectCommand.firstIndex = primitive.firstIndex;
+        indirectData.indirectCommand.indexCount = primitive.indexCount;
+        indirectData.indirectCommand.vertexOffset = primitive.vertexOffset;
+        indirectData.indirectCommand.instanceCount = 1;
+        indirectData.indirectCommand.firstInstance = instanceIndex;
+        indirectData.boundingSphereIndex = primitive.boundingSphereIndex;
+    }
+
+    gameObject->setRenderObjectReference(this, static_cast<int32_t>(instanceIndex));
+    currentInstanceCount++;
+
+
+    gameObject->transform.setTransform(startingTransform);
+    gameObject->dirty();
+
+    // todo: maybe make user manually call this? gpu operations should be batched
+    uploadIndirectBuffer();
+    updateComputeCullingBuffer();
+    return gameObject;
+}
+
 InstanceData* RenderObject::getInstanceData(const int32_t index) const
 {
     if (modelMatrixBuffer.buffer == VK_NULL_HANDLE) { return nullptr; }
 
-    if (index < 0 || index >= activeInstanceCount) {
+    if (index < 0 || index >= currentInstanceCount) {
         assert(false && "Instance index out of bounds");
         return nullptr;
     }
@@ -473,7 +527,7 @@ void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, Gam
     if (renderNode.meshIndex != -1) {
         // InstanceIndex is used to know which model matrix to use form the model matrix array
         // All primitives in a mesh use the same model matrix
-        const size_t instanceIndex = activeInstanceCount;
+        const size_t instanceIndex = currentInstanceCount;
 
         const std::vector<Primitive>& meshPrimitives = meshes[renderNode.meshIndex].primitives;
         drawIndirectData.reserve(drawIndirectData.size() + meshPrimitives.size());
@@ -490,7 +544,7 @@ void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, Gam
         }
 
         gameObject->setRenderObjectReference(this, static_cast<int32_t>(instanceIndex));
-        activeInstanceCount++;
+        currentInstanceCount++;
     }
 
     gameObject->transform.setTransform(renderNode.transform);
