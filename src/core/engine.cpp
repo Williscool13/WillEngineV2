@@ -591,11 +591,7 @@ void Engine::updateSceneObjects() const
 
     cubeGameObject->recursiveUpdateModelMatrix();
     cubeGameObject2->recursiveUpdateModelMatrix();
-    testGameObject1->recursiveUpdateModelMatrix();
-    testGameObject2->recursiveUpdateModelMatrix();
-    testGameObject3->recursiveUpdateModelMatrix();
-    testGameObject4->recursiveUpdateModelMatrix();
-    testGameObject5->recursiveUpdateModelMatrix();
+    sponzaObject->recursiveUpdateModelMatrix();
     primitiveObject->recursiveUpdateModelMatrix();
 }
 
@@ -629,7 +625,7 @@ void Engine::draw()
     const VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
-    const std::vector renderObjects{testRenderObject, cube, primitives};
+    const std::vector renderObjects{sponza, cube, primitives};
     frustumCullingPipeline->draw(cmd, {renderObjects, sceneDataDescriptorBuffer});
 
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -749,6 +745,11 @@ void Engine::draw()
 
 void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects) const
 {
+    VkDebugUtilsLabelEXT label = {};
+    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+    label.pLabelName = "Debug Draw Spectate Pass";
+    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
+
     // layout transition #1
     {
         vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -837,14 +838,10 @@ void Engine::cleanup()
     delete environmentMap;
     delete cubeGameObject;
     delete cubeGameObject2;
-    delete testGameObject1;
-    delete testGameObject2;
-    delete testGameObject3;
-    delete testGameObject4;
-    delete testGameObject5;
+    delete sponzaObject;
     delete primitiveObject;
 
-    delete testRenderObject;
+    delete sponza;
     delete cube;
     delete primitives;
     // destroy all other resources
@@ -1060,24 +1057,16 @@ void Engine::initScene()
     renderObjectLayouts.frustumCullLayout = frustumCullDescriptorLayouts->getFrustumCullLayout();
     renderObjectLayouts.addressesLayout = renderObjectDescriptorLayout->getAddressesLayout();
     renderObjectLayouts.texturesLayout = renderObjectDescriptorLayout->getTexturesLayout();
-    testRenderObject = new RenderObject{this, "assets/models/sponza2/Sponza.gltf", renderObjectLayouts};
+    sponza = new RenderObject{this, "assets/models/sponza2/Sponza.gltf", renderObjectLayouts};
     cube = new RenderObject{this, "assets/models/cube.gltf", renderObjectLayouts};
     primitives = new RenderObject{this, "assets/models/primitives/primitives.gltf", renderObjectLayouts};
 
     cubeGameObject = cube->generateGameObject();
     cubeGameObject2 = cube->generateGameObject();
-    testGameObject1 = testRenderObject->generateGameObject();
-    testGameObject2 = testRenderObject->generateGameObject();
-    testGameObject3 = testRenderObject->generateGameObject();
-    testGameObject4 = testRenderObject->generateGameObject();
-    testGameObject5 = testRenderObject->generateGameObject();
+    sponzaObject = sponza->generateGameObject();
     primitiveObject = primitives->generateGameObject(0);
-    //primitiveObject = primitives->generateGameObject();
-    scene.addGameObject(testGameObject1);
-    scene.addGameObject(testGameObject2);
-    scene.addGameObject(testGameObject3);
-    scene.addGameObject(testGameObject4);
-    scene.addGameObject(testGameObject5);
+
+    scene.addGameObject(sponzaObject);
 
     scene.addGameObject(cubeGameObject);
     scene.addGameObject(cubeGameObject2);
@@ -1087,24 +1076,8 @@ void Engine::initScene()
     primitiveObject->transform.translate({0.f, 3.0f, 0.f});
     primitiveObject->dirty();
 
-    testGameObject1->transform.setScale(1.f);
-    testGameObject1->dirty();
-
-    testGameObject2->transform.setScale(1.0f);
-    testGameObject2->transform.translate(glm::vec3(100.0f, 0.0f, 0.0f));
-    testGameObject2->dirty();
-
-    testGameObject3->transform.setScale(1.0f);
-    testGameObject3->transform.translate(glm::vec3(-100.0f, 0.0f, 0.0f));
-    testGameObject3->dirty();
-
-    testGameObject4->transform.setScale(1.0f);
-    testGameObject4->transform.translate(glm::vec3(0.0f, -100.0f, 0.0f));
-    testGameObject4->dirty();
-
-    testGameObject5->transform.setScale(1.0f);
-    testGameObject5->transform.translate(glm::vec3(0.0f, 100.0f, 0.0f));
-    testGameObject5->dirty();
+    sponzaObject->transform.setScale(1.f);
+    sponzaObject->dirty();
 
     cubeGameObject->transform.setScale(0.05f);
     cubeGameObject->dirty();

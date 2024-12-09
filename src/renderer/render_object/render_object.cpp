@@ -3,28 +3,28 @@
 
 #include "render_object.h"
 
-
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
 
 #include "glm/detail/type_quat.hpp"
 #include "glm/gtx/matrix_decompose.hpp"
-#include "src/core/engine.h"
-#include "src/util/file_utils.h"
-#include "src/renderer/render_object/render_object_constants.h"
 
+#include "src/core/engine.h"
+#include "src/renderer/render_object/render_object_constants.h"
+#include "src/renderer/data_structures/bounding_sphere.h"
+#include "src/util/file_utils.h"
 
 RenderObject::RenderObject(Engine* engine, const std::string_view gltfFilepath, const RenderObjectLayouts& descriptorLayouts)
 {
     creator = engine;
 
-    parseModel(engine, gltfFilepath, descriptorLayouts.texturesLayout);
+    std::vector<BoundingSphere> boundingSpheres{};
+
+    parseModel(engine, gltfFilepath, descriptorLayouts.texturesLayout, boundingSpheres);
 
     const VkDeviceAddress materialBufferAddress = engine->getBufferAddress(materialBuffer);
-    bufferAddresses = engine->createBuffer(sizeof(VkDeviceAddress) * 2
-                                           , VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                           VMA_MEMORY_USAGE_CPU_TO_GPU);
+    bufferAddresses = engine->createBuffer(sizeof(VkDeviceAddress) * 2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
     memcpy(bufferAddresses.info.pMappedData, &materialBufferAddress, sizeof(VkDeviceAddress));
     addressesDescriptorBuffer = DescriptorBufferUniform(engine->getInstance(), engine->getDevice()
                                                         , engine->getPhysicalDevice(), engine->getAllocator(), descriptorLayouts.addressesLayout, 1);
@@ -96,7 +96,7 @@ RenderObject::~RenderObject()
     }
 }
 
-void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath, VkDescriptorSetLayout texturesLayout)
+void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath, VkDescriptorSetLayout texturesLayout, std::vector<BoundingSphere>& boundingSpheres)
 {
     fastgltf::Parser parser{};
 
@@ -105,8 +105,6 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath, VkD
                                  | fastgltf::Options::LoadExternalBuffers
                                  | fastgltf::Options::LoadExternalImages;
 
-    fastgltf::GltfDataBuffer data;
-    data.FromPath(gltfFilepath);
     fastgltf::Asset gltf;
 
     auto gltfFile = fastgltf::MappedGltfFile::FromPath(gltfFilepath);
@@ -510,8 +508,8 @@ InstanceData* RenderObject::getInstanceData(const int32_t index) const
 
     if (index < 0 || index >= currentInstanceCount) {
         assert(false && "Instance index out of bounds");
-        return nullptr;
     }
+
     const auto basePtr = static_cast<char*>(modelMatrixBuffer.info.pMappedData);
     void* target = basePtr + index * sizeof(InstanceData);
 

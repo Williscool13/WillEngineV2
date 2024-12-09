@@ -27,6 +27,7 @@ public: // Hierarchy
      * Adds a \code GameObject\endcode as a child to this \code GameObject\endcode while maintaining its position in WorldSpace.
      * \n Will reparent the child if that child has a parent.
      * @param child
+     * @param maintainWorldPosition
      */
     void addChild(GameObject* child, bool maintainWorldPosition = true);
 
