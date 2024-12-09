@@ -596,6 +596,7 @@ void Engine::updateSceneObjects() const
     testGameObject3->recursiveUpdateModelMatrix();
     testGameObject4->recursiveUpdateModelMatrix();
     testGameObject5->recursiveUpdateModelMatrix();
+    primitiveObject->recursiveUpdateModelMatrix();
 }
 
 void Engine::draw()
@@ -628,9 +629,7 @@ void Engine::draw()
     const VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
-#pragma region Draw
-
-    const std::vector renderObjects{testRenderObject, cube};
+    const std::vector renderObjects{testRenderObject, cube, primitives};
     frustumCullingPipeline->draw(cmd, {renderObjects, sceneDataDescriptorBuffer});
 
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -702,7 +701,6 @@ void Engine::draw()
     vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_ASPECT_COLOR_BIT);
 
     VK_CHECK(vkEndCommandBuffer(cmd));
-#pragma endregion
 
     const auto renderEnd = std::chrono::system_clock::now();
     const float elapsedRenderMs = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(renderEnd - renderStart).count()) / 1000.0f;
@@ -840,8 +838,15 @@ void Engine::cleanup()
     delete cubeGameObject;
     delete cubeGameObject2;
     delete testGameObject1;
+    delete testGameObject2;
+    delete testGameObject3;
+    delete testGameObject4;
+    delete testGameObject5;
+    delete primitiveObject;
+
     delete testRenderObject;
     delete cube;
+    delete primitives;
     // destroy all other resources
     mainDeletionQueue.flush();
 
@@ -1057,6 +1062,7 @@ void Engine::initScene()
     renderObjectLayouts.texturesLayout = renderObjectDescriptorLayout->getTexturesLayout();
     testRenderObject = new RenderObject{this, "assets/models/sponza2/Sponza.gltf", renderObjectLayouts};
     cube = new RenderObject{this, "assets/models/cube.gltf", renderObjectLayouts};
+    primitives = new RenderObject{this, "assets/models/primitives/primitives.gltf", renderObjectLayouts};
 
     cubeGameObject = cube->generateGameObject();
     cubeGameObject2 = cube->generateGameObject();
@@ -1065,6 +1071,8 @@ void Engine::initScene()
     testGameObject3 = testRenderObject->generateGameObject();
     testGameObject4 = testRenderObject->generateGameObject();
     testGameObject5 = testRenderObject->generateGameObject();
+    primitiveObject = primitives->generateGameObject(0);
+    //primitiveObject = primitives->generateGameObject();
     scene.addGameObject(testGameObject1);
     scene.addGameObject(testGameObject2);
     scene.addGameObject(testGameObject3);
@@ -1073,6 +1081,11 @@ void Engine::initScene()
 
     scene.addGameObject(cubeGameObject);
     scene.addGameObject(cubeGameObject2);
+
+    scene.addGameObject(primitiveObject);
+
+    primitiveObject->transform.translate({0.f, 3.0f, 0.f});
+    primitiveObject->dirty();
 
     testGameObject1->transform.setScale(1.f);
     testGameObject1->dirty();

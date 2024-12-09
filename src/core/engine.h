@@ -176,6 +176,7 @@ private: // Scene
 
     RenderObject* testRenderObject{nullptr};
     RenderObject* cube{nullptr};
+    RenderObject* primitives{nullptr};
     GameObject* cubeGameObject{nullptr};
     GameObject* cubeGameObject2{nullptr};
     GameObject* testGameObject1{nullptr};
@@ -183,6 +184,7 @@ private: // Scene
     GameObject* testGameObject3{nullptr};
     GameObject* testGameObject4{nullptr};
     GameObject* testGameObject5{nullptr};
+    GameObject* primitiveObject{nullptr};
 
 
     Environment* environmentMap{nullptr};
