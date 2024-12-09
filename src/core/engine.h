@@ -174,16 +174,12 @@ private: // Scene
     FreeCamera camera{75.0f, 1920.0f / 1080.0f, 1000, 0.01};
     Scene scene{};
 
-    RenderObject* testRenderObject{nullptr};
+    RenderObject* sponza{nullptr};
     RenderObject* cube{nullptr};
     RenderObject* primitives{nullptr};
+    GameObject* sponzaObject{nullptr};
     GameObject* cubeGameObject{nullptr};
     GameObject* cubeGameObject2{nullptr};
-    GameObject* testGameObject1{nullptr};
-    GameObject* testGameObject2{nullptr};
-    GameObject* testGameObject3{nullptr};
-    GameObject* testGameObject4{nullptr};
-    GameObject* testGameObject5{nullptr};
     GameObject* primitiveObject{nullptr};
 
 
@@ -251,8 +247,8 @@ private: // Render Targets
     /**
      * All graphics operation in this program operate with these extent.
      */
-    //const VkExtent2D renderExtent{1920, 1080};
-    const VkExtent2D renderExtent{3840, 2160};
+    const VkExtent2D renderExtent{1920, 1080};
+    //const VkExtent2D renderExtent{3840, 2160};
     const VkFormat drawImageFormat{VK_FORMAT_R16G16B16A16_SFLOAT};
     const VkFormat depthImageFormat{VK_FORMAT_D32_SFLOAT};
     const VkFormat velocityImageFormat{VK_FORMAT_R16G16_SFLOAT};

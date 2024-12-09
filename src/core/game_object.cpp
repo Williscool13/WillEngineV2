@@ -10,14 +10,12 @@
 
 int GameObject::nextId = 0;
 
-GameObject::GameObject()
-    : gameObjectId(nextId++)
+GameObject::GameObject() : gameObjectId(nextId++)
 {
     gameObjectName = "GameObject_" + std::to_string(gameObjectId);
 }
 
-GameObject::GameObject(std::string gameObjectName)
-    : gameObjectId(nextId++)
+GameObject::GameObject(std::string gameObjectName) : gameObjectId(nextId++)
 {
     this->gameObjectName = std::move(gameObjectName);
 }

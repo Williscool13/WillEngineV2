@@ -5,17 +5,23 @@
 #ifndef RENDER_OBJECT_H
 #define RENDER_OBJECT_H
 
-#include <string_view>
 #include <vector>
+#include <string_view>
+
 #include <vulkan/vulkan_core.h>
 
 #include "src/renderer/vk_descriptor_buffer.h"
 #include "src/renderer/vk_types.h"
-#include "src/renderer/data_structures/bounding_sphere.h"
 #include "src/util/transform.h"
 
-class GameObject;
+struct InstanceData;
+struct DrawIndirectData;
+struct Mesh;
+struct AllocatedImage;
+struct BoundingSphere;
+
 class Engine;
+class GameObject;
 class RenderObject;
 
 struct RenderNode
@@ -29,6 +35,9 @@ struct RenderNode
 struct RenderObjectReference
 {
     RenderObject* renderObject;
+    /**
+     * The instance index in the instance buffer of the render object
+     */
     int32_t instanceIndex;
 };
 
@@ -54,28 +63,7 @@ public:
     ~RenderObject();
 
 private:
-    void parseModel(Engine* engine, std::string_view gltfFilepath, VkDescriptorSetLayout texturesLayout);
-
-private:
-    std::vector<VkSampler> samplers;
-    std::vector<AllocatedImage> images;
-    std::vector<Mesh> meshes;
-    std::vector<BoundingSphere> boundingSpheres;
-
-    std::vector<RenderNode> renderNodes;
-    std::vector<int32_t> topNodes;
-
-    std::vector<DrawIndirectData> drawIndirectData;
-
-    /**
-     * The number of instances in the instance buffer
-     */
-    uint32_t instanceBufferSize{0};
-
-    /**
-     * The number of mesh instances that have been instantiated
-     */
-    uint32_t currentInstanceCount{0};
+    void parseModel(Engine* engine, std::string_view gltfFilepath, VkDescriptorSetLayout texturesLayout, std::vector<BoundingSphere>& boundingSpheres);
 
 public:
     /**
@@ -95,6 +83,8 @@ public:
 
     [[nodiscard]] InstanceData* getInstanceData(int32_t index) const;
 
+    [[nodiscard]] const std::vector<Mesh>& getMeshes() const { return meshes; }
+
     [[nodiscard]] bool canDraw() const { return instanceBufferSize > 0 && currentInstanceCount > 0; }
 
     const DescriptorBufferUniform& getAddressesDescriptorBuffer() { return addressesDescriptorBuffer; }
@@ -106,27 +96,7 @@ public:
 
     const DescriptorBufferUniform& getFrustumCullingAddressesDescriptorBuffer() { return frustumCullingDescriptorBuffer; }
 
-private: // Drawing
-    AllocatedBuffer vertexBuffer{};
-    AllocatedBuffer indexBuffer{};
-    AllocatedBuffer drawIndirectBuffer{};
-
-    // addresses
-    AllocatedBuffer bufferAddresses;
-    //  the actual buffers
-    AllocatedBuffer materialBuffer{};
-    AllocatedBuffer modelMatrixBuffer{};
-
-    // Culling
-    AllocatedBuffer meshBoundsBuffer{};
-
-    DescriptorBufferUniform addressesDescriptorBuffer;
-    DescriptorBufferSampler textureDescriptorBuffer;
-
-    AllocatedBuffer frustumBufferAddresses;
-    AllocatedBuffer meshIndicesBuffer{};
-    DescriptorBufferUniform frustumCullingDescriptorBuffer;
-
+private:
     void recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent);
 
     /**
@@ -148,6 +118,47 @@ private: // Drawing
      * \n Should be called after updating either the instance/indirect buffer
      */
     void updateComputeCullingBuffer();
+
+private: // Model Data
+    std::vector<VkSampler> samplers;
+    std::vector<AllocatedImage> images;
+    std::vector<Mesh> meshes;
+
+    std::vector<RenderNode> renderNodes;
+    std::vector<int32_t> topNodes;
+
+    std::vector<DrawIndirectData> drawIndirectData;
+
+    /**
+     * The number of instances in the instance buffer
+     */
+    uint32_t instanceBufferSize{0};
+
+    /**
+     * The number of mesh instances that have been instantiated
+     */
+    uint32_t currentInstanceCount{0};
+
+private: // Drawing
+    AllocatedBuffer vertexBuffer{};
+    AllocatedBuffer indexBuffer{};
+    AllocatedBuffer drawIndirectBuffer{};
+
+    // addresses
+    AllocatedBuffer bufferAddresses;
+    //  the actual buffers
+    AllocatedBuffer materialBuffer{};
+    AllocatedBuffer modelMatrixBuffer{};
+
+    // Culling
+    AllocatedBuffer meshBoundsBuffer{};
+
+    DescriptorBufferUniform addressesDescriptorBuffer;
+    DescriptorBufferSampler textureDescriptorBuffer;
+
+    AllocatedBuffer frustumBufferAddresses;
+    AllocatedBuffer meshIndicesBuffer{};
+    DescriptorBufferUniform frustumCullingDescriptorBuffer;
 
 private:
     Engine* creator{nullptr};
