@@ -110,21 +110,12 @@ void Engine::init()
     resourceManager = new ResourceManager(*context, *immediate);
     physics = new Physics();
 
-    // emp
-    {
-        DescriptorLayoutBuilder layoutBuilder;
-        emptyDescriptorSetLayout = layoutBuilder.build(context->device,
-                                                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
-                                                       nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-    }
-
-    initDearImgui();
-
     environmentDescriptorLayouts = new EnvironmentDescriptorLayouts(*context);
     sceneDescriptorLayouts = new SceneDescriptorLayouts(*context);
     frustumCullDescriptorLayouts = new FrustumCullingDescriptorLayouts(*context);
     renderObjectDescriptorLayout = new RenderObjectDescriptorLayout(*context);
 
+    initDearImgui();
 
     initScene();
 
@@ -609,7 +600,6 @@ void Engine::draw()
 #pragma endregion
 
 
-
     const auto renderStart = std::chrono::system_clock::now();
 
     const auto cmd = getCurrentFrame()._mainCommandBuffer;
@@ -952,6 +942,10 @@ void Engine::initDearImgui()
 
 void Engine::initDescriptors()
 {
+    DescriptorLayoutBuilder layoutBuilder;
+    emptyDescriptorSetLayout = layoutBuilder.build(context->device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT, nullptr,
+                                                   VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+
     sceneDataBuffer = resourceManager->createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
     sceneDataDescriptorBuffer = DescriptorBufferUniform(context->instance, context->device, context->physicalDevice, context->allocator, sceneDescriptorLayouts->getSceneDataLayout(), 1);
     std::vector<DescriptorUniformData> sceneDataBuffers{1};
@@ -970,19 +964,14 @@ void Engine::initScene()
     environmentMap = new Environment(*context, *resourceManager, *immediate, *environmentDescriptorLayouts);
     const std::filesystem::path envMapSource = "assets/environments";
     environmentMap->loadEnvironment("Meadow", (envMapSource / "meadow_4k.hdr").string().c_str(), 0);
-    //environment->loadCubemap((envMapSource / "wasteland_clouds_4k.hdr").string().c_str(), 1);
     environmentMap->loadEnvironment("Wasteland", (envMapSource / "wasteland_clouds_puresky_4k.hdr").string().c_str(), 2);
-    //environment->loadCubemap((envMapSource / "kloppenheim_06_puresky_4k.hdr").string().c_str(), 3);
     environmentMap->loadEnvironment("Overcast Sky", (envMapSource / "kloofendal_overcast_puresky_4k.hdr").string().c_str(), 4);
-    //environment->loadCubemap((envMapSource / "mud_road_puresky_4k.hdr").string().c_str(), 5);
-    //environment->loadCubemap((envMapSource / "sunflowers_puresky_4k.hdr").string().c_str(), 6);
     environmentMap->loadEnvironment("Sunset Sky", (envMapSource / "belfast_sunset_puresky_4k.hdr").string().c_str(), 7);
 
     //testRenderObject = new RenderObject{this, "assets/models/BoxTextured/glTF/BoxTextured.gltf"};
     //testRenderObject = new RenderObject{this, "assets/models/structure_mat.glb"};
     //testRenderObject = new RenderObject{this, "assets/models/structure.glb"};
     //testRenderObject = new RenderObject{this, "assets/models/Suzanne/glTF/Suzanne.gltf"};
-
 
     RenderObjectLayouts renderObjectLayouts{};
     renderObjectLayouts.frustumCullLayout = frustumCullDescriptorLayouts->getFrustumCullLayout();
@@ -998,24 +987,17 @@ void Engine::initScene()
     primitiveCubeGameObject = primitives->generateGameObject(0);
 
     scene.addGameObject(sponzaObject);
-
     scene.addGameObject(cubeGameObject);
     scene.addGameObject(cubeGameObject2);
-
     scene.addGameObject(primitiveCubeGameObject);
 
     primitiveCubeGameObject->transform.translate({0.f, 3.0f, 0.f});
     primitiveCubeGameObject->dirty();
-
-    sponzaObject->transform.setScale(1.f);
-    sponzaObject->dirty();
-
     cubeGameObject->transform.setScale(0.05f);
     cubeGameObject->dirty();
     cubeGameObject2->transform.setScale(0.05f);
     cubeGameObject2->dirty();
 
-    JPH::BoxShape boxShape = {JPH::Vec3(0.5f, 0.5f, 0.5f)};
     physics->addRigidBody(primitiveCubeGameObject, physics->getUnitCubeShape());
 }
 

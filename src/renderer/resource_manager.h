@@ -33,26 +33,26 @@ public:
 
     [[nodiscard]] AllocatedImage createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
 
-    AllocatedImage createImage(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
+    [[nodiscard]] AllocatedImage createImage(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
 
     [[nodiscard]] AllocatedImage createCubemap(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
 
     void destroyImage(const AllocatedImage& img) const;
 
 public:
-    VkSampler getDefaultSamplerLinear() const { return defaultSamplerLinear; }
-    VkSampler getDefaultSamplerNearest() const { return defaultSamplerNearest; }
-    AllocatedImage getWhiteImage() const { return whiteImage; }
-    AllocatedImage getErrorCheckerboardImage() const { return errorCheckerboardImage; }
+    [[nodiscard]] VkSampler getDefaultSamplerLinear() const { return defaultSamplerLinear; }
+    [[nodiscard]] VkSampler getDefaultSamplerNearest() const { return defaultSamplerNearest; }
+    [[nodiscard]] AllocatedImage getWhiteImage() const { return whiteImage; }
+    [[nodiscard]] AllocatedImage getErrorCheckerboardImage() const { return errorCheckerboardImage; }
 
 private:
     const VulkanContext& context;
     const ImmediateSubmitter& immediate;
 
-    AllocatedImage whiteImage;
-    AllocatedImage errorCheckerboardImage;
-    VkSampler defaultSamplerLinear;
-    VkSampler defaultSamplerNearest;
+    AllocatedImage whiteImage{};
+    AllocatedImage errorCheckerboardImage{};
+    VkSampler defaultSamplerLinear{VK_NULL_HANDLE};
+    VkSampler defaultSamplerNearest{VK_NULL_HANDLE};
 };
 
 #endif //RESOURCE_MANAGER_H

@@ -27,6 +27,15 @@ layout (location = 4) out flat uint outMaterialIndex;
 layout (location = 5) out vec4 outCurrMvpPosition;
 layout (location = 6) out vec4 outPrevMvpPosition;
 
+mat3 adjugate(mat4 m) {
+    return mat3(
+        cross(m[1].xyz, m[2].xyz),
+        cross(m[2].xyz, m[0].xyz),
+        cross(m[0].xyz, m[1].xyz)
+    );
+
+}
+
 void main() {
     Model models = bufferAddresses.modelBufferDeviceAddress.models[gl_InstanceIndex];
 
@@ -34,7 +43,8 @@ void main() {
     vec4 worldPos = models.currentModelMatrix * vec4(position, 1.0);
 
     outPosition = worldPos.xyz;
-    outNormal = inverse(transpose(mat3(models.currentModelMatrix))) * normal;
+    //outNormal = inverse(transpose(mat3(models.currentModelMatrix))) * normal;
+    outNormal = adjugate(models.currentModelMatrix) * normal;
     outColor = color;
     outUV = uv;
     outMaterialIndex = materialIndex;
