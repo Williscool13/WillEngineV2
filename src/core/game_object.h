@@ -8,9 +8,9 @@
 #include <string>
 
 #include <glm/glm.hpp>
-#include <Jolt/Physics/PhysicsSystem.h>
 #include <vulkan/vulkan_core.h>
 
+#include "src/physics/physics.h"
 #include "src/util/transform.h"
 
 class RenderObject;

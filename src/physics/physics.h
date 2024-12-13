@@ -6,9 +6,10 @@
 #define PHYSICS_H
 
 #include <Jolt/Jolt.h>
+#include <Jolt/Core/TempAllocator.h>
+// PhysicsSystem can only be included once, be careful
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/Core/JobSystemThreadPool.h>
-#include <Jolt/Core/TempAllocator.h>
 
 namespace JPH {
     class ContactListener;
@@ -30,6 +31,10 @@ public:
     [[nodiscard]] JPH::PhysicsSystem& getPhysicsSystem() const { return *physicsSystem; }
     JPH::BodyInterface& getBodyInterface();
 
+
+    // void addRigidBody(GameObject* obj, const JPH::Shape* shape, bool isDynamic = true);
+    // void removeRigidBody(GameObject* obj);
+    // void updateTransforms();
 private:
     // Core systems
     JPH::PhysicsSystem* physicsSystem = nullptr;
