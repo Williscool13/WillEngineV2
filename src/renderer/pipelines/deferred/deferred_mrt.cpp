@@ -42,17 +42,17 @@ void DeferredMrtPipeline::createPipelineLayout()
     layoutInfo.pPushConstantRanges = nullptr;
     layoutInfo.pushConstantRangeCount = 0;
 
-    VK_CHECK(vkCreatePipelineLayout(context.getDevice(), &layoutInfo, nullptr, &pipelineLayout));
+    VK_CHECK(vkCreatePipelineLayout(context.device, &layoutInfo, nullptr, &pipelineLayout));
 }
 
 void DeferredMrtPipeline::createPipeline()
 {
     VkShaderModule vertShader;
-    if (!vk_helpers::loadShaderModule("shaders/deferredMrt.vert.spv", context.getDevice(), &vertShader)) {
+    if (!vk_helpers::loadShaderModule("shaders/deferredMrt.vert.spv", context.device, &vertShader)) {
         throw std::runtime_error("Error when building the deferred vertex shader module(deferredMrt.vert.spv)\n");
     }
     VkShaderModule fragShader;
-    if (!vk_helpers::loadShaderModule("shaders/deferredMrt.frag.spv", context.getDevice(), &fragShader)) {
+    if (!vk_helpers::loadShaderModule("shaders/deferredMrt.frag.spv", context.device, &fragShader)) {
         fmt::print("Error when building the deferred fragment shader module(deferredMrt.frag.spv)\n");
     }
     PipelineBuilder renderPipelineBuilder;
@@ -100,10 +100,10 @@ void DeferredMrtPipeline::createPipeline()
         , renderFormats.depthFormat);
     renderPipelineBuilder.setupPipelineLayout(pipelineLayout);
 
-    pipeline = renderPipelineBuilder.buildPipeline(context.getDevice(), VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    pipeline = renderPipelineBuilder.buildPipeline(context.device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
-    vkDestroyShaderModule(context.getDevice(), vertShader, nullptr);
-    vkDestroyShaderModule(context.getDevice(), fragShader, nullptr);
+    vkDestroyShaderModule(context.device, vertShader, nullptr);
+    vkDestroyShaderModule(context.device, fragShader, nullptr);
 }
 
 void DeferredMrtPipeline::draw(VkCommandBuffer cmd, DeferredMrtDrawInfo& drawInfo) const
@@ -189,11 +189,11 @@ void DeferredMrtPipeline::draw(VkCommandBuffer cmd, DeferredMrtDrawInfo& drawInf
 void DeferredMrtPipeline::cleanup()
 {
     if (pipeline) {
-        vkDestroyPipeline(context.getDevice(), pipeline, nullptr);
+        vkDestroyPipeline(context.device, pipeline, nullptr);
         pipeline = VK_NULL_HANDLE;
     }
     if (pipelineLayout) {
-        vkDestroyPipelineLayout(context.getDevice(), pipelineLayout, nullptr);
+        vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
         pipelineLayout = VK_NULL_HANDLE;
     }
 }

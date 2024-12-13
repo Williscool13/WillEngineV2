@@ -8,6 +8,8 @@
 #include <stb_image.h>
 #include <stb_image_write.h>
 
+#include "immediate_submitter.h"
+#include "resource_manager.h"
 #include "../../extern/half/half/half.hpp"
 #include "../core/engine.h"
 
@@ -565,7 +567,7 @@ VkSamplerMipmapMode vk_helpers::extractMipmapMode(const fastgltf::Filter filter)
     }
 }
 
-std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const fastgltf::Asset& asset, const fastgltf::Image& image,
+std::optional<AllocatedImage> vk_helpers::loadImage(const ResourceManager& resourceManager, const fastgltf::Asset& asset, const fastgltf::Image& image,
                                                     const std::filesystem::path& parentFolder)
 {
     AllocatedImage newImage{};
@@ -629,7 +631,7 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
                     imagesize.height = height;
                     imagesize.depth = 1;
                     const size_t size = width * height * 4;
-                    newImage = engine->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
+                    newImage = resourceManager.createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
 
                     stbi_image_free(data);
                 }
@@ -644,7 +646,7 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
                     imagesize.height = height;
                     imagesize.depth = 1;
                     const size_t size = width * height * 4;
-                    newImage = engine->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
+                    newImage = resourceManager.createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
 
                     stbi_image_free(data);
                 }
@@ -668,7 +670,7 @@ std::optional<AllocatedImage> vk_helpers::loadImage(const Engine* engine, const 
                                        imagesize.height = height;
                                        imagesize.depth = 1;
                                        const size_t size = width * height * 4;
-                                       newImage = engine->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
+                                       newImage = resourceManager.createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
                                        stbi_image_free(data);
                                    }
                                }
@@ -703,15 +705,15 @@ void vk_helpers::loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& te
     }
 }
 
-void vk_helpers::saveImageRGBA32F(const Engine* engine, const AllocatedImage& image, const VkImageLayout imageLayout,
+void vk_helpers::saveImageRGBA32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, const VkImageLayout imageLayout,
                                   const VkImageAspectFlags aspectFlag,
                                   const char* savePath, const bool overrideAlpha)
 {
     constexpr int channelCount = 4;
     const size_t dataSize = image.imageExtent.width * image.imageExtent.height * channelCount * sizeof(float);
-    AllocatedBuffer receivingBuffer = engine->createReceivingBuffer(dataSize);
+    AllocatedBuffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
 
-    engine->immediateSubmit([&](VkCommandBuffer cmd) {
+    immediate.submit([&](VkCommandBuffer cmd) {
         VkBufferImageCopy bufferCopyRegion{};
         bufferCopyRegion.imageSubresource.aspectMask = aspectFlag;
         bufferCopyRegion.imageSubresource.mipLevel = 0;
@@ -748,18 +750,18 @@ void vk_helpers::saveImageRGBA32F(const Engine* engine, const AllocatedImage& im
     stbi_write_png(savePath, image.imageExtent.width, image.imageExtent.height, 4, byteImageData, image.imageExtent.width * 4);
 
     delete[] byteImageData;
-    engine->destroyBuffer(receivingBuffer);
+    resourceManager.destroyBuffer(receivingBuffer);
 }
 
-void vk_helpers::saveImageRGBA16SFLOAT(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+void vk_helpers::saveImageRGBA16SFLOAT(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
                                        const char* savePath, const bool overrideAlpha)
 {
     using half_float::half;
     constexpr int channelCount = 4;
     const size_t dataSize = image.imageExtent.width * image.imageExtent.height * channelCount * sizeof(half);
-    AllocatedBuffer receivingBuffer = engine->createReceivingBuffer(dataSize);
+    AllocatedBuffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
 
-    engine->immediateSubmit([&](VkCommandBuffer cmd) {
+    immediate.submit([&](VkCommandBuffer cmd) {
         VkBufferImageCopy bufferCopyRegion{};
         bufferCopyRegion.imageSubresource.aspectMask = aspectFlag;
         bufferCopyRegion.imageSubresource.mipLevel = 0;
@@ -796,16 +798,16 @@ void vk_helpers::saveImageRGBA16SFLOAT(const Engine* engine, const AllocatedImag
     stbi_write_png(savePath, image.imageExtent.width, image.imageExtent.height, 4, byteImageData, image.imageExtent.width * 4);
 
     delete[] byteImageData;
-    engine->destroyBuffer(receivingBuffer);
+    resourceManager.destroyBuffer(receivingBuffer);
 }
 
-void vk_helpers::savePacked32Bit(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+void vk_helpers::savePacked32Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
     const char* savePath, const std::function<glm::vec4(uint32_t)>& unpackingFunction)
 {
     const size_t dataSize = image.imageExtent.width * image.imageExtent.height * sizeof(uint32_t);
-    AllocatedBuffer receivingBuffer = engine->createReceivingBuffer(dataSize);
+    AllocatedBuffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
 
-    engine->immediateSubmit([&](VkCommandBuffer cmd) {
+    immediate.submit([&](VkCommandBuffer cmd) {
         VkBufferImageCopy bufferCopyRegion{};
         bufferCopyRegion.imageSubresource.aspectMask = aspectFlag;
         bufferCopyRegion.imageSubresource.mipLevel = 0;
@@ -840,16 +842,16 @@ void vk_helpers::savePacked32Bit(const Engine* engine, const AllocatedImage& ima
     stbi_write_png(savePath, image.imageExtent.width, image.imageExtent.height, 4, byteImageData, image.imageExtent.width * 4);
 
     delete[] byteImageData;
-    engine->destroyBuffer(receivingBuffer);
+    resourceManager.destroyBuffer(receivingBuffer);
 }
 
-void vk_helpers::savePacked64Bit(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+void vk_helpers::savePacked64Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
     const char* savePath, const std::function<glm::vec4(uint64_t)>& unpackingFunction)
 {
     const size_t dataSize = image.imageExtent.width * image.imageExtent.height * sizeof(uint64_t);
-    AllocatedBuffer receivingBuffer = engine->createReceivingBuffer(dataSize);
+    AllocatedBuffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
 
-    engine->immediateSubmit([&](VkCommandBuffer cmd) {
+    immediate.submit([&](VkCommandBuffer cmd) {
         VkBufferImageCopy bufferCopyRegion{};
         bufferCopyRegion.imageSubresource.aspectMask = aspectFlag;
         bufferCopyRegion.imageSubresource.mipLevel = 0;
@@ -884,16 +886,16 @@ void vk_helpers::savePacked64Bit(const Engine* engine, const AllocatedImage& ima
     stbi_write_png(savePath, image.imageExtent.width, image.imageExtent.height, 4, byteImageData, image.imageExtent.width * 4);
 
     delete[] byteImageData;
-    engine->destroyBuffer(receivingBuffer);
+    resourceManager.destroyBuffer(receivingBuffer);
 }
 
-void vk_helpers::saveImageR32F(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+void vk_helpers::saveImageR32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
                                const char* savePath, const std::function<float(float)>& valueTransform)
 {
     const size_t dataSize = image.imageExtent.width * image.imageExtent.height * 1 * sizeof(float);
-    AllocatedBuffer receivingBuffer = engine->createReceivingBuffer(dataSize);
+    AllocatedBuffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
 
-    engine->immediateSubmit([&](VkCommandBuffer cmd) {
+    immediate.submit([&](VkCommandBuffer cmd) {
         VkBufferImageCopy bufferCopyRegion{};
         bufferCopyRegion.imageSubresource.aspectMask = aspectFlag;
         bufferCopyRegion.imageSubresource.mipLevel = 0;
@@ -928,5 +930,5 @@ void vk_helpers::saveImageR32F(const Engine* engine, const AllocatedImage& image
     stbi_write_png(savePath, image.imageExtent.width, image.imageExtent.height, 4, byteImageData, image.imageExtent.width * 4);
 
     delete[] byteImageData;
-    engine->destroyBuffer(receivingBuffer);
+    resourceManager.destroyBuffer(receivingBuffer);
 }

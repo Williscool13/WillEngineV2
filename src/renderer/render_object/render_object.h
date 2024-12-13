@@ -14,6 +14,8 @@
 #include "src/renderer/vk_types.h"
 #include "src/util/transform.h"
 
+class VulkanContext;
+class ResourceManager;
 struct InstanceData;
 struct DrawIndirectData;
 struct Mesh;
@@ -56,14 +58,14 @@ struct RenderObjectLayouts
 class RenderObject
 {
 public:
-    RenderObject() = default;
+    RenderObject() = delete;
 
-    RenderObject(Engine* engine, std::string_view gltfFilepath, const RenderObjectLayouts& descriptorLayouts);
+    RenderObject(const VulkanContext& context, const ResourceManager& resourceManager, std::string_view gltfFilepath, const RenderObjectLayouts& descriptorLayouts);
 
     ~RenderObject();
 
 private:
-    void parseModel(Engine* engine, std::string_view gltfFilepath, VkDescriptorSetLayout texturesLayout, std::vector<BoundingSphere>& boundingSpheres);
+    void parseModel(std::string_view gltfFilepath, VkDescriptorSetLayout texturesLayout, std::vector<BoundingSphere>& boundingSpheres);
 
 public:
     /**
@@ -161,7 +163,8 @@ private: // Drawing
     DescriptorBufferUniform frustumCullingDescriptorBuffer;
 
 private:
-    Engine* creator{nullptr};
+    const VulkanContext& context;
+    const ResourceManager& resourceManager;
 };
 
 

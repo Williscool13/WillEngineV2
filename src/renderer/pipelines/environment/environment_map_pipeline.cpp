@@ -41,18 +41,18 @@ void EnvironmentPipeline::createPipelineLayout()
     layoutInfo.pPushConstantRanges = nullptr;
     layoutInfo.pushConstantRangeCount = 0;
 
-    VK_CHECK(vkCreatePipelineLayout(context.getDevice(), &layoutInfo, nullptr, &pipelineLayout));
+    VK_CHECK(vkCreatePipelineLayout(context.device, &layoutInfo, nullptr, &pipelineLayout));
 }
 
 void EnvironmentPipeline::createPipeline()
 {
     VkShaderModule vertShader;
-    if (!vk_helpers::loadShaderModule("shaders/environment.vert.spv", context.getDevice(), &vertShader)) {
+    if (!vk_helpers::loadShaderModule("shaders/environment.vert.spv", context.device, &vertShader)) {
         throw std::runtime_error("Error when building vertex shader (environment.vert.spv)");
     }
 
     VkShaderModule fragShader;
-    if (!vk_helpers::loadShaderModule("shaders/environment.frag.spv", context.getDevice(), &fragShader)) {
+    if (!vk_helpers::loadShaderModule("shaders/environment.frag.spv", context.device, &fragShader)) {
         throw std::runtime_error("Error when building fragment shader (environment.frag.spv)");
     }
 
@@ -66,10 +66,10 @@ void EnvironmentPipeline::createPipeline()
     pipelineBuilder.setupRenderer({colorFormat}, depthFormat);
     pipelineBuilder.setupPipelineLayout(pipelineLayout);
 
-    pipeline = pipelineBuilder.buildPipeline(context.getDevice(), VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    pipeline = pipelineBuilder.buildPipeline(context.device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
-    vkDestroyShaderModule(context.getDevice(), vertShader, nullptr);
-    vkDestroyShaderModule(context.getDevice(), fragShader, nullptr);
+    vkDestroyShaderModule(context.device, vertShader, nullptr);
+    vkDestroyShaderModule(context.device, fragShader, nullptr);
 }
 
 void EnvironmentPipeline::draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& drawInfo) const
@@ -126,11 +126,11 @@ void EnvironmentPipeline::draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& d
 void EnvironmentPipeline::cleanup()
 {
     if (pipeline) {
-        vkDestroyPipeline(context.getDevice(), pipeline, nullptr);
+        vkDestroyPipeline(context.device, pipeline, nullptr);
         pipeline = VK_NULL_HANDLE;
     }
     if (pipelineLayout) {
-        vkDestroyPipelineLayout(context.getDevice(), pipelineLayout, nullptr);
+        vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
         pipelineLayout = VK_NULL_HANDLE;
     }
 }

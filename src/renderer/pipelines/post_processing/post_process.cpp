@@ -22,7 +22,7 @@ void PostProcessPipeline::init()
     createPipelineLayout();
     createPipeline();
 
-    descriptorBuffer = DescriptorBufferSampler(context.getInstance(), context.getDevice(), context.getPhysicalDevice(), context.getAllocator(), descriptorSetLayout, 1);
+    descriptorBuffer = DescriptorBufferSampler(context.instance, context.device, context.physicalDevice, context.allocator, descriptorSetLayout, 1);
 }
 
 void PostProcessPipeline::createDescriptorLayout()
@@ -31,7 +31,7 @@ void PostProcessPipeline::createDescriptorLayout()
     layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // taa resolve image
     layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // post process result
 
-    descriptorSetLayout = layoutBuilder.build(context.getDevice(), VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    descriptorSetLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 }
 
 void PostProcessPipeline::createPipelineLayout()
@@ -52,13 +52,13 @@ void PostProcessPipeline::createPipelineLayout()
     layoutInfo.pPushConstantRanges = &pushConstants;
     layoutInfo.pushConstantRangeCount = 1;
 
-    VK_CHECK(vkCreatePipelineLayout(context.getDevice(), &layoutInfo, nullptr, &pipelineLayout));
+    VK_CHECK(vkCreatePipelineLayout(context.device, &layoutInfo, nullptr, &pipelineLayout));
 }
 
 void PostProcessPipeline::createPipeline()
 {
     VkShaderModule computeShader;
-    if (!vk_helpers::loadShaderModule("shaders/postProcess.comp.spv", context.getDevice(), &computeShader)) {
+    if (!vk_helpers::loadShaderModule("shaders/postProcess.comp.spv", context.device, &computeShader)) {
         throw std::runtime_error("Error when building compute shader (postProcess.comp.spv)");
     }
 
@@ -76,8 +76,8 @@ void PostProcessPipeline::createPipeline()
     pipelineInfo.stage = stageInfo;
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-    VK_CHECK(vkCreateComputePipelines(context.getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline));
-    vkDestroyShaderModule(context.getDevice(), computeShader, nullptr);
+    VK_CHECK(vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline));
+    vkDestroyShaderModule(context.device, computeShader, nullptr);
 }
 
 void PostProcessPipeline::setupDescriptorBuffer(const PostProcessDescriptorBufferInfo& bufferInfo)
@@ -97,7 +97,7 @@ void PostProcessPipeline::setupDescriptorBuffer(const PostProcessDescriptorBuffe
     descriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, inputImage, false});
     descriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, outputImage, false});
 
-    descriptorBuffer.setupData(context.getDevice(), descriptors, 0);
+    descriptorBuffer.setupData(context.device, descriptors, 0);
 }
 
 void PostProcessPipeline::draw(VkCommandBuffer cmd, const PostProcessDrawInfo& drawInfo) const
@@ -139,17 +139,17 @@ void PostProcessPipeline::draw(VkCommandBuffer cmd, const PostProcessDrawInfo& d
 void PostProcessPipeline::cleanup()
 {
     if (pipeline) {
-        vkDestroyPipeline(context.getDevice(), pipeline, nullptr);
+        vkDestroyPipeline(context.device, pipeline, nullptr);
         pipeline = VK_NULL_HANDLE;
     }
     if (pipelineLayout) {
-        vkDestroyPipelineLayout(context.getDevice(), pipelineLayout, nullptr);
+        vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
         pipelineLayout = VK_NULL_HANDLE;
     }
     if (descriptorSetLayout) {
-        vkDestroyDescriptorSetLayout(context.getDevice(), descriptorSetLayout, nullptr);
+        vkDestroyDescriptorSetLayout(context.device, descriptorSetLayout, nullptr);
         descriptorSetLayout = VK_NULL_HANDLE;
     }
 
-    descriptorBuffer.destroy(context.getDevice(), context.getAllocator());
+    descriptorBuffer.destroy(context.device, context.allocator);
 }

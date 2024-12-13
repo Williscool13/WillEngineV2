@@ -23,6 +23,8 @@
 
 #include "glm/gtc/packing.hpp"
 
+class ImmediateSubmitter;
+class ResourceManager;
 class Engine;
 
 namespace vk_helpers
@@ -110,8 +112,7 @@ namespace vk_helpers
 
     VkSamplerMipmapMode extractMipmapMode(fastgltf::Filter filter);
 
-    std::optional<AllocatedImage> loadImage(const Engine* engine, const fastgltf::Asset& asset, const fastgltf::Image& image,
-                                            const std::filesystem::path& parentFolder);
+    std::optional<AllocatedImage> loadImage(const ResourceManager& resourceManager, const fastgltf::Asset& asset, const fastgltf::Image& image, const std::filesystem::path& parentFolder);
 
     /**
      * Loads a fastgltf texture.
@@ -126,22 +127,22 @@ namespace vk_helpers
                      uint32_t
                      imageOffset = 0, uint32_t samplerOffset = 0);
 
-    void saveImageRGBA32F(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+    void saveImageRGBA32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
                           const char* savePath, bool overrideAlpha = true);
 
-    void saveImageRGBA16SFLOAT(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+    void saveImageRGBA16SFLOAT(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
                                const char* savePath, bool overrideAlpha = true);
 
-    void savePacked32Bit(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+    void savePacked32Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
                          const char* savePath, const std::function<glm::vec4(uint32_t)>& unpackingFunction);
 
-    void savePacked64Bit(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+    void savePacked64Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
                          const char* savePath, const std::function<glm::vec4(uint64_t)>& unpackingFunction);
 
     /**
      * Save the Allocated image as a grayscaled image. The image must be a format with only 1 channel (e.g. R32 or D32)
      */
-    void saveImageR32F(const Engine* engine, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+    void saveImageR32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
                        const char* savePath, const std::function<float(float)>& valueTransform);
 }
 

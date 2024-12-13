@@ -21,7 +21,7 @@ void TaaPipeline::init()
     createPipelineLayout();
     createPipeline();
 
-    descriptorBuffer = DescriptorBufferSampler(context.getInstance(), context.getDevice(), context.getPhysicalDevice(), context.getAllocator(), descriptorSetLayout, 1);
+    descriptorBuffer = DescriptorBufferSampler(context.instance, context.device, context.physicalDevice, context.allocator, descriptorSetLayout, 1);
 }
 
 void TaaPipeline::createDescriptorLayout()
@@ -33,7 +33,7 @@ void TaaPipeline::createDescriptorLayout()
     layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // velocity
     layoutBuilder.addBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // output
 
-    descriptorSetLayout = layoutBuilder.build(context.getDevice(), VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    descriptorSetLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 }
 
 void TaaPipeline::createPipelineLayout()
@@ -54,13 +54,13 @@ void TaaPipeline::createPipelineLayout()
     layoutInfo.pPushConstantRanges = &pushConstants;
     layoutInfo.pushConstantRangeCount = 1;
 
-    VK_CHECK(vkCreatePipelineLayout(context.getDevice(), &layoutInfo, nullptr, &pipelineLayout));
+    VK_CHECK(vkCreatePipelineLayout(context.device, &layoutInfo, nullptr, &pipelineLayout));
 }
 
 void TaaPipeline::createPipeline()
 {
     VkShaderModule computeShader;
-    if (!vk_helpers::loadShaderModule("shaders/taa.comp.spv", context.getDevice(), &computeShader)) {
+    if (!vk_helpers::loadShaderModule("shaders/taa.comp.spv", context.device, &computeShader)) {
         throw std::runtime_error("Error when building compute shader (taa.comp.spv)");
     }
 
@@ -78,8 +78,8 @@ void TaaPipeline::createPipeline()
     pipelineInfo.stage = stageInfo;
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-    VK_CHECK(vkCreateComputePipelines(context.getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline));
-    vkDestroyShaderModule(context.getDevice(), computeShader, nullptr);
+    VK_CHECK(vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline));
+    vkDestroyShaderModule(context.device, computeShader, nullptr);
 }
 
 void TaaPipeline::setupDescriptorBuffer(const TaaDescriptorBufferInfo& bufferInfo)
@@ -118,7 +118,7 @@ void TaaPipeline::setupDescriptorBuffer(const TaaDescriptorBufferInfo& bufferInf
     descriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, velocity, false});
     descriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, output, false});
 
-    descriptorBuffer.setupData(context.getDevice(), descriptors, 0);
+    descriptorBuffer.setupData(context.device, descriptors, 0);
 }
 
 void TaaPipeline::draw(VkCommandBuffer cmd, const TaaDrawInfo& drawInfo) const
@@ -168,17 +168,17 @@ void TaaPipeline::draw(VkCommandBuffer cmd, const TaaDrawInfo& drawInfo) const
 void TaaPipeline::cleanup()
 {
     if (pipeline) {
-        vkDestroyPipeline(context.getDevice(), pipeline, nullptr);
+        vkDestroyPipeline(context.device, pipeline, nullptr);
         pipeline = VK_NULL_HANDLE;
     }
     if (pipelineLayout) {
-        vkDestroyPipelineLayout(context.getDevice(), pipelineLayout, nullptr);
+        vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
         pipelineLayout = VK_NULL_HANDLE;
     }
     if (descriptorSetLayout) {
-        vkDestroyDescriptorSetLayout(context.getDevice(), descriptorSetLayout, nullptr);
+        vkDestroyDescriptorSetLayout(context.device, descriptorSetLayout, nullptr);
         descriptorSetLayout = VK_NULL_HANDLE;
     }
 
-    descriptorBuffer.destroy(context.getDevice(), context.getAllocator());
+    descriptorBuffer.destroy(context.device, context.allocator);
 }

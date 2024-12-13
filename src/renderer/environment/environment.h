@@ -10,6 +10,7 @@
 #include "src/renderer/vk_descriptor_buffer.h"
 #include "src/renderer/vk_types.h"
 
+class ImmediateSubmitter;
 class VulkanContext;
 class EnvironmentDescriptorLayouts;
 class Engine;
@@ -60,7 +61,7 @@ public:
     static const VkExtent3D SPECULAR_PREFILTERED_BASE_EXTENTS;
     static const VkExtent3D LUT_IMAGE_EXTENT;
 
-    explicit Environment(Engine* creator, VulkanContext& context, EnvironmentDescriptorLayouts& environmentDescriptorLayouts);
+    explicit Environment(VulkanContext& context, ResourceManager& resourceManager, ImmediateSubmitter& immediate, EnvironmentDescriptorLayouts& environmentDescriptorLayouts);
 
     ~Environment();
 
@@ -90,8 +91,10 @@ public:
     }
 
 private:
-    Engine* creator{};
     VulkanContext& context;
+    ResourceManager& resourceManager;
+    ImmediateSubmitter& immediate;
+
     EnvironmentDescriptorLayouts& descriptorLayouts;
 
     DescriptorBufferSampler equiImageDescriptorBuffer;
@@ -130,11 +133,11 @@ private:
         {"", VK_NULL_HANDLE, VK_NULL_HANDLE},
     };
 
-    void equiToCubemapImmediate(const AllocatedImage& cubemapImage, int cubemapStorageDescriptorIndex) const;
+    void equiToCubemapImmediate(const AllocatedImage& _cubemapImage, int cubemapStorageDescriptorIndex) const;
 
     void cubemapToDiffuseSpecularImmediate(const AllocatedCubemap& cubemapMips, int cubemapSampleDescriptorIndex) const;
 
-    void generateLutImmediate(const Engine* engine) const;
+    void generateLutImmediate() const;
 };
 
 
