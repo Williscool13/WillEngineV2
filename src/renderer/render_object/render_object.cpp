@@ -11,42 +11,41 @@
 #include "glm/gtx/matrix_decompose.hpp"
 
 #include "src/core/engine.h"
+#include "src/renderer/resource_manager.h"
+#include "src/renderer/vulkan_context.h"
 #include "src/renderer/render_object/render_object_constants.h"
 #include "src/renderer/data_structures/bounding_sphere.h"
 #include "src/util/file_utils.h"
 
-RenderObject::RenderObject(Engine* engine, const std::string_view gltfFilepath, const RenderObjectLayouts& descriptorLayouts)
+RenderObject::RenderObject(const VulkanContext& context, const ResourceManager& resourceManager, const std::string_view gltfFilepath, const RenderObjectLayouts& descriptorLayouts) : context(context), resourceManager(resourceManager)
 {
-    creator = engine;
-
     std::vector<BoundingSphere> boundingSpheres{};
 
-    parseModel(engine, gltfFilepath, descriptorLayouts.texturesLayout, boundingSpheres);
+    parseModel(gltfFilepath, descriptorLayouts.texturesLayout, boundingSpheres);
 
-    const VkDeviceAddress materialBufferAddress = engine->getBufferAddress(materialBuffer);
-    bufferAddresses = engine->createBuffer(sizeof(VkDeviceAddress) * 2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    const VkDeviceAddress materialBufferAddress = resourceManager.getBufferAddress(materialBuffer);
+    bufferAddresses = resourceManager.createBuffer(sizeof(VkDeviceAddress) * 2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
     memcpy(bufferAddresses.info.pMappedData, &materialBufferAddress, sizeof(VkDeviceAddress));
-    addressesDescriptorBuffer = DescriptorBufferUniform(engine->getInstance(), engine->getDevice()
-                                                        , engine->getPhysicalDevice(), engine->getAllocator(), descriptorLayouts.addressesLayout, 1);
+    addressesDescriptorBuffer = DescriptorBufferUniform(context.instance, context.device, context.physicalDevice, context.allocator, descriptorLayouts.addressesLayout, 1);
 
     DescriptorUniformData addressesUniformData;
     addressesUniformData.allocSize = sizeof(VkDeviceAddress) * 2;
     addressesUniformData.uniformBuffer = bufferAddresses;
     std::vector uniforms = {addressesUniformData};
-    addressesDescriptorBuffer.setupData(creator->getDevice(), uniforms);
+    addressesDescriptorBuffer.setupData(context.device, uniforms);
 
     // Culling Bounds
-    AllocatedBuffer meshBoundsStaging = creator->createStagingBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
+    AllocatedBuffer meshBoundsStaging = resourceManager.createStagingBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
     memcpy(meshBoundsStaging.info.pMappedData, boundingSpheres.data(), sizeof(BoundingSphere) * boundingSpheres.size());
-    meshBoundsBuffer = creator->createBuffer(sizeof(BoundingSphere) * boundingSpheres.size(),
+    meshBoundsBuffer = resourceManager.createBuffer(sizeof(BoundingSphere) * boundingSpheres.size(),
                                              VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
                                              VMA_MEMORY_USAGE_GPU_ONLY);
-    creator->copyBuffer(meshBoundsStaging, meshBoundsBuffer, sizeof(BoundingSphere) * boundingSpheres.size());
-    creator->destroyBuffer(meshBoundsStaging);
+    resourceManager.copyBuffer(meshBoundsStaging, meshBoundsBuffer, sizeof(BoundingSphere) * boundingSpheres.size());
+    resourceManager.destroyBuffer(meshBoundsStaging);
 
-    frustumCullingDescriptorBuffer = DescriptorBufferUniform(engine->getInstance(), engine->getDevice(), engine->getPhysicalDevice(),
-                                                             engine->getAllocator(), descriptorLayouts.frustumCullLayout, 1);
-    frustumBufferAddresses = creator->createBuffer(sizeof(FrustumCullingBuffers),
+    frustumCullingDescriptorBuffer = DescriptorBufferUniform(context.instance, context.device, context.physicalDevice,
+                                                             context.allocator, descriptorLayouts.frustumCullLayout, 1);
+    frustumBufferAddresses = resourceManager.createBuffer(sizeof(FrustumCullingBuffers),
                                                    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                                                    VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
                                                    , VMA_MEMORY_USAGE_GPU_ONLY);
@@ -54,49 +53,47 @@ RenderObject::RenderObject(Engine* engine, const std::string_view gltfFilepath, 
     cullingAddressesUniformData.allocSize = sizeof(FrustumCullingBuffers);
     cullingAddressesUniformData.uniformBuffer = frustumBufferAddresses;
     std::vector cullingUniforms = {cullingAddressesUniformData};
-    frustumCullingDescriptorBuffer.setupData(creator->getDevice(), cullingUniforms);
+    frustumCullingDescriptorBuffer.setupData(context.device, cullingUniforms);
 }
 
 RenderObject::~RenderObject()
 {
-    creator->destroyBuffer(indexBuffer);
-    creator->destroyBuffer(vertexBuffer);
-    creator->destroyBuffer(drawIndirectBuffer);
+    resourceManager.destroyBuffer(indexBuffer);
+    resourceManager.destroyBuffer(vertexBuffer);
+    resourceManager.destroyBuffer(drawIndirectBuffer);
 
-    creator->destroyBuffer(bufferAddresses);
+    resourceManager.destroyBuffer(bufferAddresses);
 
-    creator->destroyBuffer(materialBuffer);
-    creator->destroyBuffer(modelMatrixBuffer);
+    resourceManager.destroyBuffer(materialBuffer);
+    resourceManager.destroyBuffer(modelMatrixBuffer);
 
-    creator->destroyBuffer(meshBoundsBuffer);
-    creator->destroyBuffer(meshIndicesBuffer);
-    creator->destroyBuffer(frustumBufferAddresses);
+    resourceManager.destroyBuffer(meshBoundsBuffer);
+    resourceManager.destroyBuffer(meshIndicesBuffer);
+    resourceManager.destroyBuffer(frustumBufferAddresses);
 
-    textureDescriptorBuffer.destroy(creator->getDevice(), creator->getAllocator());
-    addressesDescriptorBuffer.destroy(creator->getDevice(), creator->getAllocator());
-    frustumCullingDescriptorBuffer.destroy(creator->getDevice(), creator->getAllocator());
+    textureDescriptorBuffer.destroy(context.device, context.allocator);
+    addressesDescriptorBuffer.destroy(context.device, context.allocator);
+    frustumCullingDescriptorBuffer.destroy(context.device, context.allocator);
 
     for (auto& image : images) {
-        if (image.image == Engine::errorCheckerboardImage.image
-            || image.image == Engine::whiteImage.image) {
+        if (image.image == resourceManager.getErrorCheckerboardImage().image || image.image == resourceManager.getWhiteImage().image) {
             //dont destroy the default images
             continue;
         }
 
-        creator->destroyImage(image);
+        resourceManager.destroyImage(image);
     }
 
     for (const auto& sampler : samplers) {
-        if (sampler == Engine::defaultSamplerNearest
-            || sampler == Engine::defaultSamplerLinear) {
+        if (sampler == resourceManager.getDefaultSamplerNearest() || sampler == resourceManager.getDefaultSamplerLinear()) {
             //dont destroy the default samplers
             continue;
         }
-        vkDestroySampler(creator->getDevice(), sampler, nullptr);
+        vkDestroySampler(context.device, sampler, nullptr);
     }
 }
 
-void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath, VkDescriptorSetLayout texturesLayout, std::vector<BoundingSphere>& boundingSpheres)
+void RenderObject::parseModel(std::string_view gltfFilepath, VkDescriptorSetLayout texturesLayout, std::vector<BoundingSphere>& boundingSpheres)
 {
     fastgltf::Parser parser{};
 
@@ -118,8 +115,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath, VkD
 
 
     constexpr uint32_t samplerOffset = 1; // default sampler at 0
-    assert(Engine::defaultSamplerNearest != VK_NULL_HANDLE);
-    samplers.push_back(Engine::defaultSamplerNearest);
+    samplers.push_back(resourceManager.getDefaultSamplerNearest());
     // Samplers
     {
         for (const fastgltf::Sampler& gltfSampler : gltf.samplers) {
@@ -133,7 +129,7 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath, VkD
             sampl.mipmapMode = vk_helpers::extractMipmapMode(gltfSampler.minFilter.value_or(fastgltf::Filter::Linear));
 
             VkSampler newSampler;
-            vkCreateSampler(engine->getDevice(), &sampl, nullptr, &newSampler);
+            vkCreateSampler(context.device, &sampl, nullptr, &newSampler);
 
             samplers.push_back(newSampler);
         }
@@ -142,16 +138,15 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath, VkD
     assert(samplers.size() <= render_object_constants::MAX_SAMPLER_COUNT);
 
     constexpr uint32_t imageOffset = 1; // default texture at 0
-    assert(Engine::whiteImage.image != VK_NULL_HANDLE);
-    images.push_back(Engine::whiteImage);
+    images.push_back(resourceManager.getWhiteImage());
     // Images
     {
         for (const fastgltf::Image& gltfImage : gltf.images) {
-            std::optional<AllocatedImage> newImage = vk_helpers::loadImage(engine, gltf, gltfImage, path.parent_path());
+            std::optional<AllocatedImage> newImage = vk_helpers::loadImage(resourceManager, gltf, gltfImage, path.parent_path());
             if (newImage.has_value()) {
                 images.push_back(*newImage);
             } else {
-                images.push_back(Engine::errorCheckerboardImage);
+                images.push_back(resourceManager.getErrorCheckerboardImage());
             }
         }
     }
@@ -183,9 +178,9 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath, VkD
         }
 
         // init descriptor buffer
-        textureDescriptorBuffer = DescriptorBufferSampler(engine->getInstance(), engine->getDevice(), engine->getPhysicalDevice(),
-                                                          engine->getAllocator(), texturesLayout, 1);
-        textureDescriptorBuffer.setupData(engine->getDevice(), textureDescriptors);
+        textureDescriptorBuffer = DescriptorBufferSampler(context.instance, context.device, context.physicalDevice,
+                                                          context.allocator, texturesLayout, 1);
+        textureDescriptorBuffer.setupData(context.device, textureDescriptors);
     }
 
     // Materials
@@ -248,15 +243,15 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath, VkD
     }
     assert(materials.size() == gltf.materials.size() + materialOffset);
 
-    AllocatedBuffer materialStaging = creator->createStagingBuffer(materials.size() * sizeof(Material));
+    AllocatedBuffer materialStaging = resourceManager.createStagingBuffer(materials.size() * sizeof(Material));
     memcpy(materialStaging.info.pMappedData, materials.data(), materials.size() * sizeof(Material));
-    materialBuffer = engine->createBuffer(materials.size() * sizeof(Material)
+    materialBuffer = resourceManager.createBuffer(materials.size() * sizeof(Material)
                                           , VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                             VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
                                           , VMA_MEMORY_USAGE_GPU_ONLY);
 
-    creator->copyBuffer(materialStaging, materialBuffer, materials.size() * sizeof(Material));
-    creator->destroyBuffer(materialStaging);
+    resourceManager.copyBuffer(materialStaging, materialBuffer, materials.size() * sizeof(Material));
+    resourceManager.destroyBuffer(materialStaging);
 
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
@@ -343,27 +338,27 @@ void RenderObject::parseModel(Engine* engine, std::string_view gltfFilepath, VkD
     }
     // Upload the vertices and indices into their buffers
     {
-        AllocatedBuffer vertexStaging = engine->createStagingBuffer(vertices.size() * sizeof(Vertex));
+        AllocatedBuffer vertexStaging = resourceManager.createStagingBuffer(vertices.size() * sizeof(Vertex));
         memcpy(vertexStaging.info.pMappedData, vertices.data(), vertices.size() * sizeof(Vertex));
 
-        AllocatedBuffer indexStaging = engine->createStagingBuffer(indices.size() * sizeof(uint32_t));
+        AllocatedBuffer indexStaging = resourceManager.createStagingBuffer(indices.size() * sizeof(uint32_t));
         memcpy(indexStaging.info.pMappedData, indices.data(), indices.size() * sizeof(uint32_t));
 
 
-        vertexBuffer = engine->createBuffer(vertices.size() * sizeof(Vertex)
+        vertexBuffer = resourceManager.createBuffer(vertices.size() * sizeof(Vertex)
                                             , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
                                             , VMA_MEMORY_USAGE_GPU_ONLY);
 
-        indexBuffer = engine->createBuffer(indices.size() * sizeof(uint32_t)
+        indexBuffer = resourceManager.createBuffer(indices.size() * sizeof(uint32_t)
                                            , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT
                                            , VMA_MEMORY_USAGE_GPU_ONLY);
 
 
-        engine->copyBuffer(vertexStaging, vertexBuffer, vertices.size() * sizeof(Vertex));
-        engine->copyBuffer(indexStaging, indexBuffer, indices.size() * sizeof(uint32_t));
+        resourceManager.copyBuffer(vertexStaging, vertexBuffer, vertices.size() * sizeof(Vertex));
+        resourceManager.copyBuffer(indexStaging, indexBuffer, indices.size() * sizeof(uint32_t));
 
-        engine->destroyBuffer(vertexStaging);
-        engine->destroyBuffer(indexStaging);
+        resourceManager.destroyBuffer(vertexStaging);
+        resourceManager.destroyBuffer(indexStaging);
     }
 
     for (const fastgltf::Node& node : gltf.nodes) {
@@ -559,27 +554,27 @@ void RenderObject::expandInstanceBuffer(const uint32_t countToAdd, const bool co
     const uint32_t oldBufferSize = instanceBufferSize;
     instanceBufferSize += countToAdd;
     // CPU_TO_GPU because it can be modified any time by gameobjects
-    const AllocatedBuffer tempInstanceBuffer = creator->createBuffer(instanceBufferSize * sizeof(InstanceData)
+    const AllocatedBuffer tempInstanceBuffer = resourceManager.createBuffer(instanceBufferSize * sizeof(InstanceData)
                                                                      , VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
                                                                        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
                                                                        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
                                                                      , VMA_MEMORY_USAGE_CPU_TO_GPU);
 
     if (copy && oldBufferSize > 0) {
-        creator->copyBuffer(modelMatrixBuffer, tempInstanceBuffer, oldBufferSize * sizeof(InstanceData));
-        creator->destroyBuffer(modelMatrixBuffer);
+        resourceManager.copyBuffer(modelMatrixBuffer, tempInstanceBuffer, oldBufferSize * sizeof(InstanceData));
+        resourceManager.destroyBuffer(modelMatrixBuffer);
     }
 
     modelMatrixBuffer = tempInstanceBuffer;
 
-    const VkDeviceAddress instanceBufferAddress = creator->getBufferAddress(modelMatrixBuffer);
+    const VkDeviceAddress instanceBufferAddress = resourceManager.getBufferAddress(modelMatrixBuffer);
     memcpy(static_cast<char*>(bufferAddresses.info.pMappedData) + sizeof(VkDeviceAddress), &instanceBufferAddress, sizeof(VkDeviceAddress));
 }
 
 void RenderObject::uploadIndirectBuffer()
 {
     if (drawIndirectBuffer.buffer != VK_NULL_HANDLE) {
-        creator->destroyBuffer(drawIndirectBuffer);
+        resourceManager.destroyBuffer(drawIndirectBuffer);
     }
 
     if (drawIndirectData.empty()) {
@@ -592,15 +587,15 @@ void RenderObject::uploadIndirectBuffer()
         drawCommands.push_back(drawData.indirectCommand);
     }
 
-    AllocatedBuffer indirectStaging = creator->createStagingBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+    AllocatedBuffer indirectStaging = resourceManager.createStagingBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
     memcpy(indirectStaging.info.pMappedData, drawCommands.data(), drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-    drawIndirectBuffer = creator->createBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand)
+    drawIndirectBuffer = resourceManager.createBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand)
                                                , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
                                                  VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
                                                , VMA_MEMORY_USAGE_GPU_ONLY);
 
-    creator->copyBuffer(indirectStaging, drawIndirectBuffer, drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-    creator->destroyBuffer(indirectStaging);
+    resourceManager.copyBuffer(indirectStaging, drawIndirectBuffer, drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+    resourceManager.destroyBuffer(indirectStaging);
 }
 
 void RenderObject::updateComputeCullingBuffer()
@@ -615,7 +610,7 @@ void RenderObject::updateComputeCullingBuffer()
 
     // destroy because it might have a new size
     if (meshIndicesBuffer.buffer != VK_NULL_HANDLE) {
-        creator->destroyBuffer(meshIndicesBuffer);
+        resourceManager.destroyBuffer(meshIndicesBuffer);
     }
 
     std::vector<uint32_t> primitiveSphereBounds;
@@ -624,25 +619,25 @@ void RenderObject::updateComputeCullingBuffer()
         primitiveSphereBounds.push_back(drawData.boundingSphereIndex);
     }
 
-    AllocatedBuffer meshIndicesStaging = creator->createStagingBuffer(primitiveSphereBounds.size() * sizeof(uint32_t));
+    AllocatedBuffer meshIndicesStaging = resourceManager.createStagingBuffer(primitiveSphereBounds.size() * sizeof(uint32_t));
     memcpy(meshIndicesStaging.info.pMappedData, primitiveSphereBounds.data(), primitiveSphereBounds.size() * sizeof(uint32_t));
-    meshIndicesBuffer = creator->createBuffer(primitiveSphereBounds.size() * sizeof(uint32_t)
+    meshIndicesBuffer = resourceManager.createBuffer(primitiveSphereBounds.size() * sizeof(uint32_t)
                                               , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
                                               , VMA_MEMORY_USAGE_GPU_ONLY);
 
-    creator->copyBuffer(meshIndicesStaging, meshIndicesBuffer, primitiveSphereBounds.size() * sizeof(uint32_t));
-    creator->destroyBuffer(meshIndicesStaging);
+    resourceManager.copyBuffer(meshIndicesStaging, meshIndicesBuffer, primitiveSphereBounds.size() * sizeof(uint32_t));
+    resourceManager.destroyBuffer(meshIndicesStaging);
 
 
     FrustumCullingBuffers cullingBuffers{};
-    cullingBuffers.commandBuffer = creator->getBufferAddress(drawIndirectBuffer);
+    cullingBuffers.commandBuffer = resourceManager.getBufferAddress(drawIndirectBuffer);
     cullingBuffers.commandBufferCount = drawIndirectData.size();
-    cullingBuffers.modelMatrixBuffer = creator->getBufferAddress(modelMatrixBuffer);
-    cullingBuffers.meshBoundsBuffer = creator->getBufferAddress(meshBoundsBuffer);
-    cullingBuffers.meshIndicesBuffer = creator->getBufferAddress(meshIndicesBuffer);
+    cullingBuffers.modelMatrixBuffer = resourceManager.getBufferAddress(modelMatrixBuffer);
+    cullingBuffers.meshBoundsBuffer = resourceManager.getBufferAddress(meshBoundsBuffer);
+    cullingBuffers.meshIndicesBuffer = resourceManager.getBufferAddress(meshIndicesBuffer);
 
-    AllocatedBuffer frustumCullingStaging = creator->createStagingBuffer(sizeof(FrustumCullingBuffers));
+    AllocatedBuffer frustumCullingStaging = resourceManager.createStagingBuffer(sizeof(FrustumCullingBuffers));
     memcpy(frustumCullingStaging.info.pMappedData, &cullingBuffers, sizeof(FrustumCullingBuffers));
-    creator->copyBuffer(frustumCullingStaging, frustumBufferAddresses, sizeof(FrustumCullingBuffers));
-    creator->destroyBuffer(frustumCullingStaging);
+    resourceManager.copyBuffer(frustumCullingStaging, frustumBufferAddresses, sizeof(FrustumCullingBuffers));
+    resourceManager.destroyBuffer(frustumCullingStaging);
 }

@@ -34,9 +34,10 @@
 #include "../renderer/vk_helpers.h"
 #include "../util/render_utils.h"
 #include "camera/free_camera.h"
-#include "src/renderer/vulkan_context.h"
 #include "src/renderer/environment/environment.h"
 
+class ResourceManager;
+class ImmediateSubmitter;
 class DeferredResolvePipeline;
 class DeferredMrtPipeline;
 class RenderObjectDescriptorLayout;
@@ -107,12 +108,6 @@ public:
 
 private: // Initialization
     /**
-    * Initialization of default textures and samplers for all models to use.
-    * Used in cases where models don't have an albedo texture, they will fallback to he white texture (sometimes only vertex colors are assigned)
-     */
-    void initDefaultData() const;
-
-    /**
      * Initializes all dear imgui vulkan/SDL2 integration. Mostly copied from imgui's samples
      */
     void initDearImgui();
@@ -120,9 +115,6 @@ private: // Initialization
     void initDescriptors();
 
     void initScene();
-
-public:
-    void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const;
 
 private: // Vulkan Boilerplate
     /**
@@ -132,26 +124,10 @@ private: // Vulkan Boilerplate
     SDL_Window* window{nullptr};
 
     VulkanContext* context = nullptr;
-
-    VkInstance instance{};
-    VkSurfaceKHR surface{};
-    VkPhysicalDevice physicalDevice{};
-    VkDevice device{};
-    VkQueue graphicsQueue{};
-    uint32_t graphicsQueueFamily{};
-    VmaAllocator allocator{};
-    VkDebugUtilsMessengerEXT debug_messenger{};
+    ImmediateSubmitter* immediate = nullptr;
+    ResourceManager* resourceManager = nullptr;
 
     DeletionQueue mainDeletionQueue;
-
-public:
-    VkInstance getInstance() const { return instance; }
-
-    VkDevice getDevice() const { return device; }
-
-    VkPhysicalDevice getPhysicalDevice() const { return physicalDevice; }
-
-    VmaAllocator getAllocator() const { return allocator; }
 
 private: // Rendering
     // Main
@@ -164,11 +140,6 @@ private: // Rendering
     double frameTime{};
     double drawTime{};
     double renderTime{};
-
-    // Immediate Mode
-    VkFence immFence{VK_NULL_HANDLE};
-    VkCommandBuffer immCommandBuffer{VK_NULL_HANDLE};
-    VkCommandPool immCommandPool{VK_NULL_HANDLE};
 
 private: // Scene
     FreeCamera camera{75.0f, 1920.0f / 1080.0f, 1000, 0.01};
@@ -218,10 +189,10 @@ private: // Pipelines
 
     EnvironmentPipeline* environmentPipeline{nullptr};
 
-    // deferred MRT
+    // Deferred MRT
     DeferredMrtPipeline* deferredMrtPipeline{nullptr};
 
-    // deferred resolve
+    // Deferred Resolve
     DeferredResolvePipeline* deferredResolvePipeline{nullptr};
 
     // TAA
@@ -291,43 +262,10 @@ private: // Render Targets
     AllocatedImage postProcessOutputBuffer{};
 
 public: // Default Data
-    static AllocatedImage whiteImage;
-    static AllocatedImage errorCheckerboardImage;
-    static VkSampler defaultSamplerLinear;
-    static VkSampler defaultSamplerNearest;
     static VkDescriptorSetLayout emptyDescriptorSetLayout;
 
 private: // DearImgui
     VkDescriptorPool imguiPool{VK_NULL_HANDLE};
-
-public: // Buffers
-    AllocatedBuffer createBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) const;
-
-    AllocatedBuffer createStagingBuffer(size_t allocSize) const;
-
-    AllocatedBuffer createReceivingBuffer(size_t allocSize) const;
-
-    /**
-     *
-     * @param src
-     * @param dst destination AllocatedBuffer. Must have already been created.
-     * @param size
-     */
-    void copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, VkDeviceSize size) const;
-
-    VkDeviceAddress getBufferAddress(const AllocatedBuffer& buffer) const;
-
-    void destroyBuffer(AllocatedBuffer& buffer) const;
-
-public: // Images
-    AllocatedImage createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
-
-    AllocatedImage createImage(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,
-                               bool mipmapped = false) const;
-
-    AllocatedImage createCubemap(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
-
-    void destroyImage(const AllocatedImage& img) const;
 };
 
 #endif //ENGINE_H

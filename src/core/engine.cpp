@@ -17,6 +17,8 @@
 
 #include "../util/file_utils.h"
 #include "../util/halton.h"
+#include "src/renderer/immediate_submitter.h"
+#include "src/renderer/resource_manager.h"
 #include "src/renderer/environment/environment.h"
 
 #include "src/renderer/pipelines/acceleration_algorithms/frustum_culling_descriptor_layout.h"
@@ -39,10 +41,6 @@
 #define USE_VALIDATION_LAYERS true
 #endif
 
-VkSampler Engine::defaultSamplerLinear{VK_NULL_HANDLE};
-VkSampler Engine::defaultSamplerNearest{VK_NULL_HANDLE};
-AllocatedImage Engine::whiteImage{};
-AllocatedImage Engine::errorCheckerboardImage{};
 VkDescriptorSetLayout Engine::emptyDescriptorSetLayout;
 
 void Engine::init()
@@ -77,16 +75,6 @@ void Engine::init()
     }
 
     context = new VulkanContext(window, true);
-    // keep old refs for compat during transition
-    device = context->device;
-    instance = context->instance;
-    surface = context->surface;
-    physicalDevice = context->physicalDevice;
-    graphicsQueue = context->graphicsQueue;
-    graphicsQueueFamily = context->graphicsQueueFamily;
-    allocator = context->allocator;
-    debug_messenger = context->debugMessenger;
-
 
     createSwapchain(windowExtent.width, windowExtent.height);
     createDrawResources(renderExtent.width, renderExtent.height);
@@ -94,18 +82,13 @@ void Engine::init()
 
     // Command Pools
     {
-        const VkCommandPoolCreateInfo commandPoolInfo = vk_helpers::commandPoolCreateInfo(graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+        const VkCommandPoolCreateInfo commandPoolInfo = vk_helpers::commandPoolCreateInfo(context->graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
         for (auto& frame : frames) {
-            VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &frame._commandPool));
+            VK_CHECK(vkCreateCommandPool(context->device, &commandPoolInfo, nullptr, &frame._commandPool));
             VkCommandBufferAllocateInfo cmdAllocInfo = vk_helpers::commandBufferAllocateInfo(frame._commandPool);
-            VK_CHECK(vkAllocateCommandBuffers(device, &cmdAllocInfo, &frame._mainCommandBuffer));
+            VK_CHECK(vkAllocateCommandBuffers(context->device, &cmdAllocInfo, &frame._mainCommandBuffer));
         }
-
-        // Immediate Rendering
-        VK_CHECK(vkCreateCommandPool(device, &commandPoolInfo, nullptr, &immCommandPool));
-        const VkCommandBufferAllocateInfo immCmdAllocInfo = vk_helpers::commandBufferAllocateInfo(immCommandPool);
-        VK_CHECK(vkAllocateCommandBuffers(device, &immCmdAllocInfo, &immCommandBuffer));
     }
 
     // Sync Structures
@@ -114,17 +97,20 @@ void Engine::init()
         const VkSemaphoreCreateInfo semaphoreCreateInfo = vk_helpers::semaphoreCreateInfo();
 
         for (auto& frame : frames) {
-            VK_CHECK(vkCreateFence(device, &fenceCreateInfo, nullptr, &frame._renderFence));
+            VK_CHECK(vkCreateFence(context->device, &fenceCreateInfo, nullptr, &frame._renderFence));
 
-            VK_CHECK(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &frame._swapchainSemaphore));
-            VK_CHECK(vkCreateSemaphore(device, &semaphoreCreateInfo, nullptr, &frame._renderSemaphore));
+            VK_CHECK(vkCreateSemaphore(context->device, &semaphoreCreateInfo, nullptr, &frame._swapchainSemaphore));
+            VK_CHECK(vkCreateSemaphore(context->device, &semaphoreCreateInfo, nullptr, &frame._renderSemaphore));
         }
-
-        // Immediate Rendeirng
-        VK_CHECK(vkCreateFence(device, &fenceCreateInfo, nullptr, &immFence));
     }
 
-    initDefaultData();
+    immediate = new ImmediateSubmitter(*context);
+    resourceManager = new ResourceManager(*context, *immediate); {
+        DescriptorLayoutBuilder layoutBuilder;
+        emptyDescriptorSetLayout = layoutBuilder.build(context->device,
+                                                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
+                                                       nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    }
 
     initDearImgui();
 
@@ -161,7 +147,7 @@ void Engine::init()
     deferredResolvePipeline->setupDescriptorBuffer(
         {
             normalRenderTarget.imageView, albedoRenderTarget.imageView, pbrRenderTarget.imageView, depthImage.imageView,
-            velocityRenderTarget.imageView, drawImage.imageView, defaultSamplerNearest
+            velocityRenderTarget.imageView, drawImage.imageView, resourceManager->getDefaultSamplerNearest()
         }
     );
 
@@ -170,14 +156,14 @@ void Engine::init()
     taaPipeline->setupDescriptorBuffer(
         {
             drawImage.imageView, historyBuffer.imageView, depthImage.imageView,
-            velocityRenderTarget.imageView, taaResolveTarget.imageView, defaultSamplerNearest
+            velocityRenderTarget.imageView, taaResolveTarget.imageView, resourceManager->getDefaultSamplerNearest()
         }
     );
 
     postProcessPipeline = new PostProcessPipeline(*context);
     postProcessPipeline->init();
     postProcessPipeline->setupDescriptorBuffer(
-        {taaResolveTarget.imageView, postProcessOutputBuffer.imageView, defaultSamplerNearest}
+        {taaResolveTarget.imageView, postProcessOutputBuffer.imageView, resourceManager->getDefaultSamplerNearest()}
     );;
 
 
@@ -384,7 +370,7 @@ void Engine::run()
                 if (ImGui::Button("Save Draw Image")) {
                     if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
                         std::filesystem::path path = file_utils::imagesSavePath / "drawImage.png";
-                        vk_helpers::saveImageRGBA16SFLOAT(this, drawImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
+                        vk_helpers::saveImageRGBA16SFLOAT(*resourceManager, *immediate, drawImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
                                                           path.string().c_str());
                     } else {
                         fmt::print(" Failed to find/create image save path directory");
@@ -397,7 +383,7 @@ void Engine::run()
                         auto depthNormalize = [](const float depth) {
                             return logf(1.0f + depth * 15.0f) / logf(16.0f);
                         };
-                        vk_helpers::saveImageR32F(this, depthImage, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT,
+                        vk_helpers::saveImageR32F(*resourceManager, *immediate, depthImage, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT,
                                                   path.string().c_str(), depthNormalize);
                     } else {
                         fmt::print(" Failed to find/create image save path directory");
@@ -416,7 +402,7 @@ void Engine::run()
                             return pixel;
                         };
 
-                        vk_helpers::savePacked32Bit(this, normalRenderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                        vk_helpers::savePacked32Bit(*resourceManager, *immediate, normalRenderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                                     VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
                     } else {
                         fmt::print(" Failed to save normal render target");
@@ -432,7 +418,7 @@ void Engine::run()
                             return pixel;
                         };
 
-                        vk_helpers::savePacked32Bit(this, albedoRenderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                        vk_helpers::savePacked32Bit(*resourceManager, *immediate, albedoRenderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                                     VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
                     } else {
                         fmt::print(" Failed to save albedo render target");
@@ -447,7 +433,7 @@ void Engine::run()
                             pixel.a = 1.0f;
                             return pixel;
                         };
-                        vk_helpers::savePacked32Bit(this, pbrRenderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                        vk_helpers::savePacked32Bit(*resourceManager, *immediate, pbrRenderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                                     VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
                     } else {
                         fmt::print(" Failed to save pbr render target");
@@ -458,7 +444,8 @@ void Engine::run()
                     if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
                         if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
                             std::filesystem::path path = file_utils::imagesSavePath / "postProcesResolve.png";
-                            vk_helpers::saveImageRGBA16SFLOAT(this, postProcessOutputBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str());
+                            vk_helpers::saveImageRGBA16SFLOAT(*resourceManager, *immediate, postProcessOutputBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
+                                                              path.string().c_str());
                         } else {
                             fmt::print(" Failed to find/create image save path directory");
                         }
@@ -601,12 +588,12 @@ void Engine::draw()
 
 #pragma region Fence / Swapchain
     // GPU -> CPU sync (fence)
-    VK_CHECK(vkWaitForFences(device, 1, &getCurrentFrame()._renderFence, true, 1000000000));
-    VK_CHECK(vkResetFences(device, 1, &getCurrentFrame()._renderFence));
+    VK_CHECK(vkWaitForFences(context->device, 1, &getCurrentFrame()._renderFence, true, 1000000000));
+    VK_CHECK(vkResetFences(context->device, 1, &getCurrentFrame()._renderFence));
 
     // GPU -> GPU sync (semaphore)
     uint32_t swapchainImageIndex;
-    const VkResult e = vkAcquireNextImageKHR(device, swapchain, 1000000000, getCurrentFrame()._swapchainSemaphore, nullptr, &swapchainImageIndex);
+    const VkResult e = vkAcquireNextImageKHR(context->device, swapchain, 1000000000, getCurrentFrame()._swapchainSemaphore, nullptr, &swapchainImageIndex);
     if (e == VK_ERROR_OUT_OF_DATE_KHR || e == VK_SUBOPTIMAL_KHR) {
         bResizeRequested = true;
         fmt::print("Swapchain out of date or suboptimal, resize requested (At Acquire)\n");
@@ -656,7 +643,8 @@ void Engine::draw()
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);    vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+    vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     DeferredResolveDrawInfo deferredResolveDrawInfo{sceneDataDescriptorBuffer};
@@ -710,7 +698,7 @@ void Engine::draw()
 
     //submit command buffer to the queue and execute it.
     // _renderFence will now block until the graphic commands finish execution
-    VK_CHECK(vkQueueSubmit2(graphicsQueue, 1, &submit, getCurrentFrame()._renderFence));
+    VK_CHECK(vkQueueSubmit2(context->graphicsQueue, 1, &submit, getCurrentFrame()._renderFence));
 
 
     // Present
@@ -725,7 +713,7 @@ void Engine::draw()
 
     presentInfo.pImageIndices = &swapchainImageIndex;
 
-    const VkResult presentResult = vkQueuePresentKHR(graphicsQueue, &presentInfo);
+    const VkResult presentResult = vkQueuePresentKHR(context->graphicsQueue, &presentInfo);
 
     //increase the number of frames drawn
     frameNumber++;
@@ -821,7 +809,7 @@ void Engine::cleanup()
     fmt::print("----------------------------------------\n");
     fmt::print("Cleaning up Will Engine V2\n");
 
-    vkDeviceWaitIdle(device);
+    vkDeviceWaitIdle(context->device);
 
     delete environmentDescriptorLayouts;
     delete sceneDescriptorLayouts;
@@ -848,106 +836,50 @@ void Engine::cleanup()
     mainDeletionQueue.flush();
 
     // Destroy these after destroying all render objects
-    destroyImage(whiteImage);
-    destroyImage(errorCheckerboardImage);
-    vkDestroySampler(device, defaultSamplerNearest, nullptr);
-    vkDestroySampler(device, defaultSamplerLinear, nullptr);
-    vkDestroyDescriptorSetLayout(device, emptyDescriptorSetLayout, nullptr);
+    vkDestroyDescriptorSetLayout(context->device, emptyDescriptorSetLayout, nullptr);
 
     // ImGui
     ImGui_ImplVulkan_Shutdown();
-    vkDestroyDescriptorPool(device, imguiPool, nullptr);
+    vkDestroyDescriptorPool(context->device, imguiPool, nullptr);
 
     // Main Rendering Command and Fence
     for (const auto& frame : frames) {
-        vkDestroyCommandPool(device, frame._commandPool, nullptr);
+        vkDestroyCommandPool(context->device, frame._commandPool, nullptr);
 
         //destroy sync objects
-        vkDestroyFence(device, frame._renderFence, nullptr);
-        vkDestroySemaphore(device, frame._renderSemaphore, nullptr);
-        vkDestroySemaphore(device, frame._swapchainSemaphore, nullptr);
+        vkDestroyFence(context->device, frame._renderFence, nullptr);
+        vkDestroySemaphore(context->device, frame._renderSemaphore, nullptr);
+        vkDestroySemaphore(context->device, frame._swapchainSemaphore, nullptr);
     }
 
-    // Immediate Command and Fence
-    vkDestroyCommandPool(device, immCommandPool, nullptr);
-    vkDestroyFence(device, immFence, nullptr);
 
     // Draw Images
-    destroyImage(drawImage);
-    destroyImage(depthImage);
+    resourceManager->destroyImage(drawImage);
+    resourceManager->destroyImage(depthImage);
 
-    destroyImage(normalRenderTarget);
-    destroyImage(albedoRenderTarget);
-    destroyImage(pbrRenderTarget);
-    destroyImage(velocityRenderTarget);
-    destroyImage(taaResolveTarget);
-    destroyImage(historyBuffer);
-    destroyImage(postProcessOutputBuffer);
+    resourceManager->destroyImage(normalRenderTarget);
+    resourceManager->destroyImage(albedoRenderTarget);
+    resourceManager->destroyImage(pbrRenderTarget);
+    resourceManager->destroyImage(velocityRenderTarget);
+    resourceManager->destroyImage(taaResolveTarget);
+    resourceManager->destroyImage(historyBuffer);
+    resourceManager->destroyImage(postProcessOutputBuffer);
+
+    // Immediate Command and Fence
+    delete immediate;
+    delete resourceManager;
+
 
 
     // Swapchain
-    vkDestroySwapchainKHR(device, swapchain, nullptr);
+    vkDestroySwapchainKHR(context->device, swapchain, nullptr);
     for (const auto swapchainImageView : swapchainImageViews) {
-        vkDestroyImageView(device, swapchainImageView, nullptr);
+        vkDestroyImageView(context->device, swapchainImageView, nullptr);
     }
 
-    // Vulkan Boilerplate
-    vmaDestroyAllocator(allocator);
-
-    vkDestroySurfaceKHR(instance, surface, nullptr);
-    vkDestroyDevice(device, nullptr);
-
-    vkb::destroy_debug_utils_messenger(instance, debug_messenger);
-    vkDestroyInstance(instance, nullptr);
+    delete context;
 
     SDL_DestroyWindow(window);
-}
-
-void Engine::initDefaultData() const
-{
-    // white image
-    {
-        const uint32_t white = packUnorm4x8(glm::vec4(1, 1, 1, 1));
-        const AllocatedImage newImage = createImage(VkExtent3D{1, 1, 1}, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
-                                                    false);
-        destroyImage(newImage);
-        whiteImage = createImage(&white, 4, VkExtent3D{1, 1, 1}, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
-    }
-    //checkerboard image
-    {
-        const uint32_t black = glm::packUnorm4x8(glm::vec4(0, 0, 0, 0));
-        const uint32_t magenta = glm::packUnorm4x8(glm::vec4(1, 0, 1, 1));
-        std::array<uint32_t, 16 * 16> pixels{}; //for 16x16 checkerboard texture
-        for (int x = 0; x < 16; x++) {
-            for (int y = 0; y < 16; y++) {
-                pixels[y * 16 + x] = ((x % 2) ^ (y % 2)) ? magenta : black;
-            }
-        }
-        errorCheckerboardImage = createImage(pixels.data(), 16 * 16 * 4, VkExtent3D{16, 16, 1}, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT);
-    }
-    // default nearest sampler
-    {
-        VkSamplerCreateInfo sampl = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
-        sampl.magFilter = VK_FILTER_NEAREST;
-        sampl.minFilter = VK_FILTER_NEAREST;
-        sampl.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-        vkCreateSampler(device, &sampl, nullptr, &defaultSamplerNearest);
-    }
-    // default linear sampler
-    {
-        VkSamplerCreateInfo sampl = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
-        sampl.magFilter = VK_FILTER_LINEAR;
-        sampl.minFilter = VK_FILTER_LINEAR;
-        sampl.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-        vkCreateSampler(device, &sampl, nullptr, &defaultSamplerLinear);
-    }
-    // default "empty" descriptor set layout
-    {
-        DescriptorLayoutBuilder layoutBuilder;
-        emptyDescriptorSetLayout = layoutBuilder.build(device,
-                                                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
-                                                       nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-    }
 }
 
 void Engine::initDearImgui()
@@ -967,7 +899,7 @@ void Engine::initDearImgui()
     pool_info.pPoolSizes = pool_sizes;
 
     //VkDescriptorPool imguiPool;
-    VK_CHECK(vkCreateDescriptorPool(device, &pool_info, nullptr, &imguiPool));
+    VK_CHECK(vkCreateDescriptorPool(context->device, &pool_info, nullptr, &imguiPool));
 
     // Setup Dear ImGui context
     IMGUI_CHECKVERSION();
@@ -978,6 +910,7 @@ void Engine::initDearImgui()
 
     ImGui::StyleColorsLight();
 
+    VkInstance instance = context->instance;
     // Need to LoadFunction when using VOLK/using VK_NO_PROTOTYPES
     ImGui_ImplVulkan_LoadFunctions([](const char* function_name, void* vulkan_instance) {
         return vkGetInstanceProcAddr(*(static_cast<VkInstance*>(vulkan_instance)), function_name);
@@ -986,11 +919,11 @@ void Engine::initDearImgui()
     // Setup Platform/Renderer backends
     ImGui_ImplSDL2_InitForVulkan(window);
     ImGui_ImplVulkan_InitInfo init_info = {};
-    init_info.Instance = instance;
-    init_info.PhysicalDevice = physicalDevice;
-    init_info.Device = device;
-    init_info.QueueFamily = graphicsQueueFamily;
-    init_info.Queue = graphicsQueue;
+    init_info.Instance = context->instance;
+    init_info.PhysicalDevice = context->physicalDevice;
+    init_info.Device = context->device;
+    init_info.QueueFamily = context->graphicsQueueFamily;
+    init_info.Queue = context->graphicsQueue;
     init_info.DescriptorPool = imguiPool;
     init_info.Subpass = 0;
     init_info.MinImageCount = 3;
@@ -1010,33 +943,33 @@ void Engine::initDearImgui()
 
 void Engine::initDescriptors()
 {
-    sceneDataBuffer = createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-    sceneDataDescriptorBuffer = DescriptorBufferUniform(instance, device, physicalDevice, allocator, sceneDescriptorLayouts->getSceneDataLayout(), 1);
+    sceneDataBuffer = resourceManager->createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    sceneDataDescriptorBuffer = DescriptorBufferUniform(context->instance, context->device, context->physicalDevice, context->allocator, sceneDescriptorLayouts->getSceneDataLayout(), 1);
     std::vector<DescriptorUniformData> sceneDataBuffers{1};
     sceneDataBuffers[0] = DescriptorUniformData{.uniformBuffer = sceneDataBuffer, .allocSize = sizeof(SceneData)};
-    sceneDataDescriptorBuffer.setupData(device, sceneDataBuffers);
+    sceneDataDescriptorBuffer.setupData(context->device, sceneDataBuffers);
 
 
     mainDeletionQueue.pushFunction([&]() {
-        destroyBuffer(sceneDataBuffer);
-        sceneDataDescriptorBuffer.destroy(device, allocator);
+        resourceManager->destroyBuffer(sceneDataBuffer);
+        sceneDataDescriptorBuffer.destroy(context->device, context->allocator);
     });
 
 
-    spectateSceneDataBuffer = createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-    spectateSceneDataDescriptorBuffer = DescriptorBufferUniform(instance, device, physicalDevice, allocator, sceneDescriptorLayouts->getSceneDataLayout(), 1);
+    spectateSceneDataBuffer = resourceManager->createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    spectateSceneDataDescriptorBuffer = DescriptorBufferUniform(context->instance, context->device, context->physicalDevice, context->allocator, sceneDescriptorLayouts->getSceneDataLayout(), 1);
     sceneDataBuffers[0] = DescriptorUniformData{.uniformBuffer = spectateSceneDataBuffer, .allocSize = sizeof(SceneData)};
-    spectateSceneDataDescriptorBuffer.setupData(device, sceneDataBuffers);
+    spectateSceneDataDescriptorBuffer.setupData(context->device, sceneDataBuffers);
     mainDeletionQueue.pushFunction([&]() {
-        destroyBuffer(spectateSceneDataBuffer);
-        spectateSceneDataDescriptorBuffer.destroy(device, allocator);
+        resourceManager->destroyBuffer(spectateSceneDataBuffer);
+        spectateSceneDataDescriptorBuffer.destroy(context->device, context->allocator);
     });
 }
 
 void Engine::initScene()
 {
     // There is limit of 10!
-    environmentMap = new Environment(this, *context, *environmentDescriptorLayouts);
+    environmentMap = new Environment(*context, *resourceManager, *immediate, *environmentDescriptorLayouts);
     const std::filesystem::path envMapSource = "assets/environments";
     environmentMap->loadEnvironment("Meadow", (envMapSource / "meadow_4k.hdr").string().c_str(), 0);
     //environment->loadCubemap((envMapSource / "wasteland_clouds_4k.hdr").string().c_str(), 1);
@@ -1057,9 +990,9 @@ void Engine::initScene()
     renderObjectLayouts.frustumCullLayout = frustumCullDescriptorLayouts->getFrustumCullLayout();
     renderObjectLayouts.addressesLayout = renderObjectDescriptorLayout->getAddressesLayout();
     renderObjectLayouts.texturesLayout = renderObjectDescriptorLayout->getTexturesLayout();
-    sponza = new RenderObject{this, "assets/models/sponza2/Sponza.gltf", renderObjectLayouts};
-    cube = new RenderObject{this, "assets/models/cube.gltf", renderObjectLayouts};
-    primitives = new RenderObject{this, "assets/models/primitives/primitives.gltf", renderObjectLayouts};
+    sponza = new RenderObject{*context, *resourceManager, "assets/models/sponza2/Sponza.gltf", renderObjectLayouts};
+    cube = new RenderObject{*context, *resourceManager, "assets/models/cube.gltf", renderObjectLayouts};
+    primitives = new RenderObject{*context, *resourceManager, "assets/models/primitives/primitives.gltf", renderObjectLayouts};
 
     cubeGameObject = cube->generateGameObject();
     cubeGameObject2 = cube->generateGameObject();
@@ -1085,184 +1018,9 @@ void Engine::initScene()
     cubeGameObject2->dirty();
 }
 
-void Engine::immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const
-{
-    VK_CHECK(vkResetFences(device, 1, &immFence));
-    VK_CHECK(vkResetCommandBuffer(immCommandBuffer, 0));
-
-    const auto cmd = immCommandBuffer;
-    const VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
-    VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
-    function(cmd);
-    VK_CHECK(vkEndCommandBuffer(cmd));
-
-    const VkCommandBufferSubmitInfo cmdSubmitInfo = vk_helpers::commandBufferSubmitInfo(cmd);
-    const VkSubmitInfo2 submitInfo = vk_helpers::submitInfo(&cmdSubmitInfo, nullptr, nullptr);
-
-    VK_CHECK(vkQueueSubmit2(graphicsQueue, 1, &submitInfo, immFence));
-
-    VK_CHECK(vkWaitForFences(device, 1, &immFence, true, 1000000000));
-}
-
-AllocatedBuffer Engine::createBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) const
-{
-    VkBufferCreateInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
-    bufferInfo.pNext = nullptr;
-    bufferInfo.size = allocSize;
-    bufferInfo.usage = usage;
-
-    VmaAllocationCreateInfo vmaallocInfo = {};
-    vmaallocInfo.usage = memoryUsage;
-    vmaallocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    vmaallocInfo.flags |= VMA_ALLOCATOR_CREATE_BUFFER_DEVICE_ADDRESS_BIT;
-    AllocatedBuffer newBuffer{};
-
-    VK_CHECK(vmaCreateBuffer(allocator, &bufferInfo, &vmaallocInfo, &newBuffer.buffer, &newBuffer.allocation, &newBuffer.info));
-
-    return newBuffer;
-}
-
-AllocatedBuffer Engine::createStagingBuffer(size_t allocSize) const
-{
-    return createBuffer(allocSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-}
-
-AllocatedBuffer Engine::createReceivingBuffer(size_t allocSize) const
-{
-    return createBuffer(allocSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU);
-}
-
-void Engine::copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, const VkDeviceSize size) const
-{
-    immediateSubmit([&](VkCommandBuffer cmd) {
-        VkBufferCopy vertexCopy{0};
-        vertexCopy.dstOffset = 0;
-        vertexCopy.srcOffset = 0;
-        vertexCopy.size = size;
-
-        vkCmdCopyBuffer(cmd, src.buffer, dst.buffer, 1, &vertexCopy);
-    });
-}
-
-VkDeviceAddress Engine::getBufferAddress(const AllocatedBuffer& buffer) const
-{
-    VkBufferDeviceAddressInfo addressInfo{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR};
-    addressInfo.buffer = buffer.buffer;
-    const VkDeviceAddress srcPtr = vkGetBufferDeviceAddress(device, &addressInfo);
-    return srcPtr;
-}
-
-void Engine::destroyBuffer(AllocatedBuffer& buffer) const
-{
-    vmaDestroyBuffer(allocator, buffer.buffer, buffer.allocation);
-    buffer.buffer = VK_NULL_HANDLE;
-}
-
-AllocatedImage Engine::createImage(const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped) const
-{
-    AllocatedImage newImage{};
-    newImage.imageFormat = format;
-    newImage.imageExtent = size;
-
-    VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(format, usage, size);
-    if (mipmapped) {
-        imgInfo.mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(size.width, size.height)))) + 1;
-    }
-
-    VmaAllocationCreateInfo allocinfo = {};
-    allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    allocinfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-
-    // allocate and create the image
-    VK_CHECK(vmaCreateImage(allocator, &imgInfo, &allocinfo, &newImage.image, &newImage.allocation, nullptr));
-
-    // if the format is a depth format, we will need to have it use the correct
-    // aspect flag
-    VkImageAspectFlags aspectFlag = VK_IMAGE_ASPECT_COLOR_BIT;
-    if (format == VK_FORMAT_D32_SFLOAT) {
-        aspectFlag = VK_IMAGE_ASPECT_DEPTH_BIT;
-    }
-
-    // build a image-view for the image
-    VkImageViewCreateInfo view_info = vk_helpers::imageviewCreateInfo(format, newImage.image, aspectFlag);
-    view_info.subresourceRange.levelCount = imgInfo.mipLevels;
-
-    VK_CHECK(vkCreateImageView(device, &view_info, nullptr, &newImage.imageView));
-
-    return newImage;
-}
-
-AllocatedImage Engine::createImage(const void* data, const size_t dataSize, const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped /*= false*/) const
-{
-    const size_t data_size = dataSize;
-    AllocatedBuffer uploadbuffer = createBuffer(data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-
-    memcpy(uploadbuffer.info.pMappedData, data, data_size);
-
-    const AllocatedImage newImage = createImage(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, mipmapped);
-
-    immediateSubmit([&](VkCommandBuffer cmd) {
-        vk_helpers::transitionImage(cmd, newImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-
-        VkBufferImageCopy copyRegion = {};
-        copyRegion.bufferOffset = 0;
-        copyRegion.bufferRowLength = 0;
-        copyRegion.bufferImageHeight = 0;
-
-        copyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        copyRegion.imageSubresource.mipLevel = 0;
-        copyRegion.imageSubresource.baseArrayLayer = 0;
-        copyRegion.imageSubresource.layerCount = 1;
-        copyRegion.imageExtent = size;
-
-        // copy the buffer into the image
-        vkCmdCopyBufferToImage(cmd, uploadbuffer.buffer, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
-
-        if (mipmapped) {
-            vk_helpers::generateMipmaps(cmd, newImage.image, VkExtent2D{newImage.imageExtent.width, newImage.imageExtent.height});
-        } else {
-            vk_helpers::transitionImage(cmd, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-        }
-    });
-
-    destroyBuffer(uploadbuffer);
-
-    return newImage;
-}
-
-AllocatedImage Engine::createCubemap(const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped) const
-{
-    AllocatedImage newImage{};
-    newImage.imageFormat = format;
-    newImage.imageExtent = size;
-
-    VkImageCreateInfo img_info = vk_helpers::cubemapCreateInfo(format, usage, size);
-    if (mipmapped) {
-        img_info.mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(size.width, size.height)))) + 1;
-    }
-    // always allocate images on dedicated GPU memory
-    VmaAllocationCreateInfo allocinfo = {};
-    allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
-    allocinfo.requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT;
-    VK_CHECK(vmaCreateImage(allocator, &img_info, &allocinfo, &newImage.image, &newImage.allocation, nullptr));
-
-    VkImageViewCreateInfo view_info = vk_helpers::cubemapViewCreateInfo(format, newImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
-    view_info.subresourceRange.levelCount = img_info.mipLevels;
-
-    VK_CHECK(vkCreateImageView(device, &view_info, nullptr, &newImage.imageView));
-
-    return newImage;
-}
-
-void Engine::destroyImage(const AllocatedImage& img) const
-{
-    vkDestroyImageView(device, img.imageView, nullptr);
-    vmaDestroyImage(allocator, img.image, img.allocation);
-}
-
 void Engine::createSwapchain(const uint32_t width, const uint32_t height)
 {
-    vkb::SwapchainBuilder swapchainBuilder{physicalDevice, device, surface};
+    vkb::SwapchainBuilder swapchainBuilder{context->physicalDevice, context->device, context->surface};
 
     swapchainImageFormat = VK_FORMAT_B8G8R8A8_UNORM;
 
@@ -1284,11 +1042,11 @@ void Engine::createSwapchain(const uint32_t width, const uint32_t height)
 
 void Engine::resizeSwapchain()
 {
-    vkDeviceWaitIdle(device);
+    vkDeviceWaitIdle(context->device);
 
-    vkDestroySwapchainKHR(device, swapchain, nullptr);
+    vkDestroySwapchainKHR(context->device, swapchain, nullptr);
     for (const auto swapchainImage : swapchainImageViews) {
-        vkDestroyImageView(device, swapchainImage, nullptr);
+        vkDestroyImageView(context->device, swapchainImage, nullptr);
     }
 
     int w, h;
@@ -1321,10 +1079,10 @@ void Engine::createDrawResources(uint32_t width, uint32_t height)
         VmaAllocationCreateInfo renderImageAllocationInfo = {};
         renderImageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         renderImageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vmaCreateImage(allocator, &renderImageInfo, &renderImageAllocationInfo, &drawImage.image, &drawImage.allocation, nullptr);
+        vmaCreateImage(context->allocator, &renderImageInfo, &renderImageAllocationInfo, &drawImage.image, &drawImage.allocation, nullptr);
 
         VkImageViewCreateInfo rview_info = vk_helpers::imageviewCreateInfo(drawImage.imageFormat, drawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
-        VK_CHECK(vkCreateImageView(device, &rview_info, nullptr, &drawImage.imageView));
+        VK_CHECK(vkCreateImageView(context->device, &rview_info, nullptr, &drawImage.imageView));
     }
 
     // Depth Image
@@ -1341,10 +1099,10 @@ void Engine::createDrawResources(uint32_t width, uint32_t height)
         VmaAllocationCreateInfo depthImageAllocationInfo = {};
         depthImageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         depthImageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vmaCreateImage(allocator, &depthImageInfo, &depthImageAllocationInfo, &depthImage.image, &depthImage.allocation, nullptr);
+        vmaCreateImage(context->allocator, &depthImageInfo, &depthImageAllocationInfo, &depthImage.image, &depthImage.allocation, nullptr);
 
         VkImageViewCreateInfo depthViewInfo = vk_helpers::imageviewCreateInfo(depthImage.imageFormat, depthImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
-        VK_CHECK(vkCreateImageView(device, &depthViewInfo, nullptr, &depthImage.imageView));
+        VK_CHECK(vkCreateImageView(context->device, &depthViewInfo, nullptr, &depthImage.imageView));
     }
 
     // Render Targets
@@ -1365,12 +1123,12 @@ void Engine::createDrawResources(uint32_t width, uint32_t height)
             renderTarget.imageFormat = renderTargetFormat;
             renderTarget.imageExtent = imageExtent;
             const VkImageCreateInfo imageInfo = vk_helpers::imageCreateInfo(renderTarget.imageFormat, usageFlags, imageExtent);
-            vmaCreateImage(allocator, &imageInfo, &renderImageAllocationInfo, &renderTarget.image, &renderTarget.allocation,
+            vmaCreateImage(context->allocator, &imageInfo, &renderImageAllocationInfo, &renderTarget.image, &renderTarget.allocation,
                            nullptr);
 
             const VkImageViewCreateInfo imageViewInfo = vk_helpers::imageviewCreateInfo(renderTarget.imageFormat, renderTarget.image,
                                                                                         VK_IMAGE_ASPECT_COLOR_BIT);
-            VK_CHECK(vkCreateImageView(device, &imageViewInfo, nullptr, &renderTarget.imageView));
+            VK_CHECK(vkCreateImageView(context->device, &imageViewInfo, nullptr, &renderTarget.imageView));
 
             return renderTarget;
         });
@@ -1395,10 +1153,10 @@ void Engine::createDrawResources(uint32_t width, uint32_t height)
         VmaAllocationCreateInfo taaResolveAllocationInfo = {};
         taaResolveAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         taaResolveAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vmaCreateImage(allocator, &taaResolveImageInfo, &taaResolveAllocationInfo, &taaResolveTarget.image, &taaResolveTarget.allocation, nullptr);
+        vmaCreateImage(context->allocator, &taaResolveImageInfo, &taaResolveAllocationInfo, &taaResolveTarget.image, &taaResolveTarget.allocation, nullptr);
 
         const VkImageViewCreateInfo taaResolveImageViewInfo = vk_helpers::imageviewCreateInfo(taaResolveTarget.imageFormat, taaResolveTarget.image, VK_IMAGE_ASPECT_COLOR_BIT);
-        VK_CHECK(vkCreateImageView(device, &taaResolveImageViewInfo, nullptr, &taaResolveTarget.imageView));
+        VK_CHECK(vkCreateImageView(context->device, &taaResolveImageViewInfo, nullptr, &taaResolveTarget.imageView));
     }
     // Draw History
     {
@@ -1414,10 +1172,10 @@ void Engine::createDrawResources(uint32_t width, uint32_t height)
         VmaAllocationCreateInfo historyBufferAllocationInfo = {};
         historyBufferAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         historyBufferAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vmaCreateImage(allocator, &historyBufferImageInfo, &historyBufferAllocationInfo, &historyBuffer.image, &historyBuffer.allocation, nullptr);
+        vmaCreateImage(context->allocator, &historyBufferImageInfo, &historyBufferAllocationInfo, &historyBuffer.image, &historyBuffer.allocation, nullptr);
 
         const VkImageViewCreateInfo historyBufferImageViewInfo = vk_helpers::imageviewCreateInfo(historyBuffer.imageFormat, historyBuffer.image, VK_IMAGE_ASPECT_COLOR_BIT);
-        VK_CHECK(vkCreateImageView(device, &historyBufferImageViewInfo, nullptr, &historyBuffer.imageView));
+        VK_CHECK(vkCreateImageView(context->device, &historyBufferImageViewInfo, nullptr, &historyBuffer.imageView));
     }
     // Post Process Result
     {
@@ -1432,9 +1190,9 @@ void Engine::createDrawResources(uint32_t width, uint32_t height)
         VmaAllocationCreateInfo imageAllocationInfo = {};
         imageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         imageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vmaCreateImage(allocator, &imageCreateInfo, &imageAllocationInfo, &postProcessOutputBuffer.image, &postProcessOutputBuffer.allocation, nullptr);
+        vmaCreateImage(context->allocator, &imageCreateInfo, &imageAllocationInfo, &postProcessOutputBuffer.image, &postProcessOutputBuffer.allocation, nullptr);
 
         VkImageViewCreateInfo rview_info = vk_helpers::imageviewCreateInfo(postProcessOutputBuffer.imageFormat, postProcessOutputBuffer.image, VK_IMAGE_ASPECT_COLOR_BIT);
-        VK_CHECK(vkCreateImageView(device, &rview_info, nullptr, &postProcessOutputBuffer.imageView));
+        VK_CHECK(vkCreateImageView(context->device, &rview_info, nullptr, &postProcessOutputBuffer.imageView));
     }
 }

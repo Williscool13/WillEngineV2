@@ -54,6 +54,10 @@ set(HALF_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/half)
 set(HALF_SOURCES
         ${HALF_DIR}/half/dummy.cpp
         ${HALF_DIR}/half/half.hpp
+        src/renderer/resource_manager.cpp
+        src/renderer/resource_manager.h
+        src/renderer/immediate_submitter.cpp
+        src/renderer/immediate_submitter.h
 )
 
 

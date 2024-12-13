@@ -101,7 +101,7 @@ VulkanContext::~VulkanContext()
         vkDestroyDevice(device, nullptr);
     }
     if (debugMessenger) {
-        vkDestroyDebugUtilsMessengerEXT(instance, debugMessenger, nullptr);
+        vkb::destroy_debug_utils_messenger(instance, debugMessenger);
     }
     if (instance) {
         vkDestroyInstance(instance, nullptr);

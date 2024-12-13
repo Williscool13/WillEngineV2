@@ -14,7 +14,7 @@ void RenderObjectDescriptorLayout::createLayouts()
         // Render binding 0
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        addressesLayout = layoutBuilder.build(context.getDevice(),
+        addressesLayout = layoutBuilder.build(context.device,
                                                            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT
                                                            , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     } {
@@ -23,15 +23,15 @@ void RenderObjectDescriptorLayout::createLayouts()
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_SAMPLER, render_object_constants::MAX_SAMPLER_COUNT);
         layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, render_object_constants::MAX_IMAGES_COUNT);
 
-        texturesLayout = layoutBuilder.build(context.getDevice(), VK_SHADER_STAGE_FRAGMENT_BIT
+        texturesLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_FRAGMENT_BIT
                                                          , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
 }
 
 void RenderObjectDescriptorLayout::cleanup() const
 {
-    if (context.getDevice() != VK_NULL_HANDLE) {
-        if (addressesLayout) vkDestroyDescriptorSetLayout(context.getDevice(), addressesLayout, nullptr);
-        if (texturesLayout) vkDestroyDescriptorSetLayout(context.getDevice(), texturesLayout, nullptr);
+    if (context.device != VK_NULL_HANDLE) {
+        if (addressesLayout) vkDestroyDescriptorSetLayout(context.device, addressesLayout, nullptr);
+        if (texturesLayout) vkDestroyDescriptorSetLayout(context.device, texturesLayout, nullptr);
     }
 }

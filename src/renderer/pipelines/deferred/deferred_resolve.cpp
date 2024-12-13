@@ -25,7 +25,7 @@ void DeferredResolvePipeline::init(const DeferredResolvePipelineCreateInfo& crea
     createPipelineLayout();
     createPipeline();
 
-    resolveDescriptorBuffer = DescriptorBufferSampler(context.getInstance(), context.getDevice(), context.getPhysicalDevice(), context.getAllocator(), resolveTargetLayout, 1);
+    resolveDescriptorBuffer = DescriptorBufferSampler(context.instance, context.device, context.physicalDevice, context.allocator, resolveTargetLayout, 1);
 }
 
 void DeferredResolvePipeline::createDescriptorLayouts()
@@ -38,7 +38,7 @@ void DeferredResolvePipeline::createDescriptorLayouts()
     layoutBuilder.addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
     layoutBuilder.addBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
 
-    resolveTargetLayout = layoutBuilder.build(context.getDevice(), VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    resolveTargetLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 }
 
 void DeferredResolvePipeline::createPipelineLayout()
@@ -63,13 +63,13 @@ void DeferredResolvePipeline::createPipelineLayout()
     layoutInfo.pPushConstantRanges = &pushConstants;
     layoutInfo.pushConstantRangeCount = 1;
 
-    VK_CHECK(vkCreatePipelineLayout(context.getDevice(), &layoutInfo, nullptr, &pipelineLayout));
+    VK_CHECK(vkCreatePipelineLayout(context.device, &layoutInfo, nullptr, &pipelineLayout));
 }
 
 void DeferredResolvePipeline::createPipeline()
 {
     VkShaderModule computeShader;
-    if (!vk_helpers::loadShaderModule("shaders/deferredResolve.comp.spv", context.getDevice(), &computeShader)) {
+    if (!vk_helpers::loadShaderModule("shaders/deferredResolve.comp.spv", context.device, &computeShader)) {
         throw std::runtime_error("Error when building compute shader (deferredResolve.comp.spv)");
     }
 
@@ -87,8 +87,8 @@ void DeferredResolvePipeline::createPipeline()
     pipelineInfo.stage = stageInfo;
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-    VK_CHECK(vkCreateComputePipelines(context.getDevice(), VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline));
-    vkDestroyShaderModule(context.getDevice(), computeShader, nullptr);
+    VK_CHECK(vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline));
+    vkDestroyShaderModule(context.device, computeShader, nullptr);
 }
 
 void DeferredResolvePipeline::setupDescriptorBuffer(const DeferredResolveDescriptorBufferInfo& drawInfo)
@@ -132,7 +132,7 @@ void DeferredResolvePipeline::setupDescriptorBuffer(const DeferredResolveDescrip
     renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, velocityTarget, false});
     renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, drawImageTarget, false});
 
-    resolveDescriptorBuffer.setupData(context.getDevice(), renderTargetDescriptors, 0);
+    resolveDescriptorBuffer.setupData(context.device, renderTargetDescriptors, 0);
 }
 
 void DeferredResolvePipeline::draw(VkCommandBuffer cmd, const DeferredResolveDrawInfo& drawInfo) const
@@ -182,17 +182,17 @@ void DeferredResolvePipeline::draw(VkCommandBuffer cmd, const DeferredResolveDra
 void DeferredResolvePipeline::cleanup()
 {
     if (pipeline) {
-        vkDestroyPipeline(context.getDevice(), pipeline, nullptr);
+        vkDestroyPipeline(context.device, pipeline, nullptr);
         pipeline = VK_NULL_HANDLE;
     }
     if (pipelineLayout) {
-        vkDestroyPipelineLayout(context.getDevice(), pipelineLayout, nullptr);
+        vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
         pipelineLayout = VK_NULL_HANDLE;
     }
     if (resolveTargetLayout) {
-        vkDestroyDescriptorSetLayout(context.getDevice(), resolveTargetLayout, nullptr);
+        vkDestroyDescriptorSetLayout(context.device, resolveTargetLayout, nullptr);
         resolveTargetLayout = VK_NULL_HANDLE;
     }
 
-    resolveDescriptorBuffer.destroy(context.getDevice(), context.getAllocator());
+    resolveDescriptorBuffer.destroy(context.device, context.allocator);
 }
