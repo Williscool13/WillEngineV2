@@ -55,7 +55,7 @@ void main() {
 
     // check cutoff if applicable
 
-    normalTarget = vec4(normalize(inNormal), 1.0f);
+    normalTarget = vec4(normalize(inNormal), 0.0f);
     albedoTarget = vec4(albedo, 1.0f);
     pbrTarget = vec4(metallic, roughness, 0.0f, 0.0f);
 
