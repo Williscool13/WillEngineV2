@@ -58,6 +58,10 @@ set(HALF_SOURCES
         src/renderer/resource_manager.h
         src/renderer/immediate_submitter.cpp
         src/renderer/immediate_submitter.h
+        src/physics/physics_body.cpp
+        src/physics/physics_body.h
+        src/physics/physics_utils.cpp
+        src/physics/physics_utils.h
 )
 
 
