@@ -91,13 +91,11 @@ void DeferredMrtPipeline::createPipeline()
 
     renderPipelineBuilder.setShaders(vertShader, fragShader);
     renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-    renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE); // VK_CULL_MODE_BACK_BIT
+    renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
     renderPipelineBuilder.disableMultisampling();
     renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
     renderPipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    renderPipelineBuilder.setupRenderer(
-        {renderFormats.normalFormat, renderFormats.albedoFormat, renderFormats.pbrFormat, renderFormats.velocityFormat}
-        , renderFormats.depthFormat);
+    renderPipelineBuilder.setupRenderer({renderFormats.normalFormat, renderFormats.albedoFormat, renderFormats.pbrFormat, renderFormats.velocityFormat}, renderFormats.depthFormat);
     renderPipelineBuilder.setupPipelineLayout(pipelineLayout);
 
     pipeline = renderPipelineBuilder.buildPipeline(context.device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);

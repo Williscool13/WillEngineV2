@@ -4,10 +4,14 @@
 
 #ifndef GAME_OBJECT_H
 #define GAME_OBJECT_H
+
 #include <string>
 
-#include "../util/transform.h"
+#include <glm/glm.hpp>
+#include <Jolt/Physics/PhysicsSystem.h>
 #include <vulkan/vulkan_core.h>
+
+#include "src/util/transform.h"
 
 class RenderObject;
 
@@ -51,41 +55,48 @@ public: // Hierarchy
 
     std::string_view getName() const { return gameObjectName; }
 
-private: // Transform
-    glm::mat4 cachedWorldTransform{};
-    bool bIsTransformDirty{true};
-    bool bModelPendingUpdate{true};
-
-public:
-    /**
-     * If true, the model matrix will never be updated from defaults.
-     */
-    bool bIsStatic{false};
-
-    /**
-     *
-     */
-    bool bModelUpdatedLastFrame{true};
-    Transform transform{};
-
-    /**
-     * Should be called whenever transform is modified
-     */
-    void dirty();
-
-    /**
-     *
-     */
-    void recursiveUpdateModelMatrix();
-
-    glm::mat4 getModelMatrix();
-
 private: // Hierarchy
     GameObject* parent{nullptr};
     std::vector<GameObject*> children{};
     static int nextId;
     int gameObjectId{};
     std::string gameObjectName{};
+
+public: // Transform
+    Transform transform{};
+
+    /**
+    * Should be called whenever transform is modified
+    */
+    void dirty();
+
+private: // Transform
+    glm::mat4 cachedWorldTransform{};
+    bool bIsTransformDirty{true};
+    bool bModelPendingUpdate{true};
+
+    glm::mat4 getModelMatrix();
+
+public: // Rendering
+    /**
+     * Update the model transform in the RenderObject. Only applicable if this gameobject has a pRenderObject associated with it.
+     */
+    void recursiveUpdateModelMatrix();
+
+private: // Rendering
+    /**
+      * If true, the model matrix will never be updated from defaults.
+      */
+    bool bIsStatic{false};
+    /**
+     * If true, the model matrix in the mapped CPU buffer of the RenderObject will be updated in the following frame
+     */
+    bool bModelUpdatedLastFrame{true};
+    /**
+     * The render object that is responsible for drawing this gameobject's model
+     */
+    RenderObject* pRenderObject{nullptr};
+    int32_t instanceIndex{-1};
 
 public: // Rendering
     void setRenderObjectReference(RenderObject* owner, int32_t index)
@@ -94,12 +105,8 @@ public: // Rendering
         instanceIndex = index;
     }
 
-private: // Rendering
-    /**
-     * The render object that is responsible for drawing this gameobject's model
-     */
-    RenderObject* pRenderObject{nullptr};
-    int32_t instanceIndex{-1};
+private: // Physics
+    JPH::BodyID bodyID;
 
 public:
     bool operator==(const GameObject& other) const
