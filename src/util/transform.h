@@ -14,7 +14,7 @@
 class Transform
 {
 private:
-    glm::vec3 translation;
+    glm::vec3 position;
     glm::quat rotation;
     glm::vec3 scale;
 
@@ -25,10 +25,10 @@ private:
     mutable bool trsDirty{true};
 
 public:
-    Transform() : translation(0.0f), rotation(glm::quat(1.0f, 0.0f, 0.0f, 0.0f)), scale(1.0f) {}
-    Transform(const glm::vec3& translation, const glm::quat& rotation, const glm::vec3& scale) : translation(translation), rotation(rotation), scale(scale) {}
+    Transform() : position(0.0f), rotation(glm::quat(1.0f, 0.0f, 0.0f, 0.0f)), scale(1.0f) {}
+    Transform(const glm::vec3& position, const glm::quat& rotation, const glm::vec3& scale) : position(position), rotation(rotation), scale(scale) {}
 
-    [[nodiscard]] glm::vec3 getTranslation() const { return translation; }
+    [[nodiscard]] glm::vec3 getPosition() const { return position; }
     [[nodiscard]] glm::vec3 getEulerAngles() const
     {
         return glm::eulerAngles(rotation);
@@ -36,9 +36,9 @@ public:
     [[nodiscard]] glm::quat getRotation() const { return rotation; }
     [[nodiscard]] glm::vec3 getScale() const { return scale; }
 
-    [[nodiscard]] glm::mat4 getTranslationMatrix() const
+    [[nodiscard]] glm::mat4 getPositionMatrix() const
     {
-        return glm::translate(glm::mat4(1.0f), translation);
+        return glm::translate(glm::mat4(1.0f), position);
     }
     [[nodiscard]] glm::mat4 getRotationMatrix() const
     {
@@ -53,9 +53,9 @@ public:
         return glm::scale(glm::mat4(1.0f), scale);
     }
 
-    void setTranslation(const glm::vec3& translation)
+    void setPosition(const glm::vec3& position)
     {
-        this->translation = translation;
+        this->position = position;
         trsDirty = true;
     }
     void setRotation(const glm::quat& rotation)
@@ -82,13 +82,13 @@ public:
     }
     void setTransform(const Transform& transform)
     {
-        setTranslation(transform.getTranslation());
+        setPosition(transform.getPosition());
         setRotation(transform.getRotation());
         setScale(transform.getScale());
     }
-    void setTransform(const glm::vec3& translation, const glm::quat& rotation, const glm::vec3& scale)
+    void setTransform(const glm::vec3& position, const glm::quat& rotation, const glm::vec3& scale)
     {
-        setTranslation(translation);
+        setPosition(position);
         setRotation(rotation);
         setScale(scale);
     }
@@ -100,7 +100,7 @@ public:
 
     void translate(const glm::vec3& offset)
     {
-        translation += offset;
+        position += offset;
         trsDirty = true;
     }
     /**
@@ -133,7 +133,7 @@ public:
     glm::mat4 getTRSMatrix() const
     {
         if (trsDirty) {
-            cachedTRSMatrix = getTranslationMatrix() * getRotationMatrix() * getScaleMatrix();
+            cachedTRSMatrix = getPositionMatrix() * getRotationMatrix() * getScaleMatrix();
             trsDirty = false;
         }
         return cachedTRSMatrix;
@@ -141,7 +141,7 @@ public:
 
     void reset()
     {
-        translation = glm::vec3(0.0f);
+        position = glm::vec3(0.0f);
         rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
         scale = glm::vec3(1.0f);
         trsDirty = true;

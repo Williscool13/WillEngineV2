@@ -40,7 +40,7 @@ void Camera::updateProjMatrix(float fov, float aspect, float nearPlane, float fa
 
 void Camera::updateViewMatrix()
 {
-    const glm::vec3 position = transform.getTranslation();
+    const glm::vec3 position = transform.getPosition();
     const glm::vec3 forward = getViewDirectionWS();
     constexpr auto up = glm::vec3(0.0f, 1.0f, 0.0f);
     cachedViewMatrix = glm::lookAt(position, position + forward, up);

@@ -16,7 +16,7 @@
 class Camera
 {
 public:
-    glm::vec4 getPosition() const { return {transform.getTranslation(), 1.0f}; }
+    glm::vec4 getPosition() const { return {transform.getPosition(), 1.0f}; }
     glm::mat4 getViewMatrix() const { return cachedViewMatrix; }
     glm::mat4 getProjMatrix() const { return cachedProjMatrix; }
     glm::mat4 getViewProjMatrix() const { return cachedViewProjMatrix; }

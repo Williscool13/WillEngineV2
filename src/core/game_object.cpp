@@ -122,7 +122,7 @@ void GameObject::unparent()
     temp->removeChild(this);
 
     // Set the object's local transform to its previous world transform
-    transform.setTranslation(worldPosition);
+    transform.setPosition(worldPosition);
     transform.setRotation(worldRotation);
     transform.setScale(worldScale);
     dirty();

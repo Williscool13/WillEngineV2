@@ -17,6 +17,7 @@
 
 #include "../util/file_utils.h"
 #include "../util/halton.h"
+#include "Jolt/Physics/Collision/Shape/BoxShape.h"
 #include "src/physics/physics.h"
 #include "src/renderer/immediate_submitter.h"
 #include "src/renderer/resource_manager.h"
@@ -298,7 +299,7 @@ void Engine::run()
                 glm::vec3 viewDir = camera.getViewDirectionWS();
                 glm::vec3 cameraRotation = camera.transform.getEulerAngles();
                 cameraRotation = glm::degrees(cameraRotation);
-                glm::vec3 cameraPosition = camera.transform.getTranslation();
+                glm::vec3 cameraPosition = camera.transform.getPosition();
                 ImGui::Text("View Direction: (%.2f, %.2f, %.2f)", viewDir.x, viewDir.y, viewDir.z);
                 ImGui::Text("Rotation (%.2f, %.2f, %.2f)", cameraRotation.x, cameraRotation.y, cameraRotation.z);
                 ImGui::Text("Position: (%.2f, %.2f, %.2f)", cameraPosition.x, cameraPosition.y, cameraPosition.z);
@@ -575,9 +576,9 @@ void Engine::updateSceneObjects() const
     const glm::vec3 vertical = originalPosition + glm::vec3{0.0f, offset, 0.0f};
     const glm::vec3 horizontal = originalPosition + glm::vec3{0.0f, 0.0f, offset} + glm::vec3(2.0f, 0.0f, 0.0f);
 
-    cubeGameObject->transform.setTranslation(vertical);
+    cubeGameObject->transform.setPosition(vertical);
     cubeGameObject->dirty();
-    cubeGameObject2->transform.setTranslation(horizontal);
+    cubeGameObject2->transform.setPosition(horizontal);
     cubeGameObject2->dirty();
 
 
@@ -588,6 +589,10 @@ void Engine::draw()
 {
     const auto start = std::chrono::system_clock::now();
 
+    camera.update();
+    updateSceneData();
+    updateSceneObjects();
+    physics->update(TimeUtils::Get().getDeltaTime());
 #pragma region Fence / Swapchain
     // GPU -> CPU sync (fence)
     VK_CHECK(vkWaitForFences(context->device, 1, &getCurrentFrame()._renderFence, true, 1000000000));
@@ -603,9 +608,7 @@ void Engine::draw()
     }
 #pragma endregion
 
-    camera.update();
-    updateSceneData();
-    updateSceneObjects();
+
 
     const auto renderStart = std::chrono::system_clock::now();
 
@@ -1011,6 +1014,9 @@ void Engine::initScene()
     cubeGameObject->dirty();
     cubeGameObject2->transform.setScale(0.05f);
     cubeGameObject2->dirty();
+
+    JPH::BoxShape boxShape = {JPH::Vec3(0.5f, 0.5f, 0.5f)};
+    physics->addRigidBody(primitiveCubeGameObject, physics->getUnitCubeShape());
 }
 
 void Engine::createSwapchain(const uint32_t width, const uint32_t height)
