@@ -17,6 +17,7 @@
 
 #include "../util/file_utils.h"
 #include "../util/halton.h"
+#include "src/physics/physics.h"
 #include "src/renderer/immediate_submitter.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/environment/environment.h"
@@ -62,8 +63,8 @@ void Engine::init()
             ENGINE_NAME,
             SDL_WINDOWPOS_UNDEFINED,
             SDL_WINDOWPOS_UNDEFINED,
-            static_cast<int>(windowExtent.width), // narrowing
-            static_cast<int>(windowExtent.height), // narrowing
+            static_cast<int>(windowExtent.width),
+            static_cast<int>(windowExtent.height),
             window_flags);
 
         if (SDL_Surface* icon = SDL_LoadBMP("assets/icons/WillEngine.bmp")) {
@@ -105,7 +106,11 @@ void Engine::init()
     }
 
     immediate = new ImmediateSubmitter(*context);
-    resourceManager = new ResourceManager(*context, *immediate); {
+    resourceManager = new ResourceManager(*context, *immediate);
+    physics = new Physics();
+
+    // emp
+    {
         DescriptorLayoutBuilder layoutBuilder;
         emptyDescriptorSetLayout = layoutBuilder.build(context->device,
                                                        VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
@@ -512,8 +517,8 @@ void Engine::updateSceneData() const
 {
     const bool bIsFrameZero = frameNumber == 0;
 
-    glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber, {renderExtent.width, renderExtent.height});
-    glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(frameNumber > 0 ? frameNumber - 1 : 0, {renderExtent.width, renderExtent.height});
+    const glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber, {renderExtent.width, renderExtent.height});
+    const glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(frameNumber > 0 ? frameNumber - 1 : 0, {renderExtent.width, renderExtent.height});
 
     // Update scene data
     {
@@ -576,10 +581,7 @@ void Engine::updateSceneObjects() const
     cubeGameObject2->dirty();
 
 
-    cubeGameObject->recursiveUpdateModelMatrix();
-    cubeGameObject2->recursiveUpdateModelMatrix();
-    sponzaObject->recursiveUpdateModelMatrix();
-    primitiveObject->recursiveUpdateModelMatrix();
+    scene.updateSceneModelMatrices();
 }
 
 void Engine::draw()
@@ -827,13 +829,17 @@ void Engine::cleanup()
     delete cubeGameObject;
     delete cubeGameObject2;
     delete sponzaObject;
-    delete primitiveObject;
+    delete primitiveCubeGameObject;
 
     delete sponza;
     delete cube;
     delete primitives;
     // destroy all other resources
-    mainDeletionQueue.flush();
+    //mainDeletionQueue.flush();
+    resourceManager->destroyBuffer(sceneDataBuffer);
+    sceneDataDescriptorBuffer.destroy(context->device, context->allocator);
+    resourceManager->destroyBuffer(spectateSceneDataBuffer);
+    spectateSceneDataDescriptorBuffer.destroy(context->device, context->allocator);
 
     // Destroy these after destroying all render objects
     vkDestroyDescriptorSetLayout(context->device, emptyDescriptorSetLayout, nullptr);
@@ -869,7 +875,7 @@ void Engine::cleanup()
     delete immediate;
     delete resourceManager;
 
-
+    delete physics;
 
     // Swapchain
     vkDestroySwapchainKHR(context->device, swapchain, nullptr);
@@ -949,21 +955,10 @@ void Engine::initDescriptors()
     sceneDataBuffers[0] = DescriptorUniformData{.uniformBuffer = sceneDataBuffer, .allocSize = sizeof(SceneData)};
     sceneDataDescriptorBuffer.setupData(context->device, sceneDataBuffers);
 
-
-    mainDeletionQueue.pushFunction([&]() {
-        resourceManager->destroyBuffer(sceneDataBuffer);
-        sceneDataDescriptorBuffer.destroy(context->device, context->allocator);
-    });
-
-
     spectateSceneDataBuffer = resourceManager->createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
     spectateSceneDataDescriptorBuffer = DescriptorBufferUniform(context->instance, context->device, context->physicalDevice, context->allocator, sceneDescriptorLayouts->getSceneDataLayout(), 1);
     sceneDataBuffers[0] = DescriptorUniformData{.uniformBuffer = spectateSceneDataBuffer, .allocSize = sizeof(SceneData)};
     spectateSceneDataDescriptorBuffer.setupData(context->device, sceneDataBuffers);
-    mainDeletionQueue.pushFunction([&]() {
-        resourceManager->destroyBuffer(spectateSceneDataBuffer);
-        spectateSceneDataDescriptorBuffer.destroy(context->device, context->allocator);
-    });
 }
 
 void Engine::initScene()
@@ -997,17 +992,17 @@ void Engine::initScene()
     cubeGameObject = cube->generateGameObject();
     cubeGameObject2 = cube->generateGameObject();
     sponzaObject = sponza->generateGameObject();
-    primitiveObject = primitives->generateGameObject(0);
+    primitiveCubeGameObject = primitives->generateGameObject(0);
 
     scene.addGameObject(sponzaObject);
 
     scene.addGameObject(cubeGameObject);
     scene.addGameObject(cubeGameObject2);
 
-    scene.addGameObject(primitiveObject);
+    scene.addGameObject(primitiveCubeGameObject);
 
-    primitiveObject->transform.translate({0.f, 3.0f, 0.f});
-    primitiveObject->dirty();
+    primitiveCubeGameObject->transform.translate({0.f, 3.0f, 0.f});
+    primitiveCubeGameObject->dirty();
 
     sponzaObject->transform.setScale(1.f);
     sponzaObject->dirty();

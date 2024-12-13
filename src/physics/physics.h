@@ -27,7 +27,7 @@ public:
     void cleanup();
     void update(float deltaTime);
 
-    JPH::PhysicsSystem& getPhysicsSystem() { return *physicsSystem; }
+    [[nodiscard]] JPH::PhysicsSystem& getPhysicsSystem() const { return *physicsSystem; }
     JPH::BodyInterface& getBodyInterface();
 
 private:

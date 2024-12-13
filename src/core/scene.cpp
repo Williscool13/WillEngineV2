@@ -199,11 +199,15 @@ int Scene::getIndexInVector(GameObject* obj, std::vector<GameObject*> vector)
     for (int i = 0; i < vector.size(); i++) {
         if (vector[i] == obj) {
             return i;
-            break;
         }
     }
 
     return -1;
+}
+
+void Scene::updateSceneModelMatrices() const
+{
+    sceneRoot->recursiveUpdateModelMatrix();
 }
 
 void Scene::deleteGameObjectRecursive(GameObject* obj)

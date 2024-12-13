@@ -9,9 +9,11 @@
 #include "game_object.h"
 
 
-class Scene {
+class Scene
+{
 public:
     Scene();
+
     ~Scene();
 
     GameObject* createGameObject(std::string name);
@@ -35,16 +37,16 @@ private: // Scene properties
 public:
     void imguiSceneGraph();
 
-private:
-    int getIndexInVector(GameObject* obj, std::vector<GameObject*> vector);
+    void updateSceneModelMatrices() const;
 
 private:
+    static int getIndexInVector(GameObject* obj, std::vector<GameObject*> vector);
+
     void deleteGameObjectRecursive(GameObject* obj);
 
 public: // Debug
     GameObject* DEBUG_getSceneRoot() const;
 };
-
 
 
 #endif //SCENE_H

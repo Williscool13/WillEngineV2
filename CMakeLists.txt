@@ -83,8 +83,6 @@ add_executable(WillEngine main.cpp
         src/physics/physics.h
         src/physics/physics_filters.cpp
         src/physics/physics_filters.h
-        src/renderer/render_system.cpp
-        src/renderer/render_system.h
         src/renderer/vulkan_context.cpp
         src/renderer/vulkan_context.h
         src/renderer/environment/environment.cpp

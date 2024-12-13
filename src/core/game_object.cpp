@@ -57,34 +57,6 @@ void GameObject::dirty()
     }
 }
 
-void GameObject::recursiveUpdateModelMatrix()
-{
-    if (bIsStatic) {
-        // if a gameobject is static, all its children must necessarily be static.
-        return;
-    }
-
-
-    if (pRenderObject) {
-        if (InstanceData* pInstanceData = pRenderObject->getInstanceData(instanceIndex)) {
-            if (bModelPendingUpdate) {
-                if (bModelUpdatedLastFrame) {
-                    pInstanceData->previousModelMatrix = pInstanceData->currentModelMatrix;
-                }
-                pInstanceData->currentModelMatrix = getModelMatrix();
-                bModelUpdatedLastFrame = true;
-            } else if (bModelUpdatedLastFrame) {
-                pInstanceData->previousModelMatrix = pInstanceData->currentModelMatrix;
-                bModelUpdatedLastFrame = false;
-            }
-        }
-    }
-
-    for (GameObject* child : children) {
-        child->recursiveUpdateModelMatrix();
-    }
-}
-
 void GameObject::addChild(GameObject* child, bool maintainWorldPosition)
 {
     // Prevent adding self as child
@@ -165,3 +137,31 @@ std::vector<GameObject*>& GameObject::getChildren()
 {
     return children;
 }
+
+void GameObject::recursiveUpdateModelMatrix()
+{
+    if (bIsStatic) {
+        // if a gameobject is static, all its children must necessarily be static.
+        return;
+    }
+
+    if (pRenderObject) {
+        if (InstanceData* pInstanceData = pRenderObject->getInstanceData(instanceIndex)) {
+            if (bModelPendingUpdate) {
+                if (bModelUpdatedLastFrame) {
+                    pInstanceData->previousModelMatrix = pInstanceData->currentModelMatrix;
+                }
+                pInstanceData->currentModelMatrix = getModelMatrix();
+                bModelUpdatedLastFrame = true;
+            } else if (bModelUpdatedLastFrame) {
+                pInstanceData->previousModelMatrix = pInstanceData->currentModelMatrix;
+                bModelUpdatedLastFrame = false;
+            }
+        }
+    }
+
+    for (GameObject* child : children) {
+        child->recursiveUpdateModelMatrix();
+    }
+}
+

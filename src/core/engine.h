@@ -20,7 +20,6 @@
 #include <vk_mem_alloc.h>
 
 #include <SDL.h>
-#include <SDL_vulkan.h>
 #include <fmt/format.h>
 #include <imgui.h>
 #include <imgui_impl_sdl2.h>
@@ -36,6 +35,7 @@
 #include "camera/free_camera.h"
 #include "src/renderer/environment/environment.h"
 
+class Physics;
 class ResourceManager;
 class ImmediateSubmitter;
 class DeferredResolvePipeline;
@@ -121,13 +121,19 @@ private: // Vulkan Boilerplate
      * The extents of the window. Used to initialize the swapchain image.
      */
     VkExtent2D windowExtent{1700, 900};
+    /**
+     * All graphics operation in this program operate with these extent.
+     */
+    const VkExtent2D renderExtent{1920, 1080};
+    //const VkExtent2D renderExtent{3840, 2160};
     SDL_Window* window{nullptr};
 
     VulkanContext* context = nullptr;
     ImmediateSubmitter* immediate = nullptr;
     ResourceManager* resourceManager = nullptr;
+    Physics* physics = nullptr;
 
-    DeletionQueue mainDeletionQueue;
+    //DeletionQueue mainDeletionQueue;
 
 private: // Rendering
     // Main
@@ -151,7 +157,7 @@ private: // Scene
     GameObject* sponzaObject{nullptr};
     GameObject* cubeGameObject{nullptr};
     GameObject* cubeGameObject2{nullptr};
-    GameObject* primitiveObject{nullptr};
+    GameObject* primitiveCubeGameObject{nullptr};
 
 
     Environment* environmentMap{nullptr};
@@ -215,11 +221,6 @@ private: // Swapchain
     void resizeSwapchain();
 
 private: // Render Targets
-    /**
-     * All graphics operation in this program operate with these extent.
-     */
-    const VkExtent2D renderExtent{1920, 1080};
-    //const VkExtent2D renderExtent{3840, 2160};
     const VkFormat drawImageFormat{VK_FORMAT_R16G16B16A16_SFLOAT};
     const VkFormat depthImageFormat{VK_FORMAT_D32_SFLOAT};
     const VkFormat velocityImageFormat{VK_FORMAT_R16G16_SFLOAT};
