@@ -28,7 +28,7 @@ struct TaaDrawInfo
     float velocityWeight;
     bool enabled;
     int32_t debugMode;
-    const Camera& camera;
+    float cameraZVelocity;
 };
 
 class TaaPipeline

@@ -145,7 +145,7 @@ void TaaPipeline::draw(VkCommandBuffer cmd, const TaaDrawInfo& drawInfo) const
     properties.minBlend = drawInfo.minBlend;
     properties.maxBlend = drawInfo.maxBlend;
     properties.velocityWeight = drawInfo.velocityWeight;
-    properties.zVelocity = drawInfo.camera.getZVelocity();
+    properties.zVelocity = drawInfo.cameraZVelocity;
     properties.bEnabled = drawInfo.enabled;
     properties.taaDebug = drawInfo.debugMode;
 

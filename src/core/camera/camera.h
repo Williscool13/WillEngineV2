@@ -16,6 +16,15 @@
 class Camera
 {
 public:
+    Camera() = default;
+
+    Camera(float fov, float aspect, float nearPlane, float farPlane, bool flipY = true);
+
+    virtual ~Camera() = default;
+
+public:
+    Transform transform;
+
     glm::vec4 getPosition() const { return {transform.getPosition(), 1.0f}; }
     glm::mat4 getViewMatrix() const { return cachedViewMatrix; }
     glm::mat4 getProjMatrix() const { return cachedProjMatrix; }
@@ -49,18 +58,9 @@ public:
 
     virtual float getZVelocity() const = 0;
 
-public:
-    Transform transform;
-
-protected:
-    Camera() = default;
-
-    Camera(float fov, float aspect, float nearPlane, float farPlane, bool flipY = true);
-
-    ~Camera() = default;
-
-protected:
     virtual void update() {}
+
+protected:
 
     bool flipY{true};
 
