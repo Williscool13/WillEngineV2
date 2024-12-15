@@ -8,18 +8,21 @@
 
 class Camera;
 
-class Player
+class PlayerCharacter
 {
 public:
-    Player();
+    PlayerCharacter();
 
-    virtual ~Player();
+    virtual ~PlayerCharacter();
 
     virtual void update(float deltaTime);
 
     [[nodiscard]] const Camera* getCamera() const { return camera; }
 
 private:
+    void AddForceToObject() const;
+
+protected:
     Camera* camera{nullptr};
 };
 

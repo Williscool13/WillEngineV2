@@ -7,6 +7,13 @@
 
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
+
+#include "physics_body.h"
+#include "physics_types.h"
+#include "Jolt/Physics/Collision/CastResult.h"
+#include "Jolt/Physics/Collision/CollisionCollectorImpl.h"
+#include "Jolt/Physics/Collision/RayCast.h"
+#include "src/core/game_object.h"
 #include "src/physics/physics.h"
 
 namespace physics_utils
@@ -30,6 +37,230 @@ namespace physics_utils
     {
         return {q.x, q.y, q.z, q.w};
     }
+
+    inline GameObject* getGameObjectFromBody(const JPH::BodyID bodyId)
+    {
+        const Physics* physics = Physics::Get();
+        if (!physics) return nullptr;
+
+        return physics->getGameObjectFromBody(bodyId);
+    }
+
+    inline bool raycastBroad(const glm::vec3& start, const glm::vec3& end)
+    {
+        if (!Physics::Get()) return false;
+
+        const JPH::RVec3 rayStart = ToJolt(start);
+        const JPH::RVec3 rayEnd = ToJolt(end);
+        const JPH::RayCast ray{rayStart, rayEnd - rayStart};
+
+        JPH::AllHitCollisionCollector<JPH::RayCastBodyCollector> collector;
+        Physics::Get()->getPhysicsSystem().GetBroadPhaseQuery().CastRay(ray, collector);
+
+        return collector.HadHit();
+    }
+
+    /**
+     * Casts a ray and find the closest hit.
+     * \n Returns a \code RaycastHit\endcode struct that details the details of the hit.
+     * @param start
+     * @param end
+     * @param broadLayerFilter
+     * @param objectLayerFilter
+     * @param bodyFilter
+     * @return
+     */
+    inline RaycastHit raycast(const glm::vec3& start, const glm::vec3& end, const JPH::BroadPhaseLayerFilter& broadLayerFilter = {}, const JPH::ObjectLayerFilter& objectLayerFilter = {},
+                              const JPH::BodyFilter& bodyFilter = {})
+    {
+        RaycastHit result;
+        if (!Physics::Get()) return result;
+
+        const JPH::RVec3 rayStart = ToJolt(start);
+        const JPH::RVec3 rayEnd = ToJolt(end);
+        const JPH::RRayCast ray{rayStart, rayEnd - rayStart};
+
+        JPH::RayCastResult hit;
+        if (Physics::Get()->getPhysicsSystem().GetNarrowPhaseQuery().CastRay(ray, hit, broadLayerFilter, objectLayerFilter, bodyFilter)) {
+            result.hasHit = true;
+            result.fraction = hit.mFraction;
+            result.hitPosition = start + (end - start) * hit.mFraction;
+            result.distance = glm::distance(start, result.hitPosition);
+            result.hitBodyID = hit.mBodyID;
+            result.subShapeID = hit.mSubShapeID2;
+
+            // Get hit normal
+            const JPH::BodyLockRead lock(Physics::Get()->getPhysicsSystem().GetBodyLockInterface(), hit.mBodyID);
+            if (lock.Succeeded()) {
+                const JPH::Body& body = lock.GetBody();
+                const JPH::Vec3 normal = body.GetWorldSpaceSurfaceNormal(hit.mSubShapeID2, ToJolt(result.hitPosition));
+                result.hitNormal = glm::vec3(normal.GetX(), normal.GetY(), normal.GetZ());
+            }
+        }
+
+        return result;
+    }
+
+    /**
+     * Casts a ray and find the closest hit.
+     * \n Returns a \code RaycastHit\endcode struct that details the details of the hit.
+     * @param start
+     * @param direction
+     * @param distance
+     * @param broadLayerFilter
+     * @param objectLayerFilter
+     * @param bodyFilter
+     * @return
+     */
+    inline RaycastHit raycast(const glm::vec3& start, const glm::vec3& direction, const float distance, const JPH::BroadPhaseLayerFilter& broadLayerFilter = {},
+                              const JPH::ObjectLayerFilter& objectLayerFilter = {}, const JPH::BodyFilter& bodyFilter = {})
+    {
+        const glm::vec3 normalizedDir = glm::normalize(direction);
+        const glm::vec3 end = start + normalizedDir * distance;
+        return raycast(start, end, broadLayerFilter, objectLayerFilter, bodyFilter);
+    }
+
+    /**
+     * Casts a ray and finds \code maxHits\endcode number of physics object intersections.
+     * \n Returns a vector of \code RaycastHit\endcode structs that details the details of the hits.
+     * @param start
+     * @param end
+     * @param maxHits
+     * @param broadLayerFilter
+     * @param objectLayerFilter
+     * @param bodyFilter
+     * @param raycastSettings
+     * @return
+     */
+    inline std::vector<RaycastHit> raycastAll(const glm::vec3& start, const glm::vec3& end, const int maxHits = 16, const JPH::BroadPhaseLayerFilter& broadLayerFilter = {},
+                                              const JPH::ObjectLayerFilter& objectLayerFilter = {}, const JPH::BodyFilter& bodyFilter = {}, const JPH::RayCastSettings& raycastSettings = {})
+    {
+        std::vector<RaycastHit> results;
+        if (!Physics::Get()) return results;
+
+        const JPH::RVec3 rayStart = ToJolt(start);
+        const JPH::RVec3 rayEnd = ToJolt(end);
+        const JPH::RRayCast ray{rayStart, rayEnd - rayStart};
+
+
+        JPH::AllHitCollisionCollector<JPH::CastRayCollector> collector;
+        Physics::Get()->getPhysicsSystem().GetNarrowPhaseQuery().CastRay(ray, raycastSettings, collector, broadLayerFilter, objectLayerFilter, bodyFilter);
+
+        collector.Sort();
+        const auto& hits = collector.mHits;
+        const size_t numHits = std::min(static_cast<size_t>(maxHits), hits.size());
+
+        results.reserve(numHits);
+        for (size_t i = 0; i < numHits; ++i) {
+            const auto& hit = hits[i];
+            RaycastHit result;
+            result.hasHit = true;
+            result.fraction = hit.mFraction;
+            result.hitPosition = start + (end - start) * hit.mFraction;
+            result.distance = glm::distance(start, result.hitPosition);
+            result.hitBodyID = hit.mBodyID;
+            result.subShapeID = hit.mSubShapeID2;
+
+            const JPH::BodyLockRead lock(Physics::Get()->getPhysicsSystem().GetBodyLockInterface(), hit.mBodyID);
+            if (lock.Succeeded()) {
+                const JPH::Body& body = lock.GetBody();
+                JPH::Vec3 normal = body.GetWorldSpaceSurfaceNormal(hit.mSubShapeID2, ToJolt(result.hitPosition));
+                result.hitNormal = glm::vec3(normal.GetX(), normal.GetY(), normal.GetZ());
+            }
+
+            results.push_back(result);
+        }
+
+        return results;
+    }
+
+    inline void addForce(const uint32_t gameObjectId, const glm::vec3& force)
+    {
+        if (!Physics::Get()) return;
+        const std::unordered_map<uint32_t, PhysicsBody>& physicBodies = Physics::Get()->getGameObjectToPhysicsBodyMap();
+        if (!physicBodies.contains(gameObjectId)) {
+            return;
+        }
+
+        const JPH::BodyID bodyId = physicBodies.at(gameObjectId).bodyId;
+        Physics::Get()->getBodyInterface().AddForce(bodyId, ToJolt(force));
+    }
+
+    inline void addForce(JPH::BodyID bodyId, const glm::vec3& force)
+    {
+        if (!Physics::Get()) return;
+        Physics::Get()->getBodyInterface().AddForce(bodyId, ToJolt(force));
+    }
+
+    inline void addForceAtPosition(JPH::BodyID bodyId, const glm::vec3& force, const glm::vec3& position)
+    {
+        if (!Physics::Get()) return;
+        Physics::Get()->getBodyInterface().AddForce(bodyId, ToJolt(force), ToJolt(position));
+    }
+
+    inline void addTorque(JPH::BodyID bodyId, const glm::vec3& torque)
+    {
+        if (!Physics::Get()) return;
+        Physics::Get()->getBodyInterface().AddTorque(bodyId, ToJolt(torque));
+    }
+
+    inline void addImpulse(JPH::BodyID bodyId, const glm::vec3& impulse)
+    {
+        if (!Physics::Get()) return;
+        Physics::Get()->getBodyInterface().AddImpulse(bodyId, ToJolt(impulse));
+    }
+
+    inline void addImpulseAtPosition(JPH::BodyID bodyId, const glm::vec3& impulse, const glm::vec3& position)
+    {
+        if (!Physics::Get()) return;
+        Physics::Get()->getBodyInterface().AddImpulse(bodyId, ToJolt(impulse), ToJolt(position));
+    }
+
+    inline void addAngularImpulse(JPH::BodyID bodyId, const glm::vec3& angularImpulse)
+    {
+        if (!Physics::Get()) return;
+        Physics::Get()->getBodyInterface().AddAngularImpulse(bodyId, ToJolt(angularImpulse));
+    }
+
+    inline void setLinearVelocity(JPH::BodyID bodyId, const glm::vec3& velocity)
+    {
+        if (!Physics::Get()) return;
+        Physics::Get()->getBodyInterface().SetLinearVelocity(bodyId, ToJolt(velocity));
+    }
+
+    inline void setAngularVelocity(JPH::BodyID bodyId, const glm::vec3& angularVelocity)
+    {
+        if (!Physics::Get()) return;
+        Physics::Get()->getBodyInterface().SetAngularVelocity(bodyId, ToJolt(angularVelocity));
+    }
+
+    inline glm::vec3 getLinearVelocity(JPH::BodyID bodyId)
+    {
+        if (!Physics::Get()) return glm::vec3(0.0f);
+        const JPH::Vec3 velocity = Physics::Get()->getBodyInterface().GetLinearVelocity(bodyId);
+        return glm::vec3(velocity.GetX(), velocity.GetY(), velocity.GetZ());
+    }
+
+    inline glm::vec3 getAngularVelocity(JPH::BodyID bodyId)
+    {
+        if (!Physics::Get()) return glm::vec3(0.0f);
+        const JPH::Vec3 velocity = Physics::Get()->getBodyInterface().GetAngularVelocity(bodyId);
+        return glm::vec3(velocity.GetX(), velocity.GetY(), velocity.GetZ());
+    }
+
+    // todo:
+    //inline RaycastHit sphereCast(const glm::vec3& start, const glm::vec3& end, float radius);
+    //inline RaycastHit boxCast(const glm::vec3& start, const glm::vec3& end, const glm::vec3& halfExtents);
+    // inline std::vector<JPH::BodyID> overlapSphere(const glm::vec3& center, float radius);
+    // inline std::vector<JPH::BodyID> overlapBox(const glm::vec3& center, const glm::vec3& halfExtents);
+    // inline bool isPointInShape(const glm::vec3& point, JPH::BodyID bodyId);
+    // inline std::vector<JPH::BodyID> getBodiesTouchingPoint(const glm::vec3& point);
+    // struct DistanceHit {
+    //     float distance;
+    //     glm::vec3 pointOnBody;
+    //     JPH::BodyID bodyId;
+    // };
+    // inline DistanceHit getClosestBody(const glm::vec3& point);
 }
 
 

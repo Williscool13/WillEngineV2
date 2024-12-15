@@ -60,8 +60,8 @@ public: // Hierarchy
 private: // Hierarchy
     GameObject* parent{nullptr};
     std::vector<GameObject*> children{};
-    static int nextId;
-    int gameObjectId{};
+    static uint32_t nextId;
+    uint32_t gameObjectId{};
     std::string gameObjectName{};
 
 public: // Transform

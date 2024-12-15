@@ -54,45 +54,46 @@ set(HALF_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/half)
 set(HALF_SOURCES
         ${HALF_DIR}/half/dummy.cpp
         ${HALF_DIR}/half/half.hpp
-        src/renderer/resource_manager.cpp
-        src/renderer/resource_manager.h
-        src/renderer/immediate_submitter.cpp
-        src/renderer/immediate_submitter.h
-        src/physics/physics_body.cpp
-        src/physics/physics_body.h
-        src/physics/physics_utils.cpp
-        src/physics/physics_utils.h
-        src/game/player/player.cpp
-        src/game/player/player.h
-        src/core/imgui_wrapper.cpp
-        src/core/imgui_wrapper.h
 )
 
-
-add_executable(WillEngine main.cpp
-        ${IMGUI_SOURCES}
-        ${FASTGLTF_SOURCES}
-        ${HALF_SOURCES}
+set(CORE_SOURCES
         src/core/Engine.cpp
         src/core/Engine.h
-        src/renderer/render_object/render_object.cpp
-        src/renderer/render_object/render_object.h
         src/core/scene.cpp
         src/core/scene.h
         src/core/input.cpp
         src/core/input.h
         src/core/game_object.cpp
         src/core/game_object.h
-        src/game/camera/free_camera.cpp
-        src/game/camera/free_camera.h
         src/core/camera/camera.cpp
         src/core/camera/camera.h
+        src/core/imgui_wrapper.cpp
+        src/core/imgui_wrapper.h
+)
+
+
+set(PHYSICS_SOURCES
         src/physics/physics.cpp
         src/physics/physics.h
         src/physics/physics_filters.cpp
         src/physics/physics_filters.h
+        src/physics/physics_body.cpp
+        src/physics/physics_body.h
+        src/physics/physics_utils.cpp
+        src/physics/physics_utils.h
+        src/physics/physics_types.cpp
+        src/physics/physics_types.h
+)
+
+set(RENDERER_SOURCES
         src/renderer/vulkan_context.cpp
         src/renderer/vulkan_context.h
+        src/renderer/resource_manager.cpp
+        src/renderer/resource_manager.h
+        src/renderer/immediate_submitter.cpp
+        src/renderer/immediate_submitter.h
+        src/renderer/render_object/render_object.cpp
+        src/renderer/render_object/render_object.h
         src/renderer/environment/environment.cpp
         src/renderer/environment/environment.h
         src/renderer/pipelines/acceleration_algorithms/frustum_culling_descriptor_layout.cpp
@@ -129,6 +130,16 @@ add_executable(WillEngine main.cpp
         src/renderer/vk_pipelines.h
         src/renderer/data_structures/bounding_sphere.cpp
         src/renderer/data_structures/bounding_sphere.h
+)
+
+set(GAME_SOURCES
+        src/game/camera/free_camera.cpp
+        src/game/camera/free_camera.h
+        src/game/player/player_character.cpp
+        src/game/player/player_character.h
+)
+
+set(UTIL_SOURCES
         src/util/math_constants.h
         src/util/time_utils.cpp
         src/util/time_utils.h
@@ -138,6 +149,17 @@ add_executable(WillEngine main.cpp
         src/util/file_utils.h
         src/util/halton.cpp
         src/util/halton.h
+)
+
+add_executable(WillEngine main.cpp
+        ${IMGUI_SOURCES}
+        ${FASTGLTF_SOURCES}
+        ${HALF_SOURCES}
+        ${CORE_SOURCES}
+        ${PHYSICS_SOURCES}
+        ${RENDERER_SOURCES}
+        ${GAME_SOURCES}
+        ${UTIL_SOURCES}
 )
 
 
@@ -153,7 +175,6 @@ target_include_directories(WillEngine PRIVATE
         ${IMGUI_DIR}/backends                                               # ImGui backends
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
 )
-
 
 
 add_custom_target(compile_shaders

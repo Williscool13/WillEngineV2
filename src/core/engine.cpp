@@ -14,7 +14,7 @@
 #include <fastgltf/tools.hpp>
 
 #include "imgui_wrapper.h"
-#include "src/game/player/player.h"
+#include "src/game/player/player_character.h"
 #include "src/util/halton.h"
 #include "src/util/file_utils.h"
 #include "src/util/time_utils.h"
@@ -110,6 +110,7 @@ void Engine::init()
     immediate = new ImmediateSubmitter(*context);
     resourceManager = new ResourceManager(*context, *immediate);
     physics = new Physics();
+    Physics::Set(physics);
 
     environmentDescriptorLayouts = new EnvironmentDescriptorLayouts(*context);
     sceneDescriptorLayouts = new SceneDescriptorLayouts(*context);
@@ -185,14 +186,6 @@ void Engine::run()
         }
 
         imguiWrapper->imguiInterface(this);
-
-        if (Input::Get().isKeyPressed(SDLK_p)) {
-            GameObject* root = scene.DEBUG_getSceneRoot();
-
-            root->transform.translate(glm::vec3(1.0f, 0.0f, 0.0f));
-            root->dirty();
-        }
-
 
         draw();
     }
@@ -625,7 +618,7 @@ void Engine::initRenderer()
 
 void Engine::initScene()
 {
-    player = new Player();
+    player = new PlayerCharacter();
     // There is limit of 10!
     environmentMap = new Environment(*context, *resourceManager, *immediate, *environmentDescriptorLayouts);
     const std::filesystem::path envMapSource = "assets/environments";
@@ -658,6 +651,7 @@ void Engine::initScene()
     scene.addGameObject(primitiveCubeGameObject);
 
     primitiveCubeGameObject->transform.translate({0.f, 3.0f, 0.f});
+    primitiveCubeGameObject->transform.setScale(0.5f);
     primitiveCubeGameObject->dirty();
     cubeGameObject->transform.setScale(0.05f);
     cubeGameObject->dirty();

@@ -13,7 +13,8 @@ namespace Layers
 {
     static constexpr JPH::ObjectLayer NON_MOVING{0};
     static constexpr JPH::ObjectLayer MOVING{1};
-    static constexpr JPH::ObjectLayer NUM_LAYERS{2};
+    static constexpr JPH::ObjectLayer TERRAIN{2};
+    static constexpr JPH::ObjectLayer NUM_LAYERS{3};
 }
 
 namespace BroadPhaseLayers
@@ -36,8 +37,14 @@ public:
     [[nodiscard]] JPH::BroadPhaseLayer GetBroadPhaseLayer(JPH::ObjectLayer inLayer) const override;
 
 #if defined(JPH_EXTERNAL_PROFILE) || defined(JPH_PROFILE_ENABLED)
-    virtual const char* GetBroadPhaseLayerName(JPH::BroadPhaseLayer inLayer) const override;
-#endif // JPH_EXTERNAL_PROFILE || JPH_PROFILE_ENABLED
+    const char* BPLayerInterfaceImpl::GetBroadPhaseLayerName(JPH::BroadPhaseLayer inLayer) const {
+        switch ((JPH::BroadPhaseLayer::Type)inLayer) {
+            case (JPH::BroadPhaseLayer::Type)BroadPhaseLayers::NON_MOVING: return "NON_MOVING";
+            case (JPH::BroadPhaseLayer::Type)BroadPhaseLayers::MOVING: return "MOVING";
+            default: JPH_ASSERT(false); return "INVALID";
+        }
+    }
+#endif
 
 private:
     /**

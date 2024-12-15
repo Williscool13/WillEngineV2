@@ -79,7 +79,7 @@ private:
     bool windowInputFocus{false};
     bool inFocus{false};
 
-    void UpdateInputState(InputStateData& inputButton, bool isPressed);
+    static void UpdateInputState(InputStateData& inputButton, bool isPressed);
 };
 
 #endif //INPUT_H

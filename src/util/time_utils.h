@@ -10,7 +10,7 @@
 class TimeUtils
 {
 public:
-    static TimeUtils &Get()
+    static TimeUtils& Get()
     {
         static TimeUtils instance{};
         return instance;

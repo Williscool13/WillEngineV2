@@ -8,7 +8,7 @@
 #include "src/renderer/vk_types.h"
 #include "src/renderer/render_object/render_object.h"
 
-int GameObject::nextId = 0;
+uint32_t GameObject::nextId = 0;
 
 GameObject::GameObject() : gameObjectId(nextId++)
 {
