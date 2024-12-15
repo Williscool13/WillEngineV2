@@ -26,6 +26,8 @@ public:
 
     ~GameObject();
 
+    virtual void update(float deltaTime) {};
+
 public: // Hierarchy
     /**
      * Adds a \code GameObject\endcode as a child to this \code GameObject\endcode while maintaining its position in WorldSpace.

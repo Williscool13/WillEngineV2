@@ -9,18 +9,19 @@
 #include <filesystem>
 
 #include "input.h"
-#include "../renderer/vk_pipelines.h"
-#include "../util/time_utils.h"
 #include <fastgltf/core.hpp>
 #include <fastgltf/types.hpp>
 #include <fastgltf/tools.hpp>
 
-#include "../util/file_utils.h"
-#include "../util/halton.h"
-#include "Jolt/Physics/Collision/Shape/BoxShape.h"
+#include "imgui_wrapper.h"
+#include "src/game/player/player.h"
+#include "src/util/halton.h"
+#include "src/util/file_utils.h"
+#include "src/util/time_utils.h"
 #include "src/physics/physics.h"
 #include "src/renderer/immediate_submitter.h"
 #include "src/renderer/resource_manager.h"
+#include "src/renderer/vk_descriptors.h"
 #include "src/renderer/environment/environment.h"
 
 #include "src/renderer/pipelines/acceleration_algorithms/frustum_culling_descriptor_layout.h"
@@ -115,53 +116,11 @@ void Engine::init()
     frustumCullDescriptorLayouts = new FrustumCullingDescriptorLayouts(*context);
     renderObjectDescriptorLayout = new RenderObjectDescriptorLayout(*context);
 
-    initDearImgui();
+    imguiWrapper = new ImguiWrapper(*context, {window, swapchainImageFormat});
 
     initScene();
 
-    initDescriptors();
-
-    frustumCullingPipeline = new FrustumCullingPipeline(*context);
-    frustumCullingPipeline->init(
-        {sceneDescriptorLayouts->getSceneDataLayout(), frustumCullDescriptorLayouts->getFrustumCullLayout()}
-    );
-
-    environmentPipeline = new EnvironmentPipeline(*context);
-    environmentPipeline->init(
-        {sceneDescriptorLayouts->getSceneDataLayout(), environmentDescriptorLayouts->getCubemapSamplerLayout(), drawImageFormat, depthImageFormat}
-    );
-
-    deferredMrtPipeline = new DeferredMrtPipeline(*context);
-    deferredMrtPipeline->init(
-        {sceneDescriptorLayouts->getSceneDataLayout(), renderObjectDescriptorLayout->getAddressesLayout(), renderObjectDescriptorLayout->getTexturesLayout()},
-        {normalImageFormat, albedoImageFormat, pbrImageFormat, velocityImageFormat, depthImageFormat}
-    );
-
-    deferredResolvePipeline = new DeferredResolvePipeline(*context);
-    deferredResolvePipeline->init(
-        {sceneDescriptorLayouts->getSceneDataLayout(), environmentDescriptorLayouts->getEnvironmentMapLayout(), emptyDescriptorSetLayout}
-    );
-    deferredResolvePipeline->setupDescriptorBuffer(
-        {
-            normalRenderTarget.imageView, albedoRenderTarget.imageView, pbrRenderTarget.imageView, depthImage.imageView,
-            velocityRenderTarget.imageView, drawImage.imageView, resourceManager->getDefaultSamplerNearest()
-        }
-    );
-
-    taaPipeline = new TaaPipeline(*context);
-    taaPipeline->init();
-    taaPipeline->setupDescriptorBuffer(
-        {
-            drawImage.imageView, historyBuffer.imageView, depthImage.imageView,
-            velocityRenderTarget.imageView, taaResolveTarget.imageView, resourceManager->getDefaultSamplerNearest()
-        }
-    );
-
-    postProcessPipeline = new PostProcessPipeline(*context);
-    postProcessPipeline->init();
-    postProcessPipeline->setupDescriptorBuffer(
-        {taaResolveTarget.imageView, postProcessOutputBuffer.imageView, resourceManager->getDefaultSamplerNearest()}
-    );;
+    initRenderer();
 
 
     const auto end = std::chrono::system_clock::now();
@@ -208,9 +167,7 @@ void Engine::run()
                 }
             }
 
-            // imgui input handling
-            ImGui_ImplSDL2_ProcessEvent(&e);
-
+            imguiWrapper->handleInput(e);
             input.processEvent(e);
         }
 
@@ -227,271 +184,7 @@ void Engine::run()
             continue;
         }
 
-        // DearImGui Draw
-        {
-            ImGui_ImplVulkan_NewFrame();
-            ImGui_ImplSDL2_NewFrame();
-            ImGui::NewFrame();
-
-            if (ImGui::Begin("Main")) {
-                ImGui::Text("Frame Time: %.2f ms", frameTime);
-                ImGui::Text("Draw Time: %.2f ms", drawTime);
-                ImGui::Text("Render Time: %.2f ms", renderTime);
-                ImGui::Text("Delta Time: %.2f ms", time.getDeltaTime() * 1000.0f);
-
-                ImGui::Separator();
-                ImGui::Text("TAA Properties:");
-                ImGui::Checkbox("Enable TAA", &bEnableTaa);
-                ImGui::Checkbox("Enable Jitter", &bEnableJitter);
-                if (bEnableTaa) {
-                    ImGui::SetNextItemWidth(100);
-                    ImGui::InputFloat("Min Blend", &taaMinBlend);
-                    ImGui::SetNextItemWidth(100);
-                    ImGui::InputFloat("Max Blend", &taaMaxBlend);
-                    ImGui::SetNextItemWidth(100);
-                    ImGui::InputFloat("Velocity Weight", &taaVelocityWeight);
-                    ImGui::Text("Taa Debug View");
-                    ImGui::SetNextItemWidth(100);
-                    const char* taaDebugLabels[] = {"None", "Confident", "Luma", "Depth", "Velocity", "Depth Delta"};
-                    ImGui::Combo("TAA Debug View", &taaDebug, taaDebugLabels, IM_ARRAYSIZE(taaDebugLabels));
-                }
-
-                ImGui::Checkbox("Enable Post-Process", &bEnablePostProcess);
-
-
-                ImGui::Separator();
-                const char* debugLabels[] = {"None", "Velocity Buffer", "Depth Buffer"};
-                ImGui::Text("Debug View");
-                ImGui::SetNextItemWidth(100);
-                ImGui::Combo("Debug View", &deferredDebug, debugLabels, IM_ARRAYSIZE(debugLabels));
-
-
-                ImGui::Separator();
-                if (ImGui::BeginChild("Spectate")) {
-                    ImGui::Checkbox("Enabled Spectate Camera", &bSpectateCameraActive);
-                    if (bSpectateCameraActive) {
-                        if (ImGui::TreeNode("Camera Position")) {
-                            ImGui::DragFloat3("Position", &spectateCameraPosition.x, 0.1f);
-                            ImGui::TreePop();
-                        }
-
-                        // Modify spectateCameraLookAt
-                        if (ImGui::TreeNode("Camera Look At")) {
-                            ImGui::DragFloat3("Look At", &spectateCameraLookAt.x, 0.1f);
-                            ImGui::TreePop();
-                        }
-                    }
-                }
-                ImGui::EndChild();
-            }
-            ImGui::End();
-
-            if (ImGui::Begin("Camera")) {
-                glm::vec3 viewDir = camera.getViewDirectionWS();
-                glm::vec3 cameraRotation = camera.transform.getEulerAngles();
-                cameraRotation = glm::degrees(cameraRotation);
-                glm::vec3 cameraPosition = camera.transform.getPosition();
-                ImGui::Text("View Direction: (%.2f, %.2f, %.2f)", viewDir.x, viewDir.y, viewDir.z);
-                ImGui::Text("Rotation (%.2f, %.2f, %.2f)", cameraRotation.x, cameraRotation.y, cameraRotation.z);
-                ImGui::Text("Position: (%.2f, %.2f, %.2f)", cameraPosition.x, cameraPosition.y, cameraPosition.z);
-
-                if (ImGui::BeginChild("Input Details")) {
-                    ImGui::Text("Mouse Buttons:");
-                    ImGui::Columns(4, "MouseButtonsColumns", true);
-                    ImGui::Separator();
-                    ImGui::Text("Button");
-                    ImGui::NextColumn();
-                    ImGui::Text("Pressed");
-                    ImGui::NextColumn();
-                    ImGui::Text("Released");
-                    ImGui::NextColumn();
-                    ImGui::Text("State");
-                    ImGui::NextColumn();
-                    ImGui::Separator();
-
-                    const char* mouseButtons[] = {"LMB", "RMB", "MMB", "M4", "M5"};
-                    const uint8_t mouseButtonCodes[] = {0, 2, 1, 3, 4};
-
-                    for (int i = 0; i < 5; ++i) {
-                        ImGui::Text("%s", mouseButtons[i]);
-                        ImGui::NextColumn();
-                        ImGui::Text("%s", input.isMousePressed(mouseButtonCodes[i]) ? "Yes" : "No");
-                        ImGui::NextColumn();
-                        ImGui::Text("%s", input.isMouseReleased(mouseButtonCodes[i]) ? "Yes" : "No");
-                        ImGui::NextColumn();
-                        ImGui::Text("%s", input.isMouseDown(mouseButtonCodes[i]) ? "Down" : "Up");
-                        ImGui::NextColumn();
-                    }
-
-                    ImGui::Columns(1);
-                    ImGui::Separator();
-
-                    ImGui::Text("Keyboard:");
-                    ImGui::Columns(4, "KeyboardColumns", true);
-                    ImGui::Separator();
-                    ImGui::Text("Key");
-                    ImGui::NextColumn();
-                    ImGui::Text("Pressed");
-                    ImGui::NextColumn();
-                    ImGui::Text("Released");
-                    ImGui::NextColumn();
-                    ImGui::Text("State");
-                    ImGui::NextColumn();
-                    ImGui::Separator();
-
-                    const char* keys[] = {"W", "A", "S", "D", "Space", "C", "Left Shift"};
-                    constexpr SDL_Keycode keyCodes[] = {SDLK_w, SDLK_a, SDLK_s, SDLK_d, SDLK_SPACE, SDLK_c, SDLK_LSHIFT};
-
-                    for (int i = 0; i < 7; ++i) {
-                        ImGui::Text("%s", keys[i]);
-                        ImGui::NextColumn();
-                        ImGui::Text("%s", input.isKeyPressed(keyCodes[i]) ? "Yes" : "No");
-                        ImGui::NextColumn();
-                        ImGui::Text("%s", input.isKeyReleased(keyCodes[i]) ? "Yes" : "No");
-                        ImGui::NextColumn();
-                        ImGui::Text("%s", input.isKeyDown(keyCodes[i]) ? "Down" : "Up");
-                        ImGui::NextColumn();
-                    }
-
-                    ImGui::Columns(1);
-                    ImGui::Separator();
-
-                    ImGui::Text("Mouse Position: (%.1f, %.1f)", input.getMouseX(), input.getMouseY());
-                    ImGui::Text("Mouse Delta: (%.1f, %.1f)", input.getMouseXDelta(), input.getMouseYDelta());
-                }
-                ImGui::EndChild();
-            }
-            ImGui::End();
-
-            if (ImGui::Begin("Save Render Targets")) {
-                if (ImGui::Button("Save Draw Image")) {
-                    if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
-                        std::filesystem::path path = file_utils::imagesSavePath / "drawImage.png";
-                        vk_helpers::saveImageRGBA16SFLOAT(*resourceManager, *immediate, drawImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
-                                                          path.string().c_str());
-                    } else {
-                        fmt::print(" Failed to find/create image save path directory");
-                    }
-                }
-
-                if (ImGui::Button("Save Depth Image")) {
-                    if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
-                        std::filesystem::path path = file_utils::imagesSavePath / "depthImage.png";
-                        auto depthNormalize = [](const float depth) {
-                            return logf(1.0f + depth * 15.0f) / logf(16.0f);
-                        };
-                        vk_helpers::saveImageR32F(*resourceManager, *immediate, depthImage, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT,
-                                                  path.string().c_str(), depthNormalize);
-                    } else {
-                        fmt::print(" Failed to find/create image save path directory");
-                    }
-                }
-
-                if (ImGui::Button("Save Normal Render Target")) {
-                    if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
-                        std::filesystem::path path = file_utils::imagesSavePath / "normalRT.png";
-                        auto unpackFunc = [](const uint32_t packedColor) {
-                            glm::vec4 pixel = glm::unpackSnorm4x8(packedColor);
-                            pixel.r = pixel.r * 0.5f + 0.5f;
-                            pixel.g = pixel.g * 0.5f + 0.5f;
-                            pixel.b = pixel.b * 0.5f + 0.5f;
-                            pixel.a = 1.0f;
-                            return pixel;
-                        };
-
-                        vk_helpers::savePacked32Bit(*resourceManager, *immediate, normalRenderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                                    VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
-                    } else {
-                        fmt::print(" Failed to save normal render target");
-                    }
-                }
-
-                if (ImGui::Button("Save Albedo Render Target")) {
-                    if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
-                        std::filesystem::path path = file_utils::imagesSavePath / "albedoRT.png";
-                        auto unpackFunc = [](const uint32_t packedColor) {
-                            glm::vec4 pixel = glm::unpackUnorm4x8(packedColor);
-                            pixel.a = 1.0f;
-                            return pixel;
-                        };
-
-                        vk_helpers::savePacked32Bit(*resourceManager, *immediate, albedoRenderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                                    VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
-                    } else {
-                        fmt::print(" Failed to save albedo render target");
-                    }
-                }
-
-                if (ImGui::Button("Save PBR Render Target")) {
-                    if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
-                        std::filesystem::path path = file_utils::imagesSavePath / "pbrRT.png";
-                        auto unpackFunc = [](const uint32_t packedColor) {
-                            glm::vec4 pixel = glm::unpackUnorm4x8(packedColor);
-                            pixel.a = 1.0f;
-                            return pixel;
-                        };
-                        vk_helpers::savePacked32Bit(*resourceManager, *immediate, pbrRenderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                                    VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
-                    } else {
-                        fmt::print(" Failed to save pbr render target");
-                    }
-                }
-
-                if (ImGui::Button("Save Post Process Resolve Target")) {
-                    if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
-                        if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
-                            std::filesystem::path path = file_utils::imagesSavePath / "postProcesResolve.png";
-                            vk_helpers::saveImageRGBA16SFLOAT(*resourceManager, *immediate, postProcessOutputBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
-                                                              path.string().c_str());
-                        } else {
-                            fmt::print(" Failed to find/create image save path directory");
-                        }
-                    }
-                }
-            }
-            ImGui::End();
-
-            if (ImGui::Begin("Environment Map")) {
-                const std::unordered_map<int32_t, const char*>& activeEnvironmentMapNames = environmentMap->getActiveEnvironmentMapNames();
-
-                std::vector<std::pair<int32_t, std::string> > indexNamePairs;
-                for (std::pair<const int, const char*> kvp : activeEnvironmentMapNames) {
-                    indexNamePairs.emplace_back(kvp.first, kvp.second);
-                }
-                std::sort(indexNamePairs.begin(), indexNamePairs.end());
-                auto it = std::ranges::find_if(indexNamePairs, [this](const auto& pair) {
-                    return pair.first == environmentMapindex;
-                });
-                int currentIndex = (it != indexNamePairs.end()) ? static_cast<int>(std::distance(indexNamePairs.begin(), it)) : 0;
-                struct ComboData
-                {
-                    const std::vector<std::pair<int32_t, std::string> >* pairs;
-                };
-
-                // ReSharper disable once CppParameterMayBeConst
-                // ReSharper disable once CppParameterMayBeConstPtrOrRef
-                auto getLabel = [](void* data, int idx, const char** out_text) -> bool {
-                    static std::string label;
-                    const auto& pairs = *static_cast<const ComboData*>(data)->pairs;
-                    label = pairs[idx].second;
-                    *out_text = label.c_str();
-                    return true;
-                };
-
-                ComboData data{&indexNamePairs};
-                if (ImGui::Combo("Select Environment Map", &currentIndex, getLabel, &data, static_cast<int>(indexNamePairs.size()))) {
-                    environmentMapindex = indexNamePairs[currentIndex].first;
-                }
-
-                // Show both name and index in the status text
-                ImGui::Text("Currently selected: %s (ID: %u)", indexNamePairs[currentIndex].second.c_str(), environmentMapindex);
-            }
-            ImGui::End();
-
-            scene.imguiSceneGraph();
-
-            ImGui::Render();
-        }
+        imguiWrapper->imguiInterface(this);
 
         if (Input::Get().isKeyPressed(SDLK_p)) {
             GameObject* root = scene.DEBUG_getSceneRoot();
@@ -512,23 +205,26 @@ void Engine::updateSceneData() const
     const glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber, {renderExtent.width, renderExtent.height});
     const glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(frameNumber > 0 ? frameNumber - 1 : 0, {renderExtent.width, renderExtent.height});
 
+
+    const Camera* camera = player->getCamera();
+
     // Update scene data
     {
         const auto pSceneData = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
 
-        pSceneData->prevView = bIsFrameZero ? camera.getViewMatrix() : pSceneData->view;
-        pSceneData->prevProj = bIsFrameZero ? camera.getProjMatrix() : pSceneData->proj;
-        pSceneData->prevViewProj = bIsFrameZero ? camera.getViewProjMatrix() : pSceneData->viewProj;
+        pSceneData->prevView = bIsFrameZero ? camera->getViewMatrix() : pSceneData->view;
+        pSceneData->prevProj = bIsFrameZero ? camera->getProjMatrix() : pSceneData->proj;
+        pSceneData->prevViewProj = bIsFrameZero ? camera->getViewProjMatrix() : pSceneData->viewProj;
         pSceneData->jitter = bEnableJitter && bEnableTaa ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
 
-        pSceneData->view = camera.getViewMatrix();
-        pSceneData->proj = camera.getProjMatrix();
+        pSceneData->view = camera->getViewMatrix();
+        pSceneData->proj = camera->getProjMatrix();
         pSceneData->viewProj = pSceneData->proj * pSceneData->view;
         pSceneData->invView = glm::inverse(pSceneData->view);
         pSceneData->invProj = glm::inverse(pSceneData->proj);
         pSceneData->invViewProj = glm::inverse(pSceneData->viewProj);
-        pSceneData->cameraWorldPos = camera.getPosition();
-        const glm::mat4 cameraLook = glm::lookAt(glm::vec3(0), camera.getViewDirectionWS(), glm::vec3(0, 1, 0));
+        pSceneData->cameraWorldPos = camera->getPosition();
+        const glm::mat4 cameraLook = glm::lookAt(glm::vec3(0), camera->getViewDirectionWS(), glm::vec3(0, 1, 0));
         pSceneData->viewProjCameraLookDirection = pSceneData->proj * cameraLook;
 
         pSceneData->frameNumber = getCurrentFrameOverlap();
@@ -541,12 +237,12 @@ void Engine::updateSceneData() const
         const auto spectateView = glm::lookAt(spectateCameraPosition, spectateCameraLookAt, glm::vec3(0.f, 1.0f, 0.f));
 
         pSpectateSceneData->prevView = bIsFrameZero ? spectateView : pSpectateSceneData->view;
-        pSpectateSceneData->prevProj = bIsFrameZero ? camera.getProjMatrix() : pSpectateSceneData->proj;
-        pSpectateSceneData->prevViewProj = bIsFrameZero ? camera.getProjMatrix() * spectateView : pSpectateSceneData->viewProj;
+        pSpectateSceneData->prevProj = bIsFrameZero ? camera->getProjMatrix() : pSpectateSceneData->proj;
+        pSpectateSceneData->prevViewProj = bIsFrameZero ? camera->getProjMatrix() * spectateView : pSpectateSceneData->viewProj;
         pSpectateSceneData->jitter = bEnableJitter && bEnableTaa ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
 
         pSpectateSceneData->view = spectateView;
-        pSpectateSceneData->proj = camera.getProjMatrix();
+        pSpectateSceneData->proj = camera->getProjMatrix();
         pSpectateSceneData->viewProj = pSpectateSceneData->proj * pSpectateSceneData->view;
         pSpectateSceneData->invView = glm::inverse(pSpectateSceneData->view);
         pSpectateSceneData->invProj = glm::inverse(pSpectateSceneData->proj);
@@ -580,10 +276,6 @@ void Engine::draw()
 {
     const auto start = std::chrono::system_clock::now();
 
-    camera.update();
-    updateSceneData();
-    updateSceneObjects();
-    physics->update(TimeUtils::Get().getDeltaTime());
 #pragma region Fence / Swapchain
     // GPU -> CPU sync (fence)
     VK_CHECK(vkWaitForFences(context->device, 1, &getCurrentFrame()._renderFence, true, 1000000000));
@@ -598,7 +290,12 @@ void Engine::draw()
         return;
     }
 #pragma endregion
+    float deltaTime = TimeUtils::Get().getDeltaTime();
 
+    player->update(deltaTime);
+    updateSceneData();
+    updateSceneObjects();
+    physics->update(deltaTime);
 
     const auto renderStart = std::chrono::system_clock::now();
 
@@ -657,7 +354,7 @@ void Engine::draw()
     vk_helpers::transitionImage(cmd, historyBuffer.image, originLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    taaPipeline->draw(cmd, {renderExtent, taaMinBlend, taaMaxBlend, taaVelocityWeight, bEnableTaa, taaDebug, camera});
+    taaPipeline->draw(cmd, {renderExtent, taaMinBlend, taaMaxBlend, taaVelocityWeight, bEnableTaa, taaDebug, player->getCamera()->getZVelocity()});
 
     // Save current TAA Resolve to History
     vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -675,7 +372,7 @@ void Engine::draw()
 
     // draw ImGui onto Swapchain Image
     vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    drawImgui(cmd, swapchainImageViews[swapchainImageIndex]);
+    imguiWrapper->drawImgui(cmd, swapchainImageViews[swapchainImageIndex], swapchainExtent);
 
     vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -782,23 +479,6 @@ void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd, const std::vector<RenderObj
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }
 
-// ReSharper disable twice CppParameterMayBeConst
-void Engine::drawImgui(VkCommandBuffer cmd, VkImageView targetImageView) const
-{
-    VkDebugUtilsLabelEXT label = {};
-    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
-    label.pLabelName = "DearImgui Draw Pass";
-    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
-
-    const VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(targetImageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    const VkRenderingInfo renderInfo = vk_helpers::renderingInfo(swapchainExtent, &colorAttachment, nullptr);
-    vkCmdBeginRendering(cmd, &renderInfo);
-    ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
-    vkCmdEndRendering(cmd);
-
-    vkCmdEndDebugUtilsLabelEXT(cmd);
-}
-
 void Engine::cleanup()
 {
     fmt::print("----------------------------------------\n");
@@ -827,6 +507,9 @@ void Engine::cleanup()
     delete sponza;
     delete cube;
     delete primitives;
+
+    delete player;
+
     // destroy all other resources
     //mainDeletionQueue.flush();
     resourceManager->destroyBuffer(sceneDataBuffer);
@@ -838,8 +521,7 @@ void Engine::cleanup()
     vkDestroyDescriptorSetLayout(context->device, emptyDescriptorSetLayout, nullptr);
 
     // ImGui
-    ImGui_ImplVulkan_Shutdown();
-    vkDestroyDescriptorPool(context->device, imguiPool, nullptr);
+    delete imguiWrapper;
 
     // Main Rendering Command and Fence
     for (const auto& frame : frames) {
@@ -881,66 +563,7 @@ void Engine::cleanup()
     SDL_DestroyWindow(window);
 }
 
-void Engine::initDearImgui()
-{
-    // DearImGui implementation, basically copied directly from the Vulkan/SDl2 from DearImGui samples.
-    // Because this project uses VOLK, additionally need to load functions.
-    // DYNAMIC RENDERING (NOT RENDER PASS)
-    constexpr VkDescriptorPoolSize pool_sizes[] =
-    {
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
-    };
-    VkDescriptorPoolCreateInfo pool_info = {};
-    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    pool_info.maxSets = 1;
-    pool_info.poolSizeCount = static_cast<uint32_t>(std::size(pool_sizes));
-    pool_info.pPoolSizes = pool_sizes;
-
-    //VkDescriptorPool imguiPool;
-    VK_CHECK(vkCreateDescriptorPool(context->device, &pool_info, nullptr, &imguiPool));
-
-    // Setup Dear ImGui context
-    IMGUI_CHECKVERSION();
-    ImGui::CreateContext();
-    ImGuiIO& io = ImGui::GetIO();
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
-    io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad; // Enable Gamepad Controls
-
-    ImGui::StyleColorsLight();
-
-    VkInstance instance = context->instance;
-    // Need to LoadFunction when using VOLK/using VK_NO_PROTOTYPES
-    ImGui_ImplVulkan_LoadFunctions([](const char* function_name, void* vulkan_instance) {
-        return vkGetInstanceProcAddr(*(static_cast<VkInstance*>(vulkan_instance)), function_name);
-    }, &instance);
-
-    // Setup Platform/Renderer backends
-    ImGui_ImplSDL2_InitForVulkan(window);
-    ImGui_ImplVulkan_InitInfo init_info = {};
-    init_info.Instance = context->instance;
-    init_info.PhysicalDevice = context->physicalDevice;
-    init_info.Device = context->device;
-    init_info.QueueFamily = context->graphicsQueueFamily;
-    init_info.Queue = context->graphicsQueue;
-    init_info.DescriptorPool = imguiPool;
-    init_info.Subpass = 0;
-    init_info.MinImageCount = 3;
-    init_info.ImageCount = 3;
-    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
-
-    //dynamic rendering parameters for imgui to use
-    init_info.UseDynamicRendering = true;
-    init_info.PipelineRenderingCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
-    init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
-    init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &swapchainImageFormat;
-
-
-    ImGui_ImplVulkan_Init(&init_info);
-    ImGui_ImplVulkan_CreateFontsTexture();
-}
-
-void Engine::initDescriptors()
+void Engine::initRenderer()
 {
     DescriptorLayoutBuilder layoutBuilder;
     emptyDescriptorSetLayout = layoutBuilder.build(context->device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT, nullptr,
@@ -956,10 +579,53 @@ void Engine::initDescriptors()
     spectateSceneDataDescriptorBuffer = DescriptorBufferUniform(context->instance, context->device, context->physicalDevice, context->allocator, sceneDescriptorLayouts->getSceneDataLayout(), 1);
     sceneDataBuffers[0] = DescriptorUniformData{.uniformBuffer = spectateSceneDataBuffer, .allocSize = sizeof(SceneData)};
     spectateSceneDataDescriptorBuffer.setupData(context->device, sceneDataBuffers);
+
+    frustumCullingPipeline = new FrustumCullingPipeline(*context);
+    frustumCullingPipeline->init(
+        {sceneDescriptorLayouts->getSceneDataLayout(), frustumCullDescriptorLayouts->getFrustumCullLayout()}
+    );
+
+    environmentPipeline = new EnvironmentPipeline(*context);
+    environmentPipeline->init(
+        {sceneDescriptorLayouts->getSceneDataLayout(), environmentDescriptorLayouts->getCubemapSamplerLayout(), drawImageFormat, depthImageFormat}
+    );
+
+    deferredMrtPipeline = new DeferredMrtPipeline(*context);
+    deferredMrtPipeline->init(
+        {sceneDescriptorLayouts->getSceneDataLayout(), renderObjectDescriptorLayout->getAddressesLayout(), renderObjectDescriptorLayout->getTexturesLayout()},
+        {normalImageFormat, albedoImageFormat, pbrImageFormat, velocityImageFormat, depthImageFormat}
+    );
+
+    deferredResolvePipeline = new DeferredResolvePipeline(*context);
+    deferredResolvePipeline->init(
+        {sceneDescriptorLayouts->getSceneDataLayout(), environmentDescriptorLayouts->getEnvironmentMapLayout(), emptyDescriptorSetLayout}
+    );
+    deferredResolvePipeline->setupDescriptorBuffer(
+        {
+            normalRenderTarget.imageView, albedoRenderTarget.imageView, pbrRenderTarget.imageView, depthImage.imageView,
+            velocityRenderTarget.imageView, drawImage.imageView, resourceManager->getDefaultSamplerNearest()
+        }
+    );
+
+    taaPipeline = new TaaPipeline(*context);
+    taaPipeline->init();
+    taaPipeline->setupDescriptorBuffer(
+        {
+            drawImage.imageView, historyBuffer.imageView, depthImage.imageView,
+            velocityRenderTarget.imageView, taaResolveTarget.imageView, resourceManager->getDefaultSamplerNearest()
+        }
+    );
+
+    postProcessPipeline = new PostProcessPipeline(*context);
+    postProcessPipeline->init();
+    postProcessPipeline->setupDescriptorBuffer(
+        {taaResolveTarget.imageView, postProcessOutputBuffer.imageView, resourceManager->getDefaultSamplerNearest()}
+    );
 }
 
 void Engine::initScene()
 {
+    player = new Player();
     // There is limit of 10!
     environmentMap = new Environment(*context, *resourceManager, *immediate, *environmentDescriptorLayouts);
     const std::filesystem::path envMapSource = "assets/environments";

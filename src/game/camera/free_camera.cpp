@@ -4,10 +4,9 @@
 
 #include "free_camera.h"
 
-#include "../input.h"
-#include "../../util/time_utils.h"
 #include "glm/common.hpp"
-#include "glm/gtc/constants.hpp"
+#include "src/core/input.h"
+#include "src/util/time_utils.h"
 
 FreeCamera::FreeCamera(const float fov, const float aspect, const float nearPlane, const float farPlane) : Camera(fov, aspect, nearPlane, farPlane)
 {}
@@ -20,7 +19,6 @@ void FreeCamera::update()
     }
 
     glm::vec3 velocity{0.f};
-    float verticalMove{0.f};
 
     if (input.isKeyDown(SDLK_d)) {
         velocity.x += 1.0f;
@@ -28,13 +26,12 @@ void FreeCamera::update()
     if (input.isKeyDown(SDLK_a)) {
         velocity.x -= 1.0f;
     }
-    if (input.isKeyDown(SDLK_q)) {
-        verticalMove -= 1.0f;
+    if (input.isKeyDown(SDLK_LCTRL)) {
+        velocity.y -= 1.0f;
     }
-    if (input.isKeyDown(SDLK_e)) {
-        verticalMove += 1.0f;
+    if (input.isKeyDown(SDLK_SPACE)) {
+        velocity.y += 1.0f;
     }
-
     // I guess vulkan is negative Z forward?!
     if (input.isKeyDown(SDLK_w)) {
         velocity.z -= 1.0f;
@@ -59,7 +56,6 @@ void FreeCamera::update()
     const auto currentSpeed = static_cast<float>(glm::pow(10, scale));
 
     velocity *= deltaTime * currentSpeed;
-    verticalMove *= deltaTime * currentSpeed;
 
     const float yaw = glm::radians(-input.getMouseXDelta() * deltaTime * 10.0f);
     const float pitch = glm::radians(-input.getMouseYDelta() * deltaTime * 10.0f);
@@ -81,13 +77,11 @@ void FreeCamera::update()
 
     const glm::mat4 rotationMatrix = getRotationMatrixWS();
     const auto finalVelocity = glm::vec3(rotationMatrix * glm::vec4(velocity, 0.f));
-    const auto finalVerticalMove = glm::vec3(0.f, verticalMove, 0.f);
     transform.translate(finalVelocity);
-    transform.translate(finalVerticalMove);
 
     updateViewMatrix();
 
-    this->velocity = finalVelocity + finalVerticalMove;
+    this->velocity = finalVelocity;
 }
 
 float FreeCamera::getZVelocity() const

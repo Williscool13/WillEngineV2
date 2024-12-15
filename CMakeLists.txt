@@ -62,6 +62,10 @@ set(HALF_SOURCES
         src/physics/physics_body.h
         src/physics/physics_utils.cpp
         src/physics/physics_utils.h
+        src/game/player/player.cpp
+        src/game/player/player.h
+        src/core/imgui_wrapper.cpp
+        src/core/imgui_wrapper.h
 )
 
 
@@ -79,8 +83,8 @@ add_executable(WillEngine main.cpp
         src/core/input.h
         src/core/game_object.cpp
         src/core/game_object.h
-        src/core/camera/free_camera.cpp
-        src/core/camera/free_camera.h
+        src/game/camera/free_camera.cpp
+        src/game/camera/free_camera.h
         src/core/camera/camera.cpp
         src/core/camera/camera.h
         src/physics/physics.cpp

@@ -9,6 +9,7 @@ Input::Input()
     keyStateData[SDLK_ESCAPE] = {};
     keyStateData[SDLK_SPACE] = {};
     keyStateData[SDLK_LSHIFT] = {};
+    keyStateData[SDLK_LCTRL] = {};
     keyStateData[SDLK_RETURN] = {};
     keyStateData[SDLK_q] = {};
     keyStateData[SDLK_w] = {};

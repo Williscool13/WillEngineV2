@@ -21,20 +21,17 @@
 
 #include <SDL.h>
 #include <fmt/format.h>
-#include <imgui.h>
-#include <imgui_impl_sdl2.h>
-#include <imgui_impl_vulkan.h>
 #include <glm/glm.hpp>
 
+#include "imgui_wrapper.h"
 #include "scene.h"
 #include "../renderer/vk_types.h"
-#include "../renderer/vk_descriptors.h"
 #include "../renderer/vk_descriptor_buffer.h"
 #include "../renderer/vk_helpers.h"
-#include "../util/render_utils.h"
-#include "camera/free_camera.h"
 #include "src/renderer/environment/environment.h"
 
+class ImguiWrapper;
+class Player;
 class Physics;
 class ResourceManager;
 class ImmediateSubmitter;
@@ -98,8 +95,6 @@ public:
 
     void DEBUG_drawSpectate(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects) const;
 
-    void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView) const;
-
     /**
      * Cleans up vulkan resources when application has exited. Destroys resources in opposite order of initialization
      * \n Resources -> Command Pool (implicit destroy C. Buffers) -> Swapchain -> Surface -> Device -> Instance -> Window
@@ -107,12 +102,7 @@ public:
     void cleanup();
 
 private: // Initialization
-    /**
-     * Initializes all dear imgui vulkan/SDL2 integration. Mostly copied from imgui's samples
-     */
-    void initDearImgui();
-
-    void initDescriptors();
+    void initRenderer();
 
     void initScene();
 
@@ -133,6 +123,9 @@ private: // Vulkan Boilerplate
     ResourceManager* resourceManager = nullptr;
     Physics* physics = nullptr;
 
+    friend void ImguiWrapper::imguiInterface(Engine* engine);
+    ImguiWrapper* imguiWrapper = nullptr;
+
     //DeletionQueue mainDeletionQueue;
 
 private: // Rendering
@@ -148,7 +141,7 @@ private: // Rendering
     double renderTime{};
 
 private: // Scene
-    FreeCamera camera{75.0f, 1920.0f / 1080.0f, 1000, 0.01};
+    Player* player{nullptr};
     Scene scene{};
 
     RenderObject* sponza{nullptr};
@@ -264,9 +257,6 @@ private: // Render Targets
 
 public: // Default Data
     static VkDescriptorSetLayout emptyDescriptorSetLayout;
-
-private: // DearImgui
-    VkDescriptorPool imguiPool{VK_NULL_HANDLE};
 };
 
 #endif //ENGINE_H
