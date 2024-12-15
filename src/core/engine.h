@@ -31,7 +31,7 @@
 #include "src/renderer/environment/environment.h"
 
 class ImguiWrapper;
-class Player;
+class PlayerCharacter;
 class Physics;
 class ResourceManager;
 class ImmediateSubmitter;
@@ -141,7 +141,7 @@ private: // Rendering
     double renderTime{};
 
 private: // Scene
-    Player* player{nullptr};
+    PlayerCharacter* player{nullptr};
     Scene scene{};
 
     RenderObject* sponza{nullptr};

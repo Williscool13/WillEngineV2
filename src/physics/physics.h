@@ -30,6 +30,21 @@ namespace JPH
 class Physics
 {
 public:
+    static Physics* Get()
+    {
+        return physics;
+    }
+
+    static void Set(Physics* physics)
+    {
+        Physics::physics = physics;
+    }
+
+    /**
+     * Application-wide physics context. Exists for the application's lifetime
+     */
+    static Physics* physics;
+
     Physics();
 
     ~Physics();
@@ -42,6 +57,8 @@ public:
 
     JPH::BodyInterface& getBodyInterface() const;
 
+    const std::unordered_map<uint32_t, PhysicsBody>& getGameObjectToPhysicsBodyMap() const { return physicsBodies; }
+
 
     void addRigidBody(GameObject* obj, const JPH::ShapeRefC& shape, bool isDynamic = true);
 
@@ -50,6 +67,8 @@ public:
     void removeRigidBodies(const std::vector<GameObject>& objects);
 
     void updateTransforms() const;
+
+    GameObject* getGameObjectFromBody(JPH::BodyID bodyId) const;
 
 private:
     // Core systems
@@ -89,6 +108,5 @@ private: // Shapes
     JPH::ShapeRefC unitCapsuleShape = nullptr;
     JPH::ShapeRefC unitCylinderShape = nullptr;
 };
-
 
 #endif //PHYSICS_H

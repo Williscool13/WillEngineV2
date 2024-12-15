@@ -17,6 +17,8 @@
 #include "Jolt/Physics/Collision/Shape/SphereShape.h"
 #include "src/core/game_object.h"
 
+Physics* Physics::physics = nullptr;
+
 Physics::Physics()
 {
     JPH::RegisterDefaultAllocator();
@@ -70,7 +72,7 @@ Physics::Physics()
         JPH::Vec3(0.0f, WORLD_FLOOR_HEIGHT, 0.0f),
         JPH::Quat::sIdentity(),
         JPH::EMotionType::Static,
-        Layers::NON_MOVING
+        Layers::TERRAIN
     );
 
     auto& bodyInterface = physicsSystem->GetBodyInterface();
@@ -199,4 +201,14 @@ void Physics::updateTransforms() const
     for (auto& physicsBody : physicsBodies) {
         physicsBody.second.updateTransform(bodyInterface);
     }
+}
+
+GameObject* Physics::getGameObjectFromBody(const JPH::BodyID bodyId) const
+{
+    for (const auto& body : physicsBodies) {
+        if (body.second.bodyId == bodyId) {
+            return body.second.gameObject;
+        }
+    }
+    return nullptr;
 }

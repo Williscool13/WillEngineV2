@@ -10,7 +10,7 @@
 #include "engine.h"
 #include "input.h"
 #include "camera/camera.h"
-#include "src/game/player/player.h"
+#include "src/game/player/player_character.h"
 #include "src/renderer/vk_helpers.h"
 #include "src/renderer/vulkan_context.h"
 #include "src/util/file_utils.h"
