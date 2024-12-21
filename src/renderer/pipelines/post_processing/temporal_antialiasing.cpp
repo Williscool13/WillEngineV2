@@ -136,6 +136,7 @@ void TaaPipeline::draw(VkCommandBuffer cmd, const TaaDrawInfo& drawInfo) const
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
 
     TaaProperties properties{};
+    properties.jitter = drawInfo.jitter;
     properties.width = static_cast<int32_t>(drawInfo.renderExtent.width);
     properties.height = static_cast<int32_t>(drawInfo.renderExtent.height);
     properties.texelSize = {

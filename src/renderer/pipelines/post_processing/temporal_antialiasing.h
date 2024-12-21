@@ -22,6 +22,7 @@ struct TaaDescriptorBufferInfo
 
 struct TaaDrawInfo
 {
+    glm::vec4 jitter;
     VkExtent2D renderExtent;
     float minBlend;
     float maxBlend;
