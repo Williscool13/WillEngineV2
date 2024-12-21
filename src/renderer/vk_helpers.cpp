@@ -783,11 +783,11 @@ void vk_helpers::saveImageRGBA16SFLOAT(const ResourceManager& resourceManager, c
     const auto imageData = static_cast<half*>(data);
 
     const auto byteImageData = new uint8_t[image.imageExtent.width * image.imageExtent.height * 4];
-    const auto powEight = static_cast<half>(powf(2, 8) - 1);
     for (size_t i = 0; i < image.imageExtent.width * image.imageExtent.height; ++i) {
         for (int j = 0; j < channelCount; j++) {
-            const auto value = static_cast<uint8_t>(imageData[i * channelCount + j] * powEight);
-            byteImageData[i * 4 + j] = value;
+            auto value = static_cast<float>(imageData[i * channelCount + j]);
+            value = std::max(0.0f, std::min(1.0f, value));
+            byteImageData[i * 4 + j] = static_cast<uint8_t>(std::lround(value * 255.0f));
         }
 
         if (overrideAlpha) {

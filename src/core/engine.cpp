@@ -195,8 +195,8 @@ void Engine::updateSceneData() const
 {
     const bool bIsFrameZero = frameNumber == 0;
 
-    const glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber, {renderExtent.width, renderExtent.height});
-    const glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(frameNumber > 0 ? frameNumber - 1 : 0, {renderExtent.width, renderExtent.height});
+    const glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber + 1);
+    const glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(frameNumber);
 
 
     const Camera* camera = player->getCamera();
@@ -208,10 +208,14 @@ void Engine::updateSceneData() const
         pSceneData->prevView = bIsFrameZero ? camera->getViewMatrix() : pSceneData->view;
         pSceneData->prevProj = bIsFrameZero ? camera->getProjMatrix() : pSceneData->proj;
         pSceneData->prevViewProj = bIsFrameZero ? camera->getViewProjMatrix() : pSceneData->viewProj;
-        pSceneData->jitter = bEnableJitter && bEnableTaa ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
+        pSceneData->jitter = bEnableJitter && bEnableTaa ? glm::vec4(currentJitter.x / renderExtent.width, currentJitter.y / renderExtent.height, prevJitter.x / renderExtent.width, prevJitter.y / renderExtent.height) : glm::vec4(0.0f);
 
         pSceneData->view = camera->getViewMatrix();
         pSceneData->proj = camera->getProjMatrix();
+        if (bEnableJitter) {
+            pSceneData->proj[2][0] += currentJitter.x / renderExtent.width;
+            pSceneData->proj[2][1] += currentJitter.y / renderExtent.height;
+        }
         pSceneData->viewProj = pSceneData->proj * pSceneData->view;
         pSceneData->invView = glm::inverse(pSceneData->view);
         pSceneData->invProj = glm::inverse(pSceneData->proj);
