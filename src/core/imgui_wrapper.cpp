@@ -103,8 +103,16 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
         ImGui::Separator();
         ImGui::Text("TAA Properties:");
-        ImGui::Checkbox("Enable TAA", &engine->bEnableTaa);
-        ImGui::Checkbox("Enable Jitter", &engine->bEnableJitter);
+        ImGui::Checkbox("TAA", &engine->bEnableTaa);
+        ImGui::SameLine();
+        ImGui::Checkbox("Jitter", &engine->bEnableJitter);
+        ImGui::SameLine();
+        if (ImGui::Button(engine->bEnableTaa && engine->bEnableJitter ? "Disable Both" : "Enable Both")) {
+            bool newState = !(engine->bEnableTaa && engine->bEnableJitter);
+            engine->bEnableTaa = newState;
+            engine->bEnableJitter = newState;
+        }
+
         if (engine->bEnableTaa) {
             ImGui::SetNextItemWidth(100);
             ImGui::InputFloat("Min Blend", &engine->taaMinBlend);
@@ -227,11 +235,11 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     }
     ImGui::End();
 
-    if (ImGui::Begin("Save Render Targets")) {
+    if (ImGui::Begin("Save Final Image")) {
         if (ImGui::Button("Save Draw Image")) {
             if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
                 std::filesystem::path path = file_utils::imagesSavePath / "drawImage.png";
-                vk_helpers::saveImageRGBA16SFLOAT(*engine->resourceManager, *engine->immediate, engine->drawImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
+                vk_helpers::saveImageRGBA16SFLOAT(*engine->resourceManager, *engine->immediate, engine->postProcessOutputBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
                                                   path.string().c_str());
             } else {
                 fmt::print(" Failed to find/create image save path directory");

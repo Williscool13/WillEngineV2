@@ -20,6 +20,10 @@ vec3 linearToSRGB(vec3 linearRGB) {
     );
 }
 
+vec3 reinhardTonemap(vec3 v) {
+    return v / (1.0f + v);
+}
+
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
     if (pixel.x >= pushConstants.width || pixel.y >= pushConstants.height) {
@@ -32,7 +36,8 @@ void main() {
     if (!pushConstants.enable) {
         imageStore(outputImage, pixel, vec4(linearColor, 1.0));
     } else {
-        vec3 srgbColor = linearToSRGB(linearColor);
+        vec3 tonemappedColor = reinhardTonemap(linearColor);
+        vec3 srgbColor = linearToSRGB(tonemappedColor);
         imageStore(outputImage, pixel, vec4(srgbColor, 1.0));
     }
 

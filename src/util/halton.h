@@ -11,24 +11,30 @@
 class HaltonSequence
 {
 public:
-    // Pre-computed 8-point Halton sequence (base 2, 3)
-    static constexpr glm::vec2 HALTON_SEQUENCE[8] = {
-        glm::vec2(0.125f, 0.111111f),
-        glm::vec2(0.625f, 0.444444f),
-        glm::vec2(0.375f, 0.777778f),
-        glm::vec2(0.875f, 0.222222f),
-        glm::vec2(0.250f, 0.555556f),
-        glm::vec2(0.750f, 0.888889f),
-        glm::vec2(0.500f, 0.333333f),
-        glm::vec2(1.000f, 0.666667f)
+    // Pre-computed 16-point Halton sequence (base 2, 3)
+    static constexpr glm::vec2 HALTON_SEQUENCE[16] = {
+        {0.5,    0.33333334},
+        {0.25,   0.66666667},
+        {0.75,   0.11111111},
+        {0.125,  0.44444445},
+        {0.625,  0.7777778},
+        {0.375,  0.22222222},
+        {0.875,  0.5555556},
+        {0.0625, 0.8888889},
+        {0.5625, 0.037037037},
+        {0.3125, 0.3703704},
+        {0.8125, 0.7037037},
+        {0.1875, 0.14814815},
+        {0.6875, 0.4814815},
+        {0.4375, 0.8148148},
+        {0.9375, 0.25925925},
+        {0.03125,0.5925926},
+
     };
 
-    static glm::vec2 getJitterHardcoded(const uint32_t frameNumber, const glm::vec2& screenDims) {
-        // Get the sequence point for this frame (wrapping around every 8 frames)
-        const glm::vec2 halton = HALTON_SEQUENCE[frameNumber % 8];
-
-        return (halton * 2.0f - 1.f) / screenDims;
-        //return (halton * 0.5f) / screenDims;
+    static glm::vec2 getJitterHardcoded(const uint32_t frameNumber) {
+        const glm::vec2 halton = HALTON_SEQUENCE[frameNumber % 16];
+        return halton - 0.5f;
     }
 
     /**

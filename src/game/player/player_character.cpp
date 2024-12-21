@@ -41,7 +41,7 @@ void PlayerCharacter::AddForceToObject() const
     if (result.hasHit) {
         const GameObject* object = physics_utils::getGameObjectFromBody(result.hitBodyID);
         if (object) {
-            physics_utils::addImpulse(result.hitBodyID, normalize(direction) * 10000.0f);
+            physics_utils::addImpulseAtPosition(result.hitBodyID, normalize(direction) * 10000.0f, result.hitPosition);
             fmt::print("Object found: {}\n", object->getName());
         } else {
             // e.g. pre-defined world floor

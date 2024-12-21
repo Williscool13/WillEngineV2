@@ -112,7 +112,7 @@ private: // Vulkan Boilerplate
      */
     VkExtent2D windowExtent{1700, 900};
     /**
-     * All graphics operation in this program operate with these extent.
+     * All graphics operation in this program operate with these extents and are scaled down with a blit into the window extents
      */
     const VkExtent2D renderExtent{1920, 1080};
     //const VkExtent2D renderExtent{3840, 2160};
