@@ -152,6 +152,7 @@ struct FrustumCullingBuffers
 
 struct TaaProperties
 {
+    glm::vec4 jitter;
     glm::vec2 texelSize;
     int32_t width;
     int32_t height;
