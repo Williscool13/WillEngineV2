@@ -117,7 +117,7 @@ void PostProcessPipeline::draw(VkCommandBuffer cmd, const PostProcessDrawInfo& d
     PostProcessData data{};
     data.width = static_cast<int32_t>(drawInfo.renderExtent.width);
     data.height = static_cast<int32_t>(drawInfo.renderExtent.height);
-    data.bEnable = drawInfo.enabled;
+    data.postProcessFlags = static_cast<uint32_t>(drawInfo.postProcessFlags);
     data.padding = 0;
 
     vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PostProcessData), &data);

@@ -29,6 +29,7 @@
 #include "../renderer/vk_descriptor_buffer.h"
 #include "../renderer/vk_helpers.h"
 #include "src/renderer/environment/environment.h"
+#include "src/renderer/pipelines/post_processing/post_process_types.h"
 
 class ImguiWrapper;
 class PlayerCharacter;
@@ -114,8 +115,8 @@ private: // Vulkan Boilerplate
     /**
      * All graphics operation in this program operate with these extents and are scaled down with a blit into the window extents
      */
-    const VkExtent2D renderExtent{1920, 1080};
-    //const VkExtent2D renderExtent{3840, 2160};
+    //const VkExtent2D renderExtent{1920, 1080};
+    const VkExtent2D renderExtent{3840, 2160};
     SDL_Window* window{nullptr};
 
     VulkanContext* context = nullptr;
@@ -179,7 +180,7 @@ private: // Scene Descriptors
     float taaBlend{0.2f};
     float taaVelocityWeight{200.0f};
 
-    bool bEnablePostProcess{true};
+    PostProcessType postProcessFlags{PostProcessType::Sharpening | PostProcessType::Tonemapping};
 
 private: // Pipelines
     // Frustum Culling

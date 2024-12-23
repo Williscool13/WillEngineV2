@@ -366,7 +366,7 @@ void Engine::draw()
 
     // Post-Process
     vk_helpers::transitionImage(cmd, postProcessOutputBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    postProcessPipeline->draw(cmd, {renderExtent, bEnablePostProcess});
+    postProcessPipeline->draw(cmd, {renderExtent, postProcessFlags});
     vk_helpers::transitionImage(cmd, postProcessOutputBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     // Final Swapchain Copy

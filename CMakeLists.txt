@@ -149,6 +149,7 @@ set(UTIL_SOURCES
         src/util/file_utils.h
         src/util/halton.cpp
         src/util/halton.h
+        src/renderer/pipelines/post_processing/post_process_types.h
 )
 
 add_executable(WillEngine main.cpp
