@@ -22,14 +22,11 @@ struct TaaDescriptorBufferInfo
 
 struct TaaDrawInfo
 {
-    glm::vec4 jitter;
     VkExtent2D renderExtent;
-    float minBlend;
-    float maxBlend;
+    float blendValue;
     float velocityWeight;
     bool enabled;
     int32_t debugMode;
-    float cameraZVelocity;
 };
 
 class TaaPipeline

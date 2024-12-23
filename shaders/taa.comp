@@ -12,14 +12,11 @@ layout (set = 0, binding = 3) uniform sampler2D velocityBuffer;
 layout (rgba16f, set = 0, binding = 4) uniform image2D outputImage;
 
 layout (push_constant) uniform PushConstants {
-    vec4 jitter;
     vec2 texelSize;
     int width;
     int height;
-    float minBlend;
-    float maxBlend;
+    float blendValue;
     float velocityWeight;
-    float zVelocity;
     bool bEnabled;
     int debug;
 } push;
@@ -122,7 +119,8 @@ vec3 temporalReprojection(vec2 uv, vec2 velocity) {
     float unbiased_weight = 1.0 - unbiased_diff;
     float unbiased_weight_sqr = unbiased_weight * unbiased_weight;
     //float k_feedback = lerp(_FeedbackMin, _FeedbackMax, unbiased_weight_sqr);
-    float k_feedback = mix(push.minBlend, push.maxBlend, unbiased_weight_sqr);
+    //float k_feedback = mix(push.minBlend, push.maxBlend, unbiased_weight_sqr);
+    float k_feedback = 0;
 
     // output
     return mix(currentSample, historySample, k_feedback);
@@ -170,10 +168,10 @@ float calculateVelocityConfidence(vec2 velocity, vec2 uv) {
     float velocityLength = length(velocity);
 
     // Disgusting rudimentary heuristic to fix some unbelievably undebuggable distortion/blending at the center area of the screen
-    vec2 centerDist = abs(vec2(0.5) - uv);
-    float distanceFromCenter = exp(-length(centerDist) * 8.0);
-    float zInfluence = abs(push.zVelocity) * distanceFromCenter * 0.25f;
-    velocityLength = max(velocityLength, zInfluence);
+    //vec2 centerDist = abs(vec2(0.5) - uv);
+    //float distanceFromCenter = exp(-length(centerDist) * 8.0);
+    //float zInfluence = abs(push.zVelocity) * distanceFromCenter * 0.25f;
+    //velocityLength = max(velocityLength, zInfluence);
 
     return exp(-velocityLength * push.velocityWeight);
 }
@@ -218,10 +216,10 @@ void main() {
 
         historyYCoCg = varianceClipping(historyYCoCg, uv);
 
-        velocityConfidence = calculateVelocityConfidence(velocity, uv) * 0.5f;
-        //float blend = mix(push.maxBlend, push.minBlend, smoothstep(0.0, 0.2, velocityConfidence));
+        //velocityConfidence = calculateVelocityConfidence(velocity, uv) * 0.5f;
 
-        vec3 resultYCoCg = mix(currentYCoCg, historyYCoCg, 0.8);
+        float alpha = 1 - push.blendValue;
+        vec3 resultYCoCg = mix(currentYCoCg, historyYCoCg, alpha);
         resultRGB = YCoCgToRGB(resultYCoCg);
     }
 
@@ -235,7 +233,6 @@ void main() {
             imageStore(outputImage, pixel, vec4(vec3(validHistory ? 1.0f : 0.0f), 1.0));
             return;
         case 3:
-            imageStore(outputImage, pixel, vec4(vec3(velocityConfidence), 1.0));
             return;
         case 4:
             return;

@@ -357,7 +357,7 @@ void Engine::draw()
     const glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber + 1);
     const glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(frameNumber);
     glm::vec4 jitter = {currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y};
-    taaPipeline->draw(cmd, {jitter, renderExtent, taaMinBlend, taaMaxBlend, taaVelocityWeight, bEnableTaa, taaDebug, player->getCamera()->getZVelocity()});
+    taaPipeline->draw(cmd, {renderExtent, taaBlend, taaVelocityWeight, bEnableTaa, taaDebug});
 
     // Save current TAA Resolve to History
     vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);

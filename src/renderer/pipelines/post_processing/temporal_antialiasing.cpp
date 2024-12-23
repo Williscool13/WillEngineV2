@@ -135,18 +135,15 @@ void TaaPipeline::draw(VkCommandBuffer cmd, const TaaDrawInfo& drawInfo) const
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
 
-    TaaProperties properties{};
-    properties.jitter = drawInfo.jitter;
+    TaaProperties properties{};;
     properties.width = static_cast<int32_t>(drawInfo.renderExtent.width);
     properties.height = static_cast<int32_t>(drawInfo.renderExtent.height);
     properties.texelSize = {
         1.0f / static_cast<float>(drawInfo.renderExtent.width),
         1.0f / static_cast<float>(drawInfo.renderExtent.height)
     };
-    properties.minBlend = drawInfo.minBlend;
-    properties.maxBlend = drawInfo.maxBlend;
+    properties.blendValue = drawInfo.blendValue;
     properties.velocityWeight = drawInfo.velocityWeight;
-    properties.zVelocity = drawInfo.cameraZVelocity;
     properties.bEnabled = drawInfo.enabled;
     properties.taaDebug = drawInfo.debugMode;
 
