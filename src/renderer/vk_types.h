@@ -165,7 +165,7 @@ struct PostProcessData
 {
     int32_t width;
     int32_t height;
-    bool bEnable;
+    uint32_t postProcessFlags;
     int32_t padding;
 };
 

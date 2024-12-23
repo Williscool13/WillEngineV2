@@ -124,7 +124,16 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             ImGui::Combo("TAA Debug View", &engine->taaDebug, taaDebugLabels, IM_ARRAYSIZE(taaDebugLabels));
         }
 
-        ImGui::Checkbox("Enable Post-Process", &engine->bEnablePostProcess);
+        if (ImGui::TreeNode("Post-Process Effects")) {
+            auto flags = static_cast<uint32_t>(engine->postProcessFlags);
+            if (ImGui::CheckboxFlags("Tonemapping", &flags, 1)) {
+                engine->postProcessFlags = static_cast<PostProcessType>(flags);
+            }
+            if (ImGui::CheckboxFlags("Sharpening", &flags, 2)) {
+                engine->postProcessFlags = static_cast<PostProcessType>(flags);
+            }
+            ImGui::TreePop();
+        }
 
 
         ImGui::Separator();

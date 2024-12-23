@@ -6,6 +6,8 @@
 #define POST_PROCESS_H
 
 #include <vulkan/vulkan_core.h>
+
+#include "post_process_types.h"
 #include "src/renderer/vk_descriptor_buffer.h"
 #include "src/renderer/vulkan_context.h"
 
@@ -25,7 +27,7 @@ struct PostProcessDescriptorBufferInfo
 struct PostProcessDrawInfo
 {
     VkExtent2D renderExtent;
-    bool enabled;
+    PostProcessType postProcessFlags;
 };
 
 class PostProcessPipeline
