@@ -152,20 +152,11 @@ struct FrustumCullingBuffers
 
 struct TaaProperties
 {
-    glm::vec4 jitter;
     glm::vec2 texelSize;
     int32_t width;
     int32_t height;
-    /**
-     * the minimum amount of history to be used for TAA. Lower means less of the history will be used at lower confidence
-     */
-    float minBlend;
-    /**
-     * the maximum amount of history to be used for TAA
-     */
-    float maxBlend;
+    float blendValue;
     float velocityWeight;
-    float zVelocity;
     bool bEnabled;
     int32_t taaDebug;
 };
