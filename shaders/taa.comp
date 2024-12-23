@@ -24,7 +24,23 @@ layout (push_constant) uniform PushConstants {
     int debug;
 } push;
 
+const float FLT_EPS = 0.00000001f;
 
+vec3 clipAABB(vec3 cMin, vec3 cMax, vec3 cAvg, vec3 color) {
+    // note: only clips towards aabb center (but fast!)
+    vec3 p_clip = 0.5 * (cMax + cMin);
+    vec3 e_clip = 0.5 * (cMax - cMin) + FLT_EPS;
+
+    vec3 v_clip = color - p_clip;
+    vec3 v_unit = v_clip.xyz / e_clip;
+    vec3 a_unit = abs(v_unit);
+    float ma_unit = max(a_unit.x, max(a_unit.y, a_unit.z));
+
+    if (ma_unit > 1.0)
+    return p_clip + v_clip / ma_unit;
+    else
+    return color;
+}
 
 vec3 findClosestFragment3x3(vec2 uv)
 {
@@ -36,7 +52,7 @@ vec3 findClosestFragment3x3(vec2 uv)
     vec3 topR = vec3(1, -1, texture(depthImage, uv - dv + du).x);
 
     vec3 midL = vec3(-1, 0, texture(depthImage, uv - du).x);
-    vec3 midM = vec3(0, 0, texture(depthImage, uv - dv).x);
+    vec3 midM = vec3(0, 0, texture(depthImage, uv).x);
     vec3 midR = vec3(1, 0, texture(depthImage, uv + du).x);
 
     vec3 botL = vec3(-1, 1, texture(depthImage, uv + dv - du).x);
@@ -95,7 +111,7 @@ vec3 temporalReprojection(vec2 uv, vec2 velocity) {
     cMax.yz = chromaCenter + chromaExtent;
     cAvg.yz = chromaCenter;
 
-    //texel1 = clip_aabb(cmin.xyz, cmax.xyz, clamp(cavg, cmin, cmax), texel1);
+    currentSample = clipAABB(cMin, cMax, clamp(cAvg, cMin, cMax), currentSample);
 
     float currentLuminance = currentSample.r;
     float historyLuminance = historySample.r;
@@ -112,19 +128,17 @@ vec3 temporalReprojection(vec2 uv, vec2 velocity) {
     return mix(currentSample, historySample, k_feedback);
 }
 
-vec3 varianceClipping(vec3 oldColor, vec3 newColor, vec2 uv) {
+vec3 varianceClipping(vec3 color, vec2 uv) {
     // https://developer.download.nvidia.com/gameworks/events/GDC2016/msalvi_temporal_supersampling.pdf
     // 3x3 kernel
     const float totalSamples = 9.0;
-    vec3 mean = newColor;
-    vec3 squaredSum = newColor * newColor;
+    vec3 mean = vec3(0.0);
+    vec3 squaredSum = vec3(0.0);
     vec3 minColor = vec3(1.0);
     vec3 maxColor = vec3(0.0);
 
     for (int y = -1; y <= 1; y++) {
         for (int x = -1; x <= 1; x++) {
-            if (x == 0 && y == 0) continue;
-
             vec2 offset = vec2(x, y) * push.texelSize;
             vec3 sampleRGB = texture(drawImage, uv + offset).rgb;
             vec3 sampleYCoCg = RGBToYCoCg(sampleRGB);
@@ -138,7 +152,8 @@ vec3 varianceClipping(vec3 oldColor, vec3 newColor, vec2 uv) {
     }
 
     mean /= totalSamples;
-    vec3 variance = (squaredSum / totalSamples) - (mean * mean);
+    squaredSum /= totalSamples;
+    vec3 variance = squaredSum - mean * mean;
     vec3 stddev = sqrt(max(variance, vec3(0.0)));
 
     vec3 gamma = vec3(1.0, 1.25, 1.25);
@@ -148,7 +163,7 @@ vec3 varianceClipping(vec3 oldColor, vec3 newColor, vec2 uv) {
     minc = max(minc, minColor);
     maxc = min(maxc, maxColor);
 
-    return clamp(oldColor, minc, maxc);
+    return clamp(color, minc, maxc);
 }
 
 float calculateVelocityConfidence(vec2 velocity, vec2 uv) {
@@ -176,36 +191,37 @@ void main() {
     }
 
     // https://github.com/playdeadgames/temporal.git
-    //vec3 closestFrag = findClosestFragment3x3(uv);
-    //vec2 closestUv = closestFrag.xy;
-    //vec2 velocity = texture(velocityBuffer, closestUv).rg;
+    // vec3 closestFrag = findClosestFragment3x3(uv);
+    // vec2 cuv = closestFrag.xy;
+    // vec2 cve = texture(velocityBuffer, cuv).rg;
+    // vec3 finalCol = temporalReprojection(cuv, cve);
+    // vec3 rgbFinalColor = YCoCgToRGB(finalCol);
+    // imageStore(outputImage, pixel, vec4(rgbFinalColor, 1.0));
+    // return;
 
-    vec2 closestUv = uv;
     vec2 velocity = texture(velocityBuffer, uv).rg;
-
-    vec2 historyUv = closestUv - velocity;
+    vec2 historyUv = uv - velocity;
     bool validHistory = all(greaterThanEqual(historyUv, vec2(0.0))) && all(lessThan(historyUv, vec2(1.0)));
 
-    vec3 currentColor = texture(drawImage, closestUv).rgb;
-    vec3 resultRGB;
+    vec3 currentColor = texture(drawImage, uv).rgb;
+    vec3 resultRGB = currentColor;
     float velocityConfidence = 0.0f;
 
 
     if (!validHistory) {
         resultRGB = currentColor;
     } else {
-        float currentDepth = texture(depthImage, closestUv).r;
-        vec3 historyColor = texture(drawHistory, historyUv).rgb;
-
         vec3 currentYCoCg = RGBToYCoCg(currentColor);
+        vec3 historyColor = texture(drawHistory, historyUv).rgb;
         vec3 historyYCoCg = RGBToYCoCg(historyColor);
-        historyYCoCg = varianceClipping(historyYCoCg, currentYCoCg, closestUv);
+        float currentDepth = texture(depthImage, uv).r;
 
-        velocityConfidence = calculateVelocityConfidence(velocity, closestUv);
+        historyYCoCg = varianceClipping(historyYCoCg, uv);
 
-        float blend = mix(push.minBlend, push.maxBlend, smoothstep(0.0, 0.2, velocityConfidence));
+        velocityConfidence = calculateVelocityConfidence(velocity, uv) * 0.5f;
+        //float blend = mix(push.maxBlend, push.minBlend, smoothstep(0.0, 0.2, velocityConfidence));
 
-        vec3 resultYCoCg = mix(currentYCoCg, historyYCoCg, blend);
+        vec3 resultYCoCg = mix(currentYCoCg, historyYCoCg, 0.8);
         resultRGB = YCoCgToRGB(resultYCoCg);
     }
 
@@ -213,14 +229,15 @@ void main() {
 
     switch (push.debug) {
         case 1:
+            imageStore(outputImage, pixel, vec4(vec2(velocity) * 10.0f, 0.0, 1.0));
             return;
         case 2:
             imageStore(outputImage, pixel, vec4(vec3(validHistory ? 1.0f : 0.0f), 1.0));
             return;
         case 3:
+            imageStore(outputImage, pixel, vec4(vec3(velocityConfidence), 1.0));
             return;
         case 4:
-            imageStore(outputImage, pixel, vec4(vec3(velocityConfidence), 1.0));
             return;
         case 5:
             return;
