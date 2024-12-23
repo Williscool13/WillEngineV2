@@ -195,9 +195,12 @@ void Engine::updateSceneData() const
 {
     const bool bIsFrameZero = frameNumber == 0;
 
-    const glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber + 1);
-    const glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(frameNumber);
-
+    glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(frameNumber) - 0.5f;
+    prevJitter.x /= static_cast<float>(renderExtent.width);
+    prevJitter.y /= static_cast<float>(renderExtent.height);
+    glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber + 1) - 0.5f;
+    currentJitter.x /= static_cast<float>(renderExtent.width);
+    currentJitter.y /= static_cast<float>(renderExtent.height);
 
     const Camera* camera = player->getCamera();
 
@@ -213,8 +216,8 @@ void Engine::updateSceneData() const
         pSceneData->view = camera->getViewMatrix();
         pSceneData->proj = camera->getProjMatrix();
         if (bEnableJitter) {
-            pSceneData->proj[2][0] += currentJitter.x / renderExtent.width;
-            pSceneData->proj[2][1] += currentJitter.y / renderExtent.height;
+            pSceneData->proj[2][0] += currentJitter.x;
+            pSceneData->proj[2][1] += currentJitter.y;
         }
         pSceneData->viewProj = pSceneData->proj * pSceneData->view;
         pSceneData->invView = glm::inverse(pSceneData->view);
@@ -338,7 +341,7 @@ void Engine::draw()
 
     DeferredResolveDrawInfo deferredResolveDrawInfo{sceneDataDescriptorBuffer};
     deferredResolveDrawInfo.renderExtent = renderExtent;
-    deferredResolveDrawInfo.debugMode = taaDebug;
+    deferredResolveDrawInfo.debugMode = deferredDebug;
     deferredResolveDrawInfo.environment = environmentMap;
     deferredResolveDrawInfo.environmentMapIndex = environmentMapindex;
 
@@ -612,7 +615,7 @@ void Engine::initRenderer()
     taaPipeline->setupDescriptorBuffer(
         {
             drawImage.imageView, historyBuffer.imageView, depthImage.imageView,
-            velocityRenderTarget.imageView, taaResolveTarget.imageView, resourceManager->getDefaultSamplerNearest()
+            velocityRenderTarget.imageView, taaResolveTarget.imageView, resourceManager->getDefaultSamplerLinear()
         }
     );
 

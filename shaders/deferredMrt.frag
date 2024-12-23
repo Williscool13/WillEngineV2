@@ -59,9 +59,11 @@ void main() {
     albedoTarget = vec4(albedo, 1.0f);
     pbrTarget = vec4(metallic, roughness, 0.0f, 0.0f);
 
-    vec2 curr_ndc = inCurrMvpPosition.xy / inCurrMvpPosition.w;
-    vec2 prev_ndc = inPrevMvpPosition.xy / inPrevMvpPosition.w;
     vec2 jitterDiff = (sceneData.jitter.xy - sceneData.jitter.zw);
-    vec2 velocity = (curr_ndc - prev_ndc + jitterDiff) * 0.5;
+    vec2 currNdc = inCurrMvpPosition.xy / inCurrMvpPosition.w;
+    vec2 prevNdc = inPrevMvpPosition.xy / inPrevMvpPosition.w;
 
+    vec2 velocity = (currNdc - prevNdc) * 0.5;
+    //vec2 velocity = (curr_ndc - prev_ndc) * 0.5;
+    velocityTarget = velocity;
 }

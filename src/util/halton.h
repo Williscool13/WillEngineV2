@@ -33,8 +33,7 @@ public:
     };
 
     static glm::vec2 getJitterHardcoded(const uint32_t frameNumber) {
-        const glm::vec2 halton = HALTON_SEQUENCE[frameNumber % 16];
-        return halton - 0.5f;
+        return HALTON_SEQUENCE[frameNumber % 16];
     }
 
     /**
@@ -48,7 +47,7 @@ public:
         const float x = halton(frameIndex, 2);
         const float y = halton(frameIndex, 3);
 
-        return (glm::vec2(x, y) * 2.0f - 1.0f) / screenDims;
+        return {x,y};
     }
 
 private:

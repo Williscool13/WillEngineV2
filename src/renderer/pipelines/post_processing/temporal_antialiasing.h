@@ -17,7 +17,7 @@ struct TaaDescriptorBufferInfo
     VkImageView depthBuffer;
     VkImageView velocityBuffer;
     VkImageView outputTarget;
-    VkSampler nearestSampler;
+    VkSampler sampler;
 };
 
 struct TaaDrawInfo

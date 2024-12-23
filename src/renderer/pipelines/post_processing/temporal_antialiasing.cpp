@@ -88,22 +88,22 @@ void TaaPipeline::setupDescriptorBuffer(const TaaDescriptorBufferInfo& bufferInf
     descriptors.reserve(5);
 
     VkDescriptorImageInfo drawImage{};
-    drawImage.sampler = bufferInfo.nearestSampler;
+    drawImage.sampler = bufferInfo.sampler;
     drawImage.imageView = bufferInfo.drawImage;
     drawImage.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo history{};
-    history.sampler = bufferInfo.nearestSampler;
+    history.sampler = bufferInfo.sampler;
     history.imageView = bufferInfo.historyBuffer;
     history.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo depth{};
-    depth.sampler = bufferInfo.nearestSampler;
+    depth.sampler = bufferInfo.sampler;
     depth.imageView = bufferInfo.depthBuffer;
     depth.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo velocity{};
-    velocity.sampler = bufferInfo.nearestSampler;
+    velocity.sampler = bufferInfo.sampler;
     velocity.imageView = bufferInfo.velocityBuffer;
     velocity.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
