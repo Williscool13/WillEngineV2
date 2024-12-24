@@ -11,7 +11,7 @@
 FreeCamera::FreeCamera(const float fov, const float aspect, const float nearPlane, const float farPlane) : Camera(fov, aspect, nearPlane, farPlane)
 {}
 
-void FreeCamera::update()
+void FreeCamera::update(const float deltaTime)
 {
     const Input& input = Input::Get();
     if (!input.isInFocus()) {
@@ -47,10 +47,9 @@ void FreeCamera::update()
         speed -= 1;
     }
     speed = glm::clamp(speed, -2.0f, 3.0f);
-    const float deltaTime = TimeUtils::Get().getDeltaTime();
 
     float scale = speed;
-    if (speed <= 0) {
+    if (scale <= 0) {
         scale -= 1;
     }
     const auto currentSpeed = static_cast<float>(glm::pow(10, scale));
@@ -80,12 +79,4 @@ void FreeCamera::update()
     transform.translate(finalVelocity);
 
     updateViewMatrix();
-
-    this->velocity = finalVelocity;
-}
-
-float FreeCamera::getZVelocity() const
-{
-    const auto viewSpaceVelocity = glm::vec3(cachedViewMatrix * glm::vec4(velocity, 0.0f));
-    return -viewSpaceVelocity.z;
 }

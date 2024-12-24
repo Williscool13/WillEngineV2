@@ -52,13 +52,14 @@ public:
      */
     virtual void updateProjMatrix(float fov, float aspect, float nearPlane, float farPlane);
 
+    /**
+     * Must be called after all updates to camera position to update the matrices
+     */
     virtual void updateViewMatrix();
 
     void updateViewProjMatrix();
 
-    virtual float getZVelocity() const = 0;
-
-    virtual void update() {}
+    virtual void update(float deltaTime) = 0;
 
 protected:
 
@@ -73,8 +74,6 @@ protected:
     glm::mat4 cachedViewMatrix{};
     glm::mat4 cachedProjMatrix{};
     glm::mat4 cachedViewProjMatrix{};
-
-    glm::vec3 velocity{};
 };
 
 

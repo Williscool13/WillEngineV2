@@ -24,9 +24,9 @@ public:
 
     explicit GameObject(std::string gameObjectName);
 
-    ~GameObject();
+    virtual ~GameObject();
 
-    virtual void update(float deltaTime) {};
+    virtual void update(float deltaTime) {}
 
 public: // Hierarchy
     /**

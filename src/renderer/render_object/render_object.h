@@ -83,6 +83,8 @@ public:
      */
     GameObject* generateGameObject(int32_t meshIndex, const Transform& startingTransform = {});
 
+    void attachToGameObject(GameObject* gameObject, int32_t meshIndex);
+
     [[nodiscard]] InstanceData* getInstanceData(int32_t index) const;
 
     [[nodiscard]] const std::vector<Mesh>& getMeshes() const { return meshes; }

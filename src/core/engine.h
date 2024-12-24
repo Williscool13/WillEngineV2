@@ -90,9 +90,9 @@ public:
 
     void draw();
 
-    void updateSceneData() const;
+    void update() const;
 
-    void updateSceneObjects() const;
+    void updateSceneData() const;
 
     void DEBUG_drawSpectate(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects) const;
 
@@ -115,8 +115,8 @@ private: // Vulkan Boilerplate
     /**
      * All graphics operation in this program operate with these extents and are scaled down with a blit into the window extents
      */
-    //const VkExtent2D renderExtent{1920, 1080};
-    const VkExtent2D renderExtent{3840, 2160};
+    const VkExtent2D renderExtent{1920, 1080};
+    //const VkExtent2D renderExtent{3840, 2160};
     SDL_Window* window{nullptr};
 
     VulkanContext* context = nullptr;
@@ -177,7 +177,7 @@ private: // Scene Descriptors
 
     bool bEnableTaa{true};
     bool bEnableJitter{true};
-    float taaBlend{0.2f};
+    float taaBlend{0.15f};
     float taaVelocityWeight{200.0f};
 
     PostProcessType postProcessFlags{PostProcessType::Sharpening | PostProcessType::Tonemapping};
