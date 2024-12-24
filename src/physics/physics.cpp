@@ -134,12 +134,19 @@ void Physics::cleanup()
     JPH::Factory::sInstance = nullptr;
 }
 
-void Physics::update(const float deltaTime) const
+void Physics::update(const float deltaTime)
 {
     constexpr int collisionSteps = 1;
     physicsSystem->Update(deltaTime, collisionSteps, tempAllocator, jobSystem);
 
     updateTransforms();
+    /*timeAccumulator += deltaTime;
+    while (timeAccumulator >= FIXED_TIMESTEP) {
+        constexpr int collisionSteps = 4;
+        physicsSystem->Update(FIXED_TIMESTEP, collisionSteps, tempAllocator, jobSystem);
+        updateTransforms();
+        timeAccumulator -= FIXED_TIMESTEP;
+    }*/
 }
 
 JPH::BodyInterface& Physics::getBodyInterface() const
@@ -160,6 +167,14 @@ void Physics::addRigidBody(GameObject* obj, const JPH::ShapeRefC& shape, const b
         isDynamic ? Layers::MOVING : Layers::NON_MOVING
     );
 
+    body.bodyId = physicsSystem->GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::Activate);
+    physicsBodies[obj->getId()] = body;
+}
+
+void Physics::addRigidBody(GameObject* obj, const JPH::BodyCreationSettings& settings)
+{
+    PhysicsBody body;
+    body.gameObject = obj;
     body.bodyId = physicsSystem->GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::Activate);
     physicsBodies[obj->getId()] = body;
 }

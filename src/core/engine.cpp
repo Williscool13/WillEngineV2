@@ -14,6 +14,7 @@
 #include <fastgltf/tools.hpp>
 
 #include "imgui_wrapper.h"
+#include "Jolt/Physics/Body/BodyCreationSettings.h"
 #include "src/game/player/player_character.h"
 #include "src/util/halton.h"
 #include "src/util/file_utils.h"
@@ -36,6 +37,8 @@
 #include "src/renderer/scene/scene_descriptor_layouts.h"
 
 #include "src/physics/physics.h"
+#include "src/physics/physics_filters.h"
+#include "src/physics/physics_utils.h"
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -420,9 +423,11 @@ void Engine::update() const
     cubeGameObject2->transform.setPosition(horizontal);
     cubeGameObject2->dirty();
 
-    scene.updateSceneModelMatrices();
-    player->update(deltaTime);
+
     physics->update(deltaTime);
+    //scene.updateSceneModelMatrices();
+    player->update(deltaTime);
+    scene.updateSceneModelMatrices();
 
     updateSceneData();
 }
@@ -670,8 +675,22 @@ void Engine::initScene()
     cubeGameObject->dirty();
     cubeGameObject2->transform.setScale(0.05f);
     cubeGameObject2->dirty();
+    player->transform.setScale(0.5f);
+    player->dirty();
 
     physics->addRigidBody(primitiveCubeGameObject, physics->getUnitCubeShape());
+
+    JPH::BodyCreationSettings playerSettings{
+        physics->getUnitSphereShape(),
+        physics_utils::ToJolt(player->transform.getPosition()),
+        physics_utils::ToJolt(player->transform.getRotation()),
+        JPH::EMotionType::Dynamic,
+        Layers::PLAYER
+    };
+    playerSettings.mLinearDamping = 0.25f;
+    // todo: look into continuous collision detection
+    physics->addRigidBody(player, playerSettings);
+
 }
 
 void Engine::createSwapchain(const uint32_t width, const uint32_t height)

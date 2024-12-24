@@ -57,7 +57,7 @@ public: // Hierarchy
 
     std::string_view getName() const { return gameObjectName; }
 
-private: // Hierarchy
+protected: // Hierarchy
     GameObject* parent{nullptr};
     std::vector<GameObject*> children{};
     static uint32_t nextId;
