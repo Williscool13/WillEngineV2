@@ -17,7 +17,8 @@
 #include "src/renderer/data_structures/bounding_sphere.h"
 #include "src/util/file_utils.h"
 
-RenderObject::RenderObject(const VulkanContext& context, const ResourceManager& resourceManager, const std::string_view gltfFilepath, const RenderObjectLayouts& descriptorLayouts) : context(context), resourceManager(resourceManager)
+RenderObject::RenderObject(const VulkanContext& context, const ResourceManager& resourceManager, const std::string_view gltfFilepath,
+                           const RenderObjectLayouts& descriptorLayouts) : context(context), resourceManager(resourceManager)
 {
     std::vector<BoundingSphere> boundingSpheres{};
 
@@ -38,17 +39,17 @@ RenderObject::RenderObject(const VulkanContext& context, const ResourceManager& 
     AllocatedBuffer meshBoundsStaging = resourceManager.createStagingBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
     memcpy(meshBoundsStaging.info.pMappedData, boundingSpheres.data(), sizeof(BoundingSphere) * boundingSpheres.size());
     meshBoundsBuffer = resourceManager.createBuffer(sizeof(BoundingSphere) * boundingSpheres.size(),
-                                             VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
-                                             VMA_MEMORY_USAGE_GPU_ONLY);
+                                                    VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                    VMA_MEMORY_USAGE_GPU_ONLY);
     resourceManager.copyBuffer(meshBoundsStaging, meshBoundsBuffer, sizeof(BoundingSphere) * boundingSpheres.size());
     resourceManager.destroyBuffer(meshBoundsStaging);
 
     frustumCullingDescriptorBuffer = DescriptorBufferUniform(context.instance, context.device, context.physicalDevice,
                                                              context.allocator, descriptorLayouts.frustumCullLayout, 1);
     frustumBufferAddresses = resourceManager.createBuffer(sizeof(FrustumCullingBuffers),
-                                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                                                   VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
-                                                   , VMA_MEMORY_USAGE_GPU_ONLY);
+                                                          VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
+                                                          VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+                                                          , VMA_MEMORY_USAGE_GPU_ONLY);
     DescriptorUniformData cullingAddressesUniformData;
     cullingAddressesUniformData.allocSize = sizeof(FrustumCullingBuffers);
     cullingAddressesUniformData.uniformBuffer = frustumBufferAddresses;
@@ -246,9 +247,9 @@ void RenderObject::parseModel(std::string_view gltfFilepath, VkDescriptorSetLayo
     AllocatedBuffer materialStaging = resourceManager.createStagingBuffer(materials.size() * sizeof(Material));
     memcpy(materialStaging.info.pMappedData, materials.data(), materials.size() * sizeof(Material));
     materialBuffer = resourceManager.createBuffer(materials.size() * sizeof(Material)
-                                          , VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                                            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
-                                          , VMA_MEMORY_USAGE_GPU_ONLY);
+                                                  , VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                                                    VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+                                                  , VMA_MEMORY_USAGE_GPU_ONLY);
 
     resourceManager.copyBuffer(materialStaging, materialBuffer, materials.size() * sizeof(Material));
     resourceManager.destroyBuffer(materialStaging);
@@ -346,12 +347,12 @@ void RenderObject::parseModel(std::string_view gltfFilepath, VkDescriptorSetLayo
 
 
         vertexBuffer = resourceManager.createBuffer(vertices.size() * sizeof(Vertex)
-                                            , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
-                                            , VMA_MEMORY_USAGE_GPU_ONLY);
+                                                    , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
+                                                    , VMA_MEMORY_USAGE_GPU_ONLY);
 
         indexBuffer = resourceManager.createBuffer(indices.size() * sizeof(uint32_t)
-                                           , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT
-                                           , VMA_MEMORY_USAGE_GPU_ONLY);
+                                                   , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT
+                                                   , VMA_MEMORY_USAGE_GPU_ONLY);
 
 
         resourceManager.copyBuffer(vertexStaging, vertexBuffer, vertices.size() * sizeof(Vertex));
@@ -462,9 +463,24 @@ GameObject* RenderObject::generateGameObject(const int32_t meshIndex, const Tran
         return nullptr;
     }
 
-    expandInstanceBuffer(1);
 
     auto* gameObject = new GameObject();
+
+    attachToGameObject(gameObject, meshIndex);
+
+    gameObject->transform.setTransform(startingTransform);
+    gameObject->dirty();
+
+    return gameObject;
+}
+
+void RenderObject::attachToGameObject(GameObject* gameObject, const int32_t meshIndex)
+{
+    if (gameObject == nullptr) { return; }
+
+    // maybetodo: make this support selection of mesh and also create/attach all children to that mesh
+
+    expandInstanceBuffer(1);
 
     // InstanceIndex is used to know which model matrix to use form the model matrix array
     // All primitives in a mesh use the same model matrix
@@ -487,14 +503,9 @@ GameObject* RenderObject::generateGameObject(const int32_t meshIndex, const Tran
     gameObject->setRenderObjectReference(this, static_cast<int32_t>(instanceIndex));
     currentInstanceCount++;
 
-
-    gameObject->transform.setTransform(startingTransform);
-    gameObject->dirty();
-
     // todo: maybe make user manually call this? gpu operations should be batched
     uploadIndirectBuffer();
     updateComputeCullingBuffer();
-    return gameObject;
 }
 
 InstanceData* RenderObject::getInstanceData(const int32_t index) const
@@ -555,10 +566,10 @@ void RenderObject::expandInstanceBuffer(const uint32_t countToAdd, const bool co
     instanceBufferSize += countToAdd;
     // CPU_TO_GPU because it can be modified any time by gameobjects
     const AllocatedBuffer tempInstanceBuffer = resourceManager.createBuffer(instanceBufferSize * sizeof(InstanceData)
-                                                                     , VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                                                                       VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-                                                                       VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
-                                                                     , VMA_MEMORY_USAGE_CPU_TO_GPU);
+                                                                            , VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                                                                              VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                                                                              VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+                                                                            , VMA_MEMORY_USAGE_CPU_TO_GPU);
 
     if (copy && oldBufferSize > 0) {
         resourceManager.copyBuffer(modelMatrixBuffer, tempInstanceBuffer, oldBufferSize * sizeof(InstanceData));
@@ -590,9 +601,9 @@ void RenderObject::uploadIndirectBuffer()
     AllocatedBuffer indirectStaging = resourceManager.createStagingBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
     memcpy(indirectStaging.info.pMappedData, drawCommands.data(), drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
     drawIndirectBuffer = resourceManager.createBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand)
-                                               , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
-                                                 VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
-                                               , VMA_MEMORY_USAGE_GPU_ONLY);
+                                                      , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
+                                                        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+                                                      , VMA_MEMORY_USAGE_GPU_ONLY);
 
     resourceManager.copyBuffer(indirectStaging, drawIndirectBuffer, drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
     resourceManager.destroyBuffer(indirectStaging);
@@ -622,8 +633,8 @@ void RenderObject::updateComputeCullingBuffer()
     AllocatedBuffer meshIndicesStaging = resourceManager.createStagingBuffer(primitiveSphereBounds.size() * sizeof(uint32_t));
     memcpy(meshIndicesStaging.info.pMappedData, primitiveSphereBounds.data(), primitiveSphereBounds.size() * sizeof(uint32_t));
     meshIndicesBuffer = resourceManager.createBuffer(primitiveSphereBounds.size() * sizeof(uint32_t)
-                                              , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
-                                              , VMA_MEMORY_USAGE_GPU_ONLY);
+                                                     , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+                                                     , VMA_MEMORY_USAGE_GPU_ONLY);
 
     resourceManager.copyBuffer(meshIndicesStaging, meshIndicesBuffer, primitiveSphereBounds.size() * sizeof(uint32_t));
     resourceManager.destroyBuffer(meshIndicesStaging);

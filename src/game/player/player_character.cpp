@@ -10,11 +10,16 @@
 #include "src/core/input.h"
 #include "src/core/camera/camera.h"
 #include "src/game/camera/free_camera.h"
+#include "src/game/camera/orbit_camera.h"
 #include "src/physics/physics_utils.h"
 
 PlayerCharacter::PlayerCharacter()
 {
-    camera = new FreeCamera(75.0f, 1920.0f / 1080.0f, 1000, 0.01);
+    //camera = new FreeCamera(75.0f, 1920.0f / 1080.0f, 1000, 0.01);
+    camera = new OrbitCamera(75.0f, 1920.0f / 1080.0f, 1000, 0.01);
+    if (const auto orbit = dynamic_cast<OrbitCamera*>(camera)){
+        orbit->setOrbitTarget(this);
+    }
 }
 
 PlayerCharacter::~PlayerCharacter()
@@ -24,16 +29,20 @@ PlayerCharacter::~PlayerCharacter()
 
 void PlayerCharacter::update(float deltaTime)
 {
-    if (camera) { camera->update(); }
+    if (camera) { camera->update(deltaTime); }
 
     const Input& input = Input::Get();
 
     if (input.isKeyPressed(SDLK_e)) {
-        AddForceToObject();
+        addForceToObject();
+    }
+
+    if (input.isKeyDown(SDLK_w)) {
+
     }
 }
 
-void PlayerCharacter::AddForceToObject() const
+void PlayerCharacter::addForceToObject() const
 {
     const glm::vec3 direction = camera->transform.getForward();
     const RaycastHit result = physics_utils::raycast(camera->getPosition(), direction, 100.0f);

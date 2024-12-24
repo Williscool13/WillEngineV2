@@ -4,23 +4,24 @@
 
 #ifndef PLAYER_H
 #define PLAYER_H
+#include "src/core/game_object.h"
 
 
 class Camera;
 
-class PlayerCharacter
+class PlayerCharacter : public GameObject
 {
 public:
     PlayerCharacter();
 
-    virtual ~PlayerCharacter();
+    ~PlayerCharacter() override;
 
-    virtual void update(float deltaTime);
+    void update(float deltaTime) override;
 
     [[nodiscard]] const Camera* getCamera() const { return camera; }
 
 private:
-    void AddForceToObject() const;
+    void addForceToObject() const;
 
 protected:
     Camera* camera{nullptr};

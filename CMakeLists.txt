@@ -150,6 +150,8 @@ set(UTIL_SOURCES
         src/util/halton.cpp
         src/util/halton.h
         src/renderer/pipelines/post_processing/post_process_types.h
+        src/game/camera/orbit_camera.cpp
+        src/game/camera/orbit_camera.h
 )
 
 add_executable(WillEngine main.cpp

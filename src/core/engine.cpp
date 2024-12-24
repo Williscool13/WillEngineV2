@@ -18,12 +18,11 @@
 #include "src/util/halton.h"
 #include "src/util/file_utils.h"
 #include "src/util/time_utils.h"
-#include "src/physics/physics.h"
+
 #include "src/renderer/immediate_submitter.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/vk_descriptors.h"
 #include "src/renderer/environment/environment.h"
-
 #include "src/renderer/pipelines/acceleration_algorithms/frustum_culling_descriptor_layout.h"
 #include "src/renderer/pipelines/acceleration_algorithms/frustum_culling_pipeline.h"
 #include "src/renderer/pipelines/environment/environment_descriptor_layouts.h"
@@ -32,11 +31,11 @@
 #include "src/renderer/pipelines/deferred/deferred_resolve.h"
 #include "src/renderer/pipelines/post_processing/temporal_antialiasing.h"
 #include "src/renderer/pipelines/post_processing/post_process.h"
-
 #include "src/renderer/render_object/render_object_descriptor_layout.h"
 #include "src/renderer/render_object/render_object.h"
-
 #include "src/renderer/scene/scene_descriptor_layouts.h"
+
+#include "src/physics/physics.h"
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -252,25 +251,6 @@ void Engine::updateSceneData() const
     }
 }
 
-void Engine::updateSceneObjects() const
-{
-    const Uint64 currentTime = SDL_GetTicks64();
-    constexpr auto originalPosition = glm::vec3{0.0, 2.0f, 0.0f};
-    const float timeSeconds = static_cast<float>(currentTime) / 1000.0f;
-    constexpr float amplitude = 1.0f;
-    constexpr float frequency = 0.25f;
-    const float offset = std::sin(timeSeconds * frequency * 2.0f * glm::pi<float>()) * amplitude;
-    const glm::vec3 vertical = originalPosition + glm::vec3{0.0f, offset, 0.0f};
-    const glm::vec3 horizontal = originalPosition + glm::vec3{0.0f, 0.0f, offset} + glm::vec3(2.0f, 0.0f, 0.0f);
-
-    cubeGameObject->transform.setPosition(vertical);
-    cubeGameObject->dirty();
-    cubeGameObject2->transform.setPosition(horizontal);
-    cubeGameObject2->dirty();
-
-
-    scene.updateSceneModelMatrices();
-}
 
 void Engine::draw()
 {
@@ -290,12 +270,8 @@ void Engine::draw()
         return;
     }
 #pragma endregion
-    float deltaTime = TimeUtils::Get().getDeltaTime();
 
-    player->update(deltaTime);
-    updateSceneData();
-    updateSceneObjects();
-    physics->update(deltaTime);
+    update();
 
     const auto renderStart = std::chrono::system_clock::now();
 
@@ -424,6 +400,31 @@ void Engine::draw()
 
     frameTime = frameTime * 0.99f + elapsedMs * 0.01f;
     drawTime = drawTime * 0.99f + elapsedMs * 0.01f;
+}
+
+void Engine::update() const
+{
+    const float deltaTime = TimeUtils::Get().getDeltaTime();
+    const Uint64 currentTime = SDL_GetTicks64();
+
+    constexpr auto originalPosition = glm::vec3{0.0, 2.0f, 0.0f};
+    const float timeSeconds = static_cast<float>(currentTime) / 1000.0f;
+    constexpr float amplitude = 1.0f;
+    constexpr float frequency = 0.25f;
+    const float offset = std::sin(timeSeconds * frequency * 2.0f * glm::pi<float>()) * amplitude;
+    const glm::vec3 vertical = originalPosition + glm::vec3{0.0f, offset, 0.0f};
+    const glm::vec3 horizontal = originalPosition + glm::vec3{0.0f, 0.0f, offset} + glm::vec3(2.0f, 0.0f, 0.0f);
+
+    cubeGameObject->transform.setPosition(vertical);
+    cubeGameObject->dirty();
+    cubeGameObject2->transform.setPosition(horizontal);
+    cubeGameObject2->dirty();
+
+    scene.updateSceneModelMatrices();
+    player->update(deltaTime);
+    physics->update(deltaTime);
+
+    updateSceneData();
 }
 
 void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects) const
@@ -654,11 +655,13 @@ void Engine::initScene()
     cubeGameObject2 = cube->generateGameObject();
     sponzaObject = sponza->generateGameObject();
     primitiveCubeGameObject = primitives->generateGameObject(0);
+    primitives->attachToGameObject(player,3);
 
     scene.addGameObject(sponzaObject);
     scene.addGameObject(cubeGameObject);
     scene.addGameObject(cubeGameObject2);
     scene.addGameObject(primitiveCubeGameObject);
+    scene.addGameObject(player);
 
     primitiveCubeGameObject->transform.translate({0.f, 3.0f, 0.f});
     primitiveCubeGameObject->transform.setScale(0.5f);
