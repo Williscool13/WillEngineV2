@@ -5,6 +5,7 @@
 #ifndef PLAYER_H
 #define PLAYER_H
 #include "src/core/game_object.h"
+#include "src/physics/physics_filters.h"
 
 
 class Camera;
@@ -27,5 +28,12 @@ protected:
     Camera* camera{nullptr};
 };
 
+
+class PlayerCollisionFilter final : public JPH::ObjectLayerFilter {
+public:
+    [[nodiscard]] bool ShouldCollide(const JPH::ObjectLayer inLayer) const override {
+        return inLayer != Layers::PLAYER;
+    }
+};
 
 #endif //PLAYER_H

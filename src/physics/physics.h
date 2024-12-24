@@ -51,7 +51,7 @@ public:
 
     void cleanup();
 
-    void update(float deltaTime) const;
+    void update(float deltaTime);
 
     [[nodiscard]] JPH::PhysicsSystem& getPhysicsSystem() const { return *physicsSystem; }
 
@@ -62,11 +62,15 @@ public:
 
     void addRigidBody(GameObject* obj, const JPH::ShapeRefC& shape, bool isDynamic = true);
 
+    void addRigidBody(GameObject* obj, const JPH::BodyCreationSettings& settings);
+
     void removeRigidBody(const GameObject* object);
 
     void removeRigidBodies(const std::vector<GameObject>& objects);
 
     void updateTransforms() const;
+
+    void interpolateTransforms(float alpha) const;
 
     GameObject* getGameObjectFromBody(JPH::BodyID bodyId) const;
 
@@ -107,6 +111,10 @@ private: // Shapes
     JPH::ShapeRefC unitSphereShape = nullptr;
     JPH::ShapeRefC unitCapsuleShape = nullptr;
     JPH::ShapeRefC unitCylinderShape = nullptr;
+
+private: // Physics Time
+    static constexpr float FIXED_TIMESTEP = 1.0f/60.0f;
+    float timeAccumulator = 0.0f;
 };
 
 #endif //PHYSICS_H

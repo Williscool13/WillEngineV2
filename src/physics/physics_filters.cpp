@@ -10,6 +10,7 @@ BPLayerInterfaceImpl::BPLayerInterfaceImpl()
     // Map each object layer to a broad phase layer
     mObjectToBroadPhase[Layers::NON_MOVING] = BroadPhaseLayers::NON_MOVING;
     mObjectToBroadPhase[Layers::MOVING] = BroadPhaseLayers::MOVING;
+    mObjectToBroadPhase[Layers::PLAYER] = BroadPhaseLayers::MOVING;
     mObjectToBroadPhase[Layers::TERRAIN] = BroadPhaseLayers::NON_MOVING;
 }
 
@@ -37,10 +38,10 @@ const char* BPLayerInterfaceImpl::GetBroadPhaseLayerName(JPH::BroadPhaseLayer in
 bool ObjectVsBroadPhaseLayerFilterImpl::ShouldCollide(const JPH::ObjectLayer inLayer1, const JPH::BroadPhaseLayer inLayer2) const
 {
     switch (inLayer1) {
-        case Layers::NON_MOVING:
-            return inLayer2 == BroadPhaseLayers::MOVING;
+        case Layers::PLAYER: // fallthrough
         case Layers::MOVING:
             return true;
+        case Layers::NON_MOVING: // fallthrough
         case Layers::TERRAIN:
             return inLayer2 == BroadPhaseLayers::MOVING;
         default:
@@ -51,6 +52,8 @@ bool ObjectVsBroadPhaseLayerFilterImpl::ShouldCollide(const JPH::ObjectLayer inL
 
 bool ObjectLayerPairFilterImpl::ShouldCollide(JPH::ObjectLayer inLayer1, JPH::ObjectLayer inLayer2) const
 {
+    if (inLayer1 == Layers::PLAYER || inLayer2 == Layers::PLAYER) return true;
+
     // If either object is NON_MOVING or TERRAIN, they only collide with MOVING objects
     if (inLayer1 == Layers::NON_MOVING || inLayer1 == Layers::TERRAIN ||
         inLayer2 == Layers::NON_MOVING || inLayer2 == Layers::TERRAIN)

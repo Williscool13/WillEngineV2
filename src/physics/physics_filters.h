@@ -13,8 +13,9 @@ namespace Layers
 {
     static constexpr JPH::ObjectLayer NON_MOVING{0};
     static constexpr JPH::ObjectLayer MOVING{1};
-    static constexpr JPH::ObjectLayer TERRAIN{2};
-    static constexpr JPH::ObjectLayer NUM_LAYERS{3};
+    static constexpr JPH::ObjectLayer PLAYER{2};
+    static constexpr JPH::ObjectLayer TERRAIN{3};
+    static constexpr JPH::ObjectLayer NUM_LAYERS{4};
 }
 
 namespace BroadPhaseLayers

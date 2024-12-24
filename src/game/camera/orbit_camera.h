@@ -19,10 +19,12 @@ public:
     void update(float deltaTime) override;
 
 public:
-    void setOrbitTarget(GameObject* gameObject) { orbitTarget = gameObject; }
+    void setOrbitTarget(GameObject* gameObject);
 
 private:
     GameObject* orbitTarget{nullptr};
+    glm::vec3 lastTargetPos;
+    float followSpeed = 10.0f;
 
     float rotationSpeed{1.0f};
     glm::vec3 armOffset{0, 0, -4.0f};
