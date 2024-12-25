@@ -630,7 +630,7 @@ void Engine::initRenderer()
 
 void Engine::initScene()
 {
-    player = new PlayerCharacter();
+    player = new PlayerCharacter("Player Character");
     // There is limit of 10!
     environmentMap = new Environment(*context, *resourceManager, *immediate, *environmentDescriptorLayouts);
     const std::filesystem::path envMapSource = "assets/environments";

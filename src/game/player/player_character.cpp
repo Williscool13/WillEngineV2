@@ -14,24 +14,24 @@
 #include "src/physics/physics_filters.h"
 #include "src/physics/physics_utils.h"
 
-PlayerCharacter::PlayerCharacter()
+PlayerCharacter::PlayerCharacter(const std::string& gameObjectName) : GameObject(gameObjectName)
 {
-    camera = new FreeCamera(75.0f, 1920.0f / 1080.0f, 1000, 0.01);
-    // camera = new OrbitCamera(75.0f, 1920.0f / 1080.0f, 1000, 0.01);
-    // if (const auto orbit = dynamic_cast<OrbitCamera*>(camera)) {
-    //     orbit->setOrbitTarget(this);
-    // }
+    freeCamera = new FreeCamera(75.0f, 1920.0f / 1080.0f, 1000, 0.01);
+
+    orbitCamera = new OrbitCamera(75.0f, 1920.0f / 1080.0f, 1000, 0.01);
+    orbitCamera->setOrbitTarget(this);
+
+    currentCamera = freeCamera;
 }
 
 PlayerCharacter::~PlayerCharacter()
 {
-    delete camera;
+    delete freeCamera;
+    delete orbitCamera;
 }
 
 void PlayerCharacter::update(float deltaTime)
 {
-    if (camera) { camera->update(deltaTime); }
-
     const Input& input = Input::Get();
     if (!input.isInFocus()) { return; }
 
@@ -39,8 +39,19 @@ void PlayerCharacter::update(float deltaTime)
         addForceToObject();
     }
 
-    if (camera) {
-        const glm::quat cameraRotation = camera->transform.getRotation();
+    if (input.isKeyPressed(SDLK_1)) {
+        currentCamera = freeCamera;
+        if (freeCamera && orbitCamera) {
+            freeCamera->transform.setPosition(orbitCamera->transform.getPosition());
+            freeCamera->transform.setRotation(orbitCamera->transform.getRotation());
+        }
+    }
+    if (input.isKeyPressed(SDLK_2)) {
+        currentCamera = orbitCamera;
+    }
+
+    if (currentCamera == orbitCamera) {
+        const glm::quat cameraRotation = currentCamera->transform.getRotation();
         const glm::vec3 forward = cameraRotation * glm::vec3(0.0f, 0.0f, -1.0f);
         const glm::vec3 right = cameraRotation * glm::vec3(-1.0f, 0.0f, 0.0f);
         constexpr float forceStrength = 10000.0f;
@@ -50,13 +61,16 @@ void PlayerCharacter::update(float deltaTime)
         if (input.isKeyDown(SDLK_a)) { physics_utils::addForce(gameObjectId, right * forceStrength); }
         if (input.isKeyDown(SDLK_d)) { physics_utils::addForce(gameObjectId, -right * forceStrength); }
     }
+
+    if (currentCamera) { currentCamera->update(deltaTime); }
 }
 
 void PlayerCharacter::addForceToObject() const
 {
-    const glm::vec3 direction = camera->transform.getForward();
+    if (!currentCamera) { return; }
+    const glm::vec3 direction = currentCamera->transform.getForward();
     const PlayerCollisionFilter dontHitPlayerFilter{};
-    const RaycastHit result = physics_utils::raycast(camera->getPosition(), direction, 100.0f, {}, dontHitPlayerFilter, {});
+    const RaycastHit result = physics_utils::raycast(currentCamera->getPosition(), direction, 100.0f, {}, dontHitPlayerFilter, {});
 
     if (result.hasHit) {
         const GameObject* object = physics_utils::getGameObjectFromBody(result.hitBodyID);
