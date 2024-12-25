@@ -8,24 +8,40 @@
 #include "src/physics/physics_filters.h"
 
 
+class FreeCamera;
+class OrbitCamera;
 class Camera;
+
+
 
 class PlayerCharacter : public GameObject
 {
+private:
+    enum CameraType
+    {
+        Free,
+        Orbit
+    };
+
 public:
-    PlayerCharacter();
+    PlayerCharacter() = delete;
+
+    explicit PlayerCharacter(const std::string& gameObjectName);
 
     ~PlayerCharacter() override;
 
     void update(float deltaTime) override;
 
-    [[nodiscard]] const Camera* getCamera() const { return camera; }
+    [[nodiscard]] const Camera* getCamera() const { return currentCamera; }
 
 private:
     void addForceToObject() const;
 
 protected:
-    Camera* camera{nullptr};
+    Camera* currentCamera{nullptr};
+
+    OrbitCamera* orbitCamera{nullptr};
+    FreeCamera* freeCamera{nullptr};
 };
 
 

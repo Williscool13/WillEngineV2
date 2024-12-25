@@ -39,6 +39,16 @@ Input::Input()
     keyStateData[SDLK_m] = {};
     keyStateData[SDLK_COMMA] = {};
     keyStateData[SDLK_PERIOD] = {};
+    keyStateData[SDLK_1] = {};
+    keyStateData[SDLK_2] = {};
+    keyStateData[SDLK_3] = {};
+    keyStateData[SDLK_4] = {};
+    keyStateData[SDLK_5] = {};
+    keyStateData[SDLK_6] = {};
+    keyStateData[SDLK_7] = {};
+    keyStateData[SDLK_8] = {};
+    keyStateData[SDLK_9] = {};
+    keyStateData[SDLK_0] = {};
 
     mouseStateData[SDL_BUTTON_LEFT - 1] = {};
     mouseStateData[SDL_BUTTON_RIGHT - 1] = {};
