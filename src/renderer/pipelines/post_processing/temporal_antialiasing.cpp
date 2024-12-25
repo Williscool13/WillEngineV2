@@ -15,10 +15,10 @@ TaaPipeline::~TaaPipeline()
     cleanup();
 }
 
-void TaaPipeline::init()
+void TaaPipeline::init(VkDescriptorSetLayout sceneDataLayout)
 {
     createDescriptorLayout();
-    createPipelineLayout();
+    createPipelineLayout(sceneDataLayout);
     createPipeline();
 
     descriptorBuffer = DescriptorBufferSampler(context.instance, context.device, context.physicalDevice, context.allocator, descriptorSetLayout, 1);
@@ -36,21 +36,22 @@ void TaaPipeline::createDescriptorLayout()
     descriptorSetLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 }
 
-void TaaPipeline::createPipelineLayout()
+void TaaPipeline::createPipelineLayout(VkDescriptorSetLayout sceneDataLayout)
 {
     VkPushConstantRange pushConstants{};
     pushConstants.offset = 0;
     pushConstants.size = sizeof(TaaProperties);
     pushConstants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    VkDescriptorSetLayout setLayouts[1];
-    setLayouts[0] = descriptorSetLayout;
+    VkDescriptorSetLayout setLayouts[2];
+    setLayouts[0] = sceneDataLayout;
+    setLayouts[1] = descriptorSetLayout;
 
     VkPipelineLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layoutInfo.pNext = nullptr;
     layoutInfo.pSetLayouts = setLayouts;
-    layoutInfo.setLayoutCount = 1;
+    layoutInfo.setLayoutCount = 2;
     layoutInfo.pPushConstantRanges = &pushConstants;
     layoutInfo.pushConstantRangeCount = 1;
 
@@ -143,18 +144,22 @@ void TaaPipeline::draw(VkCommandBuffer cmd, const TaaDrawInfo& drawInfo) const
         1.0f / static_cast<float>(drawInfo.renderExtent.height)
     };
     properties.blendValue = drawInfo.blendValue;
-    properties.velocityWeight = drawInfo.velocityWeight;
     properties.bEnabled = drawInfo.enabled;
     properties.taaDebug = drawInfo.debugMode;
 
     vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(TaaProperties), &properties);
 
-    VkDescriptorBufferBindingInfoEXT bindingInfo = descriptorBuffer.getDescriptorBufferBindingInfo();
-    vkCmdBindDescriptorBuffersEXT(cmd, 1, &bindingInfo);
+    VkDescriptorBufferBindingInfoEXT bindingInfos[2] = {};
+    bindingInfos[0] = drawInfo.sceneData.getDescriptorBufferBindingInfo();
+    bindingInfos[1] = descriptorBuffer.getDescriptorBufferBindingInfo();
+    vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos);
+
 
     constexpr VkDeviceSize zeroOffset{0};
-    constexpr uint32_t descriptorIndex{0};
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorIndex, &zeroOffset);
+    constexpr uint32_t sceneDataIndex{0};
+    constexpr uint32_t descriptorIndex{1};
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &sceneDataIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &descriptorIndex, &zeroOffset);
 
     const auto x = static_cast<uint32_t>(std::ceil(static_cast<float>(drawInfo.renderExtent.width) / 16.0f));
     const auto y = static_cast<uint32_t>(std::ceil(static_cast<float>(drawInfo.renderExtent.height) / 16.0f));

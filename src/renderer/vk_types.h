@@ -156,7 +156,6 @@ struct TaaProperties
     int32_t width;
     int32_t height;
     float blendValue;
-    float velocityWeight;
     bool bEnabled;
     int32_t taaDebug;
 };

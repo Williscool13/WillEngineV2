@@ -116,8 +116,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         if (engine->bEnableTaa) {
             ImGui::SetNextItemWidth(100);
             ImGui::InputFloat("TAA Blend", &engine->taaBlend);
-            ImGui::SetNextItemWidth(100);
-            ImGui::InputFloat("Velocity Weight", &engine->taaVelocityWeight);
             ImGui::Text("Taa Debug View");
             ImGui::SetNextItemWidth(100);
             const char* taaDebugLabels[] = {"None", "Velocity", "Validity", "-", "-", "-"};

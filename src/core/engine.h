@@ -178,7 +178,6 @@ private: // Scene Descriptors
     bool bEnableTaa{true};
     bool bEnableJitter{true};
     float taaBlend{0.15f};
-    float taaVelocityWeight{200.0f};
 
     PostProcessType postProcessFlags{PostProcessType::Sharpening | PostProcessType::Tonemapping};
 

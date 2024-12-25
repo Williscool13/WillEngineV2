@@ -2,21 +2,23 @@
 
 #include "colors.glsl"
 #include "depth.glsl"
+#include "scene.glsl"
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
-layout (set = 0, binding = 0) uniform sampler2D drawImage;
-layout (set = 0, binding = 1) uniform sampler2D drawHistory;
-layout (set = 0, binding = 2) uniform sampler2D depthImage;
-layout (set = 0, binding = 3) uniform sampler2D velocityBuffer;
-layout (rgba16f, set = 0, binding = 4) uniform image2D outputImage;
+// layout (std140, set = 0, binding = 0) uniform SceneData - scene.glsl
+
+layout (set = 1, binding = 0) uniform sampler2D drawImage;
+layout (set = 1, binding = 1) uniform sampler2D drawHistory;
+layout (set = 1, binding = 2) uniform sampler2D depthImage;
+layout (set = 1, binding = 3) uniform sampler2D velocityBuffer;
+layout (rgba16f, set = 1, binding = 4) uniform image2D outputImage;
 
 layout (push_constant) uniform PushConstants {
     vec2 texelSize;
     int width;
     int height;
     float blendValue;
-    float velocityWeight;
     bool bEnabled;
     int debug;
 } push;
@@ -164,18 +166,6 @@ vec3 varianceClipping(vec3 color, vec2 uv) {
     return clamp(color, minc, maxc);
 }
 
-float calculateVelocityConfidence(vec2 velocity, vec2 uv) {
-    float velocityLength = length(velocity);
-
-    // Disgusting rudimentary heuristic to fix some unbelievably undebuggable distortion/blending at the center area of the screen
-    //vec2 centerDist = abs(vec2(0.5) - uv);
-    //float distanceFromCenter = exp(-length(centerDist) * 8.0);
-    //float zInfluence = abs(push.zVelocity) * distanceFromCenter * 0.25f;
-    //velocityLength = max(velocityLength, zInfluence);
-
-    return exp(-velocityLength * push.velocityWeight);
-}
-
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
     if (pixel.x >= push.width || pixel.y >= push.height) {
@@ -196,14 +186,11 @@ void main() {
     // vec3 rgbFinalColor = YCoCgToRGB(finalCol);
     // imageStore(outputImage, pixel, vec4(rgbFinalColor, 1.0));
     // return;
-
+    vec3 currentColor = texture(drawImage, uv).rgb;
     vec2 velocity = texture(velocityBuffer, uv).rg;
     vec2 historyUv = uv - velocity;
     bool validHistory = all(greaterThanEqual(historyUv, vec2(0.0))) && all(lessThan(historyUv, vec2(1.0)));
-
-    vec3 currentColor = texture(drawImage, uv).rgb;
-    vec3 resultRGB = currentColor;
-    float velocityConfidence = 0.0f;
+    vec3 resultRGB;
 
 
     if (!validHistory) {
@@ -212,11 +199,8 @@ void main() {
         vec3 currentYCoCg = RGBToYCoCg(currentColor);
         vec3 historyColor = texture(drawHistory, historyUv).rgb;
         vec3 historyYCoCg = RGBToYCoCg(historyColor);
-        float currentDepth = texture(depthImage, uv).r;
 
         historyYCoCg = varianceClipping(historyYCoCg, uv);
-
-        //velocityConfidence = calculateVelocityConfidence(velocity, uv) * 0.5f;
 
         float alpha = 1 - push.blendValue;
         vec3 resultYCoCg = mix(currentYCoCg, historyYCoCg, alpha);

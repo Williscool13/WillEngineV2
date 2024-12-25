@@ -22,11 +22,13 @@ struct TaaDescriptorBufferInfo
 
 struct TaaDrawInfo
 {
-    VkExtent2D renderExtent;
-    float blendValue;
-    float velocityWeight;
-    bool enabled;
-    int32_t debugMode;
+    const DescriptorBufferUniform& sceneData;
+    VkExtent2D renderExtent{};
+    float blendValue{};
+    bool enabled{};
+    int32_t debugMode{};
+
+    explicit TaaDrawInfo(const DescriptorBufferUniform& sceneData) : sceneData(sceneData) {}
 };
 
 class TaaPipeline
@@ -36,7 +38,7 @@ public:
 
     ~TaaPipeline();
 
-    void init();
+    void init(VkDescriptorSetLayout sceneDataLayout);
 
     void draw(VkCommandBuffer cmd, const TaaDrawInfo& drawInfo) const;
 
@@ -52,7 +54,7 @@ private:
 
     void createDescriptorLayout();
 
-    void createPipelineLayout();
+    void createPipelineLayout(VkDescriptorSetLayout sceneDataLayout);
 
     void createPipeline();
 
