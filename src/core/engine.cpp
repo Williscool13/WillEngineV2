@@ -58,9 +58,10 @@ void Engine::init()
     {
         // We initialize SDL and create a window with it.
         SDL_Init(SDL_INIT_VIDEO);
-        constexpr auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE);
-        windowExtent = {1920, 1080};
-        //constexpr auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+        //constexpr auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE);
+        //windowExtent = {1920, 1080};
+
+        constexpr auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
 
         window = SDL_CreateWindow(
@@ -197,10 +198,10 @@ void Engine::updateSceneData() const
 {
     const bool bIsFrameZero = frameNumber == 0;
 
-    glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(frameNumber) - 0.5f;
+    glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(frameNumber) * 2.0f - 1.0f;
     prevJitter.x /= static_cast<float>(renderExtent.width);
     prevJitter.y /= static_cast<float>(renderExtent.height);
-    glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber + 1) - 0.5f;
+    glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber + 1) * 2.0f - 1.0f;
     currentJitter.x /= static_cast<float>(renderExtent.width);
     currentJitter.y /= static_cast<float>(renderExtent.height);
 
@@ -213,14 +214,10 @@ void Engine::updateSceneData() const
         pSceneData->prevView = bIsFrameZero ? camera->getViewMatrix() : pSceneData->view;
         pSceneData->prevProj = bIsFrameZero ? camera->getProjMatrix() : pSceneData->proj;
         pSceneData->prevViewProj = bIsFrameZero ? camera->getViewProjMatrix() : pSceneData->viewProj;
-        pSceneData->jitter = bEnableJitter && bEnableTaa ? glm::vec4(currentJitter.x / renderExtent.width, currentJitter.y / renderExtent.height, prevJitter.x / renderExtent.width, prevJitter.y / renderExtent.height) : glm::vec4(0.0f);
+        pSceneData->jitter = bEnableJitter ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
 
         pSceneData->view = camera->getViewMatrix();
         pSceneData->proj = camera->getProjMatrix();
-        if (bEnableJitter) {
-            pSceneData->proj[2][0] += currentJitter.x;
-            pSceneData->proj[2][1] += currentJitter.y;
-        }
         pSceneData->viewProj = pSceneData->proj * pSceneData->view;
         pSceneData->invView = glm::inverse(pSceneData->view);
         pSceneData->invProj = glm::inverse(pSceneData->proj);
@@ -258,7 +255,6 @@ void Engine::updateSceneData() const
 void Engine::draw()
 {
     const auto start = std::chrono::system_clock::now();
-
 
     update();
     updateSceneData();
@@ -334,10 +330,12 @@ void Engine::draw()
     vk_helpers::transitionImage(cmd, historyBuffer.image, originLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    const glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber + 1);
-    const glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(frameNumber);
-    glm::vec4 jitter = {currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y};
-    taaPipeline->draw(cmd, {renderExtent, taaBlend, taaVelocityWeight, bEnableTaa, taaDebug});
+    TaaDrawInfo taaDrawInfo{sceneDataDescriptorBuffer};
+    taaDrawInfo.renderExtent = renderExtent;
+    taaDrawInfo.blendValue = taaBlend;
+    taaDrawInfo.enabled = bEnableTaa;
+    taaDrawInfo.debugMode = taaDebug;
+    taaPipeline->draw(cmd, taaDrawInfo);
 
     // Save current TAA Resolve to History
     vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -615,7 +613,7 @@ void Engine::initRenderer()
     );
 
     taaPipeline = new TaaPipeline(*context);
-    taaPipeline->init();
+    taaPipeline->init(sceneDescriptorLayouts->getSceneDataLayout());
     taaPipeline->setupDescriptorBuffer(
         {
             drawImage.imageView, historyBuffer.imageView, depthImage.imageView,
