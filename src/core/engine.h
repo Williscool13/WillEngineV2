@@ -217,7 +217,7 @@ private: // Render Targets
     const VkFormat drawImageFormat{VK_FORMAT_R16G16B16A16_SFLOAT};
     const VkFormat depthImageFormat{VK_FORMAT_D32_SFLOAT};
     const VkFormat velocityImageFormat{VK_FORMAT_R16G16_SFLOAT};
-    const VkFormat normalImageFormat{VK_FORMAT_R8G8B8A8_SNORM};
+    const VkFormat normalImageFormat{VK_FORMAT_R16G16B16A16_SNORM}; //VK_FORMAT_R8G8B8A8_SNORM - 8888 is too innacurate for normals
     const VkFormat albedoImageFormat{VK_FORMAT_R8G8B8A8_UNORM};
     const VkFormat pbrImageFormat{VK_FORMAT_R8G8B8A8_UNORM};
 

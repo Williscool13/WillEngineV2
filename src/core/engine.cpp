@@ -259,6 +259,9 @@ void Engine::draw()
 {
     const auto start = std::chrono::system_clock::now();
 
+
+    update();
+    updateSceneData();
 #pragma region Fence / Swapchain
     // GPU -> CPU sync (fence)
     VK_CHECK(vkWaitForFences(context->device, 1, &getCurrentFrame()._renderFence, true, 1000000000));
@@ -273,8 +276,6 @@ void Engine::draw()
         return;
     }
 #pragma endregion
-
-    update();
 
     const auto renderStart = std::chrono::system_clock::now();
 
@@ -425,11 +426,8 @@ void Engine::update() const
 
 
     physics->update(deltaTime);
-    //scene.updateSceneModelMatrices();
     player->update(deltaTime);
     scene.updateSceneModelMatrices();
-
-    updateSceneData();
 }
 
 void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects) const
