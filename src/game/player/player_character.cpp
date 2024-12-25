@@ -16,11 +16,11 @@
 
 PlayerCharacter::PlayerCharacter()
 {
-    //camera = new FreeCamera(75.0f, 1920.0f / 1080.0f, 1000, 0.01);
-    camera = new OrbitCamera(75.0f, 1920.0f / 1080.0f, 1000, 0.01);
-    if (const auto orbit = dynamic_cast<OrbitCamera*>(camera)) {
-        orbit->setOrbitTarget(this);
-    }
+    camera = new FreeCamera(75.0f, 1920.0f / 1080.0f, 1000, 0.01);
+    // camera = new OrbitCamera(75.0f, 1920.0f / 1080.0f, 1000, 0.01);
+    // if (const auto orbit = dynamic_cast<OrbitCamera*>(camera)) {
+    //     orbit->setOrbitTarget(this);
+    // }
 }
 
 PlayerCharacter::~PlayerCharacter()

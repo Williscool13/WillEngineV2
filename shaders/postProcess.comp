@@ -58,7 +58,6 @@ void main() {
 
     if ((push.flags & 1) != 0) {
         color = reinhardTonemap(color);
-        color = linearToSRGB(color);
     }
 
     imageStore(outputImage, pixel, vec4(color, 1.0));
