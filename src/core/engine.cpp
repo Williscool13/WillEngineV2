@@ -451,11 +451,8 @@ void Engine::update() const
     const glm::vec3 vertical = originalPosition + glm::vec3{0.0f, offset, 0.0f};
     const glm::vec3 horizontal = originalPosition + glm::vec3{0.0f, 0.0f, offset} + glm::vec3(2.0f, 0.0f, 0.0f);
 
-    cubeGameObject->transform.setPosition(vertical);
-    cubeGameObject->dirty();
-    cubeGameObject2->transform.setPosition(horizontal);
-    cubeGameObject2->dirty();
-
+    cubeGameObject->setGlobalPosition(vertical);
+    cubeGameObject2->setGlobalPosition(horizontal);
 
     physics->update(deltaTime);
     player->update(deltaTime);
@@ -705,22 +702,18 @@ void Engine::initScene()
     scene.addGameObject(primitiveCubeGameObject);
     scene.addGameObject(player);
 
-    primitiveCubeGameObject->transform.translate({0.f, 3.0f, 0.f});
-    primitiveCubeGameObject->transform.setScale(0.5f);
-    primitiveCubeGameObject->dirty();
-    cubeGameObject->transform.setScale(0.05f);
-    cubeGameObject->dirty();
-    cubeGameObject2->transform.setScale(0.05f);
-    cubeGameObject2->dirty();
-    player->transform.setScale(0.5f);
-    player->dirty();
+    primitiveCubeGameObject->translate({0.f, 3.0f, 0.f});
+    primitiveCubeGameObject->setGlobalScale(0.5f);
+    cubeGameObject->setGlobalScale(0.05f);
+    cubeGameObject2->setGlobalScale(0.05f);
+    player->setGlobalScale(0.5f);
 
     physics->addRigidBody(primitiveCubeGameObject, physics->getUnitCubeShape());
 
     JPH::BodyCreationSettings playerSettings{
         physics->getUnitSphereShape(),
-        physics_utils::ToJolt(player->transform.getPosition()),
-        physics_utils::ToJolt(player->transform.getRotation()),
+        physics_utils::ToJolt(player->getGlobalPosition()),
+        physics_utils::ToJolt(player->getGlobalRotation()),
         JPH::EMotionType::Dynamic,
         Layers::PLAYER
     };

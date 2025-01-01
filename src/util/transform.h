@@ -14,9 +14,9 @@
 class Transform
 {
 private:
-    glm::vec3 position;
-    glm::quat rotation;
-    glm::vec3 scale;
+    glm::vec3 position{0.0f};
+    glm::quat rotation{1.0f, 0.0f, 0.0f, 0.0f};
+    glm::vec3 scale{1.0f};
 
     mutable glm::mat4 cachedRotationMatrix{1.0f};
     mutable bool rotationDirty{true};
@@ -25,23 +25,15 @@ private:
     mutable bool trsDirty{true};
 
 public:
-    Transform() : position(0.0f), rotation(glm::quat(1.0f, 0.0f, 0.0f, 0.0f)), scale(1.0f) {}
+    Transform() = default;
+
     Transform(const glm::vec3& position, const glm::quat& rotation, const glm::vec3& scale) : position(position), rotation(rotation), scale(scale) {}
 
     [[nodiscard]] glm::vec3 getPosition() const { return position; }
-
-    [[nodiscard]] glm::vec3 getEulerAngles() const
-    {
-        return glm::eulerAngles(rotation);
-    }
-
+    [[nodiscard]] glm::vec3 getEulerAngles() const { return glm::eulerAngles(rotation); }
     [[nodiscard]] glm::quat getRotation() const { return rotation; }
     [[nodiscard]] glm::vec3 getScale() const { return scale; }
-
-    [[nodiscard]] glm::mat4 getPositionMatrix() const
-    {
-        return glm::translate(glm::mat4(1.0f), position);
-    }
+    [[nodiscard]] glm::mat4 getPositionMatrix() const { return glm::translate(glm::mat4(1.0f), position); }
 
     [[nodiscard]] glm::mat4 getRotationMatrix() const
     {
@@ -52,30 +44,11 @@ public:
         return cachedRotationMatrix;
     }
 
-    [[nodiscard]] glm::mat4 getScaleMatrix() const
-    {
-        return glm::scale(glm::mat4(1.0f), scale);
-    }
-
-    glm::vec3 getForward() const
-    {
-        return glm::normalize(glm::rotate(rotation, glm::vec3(0.0f, 0.0f, -1.0f)));
-    }
-
-    glm::vec3 getRight() const
-    {
-        return glm::normalize(glm::rotate(rotation, glm::vec3(1.0f, 0.0f, 0.0f)));
-    }
-
-    glm::vec3 getUp() const
-    {
-        return glm::normalize(glm::rotate(rotation, glm::vec3(0.0f, 1.0f, 0.0f)));
-    }
-
-    glm::vec3 transformDirection(const glm::vec3& direction) const
-    {
-        return glm::normalize(glm::rotate(rotation, direction));
-    }
+    [[nodiscard]] glm::mat4 getScaleMatrix() const { return glm::scale(glm::mat4(1.0f), scale); }
+    glm::vec3 getForward() const { return glm::normalize(glm::rotate(rotation, glm::vec3(0.0f, 0.0f, -1.0f))); }
+    glm::vec3 getRight() const { return glm::normalize(glm::rotate(rotation, glm::vec3(1.0f, 0.0f, 0.0f))); }
+    glm::vec3 getUp() const { return glm::normalize(glm::rotate(rotation, glm::vec3(0.0f, 1.0f, 0.0f))); }
+    glm::vec3 transformDirection(const glm::vec3& direction) const { return glm::normalize(glm::rotate(rotation, direction)); }
 
     void setPosition(const glm::vec3& position)
     {
@@ -114,6 +87,7 @@ public:
         setPosition(transform.getPosition());
         setRotation(transform.getRotation());
         setScale(transform.getScale());
+        trsDirty = true;
     }
 
     void setTransform(const glm::vec3& position, const glm::quat& rotation, const glm::vec3& scale)
@@ -121,6 +95,7 @@ public:
         setPosition(position);
         setRotation(rotation);
         setScale(scale);
+        trsDirty = true;
     }
 
     void setDirty() const
@@ -160,7 +135,7 @@ public:
 
     void rotateAxis(const float angle, const glm::vec3& axis)
     {
-        glm::quat rotationDelta = glm::angleAxis(angle, glm::normalize(axis));
+        const glm::quat rotationDelta = glm::angleAxis(angle, glm::normalize(axis));
         rotate(rotationDelta);
     }
 

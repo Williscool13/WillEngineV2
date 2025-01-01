@@ -33,24 +33,93 @@ GameObject::~GameObject()
     }
 }
 
-
-glm::mat4 GameObject::getModelMatrix()
+const Transform& GameObject::getGlobalTransform()
 {
-    if (bIsTransformDirty) {
-        if (parent != nullptr) {
-            cachedWorldTransform = parent->getModelMatrix() * transform.getTRSMatrix();
+    if (bIsGlobalTransformDirty) {
+        if (parent) {
+            const Transform& parentGlobal = parent->getGlobalTransform();
+            cachedGlobalTransform.setPosition(parentGlobal.getPositionMatrix() * glm::vec4(transform.getPosition(), 1.0f));
+            cachedGlobalTransform.setRotation(parentGlobal.getRotation() * transform.getRotation());
+            cachedGlobalTransform.setScale(parentGlobal.getScale() * transform.getScale());
         } else {
-            cachedWorldTransform = transform.getTRSMatrix();
+            cachedGlobalTransform = transform;
         }
-        bIsTransformDirty = false;
+        bIsGlobalTransformDirty = false;
     }
-    return cachedWorldTransform;
+
+    return cachedGlobalTransform;
 }
+
+
+void GameObject::setLocalPosition(const glm::vec3 localPosition)
+{
+    transform.setPosition(localPosition);
+    dirty();
+}
+
+void GameObject::setLocalRotation(const glm::quat localRotation)
+{
+    transform.setRotation(localRotation);
+    dirty();
+}
+
+void GameObject::setLocalScale(const glm::vec3 localScale)
+{
+    transform.setScale(localScale);
+    dirty();
+}
+
+void GameObject::setLocalTransform(const Transform& newLocalTransform)
+{
+    transform = newLocalTransform;
+    dirty();
+}
+
+void GameObject::setGlobalPosition(const glm::vec3 globalPosition)
+{
+    const glm::mat4 inverseParentMatrix = glm::inverse(parent->getModelMatrix());
+    const glm::vec3 localPosition = inverseParentMatrix * glm::vec4(globalPosition, 1.0f);
+    setLocalPosition(localPosition);
+}
+
+void GameObject::setGlobalRotation(const glm::quat globalRotation)
+{
+    const Transform& parentGlobal = parent->getGlobalTransform();
+    const glm::quat localRotation = glm::inverse(parentGlobal.getRotation()) * globalRotation;
+    setLocalRotation(localRotation);
+}
+
+void GameObject::setGlobalScale(const glm::vec3 globalScale)
+{
+    const Transform& parentGlobal = parent->getGlobalTransform();
+    const glm::vec3 localScale = globalScale / parentGlobal.getScale();
+    setLocalScale(localScale);
+}
+
+void GameObject::setGlobalTransform(const Transform& newGlobalTransform)
+{
+    if (parent) {
+        const glm::mat4 inverseParentMatrix = glm::inverse(parent->getModelMatrix());
+
+        const glm::vec3 localPosition = inverseParentMatrix * glm::vec4(newGlobalTransform.getPosition(), 1.0f);
+        const glm::quat localRotation = glm::inverse(parent->getGlobalRotation()) * newGlobalTransform.getRotation();
+        const glm::vec3 localScale = newGlobalTransform.getScale() / parent->getGlobalScale();
+
+        transform.setTransform(localPosition, localRotation, localScale);
+    } else {
+        transform = newGlobalTransform;
+    }
+
+    dirty();
+}
+
 
 void GameObject::dirty()
 {
-    bIsTransformDirty = true;
+    bIsGlobalTransformDirty = true;
     bModelPendingUpdate = true;
+
+    transform.setDirty();
 
     for (const auto& child : children) {
         child->dirty();
