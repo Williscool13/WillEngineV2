@@ -733,7 +733,7 @@ void Engine::initScene()
         JPH::EMotionType::Dynamic,
         Layers::PLAYER
     };
-    playerSettings.mLinearDamping = 0.25f;
+    playerSettings.mLinearDamping = 0.4f;
     // todo: look into continuous collision detection
     physics->addRigidBody(player, playerSettings);
 }
