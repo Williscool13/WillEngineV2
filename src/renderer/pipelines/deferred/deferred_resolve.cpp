@@ -166,9 +166,10 @@ void DeferredResolvePipeline::draw(VkCommandBuffer cmd, const DeferredResolveDra
     constexpr uint32_t sceneDataIndex{0};
     constexpr uint32_t renderTargetsIndex{1};
     constexpr uint32_t environmentIndex{2};
-    const VkDeviceSize environmentMapOffset = drawInfo.environment->getDiffSpecMapOffset(drawInfo.environmentMapIndex);
+    const VkDeviceSize sceneDataOffset = drawInfo.sceneDataOffset;
+    const VkDeviceSize environmentMapOffset = drawInfo.diffSpecMapOffset;
 
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &sceneDataIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &renderTargetsIndex, &zeroOffset);
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 3, 1, &environmentIndex, &environmentMapOffset);
 

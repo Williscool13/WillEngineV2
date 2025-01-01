@@ -192,7 +192,7 @@ void Engine::run()
     }
 }
 
-void Engine::updateSceneData() const
+void Engine::updateSceneData(VkCommandBuffer cmd) const
 {
     const bool bIsFrameZero = frameNumber == 0;
 
@@ -209,7 +209,7 @@ void Engine::updateSceneData() const
 
     // Update scene data
     {
-        const auto pSceneData = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
+        const auto pSceneData = static_cast<SceneData*>(sceneDataBuffers[getCurrentFrameOverlap()].info.pMappedData);
 
         pSceneData->prevView = bIsFrameZero ? camera->getViewMatrix() : pSceneData->view;
         pSceneData->prevProj = bIsFrameZero ? camera->getProjMatrix() : pSceneData->proj;
@@ -229,6 +229,23 @@ void Engine::updateSceneData() const
         pSceneData->frameNumber = getCurrentFrameOverlap();
         pSceneData->renderTargetSize = {renderExtent.width, renderExtent.height};
         pSceneData->deltaTime = TimeUtils::Get().getDeltaTime();
+
+        VkBufferMemoryBarrier2 barrier{
+            .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
+            .srcStageMask = VK_PIPELINE_STAGE_2_HOST_BIT,
+            .srcAccessMask = VK_ACCESS_2_HOST_WRITE_BIT,
+            .dstStageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+            .dstAccessMask = VK_ACCESS_2_UNIFORM_READ_BIT,
+            .buffer = sceneDataBuffers[getCurrentFrameOverlap()].buffer,
+            .offset = 0,
+            .size = sizeof(SceneData)
+        };
+        const VkDependencyInfo dependencyInfo{
+            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+            .bufferMemoryBarrierCount = 1,
+            .pBufferMemoryBarriers = &barrier
+        };
+        vkCmdPipelineBarrier2(cmd, &dependencyInfo);
     }
     // Update spectate scene data
     {
@@ -256,8 +273,6 @@ void Engine::draw()
 {
     const auto start = std::chrono::system_clock::now();
 
-    update();
-    updateSceneData();
 #pragma region Fence / Swapchain
     // GPU -> CPU sync (fence)
     VK_CHECK(vkWaitForFences(context->device, 1, &getCurrentFrame()._renderFence, true, 1000000000));
@@ -280,6 +295,10 @@ void Engine::draw()
     const VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
+
+    update();
+    updateSceneData(cmd);
+
     const std::vector renderObjects{sponza, cube, primitives};
     frustumCullingPipeline->draw(cmd, {renderObjects, sceneDataDescriptorBuffer});
 
@@ -287,7 +306,13 @@ void Engine::draw()
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     const EnvironmentDrawInfo environmentDrawInfo = {
-        renderExtent, drawImage.imageView, depthImage.imageView, sceneDataDescriptorBuffer, environmentMap->getCubemapDescriptorBuffer(), environmentMap->getEnvironmentMapOffset(environmentMapindex)
+        renderExtent,
+        drawImage.imageView,
+        depthImage.imageView,
+        sceneDataDescriptorBuffer,
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(),
+        environmentMap->getCubemapDescriptorBuffer(),
+        environmentMap->getEnvironmentMapOffset(environmentMapindex)
     };
     environmentPipeline->draw(cmd, environmentDrawInfo);
 
@@ -296,15 +321,18 @@ void Engine::draw()
     vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    DeferredMrtDrawInfo deferredMrtDrawInfo{sceneDataDescriptorBuffer};
-    deferredMrtDrawInfo.renderObjects = renderObjects;
-    deferredMrtDrawInfo.normalTarget = normalRenderTarget.imageView;
-    deferredMrtDrawInfo.albedoTarget = albedoRenderTarget.imageView;
-    deferredMrtDrawInfo.pbrTarget = pbrRenderTarget.imageView;
-    deferredMrtDrawInfo.velocityTarget = velocityRenderTarget.imageView;
-    deferredMrtDrawInfo.depthTarget = depthImage.imageView;
-    deferredMrtDrawInfo.renderExtent = renderExtent;
-    deferredMrtDrawInfo.viewportRenderExtent = {static_cast<float>(renderExtent.width), static_cast<float>(renderExtent.height)};
+    DeferredMrtDrawInfo deferredMrtDrawInfo{
+        renderObjects,
+        normalRenderTarget.imageView,
+        albedoRenderTarget.imageView,
+        pbrRenderTarget.imageView,
+        velocityRenderTarget.imageView,
+        depthImage.imageView,
+        renderExtent,
+        {static_cast<float>(renderExtent.width), static_cast<float>(renderExtent.height)},
+        sceneDataDescriptorBuffer,
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap()
+    };
 
     deferredMrtPipeline->draw(cmd, deferredMrtDrawInfo);
 
@@ -315,11 +343,14 @@ void Engine::draw()
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    DeferredResolveDrawInfo deferredResolveDrawInfo{sceneDataDescriptorBuffer};
-    deferredResolveDrawInfo.renderExtent = renderExtent;
-    deferredResolveDrawInfo.debugMode = deferredDebug;
-    deferredResolveDrawInfo.environment = environmentMap;
-    deferredResolveDrawInfo.environmentMapIndex = environmentMapindex;
+    DeferredResolveDrawInfo deferredResolveDrawInfo{
+        renderExtent,
+        deferredDebug,
+        sceneDataDescriptorBuffer,
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(),
+        environmentMap,
+        environmentMap->getDiffSpecMapOffset(environmentMapindex)
+    };
 
     deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);
     if (bSpectateCameraActive) { DEBUG_drawSpectate(cmd, renderObjects); }
@@ -330,11 +361,14 @@ void Engine::draw()
     vk_helpers::transitionImage(cmd, historyBuffer.image, originLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    TaaDrawInfo taaDrawInfo{sceneDataDescriptorBuffer};
-    taaDrawInfo.renderExtent = renderExtent;
-    taaDrawInfo.blendValue = taaBlend;
-    taaDrawInfo.enabled = bEnableTaa;
-    taaDrawInfo.debugMode = taaDebug;
+    TaaDrawInfo taaDrawInfo{
+        renderExtent,
+        taaBlend,
+        bEnableTaa,
+        taaDebug,
+        sceneDataDescriptorBuffer,
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap()
+    };
     taaPipeline->draw(cmd, taaDrawInfo);
 
     // Save current TAA Resolve to History
@@ -447,15 +481,10 @@ void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd, const std::vector<RenderObj
 
     // mrt
     {
-        DeferredMrtDrawInfo deferredDrawInfo{spectateSceneDataDescriptorBuffer};
-        deferredDrawInfo.renderObjects = renderObjects;
-        deferredDrawInfo.normalTarget = normalRenderTarget.imageView;
-        deferredDrawInfo.albedoTarget = albedoRenderTarget.imageView;
-        deferredDrawInfo.pbrTarget = pbrRenderTarget.imageView;
-        deferredDrawInfo.velocityTarget = velocityRenderTarget.imageView;
-        deferredDrawInfo.depthTarget = depthImage.imageView;
-        deferredDrawInfo.renderExtent = renderExtent;
-        deferredDrawInfo.viewportRenderExtent = {static_cast<float>(renderExtent.width) / 3.0f, static_cast<float>(renderExtent.height) / 3.0f};
+        DeferredMrtDrawInfo deferredDrawInfo{
+            renderObjects, normalRenderTarget.imageView, albedoRenderTarget.imageView, pbrRenderTarget.imageView, velocityRenderTarget.imageView, depthImage.imageView, renderExtent,
+            {static_cast<float>(renderExtent.width), static_cast<float>(renderExtent.height)}, spectateSceneDataDescriptorBuffer
+        };
 
         deferredMrtPipeline->draw(cmd, deferredDrawInfo);
     }
@@ -472,11 +501,14 @@ void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd, const std::vector<RenderObj
 
     // resolve
     {
-        DeferredResolveDrawInfo deferredResolveDrawInfo{sceneDataDescriptorBuffer};
-        deferredResolveDrawInfo.renderExtent = renderExtent;
-        deferredResolveDrawInfo.debugMode = taaDebug;
-        deferredResolveDrawInfo.environment = environmentMap;
-        deferredResolveDrawInfo.environmentMapIndex = environmentMapindex;
+        const DeferredResolveDrawInfo deferredResolveDrawInfo{
+            renderExtent,
+            deferredDebug,
+            spectateSceneDataDescriptorBuffer,
+            0,
+            environmentMap,
+            environmentMap->getDiffSpecMapOffset(environmentMapindex)
+        };
 
         deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);
     }
@@ -518,7 +550,9 @@ void Engine::cleanup()
 
     // destroy all other resources
     //mainDeletionQueue.flush();
-    resourceManager->destroyBuffer(sceneDataBuffer);
+    for (AllocatedBuffer& sceneDataBufer : sceneDataBuffers) {
+        resourceManager->destroyBuffer(sceneDataBufer);
+    }
     sceneDataDescriptorBuffer.destroy(context->allocator);
     resourceManager->destroyBuffer(spectateSceneDataBuffer);
     spectateSceneDataDescriptorBuffer.destroy(context->allocator);
@@ -575,16 +609,22 @@ void Engine::initRenderer()
     emptyDescriptorSetLayout = layoutBuilder.build(context->device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT, nullptr,
                                                    VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
-    sceneDataBuffer = resourceManager->createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-    sceneDataDescriptorBuffer = DescriptorBufferUniform(*context, sceneDescriptorLayouts->getSceneDataLayout(), 1);
-    std::vector<DescriptorUniformData> sceneDataBuffers{1};
-    sceneDataBuffers[0] = DescriptorUniformData{.uniformBuffer = sceneDataBuffer, .allocSize = sizeof(SceneData)};
-    sceneDataDescriptorBuffer.setupData(context->device, sceneDataBuffers);
+    for (AllocatedBuffer& sceneDataBuffer : sceneDataBuffers) {
+        sceneDataBuffer = resourceManager->createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    }
+
+    sceneDataDescriptorBuffer = DescriptorBufferUniform(*context, sceneDescriptorLayouts->getSceneDataLayout(), 2);
+    std::vector<DescriptorUniformData> sceneDataBufferData{1};
+    sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = sceneDataBuffers[0], .allocSize = sizeof(SceneData)};
+    sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData);
+    sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = sceneDataBuffers[1], .allocSize = sizeof(SceneData)};
+    sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData);
 
     spectateSceneDataBuffer = resourceManager->createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
     spectateSceneDataDescriptorBuffer = DescriptorBufferUniform(*context, sceneDescriptorLayouts->getSceneDataLayout(), 1);
-    sceneDataBuffers[0] = DescriptorUniformData{.uniformBuffer = spectateSceneDataBuffer, .allocSize = sizeof(SceneData)};
-    spectateSceneDataDescriptorBuffer.setupData(context->device, sceneDataBuffers);
+    std::vector<DescriptorUniformData> spectatorSceneDataBufferData{1};
+    spectatorSceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = spectateSceneDataBuffer, .allocSize = sizeof(SceneData)};
+    spectateSceneDataDescriptorBuffer.setupData(context->device, spectatorSceneDataBufferData);
 
     frustumCullingPipeline = new FrustumCullingPipeline(*context);
     frustumCullingPipeline->init(
@@ -657,7 +697,7 @@ void Engine::initScene()
     cubeGameObject2 = cube->generateGameObject();
     sponzaObject = sponza->generateGameObject();
     primitiveCubeGameObject = primitives->generateGameObject(0);
-    primitives->attachToGameObject(player,3);
+    primitives->attachToGameObject(player, 3);
 
     scene.addGameObject(sponzaObject);
     scene.addGameObject(cubeGameObject);
@@ -687,7 +727,6 @@ void Engine::initScene()
     playerSettings.mLinearDamping = 0.25f;
     // todo: look into continuous collision detection
     physics->addRigidBody(player, playerSettings);
-
 }
 
 void Engine::createSwapchain(const uint32_t width, const uint32_t height)

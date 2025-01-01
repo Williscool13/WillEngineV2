@@ -29,8 +29,7 @@ struct DeferredMrtDrawInfo
     VkExtent2D renderExtent{};
     glm::vec2 viewportRenderExtent{};
     const DescriptorBufferUniform& sceneData;
-
-    explicit DeferredMrtDrawInfo(const DescriptorBufferUniform& sceneData) : sceneData(sceneData) {}
+    const VkDeviceSize sceneDataOffset;
 };
 
 struct DeferredMrtPipelineRenderInfo
