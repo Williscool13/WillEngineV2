@@ -158,7 +158,8 @@ void TaaPipeline::draw(VkCommandBuffer cmd, const TaaDrawInfo& drawInfo) const
     constexpr VkDeviceSize zeroOffset{0};
     constexpr uint32_t sceneDataIndex{0};
     constexpr uint32_t descriptorIndex{1};
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &sceneDataIndex, &zeroOffset);
+
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &sceneDataIndex, &drawInfo.sceneDataOffset);
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &descriptorIndex, &zeroOffset);
 
     const auto x = static_cast<uint32_t>(std::ceil(static_cast<float>(drawInfo.renderExtent.width) / 16.0f));

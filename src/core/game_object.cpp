@@ -148,7 +148,10 @@ void GameObject::recursiveUpdateModelMatrix()
     if (pRenderObject) {
         if (InstanceData* pInstanceData = pRenderObject->getInstanceData(instanceIndex)) {
             if (bModelPendingUpdate) {
-                pInstanceData->previousModelMatrix = pInstanceData->currentModelMatrix;
+                if (bModelUpdatedLastFrame) {
+                    pInstanceData->previousModelMatrix = pInstanceData->currentModelMatrix;
+                }
+                //pInstanceData->previousModelMatrix = pInstanceData->currentModelMatrix;
                 pInstanceData->currentModelMatrix = getModelMatrix();
                 bModelUpdatedLastFrame = true;
             } else if (bModelUpdatedLastFrame) {

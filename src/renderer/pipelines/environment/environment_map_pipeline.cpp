@@ -111,10 +111,10 @@ void EnvironmentPipeline::draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& d
 
     constexpr uint32_t sceneDataIndex{0};
     constexpr uint32_t environmentIndex{1};
-    constexpr VkDeviceSize zeroOffset{0};
+    const VkDeviceSize sceneDataOffset = drawInfo.sceneDataOffset;
     const VkDeviceSize environmentMapOffset = drawInfo.environmentMapOffset;
 
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &sceneDataIndex, &zeroOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &environmentIndex, &environmentMapOffset);
 
     vkCmdDraw(cmd, 3, 1, 0, 0);

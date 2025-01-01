@@ -27,6 +27,7 @@ struct EnvironmentDrawInfo
     VkImageView colorAttachment;
     VkImageView depthAttachment;
     const DescriptorBufferUniform& sceneData;
+    const VkDeviceSize sceneDataOffset;
     const DescriptorBufferSampler& environmentMapData;
     const VkDeviceSize environmentMapOffset;
 };

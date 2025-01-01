@@ -35,10 +35,9 @@ struct DeferredResolveDrawInfo
     VkExtent2D renderExtent{};
     int32_t debugMode{};
     const DescriptorBufferUniform& sceneData;
+    const VkDeviceSize sceneDataOffset;
     Environment* environment{nullptr};
-    int32_t environmentMapIndex{};
-
-    explicit DeferredResolveDrawInfo(const DescriptorBufferUniform& sceneData) : sceneData(sceneData) {}
+    const VkDeviceSize diffSpecMapOffset;
 };
 
 class DeferredResolvePipeline

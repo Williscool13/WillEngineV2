@@ -22,13 +22,12 @@ struct TaaDescriptorBufferInfo
 
 struct TaaDrawInfo
 {
-    const DescriptorBufferUniform& sceneData;
     VkExtent2D renderExtent{};
     float blendValue{};
     bool enabled{};
     int32_t debugMode{};
-
-    explicit TaaDrawInfo(const DescriptorBufferUniform& sceneData) : sceneData(sceneData) {}
+    const DescriptorBufferUniform& sceneData;
+    VkDeviceSize sceneDataOffset;
 };
 
 class TaaPipeline

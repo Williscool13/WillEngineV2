@@ -93,7 +93,7 @@ public:
 
     void update() const;
 
-    void updateSceneData() const;
+    void updateSceneData(VkCommandBuffer cmd) const;
 
     void DEBUG_drawSpectate(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects) const;
 
@@ -156,7 +156,7 @@ private: // Scene
 
 
     Environment* environmentMap{nullptr};
-    int32_t environmentMapindex{7};
+    int32_t environmentMapindex{0};
 
     int32_t deferredDebug{0};
     int32_t taaDebug{0};
@@ -169,7 +169,7 @@ private: // Scene Descriptors
     RenderObjectDescriptorLayout* renderObjectDescriptorLayout = nullptr;
 
     DescriptorBufferUniform sceneDataDescriptorBuffer;
-    AllocatedBuffer sceneDataBuffer;
+    AllocatedBuffer sceneDataBuffers[FRAME_OVERLAP];
 
     bool bSpectateCameraActive{false};
     DescriptorBufferUniform spectateSceneDataDescriptorBuffer;
