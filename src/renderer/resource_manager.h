@@ -27,6 +27,8 @@ public:
 
     void copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, VkDeviceSize size) const;
 
+    void copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, VkDeviceSize size, VkDeviceSize offset) const;
+
     [[nodiscard]] VkDeviceAddress getBufferAddress(const AllocatedBuffer& buffer) const;
 
     void destroyBuffer(AllocatedBuffer& buffer) const;

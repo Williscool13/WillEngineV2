@@ -84,9 +84,21 @@ AllocatedBuffer ResourceManager::createReceivingBuffer(const size_t allocSize) c
 void ResourceManager::copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, const VkDeviceSize size) const
 {
     immediate.submit([&](VkCommandBuffer cmd) {
-       VkBufferCopy vertexCopy{0};
+       VkBufferCopy vertexCopy{};
        vertexCopy.dstOffset = 0;
        vertexCopy.srcOffset = 0;
+       vertexCopy.size = size;
+
+       vkCmdCopyBuffer(cmd, src.buffer, dst.buffer, 1, &vertexCopy);
+   });
+}
+
+void ResourceManager::copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, const VkDeviceSize size, const VkDeviceSize offset) const
+{
+    immediate.submit([&](VkCommandBuffer cmd) {
+       VkBufferCopy vertexCopy{};
+       vertexCopy.dstOffset = offset;
+       vertexCopy.srcOffset = offset;
        vertexCopy.size = size;
 
        vkCmdCopyBuffer(cmd, src.buffer, dst.buffer, 1, &vertexCopy);
@@ -104,6 +116,7 @@ VkDeviceAddress ResourceManager::getBufferAddress(const AllocatedBuffer& buffer)
 
 void ResourceManager::destroyBuffer(AllocatedBuffer& buffer) const
 {
+    if (buffer.buffer == VK_NULL_HANDLE) { return; }
     vmaDestroyBuffer(context.allocator, buffer.buffer, buffer.allocation);
     buffer.buffer = VK_NULL_HANDLE;
 }

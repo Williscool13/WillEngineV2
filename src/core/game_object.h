@@ -8,6 +8,7 @@
 #include <string>
 
 #include <glm/glm.hpp>
+#include <src/renderer/renderer_constants.h>
 #include <vulkan/vulkan_core.h>
 
 #include "src/physics/physics.h"
@@ -71,7 +72,7 @@ private: // Transform
     /**
      * Will update the model matrix on GPU if this number is greater than 0
      */
-    int32_t framesToUpdate{2};
+    int32_t framesToUpdate{FRAME_OVERLAP + 1};
 
     void dirty();
 

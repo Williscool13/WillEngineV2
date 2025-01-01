@@ -104,9 +104,10 @@ public:
      * the descriptor set layout this descriptor buffer was initialized with.
      * @param device the device the uniform buffer is created in and this descriptor buffer was initialized with
      * @param uniformBuffers the uniform buffer and their corresponding total sizes to insert to the descriptor buffer
+     * @param index
      * @return the index of the allocated descriptor set. Store and use when binding during draw call.
      */
-    int32_t setupData(VkDevice device, const std::vector<DescriptorUniformData>& uniformBuffers);
+    int32_t setupData(VkDevice device, const std::vector<DescriptorUniformData>& uniformBuffers, int index = -1);
 
     VkBufferUsageFlagBits getBufferUsageFlags() const override;
 };

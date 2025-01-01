@@ -130,7 +130,7 @@ void GameObject::setGlobalTransform(const Transform& newGlobalTransform)
 void GameObject::dirty()
 {
     bIsGlobalTransformDirty = true;
-    framesToUpdate = 2;
+    framesToUpdate = FRAME_OVERLAP + 1;
 
     transform.setDirty();
 

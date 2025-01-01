@@ -73,7 +73,6 @@ void FrustumCullingPipeline::draw(VkCommandBuffer cmd, const FrustumCullDrawInfo
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
 
-    constexpr VkDeviceSize offset{0};
     constexpr uint32_t sceneDataIndex{0};
     constexpr uint32_t addressesIndex{1};
 
@@ -82,9 +81,12 @@ void FrustumCullingPipeline::draw(VkCommandBuffer cmd, const FrustumCullDrawInfo
         bindingInfo[0] = drawInfo.sceneData.getDescriptorBufferBindingInfo();
         bindingInfo[1] = renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
 
+        VkDeviceSize sceneDataOffset = drawInfo.currentFrameOverlap * drawInfo.sceneData.getDescriptorBufferSize();
+        VkDeviceSize addressesOffset = drawInfo.currentFrameOverlap * renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferSize();
+
         vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfo);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &sceneDataIndex, &offset);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &addressesIndex, &offset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &addressesIndex, &addressesOffset);
 
         vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(renderObject->getDrawIndirectCommandCount()) / 64.0f)), 1, 1);
     }

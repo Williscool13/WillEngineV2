@@ -9,8 +9,8 @@
 
 #include "glm/detail/type_quat.hpp"
 #include "glm/gtx/matrix_decompose.hpp"
+#include "src/core/game_object.h"
 
-#include "src/core/engine.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/vulkan_context.h"
 #include "src/renderer/render_object/render_object_constants.h"
@@ -24,18 +24,38 @@ RenderObject::RenderObject(const VulkanContext& context, const ResourceManager& 
 
     parseModel(gltfFilepath, descriptorLayouts.texturesLayout, boundingSpheres);
 
-    const VkDeviceAddress materialBufferAddress = resourceManager.getBufferAddress(materialBuffer);
-    bufferAddresses = resourceManager.createBuffer(sizeof(VkDeviceAddress) * 2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-    memcpy(bufferAddresses.info.pMappedData, &materialBufferAddress, sizeof(VkDeviceAddress));
-    addressesDescriptorBuffer = DescriptorBufferUniform(context, descriptorLayouts.addressesLayout, 1);
+    for (AllocatedBuffer& addressBuffer : addressBuffers) {
+        const VkDeviceAddress materialBufferAddress = resourceManager.getBufferAddress(materialBuffer);
+        addressBuffer = resourceManager.createBuffer(sizeof(VkDeviceAddress) * 2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+        memcpy(addressBuffer.info.pMappedData, &materialBufferAddress, sizeof(VkDeviceAddress));
+    }
 
-    DescriptorUniformData addressesUniformData;
-    addressesUniformData.allocSize = sizeof(VkDeviceAddress) * 2;
-    addressesUniformData.uniformBuffer = bufferAddresses;
-    std::vector uniforms = {addressesUniformData};
-    addressesDescriptorBuffer.setupData(context.device, uniforms);
+    // Buffer Addresses Buffers
+    addressesDescriptorBuffer = DescriptorBufferUniform(context, descriptorLayouts.addressesLayout, FRAME_OVERLAP);
+    for (const AllocatedBuffer& addressBuffer : addressBuffers) {
+        DescriptorUniformData addressesUniformData;
+        addressesUniformData.allocSize = sizeof(VkDeviceAddress) * 2;
+        addressesUniformData.uniformBuffer = addressBuffer;
 
-    // Culling Bounds
+        const std::vector uniforms{addressesUniformData};
+        addressesDescriptorBuffer.setupData(context.device, uniforms);
+    }
+
+    // Frustum Culling Buffers
+    frustumCullingDescriptorBuffer = DescriptorBufferUniform(context, descriptorLayouts.frustumCullLayout, FRAME_OVERLAP);
+    for (AllocatedBuffer& cullingBufferAddress : cullingAddressBuffers) {
+        cullingBufferAddress = resourceManager.createBuffer(sizeof(FrustumCullingBuffers),
+                                                            VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+                                                            VMA_MEMORY_USAGE_GPU_ONLY);
+        DescriptorUniformData cullingAddressesUniformData;
+        cullingAddressesUniformData.allocSize = sizeof(FrustumCullingBuffers);
+        cullingAddressesUniformData.uniformBuffer = cullingBufferAddress;
+        const std::vector cullingUniforms{cullingAddressesUniformData};
+        frustumCullingDescriptorBuffer.setupData(context.device, cullingUniforms);
+    }
+
+
+    // Culling Bounds - Only uploaded to GPU when any gameobject is generated using this RenderObject
     AllocatedBuffer meshBoundsStaging = resourceManager.createStagingBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
     memcpy(meshBoundsStaging.info.pMappedData, boundingSpheres.data(), sizeof(BoundingSphere) * boundingSpheres.size());
     meshBoundsBuffer = resourceManager.createBuffer(sizeof(BoundingSphere) * boundingSpheres.size(),
@@ -43,17 +63,6 @@ RenderObject::RenderObject(const VulkanContext& context, const ResourceManager& 
                                                     VMA_MEMORY_USAGE_GPU_ONLY);
     resourceManager.copyBuffer(meshBoundsStaging, meshBoundsBuffer, sizeof(BoundingSphere) * boundingSpheres.size());
     resourceManager.destroyBuffer(meshBoundsStaging);
-
-    frustumCullingDescriptorBuffer = DescriptorBufferUniform(context, descriptorLayouts.frustumCullLayout, 1);
-    frustumBufferAddresses = resourceManager.createBuffer(sizeof(FrustumCullingBuffers),
-                                                          VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
-                                                          VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
-                                                          , VMA_MEMORY_USAGE_GPU_ONLY);
-    DescriptorUniformData cullingAddressesUniformData;
-    cullingAddressesUniformData.allocSize = sizeof(FrustumCullingBuffers);
-    cullingAddressesUniformData.uniformBuffer = frustumBufferAddresses;
-    std::vector cullingUniforms = {cullingAddressesUniformData};
-    frustumCullingDescriptorBuffer.setupData(context.device, cullingUniforms);
 }
 
 RenderObject::~RenderObject()
@@ -62,14 +71,20 @@ RenderObject::~RenderObject()
     resourceManager.destroyBuffer(vertexBuffer);
     resourceManager.destroyBuffer(drawIndirectBuffer);
 
-    resourceManager.destroyBuffer(bufferAddresses);
+    for (AllocatedBuffer& addressBuffer : addressBuffers) {
+        resourceManager.destroyBuffer(addressBuffer);
+    }
 
     resourceManager.destroyBuffer(materialBuffer);
-    resourceManager.destroyBuffer(modelMatrixBuffer);
+    for (AllocatedBuffer& modelBuffer : modelMatrixBuffers) {
+        resourceManager.destroyBuffer(modelBuffer);
+    }
 
     resourceManager.destroyBuffer(meshBoundsBuffer);
-    resourceManager.destroyBuffer(meshIndicesBuffer);
-    resourceManager.destroyBuffer(frustumBufferAddresses);
+    resourceManager.destroyBuffer(boundingSphereIndicesBuffer);
+    for (AllocatedBuffer& cullingAddressBuffer : cullingAddressBuffers) {
+        resourceManager.destroyBuffer(cullingAddressBuffer);
+    }
 
     textureDescriptorBuffer.destroy(context.allocator);
     addressesDescriptorBuffer.destroy(context.allocator);
@@ -448,22 +463,16 @@ GameObject* RenderObject::generateGameObject()
         recursiveGenerateGameObject(renderNodes[rootNode], superRoot);
     }
 
-    uploadIndirectBuffer();
-    populateComputeCullingBuffer();
+    uploadCullingBufferData();
     return superRoot;
 }
 
 GameObject* RenderObject::generateGameObject(const int32_t meshIndex, const Transform& startingTransform)
 {
-    if (meshIndex >= meshes.size()) {
-        return nullptr;
-    }
-
+    if (meshIndex >= meshes.size()) { return nullptr; }
 
     auto* gameObject = new GameObject();
-
     attachToGameObject(gameObject, meshIndex);
-
     gameObject->setGlobalTransform(startingTransform);
 
     return gameObject;
@@ -472,9 +481,6 @@ GameObject* RenderObject::generateGameObject(const int32_t meshIndex, const Tran
 void RenderObject::attachToGameObject(GameObject* gameObject, const int32_t meshIndex)
 {
     if (gameObject == nullptr) { return; }
-
-    // maybetodo: make this support selection of mesh and also create/attach all children to that mesh
-
     expandInstanceBuffer(1);
 
     // InstanceIndex is used to know which model matrix to use form the model matrix array
@@ -498,13 +504,12 @@ void RenderObject::attachToGameObject(GameObject* gameObject, const int32_t mesh
     gameObject->setRenderObjectReference(this, static_cast<int32_t>(instanceIndex));
     currentInstanceCount++;
 
-    // todo: maybe make user manually call this? gpu operations should be batched
-    uploadIndirectBuffer();
-    populateComputeCullingBuffer();
+    uploadCullingBufferData();
 }
 
-InstanceData* RenderObject::getInstanceData(const int32_t index) const
+InstanceData* RenderObject::getInstanceData(const int32_t index, const int32_t currentFrameOverlap) const
 {
+    const AllocatedBuffer modelMatrixBuffer = modelMatrixBuffers[currentFrameOverlap];
     if (modelMatrixBuffer.buffer == VK_NULL_HANDLE) { return nullptr; }
 
     if (index < 0 || index >= currentInstanceCount) {
@@ -519,14 +524,15 @@ InstanceData* RenderObject::getInstanceData(const int32_t index) const
     return static_cast<InstanceData*>(target);
 }
 
-void RenderObject::updateInstanceData(const int32_t instanceIndex, const glm::mat4& currentFrameModelMatrix, const int32_t previousFrameOverlapIndex, const int32_t currentFrameOverlapIndex)
+void RenderObject::updateInstanceData(const int32_t instanceIndex, const glm::mat4& currentFrameModelMatrix, const int32_t previousFrameOverlapIndex, const int32_t currentFrameOverlapIndex) const
 {
-    InstanceData* pInstanceData = getInstanceData(instanceIndex);
-    if (pInstanceData == nullptr) { return; }
+    const InstanceData* pPreviousInstanceData = getInstanceData(instanceIndex, previousFrameOverlapIndex);
+    InstanceData* pCurrentInstanceData = getInstanceData(instanceIndex, currentFrameOverlapIndex);
+    if (pPreviousInstanceData == nullptr || pCurrentInstanceData == nullptr) { return; }
 
-    // temp
-    pInstanceData->previousModelMatrix = pInstanceData->currentModelMatrix;
-    pInstanceData->currentModelMatrix = currentFrameModelMatrix;
+
+    pCurrentInstanceData->previousModelMatrix = pPreviousInstanceData->currentModelMatrix;
+    pCurrentInstanceData->currentModelMatrix = currentFrameModelMatrix;
 }
 
 void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent)
@@ -564,95 +570,89 @@ void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, Gam
     }
 }
 
-void RenderObject::expandInstanceBuffer(const uint32_t countToAdd, const bool copy)
+void RenderObject::expandInstanceBuffer(const uint32_t countToAdd, const bool copyPrevious)
 {
     const uint32_t oldBufferSize = instanceBufferSize;
     instanceBufferSize += countToAdd;
-    // CPU_TO_GPU because it can be modified any time by gameobjects
-    const AllocatedBuffer tempInstanceBuffer = resourceManager.createBuffer(instanceBufferSize * sizeof(InstanceData)
-                                                                            , VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT |
-                                                                              VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
-                                                                              VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
-                                                                            , VMA_MEMORY_USAGE_CPU_TO_GPU);
 
-    if (copy && oldBufferSize > 0) {
-        resourceManager.copyBuffer(modelMatrixBuffer, tempInstanceBuffer, oldBufferSize * sizeof(InstanceData));
-        resourceManager.destroyBuffer(modelMatrixBuffer);
+    for (int i{0}; i < FRAME_OVERLAP; i++) {
+        // CPU_TO_GPU because it can be modified any time by gameobjects
+        const AllocatedBuffer tempInstanceBuffer = resourceManager.createBuffer(instanceBufferSize * sizeof(InstanceData),
+                                                                                VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT |
+                                                                                VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+        AllocatedBuffer& modelBuffer = modelMatrixBuffers[i];
+        if (copyPrevious && oldBufferSize > 0) {
+            resourceManager.copyBuffer(modelBuffer, tempInstanceBuffer, oldBufferSize * sizeof(InstanceData));
+            resourceManager.destroyBuffer(modelBuffer);
+        }
+        modelBuffer = tempInstanceBuffer;
+
+        const VkDeviceAddress instanceBufferAddress = resourceManager.getBufferAddress(modelBuffer);
+
+        const AllocatedBuffer& addressBuffer = addressBuffers[i];
+        memcpy(static_cast<char*>(addressBuffer.info.pMappedData) + sizeof(VkDeviceAddress), &instanceBufferAddress, sizeof(VkDeviceAddress));
     }
-
-    modelMatrixBuffer = tempInstanceBuffer;
-
-    const VkDeviceAddress instanceBufferAddress = resourceManager.getBufferAddress(modelMatrixBuffer);
-    memcpy(static_cast<char*>(bufferAddresses.info.pMappedData) + sizeof(VkDeviceAddress), &instanceBufferAddress, sizeof(VkDeviceAddress));
 }
 
-void RenderObject::uploadIndirectBuffer()
+void RenderObject::uploadCullingBufferData()
 {
-    if (drawIndirectBuffer.buffer != VK_NULL_HANDLE) {
-        resourceManager.destroyBuffer(drawIndirectBuffer);
-    }
-
-    if (drawIndirectData.empty()) {
-        return;
-    }
-
-    std::vector<VkDrawIndexedIndirectCommand> drawCommands;
-    drawCommands.reserve(drawIndirectData.size());
-    for (DrawIndirectData drawData : drawIndirectData) {
-        drawCommands.push_back(drawData.indirectCommand);
-    }
-
-    AllocatedBuffer indirectStaging = resourceManager.createStagingBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-    memcpy(indirectStaging.info.pMappedData, drawCommands.data(), drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-    drawIndirectBuffer = resourceManager.createBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand)
-                                                      , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
-                                                        VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
-                                                      , VMA_MEMORY_USAGE_GPU_ONLY);
-
-    resourceManager.copyBuffer(indirectStaging, drawIndirectBuffer, drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-    resourceManager.destroyBuffer(indirectStaging);
-}
-
-void RenderObject::populateComputeCullingBuffer()
-{
-    if (drawIndirectBuffer.buffer == VK_NULL_HANDLE || modelMatrixBuffer.buffer == VK_NULL_HANDLE || meshBoundsBuffer.buffer == VK_NULL_HANDLE) {
-        return;
-    }
-
-    if (drawIndirectData.empty()) {
-        return;
-    }
+    if (currentInstanceCount == 0) { return; }
 
     // destroy because it might have a new size
-    if (meshIndicesBuffer.buffer != VK_NULL_HANDLE) {
-        resourceManager.destroyBuffer(meshIndicesBuffer);
+    resourceManager.destroyBuffer(drawIndirectBuffer);
+    resourceManager.destroyBuffer(boundingSphereIndicesBuffer);
+
+    // Instance Bounding Sphere Indices
+    {
+        std::vector<uint32_t> boundingSphereIndices;
+        boundingSphereIndices.reserve(drawIndirectData.size());
+        for (const DrawIndirectData& drawData : drawIndirectData) {
+            boundingSphereIndices.push_back(drawData.boundingSphereIndex);
+        }
+
+        AllocatedBuffer stagingBoundingSphereIndicesBuffer = resourceManager.createStagingBuffer(boundingSphereIndices.size() * sizeof(uint32_t));
+        memcpy(stagingBoundingSphereIndicesBuffer.info.pMappedData, boundingSphereIndices.data(), boundingSphereIndices.size() * sizeof(uint32_t));
+        boundingSphereIndicesBuffer = resourceManager.createBuffer(boundingSphereIndices.size() * sizeof(uint32_t)
+                                                                   , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+                                                                   , VMA_MEMORY_USAGE_GPU_ONLY);
+
+        resourceManager.copyBuffer(stagingBoundingSphereIndicesBuffer, boundingSphereIndicesBuffer, boundingSphereIndices.size() * sizeof(uint32_t));
+        resourceManager.destroyBuffer(stagingBoundingSphereIndicesBuffer);
     }
 
-    std::vector<uint32_t> primitiveSphereBounds;
-    primitiveSphereBounds.reserve(drawIndirectData.size());
-    for (const DrawIndirectData& drawData : drawIndirectData) {
-        primitiveSphereBounds.push_back(drawData.boundingSphereIndex);
+    // Indirect Draw Buffer
+    {
+        std::vector<VkDrawIndexedIndirectCommand> drawCommands;
+        drawCommands.reserve(drawIndirectData.size());
+        for (DrawIndirectData drawData : drawIndirectData) {
+            drawCommands.push_back(drawData.indirectCommand);
+        }
+
+        AllocatedBuffer indirectStaging = resourceManager.createStagingBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+        memcpy(indirectStaging.info.pMappedData, drawCommands.data(), drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+        drawIndirectBuffer = resourceManager.createBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand)
+                                                          , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT |
+                                                            VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
+                                                          , VMA_MEMORY_USAGE_GPU_ONLY);
+
+        resourceManager.copyBuffer(indirectStaging, drawIndirectBuffer, drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+        resourceManager.destroyBuffer(indirectStaging);
     }
 
-    AllocatedBuffer meshIndicesStaging = resourceManager.createStagingBuffer(primitiveSphereBounds.size() * sizeof(uint32_t));
-    memcpy(meshIndicesStaging.info.pMappedData, primitiveSphereBounds.data(), primitiveSphereBounds.size() * sizeof(uint32_t));
-    meshIndicesBuffer = resourceManager.createBuffer(primitiveSphereBounds.size() * sizeof(uint32_t)
-                                                     , VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
-                                                     , VMA_MEMORY_USAGE_GPU_ONLY);
+    for (int i{0}; i < FRAME_OVERLAP; i++) {
+        FrustumCullingBuffers cullingAddresses{};
+        cullingAddresses.commandBuffer = resourceManager.getBufferAddress(drawIndirectBuffer);
+        cullingAddresses.commandBufferCount = drawIndirectData.size();
+        cullingAddresses.modelMatrixBuffer = resourceManager.getBufferAddress(modelMatrixBuffers[i]);
+        cullingAddresses.meshBoundsBuffer = resourceManager.getBufferAddress(meshBoundsBuffer);
+        cullingAddresses.meshIndicesBuffer = resourceManager.getBufferAddress(boundingSphereIndicesBuffer);
 
-    resourceManager.copyBuffer(meshIndicesStaging, meshIndicesBuffer, primitiveSphereBounds.size() * sizeof(uint32_t));
-    resourceManager.destroyBuffer(meshIndicesStaging);
+        AllocatedBuffer& cullingAddressBuffer = cullingAddressBuffers[i];
 
-
-    FrustumCullingBuffers cullingBuffers{};
-    cullingBuffers.commandBuffer = resourceManager.getBufferAddress(drawIndirectBuffer);
-    cullingBuffers.commandBufferCount = drawIndirectData.size();
-    cullingBuffers.modelMatrixBuffer = resourceManager.getBufferAddress(modelMatrixBuffer);
-    cullingBuffers.meshBoundsBuffer = resourceManager.getBufferAddress(meshBoundsBuffer);
-    cullingBuffers.meshIndicesBuffer = resourceManager.getBufferAddress(meshIndicesBuffer);
-
-    AllocatedBuffer frustumCullingStaging = resourceManager.createStagingBuffer(sizeof(FrustumCullingBuffers));
-    memcpy(frustumCullingStaging.info.pMappedData, &cullingBuffers, sizeof(FrustumCullingBuffers));
-    resourceManager.copyBuffer(frustumCullingStaging, frustumBufferAddresses, sizeof(FrustumCullingBuffers));
-    resourceManager.destroyBuffer(frustumCullingStaging);
+        AllocatedBuffer stagingCullingAddressesBuffer = resourceManager.createStagingBuffer(sizeof(FrustumCullingBuffers));
+        memcpy(stagingCullingAddressesBuffer.info.pMappedData, &cullingAddresses, sizeof(FrustumCullingBuffers));
+        resourceManager.copyBuffer(stagingCullingAddressesBuffer, cullingAddressBuffer, sizeof(FrustumCullingBuffers));
+        resourceManager.destroyBuffer(stagingCullingAddressesBuffer);
+    }
 }

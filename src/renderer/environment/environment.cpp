@@ -5,9 +5,8 @@
 #include "environment.h"
 
 #include <cassert>
-#include <../../extern/stb/stb_image.h>
+#include <stb_image.h>
 
-#include "src/core/engine.h"
 #include "src/renderer/immediate_submitter.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/vk_descriptor_buffer.h"
