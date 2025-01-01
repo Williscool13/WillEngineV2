@@ -289,17 +289,29 @@ void Engine::draw()
     }
 #pragma endregion
 
-    const auto renderStart = std::chrono::system_clock::now();
-
     const auto cmd = getCurrentFrame()._mainCommandBuffer;
     VK_CHECK(vkResetCommandBuffer(cmd, 0));
     const VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
+    const float deltaTime = TimeUtils::Get().getDeltaTime();
 
-    update();
+    const auto physicsStart = std::chrono::system_clock::now();
+    physics->update(deltaTime);
+    const auto physicsEnd = std::chrono::system_clock::now();
+    const float elapsedPhysics = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(physicsEnd - physicsStart).count()) / 1000.0f;
+    physicsTime = physicsTime * 0.99 + elapsedPhysics * 0.01f;
+
+    const auto gameStart = std::chrono::system_clock::now();
+    update(deltaTime);
+    const auto gameEnd = std::chrono::system_clock::now();
+    const float elapsedGame = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(gameEnd - gameStart).count()) / 1000.0f;
+    gameTime = gameTime * 0.99 + elapsedGame * 0.01f;
+
+
+    const auto renderStart = std::chrono::system_clock::now();
+    scene.updateSceneModelMatrices(getPreviousFrameOverlap(), getCurrentFrameOverlap());
     updateSceneData(cmd);
-
     const std::vector renderObjects{sponza, cube, primitives};
 
     const FrustumCullDrawInfo frustumCullingDrawInfo = {
@@ -442,12 +454,10 @@ void Engine::draw()
     const float elapsedMs = static_cast<float>(elapsed.count()) / 1000.0f;
 
     frameTime = frameTime * 0.99f + elapsedMs * 0.01f;
-    drawTime = drawTime * 0.99f + elapsedMs * 0.01f;
 }
 
-void Engine::update() const
+void Engine::update(float deltaTime) const
 {
-    const float deltaTime = TimeUtils::Get().getDeltaTime();
     const Uint64 currentTime = SDL_GetTicks64();
 
     constexpr auto originalPosition = glm::vec3{0.0, 2.0f, 0.0f};
@@ -460,10 +470,7 @@ void Engine::update() const
 
     cubeGameObject->setLocalPosition(vertical);
     cubeGameObject2->setLocalPosition(horizontal);
-
-    physics->update(deltaTime);
     player->update(deltaTime);
-    scene.updateSceneModelMatrices(getPreviousFrameOverlap(), getCurrentFrameOverlap());
 }
 
 void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects) const

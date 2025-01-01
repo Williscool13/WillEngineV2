@@ -96,9 +96,11 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::NewFrame();
 
     if (ImGui::Begin("Main")) {
-        ImGui::Text("Frame Time: %.2f ms", engine->frameTime);
-        ImGui::Text("Draw Time: %.2f ms", engine->drawTime);
+        ImGui::Text("GamPhysics Time: %.2f ms", engine->physicsTime);
+        ImGui::Text("Game Time: %.2f ms", engine->gameTime);
         ImGui::Text("Render Time: %.2f ms", engine->renderTime);
+
+        ImGui::Text("Frame Time: %.2f ms", engine->frameTime);
         ImGui::Text("Delta Time: %.2f ms", time.getDeltaTime() * 1000.0f);
 
         ImGui::Separator();
