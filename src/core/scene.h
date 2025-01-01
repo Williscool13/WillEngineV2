@@ -37,7 +37,7 @@ private: // Scene properties
 public:
     void imguiSceneGraph();
 
-    void updateSceneModelMatrices() const;
+    void updateSceneModelMatrices(int32_t previousFrameOverlapIndex, int32_t currentFrameOverlapIndex) const;
 
 private:
     static int getIndexInVector(GameObject* obj, std::vector<GameObject*> vector);

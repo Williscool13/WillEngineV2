@@ -22,15 +22,21 @@ GameObject::GameObject(std::string gameObjectName) : gameObjectId(nextId++)
 
 GameObject::~GameObject()
 {
+    GameObject* tempParent = parent;
     // Remove Parent
     if (parent != nullptr) {
-        unparent();
+        reparent();
     }
 
     // Remove all children
     while (!children.empty()) {
-        removeChild(children.back());
+        removeChild(children.back(), tempParent);
     }
+}
+
+void GameObject::setName(std::string newName)
+{
+    gameObjectName = std::move(newName);
 }
 
 const Transform& GameObject::getGlobalTransform()
@@ -77,8 +83,12 @@ void GameObject::setLocalTransform(const Transform& newLocalTransform)
 
 void GameObject::setGlobalPosition(const glm::vec3 globalPosition)
 {
-    const glm::mat4 inverseParentMatrix = glm::inverse(parent->getModelMatrix());
-    const glm::vec3 localPosition = inverseParentMatrix * glm::vec4(globalPosition, 1.0f);
+    const glm::vec3 parentPos = parent->getGlobalPosition();
+    const glm::quat parentRot = parent->getGlobalRotation();
+    const glm::mat4 parentTransform = glm::translate(glm::mat4(1.0f), parentPos) * glm::mat4_cast(parentRot);
+    const glm::mat4 inverseParentTransform = glm::inverse(parentTransform);
+    const auto localPosition = glm::vec3(inverseParentTransform * glm::vec4(globalPosition, 1.0f));
+
     setLocalPosition(localPosition);
 }
 
@@ -99,10 +109,13 @@ void GameObject::setGlobalScale(const glm::vec3 globalScale)
 void GameObject::setGlobalTransform(const Transform& newGlobalTransform)
 {
     if (parent) {
-        const glm::mat4 inverseParentMatrix = glm::inverse(parent->getModelMatrix());
+        const glm::vec3 parentPos = parent->getGlobalPosition();
+        const glm::quat parentRot = parent->getGlobalRotation();
+        const glm::mat4 parentTransform = glm::translate(glm::mat4(1.0f), parentPos) * glm::mat4_cast(parentRot);
+        const glm::mat4 inverseParentTransform = glm::inverse(parentTransform);
+        const auto localPosition = glm::vec3(inverseParentTransform * glm::vec4(newGlobalTransform.getPosition(), 1.0f));
 
-        const glm::vec3 localPosition = inverseParentMatrix * glm::vec4(newGlobalTransform.getPosition(), 1.0f);
-        const glm::quat localRotation = glm::inverse(parent->getGlobalRotation()) * newGlobalTransform.getRotation();
+        const glm::quat localRotation = glm::inverse(parentRot) * newGlobalTransform.getRotation();
         const glm::vec3 localScale = newGlobalTransform.getScale() / parent->getGlobalScale();
 
         transform.setTransform(localPosition, localRotation, localScale);
@@ -117,7 +130,7 @@ void GameObject::setGlobalTransform(const Transform& newGlobalTransform)
 void GameObject::dirty()
 {
     bIsGlobalTransformDirty = true;
-    bModelPendingUpdate = true;
+    framesToUpdate = 2;
 
     transform.setDirty();
 
@@ -126,75 +139,41 @@ void GameObject::dirty()
     }
 }
 
-void GameObject::addChild(GameObject* child, bool maintainWorldPosition)
+void GameObject::addChild(GameObject* child, const bool maintainWorldTransform)
 {
     // Prevent adding self as child
     if (child == this) { return; }
 
     // Remove from previous parent if any
-    child->unparent();
+    child->reparent(this, maintainWorldTransform);
     children.push_back(child);
-    child->parent = this;
-
-    if (maintainWorldPosition) {
-        // Child's current world transform
-        const glm::mat4 childWorldMatrix = child->getModelMatrix();
-
-        // Calculate and set the child's new local transform
-        const glm::mat4 inverseParentWorldMatrix = glm::inverse(this->getModelMatrix());
-        glm::mat4 newLocalMatrix = inverseParentWorldMatrix * childWorldMatrix;
-
-        // Extract new local transform components
-        const auto newLocalPosition = glm::vec3(newLocalMatrix[3]);
-        const auto newLocalScale = glm::vec3(
-            glm::length(glm::vec3(newLocalMatrix[0])),
-            glm::length(glm::vec3(newLocalMatrix[1])),
-            glm::length(glm::vec3(newLocalMatrix[2]))
-        );
-        glm::quat newLocalRotation = glm::quat_cast(newLocalMatrix);
-
-        // Set the new local position, rotation, and scale
-        child->transform.setTransform(newLocalPosition, newLocalRotation, newLocalScale);
-        child->dirty();
-    }
 }
 
-void GameObject::removeChild(GameObject* child)
+void GameObject::removeChild(GameObject* child, GameObject* newParent)
 {
     const auto it = std::ranges::find(children, child);
     if (it != children.end()) {
         // Done to prevent an infinite loop.
         GameObject* temp = *it;
         children.erase(it);
-        temp->unparent();
+        temp->reparent(newParent);
     }
 }
 
-void GameObject::unparent()
+void GameObject::reparent(GameObject* newParent, const bool maintainWorldTransform)
 {
-    // Already unparented, nothing to do
-    if (!parent) { return; }
+    const Transform previousGlobalTransform = getGlobalTransform();
+    if (parent) {
+        // Done to prevent an infinite loop.
+        GameObject* temp = parent;
+        parent = nullptr;
+        temp->removeChild(this);
+    }
 
-    // Get the current world position, rotation, and scale
-    glm::mat4 worldMatrix = getModelMatrix();
-    glm::vec3 worldPosition = glm::vec3(worldMatrix[3]);
-    glm::vec3 worldScale = glm::vec3(
-        glm::length(glm::vec3(worldMatrix[0])),
-        glm::length(glm::vec3(worldMatrix[1])),
-        glm::length(glm::vec3(worldMatrix[2]))
-    );
-    glm::quat worldRotation = glm::quat_cast(worldMatrix);
-
-    // Done to prevent an infinite loop.
-    GameObject* temp = parent;
-    parent = nullptr;
-    temp->removeChild(this);
-
-    // Set the object's local transform to its previous world transform
-    transform.setPosition(worldPosition);
-    transform.setRotation(worldRotation);
-    transform.setScale(worldScale);
-    dirty();
+    parent = newParent;
+    if (maintainWorldTransform) {
+        setGlobalTransform(previousGlobalTransform);
+    }
 }
 
 GameObject* GameObject::getParent()
@@ -207,7 +186,7 @@ std::vector<GameObject*>& GameObject::getChildren()
     return children;
 }
 
-void GameObject::recursiveUpdateModelMatrix()
+void GameObject::recursiveUpdateModelMatrix(const int32_t previousFrameOverlapIndex, const int32_t currentFrameOverlapIndex)
 {
     if (bIsStatic) {
         // if a gameobject is static, all its children must necessarily be static.
@@ -215,22 +194,13 @@ void GameObject::recursiveUpdateModelMatrix()
     }
 
     if (pRenderObject) {
-        if (InstanceData* pInstanceData = pRenderObject->getInstanceData(instanceIndex)) {
-            if (bModelPendingUpdate) {
-                if (bModelUpdatedLastFrame) {
-                    pInstanceData->previousModelMatrix = pInstanceData->currentModelMatrix;
-                }
-                //pInstanceData->previousModelMatrix = pInstanceData->currentModelMatrix;
-                pInstanceData->currentModelMatrix = getModelMatrix();
-                bModelUpdatedLastFrame = true;
-            } else if (bModelUpdatedLastFrame) {
-                pInstanceData->previousModelMatrix = pInstanceData->currentModelMatrix;
-                bModelUpdatedLastFrame = false;
-            }
+        if (framesToUpdate > 0) {
+            pRenderObject->updateInstanceData(instanceIndex, getModelMatrix(), previousFrameOverlapIndex, currentFrameOverlapIndex);
+            framesToUpdate--;
         }
     }
 
     for (GameObject* child : children) {
-        child->recursiveUpdateModelMatrix();
+        child->recursiveUpdateModelMatrix(previousFrameOverlapIndex, currentFrameOverlapIndex);
     }
 }

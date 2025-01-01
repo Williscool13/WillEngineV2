@@ -20,6 +20,7 @@
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/vk_descriptors.h"
 #include "src/renderer/environment/environment.h"
+#include "src/renderer/renderer_constants.h"
 #include "src/renderer/pipelines/acceleration_algorithms/frustum_culling_descriptor_layout.h"
 #include "src/renderer/pipelines/acceleration_algorithms/frustum_culling_pipeline.h"
 #include "src/renderer/pipelines/environment/environment_descriptor_layouts.h"
@@ -197,11 +198,11 @@ void Engine::updateSceneData(VkCommandBuffer cmd) const
     const bool bIsFrameZero = frameNumber == 0;
 
     //glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(frameNumber) - 0.5f;
-    glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(frameNumber) * 2.0f - 1.0f;
+    glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(bIsFrameZero ? frameNumber : frameNumber - 1) * 2.0f - 1.0f;
     prevJitter.x /= static_cast<float>(renderExtent.width);
     prevJitter.y /= static_cast<float>(renderExtent.height);
     //glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber + 1) - 0.5f;
-    glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber + 1) * 2.0f - 1.0f;
+    glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber) * 2.0f - 1.0f;
     currentJitter.x /= static_cast<float>(renderExtent.width);
     currentJitter.y /= static_cast<float>(renderExtent.height);
 
@@ -451,12 +452,12 @@ void Engine::update() const
     const glm::vec3 vertical = originalPosition + glm::vec3{0.0f, offset, 0.0f};
     const glm::vec3 horizontal = originalPosition + glm::vec3{0.0f, 0.0f, offset} + glm::vec3(2.0f, 0.0f, 0.0f);
 
-    cubeGameObject->setGlobalPosition(vertical);
-    cubeGameObject2->setGlobalPosition(horizontal);
+    cubeGameObject->setLocalPosition(vertical);
+    cubeGameObject2->setLocalPosition(horizontal);
 
     physics->update(deltaTime);
     player->update(deltaTime);
-    scene.updateSceneModelMatrices();
+    scene.updateSceneModelMatrices(getPreviousFrameOverlap(), getCurrentFrameOverlap());
 }
 
 void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects) const
@@ -690,8 +691,10 @@ void Engine::initScene()
     cube = new RenderObject{*context, *resourceManager, "assets/models/cube.gltf", renderObjectLayouts};
     primitives = new RenderObject{*context, *resourceManager, "assets/models/primitives/primitives.gltf", renderObjectLayouts};
 
-    cubeGameObject = cube->generateGameObject();
-    cubeGameObject2 = cube->generateGameObject();
+    cubeGameObject = cube->generateGameObject(0);
+    cubeGameObject->setName("Vertical Moving Cube");
+    cubeGameObject2 = cube->generateGameObject(0);
+    cubeGameObject2->setName("Horizontal Moving Cube");
     sponzaObject = sponza->generateGameObject();
     primitiveCubeGameObject = primitives->generateGameObject(0);
     primitives->attachToGameObject(player, 3);

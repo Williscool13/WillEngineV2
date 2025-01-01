@@ -100,6 +100,8 @@ public:
 
     const DescriptorBufferUniform& getFrustumCullingAddressesDescriptorBuffer() { return frustumCullingDescriptorBuffer; }
 
+    void updateInstanceData(int32_t instanceIndex, const glm::mat4& currentFrameModelMatrix, int32_t previousFrameOverlapIndex, int32_t currentFrameOverlapIndex);
+
 private:
     void recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent);
 
@@ -121,7 +123,7 @@ private:
      * Updates the compute culling buffer with updated buffer addresses of the instance and indirect buffers
      * \n Should be called after updating either the instance/indirect buffer
      */
-    void updateComputeCullingBuffer();
+    void populateComputeCullingBuffer();
 
 private: // Model Data
     std::vector<VkSampler> samplers;

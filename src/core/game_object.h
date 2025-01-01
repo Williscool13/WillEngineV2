@@ -28,25 +28,25 @@ public:
 
     virtual void update(float deltaTime) {}
 
+    void setName(std::string newName);
 public: // Hierarchy
     /**
      * Adds a \code GameObject\endcode as a child to this \code GameObject\endcode while maintaining its position in WorldSpace.
      * \n Will reparent the child if that child has a parent.
      * @param child
-     * @param maintainWorldPosition
+     * @param maintainWorldTransform
      */
-    void addChild(GameObject* child, bool maintainWorldPosition = true);
+    void addChild(GameObject* child, bool maintainWorldTransform = true);
 
     /**
      * If exists, removes a child from the children array and unparents the child.
-     * @param child
      */
-    void removeChild(GameObject* child);
+    void removeChild(GameObject* child, GameObject* newParent = nullptr);
 
     /**
      * Unparents a child while maintaining its position in WorldSpace
      */
-    void unparent();
+    void reparent(GameObject* newParent = nullptr, bool maintainWorldTransform = true);
 
 
     GameObject* getParent();
@@ -68,7 +68,10 @@ private: // Transform
     Transform transform{};
     Transform cachedGlobalTransform{};
     bool bIsGlobalTransformDirty{true};
-    bool bModelPendingUpdate{true};
+    /**
+     * Will update the model matrix on GPU if this number is greater than 0
+     */
+    int32_t framesToUpdate{2};
 
     void dirty();
 
@@ -119,17 +122,13 @@ public: // Rendering
     /**
      * Update the model transform in the RenderObject. Only applicable if this gameobject has a pRenderObject associated with it.
      */
-    void recursiveUpdateModelMatrix();
+    void recursiveUpdateModelMatrix(int32_t previousFrameOverlapIndex, int32_t currentFrameOverlapIndex);
 
 private: // Rendering
     /**
       * If true, the model matrix will never be updated from defaults.
       */
     bool bIsStatic{false};
-    /**
-     * If true, the model matrix in the mapped CPU buffer of the RenderObject will be updated in the following frame
-     */
-    bool bModelUpdatedLastFrame{true};
     /**
      * The render object that is responsible for drawing this gameobject's model
      */

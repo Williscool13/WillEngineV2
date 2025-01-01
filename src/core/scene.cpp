@@ -125,7 +125,7 @@ void Scene::parentGameObject(GameObject* obj)
     index = getIndexInVector(obj, currChildren);
     if (index == -1 || index == 0) { return; }
 
-    currChildren[index - 1]->addChild(obj);
+    currChildren[index - 1]->addChild(obj, true);
 }
 
 void Scene::unparentGameObject(GameObject* obj)
@@ -205,9 +205,9 @@ int Scene::getIndexInVector(GameObject* obj, std::vector<GameObject*> vector)
     return -1;
 }
 
-void Scene::updateSceneModelMatrices() const
+void Scene::updateSceneModelMatrices(const int32_t previousFrameOverlapIndex, const int32_t currentFrameOverlapIndex) const
 {
-    sceneRoot->recursiveUpdateModelMatrix();
+    sceneRoot->recursiveUpdateModelMatrix(previousFrameOverlapIndex, currentFrameOverlapIndex);
 }
 
 void Scene::deleteGameObjectRecursive(GameObject* obj)
