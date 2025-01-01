@@ -50,11 +50,11 @@ void EnvironmentDescriptorLayouts::createLayouts()
 
 void EnvironmentDescriptorLayouts::cleanup() const
 {
-    if (context.device != VK_NULL_HANDLE) {
-        if (equiImageLayout) vkDestroyDescriptorSetLayout(context.device, equiImageLayout, nullptr);
-        if (cubemapStorageLayout) vkDestroyDescriptorSetLayout(context.device, cubemapStorageLayout, nullptr);
-        if (cubemapSamplerLayout) vkDestroyDescriptorSetLayout(context.device, cubemapSamplerLayout, nullptr);
-        if (lutLayout) vkDestroyDescriptorSetLayout(context.device, lutLayout, nullptr);
-        if (environmentMapLayout) vkDestroyDescriptorSetLayout(context.device, environmentMapLayout, nullptr);
-    }
+    if (context.device == VK_NULL_HANDLE) { return; }
+
+    if (equiImageLayout) vkDestroyDescriptorSetLayout(context.device, equiImageLayout, nullptr);
+    if (cubemapStorageLayout) vkDestroyDescriptorSetLayout(context.device, cubemapStorageLayout, nullptr);
+    if (cubemapSamplerLayout) vkDestroyDescriptorSetLayout(context.device, cubemapSamplerLayout, nullptr);
+    if (lutLayout) vkDestroyDescriptorSetLayout(context.device, lutLayout, nullptr);
+    if (environmentMapLayout) vkDestroyDescriptorSetLayout(context.device, environmentMapLayout, nullptr);
 }

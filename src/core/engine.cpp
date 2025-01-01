@@ -9,15 +9,11 @@
 #include <filesystem>
 
 #include "input.h"
-#include <fastgltf/core.hpp>
-#include <fastgltf/types.hpp>
-#include <fastgltf/tools.hpp>
 
 #include "imgui_wrapper.h"
 #include "Jolt/Physics/Body/BodyCreationSettings.h"
 #include "src/game/player/player_character.h"
 #include "src/util/halton.h"
-#include "src/util/file_utils.h"
 #include "src/util/time_utils.h"
 
 #include "src/renderer/immediate_submitter.h"
@@ -39,6 +35,7 @@
 #include "src/physics/physics.h"
 #include "src/physics/physics_filters.h"
 #include "src/physics/physics_utils.h"
+#include "src/renderer/lighting/shadows/shadow_map_descriptor_layouts.h"
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -58,10 +55,10 @@ void Engine::init()
     {
         // We initialize SDL and create a window with it.
         SDL_Init(SDL_INIT_VIDEO);
-        //constexpr auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE);
-        //windowExtent = {1920, 1080};
+        constexpr auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE);
+        windowExtent = {1920, 1080};
 
-        constexpr auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+        //constexpr auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
 
         window = SDL_CreateWindow(
@@ -116,6 +113,7 @@ void Engine::init()
     Physics::Set(physics);
 
     environmentDescriptorLayouts = new EnvironmentDescriptorLayouts(*context);
+    shadowMapDescriptorLayouts = new ShadowMapDescriptorLayouts(*context);
     sceneDescriptorLayouts = new SceneDescriptorLayouts(*context);
     frustumCullDescriptorLayouts = new FrustumCullingDescriptorLayouts(*context);
     renderObjectDescriptorLayout = new RenderObjectDescriptorLayout(*context);
@@ -198,9 +196,11 @@ void Engine::updateSceneData() const
 {
     const bool bIsFrameZero = frameNumber == 0;
 
+    //glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(frameNumber) - 0.5f;
     glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(frameNumber) * 2.0f - 1.0f;
     prevJitter.x /= static_cast<float>(renderExtent.width);
     prevJitter.y /= static_cast<float>(renderExtent.height);
+    //glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber + 1) - 0.5f;
     glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber + 1) * 2.0f - 1.0f;
     currentJitter.x /= static_cast<float>(renderExtent.width);
     currentJitter.y /= static_cast<float>(renderExtent.height);
@@ -492,6 +492,7 @@ void Engine::cleanup()
     vkDeviceWaitIdle(context->device);
 
     delete environmentDescriptorLayouts;
+    delete shadowMapDescriptorLayouts;
     delete sceneDescriptorLayouts;
     delete frustumCullDescriptorLayouts;
     delete renderObjectDescriptorLayout;
@@ -518,9 +519,9 @@ void Engine::cleanup()
     // destroy all other resources
     //mainDeletionQueue.flush();
     resourceManager->destroyBuffer(sceneDataBuffer);
-    sceneDataDescriptorBuffer.destroy(context->device, context->allocator);
+    sceneDataDescriptorBuffer.destroy(context->allocator);
     resourceManager->destroyBuffer(spectateSceneDataBuffer);
-    spectateSceneDataDescriptorBuffer.destroy(context->device, context->allocator);
+    spectateSceneDataDescriptorBuffer.destroy(context->allocator);
 
     // Destroy these after destroying all render objects
     vkDestroyDescriptorSetLayout(context->device, emptyDescriptorSetLayout, nullptr);
@@ -575,13 +576,13 @@ void Engine::initRenderer()
                                                    VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
     sceneDataBuffer = resourceManager->createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-    sceneDataDescriptorBuffer = DescriptorBufferUniform(context->instance, context->device, context->physicalDevice, context->allocator, sceneDescriptorLayouts->getSceneDataLayout(), 1);
+    sceneDataDescriptorBuffer = DescriptorBufferUniform(*context, sceneDescriptorLayouts->getSceneDataLayout(), 1);
     std::vector<DescriptorUniformData> sceneDataBuffers{1};
     sceneDataBuffers[0] = DescriptorUniformData{.uniformBuffer = sceneDataBuffer, .allocSize = sizeof(SceneData)};
     sceneDataDescriptorBuffer.setupData(context->device, sceneDataBuffers);
 
     spectateSceneDataBuffer = resourceManager->createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-    spectateSceneDataDescriptorBuffer = DescriptorBufferUniform(context->instance, context->device, context->physicalDevice, context->allocator, sceneDescriptorLayouts->getSceneDataLayout(), 1);
+    spectateSceneDataDescriptorBuffer = DescriptorBufferUniform(*context, sceneDescriptorLayouts->getSceneDataLayout(), 1);
     sceneDataBuffers[0] = DescriptorUniformData{.uniformBuffer = spectateSceneDataBuffer, .allocSize = sizeof(SceneData)};
     spectateSceneDataDescriptorBuffer.setupData(context->device, sceneDataBuffers);
 
@@ -634,10 +635,10 @@ void Engine::initScene()
     // There is limit of 10!
     environmentMap = new Environment(*context, *resourceManager, *immediate, *environmentDescriptorLayouts);
     const std::filesystem::path envMapSource = "assets/environments";
-    environmentMap->loadEnvironment("Meadow", (envMapSource / "meadow_4k.hdr").string().c_str(), 0);
-    environmentMap->loadEnvironment("Wasteland", (envMapSource / "wasteland_clouds_puresky_4k.hdr").string().c_str(), 2);
-    environmentMap->loadEnvironment("Overcast Sky", (envMapSource / "kloofendal_overcast_puresky_4k.hdr").string().c_str(), 4);
-    environmentMap->loadEnvironment("Sunset Sky", (envMapSource / "belfast_sunset_puresky_4k.hdr").string().c_str(), 7);
+    //environmentMap->loadEnvironment("Meadow", (envMapSource / "meadow_4k.hdr").string().c_str(), 0);
+    //environmentMap->loadEnvironment("Wasteland", (envMapSource / "wasteland_clouds_puresky_4k.hdr").string().c_str(), 2);
+    environmentMap->loadEnvironment("Overcast Sky", (envMapSource / "kloofendal_overcast_puresky_4k.hdr").string().c_str(), 0);
+    //environmentMap->loadEnvironment("Sunset Sky", (envMapSource / "belfast_sunset_puresky_4k.hdr").string().c_str(), 7);
 
     //testRenderObject = new RenderObject{this, "assets/models/BoxTextured/glTF/BoxTextured.gltf"};
     //testRenderObject = new RenderObject{this, "assets/models/structure_mat.glb"};

@@ -17,28 +17,32 @@
 #include "vk_helpers.h"
 
 
-struct DescriptorImageData {
+class VulkanContext;
+
+struct DescriptorImageData
+{
     VkDescriptorType type{VK_DESCRIPTOR_TYPE_SAMPLER};
     VkDescriptorImageInfo imageInfo{};
     bool bIsPadding{false};
 };
 
-struct DescriptorUniformData {
-    AllocatedBuffer uniformBuffer;
-    size_t allocSize;
+struct DescriptorUniformData
+{
+    AllocatedBuffer uniformBuffer{};
+    size_t allocSize{};
 };
 
 
-class DescriptorBuffer {
+class DescriptorBuffer
+{
 public:
     DescriptorBuffer() = default;
 
     virtual ~DescriptorBuffer() = default;
 
-    DescriptorBuffer(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator,
-                     VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount = 10);
+    DescriptorBuffer(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount = 10);
 
-    void destroy(VkDevice device, VmaAllocator allocator);
+    void destroy(VmaAllocator allocator) const;
 
     void freeDescriptorBuffer(int index);
 
@@ -82,21 +86,18 @@ protected:
     static bool devicePropertiesRetrieved;
 };
 
-class DescriptorBufferUniform : public DescriptorBuffer {
+class DescriptorBufferUniform final : public DescriptorBuffer
+{
 public:
     DescriptorBufferUniform() = default;
 
     /**
      *
-     * @param instance
-     * @param device
-     * @param physicalDevice
-     * @param allocator
+     * @param context
      * @param descriptorSetLayout
      * @param maxObjectCount
      */
-    DescriptorBufferUniform(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator,
-                            VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount = 10);
+    DescriptorBufferUniform(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount = 10);
 
     /**
      * Allocates a descriptor set instance to a free index in the descriptor buffer. The vector passed to this should be equal in layout to
@@ -105,17 +106,17 @@ public:
      * @param uniformBuffers the uniform buffer and their corresponding total sizes to insert to the descriptor buffer
      * @return the index of the allocated descriptor set. Store and use when binding during draw call.
      */
-    int32_t setupData(VkDevice device, std::vector<DescriptorUniformData>& uniformBuffers);
+    int32_t setupData(VkDevice device, const std::vector<DescriptorUniformData>& uniformBuffers);
 
     VkBufferUsageFlagBits getBufferUsageFlags() const override;
 };
 
-class DescriptorBufferSampler : public DescriptorBuffer {
+class DescriptorBufferSampler final : public DescriptorBuffer
+{
 public:
     DescriptorBufferSampler() = default;
 
-    DescriptorBufferSampler(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator,
-                            VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount = 10);
+    DescriptorBufferSampler(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount = 10);
 
     /**
      * Allocates a descriptor set instance to a free index in the descriptor buffer. The vector passed to this should be equal in layout to

@@ -31,6 +31,7 @@
 #include "src/renderer/environment/environment.h"
 #include "src/renderer/pipelines/post_processing/post_process_types.h"
 
+class ShadowMapDescriptorLayouts;
 class ImguiWrapper;
 class PlayerCharacter;
 class Physics;
@@ -162,6 +163,7 @@ private: // Scene
 
 private: // Scene Descriptors
     EnvironmentDescriptorLayouts* environmentDescriptorLayouts = nullptr;
+    ShadowMapDescriptorLayouts* shadowMapDescriptorLayouts = nullptr;
     SceneDescriptorLayouts* sceneDescriptorLayouts = nullptr;
     FrustumCullingDescriptorLayouts* frustumCullDescriptorLayouts = nullptr;
     RenderObjectDescriptorLayout* renderObjectDescriptorLayout = nullptr;
@@ -177,7 +179,7 @@ private: // Scene Descriptors
 
     bool bEnableTaa{true};
     bool bEnableJitter{true};
-    float taaBlend{0.15f};
+    float taaBlend{0.05f};
 
     PostProcessType postProcessFlags{PostProcessType::Sharpening | PostProcessType::Tonemapping};
 

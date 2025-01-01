@@ -22,7 +22,7 @@ void PostProcessPipeline::init()
     createPipelineLayout();
     createPipeline();
 
-    descriptorBuffer = DescriptorBufferSampler(context.instance, context.device, context.physicalDevice, context.allocator, descriptorSetLayout, 1);
+    descriptorBuffer = DescriptorBufferSampler(context, descriptorSetLayout, 1);
 }
 
 void PostProcessPipeline::createDescriptorLayout()
@@ -151,5 +151,5 @@ void PostProcessPipeline::cleanup()
         descriptorSetLayout = VK_NULL_HANDLE;
     }
 
-    descriptorBuffer.destroy(context.device, context.allocator);
+    descriptorBuffer.destroy(context.allocator);
 }

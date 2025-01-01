@@ -62,10 +62,6 @@ void OrbitCamera::update(const float deltaTime)
     transform.setPosition(newPosition);
 
     updateViewMatrix();
-    // const glm::vec3 newPosition = orbitTarget->transform.getPosition() - transform.getRotation() * armOffset;
-    // transform.setPosition(newPosition);
-
-    //updateViewMatrix();
 }
 
 void OrbitCamera::setOrbitTarget(GameObject* gameObject)

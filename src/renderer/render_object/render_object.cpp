@@ -27,7 +27,7 @@ RenderObject::RenderObject(const VulkanContext& context, const ResourceManager& 
     const VkDeviceAddress materialBufferAddress = resourceManager.getBufferAddress(materialBuffer);
     bufferAddresses = resourceManager.createBuffer(sizeof(VkDeviceAddress) * 2, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
     memcpy(bufferAddresses.info.pMappedData, &materialBufferAddress, sizeof(VkDeviceAddress));
-    addressesDescriptorBuffer = DescriptorBufferUniform(context.instance, context.device, context.physicalDevice, context.allocator, descriptorLayouts.addressesLayout, 1);
+    addressesDescriptorBuffer = DescriptorBufferUniform(context, descriptorLayouts.addressesLayout, 1);
 
     DescriptorUniformData addressesUniformData;
     addressesUniformData.allocSize = sizeof(VkDeviceAddress) * 2;
@@ -44,8 +44,7 @@ RenderObject::RenderObject(const VulkanContext& context, const ResourceManager& 
     resourceManager.copyBuffer(meshBoundsStaging, meshBoundsBuffer, sizeof(BoundingSphere) * boundingSpheres.size());
     resourceManager.destroyBuffer(meshBoundsStaging);
 
-    frustumCullingDescriptorBuffer = DescriptorBufferUniform(context.instance, context.device, context.physicalDevice,
-                                                             context.allocator, descriptorLayouts.frustumCullLayout, 1);
+    frustumCullingDescriptorBuffer = DescriptorBufferUniform(context, descriptorLayouts.frustumCullLayout, 1);
     frustumBufferAddresses = resourceManager.createBuffer(sizeof(FrustumCullingBuffers),
                                                           VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT |
                                                           VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
@@ -72,9 +71,9 @@ RenderObject::~RenderObject()
     resourceManager.destroyBuffer(meshIndicesBuffer);
     resourceManager.destroyBuffer(frustumBufferAddresses);
 
-    textureDescriptorBuffer.destroy(context.device, context.allocator);
-    addressesDescriptorBuffer.destroy(context.device, context.allocator);
-    frustumCullingDescriptorBuffer.destroy(context.device, context.allocator);
+    textureDescriptorBuffer.destroy(context.allocator);
+    addressesDescriptorBuffer.destroy(context.allocator);
+    frustumCullingDescriptorBuffer.destroy(context.allocator);
 
     for (auto& image : images) {
         if (image.image == resourceManager.getErrorCheckerboardImage().image || image.image == resourceManager.getWhiteImage().image) {
@@ -172,15 +171,14 @@ void RenderObject::parseModel(std::string_view gltfFilepath, VkDescriptorSetLayo
         }
         // images
         {
-            for (AllocatedImage image : images) {
+            for (AllocatedImage& image : images) {
                 VkDescriptorImageInfo imageInfo{.imageView = image.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
                 textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageInfo, false});
             }
         }
 
         // init descriptor buffer
-        textureDescriptorBuffer = DescriptorBufferSampler(context.instance, context.device, context.physicalDevice,
-                                                          context.allocator, texturesLayout, 1);
+        textureDescriptorBuffer = DescriptorBufferSampler(context, texturesLayout, 1);
         textureDescriptorBuffer.setupData(context.device, textureDescriptors);
     }
 

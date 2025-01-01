@@ -208,7 +208,7 @@ Environment::Environment(VulkanContext& context, ResourceManager& resourceManage
 
     // Create LUT here, because its the same for all environment maps
     {
-        lutDescriptorBuffer = DescriptorBufferSampler(context.instance, context.device, context.physicalDevice, context.allocator, descriptorLayouts.getLutLayout(), 1);
+        lutDescriptorBuffer = DescriptorBufferSampler(context, descriptorLayouts.getLutLayout(), 1);
 
         lutImage = resourceManager.createImage(LUT_IMAGE_EXTENT, VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
 
@@ -224,17 +224,13 @@ Environment::Environment(VulkanContext& context, ResourceManager& resourceManage
         generateLutImmediate();
     }
 
-    equiImageDescriptorBuffer = DescriptorBufferSampler(context.instance, context.device, context.physicalDevice, context.allocator,
-                                                        descriptorLayouts.getEquiImageLayout(), 1);
+    equiImageDescriptorBuffer = DescriptorBufferSampler(context, descriptorLayouts.getEquiImageLayout(), 1);
     // 0 is original cubemap, 1 is diff irr, 2 is spec pref, 3 to 13 is for 10 mip levels of spec pref
-    cubemapStorageDescriptorBuffer = DescriptorBufferSampler(context.instance, context.device, context.physicalDevice, context.allocator,
-                                                             descriptorLayouts.getCubemapStorageLayout(), 12);
+    cubemapStorageDescriptorBuffer = DescriptorBufferSampler(context, descriptorLayouts.getCubemapStorageLayout(), 12);
 
     // sample cubemap
-    cubemapDescriptorBuffer = DescriptorBufferSampler(context.instance, context.device, context.physicalDevice, context.allocator,
-                                                      descriptorLayouts.getCubemapSamplerLayout(), MAX_ENVIRONMENT_MAPS);
-    diffSpecMapDescriptorBuffer = DescriptorBufferSampler(context.instance, context.device, context.physicalDevice, context.allocator,
-                                                          descriptorLayouts.getEnvironmentMapLayout(), MAX_ENVIRONMENT_MAPS);
+    cubemapDescriptorBuffer = DescriptorBufferSampler(context, descriptorLayouts.getCubemapSamplerLayout(), MAX_ENVIRONMENT_MAPS);
+    diffSpecMapDescriptorBuffer = DescriptorBufferSampler(context, descriptorLayouts.getEnvironmentMapLayout(), MAX_ENVIRONMENT_MAPS);
 }
 
 Environment::~Environment()
@@ -254,17 +250,16 @@ Environment::~Environment()
     cubemapToSpecularPipelineLayout = VK_NULL_HANDLE;
     cubemapToSpecularPipeline = VK_NULL_HANDLE;
 
-    lutDescriptorBuffer.destroy(context.device, context.allocator);
+    lutDescriptorBuffer.destroy(context.allocator);
     resourceManager.destroyImage(lutImage);
     lutImage = {};
-    lutDescriptorBuffer = DescriptorBufferSampler();
 
     vkDestroySampler(context.device, sampler, nullptr);
 
-    cubemapStorageDescriptorBuffer.destroy(context.device, context.allocator);
-    cubemapDescriptorBuffer.destroy(context.device, context.allocator);
-    equiImageDescriptorBuffer.destroy(context.device, context.allocator);
-    diffSpecMapDescriptorBuffer.destroy(context.device, context.allocator);
+    cubemapStorageDescriptorBuffer.destroy(context.allocator);
+    cubemapDescriptorBuffer.destroy(context.allocator);
+    equiImageDescriptorBuffer.destroy(context.allocator);
+    diffSpecMapDescriptorBuffer.destroy(context.allocator);
 
     for (EnvironmentMapData& envMap : environmentMaps) {
         resourceManager.destroyImage(envMap.cubemapImage);
@@ -287,7 +282,7 @@ void Environment::loadEnvironment(const char* name, const char* path, int enviro
     int width, height, channels;
     if (float* imageData = stbi_loadf(newEnvMapData.sourcePath.c_str(), &width, &height, &channels, 4)) {
         equiImage = resourceManager.createImage(imageData, width * height * 4 * sizeof(float), VkExtent3D{static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1},
-                                         VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, true);
+                                                VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, true);
         stbi_image_free(imageData);
     } else {
         fmt::print("Failed to load Equirectangular Image ({})\n", path);
@@ -297,8 +292,8 @@ void Environment::loadEnvironment(const char* name, const char* path, int enviro
 
     // Equi -> Cubemap - recreate in case resolution changed
     newEnvMapData.cubemapImage = resourceManager.createCubemap(extents, VK_FORMAT_R32G32B32A32_SFLOAT,
-                                                        VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-                                                        VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
+                                                               VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
+                                                               VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
 
     // add new cubemap image to descriptor buffer
     VkDescriptorImageInfo equiImageDescriptorInfo{};
@@ -334,9 +329,9 @@ void Environment::loadEnvironment(const char* name, const char* path, int enviro
     auto elapsed0 = std::chrono::duration_cast<std::chrono::microseconds>(end0 - start);
     fmt::print("Environment Map: {} | Cubemap {:.1f}ms | ", file_utils::getFileName(path), elapsed0.count() / 1000.0f);
     newEnvMapData.specDiffCubemap = resourceManager.createCubemap(SPECULAR_PREFILTERED_BASE_EXTENTS, VK_FORMAT_R32G32B32A32_SFLOAT,
-                                                           VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
-                                                           VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
-                                                           VK_IMAGE_USAGE_STORAGE_BIT, true);
+                                                                  VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
+                                                                  VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
+                                                                  VK_IMAGE_USAGE_STORAGE_BIT, true);
 
 
     AllocatedCubemap specDiffCubemap = {};

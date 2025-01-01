@@ -21,7 +21,7 @@ void TaaPipeline::init(VkDescriptorSetLayout sceneDataLayout)
     createPipelineLayout(sceneDataLayout);
     createPipeline();
 
-    descriptorBuffer = DescriptorBufferSampler(context.instance, context.device, context.physicalDevice, context.allocator, descriptorSetLayout, 1);
+    descriptorBuffer = DescriptorBufferSampler(context, descriptorSetLayout, 1);
 }
 
 void TaaPipeline::createDescriptorLayout()
@@ -183,5 +183,5 @@ void TaaPipeline::cleanup()
         descriptorSetLayout = VK_NULL_HANDLE;
     }
 
-    descriptorBuffer.destroy(context.device, context.allocator);
+    descriptorBuffer.destroy(context.allocator);
 }

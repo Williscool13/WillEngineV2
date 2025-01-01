@@ -6,7 +6,6 @@
 #define ENVIRONMENT_DESCRIPTOR_LAYOUTS_H
 
 #include <vulkan/vulkan_core.h>
-
 #include "src/renderer/vulkan_context.h"
 
 class EnvironmentDescriptorLayouts

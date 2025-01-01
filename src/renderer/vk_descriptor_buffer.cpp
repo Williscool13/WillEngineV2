@@ -4,17 +4,18 @@
 
 #include "vk_descriptor_buffer.h"
 
+#include "vulkan_context.h"
+
 VkPhysicalDeviceDescriptorBufferPropertiesEXT DescriptorBuffer::deviceDescriptorBufferProperties = {};
 bool DescriptorBuffer::devicePropertiesRetrieved = false;
 
-class DescriptorBufferException : public std::runtime_error
+class DescriptorBufferException final : public std::runtime_error
 {
 public:
     explicit DescriptorBufferException(const std::string& message) : std::runtime_error(message) {}
 };
 
-DescriptorBuffer::DescriptorBuffer(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator,
-                                   VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount)
+DescriptorBuffer::DescriptorBuffer(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount)
 {
     if (!devicePropertiesRetrieved) {
         VkPhysicalDeviceProperties2KHR device_properties{};
@@ -22,7 +23,7 @@ DescriptorBuffer::DescriptorBuffer(VkInstance instance, VkDevice device, VkPhysi
         deviceDescriptorBufferProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT;
         device_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR;
         device_properties.pNext = &deviceDescriptorBufferProperties;
-        vkGetPhysicalDeviceProperties2(physicalDevice, &device_properties);
+        vkGetPhysicalDeviceProperties2(context.physicalDevice, &device_properties);
         devicePropertiesRetrieved = true;
     }
 
@@ -30,10 +31,10 @@ DescriptorBuffer::DescriptorBuffer(VkInstance instance, VkDevice device, VkPhysi
 
 
     // Get size per Descriptor Set
-    vkGetDescriptorSetLayoutSizeEXT(device, descriptorSetLayout, &descriptorBufferSize);
+    vkGetDescriptorSetLayoutSizeEXT(context.device, descriptorSetLayout, &descriptorBufferSize);
     descriptorBufferSize = vk_helpers::getAlignedSize(descriptorBufferSize, deviceDescriptorBufferProperties.descriptorBufferOffsetAlignment);
     // Get Descriptor Buffer offset
-    vkGetDescriptorSetLayoutBindingOffsetEXT(device, descriptorSetLayout, 0u, &descriptorBufferOffset);
+    vkGetDescriptorSetLayoutBindingOffsetEXT(context.device, descriptorSetLayout, 0u, &descriptorBufferOffset);
 
     freeIndices = std::unordered_set<int>();
     for (int i = 0; i < maxObjectCount; i++) { freeIndices.insert(i); }
@@ -41,13 +42,13 @@ DescriptorBuffer::DescriptorBuffer(VkInstance instance, VkDevice device, VkPhysi
     this->maxObjectCount = maxObjectCount;
 }
 
-void DescriptorBuffer::destroy(VkDevice device, VmaAllocator allocator)
+void DescriptorBuffer::destroy(VmaAllocator allocator) const
 {
     //TODO: Maybe need to loop through all active indices and free those resources too? idk
     vmaDestroyBuffer(allocator, descriptorBuffer.buffer, descriptorBuffer.allocation);
 }
 
-void DescriptorBuffer::freeDescriptorBuffer(int index)
+void DescriptorBuffer::freeDescriptorBuffer(const int index)
 {
     freeIndices.insert(index);
 }
@@ -62,9 +63,8 @@ VkDescriptorBufferBindingInfoEXT DescriptorBuffer::getDescriptorBufferBindingInf
     return descriptor_buffer_binding_info;
 }
 
-DescriptorBufferUniform::DescriptorBufferUniform(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator,
-                                                 VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount)
-    : DescriptorBuffer(instance, device, physicalDevice, allocator, descriptorSetLayout, maxObjectCount)
+DescriptorBufferUniform::DescriptorBufferUniform(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount)
+    : DescriptorBuffer(context, descriptorSetLayout, maxObjectCount)
 {
     VkBufferCreateInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     bufferInfo.pNext = nullptr;
@@ -75,12 +75,12 @@ DescriptorBufferUniform::DescriptorBufferUniform(VkInstance instance, VkDevice d
     VmaAllocationCreateInfo vmaAllocInfo = {};
     vmaAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
     vmaAllocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    VK_CHECK(vmaCreateBuffer(allocator, &bufferInfo, &vmaAllocInfo, &descriptorBuffer.buffer, &descriptorBuffer.allocation, &descriptorBuffer.info));
+    VK_CHECK(vmaCreateBuffer(context.allocator, &bufferInfo, &vmaAllocInfo, &descriptorBuffer.buffer, &descriptorBuffer.allocation, &descriptorBuffer.info));
 
-    descriptorBufferGpuAddress = vk_helpers::getDeviceAddress(device, descriptorBuffer.buffer);
+    descriptorBufferGpuAddress = vk_helpers::getDeviceAddress(context.device, descriptorBuffer.buffer);
 }
 
-int DescriptorBufferUniform::setupData(VkDevice device, std::vector<DescriptorUniformData>& uniformBuffers)
+int DescriptorBufferUniform::setupData(VkDevice device, const std::vector<DescriptorUniformData>& uniformBuffers)
 {
     // TODO: Manage what happens if attempt to allocate a descriptor buffer set but out of space
     if (freeIndices.empty()) {
@@ -94,7 +94,7 @@ int DescriptorBufferUniform::setupData(VkDevice device, std::vector<DescriptorUn
     uint64_t accum_offset{descriptorBufferOffset};
 
     for (int i = 0; i < uniformBuffers.size(); i++) {
-        VkDeviceAddress uniformBufferAddress = vk_helpers::getDeviceAddress(device, uniformBuffers[i].uniformBuffer.buffer);
+        const VkDeviceAddress uniformBufferAddress = vk_helpers::getDeviceAddress(device, uniformBuffers[i].uniformBuffer.buffer);
 
 
         VkDescriptorAddressInfoEXT descriptorAddressInfo = {};
@@ -134,9 +134,8 @@ VkBufferUsageFlagBits DescriptorBufferUniform::getBufferUsageFlags() const
     return VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT;
 }
 
-DescriptorBufferSampler::DescriptorBufferSampler(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator,
-                                                 VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount)
-    : DescriptorBuffer(instance, device, physicalDevice, allocator, descriptorSetLayout, maxObjectCount)
+DescriptorBufferSampler::DescriptorBufferSampler(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, const int maxObjectCount)
+    : DescriptorBuffer(context, descriptorSetLayout, maxObjectCount)
 {
     VkBufferCreateInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     bufferInfo.pNext = nullptr;
@@ -148,14 +147,14 @@ DescriptorBufferSampler::DescriptorBufferSampler(VkInstance instance, VkDevice d
     VmaAllocationCreateInfo vmaAllocInfo = {};
     vmaAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
     vmaAllocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    VK_CHECK(vmaCreateBuffer(allocator, &bufferInfo, &vmaAllocInfo, &descriptorBuffer.buffer, &descriptorBuffer.allocation, &descriptorBuffer.info));
+    VK_CHECK(vmaCreateBuffer(context.allocator, &bufferInfo, &vmaAllocInfo, &descriptorBuffer.buffer, &descriptorBuffer.allocation, &descriptorBuffer.info));
 
-    descriptorBufferGpuAddress = vk_helpers::getDeviceAddress(device, descriptorBuffer.buffer);
+    descriptorBufferGpuAddress = vk_helpers::getDeviceAddress(context.device, descriptorBuffer.buffer);
 }
 
 int DescriptorBufferSampler::setupData(VkDevice device, const std::vector<DescriptorImageData>& imageBuffers, const int index /*= -1*/)
 {
-    int descriptorBufferIndex{};
+    int descriptorBufferIndex;
     if (index < 0) {
         // TODO: Manage what happens if attempt to allocate a descriptor buffer set but out of space
         if (freeIndices.empty()) {
@@ -206,7 +205,7 @@ int DescriptorBufferSampler::setupData(VkDevice device, const std::vector<Descri
         VkDescriptorGetInfoEXT image_descriptor_info{VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT};
         image_descriptor_info.type = currentData.type;
         image_descriptor_info.pNext = nullptr;
-        size_t descriptor_size{};
+        size_t descriptor_size;
 
         switch (currentData.type) {
             case VK_DESCRIPTOR_TYPE_SAMPLER:

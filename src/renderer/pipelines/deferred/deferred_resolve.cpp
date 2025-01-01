@@ -25,7 +25,7 @@ void DeferredResolvePipeline::init(const DeferredResolvePipelineCreateInfo& crea
     createPipelineLayout();
     createPipeline();
 
-    resolveDescriptorBuffer = DescriptorBufferSampler(context.instance, context.device, context.physicalDevice, context.allocator, resolveTargetLayout, 1);
+    resolveDescriptorBuffer = DescriptorBufferSampler(context, resolveTargetLayout, 1);
 }
 
 void DeferredResolvePipeline::createDescriptorLayouts()
@@ -194,5 +194,5 @@ void DeferredResolvePipeline::cleanup()
         resolveTargetLayout = VK_NULL_HANDLE;
     }
 
-    resolveDescriptorBuffer.destroy(context.device, context.allocator);
+    resolveDescriptorBuffer.destroy(context.allocator);
 }
