@@ -136,17 +136,10 @@ void Physics::cleanup()
 
 void Physics::update(const float deltaTime)
 {
-    constexpr int collisionSteps = 1;
+    constexpr int collisionSteps = 10;
     physicsSystem->Update(deltaTime, collisionSteps, tempAllocator, jobSystem);
 
     updateTransforms();
-    /*timeAccumulator += deltaTime;
-    while (timeAccumulator >= FIXED_TIMESTEP) {
-        constexpr int collisionSteps = 4;
-        physicsSystem->Update(FIXED_TIMESTEP, collisionSteps, tempAllocator, jobSystem);
-        updateTransforms();
-        timeAccumulator -= FIXED_TIMESTEP;
-    }*/
 }
 
 JPH::BodyInterface& Physics::getBodyInterface() const
