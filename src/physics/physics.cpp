@@ -161,8 +161,8 @@ void Physics::addRigidBody(GameObject* obj, const JPH::ShapeRefC& shape, const b
 
     const JPH::BodyCreationSettings settings(
         shape,
-        physics_utils::ToJolt(obj->transform.getPosition()),
-        physics_utils::ToJolt(obj->transform.getRotation()),
+        physics_utils::ToJolt(obj->getGlobalPosition()),
+        physics_utils::ToJolt(obj->getGlobalRotation()),
         isDynamic ? JPH::EMotionType::Dynamic : JPH::EMotionType::Static,
         isDynamic ? Layers::MOVING : Layers::NON_MOVING
     );

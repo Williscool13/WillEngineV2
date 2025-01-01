@@ -18,13 +18,9 @@ public:
         if (!gameObject) return;
 
         const JPH::Vec3 position = bodyInterface.GetPosition(bodyId);
-        gameObject->transform.setPosition(glm::vec3(position.GetX(), position.GetY(), position.GetZ()));
-
-        // Get rotation as quaternion
         const JPH::Quat rotation = bodyInterface.GetRotation(bodyId);
-        gameObject->transform.setRotation(glm::quat(rotation.GetW(), rotation.GetX(), rotation.GetY(), rotation.GetZ()));
-
-        gameObject->dirty();
+        gameObject->setGlobalPosition(glm::vec3(position.GetX(), position.GetY(), position.GetZ()));
+        gameObject->setGlobalRotation(glm::quat(rotation.GetW(), rotation.GetX(), rotation.GetY(), rotation.GetZ()));
     }
 
     GameObject* gameObject = nullptr;

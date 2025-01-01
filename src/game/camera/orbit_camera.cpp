@@ -56,7 +56,7 @@ void OrbitCamera::update(const float deltaTime)
         transform.setRotation(newRotation);
     }
 
-    const glm::vec3 targetPos = glm::mix(lastTargetPos,orbitTarget->transform.getPosition(),deltaTime * followSpeed);
+    const glm::vec3 targetPos = glm::mix(lastTargetPos,orbitTarget->getGlobalPosition(),deltaTime * followSpeed);
     lastTargetPos = targetPos;
     const glm::vec3 newPosition = targetPos - transform.getRotation() * armOffset;
     transform.setPosition(newPosition);
@@ -67,6 +67,6 @@ void OrbitCamera::update(const float deltaTime)
 void OrbitCamera::setOrbitTarget(GameObject* gameObject)
 {
     orbitTarget = gameObject;
-    const glm::vec3 newPosition = orbitTarget->transform.getPosition() - transform.getRotation() * armOffset;
+    const glm::vec3 newPosition = orbitTarget->getGlobalPosition() - transform.getRotation() * armOffset;
     transform.setPosition(newPosition);
 }

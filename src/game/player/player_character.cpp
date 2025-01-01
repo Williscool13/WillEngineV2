@@ -30,7 +30,7 @@ PlayerCharacter::~PlayerCharacter()
     delete orbitCamera;
 }
 
-void PlayerCharacter::update(float deltaTime)
+void PlayerCharacter::update(const float deltaTime)
 {
     const Input& input = Input::Get();
     if (!input.isInFocus()) { return; }
@@ -40,17 +40,22 @@ void PlayerCharacter::update(float deltaTime)
     }
 
     if (input.isKeyPressed(SDLK_1)) {
-        currentCamera = freeCamera;
-        if (freeCamera && orbitCamera) {
-            freeCamera->transform.setPosition(orbitCamera->transform.getPosition());
-            freeCamera->transform.setRotation(orbitCamera->transform.getRotation());
+        if (currentCamera != freeCamera){
+            currentCamera = freeCamera;
+            if (freeCamera && orbitCamera) {
+                freeCamera->transform.setPosition(orbitCamera->transform.getPosition());
+                freeCamera->transform.setRotation(orbitCamera->transform.getRotation());
+            }
         }
+
     }
     if (input.isKeyPressed(SDLK_2)) {
-        currentCamera = orbitCamera;
+        if (currentCamera != orbitCamera) {
+            currentCamera = orbitCamera;
+        }
     }
 
-    if (currentCamera == orbitCamera) {
+    if (currentCamera && currentCamera == orbitCamera) {
         const glm::quat cameraRotation = currentCamera->transform.getRotation();
         const glm::vec3 forward = cameraRotation * glm::vec3(0.0f, 0.0f, -1.0f);
         const glm::vec3 right = cameraRotation * glm::vec3(-1.0f, 0.0f, 0.0f);
@@ -73,8 +78,7 @@ void PlayerCharacter::addForceToObject() const
     const RaycastHit result = physics_utils::raycast(currentCamera->getPosition(), direction, 100.0f, {}, dontHitPlayerFilter, {});
 
     if (result.hasHit) {
-        const GameObject* object = physics_utils::getGameObjectFromBody(result.hitBodyID);
-        if (object) {
+        if (const GameObject* object = physics_utils::getGameObjectFromBody(result.hitBodyID)) {
             physics_utils::addImpulseAtPosition(result.hitBodyID, normalize(direction) * 10000.0f, result.hitPosition);
             fmt::print("Object found: {}\n", object->getName());
         } else {

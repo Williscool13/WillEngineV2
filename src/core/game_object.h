@@ -53,7 +53,7 @@ public: // Hierarchy
 
     std::vector<GameObject*>& getChildren();
 
-    int getId() const { return gameObjectId; }
+    uint32_t getId() const { return gameObjectId; }
 
     std::string_view getName() const { return gameObjectName; }
 
@@ -64,20 +64,56 @@ protected: // Hierarchy
     uint32_t gameObjectId{};
     std::string gameObjectName{};
 
-public: // Transform
-    Transform transform{};
-
-    /**
-    * Should be called whenever transform is modified
-    */
-    void dirty();
-
 private: // Transform
-    glm::mat4 cachedWorldTransform{};
-    bool bIsTransformDirty{true};
+    Transform transform{};
+    Transform cachedGlobalTransform{};
+    bool bIsGlobalTransformDirty{true};
     bool bModelPendingUpdate{true};
 
-    glm::mat4 getModelMatrix();
+    void dirty();
+
+public: // Transform
+    glm::mat4 getModelMatrix() { return getGlobalTransform().getTRSMatrix(); }
+
+    const Transform& getLocalTransform() const { return transform; }
+    glm::vec3 getLocalPosition() const { return getLocalTransform().getPosition(); }
+    glm::quat getLocalRotation() const { return getLocalTransform().getRotation(); }
+    glm::vec3 getLocalScale() const { return getLocalTransform().getScale(); }
+
+    const Transform& getGlobalTransform();
+    glm::vec3 getGlobalPosition() { return getGlobalTransform().getPosition(); }
+    glm::quat getGlobalRotation() { return getGlobalTransform().getRotation(); }
+    glm::vec3 getGlobalScale()    { return getGlobalTransform().getScale(); }
+
+    void setLocalPosition(glm::vec3 localPosition);
+    void setLocalRotation(glm::quat localRotation);
+    void setLocalScale(glm::vec3 localScale);
+    void setLocalScale(const float localScale) { setLocalScale(glm::vec3(localScale)); }
+    void setLocalTransform(const Transform& newLocalTransform);
+
+    void setGlobalPosition(glm::vec3 globalPosition);
+    void setGlobalRotation(glm::quat globalRotation);
+    void setGlobalScale(glm::vec3 globalScale);
+    void setGlobalScale(const float globalScale) { setGlobalScale(glm::vec3(globalScale)); }
+    void setGlobalTransform(const Transform& newGlobalTransform);
+
+    void translate(const glm::vec3 translation)
+    {
+        transform.translate(translation);
+        dirty();
+    }
+
+    void rotate(const glm::quat rotation)
+    {
+        transform.rotate(rotation);
+        dirty();
+    }
+
+    void rotateAxis(const float angle, const glm::vec3& axis)
+    {
+        transform.rotateAxis(angle, axis);
+        dirty();
+    }
 
 public: // Rendering
     /**
@@ -101,7 +137,7 @@ private: // Rendering
     int32_t instanceIndex{-1};
 
 public: // Rendering
-    void setRenderObjectReference(RenderObject* owner, int32_t index)
+    void setRenderObjectReference(RenderObject* owner, const int32_t index)
     {
         pRenderObject = owner;
         instanceIndex = index;

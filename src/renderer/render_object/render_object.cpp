@@ -448,8 +448,6 @@ GameObject* RenderObject::generateGameObject()
         recursiveGenerateGameObject(renderNodes[rootNode], superRoot);
     }
 
-    superRoot->dirty();
-
     uploadIndirectBuffer();
     updateComputeCullingBuffer();
     return superRoot;
@@ -466,8 +464,7 @@ GameObject* RenderObject::generateGameObject(const int32_t meshIndex, const Tran
 
     attachToGameObject(gameObject, meshIndex);
 
-    gameObject->transform.setTransform(startingTransform);
-    gameObject->dirty();
+    gameObject->setGlobalTransform(startingTransform);
 
     return gameObject;
 }
@@ -549,8 +546,7 @@ void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, Gam
         currentInstanceCount++;
     }
 
-    gameObject->transform.setTransform(renderNode.transform);
-    gameObject->dirty();
+    gameObject->setLocalTransform(renderNode.transform);
     parent->addChild(gameObject, false);
 
     for (const auto& child : renderNode.children) {
