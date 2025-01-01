@@ -22,6 +22,7 @@
 #include <SDL.h>
 #include <fmt/format.h>
 #include <glm/glm.hpp>
+#include <src/renderer/renderer_constants.h>
 
 #include "imgui_wrapper.h"
 #include "scene.h"
@@ -47,8 +48,6 @@ class FrustumCullingPipeline;
 class FrustumCullingDescriptorLayouts;
 class EnvironmentDescriptorLayouts;
 class SceneDescriptorLayouts;
-constexpr unsigned int FRAME_OVERLAP = 2;
-constexpr char ENGINE_NAME[] = "Will Engine";
 
 struct DeletionQueue
 {
@@ -134,6 +133,7 @@ private: // Rendering
     // Main
     int64_t frameNumber{0};
     FrameData frames[FRAME_OVERLAP]{};
+    int32_t getPreviousFrameOverlap() const { return static_cast<int32_t>((frameNumber - 1) % FRAME_OVERLAP); }
     int32_t getCurrentFrameOverlap() const { return static_cast<int32_t>(frameNumber % FRAME_OVERLAP); }
     FrameData& getCurrentFrame() { return frames[frameNumber % FRAME_OVERLAP]; }
     bool bStopRendering{false};

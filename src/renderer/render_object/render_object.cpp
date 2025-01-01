@@ -449,7 +449,7 @@ GameObject* RenderObject::generateGameObject()
     }
 
     uploadIndirectBuffer();
-    updateComputeCullingBuffer();
+    populateComputeCullingBuffer();
     return superRoot;
 }
 
@@ -500,7 +500,7 @@ void RenderObject::attachToGameObject(GameObject* gameObject, const int32_t mesh
 
     // todo: maybe make user manually call this? gpu operations should be batched
     uploadIndirectBuffer();
-    updateComputeCullingBuffer();
+    populateComputeCullingBuffer();
 }
 
 InstanceData* RenderObject::getInstanceData(const int32_t index) const
@@ -517,6 +517,16 @@ InstanceData* RenderObject::getInstanceData(const int32_t index) const
     assert(reinterpret_cast<uintptr_t>(target) % alignof(InstanceData) == 0 && "Misaligned instance data access");
 
     return static_cast<InstanceData*>(target);
+}
+
+void RenderObject::updateInstanceData(const int32_t instanceIndex, const glm::mat4& currentFrameModelMatrix, const int32_t previousFrameOverlapIndex, const int32_t currentFrameOverlapIndex)
+{
+    InstanceData* pInstanceData = getInstanceData(instanceIndex);
+    if (pInstanceData == nullptr) { return; }
+
+    // temp
+    pInstanceData->previousModelMatrix = pInstanceData->currentModelMatrix;
+    pInstanceData->currentModelMatrix = currentFrameModelMatrix;
 }
 
 void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent)
@@ -603,7 +613,7 @@ void RenderObject::uploadIndirectBuffer()
     resourceManager.destroyBuffer(indirectStaging);
 }
 
-void RenderObject::updateComputeCullingBuffer()
+void RenderObject::populateComputeCullingBuffer()
 {
     if (drawIndirectBuffer.buffer == VK_NULL_HANDLE || modelMatrixBuffer.buffer == VK_NULL_HANDLE || meshBoundsBuffer.buffer == VK_NULL_HANDLE) {
         return;
