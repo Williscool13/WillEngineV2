@@ -133,7 +133,7 @@ private: // Rendering
     // Main
     int64_t frameNumber{0};
     FrameData frames[FRAME_OVERLAP]{};
-    int32_t getPreviousFrameOverlap() const { return static_cast<int32_t>((frameNumber - 1) % FRAME_OVERLAP); }
+    int32_t getPreviousFrameOverlap() const { return static_cast<int32_t>((frameNumber == 0 ? 0 : frameNumber - 1) % FRAME_OVERLAP); }
     int32_t getCurrentFrameOverlap() const { return static_cast<int32_t>(frameNumber % FRAME_OVERLAP); }
     FrameData& getCurrentFrame() { return frames[frameNumber % FRAME_OVERLAP]; }
     bool bStopRendering{false};
@@ -179,7 +179,7 @@ private: // Scene Descriptors
 
     bool bEnableTaa{true};
     bool bEnableJitter{true};
-    float taaBlend{0.05f};
+    float taaBlend{0.1f};
 
     PostProcessType postProcessFlags{PostProcessType::Sharpening | PostProcessType::Tonemapping};
 

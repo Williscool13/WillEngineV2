@@ -10,8 +10,7 @@
 
 #include "immediate_submitter.h"
 #include "resource_manager.h"
-#include "../../extern/half/half/half.hpp"
-#include "../core/engine.h"
+#include "extern/half/half/half.hpp"
 
 VkImageCreateInfo vk_helpers::imageCreateInfo(const VkFormat format, const VkImageUsageFlags usageFlags, const VkExtent3D extent)
 {

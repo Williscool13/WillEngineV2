@@ -301,7 +301,13 @@ void Engine::draw()
     updateSceneData(cmd);
 
     const std::vector renderObjects{sponza, cube, primitives};
-    frustumCullingPipeline->draw(cmd, {renderObjects, sceneDataDescriptorBuffer});
+
+    const FrustumCullDrawInfo frustumCullingDrawInfo = {
+        renderObjects,
+        sceneDataDescriptorBuffer,
+        getCurrentFrameOverlap()
+    };
+    frustumCullingPipeline->draw(cmd, frustumCullingDrawInfo);
 
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -332,7 +338,7 @@ void Engine::draw()
         renderExtent,
         {static_cast<float>(renderExtent.width), static_cast<float>(renderExtent.height)},
         sceneDataDescriptorBuffer,
-        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap()
+        getCurrentFrameOverlap()
     };
 
     deferredMrtPipeline->draw(cmd, deferredMrtDrawInfo);
@@ -480,8 +486,16 @@ void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd, const std::vector<RenderObj
     // mrt
     {
         DeferredMrtDrawInfo deferredDrawInfo{
-            renderObjects, normalRenderTarget.imageView, albedoRenderTarget.imageView, pbrRenderTarget.imageView, velocityRenderTarget.imageView, depthImage.imageView, renderExtent,
-            {static_cast<float>(renderExtent.width), static_cast<float>(renderExtent.height)}, spectateSceneDataDescriptorBuffer
+            renderObjects,
+            normalRenderTarget.imageView,
+            albedoRenderTarget.imageView,
+            pbrRenderTarget.imageView,
+            velocityRenderTarget.imageView,
+            depthImage.imageView, renderExtent,
+            {static_cast<float>(renderExtent.width) / 3.0f, static_cast<float>(renderExtent.height) / 3.0f},
+            spectateSceneDataDescriptorBuffer,
+            0,
+            getCurrentFrameOverlap()
         };
 
         deferredMrtPipeline->draw(cmd, deferredDrawInfo);

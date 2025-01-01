@@ -80,15 +80,24 @@ DescriptorBufferUniform::DescriptorBufferUniform(const VulkanContext& context, V
     descriptorBufferGpuAddress = vk_helpers::getDeviceAddress(context.device, descriptorBuffer.buffer);
 }
 
-int DescriptorBufferUniform::setupData(VkDevice device, const std::vector<DescriptorUniformData>& uniformBuffers)
+int DescriptorBufferUniform::setupData(VkDevice device, const std::vector<DescriptorUniformData>& uniformBuffers, int index)
 {
-    // TODO: Manage what happens if attempt to allocate a descriptor buffer set but out of space
-    if (freeIndices.empty()) {
-        throw DescriptorBufferException("Ran out of space in DescriptorBufferUniform");
-    }
+    int descriptorBufferIndex;
+    if (index < 0) {
+        if (freeIndices.empty()) {
+            // TODO: Manage what happens if attempt to allocate a descriptor buffer set but out of space
+            throw DescriptorBufferException("No space in DescriptorBufferSampler\n");
+        }
 
-    const int descriptorBufferIndex = *freeIndices.begin();
-    freeIndices.erase(freeIndices.begin());
+        descriptorBufferIndex = *freeIndices.begin();
+        freeIndices.erase(freeIndices.begin());
+    } else {
+        if (index >= maxObjectCount) {
+            fmt::print("Specified index is higher than max allowed objects");
+            return -1;
+        }
+        descriptorBufferIndex = index;
+    }
 
 
     uint64_t accum_offset{descriptorBufferOffset};
@@ -156,8 +165,8 @@ int DescriptorBufferSampler::setupData(VkDevice device, const std::vector<Descri
 {
     int descriptorBufferIndex;
     if (index < 0) {
-        // TODO: Manage what happens if attempt to allocate a descriptor buffer set but out of space
         if (freeIndices.empty()) {
+            // TODO: Manage what happens if attempt to allocate a descriptor buffer set but out of space
             throw DescriptorBufferException("No space in DescriptorBufferSampler\n");
         }
 

@@ -5,8 +5,6 @@
 #include "scene_descriptor_layouts.h"
 
 #include <vulkan/vulkan_core.h>
-
-#include "src/core/engine.h"
 #include "src/renderer/vk_descriptors.h"
 #include "src/renderer/vulkan_context.h"
 

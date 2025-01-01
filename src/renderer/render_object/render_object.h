@@ -7,6 +7,7 @@
 
 #include <vector>
 #include <string_view>
+#include <src/renderer/renderer_constants.h>
 
 #include <vulkan/vulkan_core.h>
 
@@ -85,7 +86,7 @@ public:
 
     void attachToGameObject(GameObject* gameObject, int32_t meshIndex);
 
-    [[nodiscard]] InstanceData* getInstanceData(int32_t index) const;
+    [[nodiscard]] InstanceData* getInstanceData(const int32_t index, int32_t currentFrameOverlap) const;
 
     [[nodiscard]] const std::vector<Mesh>& getMeshes() const { return meshes; }
 
@@ -100,7 +101,7 @@ public:
 
     const DescriptorBufferUniform& getFrustumCullingAddressesDescriptorBuffer() { return frustumCullingDescriptorBuffer; }
 
-    void updateInstanceData(int32_t instanceIndex, const glm::mat4& currentFrameModelMatrix, int32_t previousFrameOverlapIndex, int32_t currentFrameOverlapIndex);
+    void updateInstanceData(int32_t instanceIndex, const glm::mat4& currentFrameModelMatrix, int32_t previousFrameOverlapIndex, int32_t currentFrameOverlapIndex) const;
 
 private:
     void recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent);
@@ -109,21 +110,15 @@ private:
      * Expands the instance buffer of the render object by \code count\endcode amount.
      * \n Should be called whenever new instances are created
      * @param countToAdd
-     * @param copy if true, will attempt to copy previous buffer into the new buffer
+     * @param copyPrevious if true, will attempt to copy previous buffer into the new buffer
      */
-    void expandInstanceBuffer(uint32_t countToAdd, bool copy = true);
-
-    /**
-     * Uploads the indirect buffer of the render object
-     * \n Should be called whenever the indirect buffer is expanded
-     */
-    void uploadIndirectBuffer();
+    void expandInstanceBuffer(uint32_t countToAdd, bool copyPrevious = true);
 
     /**
      * Updates the compute culling buffer with updated buffer addresses of the instance and indirect buffers
      * \n Should be called after updating either the instance/indirect buffer
      */
-    void populateComputeCullingBuffer();
+    void uploadCullingBufferData();
 
 private: // Model Data
     std::vector<VkSampler> samplers;
@@ -151,10 +146,12 @@ private: // Drawing
     AllocatedBuffer drawIndirectBuffer{};
 
     // addresses
-    AllocatedBuffer bufferAddresses;
+    AllocatedBuffer addressBuffers[FRAME_OVERLAP]{};
+    //AllocatedBuffer bufferAddresses;
     //  the actual buffers
     AllocatedBuffer materialBuffer{};
-    AllocatedBuffer modelMatrixBuffer{};
+    //AllocatedBuffer modelMatrixBuffer{};
+    AllocatedBuffer modelMatrixBuffers[FRAME_OVERLAP]{};
 
     // Culling
     AllocatedBuffer meshBoundsBuffer{};
@@ -162,8 +159,10 @@ private: // Drawing
     DescriptorBufferUniform addressesDescriptorBuffer;
     DescriptorBufferSampler textureDescriptorBuffer;
 
-    AllocatedBuffer frustumBufferAddresses;
-    AllocatedBuffer meshIndicesBuffer{};
+
+    AllocatedBuffer cullingAddressBuffers[FRAME_OVERLAP]{};
+    //AllocatedBuffer cullingBufferAddressess;
+    AllocatedBuffer boundingSphereIndicesBuffer{};
     DescriptorBufferUniform frustumCullingDescriptorBuffer;
 
 private:
