@@ -90,7 +90,7 @@ public:
 
     void draw();
 
-    void update() const;
+    void update(float deltaTime) const;
 
     void updateSceneData(VkCommandBuffer cmd) const;
 
@@ -139,8 +139,9 @@ private: // Rendering
     bool bStopRendering{false};
 
     double frameTime{};
-    double drawTime{};
     double renderTime{};
+    double gameTime{};
+    double physicsTime{};
 
 private: // Scene
     PlayerCharacter* player{nullptr};
