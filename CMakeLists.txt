@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD 20)
 add_definitions(-DVK_NO_PROTOTYPES)
 add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE)
 add_definitions(-DGLM_ENABLE_EXPERIMENTAL)
-
+add_definitions(-DJPH_DEBUG_RENDERER)
 #add_definitions(-DJPH_PROFILE_ENABLED=0)
 #add_definitions(-DJPH_DEBUG_RENDERER=0)
 
@@ -152,6 +152,15 @@ set(UTIL_SOURCES
         src/renderer/pipelines/post_processing/post_process_types.h
         src/game/camera/orbit_camera.cpp
         src/game/camera/orbit_camera.h
+        src/physics/debug/debug_renderer.cpp
+        src/physics/debug/debug_renderer.h
+        src/renderer/lighting/shadows/shadow_map.cpp
+        src/renderer/lighting/shadows/shadow_map.h
+        src/renderer/lighting/shadows/shadow_map_descriptor_layouts.cpp
+        src/renderer/lighting/shadows/shadow_map_descriptor_layouts.h
+        src/renderer/lighting/shadows/shadow_map_descriptor_layouts.h
+        src/renderer/lighting/directional_light.cpp
+        src/renderer/lighting/directional_light.h
 )
 
 add_executable(WillEngine main.cpp
