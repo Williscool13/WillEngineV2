@@ -494,8 +494,7 @@ void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd, const std::vector<RenderObj
             depthImage.imageView, renderExtent,
             {static_cast<float>(renderExtent.width) / 3.0f, static_cast<float>(renderExtent.height) / 3.0f},
             spectateSceneDataDescriptorBuffer,
-            0,
-            getCurrentFrameOverlap()
+            0
         };
 
         deferredMrtPipeline->draw(cmd, deferredDrawInfo);
