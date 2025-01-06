@@ -14,7 +14,7 @@
 struct DeferredMrtPipelineCreateInfo
 {
     VkDescriptorSetLayout sceneDataLayout;
-    VkDescriptorSetLayout addressesLayout;
+    VkDescriptorSetLayout modelAddressesLayout;
     VkDescriptorSetLayout textureLayout;
 };
 
@@ -64,7 +64,7 @@ private:
     /**
      * Transient (Lifetime is managed outside of this pipeline)
      */
-    VkDescriptorSetLayout addressesLayout{VK_NULL_HANDLE};
+    VkDescriptorSetLayout modelAddressesLayout{VK_NULL_HANDLE};
     /**
      * Transient (Lifetime is managed outside of this pipeline)
      */

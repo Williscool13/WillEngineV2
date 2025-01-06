@@ -36,7 +36,10 @@
 #include "src/physics/physics.h"
 #include "src/physics/physics_filters.h"
 #include "src/physics/physics_utils.h"
+#include "src/renderer/environment/environment_map_types.h"
+#include "src/renderer/lighting/shadows/cascaded_shadow_map.h"
 #include "src/renderer/lighting/shadows/shadow_map_descriptor_layouts.h"
+#include "src/renderer/lighting/shadows/shadow_types.h"
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -274,6 +277,20 @@ void Engine::draw()
 {
     const auto start = std::chrono::system_clock::now();
 
+    const float deltaTime = TimeUtils::Get().getDeltaTime();
+
+    const auto physicsStart = std::chrono::system_clock::now();
+    physics->update(deltaTime);
+    const auto physicsEnd = std::chrono::system_clock::now();
+    const float elapsedPhysics = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(physicsEnd - physicsStart).count()) / 1000.0f;
+    physicsTime = physicsTime * 0.99 + elapsedPhysics * 0.01f;
+
+    const auto gameStart = std::chrono::system_clock::now();
+    update(deltaTime);
+    const auto gameEnd = std::chrono::system_clock::now();
+    const float elapsedGame = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(gameEnd - gameStart).count()) / 1000.0f;
+    gameTime = gameTime * 0.99 + elapsedGame * 0.01f;
+
 #pragma region Fence / Swapchain
     // GPU -> CPU sync (fence)
     VK_CHECK(vkWaitForFences(context->device, 1, &getCurrentFrame()._renderFence, true, 1000000000));
@@ -293,20 +310,6 @@ void Engine::draw()
     VK_CHECK(vkResetCommandBuffer(cmd, 0));
     const VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
-
-    const float deltaTime = TimeUtils::Get().getDeltaTime();
-
-    const auto physicsStart = std::chrono::system_clock::now();
-    physics->update(deltaTime);
-    const auto physicsEnd = std::chrono::system_clock::now();
-    const float elapsedPhysics = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(physicsEnd - physicsStart).count()) / 1000.0f;
-    physicsTime = physicsTime * 0.99 + elapsedPhysics * 0.01f;
-
-    const auto gameStart = std::chrono::system_clock::now();
-    update(deltaTime);
-    const auto gameEnd = std::chrono::system_clock::now();
-    const float elapsedGame = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(gameEnd - gameStart).count()) / 1000.0f;
-    gameTime = gameTime * 0.99 + elapsedGame * 0.01f;
 
 
     const auto renderStart = std::chrono::system_clock::now();
@@ -554,7 +557,9 @@ void Engine::cleanup()
     delete taaPipeline;
     delete postProcessPipeline;
 
+    delete cascadedShadowMap;
     delete environmentMap;
+
     delete cubeGameObject;
     delete cubeGameObject2;
     delete sponzaObject;
@@ -653,6 +658,11 @@ void Engine::initRenderer()
     environmentPipeline->init(
         {sceneDescriptorLayouts->getSceneDataLayout(), environmentDescriptorLayouts->getCubemapSamplerLayout(), drawImageFormat, depthImageFormat}
     );
+
+    cascadedShadowMap = new CascadedShadowMap(*context, *resourceManager);
+
+    cascadedShadowMap->init(
+        {renderObjectDescriptorLayout->getAddressesLayout(), shadowMapDescriptorLayouts->getShadowMapLayout()});
 
     deferredMrtPipeline = new DeferredMrtPipeline(*context);
     deferredMrtPipeline->init(

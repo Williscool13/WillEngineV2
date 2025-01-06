@@ -154,13 +154,15 @@ set(UTIL_SOURCES
         src/game/camera/orbit_camera.h
         src/physics/debug/debug_renderer.cpp
         src/physics/debug/debug_renderer.h
-        src/renderer/lighting/shadows/shadow_map.cpp
-        src/renderer/lighting/shadows/shadow_map.h
         src/renderer/lighting/shadows/shadow_map_descriptor_layouts.cpp
         src/renderer/lighting/shadows/shadow_map_descriptor_layouts.h
         src/renderer/lighting/shadows/shadow_map_descriptor_layouts.h
         src/renderer/lighting/directional_light.cpp
         src/renderer/lighting/directional_light.h
+        src/renderer/lighting/shadows/cascaded_shadow_map.cpp
+        src/renderer/lighting/shadows/cascaded_shadow_map.h
+        src/renderer/lighting/shadows/shadow_types.h
+        src/renderer/environment/environment_map_types.h
 )
 
 add_executable(WillEngine main.cpp

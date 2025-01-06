@@ -36,173 +36,195 @@ Environment::Environment(VulkanContext& context, ResourceManager& resourceManage
         vkCreateSampler(context.device, &sampl, nullptr, &sampler);
     }
 
-
     // equi to cubemap pipeline
     {
-        VkPushConstantRange pushConstantRange = {};
-        pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-        pushConstantRange.offset = 0;
-        pushConstantRange.size = sizeof(EquiToCubePushConstantData);
+        // Pipeline Layout
+        {
+            VkPushConstantRange pushConstantRange = {};
+            pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+            pushConstantRange.offset = 0;
+            pushConstantRange.size = sizeof(EquiToCubePushConstantData);
 
-        VkDescriptorSetLayout layouts[]{descriptorLayouts.getEquiImageLayout(), descriptorLayouts.getCubemapStorageLayout()};
+            VkDescriptorSetLayout layouts[]{descriptorLayouts.getEquiImageLayout(), descriptorLayouts.getCubemapStorageLayout()};
 
-        VkPipelineLayoutCreateInfo layout_info{};
-        layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        layout_info.setLayoutCount = 2;
-        layout_info.pSetLayouts = layouts;
-        layout_info.pushConstantRangeCount = 1;
-        layout_info.pPushConstantRanges = &pushConstantRange;
+            VkPipelineLayoutCreateInfo layout_info{};
+            layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+            layout_info.setLayoutCount = 2;
+            layout_info.pSetLayouts = layouts;
+            layout_info.pushConstantRangeCount = 1;
+            layout_info.pPushConstantRanges = &pushConstantRange;
 
-        VK_CHECK(vkCreatePipelineLayout(context.device, &layout_info, nullptr, &equiToCubemapPipelineLayout));
-
-
-        VkShaderModule computeShader;
-        if (!vk_helpers::loadShaderModule("shaders/environment/equitoface.comp.spv", context.device, &computeShader)) {
-            fmt::print("Error when building the compute shader (equitoface.comp.spv)\n");
-            abort();
+            VK_CHECK(vkCreatePipelineLayout(context.device, &layout_info, nullptr, &equiToCubemapPipelineLayout));
         }
 
-        VkPipelineShaderStageCreateInfo stageinfo{};
-        stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        stageinfo.pNext = nullptr;
-        stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-        stageinfo.module = computeShader;
-        stageinfo.pName = "main"; // entry point in shader
+        // Pipeline
+        {
+            VkShaderModule computeShader;
+            if (!vk_helpers::loadShaderModule("shaders/environment/equitoface.comp.spv", context.device, &computeShader)) {
+                fmt::print("Error when building the compute shader (equitoface.comp.spv)\n");
+                abort();
+            }
 
-        VkComputePipelineCreateInfo computePipelineCreateInfo{};
-        computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-        computePipelineCreateInfo.pNext = nullptr;
-        computePipelineCreateInfo.layout = equiToCubemapPipelineLayout;
-        computePipelineCreateInfo.stage = stageinfo;
-        computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+            VkPipelineShaderStageCreateInfo stageinfo{};
+            stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            stageinfo.pNext = nullptr;
+            stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+            stageinfo.module = computeShader;
+            stageinfo.pName = "main"; // entry point in shader
 
-        VK_CHECK(vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &equiToCubemapPipeline));
+            VkComputePipelineCreateInfo computePipelineCreateInfo{};
+            computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+            computePipelineCreateInfo.pNext = nullptr;
+            computePipelineCreateInfo.layout = equiToCubemapPipelineLayout;
+            computePipelineCreateInfo.stage = stageinfo;
+            computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-        vkDestroyShaderModule(context.device, computeShader, nullptr);
+            VK_CHECK(vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &equiToCubemapPipeline));
+
+            vkDestroyShaderModule(context.device, computeShader, nullptr);
+        }
     }
 
     // cubemap to diffuse pipeline
     {
-        VkDescriptorSetLayout layouts[]{descriptorLayouts.getCubemapSamplerLayout(), descriptorLayouts.getCubemapStorageLayout()};
+        // Pipeline Layout
+        {
+            VkDescriptorSetLayout layouts[]{descriptorLayouts.getCubemapSamplerLayout(), descriptorLayouts.getCubemapStorageLayout()};
 
-        VkPushConstantRange pushConstantRange = {};
-        pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-        pushConstantRange.offset = 0;
-        pushConstantRange.size = sizeof(CubeToDiffusePushConstantData);
+            VkPushConstantRange pushConstantRange = {};
+            pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+            pushConstantRange.offset = 0;
+            pushConstantRange.size = sizeof(CubeToDiffusePushConstantData);
 
-        VkPipelineLayoutCreateInfo layout_info{};
-        layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        layout_info.setLayoutCount = 2;
-        layout_info.pSetLayouts = layouts;
-        layout_info.pushConstantRangeCount = 1;
-        layout_info.pPushConstantRanges = &pushConstantRange;
+            VkPipelineLayoutCreateInfo layout_info{};
+            layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+            layout_info.setLayoutCount = 2;
+            layout_info.pSetLayouts = layouts;
+            layout_info.pushConstantRangeCount = 1;
+            layout_info.pPushConstantRanges = &pushConstantRange;
 
-        VK_CHECK(vkCreatePipelineLayout(context.device, &layout_info, nullptr, &cubemapToDiffusePipelineLayout));
-
-        VkShaderModule computeShader;
-        if (!vk_helpers::loadShaderModule("shaders/environment/cubetodiffirra.comp.spv", context.device, &computeShader)) {
-            fmt::print("Error when building the compute shader (cubetodiffspec.comp.spv)\n");
-            abort();
+            VK_CHECK(vkCreatePipelineLayout(context.device, &layout_info, nullptr, &cubemapToDiffusePipelineLayout));
         }
 
-        VkPipelineShaderStageCreateInfo stageinfo{};
-        stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        stageinfo.pNext = nullptr;
-        stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-        stageinfo.module = computeShader;
-        stageinfo.pName = "main"; // entry point in shader
+        // Pipeline
+        {
+            VkShaderModule computeShader;
+            if (!vk_helpers::loadShaderModule("shaders/environment/cubetodiffirra.comp.spv", context.device, &computeShader)) {
+                fmt::print("Error when building the compute shader (cubetodiffspec.comp.spv)\n");
+                abort();
+            }
 
-        VkComputePipelineCreateInfo computePipelineCreateInfo{};
-        computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-        computePipelineCreateInfo.pNext = nullptr;
-        computePipelineCreateInfo.layout = cubemapToDiffusePipelineLayout;
-        computePipelineCreateInfo.stage = stageinfo;
-        computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+            VkPipelineShaderStageCreateInfo stageinfo{};
+            stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            stageinfo.pNext = nullptr;
+            stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+            stageinfo.module = computeShader;
+            stageinfo.pName = "main"; // entry point in shader
 
-        VK_CHECK(vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &cubemapToDiffusePipeline));
+            VkComputePipelineCreateInfo computePipelineCreateInfo{};
+            computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+            computePipelineCreateInfo.pNext = nullptr;
+            computePipelineCreateInfo.layout = cubemapToDiffusePipelineLayout;
+            computePipelineCreateInfo.stage = stageinfo;
+            computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-        vkDestroyShaderModule(context.device, computeShader, nullptr);
+            VK_CHECK(vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &cubemapToDiffusePipeline));
+
+            vkDestroyShaderModule(context.device, computeShader, nullptr);
+        }
     }
 
     // cubemap to specular pipeline
     {
-        VkDescriptorSetLayout layouts[]{descriptorLayouts.getCubemapSamplerLayout(), descriptorLayouts.getCubemapStorageLayout()};
+        // Pipeline Layout
+        {
+            VkDescriptorSetLayout layouts[]{descriptorLayouts.getCubemapSamplerLayout(), descriptorLayouts.getCubemapStorageLayout()};
 
-        VkPushConstantRange pushConstantRange = {};
-        pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-        pushConstantRange.offset = 0;
-        pushConstantRange.size = sizeof(CubeToPrefilteredConstantData);
+            VkPushConstantRange pushConstantRange = {};
+            pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+            pushConstantRange.offset = 0;
+            pushConstantRange.size = sizeof(CubeToPrefilteredConstantData);
 
-        VkPipelineLayoutCreateInfo layout_info{};
-        layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        layout_info.setLayoutCount = 2;
-        layout_info.pSetLayouts = layouts;
-        layout_info.pushConstantRangeCount = 1;
-        layout_info.pPushConstantRanges = &pushConstantRange;
+            VkPipelineLayoutCreateInfo layout_info{};
+            layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+            layout_info.setLayoutCount = 2;
+            layout_info.pSetLayouts = layouts;
+            layout_info.pushConstantRangeCount = 1;
+            layout_info.pPushConstantRanges = &pushConstantRange;
 
-        VK_CHECK(vkCreatePipelineLayout(context.device, &layout_info, nullptr, &cubemapToSpecularPipelineLayout));
-
-        VkShaderModule computeShader;
-        if (!vk_helpers::loadShaderModule("shaders/environment/cubetospecprefilter.comp.spv", context.device, &computeShader)) {
-            fmt::print("Error when building the compute shader (cubetospecprefilter.comp.spv)\n");
-            abort();
+            VK_CHECK(vkCreatePipelineLayout(context.device, &layout_info, nullptr, &cubemapToSpecularPipelineLayout));
         }
 
-        VkPipelineShaderStageCreateInfo stageinfo{};
-        stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        stageinfo.pNext = nullptr;
-        stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-        stageinfo.module = computeShader;
-        stageinfo.pName = "main"; // entry point in shader
+        // Pipelin
+        {
+            VkShaderModule computeShader;
+            if (!vk_helpers::loadShaderModule("shaders/environment/cubetospecprefilter.comp.spv", context.device, &computeShader)) {
+                fmt::print("Error when building the compute shader (cubetospecprefilter.comp.spv)\n");
+                abort();
+            }
 
-        VkComputePipelineCreateInfo computePipelineCreateInfo{};
-        computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-        computePipelineCreateInfo.pNext = nullptr;
-        computePipelineCreateInfo.layout = cubemapToSpecularPipelineLayout;
-        computePipelineCreateInfo.stage = stageinfo;
-        computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+            VkPipelineShaderStageCreateInfo stageinfo{};
+            stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            stageinfo.pNext = nullptr;
+            stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+            stageinfo.module = computeShader;
+            stageinfo.pName = "main"; // entry point in shader
 
-        VK_CHECK(vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &cubemapToSpecularPipeline));
+            VkComputePipelineCreateInfo computePipelineCreateInfo{};
+            computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+            computePipelineCreateInfo.pNext = nullptr;
+            computePipelineCreateInfo.layout = cubemapToSpecularPipelineLayout;
+            computePipelineCreateInfo.stage = stageinfo;
+            computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-        vkDestroyShaderModule(context.device, computeShader, nullptr);
+            VK_CHECK(vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &cubemapToSpecularPipeline));
+
+            vkDestroyShaderModule(context.device, computeShader, nullptr);
+        }
     }
 
     // lut generation pipeline
     {
-        VkDescriptorSetLayout layouts[1]{descriptorLayouts.getLutLayout()};
+        // Pipeline Layout
+        {
+            VkDescriptorSetLayout layouts[1]{descriptorLayouts.getLutLayout()};
 
-        VkPipelineLayoutCreateInfo layout_info{};
-        layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        layout_info.setLayoutCount = 1;
-        layout_info.pSetLayouts = layouts;
-        layout_info.pushConstantRangeCount = 0;
-        layout_info.pPushConstantRanges = nullptr;
+            VkPipelineLayoutCreateInfo layout_info{};
+            layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+            layout_info.setLayoutCount = 1;
+            layout_info.pSetLayouts = layouts;
+            layout_info.pushConstantRangeCount = 0;
+            layout_info.pPushConstantRanges = nullptr;
 
-        VK_CHECK(vkCreatePipelineLayout(context.device, &layout_info, nullptr, &lutPipelineLayout));
-
-        VkShaderModule computeShader;
-        if (!vk_helpers::loadShaderModule("shaders/environment/brdflut.comp.spv", context.device, &computeShader)) {
-            fmt::print("Error when building the compute shader (brdflut.comp.spv)\n");
-            abort();
+            VK_CHECK(vkCreatePipelineLayout(context.device, &layout_info, nullptr, &lutPipelineLayout));
         }
 
-        VkPipelineShaderStageCreateInfo stageinfo{};
-        stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        stageinfo.pNext = nullptr;
-        stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-        stageinfo.module = computeShader;
-        stageinfo.pName = "main"; // entry point in shader
+        // Pipeline
+        {
+            VkShaderModule computeShader;
+            if (!vk_helpers::loadShaderModule("shaders/environment/brdflut.comp.spv", context.device, &computeShader)) {
+                fmt::print("Error when building the compute shader (brdflut.comp.spv)\n");
+                abort();
+            }
 
-        VkComputePipelineCreateInfo computePipelineCreateInfo{};
-        computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-        computePipelineCreateInfo.pNext = nullptr;
-        computePipelineCreateInfo.layout = lutPipelineLayout;
-        computePipelineCreateInfo.stage = stageinfo;
-        computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+            VkPipelineShaderStageCreateInfo stageinfo{};
+            stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+            stageinfo.pNext = nullptr;
+            stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+            stageinfo.module = computeShader;
+            stageinfo.pName = "main"; // entry point in shader
 
-        VK_CHECK(vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &lutPipeline));
+            VkComputePipelineCreateInfo computePipelineCreateInfo{};
+            computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+            computePipelineCreateInfo.pNext = nullptr;
+            computePipelineCreateInfo.layout = lutPipelineLayout;
+            computePipelineCreateInfo.stage = stageinfo;
+            computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-        vkDestroyShaderModule(context.device, computeShader, nullptr);
+            VK_CHECK(vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &lutPipeline));
+
+            vkDestroyShaderModule(context.device, computeShader, nullptr);
+        }
     }
 
     // Create LUT here, because its the same for all environment maps
@@ -249,9 +271,9 @@ Environment::~Environment()
     cubemapToSpecularPipelineLayout = VK_NULL_HANDLE;
     cubemapToSpecularPipeline = VK_NULL_HANDLE;
 
-    lutDescriptorBuffer.destroy(context.allocator);
     resourceManager.destroyImage(lutImage);
     lutImage = {};
+    lutDescriptorBuffer.destroy(context.allocator);
 
     vkDestroySampler(context.device, sampler, nullptr);
 
@@ -286,7 +308,7 @@ void Environment::loadEnvironment(const char* name, const char* path, int enviro
     } else {
         fmt::print("Failed to load Equirectangular Image ({})\n", path);
     }
-    assert(equiImage.imageExtent.width % 4 == 0);\
+    assert(equiImage.imageExtent.width % 4 == 0);
     assert(equiImage.imageExtent.width / 4 == CUBEMAP_RESOLUTION);
 
     // Equi -> Cubemap - recreate in case resolution changed

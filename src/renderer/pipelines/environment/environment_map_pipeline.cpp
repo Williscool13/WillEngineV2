@@ -14,7 +14,14 @@ EnvironmentPipeline::EnvironmentPipeline(VulkanContext& context)
 
 EnvironmentPipeline::~EnvironmentPipeline()
 {
-    cleanup();
+    if (pipeline) {
+        vkDestroyPipeline(context.device, pipeline, nullptr);
+        pipeline = VK_NULL_HANDLE;
+    }
+    if (pipelineLayout) {
+        vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
+        pipelineLayout = VK_NULL_HANDLE;
+    }
 }
 
 void EnvironmentPipeline::init(const EnvironmentPipelineCreateInfo& createInfo)
@@ -24,52 +31,49 @@ void EnvironmentPipeline::init(const EnvironmentPipelineCreateInfo& createInfo)
     colorFormat = createInfo.colorFormat;
     depthFormat = createInfo.depthFormat;
 
-    createPipelineLayout();
-    createPipeline();
-}
+    // Pipeline Layout
+    {
+        VkDescriptorSetLayout layouts[2];
+        layouts[0] = sceneDataLayout;
+        layouts[1] = environmentMapLayout;
 
-void EnvironmentPipeline::createPipelineLayout()
-{
-    VkDescriptorSetLayout layouts[2];
-    layouts[0] = sceneDataLayout;
-    layouts[1] = environmentMapLayout;
+        VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
+        layoutInfo.pNext = nullptr;
+        layoutInfo.setLayoutCount = 2;
+        layoutInfo.pSetLayouts = layouts;
+        layoutInfo.pPushConstantRanges = nullptr;
+        layoutInfo.pushConstantRangeCount = 0;
 
-    VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
-    layoutInfo.pNext = nullptr;
-    layoutInfo.setLayoutCount = 2;
-    layoutInfo.pSetLayouts = layouts;
-    layoutInfo.pPushConstantRanges = nullptr;
-    layoutInfo.pushConstantRangeCount = 0;
-
-    VK_CHECK(vkCreatePipelineLayout(context.device, &layoutInfo, nullptr, &pipelineLayout));
-}
-
-void EnvironmentPipeline::createPipeline()
-{
-    VkShaderModule vertShader;
-    if (!vk_helpers::loadShaderModule("shaders/environment.vert.spv", context.device, &vertShader)) {
-        throw std::runtime_error("Error when building vertex shader (environment.vert.spv)");
+        VK_CHECK(vkCreatePipelineLayout(context.device, &layoutInfo, nullptr, &pipelineLayout));
     }
 
-    VkShaderModule fragShader;
-    if (!vk_helpers::loadShaderModule("shaders/environment.frag.spv", context.device, &fragShader)) {
-        throw std::runtime_error("Error when building fragment shader (environment.frag.spv)");
+    // Pipelines
+    {
+        VkShaderModule vertShader;
+        if (!vk_helpers::loadShaderModule("shaders/environment/environment.vert.spv", context.device, &vertShader)) {
+            throw std::runtime_error("Error when building vertex shader (environment.vert.spv)");
+        }
+
+        VkShaderModule fragShader;
+        if (!vk_helpers::loadShaderModule("shaders/environment/environment.frag.spv", context.device, &fragShader)) {
+            throw std::runtime_error("Error when building fragment shader (environment.frag.spv)");
+        }
+
+        PipelineBuilder pipelineBuilder;
+        pipelineBuilder.setShaders(vertShader, fragShader);
+        pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+        pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
+        pipelineBuilder.disableMultisampling();
+        pipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
+        pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+        pipelineBuilder.setupRenderer({colorFormat}, depthFormat);
+        pipelineBuilder.setupPipelineLayout(pipelineLayout);
+
+        pipeline = pipelineBuilder.buildPipeline(context.device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+
+        vkDestroyShaderModule(context.device, vertShader, nullptr);
+        vkDestroyShaderModule(context.device, fragShader, nullptr);
     }
-
-    PipelineBuilder pipelineBuilder;
-    pipelineBuilder.setShaders(vertShader, fragShader);
-    pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-    pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
-    pipelineBuilder.disableMultisampling();
-    pipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
-    pipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    pipelineBuilder.setupRenderer({colorFormat}, depthFormat);
-    pipelineBuilder.setupPipelineLayout(pipelineLayout);
-
-    pipeline = pipelineBuilder.buildPipeline(context.device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-
-    vkDestroyShaderModule(context.device, vertShader, nullptr);
-    vkDestroyShaderModule(context.device, fragShader, nullptr);
 }
 
 void EnvironmentPipeline::draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& drawInfo) const
@@ -121,16 +125,4 @@ void EnvironmentPipeline::draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& d
     vkCmdEndRendering(cmd);
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
-}
-
-void EnvironmentPipeline::cleanup()
-{
-    if (pipeline) {
-        vkDestroyPipeline(context.device, pipeline, nullptr);
-        pipeline = VK_NULL_HANDLE;
-    }
-    if (pipelineLayout) {
-        vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
-        pipelineLayout = VK_NULL_HANDLE;
-    }
 }

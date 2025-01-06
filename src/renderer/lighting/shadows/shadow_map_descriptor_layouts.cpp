@@ -4,7 +4,7 @@
 
 #include "shadow_map_descriptor_layouts.h"
 
-#include "shadow_map.h"
+#include "cascaded_shadow_map.h"
 #include "src/renderer/vk_descriptors.h"
 
 void ShadowMapDescriptorLayouts::createLayouts()
