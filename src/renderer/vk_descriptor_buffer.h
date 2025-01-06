@@ -42,7 +42,7 @@ public:
 
     DescriptorBuffer(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount = 10);
 
-    void destroy(VmaAllocator allocator) const;
+    void destroy(VmaAllocator allocator);
 
     void freeDescriptorBuffer(int index);
 

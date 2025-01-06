@@ -32,6 +32,7 @@
 #include "src/renderer/environment/environment.h"
 #include "src/renderer/pipelines/post_processing/post_process_types.h"
 
+class CascadedShadowMap;
 class ShadowMapDescriptorLayouts;
 class ImguiWrapper;
 class PlayerCharacter;
@@ -155,6 +156,7 @@ private: // Scene
     GameObject* cubeGameObject2{nullptr};
     GameObject* primitiveCubeGameObject{nullptr};
 
+    CascadedShadowMap* cascadedShadowMap{nullptr};
 
     Environment* environmentMap{nullptr};
     int32_t environmentMapindex{0};

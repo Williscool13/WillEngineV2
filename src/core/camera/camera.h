@@ -7,6 +7,15 @@
 
 #include "../../util/transform.h"
 
+struct CameraProperties
+{
+    float fov;
+    float aspect;
+    float nearPlane;
+    float farPlane;
+    glm::mat4 viewMatrix;
+    glm::mat4 projectionMatrix;
+};
 
 /**
  * The base class that defines a camera.
@@ -61,8 +70,9 @@ public:
 
     virtual void update(float deltaTime) = 0;
 
-protected:
+    CameraProperties getCameraProperties() const { return {cachedFov, cachedAspect, cachedNear, cachedFar, cachedViewMatrix, cachedProjMatrix}; }
 
+protected:
     bool flipY{true};
 
     // projection

@@ -39,18 +39,25 @@ public:
      * @param attributes
      * @param attributeCount
      */
-    void setupVertexInput(VkVertexInputBindingDescription* bindings, uint32_t bindingCount, VkVertexInputAttributeDescription* attributes,
-                          uint32_t attributeCount);
+    void setupVertexInput(VkVertexInputBindingDescription* bindings, uint32_t bindingCount, VkVertexInputAttributeDescription* attributes, uint32_t attributeCount);
 
     void setupInputAssembly(VkPrimitiveTopology topology);
 
     void setupRasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace, bool rasterizerDiscardEnable = false);
 
-    void setupMultisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples
-                            , float minSampleShading, const VkSampleMask* pSampleMask
-                            , VkBool32 alphaToCoverageEnable, VkBool32 alphaToOneEnable);
+    /**
+     * Use to initialize the depth bias of the pipeline.
+     * \n Additionally dynamically set depth b ias with \code vkCmdSetDepthBias\endcode
+     * @param depthBiasConstantFactor
+     * @param depthBiasClamp
+     * @param depthBiasSlopeFactor
+     */
+    void enableDepthBias(float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor);
 
-    void setupRenderer(const std::vector<VkFormat> colorattachmentFormat, VkFormat depthAttachmentFormat);
+    void setupMultisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples, float minSampleShading, const VkSampleMask* pSampleMask,
+                            VkBool32 alphaToCoverageEnable, VkBool32 alphaToOneEnable);
+
+    void setupRenderer(const std::vector<VkFormat>& colorattachmentFormat, VkFormat depthAttachmentFormat);
 
     /**
      * Set up the depth and stencil for this pipeline
@@ -83,7 +90,7 @@ public:
      * @param depthWriteEnable enable depth write
      * @param op operation to use
      */
-    void enableDepthtest(bool depthWriteEnable, VkCompareOp op);
+    void enableDepthTest(bool depthWriteEnable, VkCompareOp op);
 
     /**
      * Shortcut to disable depth testing for this pipeline

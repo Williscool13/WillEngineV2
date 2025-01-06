@@ -139,6 +139,14 @@ void PipelineBuilder::setupRasterization(const VkPolygonMode polygonMode, const 
     rasterizer.rasterizerDiscardEnable = rasterizerDiscardEnable;
 }
 
+void PipelineBuilder::enableDepthBias(const float depthBiasConstantFactor, const float depthBiasClamp, const float depthBiasSlopeFactor)
+{
+    rasterizer.depthBiasEnable = true;
+    rasterizer.depthBiasConstantFactor = depthBiasConstantFactor;
+    rasterizer.depthBiasClamp = depthBiasClamp;
+    rasterizer.depthBiasSlopeFactor = depthBiasSlopeFactor;
+}
+
 void PipelineBuilder::setupMultisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples, float minSampleShading,
                                          const VkSampleMask* pSampleMask, VkBool32 alphaToCoverageEnable, VkBool32 alphaToOneEnable)
 {
@@ -152,7 +160,7 @@ void PipelineBuilder::setupMultisampling(VkBool32 sampleShadingEnable, VkSampleC
     multisampling.alphaToOneEnable = alphaToOneEnable;
 }
 
-void PipelineBuilder::setupRenderer(const std::vector<VkFormat> colorattachmentFormat, const VkFormat depthAttachmentFormat)
+void PipelineBuilder::setupRenderer(const std::vector<VkFormat>& colorattachmentFormat, const VkFormat depthAttachmentFormat)
 {
     // Color Format
     if (!colorattachmentFormat.empty()) {
@@ -227,7 +235,7 @@ void PipelineBuilder::disableMultisampling()
     setupMultisampling(VK_FALSE, VK_SAMPLE_COUNT_1_BIT, 1.0f, nullptr, VK_FALSE, VK_FALSE);
 }
 
-void PipelineBuilder::enableDepthtest(bool depthWriteEnable, VkCompareOp op)
+void PipelineBuilder::enableDepthTest(bool depthWriteEnable, VkCompareOp op)
 {
     setupDepthStencil(
         VK_TRUE, depthWriteEnable, op,

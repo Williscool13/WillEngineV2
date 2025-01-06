@@ -96,7 +96,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::NewFrame();
 
     if (ImGui::Begin("Main")) {
-        ImGui::Text("GamPhysics Time: %.2f ms", engine->physicsTime);
+        ImGui::Text("Physics Time: %.2f ms", engine->physicsTime);
         ImGui::Text("Game Time: %.2f ms", engine->gameTime);
         ImGui::Text("Render Time: %.2f ms", engine->renderTime);
 

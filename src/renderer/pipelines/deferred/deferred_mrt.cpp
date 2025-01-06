@@ -19,7 +19,7 @@ DeferredMrtPipeline::~DeferredMrtPipeline()
 void DeferredMrtPipeline::init(const DeferredMrtPipelineCreateInfo& createInfo, const DeferredMrtPipelineRenderInfo& renderInfo)
 {
     sceneDataLayout = createInfo.sceneDataLayout;
-    addressesLayout = createInfo.addressesLayout;
+    modelAddressesLayout = createInfo.modelAddressesLayout;
     textureLayout = createInfo.textureLayout;
     renderFormats = renderInfo;
 
@@ -31,7 +31,7 @@ void DeferredMrtPipeline::createPipelineLayout()
 {
     VkDescriptorSetLayout descriptorLayout[3];
     descriptorLayout[0] = sceneDataLayout;
-    descriptorLayout[1] = addressesLayout;
+    descriptorLayout[1] = modelAddressesLayout;
     descriptorLayout[2] = textureLayout;
 
 
@@ -94,7 +94,7 @@ void DeferredMrtPipeline::createPipeline()
     renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
     renderPipelineBuilder.disableMultisampling();
     renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
-    renderPipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+    renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
     renderPipelineBuilder.setupRenderer({renderFormats.normalFormat, renderFormats.albedoFormat, renderFormats.pbrFormat, renderFormats.velocityFormat}, renderFormats.depthFormat);
     renderPipelineBuilder.setupPipelineLayout(pipelineLayout);
 

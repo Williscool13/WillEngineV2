@@ -42,10 +42,14 @@ DescriptorBuffer::DescriptorBuffer(const VulkanContext& context, VkDescriptorSet
     this->maxObjectCount = maxObjectCount;
 }
 
-void DescriptorBuffer::destroy(VmaAllocator allocator) const
+void DescriptorBuffer::destroy(VmaAllocator allocator)
 {
     //TODO: Maybe need to loop through all active indices and free those resources too? idk
-    vmaDestroyBuffer(allocator, descriptorBuffer.buffer, descriptorBuffer.allocation);
+    if (descriptorBuffer.buffer != VK_NULL_HANDLE) {
+        vmaDestroyBuffer(allocator, descriptorBuffer.buffer, descriptorBuffer.allocation);
+    }
+
+    descriptorBuffer = {VK_NULL_HANDLE};
 }
 
 void DescriptorBuffer::freeDescriptorBuffer(const int index)
