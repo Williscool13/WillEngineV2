@@ -10,6 +10,10 @@
 
 #include "shadow_map_descriptor_layouts.h"
 #include "shadow_types.h"
+#include "glm/detail/_noise.hpp"
+#include "glm/detail/_noise.hpp"
+#include "glm/gtx/associated_min_max.hpp"
+#include "glm/gtx/associated_min_max.hpp"
 #include "src/renderer/vk_descriptor_buffer.h"
 #include "src/renderer/vk_types.h"
 
@@ -57,12 +61,7 @@ public: // Debug
 private: // Pipelines
     static void getLightSpaceMatrices(glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, glm::mat4 matrices[SHADOW_MAP_COUNT]);
 
-    static void getFrustumCornersWorldSpace(const glm::mat4& viewProj, glm::vec4 corners[8]);
-
-    static void getFrustumCornersWorldSpace(const glm::mat4& proj, const glm::mat4& view, glm::vec4 corners[8])
-    {
-        getFrustumCornersWorldSpace(proj * view, corners);
-    }
+    static void getFrustumCornersWorldSpace(const ::CameraProperties& cameraProperties, float nearPlane, float farPlane, glm::vec4 corners[8]);
 
     static glm::mat4 getLightSpaceMatrix(glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, float cascadeNear, float cascadeFar);
 

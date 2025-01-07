@@ -143,8 +143,9 @@ set(UTIL_SOURCES
         src/util/math_constants.h
         src/util/time_utils.cpp
         src/util/time_utils.h
-        src/util/transform.cpp
-        src/util/transform.h
+        src/util/render_utils.h
+        src/core/transform.cpp
+        src/core/transform.h
         src/util/file_utils.cpp
         src/util/file_utils.h
         src/util/halton.cpp

@@ -5,10 +5,10 @@
 #ifndef TRANSFORM_H
 #define TRANSFORM_H
 
-#include "glm/glm.hpp"
-#include "glm/detail/type_quat.hpp"
-#include "glm/ext/matrix_transform.hpp"
-#include "glm/gtx/quaternion.hpp"
+#include "../../extern/glm/glm/glm.hpp"
+#include "../../extern/glm/glm/detail/type_quat.hpp"
+#include "../../extern/glm/glm/ext/matrix_transform.hpp"
+#include "../../extern/glm/glm/gtx/quaternion.hpp"
 
 
 class Transform

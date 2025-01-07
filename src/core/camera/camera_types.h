@@ -15,6 +15,8 @@ struct CameraProperties
     float farPlane{};
     glm::mat4 viewMatrix{};
     glm::mat4 projectionMatrix{};
+    glm::vec3 position{};
+    glm::vec3 forward{};
 };
 
 #endif //CAMERA_TYPES_H
