@@ -9,6 +9,8 @@
 #include "src/core/camera/camera.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/vk_pipelines.h"
+#include "src/renderer/lighting/directional_light.h"
+#include "src/renderer/render_object/render_object.h"
 
 CascadedShadowMap::CascadedShadowMap(const VulkanContext& context, ResourceManager& resourceManager)
     : context(context), resourceManager(resourceManager)
@@ -16,9 +18,9 @@ CascadedShadowMap::CascadedShadowMap(const VulkanContext& context, ResourceManag
 
 CascadedShadowMap::~CascadedShadowMap()
 {
-    for (AllocatedImage& shadowMap : shadowMaps) {
-        resourceManager.destroyImage(shadowMap);
-        shadowMap = {};
+    for (CascadeShadowMapData& cascadeShadowMapData : shadowMaps) {
+        resourceManager.destroyImage(cascadeShadowMapData.depthShadowMap);
+        cascadeShadowMapData.depthShadowMap = {};
     }
 
     shadowMapDescriptorBuffer.destroy(context.allocator);
@@ -43,29 +45,31 @@ void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelin
 {
     // Create Resources
     {
-        VkSamplerCreateInfo sampl = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+        VkSamplerCreateInfo samplerCreateInfo = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
 
-        sampl.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        sampl.minLod = 0;
-        sampl.maxLod = VK_LOD_CLAMP_NONE;
-        sampl.magFilter = VK_FILTER_LINEAR;
-        sampl.minFilter = VK_FILTER_LINEAR;
+        samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+        samplerCreateInfo.minLod = 0;
+        samplerCreateInfo.maxLod = VK_LOD_CLAMP_NONE;
+        samplerCreateInfo.magFilter = VK_FILTER_LINEAR;
+        samplerCreateInfo.minFilter = VK_FILTER_LINEAR;
 
-        sampl.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        sampl.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        sampl.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerCreateInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 
-        sampl.compareEnable = VK_TRUE;
-        sampl.compareOp = VK_COMPARE_OP_LESS;
+        samplerCreateInfo.compareEnable = VK_TRUE;
+        samplerCreateInfo.compareOp = VK_COMPARE_OP_LESS;
 
-        sampl.anisotropyEnable = VK_TRUE;
-        sampl.maxAnisotropy = 16.0f;
+        //????????
+        //sampl.anisotropyEnable = VK_TRUE;
+        //sampl.maxAnisotropy = 16.0f;
 
-        vkCreateSampler(context.device, &sampl, nullptr, &sampler);
+        vkCreateSampler(context.device, &samplerCreateInfo, nullptr, &sampler);
 
         //glm::ortho()
-        for (AllocatedImage& shadowMap : shadowMaps) {
-            shadowMap = resourceManager.createImage({extent.width, extent.height, 1}, depthFormat, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT);
+        for (CascadeShadowMapData& cascadeShadowMapData : shadowMaps) {
+            cascadeShadowMapData.depthShadowMap = resourceManager.createImage({extent.width, extent.height, 1}, depthFormat,
+                                                                              VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
         }
     }
 
@@ -102,6 +106,18 @@ void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelin
         }
 
         PipelineBuilder pipelineBuilder;
+        VkVertexInputBindingDescription mainBinding{};
+        mainBinding.binding = 0;
+        mainBinding.stride = sizeof(Vertex);
+        mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        VkVertexInputAttributeDescription vertexAttributes[1];
+        vertexAttributes[0].binding = 0;
+        vertexAttributes[0].location = 0;
+        vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+        vertexAttributes[0].offset = offsetof(Vertex, position);
+
+        pipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 1);
+
         pipelineBuilder.setShaders(vertShader, fragShader);
         pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
         pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
@@ -121,8 +137,8 @@ void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelin
     // Create Descriptor Buffer
     {
         std::vector<DescriptorImageData> textureDescriptors;
-        for (AllocatedImage& shadowMap : shadowMaps) {
-            VkDescriptorImageInfo imageInfo{.imageView = shadowMap.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+        for (const CascadeShadowMapData& shadowMapData : shadowMaps) {
+            const VkDescriptorImageInfo imageInfo{.imageView = shadowMapData.depthShadowMap.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
             textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageInfo, false});
         }
         shadowMapDescriptorBuffer = DescriptorBufferSampler(context, shadowMapPipelineCreateInfo.shadowMapLayout, 1);
@@ -130,9 +146,87 @@ void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelin
     }
 }
 
-void CascadedShadowMap::draw(VkCommandBuffer cmd)
+void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInfo& drawInfo)
 {
-    // todo: Draw
+    VkDebugUtilsLabelEXT label = {};
+    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+    label.pLabelName = "Shadow Pass";
+    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
+
+    constexpr VkClearValue clearValue = {0.0f, 0.0f};
+
+    glm::mat4 lightSpaceMatrices[SHADOW_MAP_COUNT];
+    getLightSpaceMatrices(drawInfo.directionalLight.getDirection(), drawInfo.cameraProperties, lightSpaceMatrices);
+
+    for (const CascadeShadowMapData& cascadeShadowMapData : shadowMaps) {
+        vk_helpers::transitionImage(cmd, shadowMaps->depthShadowMap.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+        VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(cascadeShadowMapData.depthShadowMap.imageView, &clearValue, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+        VkRenderingInfo renderInfo{};
+        renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+        renderInfo.pNext = nullptr;
+
+        renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, extent};
+        renderInfo.layerCount = 1;
+        renderInfo.colorAttachmentCount = 0;
+        renderInfo.pColorAttachments = nullptr;
+        renderInfo.pDepthAttachment = &depthAttachment;
+        renderInfo.pStencilAttachment = nullptr;
+
+        vkCmdBeginRendering(cmd, &renderInfo);
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
+
+        ShadowMapPushConstants pushConstants{};
+        assert(cascadeShadowMapData.cascadeLevel < SHADOW_MAP_COUNT);
+        pushConstants.lightMatrix = lightSpaceMatrices[cascadeShadowMapData.cascadeLevel];
+        vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShadowMapPushConstants), &pushConstants);
+
+        //  Viewport
+        VkViewport viewport = {};
+        viewport.x = 0;
+        viewport.y = 0;
+        viewport.width = extent.width;
+        viewport.height = extent.height;
+        viewport.minDepth = 0.f;
+        viewport.maxDepth = 1.f;
+        vkCmdSetViewport(cmd, 0, 1, &viewport);
+        //  Scissor
+        VkRect2D scissor = {};
+        scissor.offset.x = 0;
+        scissor.offset.y = 0;
+        scissor.extent.width = extent.width;
+        scissor.extent.height = extent.height;
+        vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+        constexpr VkDeviceSize zeroOffset{0};
+
+        for (const RenderObject* renderObject : drawInfo.renderObjects) {
+            if (!renderObject->canDraw()) { continue; }
+
+            VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1];
+            constexpr uint32_t addressIndex{0};
+            descriptorBufferBindingInfo[0] = renderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
+
+            vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
+
+            const VkDeviceSize addressOffset{drawInfo.currentFrameOverlap * renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize()};
+            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &addressIndex, &addressOffset);
+
+
+            vkCmdBindVertexBuffers(cmd, 0, 1, &renderObject->getVertexBuffer().buffer, &zeroOffset);
+            vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
+            vkCmdDrawIndexedIndirect(cmd, renderObject->getIndirectBuffer().buffer, 0, renderObject->getDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
+        }
+
+        vkCmdEndRendering(cmd);
+
+        vk_helpers::transitionImage(cmd, shadowMaps->depthShadowMap.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+    }
+
+
+    vkCmdEndDebugUtilsLabelEXT(cmd);
 }
 
 void CascadedShadowMap::getFrustumCornersWorldSpace(const glm::mat4& viewProj, glm::vec4 corners[8])
@@ -200,14 +294,14 @@ glm::mat4 CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 directionalLigh
 }
 
 
-void CascadedShadowMap::getLightSpaceMatrices(const glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, glm::mat4 matrices[MAX_SHADOW_CASCADES + 1])
+void CascadedShadowMap::getLightSpaceMatrices(const glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, glm::mat4 matrices[SHADOW_MAP_COUNT])
 {
-    for (size_t i = 0; i < MAX_SHADOW_CASCADES + 1; ++i) {
+    for (size_t i = 0; i < SHADOW_MAP_COUNT; ++i) {
         if (i == 0) {
             matrices[i] = getLightSpaceMatrix(directionalLightDirection, cameraProperties, cameraProperties.nearPlane, normalizedCascadeLevels[i] * cameraProperties.nearPlane);
-        } else if (i < MAX_SHADOW_CASCADES) {
+        } else if (i < SHADOW_CASCADE_COUNT) {
             matrices[i] = getLightSpaceMatrix(directionalLightDirection, cameraProperties, normalizedCascadeLevels[i - 1] * cameraProperties.nearPlane,
-                                              normalizedCascadeLevels[i] * cameraProperties.farPlane);
+                                              normalizedCascadeLevels[i] * cameraProperties.nearPlane);
         } else {
             matrices[i] = getLightSpaceMatrix(directionalLightDirection, cameraProperties, normalizedCascadeLevels[i - 1] * cameraProperties.nearPlane, cameraProperties.farPlane);
         }

@@ -40,6 +40,7 @@
 #include "src/renderer/lighting/shadows/cascaded_shadow_map.h"
 #include "src/renderer/lighting/shadows/shadow_map_descriptor_layouts.h"
 #include "src/renderer/lighting/shadows/shadow_types.h"
+#include "src/renderer/pipelines/acceleration_algorithms/frustum_culling_types.h"
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -223,6 +224,14 @@ void Engine::updateSceneData(VkCommandBuffer cmd) const
         pSceneData->view = camera->getViewMatrix();
         pSceneData->proj = camera->getProjMatrix();
         pSceneData->viewProj = pSceneData->proj * pSceneData->view;
+
+        if (bEnableShadowMapDebug) {
+            const DirectionalLight light = {glm::vec3(0.5f), 1.0f, glm::vec3(0.0f)};
+            const glm::mat4 lightViewProj = CascadedShadowMap::getCascadeViewProjection(light.getDirection(), camera->getCameraProperties(), shadowMapDebug);
+            pSceneData->viewProj = lightViewProj;
+        }
+
+
         pSceneData->invView = glm::inverse(pSceneData->view);
         pSceneData->invProj = glm::inverse(pSceneData->proj);
         pSceneData->invViewProj = glm::inverse(pSceneData->viewProj);
@@ -317,24 +326,43 @@ void Engine::draw()
     updateSceneData(cmd);
     const std::vector renderObjects{sponza, cube, primitives};
 
-    const FrustumCullDrawInfo frustumCullingDrawInfo = {
+    const FrustumCullDrawInfo shadowPassFrustumCullingDrawInfo = {
         renderObjects,
         sceneDataDescriptorBuffer,
+        getCurrentFrameOverlap(),
+        false
+    };
+    frustumCullingPipeline->draw(cmd, shadowPassFrustumCullingDrawInfo);
+
+    DirectionalLight light = {glm::vec3(0.5f), 1.0f, glm::vec3(0.0f)};
+    const CascadedShadowMapDrawInfo shadowMapDrawInfo{
+        renderObjects,
+        player->getCamera()->getCameraProperties(),
+        light,
         getCurrentFrameOverlap()
+    };
+    cascadedShadowMap->draw(cmd, shadowMapDrawInfo);
+
+
+    const FrustumCullDrawInfo frustumCullingDrawInfo{
+        renderObjects,
+        sceneDataDescriptorBuffer,
+        getCurrentFrameOverlap(),
+        bEnableFrustumCulling
     };
     frustumCullingPipeline->draw(cmd, frustumCullingDrawInfo);
 
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    const EnvironmentDrawInfo environmentDrawInfo = {
+    const EnvironmentDrawInfo environmentDrawInfo{
         renderExtent,
         drawImage.imageView,
         depthImage.imageView,
         sceneDataDescriptorBuffer,
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(),
         environmentMap->getCubemapDescriptorBuffer(),
-        environmentMap->getEnvironmentMapOffset(environmentMapindex)
+        environmentMap->getEnvironmentMapOffset(environmentMapIndex)
     };
     environmentPipeline->draw(cmd, environmentDrawInfo);
 
@@ -371,7 +399,7 @@ void Engine::draw()
         sceneDataDescriptorBuffer,
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(),
         environmentMap,
-        environmentMap->getDiffSpecMapOffset(environmentMapindex)
+        environmentMap->getDiffSpecMapOffset(environmentMapIndex)
     };
 
     deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);
@@ -528,7 +556,7 @@ void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd, const std::vector<RenderObj
             spectateSceneDataDescriptorBuffer,
             0,
             environmentMap,
-            environmentMap->getDiffSpecMapOffset(environmentMapindex)
+            environmentMap->getDiffSpecMapOffset(environmentMapIndex)
         };
 
         deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);

@@ -12,18 +12,9 @@
 #include "src/renderer/vulkan_context.h"
 #include "src/renderer/render_object/render_object.h"
 
-struct FrustumCullPipelineCreateInfo
-{
-    VkDescriptorSetLayout sceneDataLayout;
-    VkDescriptorSetLayout frustumCullLayout;
-};
 
-struct FrustumCullDrawInfo
-{
-    std::vector<RenderObject*> renderObjects;
-    const DescriptorBufferUniform& sceneData;
-    int32_t currentFrameOverlap;
-};
+struct FrustumCullDrawInfo;
+struct FrustumCullPipelineCreateInfo;
 
 class FrustumCullingPipeline
 {
@@ -50,10 +41,6 @@ private:
      * todo: move this to be lifetime owned by this pipeline
      */
     VkDescriptorSetLayout frustumCullLayout{VK_NULL_HANDLE};
-
-    void createPipelineLayout();
-
-    void createPipeline();
 
     void cleanup();
 };

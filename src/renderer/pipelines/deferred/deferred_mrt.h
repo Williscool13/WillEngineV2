@@ -8,8 +8,8 @@
 #include <vulkan/vulkan_core.h>
 
 #include "src/renderer/vk_descriptor_buffer.h"
-#include "src/renderer/vulkan_context.h"
-#include "src/renderer/render_object/render_object.h"
+
+class RenderObject;
 
 struct DeferredMrtPipelineCreateInfo
 {
@@ -71,12 +71,6 @@ private:
     VkDescriptorSetLayout textureLayout{VK_NULL_HANDLE};
 
     DeferredMrtPipelineRenderInfo renderFormats{};
-
-    void createPipelineLayout();
-
-    void createPipeline();
-
-    void cleanup();
 };
 
 

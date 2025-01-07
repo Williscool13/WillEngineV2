@@ -163,6 +163,8 @@ set(UTIL_SOURCES
         src/renderer/lighting/shadows/cascaded_shadow_map.h
         src/renderer/lighting/shadows/shadow_types.h
         src/renderer/environment/environment_map_types.h
+        src/core/camera/camera_types.h
+        src/renderer/pipelines/acceleration_algorithms/frustum_culling_types.h
 )
 
 add_executable(WillEngine main.cpp

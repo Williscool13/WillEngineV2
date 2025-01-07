@@ -1,10 +1,7 @@
 #version 460
 #extension GL_EXT_buffer_reference: require
 
-//#include "scene.glsl"
 #include "structure.glsl"
-
-// layout (std140, set = 0, binding = 0) uniform SceneData - scene.glsl
 
 layout (set = 0, binding = 0) uniform Addresses
 {

@@ -5,22 +5,16 @@
 #ifndef ENGINE_H
 #define ENGINE_H
 
-#include <chrono>
 #include <deque>
 #include <functional>
-#include <array>
-#include <thread>
 
 
-#include <vulkan/vulkan.h>
 #include <vulkan/vulkan_core.h>
-#include <vulkan/vk_enum_string_helper.h>
-#include <volk.h>
+
+
 #include <VkBootstrap.h>
-#include <vk_mem_alloc.h>
 
 #include <SDL.h>
-#include <fmt/format.h>
 #include <glm/glm.hpp>
 #include <src/renderer/renderer_constants.h>
 
@@ -52,21 +46,21 @@ class SceneDescriptorLayouts;
 
 struct DeletionQueue
 {
-    std::deque<std::function<void()> > deletors;
+    std::deque<std::function<void()> > deleteQueue;
 
     void pushFunction(std::function<void()>&& function)
     {
-        deletors.push_back(function);
+        deleteQueue.push_back(function);
     }
 
     void flush()
     {
         // reverse iterate the deletion queue to execute all the functions
-        for (auto& it : deletors) {
+        for (auto& it : deleteQueue) {
             (it)();
         }
 
-        deletors.clear();
+        deleteQueue.clear();
     }
 };
 
@@ -159,10 +153,11 @@ private: // Scene
     CascadedShadowMap* cascadedShadowMap{nullptr};
 
     Environment* environmentMap{nullptr};
-    int32_t environmentMapindex{0};
+    int32_t environmentMapIndex{0};
 
     int32_t deferredDebug{0};
     int32_t taaDebug{0};
+    int32_t shadowMapDebug{0};
 
 private: // Scene Descriptors
     EnvironmentDescriptorLayouts* environmentDescriptorLayouts = nullptr;
@@ -183,6 +178,8 @@ private: // Scene Descriptors
     bool bEnableTaa{true};
     bool bEnableJitter{true};
     float taaBlend{0.1f};
+    bool bEnableShadowMapDebug{false};
+    bool bEnableFrustumCulling{true};
 
     PostProcessType postProcessFlags{PostProcessType::Sharpening | PostProcessType::Tonemapping};
 
@@ -221,7 +218,7 @@ private: // Render Targets
     const VkFormat drawImageFormat{VK_FORMAT_R16G16B16A16_SFLOAT};
     const VkFormat depthImageFormat{VK_FORMAT_D32_SFLOAT};
     const VkFormat velocityImageFormat{VK_FORMAT_R16G16_SFLOAT};
-    const VkFormat normalImageFormat{VK_FORMAT_R16G16B16A16_SNORM}; //VK_FORMAT_R8G8B8A8_SNORM - 8888 is too innacurate for normals
+    const VkFormat normalImageFormat{VK_FORMAT_R16G16B16A16_SNORM}; //VK_FORMAT_R8G8B8A8_SNORM - 8888 is too inaccurate for normals
     const VkFormat albedoImageFormat{VK_FORMAT_R8G8B8A8_UNORM};
     const VkFormat pbrImageFormat{VK_FORMAT_R8G8B8A8_UNORM};
 
@@ -239,7 +236,7 @@ private: // Render Targets
      */
     AllocatedImage albedoRenderTarget{};
     /**
-     * 8 Metallic, 8 Roughness, 8 emissive (unused), 8 Unused
+     * 8 Metallic, 8 Roughness, 8 emission (unused), 8 Unused
      */
     AllocatedImage pbrRenderTarget{};
     /**
