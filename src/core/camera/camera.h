@@ -5,17 +5,8 @@
 #define CAMERA_H
 #include <glm/glm.hpp>
 
+#include "camera_types.h"
 #include "../../util/transform.h"
-
-struct CameraProperties
-{
-    float fov;
-    float aspect;
-    float nearPlane;
-    float farPlane;
-    glm::mat4 viewMatrix;
-    glm::mat4 projectionMatrix;
-};
 
 /**
  * The base class that defines a camera.

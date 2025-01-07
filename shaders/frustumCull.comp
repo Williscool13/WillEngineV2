@@ -49,6 +49,9 @@ layout(set = 1, binding = 0) uniform bufferData
     vec3 padding;
 } buffers;
 
+layout (push_constant) uniform PushConstants {
+    bool enabled;
+} push;
 
 int checkIsVisible(mat4 mat, vec3 origin, float radius)
 {
@@ -81,6 +84,11 @@ void main()
 {
     uint invocationId = gl_GlobalInvocationID.x;
     if (invocationId >= buffers.commandBufferCount) { return; }
+
+    if (!push.enabled){
+        buffers.commandBuffer.commands[invocationId].instanceCount = 1;
+        return;
+    }
 
     uint modelMatrixId = buffers.commandBuffer.commands[invocationId].firstInstance;
     Model models = buffers.modelMatrixBuffer.models[modelMatrixId];

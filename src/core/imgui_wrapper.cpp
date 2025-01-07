@@ -6,6 +6,7 @@
 
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
+#include <src/renderer/lighting/shadows/cascaded_shadow_map.h>
 
 #include "engine.h"
 #include "input.h"
@@ -123,6 +124,10 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             const char* taaDebugLabels[] = {"None", "Velocity", "Validity", "-", "-", "-"};
             ImGui::Combo("TAA Debug View", &engine->taaDebug, taaDebugLabels, IM_ARRAYSIZE(taaDebugLabels));
         }
+        ImGui::Separator();
+        ImGui::Checkbox("Enable Shadow Map Debug", &engine->bEnableShadowMapDebug);
+        ImGui::Checkbox("Enable Frustum Culling", &engine->bEnableFrustumCulling);
+        ImGui::Separator();
 
         if (ImGui::TreeNode("Post-Process Effects")) {
             auto flags = static_cast<uint32_t>(engine->postProcessFlags);
@@ -327,6 +332,26 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 }
             }
         }
+
+        ImGui::SetNextItemWidth(100);
+        ImGui::SliderInt("Shadow Map Level", &engine->shadowMapDebug, 0, SHADOW_CASCADE_COUNT);
+        ImGui::SameLine();
+        std::string buttonText = fmt::format("Save Shadow Map {}", engine->shadowMapDebug);
+        if (ImGui::Button(buttonText.c_str())) {
+            if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
+                std::filesystem::path path = file_utils::imagesSavePath / "shadowMap.png";
+                auto depthNormalize = [](const float depth) {
+                    return logf(1.0f + depth * 15.0f) / logf(16.0f);
+                };
+                AllocatedImage shadowMap = engine->cascadedShadowMap->getShadowMap(engine->shadowMapDebug);
+                if (shadowMap.image != VK_NULL_HANDLE) {
+                    vk_helpers::saveImageR32F(*engine->resourceManager, *engine->immediate, shadowMap, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT, path.string().c_str(),
+                                              depthNormalize);
+                }
+            } else {
+                fmt::print(" Failed to save pbr render target");
+            }
+        }
     }
     ImGui::End();
 
@@ -339,7 +364,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         }
         std::sort(indexNamePairs.begin(), indexNamePairs.end());
         auto it = std::ranges::find_if(indexNamePairs, [this, engine](const auto& pair) {
-            return pair.first == engine->environmentMapindex;
+            return pair.first == engine->environmentMapIndex;
         });
         int currentIndex = (it != indexNamePairs.end()) ? static_cast<int>(std::distance(indexNamePairs.begin(), it)) : 0;
         struct ComboData
@@ -359,11 +384,11 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
         ComboData data{&indexNamePairs};
         if (ImGui::Combo("Select Environment Map", &currentIndex, getLabel, &data, static_cast<int>(indexNamePairs.size()))) {
-            engine->environmentMapindex = indexNamePairs[currentIndex].first;
+            engine->environmentMapIndex = indexNamePairs[currentIndex].first;
         }
 
         // Show both name and index in the status text
-        ImGui::Text("Currently selected: %s (ID: %u)", indexNamePairs[currentIndex].second.c_str(), engine->environmentMapindex);
+        ImGui::Text("Currently selected: %s (ID: %u)", indexNamePairs[currentIndex].second.c_str(), engine->environmentMapIndex);
     }
     ImGui::End();
 

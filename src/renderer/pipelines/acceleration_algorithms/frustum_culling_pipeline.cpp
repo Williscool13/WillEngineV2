@@ -3,6 +3,7 @@
 //
 
 #include "frustum_culling_pipeline.h"
+#include "frustum_culling_types.h"
 
 FrustumCullingPipeline::FrustumCullingPipeline(VulkanContext& context)
     : context(context)
@@ -10,7 +11,14 @@ FrustumCullingPipeline::FrustumCullingPipeline(VulkanContext& context)
 
 FrustumCullingPipeline::~FrustumCullingPipeline()
 {
-    cleanup();
+    if (pipeline) {
+        vkDestroyPipeline(context.device, pipeline, nullptr);
+        pipeline = VK_NULL_HANDLE;
+    }
+    if (pipelineLayout) {
+        vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
+        pipelineLayout = VK_NULL_HANDLE;
+    }
 }
 
 void FrustumCullingPipeline::init(const FrustumCullPipelineCreateInfo& createInfo)
@@ -18,50 +26,52 @@ void FrustumCullingPipeline::init(const FrustumCullPipelineCreateInfo& createInf
     sceneDataLayout = createInfo.sceneDataLayout;
     frustumCullLayout = createInfo.frustumCullLayout;
 
-    createPipelineLayout();
-    createPipeline();
-}
+    // Pipeline Layout
+    {
+        VkDescriptorSetLayout layouts[2];
+        layouts[0] = sceneDataLayout;
+        layouts[1] = frustumCullLayout;
 
-void FrustumCullingPipeline::createPipelineLayout()
-{
-    VkDescriptorSetLayout layouts[2];
-    layouts[0] = sceneDataLayout;
-    layouts[1] = frustumCullLayout;
+        VkPushConstantRange pushConstantRange;
+        pushConstantRange.size = sizeof(FrustumCullingPushConstants);
+        pushConstantRange.offset = 0;
+        pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    VkPipelineLayoutCreateInfo layoutInfo{};
-    layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    layoutInfo.setLayoutCount = 2;
-    layoutInfo.pSetLayouts = layouts;
-    layoutInfo.pPushConstantRanges = nullptr;
-    layoutInfo.pushConstantRangeCount = 0;
+        VkPipelineLayoutCreateInfo layoutInfo{};
+        layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        layoutInfo.setLayoutCount = 2;
+        layoutInfo.pSetLayouts = layouts;
+        layoutInfo.pPushConstantRanges = &pushConstantRange;
+        layoutInfo.pushConstantRangeCount = 1;
 
-    VK_CHECK(vkCreatePipelineLayout(context.device, &layoutInfo, nullptr, &pipelineLayout));
-}
-
-void FrustumCullingPipeline::createPipeline()
-{
-    VkShaderModule computeShader;
-    if (!vk_helpers::loadShaderModule("shaders/frustumCull.comp.spv", context.device, &computeShader)) {
-        throw std::runtime_error("Error when building compute shader (frustumCull.comp.spv)");
+        VK_CHECK(vkCreatePipelineLayout(context.device, &layoutInfo, nullptr, &pipelineLayout));
     }
 
-    VkPipelineShaderStageCreateInfo stageInfo{};
-    stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    stageInfo.pNext = nullptr;
-    stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageInfo.module = computeShader;
-    stageInfo.pName = "main";
+    // Pipeline
+    {
+        VkShaderModule computeShader;
+        if (!vk_helpers::loadShaderModule("shaders/frustumCull.comp.spv", context.device, &computeShader)) {
+            throw std::runtime_error("Error when building compute shader (frustumCull.comp.spv)");
+        }
+
+        VkPipelineShaderStageCreateInfo stageInfo{};
+        stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        stageInfo.pNext = nullptr;
+        stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+        stageInfo.module = computeShader;
+        stageInfo.pName = "main";
 
 
-    VkComputePipelineCreateInfo pipelineInfo;
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pipelineInfo.pNext = nullptr;
-    pipelineInfo.layout = pipelineLayout;
-    pipelineInfo.stage = stageInfo;
-    pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+        VkComputePipelineCreateInfo pipelineInfo;
+        pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+        pipelineInfo.pNext = nullptr;
+        pipelineInfo.layout = pipelineLayout;
+        pipelineInfo.stage = stageInfo;
+        pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-    VK_CHECK(vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline));
-    vkDestroyShaderModule(context.device, computeShader, nullptr);
+        VK_CHECK(vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &pipeline));
+        vkDestroyShaderModule(context.device, computeShader, nullptr);
+    }
 }
 
 void FrustumCullingPipeline::draw(VkCommandBuffer cmd, const FrustumCullDrawInfo& drawInfo) const
@@ -72,6 +82,12 @@ void FrustumCullingPipeline::draw(VkCommandBuffer cmd, const FrustumCullDrawInfo
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+
+
+    FrustumCullingPushConstants pushConstants = {};
+    pushConstants.enable = drawInfo.enableFrustumCulling;
+    vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(FrustumCullingPushConstants), &pushConstants);
+
 
     constexpr uint32_t sceneDataIndex{0};
     constexpr uint32_t addressesIndex{1};
@@ -92,16 +108,4 @@ void FrustumCullingPipeline::draw(VkCommandBuffer cmd, const FrustumCullDrawInfo
     }
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
-}
-
-void FrustumCullingPipeline::cleanup()
-{
-    if (pipeline) {
-        vkDestroyPipeline(context.device, pipeline, nullptr);
-        pipeline = VK_NULL_HANDLE;
-    }
-    if (pipelineLayout) {
-        vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
-        pipelineLayout = VK_NULL_HANDLE;
-    }
 }

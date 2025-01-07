@@ -12,10 +12,14 @@ class DirectionalLight
 public:
     DirectionalLight() = delete;
 
-    DirectionalLight(glm::vec3 direction, float intensity, glm::vec3 color = {1.0f, 1.0f, 1.0f})
+    DirectionalLight(const glm::vec3 direction, const float intensity, const glm::vec3 color = {1.0f, 1.0f, 1.0f})
         : direction(direction), intensity(intensity), color(color) {}
 
     ~DirectionalLight() = default;
+
+    [[nodiscard]] glm::vec3 getDirection() const { return direction; }
+    [[nodiscard]] float getIntensity() const { return intensity; }
+    [[nodiscard]] glm::vec3 getColor() const { return color; }
 
 private:
     glm::vec3 direction{};

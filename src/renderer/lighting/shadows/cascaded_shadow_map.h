@@ -9,13 +9,16 @@
 #include <vulkan/vulkan_core.h>
 
 #include "shadow_map_descriptor_layouts.h"
+#include "shadow_types.h"
 #include "src/renderer/vk_descriptor_buffer.h"
 #include "src/renderer/vk_types.h"
 
+class DirectionalLight;
 struct ShadowMapPipelineCreateInfo;
 struct CameraProperties;
 
-constexpr uint32_t MAX_SHADOW_CASCADES = 4;
+constexpr uint32_t SHADOW_CASCADE_COUNT = 4;
+constexpr uint32_t SHADOW_MAP_COUNT = SHADOW_CASCADE_COUNT + 1;
 
 class CascadedShadowMap
 {
@@ -28,10 +31,31 @@ public:
 
     void init(const ShadowMapPipelineCreateInfo& shadowMapPipelineCreateInfo);
 
-    void draw(VkCommandBuffer cmd);
+    void draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInfo& drawInfo);
+
+public: // Debug
+    AllocatedImage getShadowMap(const int32_t cascadeLevel) const
+    {
+        if (cascadeLevel >= SHADOW_CASCADE_COUNT || cascadeLevel < 0) {
+            return {};
+        }
+        return shadowMaps[cascadeLevel].depthShadowMap;
+    }
+
+    static glm::mat4 getCascadeViewProjection(const glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, const int32_t cascadeLevel)
+    {
+        if (cascadeLevel >= SHADOW_CASCADE_COUNT || cascadeLevel < 0) {
+            return {1.0f};
+        }
+
+        glm::mat4 lightMatrices[SHADOW_MAP_COUNT];
+        getLightSpaceMatrices(directionalLightDirection, cameraProperties, lightMatrices);
+
+        return lightMatrices[cascadeLevel];
+    }
 
 private: // Pipelines
-    static void getLightSpaceMatrices(glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, glm::mat4 matrices[MAX_SHADOW_CASCADES + 1]);
+    static void getLightSpaceMatrices(glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, glm::mat4 matrices[SHADOW_MAP_COUNT]);
 
     static void getFrustumCornersWorldSpace(const glm::mat4& viewProj, glm::vec4 corners[8]);
 
@@ -58,9 +82,20 @@ private:
     VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
     VkPipeline pipeline{VK_NULL_HANDLE};
 
-    AllocatedImage shadowMaps[MAX_SHADOW_CASCADES]{};
+    // 0 = near -> 0.98
+    // 1 = 0.98 -> 0.92
+    // 2 = 0.92 -> 0.75
+    // 3 = 0.75 -> 0.40
+    // 4 = 0.40 -> far
+    CascadeShadowMapData shadowMaps[SHADOW_MAP_COUNT] {
+        {0, {VK_NULL_HANDLE}},
+        {1, {VK_NULL_HANDLE}},
+        {2, {VK_NULL_HANDLE}},
+        {3, {VK_NULL_HANDLE}},
+        {4, {VK_NULL_HANDLE}},
+    };
 
-    static constexpr float normalizedCascadeLevels[MAX_SHADOW_CASCADES]{0.98f, 0.92f, 0.75f, 0.4f};
+    static constexpr float normalizedCascadeLevels[SHADOW_CASCADE_COUNT]{0.98f, 0.92f, 0.75f, 0.4f};
 
     // used to generate
     DescriptorBufferSampler equiImageDescriptorBuffer;

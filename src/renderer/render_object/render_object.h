@@ -92,8 +92,8 @@ public:
 
     [[nodiscard]] bool canDraw() const { return instanceBufferSize > 0 && currentInstanceCount > 0; }
 
-    const DescriptorBufferUniform& getAddressesDescriptorBuffer() { return addressesDescriptorBuffer; }
-    const DescriptorBufferSampler& getTextureDescriptorBuffer() { return textureDescriptorBuffer; }
+    const DescriptorBufferUniform& getAddressesDescriptorBuffer() const { return addressesDescriptorBuffer; }
+    const DescriptorBufferSampler& getTextureDescriptorBuffer() const { return textureDescriptorBuffer; }
     [[nodiscard]] const AllocatedBuffer& getVertexBuffer() const { return vertexBuffer; }
     [[nodiscard]] const AllocatedBuffer& getIndexBuffer() const { return indexBuffer; }
     [[nodiscard]] const AllocatedBuffer& getIndirectBuffer() const { return drawIndirectBuffer; }
