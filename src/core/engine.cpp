@@ -226,11 +226,10 @@ void Engine::updateSceneData(VkCommandBuffer cmd) const
         pSceneData->viewProj = pSceneData->proj * pSceneData->view;
 
         if (bEnableShadowMapDebug) {
-            const DirectionalLight light = {glm::vec3(0.5f), 1.0f, glm::vec3(0.0f)};
+            const DirectionalLight light = {glm::normalize(glm::vec3(2.0f, -3.0f, 1.0f)), 1.0f, glm::vec3(0.0f)};
             const glm::mat4 lightViewProj = CascadedShadowMap::getCascadeViewProjection(light.getDirection(), camera->getCameraProperties(), shadowMapDebug);
             pSceneData->viewProj = lightViewProj;
         }
-
 
         pSceneData->invView = glm::inverse(pSceneData->view);
         pSceneData->invProj = glm::inverse(pSceneData->proj);
@@ -334,7 +333,7 @@ void Engine::draw()
     };
     frustumCullingPipeline->draw(cmd, shadowPassFrustumCullingDrawInfo);
 
-    DirectionalLight light = {glm::vec3(0.5f), 1.0f, glm::vec3(0.0f)};
+    DirectionalLight light = {glm::normalize(glm::vec3(2.0f, -3.0f, 1.0f)), 1.0f, glm::vec3(0.0f)};
     const CascadedShadowMapDrawInfo shadowMapDrawInfo{
         renderObjects,
         player->getCamera()->getCameraProperties(),

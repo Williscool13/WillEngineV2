@@ -17,7 +17,7 @@ public:
 
     ~DirectionalLight() = default;
 
-    [[nodiscard]] glm::vec3 getDirection() const { return direction; }
+    [[nodiscard]] glm::vec3 getDirection() const { return glm::normalize(direction); }
     [[nodiscard]] float getIntensity() const { return intensity; }
     [[nodiscard]] glm::vec3 getColor() const { return color; }
 

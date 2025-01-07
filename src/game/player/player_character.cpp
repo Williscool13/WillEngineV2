@@ -16,9 +16,9 @@
 
 PlayerCharacter::PlayerCharacter(const std::string& gameObjectName) : GameObject(gameObjectName)
 {
-    freeCamera = new FreeCamera(75.0f, 1920.0f / 1080.0f, 1000, 0.01);
+    freeCamera = new FreeCamera(75.0f, 1920.0f / 1080.0f, 10000, 0.1);
 
-    orbitCamera = new OrbitCamera(75.0f, 1920.0f / 1080.0f, 1000, 0.01);
+    orbitCamera = new OrbitCamera(75.0f, 1920.0f / 1080.0f, 10000, 0.1);
     orbitCamera->setOrbitTarget(this);
 
     currentCamera = freeCamera;

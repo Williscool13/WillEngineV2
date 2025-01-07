@@ -6,7 +6,7 @@
 #include <glm/glm.hpp>
 
 #include "camera_types.h"
-#include "../../util/transform.h"
+#include "../transform.h"
 
 /**
  * The base class that defines a camera.
@@ -61,7 +61,7 @@ public:
 
     virtual void update(float deltaTime) = 0;
 
-    CameraProperties getCameraProperties() const { return {cachedFov, cachedAspect, cachedNear, cachedFar, cachedViewMatrix, cachedProjMatrix}; }
+    CameraProperties getCameraProperties() const { return {cachedFov, cachedAspect, cachedNear, cachedFar, cachedViewMatrix, cachedProjMatrix, transform.getPosition(), getViewDirectionWS() }; }
 
 protected:
     bool flipY{true};

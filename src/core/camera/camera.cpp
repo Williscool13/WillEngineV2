@@ -23,7 +23,7 @@ glm::mat4 Camera::getRotationMatrixWS() const
 
 glm::vec3 Camera::getViewDirectionWS() const
 {
-    return -glm::vec3(glm::mat4_cast(transform.getRotation())[2]);
+    return transform.getRotation() * glm::vec3(0.0f, 0.0f, -1.0f);
 }
 
 void Camera::updateProjMatrix(float fov, float aspect, float nearPlane, float farPlane)

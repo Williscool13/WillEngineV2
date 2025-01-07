@@ -6,6 +6,8 @@
 
 #include "shadow_map_descriptor_layouts.h"
 #include "shadow_types.h"
+#include "glm/detail/_noise.hpp"
+#include "glm/detail/_noise.hpp"
 #include "src/core/camera/camera.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/vk_pipelines.h"
@@ -229,36 +231,52 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInf
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }
 
-void CascadedShadowMap::getFrustumCornersWorldSpace(const glm::mat4& viewProj, glm::vec4 corners[8])
+void CascadedShadowMap::getFrustumCornersWorldSpace(const CameraProperties& cameraProperties, float nearPlane, float farPlane, glm::vec4 corners[8])
 {
-    const auto inv = glm::inverse(viewProj);
+    const glm::vec3 center = cameraProperties.position;
+    const glm::vec3 view_dir = cameraProperties.forward;
+    const glm::vec3 up(0.0f, 1.0f, 0.0f);
+    const glm::vec3 right = glm::normalize(glm::cross(view_dir, up));
+    const glm::vec3 up_corrected = glm::normalize(glm::cross(right, view_dir));
 
-    int idx = 0;
-    for (unsigned int x = 0; x < 2; ++x) {
-        for (unsigned int y = 0; y < 2; ++y) {
-            for (unsigned int z = 0; z < 2; ++z) {
-                const glm::vec4 pt = inv * glm::vec4(2.0f * x - 1.0f, 2.0f * y - 1.0f, 2.0f * z - 1.0f, 1.0f);
-                corners[idx++] = pt / pt.w;
-            }
-        }
-    }
+    // Calculate near/far heights and widths using FOV
+    const float near_height = glm::tan(cameraProperties.fov * 0.5f) * nearPlane;
+    const float near_width = near_height * cameraProperties.aspect;
+    const float far_height = glm::tan(cameraProperties.fov * 0.5f) * farPlane;
+    const float far_width = far_height * cameraProperties.aspect;
+
+    // Near face corners
+    const glm::vec3 near_center = center + view_dir * nearPlane;
+    corners[0] = glm::vec4(near_center - up_corrected * near_height - right * near_width, 1.0f);  // bottom-left
+    corners[1] = glm::vec4(near_center + up_corrected * near_height - right * near_width, 1.0f);  // top-left
+    corners[2] = glm::vec4(near_center + up_corrected * near_height + right * near_width, 1.0f);  // top-right
+    corners[3] = glm::vec4(near_center - up_corrected * near_height + right * near_width, 1.0f);  // bottom-right
+
+    // Far face corners
+    const glm::vec3 far_center = center + view_dir * farPlane;
+    corners[4] = glm::vec4(far_center - up_corrected * far_height - right * far_width, 1.0f);    // bottom-left
+    corners[5] = glm::vec4(far_center + up_corrected * far_height - right * far_width, 1.0f);    // top-left
+    corners[6] = glm::vec4(far_center + up_corrected * far_height + right * far_width, 1.0f);    // top-right
+    corners[7] = glm::vec4(far_center - up_corrected * far_height + right * far_width, 1.0f);    // bottom-right
 }
 
 glm::mat4 CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, const float cascadeNear, const float cascadeFar)
 {
-    const auto proj = glm::perspective(cameraProperties.fov, cameraProperties.aspect, cascadeNear, cascadeFar);
-
     constexpr int32_t numberOfCorners = 8;
     glm::vec4 corners[numberOfCorners];
-    getFrustumCornersWorldSpace(proj, cameraProperties.viewMatrix, corners);
+    getFrustumCornersWorldSpace(cameraProperties, cascadeNear, cascadeFar, corners);
 
-    glm::vec3 center = glm::vec3(0, 0, 0);
+    auto center = glm::vec3(0, 0, 0);
     for (const auto& v : corners) {
         center += glm::vec3(v);
     }
     center /= numberOfCorners;
 
-    const auto lightView = glm::lookAt(center + directionalLightDirection, center, glm::vec3(0.0f, 1.0f, 0.0f));
+    static int index{0};
+    fmt::print("Center {}: {}, {}, {}\n", index % 5, center.x, center.y, center.z);
+    index++;
+
+    const glm::mat4 lightView = glm::lookAt(center + directionalLightDirection, center, glm::vec3(0.0f, 1.0f, 0.0f));
 
     float minX = std::numeric_limits<float>::max();
     float maxX = std::numeric_limits<float>::lowest();
@@ -277,7 +295,7 @@ glm::mat4 CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 directionalLigh
     }
 
     // Tune this parameter according to the scene
-    constexpr float zMult = 1 / 10.0f;
+    constexpr float zMult = 10.0f;
     if (minZ < 0) {
         minZ *= zMult;
     } else {
