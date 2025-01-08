@@ -18,7 +18,7 @@ class Camera
 public:
     Camera() = default;
 
-    Camera(float fov, float aspect, float nearPlane, float farPlane, bool flipY = true);
+    Camera(float fov, float aspect, float nearPlane, float farPlane);
 
     virtual ~Camera() = default;
 
@@ -31,6 +31,8 @@ public:
     glm::mat4 getViewProjMatrix() const { return cachedViewProjMatrix; }
     float getNearPlane() const { return cachedNear; }
     float getFarPlane() const { return cachedFar; }
+    float getAspectRatio() const { return cachedAspect; }
+    float getFov() const { return cachedFov; }
     /**
      * Generates the rotation matrix of the camera in world space using the \code pitch\endcode and \code yaw\endcode  properties
      * @return
@@ -61,10 +63,10 @@ public:
 
     virtual void update(float deltaTime) = 0;
 
-    CameraProperties getCameraProperties() const { return {cachedFov, cachedAspect, cachedNear, cachedFar, cachedViewMatrix, cachedProjMatrix, transform.getPosition(), getViewDirectionWS() }; }
+    CameraProperties getCameraProperties() const { return {cachedFov, cachedAspect, cachedNear, cachedFar, cachedViewMatrix, cachedProjMatrix, transform.getPosition(), getViewDirectionWS()}; }
 
 protected:
-    bool flipY{true};
+    static constexpr bool flipProjectionY{false};
 
     // projection
     float cachedFov{75.0f};

@@ -8,7 +8,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-Camera::Camera(const float fov, const float aspect, const float nearPlane, const float farPlane, const bool flipY) : flipY(flipY)
+Camera::Camera(const float fov, const float aspect, const float nearPlane, const float farPlane)
 {
     // depth buffer is reversed in this engine.
     updateProjMatrix(fov, aspect, nearPlane, farPlane);
@@ -30,7 +30,7 @@ void Camera::updateProjMatrix(float fov, float aspect, float nearPlane, float fa
 {
     // depth buffer is reversed in this engine.
     cachedProjMatrix = glm::perspective(glm::radians(fov), aspect, nearPlane, farPlane);
-    if (flipY) { cachedProjMatrix[1][1] *= -1; }
+    if (flipProjectionY) { cachedProjMatrix[1][1] *= -1; }
     cachedFov = fov;
     cachedAspect = aspect;
     cachedNear = nearPlane;
