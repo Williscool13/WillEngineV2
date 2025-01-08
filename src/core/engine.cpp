@@ -12,6 +12,7 @@
 
 #include "imgui_wrapper.h"
 #include "Jolt/Physics/Body/BodyCreationSettings.h"
+#include "Jolt/Physics/Collision/Shape/BoxShape.h"
 #include "src/game/player/player_character.h"
 #include "src/util/halton.h"
 #include "src/util/time_utils.h"
@@ -41,6 +42,7 @@
 #include "src/renderer/lighting/shadows/shadow_map_descriptor_layouts.h"
 #include "src/renderer/lighting/shadows/shadow_types.h"
 #include "src/renderer/pipelines/acceleration_algorithms/frustum_culling_types.h"
+#include "src/util/render_utils.h"
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -223,6 +225,11 @@ void Engine::updateSceneData(VkCommandBuffer cmd) const
 
         pSceneData->view = camera->getViewMatrix();
         pSceneData->proj = camera->getProjMatrix();
+        // constexpr float orthoSize = 30.0f;
+        // const float aspect = camera->getAspectRatio();
+        // const float width = orthoSize * aspect;
+        // constexpr float height = orthoSize;
+        // pSceneData->proj = render_utils::createOrthographicMatrix(width, height, camera->getNearPlane(), camera->getFarPlane());
         pSceneData->viewProj = pSceneData->proj * pSceneData->view;
 
         if (bEnableShadowMapDebug) {
@@ -587,6 +594,10 @@ void Engine::cleanup()
     delete cascadedShadowMap;
     delete environmentMap;
 
+    for (const auto gameObject : gameObjects) {
+        delete gameObject;
+    }
+    gameObjects.clear();
     delete cubeGameObject;
     delete cubeGameObject2;
     delete sponzaObject;
@@ -748,13 +759,39 @@ void Engine::initScene()
     cube = new RenderObject{*context, *resourceManager, "assets/models/cube.gltf", renderObjectLayouts};
     primitives = new RenderObject{*context, *resourceManager, "assets/models/primitives/primitives.gltf", renderObjectLayouts};
 
+    gameObjects.reserve(10);
+
+
+    //primitives->generateGameObject(0) - This is a cube, and it is twice as big as a unit cube. For this reason, scale/physics shape will be identical
+    gameObjects.emplace_back(primitives->generateGameObject(0));
+    GameObject* floor = gameObjects.back();
+    floor->setGlobalScale({20.0f, 1.0f, 20.0f});
+    floor->translate({0.0f, -1.0f, 0.0f});
+    const auto floorShape = new JPH::BoxShape(JPH::Vec3(20.0f, 1.0f, 20.0f));
+    floor->setupRigidbody(floorShape);
+
+    // gameObjects.emplace_back(primitives->generateGameObject(0));
+    // gameObjects[0]->setName("Cube 1");
+    // GameObject* cube2 = primitives->generateGameObject(0);
+    // GameObject* cube3 = primitives->generateGameObject(0);
+    // GameObject* cube4 = primitives->generateGameObject(0);
+    // GameObject* cube5 = primitives->generateGameObject(0);
+
+    for (GameObject* gameObject : gameObjects) {
+        scene.addGameObject(gameObject);
+    }
+
     cubeGameObject = cube->generateGameObject(0);
     cubeGameObject->setName("Vertical Moving Cube");
     cubeGameObject2 = cube->generateGameObject(0);
     cubeGameObject2->setName("Horizontal Moving Cube");
     sponzaObject = sponza->generateGameObject();
+    sponzaObject->translate({15, 0, 15});
+
+
     primitiveCubeGameObject = primitives->generateGameObject(0);
     primitives->attachToGameObject(player, 3);
+
 
     scene.addGameObject(sponzaObject);
     scene.addGameObject(cubeGameObject);
@@ -762,24 +799,23 @@ void Engine::initScene()
     scene.addGameObject(primitiveCubeGameObject);
     scene.addGameObject(player);
 
+
     primitiveCubeGameObject->translate({0.f, 3.0f, 0.f});
     primitiveCubeGameObject->setGlobalScale(0.5f);
-    cubeGameObject->setGlobalScale(0.05f);
-    cubeGameObject2->setGlobalScale(0.05f);
+
+    player->translate({3.0f, 2.0f, 0.0f});
     player->setGlobalScale(0.5f);
 
-    physics->addRigidBody(primitiveCubeGameObject, physics->getUnitCubeShape());
+    cubeGameObject->setGlobalScale(0.05f);
+    cubeGameObject2->setGlobalScale(0.05f);
 
-    JPH::BodyCreationSettings playerSettings{
-        physics->getUnitSphereShape(),
-        physics_utils::ToJolt(player->getGlobalPosition()),
-        physics_utils::ToJolt(player->getGlobalRotation()),
-        JPH::EMotionType::Dynamic,
-        Layers::PLAYER
-    };
-    playerSettings.mLinearDamping = 0.4f;
-    // todo: look into continuous collision detection
-    physics->addRigidBody(player, playerSettings);
+
+    const auto movingBoxShape = new JPH::BoxShape(JPH::Vec3(0.05f, 0.05f, 0.05f));
+
+    cubeGameObject->setupRigidbody(movingBoxShape, JPH::EMotionType::Dynamic, Layers::MOVING);
+    cubeGameObject2->setupRigidbody(movingBoxShape, JPH::EMotionType::Dynamic, Layers::MOVING);
+    primitiveCubeGameObject->setupRigidbody(physics->getUnitCubeShape(), JPH::EMotionType::Dynamic, Layers::MOVING);
+    player->setupRigidbody(physics->getUnitSphereShape(), JPH::EMotionType::Dynamic, Layers::PLAYER);
 }
 
 void Engine::createSwapchain(const uint32_t width, const uint32_t height)

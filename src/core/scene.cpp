@@ -60,9 +60,9 @@ void Scene::displayGameObject(GameObject* obj, int depth)
     ImGui::SameLine(treeNodeWidth + spacing);
     ImGui::BeginGroup();
 
-    GameObject* parent = obj->getParent();
+    const GameObject* parent = obj->getParent();
     if (parent != nullptr) {
-        std::vector<GameObject*>& parentChildren = obj->getParent()->getChildren();
+        const std::vector<GameObject*>& parentChildren = obj->getParent()->getChildren();
 
         if (parent != sceneRoot) {
             if (ImGui::Button("Unparent", ImVec2(buttonWidth, 0))) { unparentGameObject(obj); }
@@ -85,24 +85,6 @@ void Scene::displayGameObject(GameObject* obj, int depth)
     }
 
     ImGui::EndGroup();
-
-    /*if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
-        ImGui::SetDragDropPayload("GAMEOBJECT_DRAG", &obj, sizeof(GameObject *));
-        ImGui::Text("Moving %s", obj->getName().data());
-        ImGui::EndDragDropSource();
-    }
-
-    if (ImGui::BeginDragDropTarget()) {
-        if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("GAMEOBJECT_DRAG")) {
-            GameObject* droppedObj = *static_cast<GameObject **>(payload->Data);
-            obj->addChild(droppedObj);
-        }
-        ImGui::EndDragDropTarget();
-    }*/
-
-    //if (ImGui::IsItemClicked()) {
-    // Handle click
-    //}
 
     if (isOpen) {
         for (GameObject* child : obj->getChildren()) {

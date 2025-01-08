@@ -5,7 +5,6 @@
 #ifndef PHYSICS_BODY_H
 #define PHYSICS_BODY_H
 
-#include "src/core/game_object.h"
 #include "src/physics/physics.h"
 
 class PhysicsBody
@@ -13,15 +12,7 @@ class PhysicsBody
 public:
     PhysicsBody() = default;
 
-    void updateTransform(const JPH::BodyInterface& bodyInterface) const
-    {
-        if (!gameObject) return;
-
-        const JPH::Vec3 position = bodyInterface.GetPosition(bodyId);
-        const JPH::Quat rotation = bodyInterface.GetRotation(bodyId);
-        gameObject->setGlobalPosition(glm::vec3(position.GetX(), position.GetY(), position.GetZ()));
-        gameObject->setGlobalRotation(glm::quat(rotation.GetW(), rotation.GetX(), rotation.GetY(), rotation.GetZ()));
-    }
+    void updateTransform(const JPH::BodyInterface& bodyInterface) const;
 
     GameObject* gameObject = nullptr;
     JPH::BodyID bodyId;

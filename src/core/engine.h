@@ -149,6 +149,7 @@ private: // Scene
     GameObject* cubeGameObject{nullptr};
     GameObject* cubeGameObject2{nullptr};
     GameObject* primitiveCubeGameObject{nullptr};
+    std::vector<GameObject*> gameObjects{};
 
     CascadedShadowMap* cascadedShadowMap{nullptr};
 

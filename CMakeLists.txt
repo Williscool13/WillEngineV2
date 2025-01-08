@@ -9,6 +9,8 @@ add_definitions(-DGLM_ENABLE_EXPERIMENTAL)
 add_definitions(-DJPH_DEBUG_RENDERER)
 #add_definitions(-DJPH_PROFILE_ENABLED=0)
 #add_definitions(-DJPH_DEBUG_RENDERER=0)
+add_definitions(-DJPH_ENABLE_ASSERTS=1)
+add_definitions(-DJPH_ENABLE_ASSERT_MESSAGES=1)
 
 # Vulkan
 find_package(Vulkan REQUIRED)
