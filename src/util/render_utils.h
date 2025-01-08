@@ -26,7 +26,8 @@ namespace render_utils
     //     return glm::orthoZO(left, right, bottom, top, near, far);
     // }
 
-    static glm::mat4 perspectiveToOrtho(const glm::mat4& perspective) {
+    static glm::mat4 perspectiveToOrtho(const glm::mat4& perspective)
+    {
         // Extract the frustum planes from the perspective matrix
         float nearPlane = perspective[3][2] / (perspective[2][2] - 1.0f);
         float farPlane = perspective[3][2] / (perspective[2][2] + 1.0f);
@@ -37,6 +38,30 @@ namespace render_utils
 
         // Build the orthographic projection matrix
         return glm::ortho(left, right, bottom, top, nearPlane, farPlane);
+    }
+
+    inline glm::mat4 createOrthographicMatrix(const float width, const float height, const float nearPlane, const float farPlane)
+    {
+        const float right = width / 2.0f;
+        const float left = -right;
+        const float top = height / 2.0f;
+        const float bottom = -top;
+        const float near = nearPlane;
+        const float far = farPlane;
+
+        auto ortho = glm::mat4(1.0f);
+
+        // Scale
+        ortho[0][0] = 2.0f / (right - left);
+        ortho[1][1] = 2.0f / (top - bottom);
+        ortho[2][2] = 2.0f / (near - far);
+
+        // Translation
+        ortho[3][0] = -(right + left) / (right - left);
+        ortho[3][1] = -(top + bottom) / (top - bottom);
+        ortho[3][2] = (near + far) / (near - far);
+
+        return ortho;
     }
 }
 

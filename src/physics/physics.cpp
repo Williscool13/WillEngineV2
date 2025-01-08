@@ -99,6 +99,11 @@ void Physics::cleanup()
         }
         physicsBodies.clear();
 
+        unitCubeShape = nullptr;
+        unitSphereShape = nullptr;
+        unitCapsuleShape = nullptr;
+        unitCylinderShape = nullptr;
+
         delete physicsSystem;
         physicsSystem = nullptr;
     }
@@ -147,7 +152,7 @@ JPH::BodyInterface& Physics::getBodyInterface() const
     return physicsSystem->GetBodyInterface();
 }
 
-void Physics::addRigidBody(GameObject* obj, const JPH::ShapeRefC& shape, const bool isDynamic)
+JPH::BodyID Physics::addRigidBody(GameObject* obj, const JPH::ShapeRefC& shape, const bool isDynamic)
 {
     PhysicsBody body;
     body.gameObject = obj;
@@ -162,14 +167,18 @@ void Physics::addRigidBody(GameObject* obj, const JPH::ShapeRefC& shape, const b
 
     body.bodyId = physicsSystem->GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::Activate);
     physicsBodies[obj->getId()] = body;
+
+    return body.bodyId;
 }
 
-void Physics::addRigidBody(GameObject* obj, const JPH::BodyCreationSettings& settings)
+JPH::BodyID Physics::addRigidBody(GameObject* obj, const JPH::BodyCreationSettings& settings)
 {
     PhysicsBody body;
     body.gameObject = obj;
     body.bodyId = physicsSystem->GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::Activate);
     physicsBodies[obj->getId()] = body;
+
+    return body.bodyId;
 }
 
 void Physics::removeRigidBody(const GameObject* object)

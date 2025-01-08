@@ -60,9 +60,9 @@ public:
     const std::unordered_map<uint32_t, PhysicsBody>& getGameObjectToPhysicsBodyMap() const { return physicsBodies; }
 
 
-    void addRigidBody(GameObject* obj, const JPH::ShapeRefC& shape, bool isDynamic = true);
+    JPH::BodyID addRigidBody(GameObject* obj, const JPH::ShapeRefC& shape, bool isDynamic = true);
 
-    void addRigidBody(GameObject* obj, const JPH::BodyCreationSettings& settings);
+    JPH::BodyID addRigidBody(GameObject* obj, const JPH::BodyCreationSettings& settings);
 
     void removeRigidBody(const GameObject* object);
 

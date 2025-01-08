@@ -32,6 +32,13 @@ GameObject::~GameObject()
     while (!children.empty()) {
         removeChild(children.back(), tempParent);
     }
+
+    if (!bodyId.IsInvalid()) {
+        const auto physics = Physics::Get();
+        physics->removeRigidBody(this);
+        bodyId = JPH::BodyID(JPH::BodyID::cInvalidBodyID);
+        shape = nullptr;
+    }
 }
 
 void GameObject::setName(std::string newName)
@@ -61,12 +68,18 @@ void GameObject::setLocalPosition(const glm::vec3 localPosition)
 {
     transform.setPosition(localPosition);
     dirty();
+    if (!bodyId.IsInvalid()) {
+        Physics::Get()->getBodyInterface().SetPosition(bodyId, physics_utils::ToJolt(getGlobalPosition()), JPH::EActivation::Activate);
+    }
 }
 
 void GameObject::setLocalRotation(const glm::quat localRotation)
 {
     transform.setRotation(localRotation);
     dirty();
+    if (!bodyId.IsInvalid()) {
+        Physics::Get()->getBodyInterface().SetRotation(bodyId, physics_utils::ToJolt(getGlobalRotation()), JPH::EActivation::Activate);
+    }
 }
 
 void GameObject::setLocalScale(const glm::vec3 localScale)
@@ -79,31 +92,47 @@ void GameObject::setLocalTransform(const Transform& newLocalTransform)
 {
     transform = newLocalTransform;
     dirty();
+    if (!bodyId.IsInvalid()) {
+        Physics::Get()->getBodyInterface().SetPosition(bodyId, physics_utils::ToJolt(getGlobalPosition()), JPH::EActivation::Activate);
+        Physics::Get()->getBodyInterface().SetRotation(bodyId, physics_utils::ToJolt(getGlobalRotation()), JPH::EActivation::Activate);
+    }
 }
 
 void GameObject::setGlobalPosition(const glm::vec3 globalPosition)
 {
-    const glm::vec3 parentPos = parent->getGlobalPosition();
-    const glm::quat parentRot = parent->getGlobalRotation();
-    const glm::mat4 parentTransform = glm::translate(glm::mat4(1.0f), parentPos) * glm::mat4_cast(parentRot);
-    const glm::mat4 inverseParentTransform = glm::inverse(parentTransform);
-    const auto localPosition = glm::vec3(inverseParentTransform * glm::vec4(globalPosition, 1.0f));
-
-    setLocalPosition(localPosition);
+    if (parent) {
+        const glm::vec3 parentPos = parent->getGlobalPosition();
+        const glm::quat parentRot = parent->getGlobalRotation();
+        const glm::mat4 parentTransform = glm::translate(glm::mat4(1.0f), parentPos) * glm::mat4_cast(parentRot);
+        const glm::mat4 inverseParentTransform = glm::inverse(parentTransform);
+        const auto localPosition = glm::vec3(inverseParentTransform * glm::vec4(globalPosition, 1.0f));
+        setLocalPosition(localPosition);
+    } else {
+        setLocalPosition(globalPosition);
+    }
 }
+
 
 void GameObject::setGlobalRotation(const glm::quat globalRotation)
 {
-    const Transform& parentGlobal = parent->getGlobalTransform();
-    const glm::quat localRotation = glm::inverse(parentGlobal.getRotation()) * globalRotation;
-    setLocalRotation(localRotation);
+    if (parent) {
+        const Transform& parentGlobal = parent->getGlobalTransform();
+        const glm::quat localRotation = glm::inverse(parentGlobal.getRotation()) * globalRotation;
+        setLocalRotation(localRotation);
+    } else {
+        setLocalRotation(globalRotation);
+    }
 }
 
 void GameObject::setGlobalScale(const glm::vec3 globalScale)
 {
-    const Transform& parentGlobal = parent->getGlobalTransform();
-    const glm::vec3 localScale = globalScale / parentGlobal.getScale();
-    setLocalScale(localScale);
+    if (parent) {
+        const Transform& parentGlobal = parent->getGlobalTransform();
+        const glm::vec3 localScale = globalScale / parentGlobal.getScale();
+        setLocalScale(localScale);
+    } else {
+        setLocalScale(globalScale);
+    }
 }
 
 void GameObject::setGlobalTransform(const Transform& newGlobalTransform)
@@ -203,4 +232,19 @@ void GameObject::recursiveUpdateModelMatrix(const int32_t previousFrameOverlapIn
     for (GameObject* child : children) {
         child->recursiveUpdateModelMatrix(previousFrameOverlapIndex, currentFrameOverlapIndex);
     }
+}
+
+void GameObject::setupRigidbody(const JPH::ShapeRefC& shape, const JPH::EMotionType motionType, const JPH::ObjectLayer layer)
+{
+    this->shape = shape;
+
+    const JPH::BodyCreationSettings settings{
+        shape,
+        physics_utils::ToJolt(getGlobalPosition()),
+        physics_utils::ToJolt(getGlobalRotation()),
+        motionType,
+        layer
+    };
+    const auto physics = Physics::Get();
+    bodyId = physics->addRigidBody(this, settings);
 }

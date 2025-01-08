@@ -13,6 +13,9 @@
 
 #include "src/physics/physics.h"
 #include "transform.h"
+#include "Jolt/Physics/Body/BodyCreationSettings.h"
+#include "src/physics/physics_filters.h"
+#include "src/physics/physics_utils.h"
 
 class RenderObject;
 
@@ -30,6 +33,7 @@ public:
     virtual void update(float deltaTime) {}
 
     void setName(std::string newName);
+
 public: // Hierarchy
     /**
      * Adds a \code GameObject\endcode as a child to this \code GameObject\endcode while maintaining its position in WorldSpace.
@@ -85,20 +89,29 @@ public: // Transform
     glm::vec3 getLocalScale() const { return getLocalTransform().getScale(); }
 
     const Transform& getGlobalTransform();
+
     glm::vec3 getGlobalPosition() { return getGlobalTransform().getPosition(); }
     glm::quat getGlobalRotation() { return getGlobalTransform().getRotation(); }
-    glm::vec3 getGlobalScale()    { return getGlobalTransform().getScale(); }
+    glm::vec3 getGlobalScale() { return getGlobalTransform().getScale(); }
 
     void setLocalPosition(glm::vec3 localPosition);
+
     void setLocalRotation(glm::quat localRotation);
+
     void setLocalScale(glm::vec3 localScale);
+
     void setLocalScale(const float localScale) { setLocalScale(glm::vec3(localScale)); }
+
     void setLocalTransform(const Transform& newLocalTransform);
 
     void setGlobalPosition(glm::vec3 globalPosition);
+
     void setGlobalRotation(glm::quat globalRotation);
-    void setGlobalScale(glm::vec3 globalScale);
+
+    void setGlobalScale(glm::vec3 newScale);
+
     void setGlobalScale(const float globalScale) { setGlobalScale(glm::vec3(globalScale)); }
+
     void setGlobalTransform(const Transform& newGlobalTransform);
 
     void translate(const glm::vec3 translation)
@@ -125,6 +138,12 @@ public: // Rendering
      */
     void recursiveUpdateModelMatrix(int32_t previousFrameOverlapIndex, int32_t currentFrameOverlapIndex);
 
+    void setRenderObjectReference(RenderObject* owner, const int32_t index)
+    {
+        pRenderObject = owner;
+        instanceIndex = index;
+    }
+
 private: // Rendering
     /**
       * If true, the model matrix will never be updated from defaults.
@@ -136,15 +155,23 @@ private: // Rendering
     RenderObject* pRenderObject{nullptr};
     int32_t instanceIndex{-1};
 
-public: // Rendering
-    void setRenderObjectReference(RenderObject* owner, const int32_t index)
+public: // Physics
+    void setupRigidbody(const JPH::ShapeRefC& shape, const JPH::EMotionType motionType = JPH::EMotionType::Static, const JPH::ObjectLayer layer = Layers::NON_MOVING);
+
+
+    JPH::ShapeRefC getShape() const
     {
-        pRenderObject = owner;
-        instanceIndex = index;
+        return shape;
+    }
+
+    JPH::BodyID getBodyId() const
+    {
+        return bodyId;
     }
 
 private: // Physics
-    JPH::BodyID bodyID;
+    JPH::ShapeRefC shape{nullptr};
+    JPH::BodyID bodyId{JPH::BodyID::cInvalidBodyID};
 
 public:
     bool operator==(const GameObject& other) const
