@@ -34,6 +34,10 @@ public:
 
     [[nodiscard]] const Camera* getCamera() const { return currentCamera; }
 
+public: // Debug
+    const FreeCamera* getFreeCamera() const { return freeCamera; }
+    const OrbitCamera* getOrbitCamera() const { return orbitCamera; }
+
 private:
     void addForceToObject() const;
 

@@ -58,7 +58,15 @@ public: // Debug
         return lightMatrices[cascadeLevel];
     }
 
-private: // Pipelines
+    static float getCascadeLevel(const int32_t index)
+    {
+        if (index >= SHADOW_CASCADE_COUNT || index < 0) {
+            return normalizedCascadeLevels[0];
+        }
+        return normalizedCascadeLevels[index];
+    }
+
+    //private: // Pipelines
     static void getLightSpaceMatrices(glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, glm::mat4 matrices[SHADOW_MAP_COUNT]);
 
     static void getFrustumCornersWorldSpace(const ::CameraProperties& cameraProperties, float nearPlane, float farPlane, glm::vec4 corners[8]);
@@ -86,7 +94,7 @@ private:
     // 2 = 0.92 -> 0.75
     // 3 = 0.75 -> 0.40
     // 4 = 0.40 -> far
-    CascadeShadowMapData shadowMaps[SHADOW_MAP_COUNT] {
+    CascadeShadowMapData shadowMaps[SHADOW_MAP_COUNT]{
         {0, {VK_NULL_HANDLE}},
         {1, {VK_NULL_HANDLE}},
         {2, {VK_NULL_HANDLE}},
@@ -94,7 +102,7 @@ private:
         {4, {VK_NULL_HANDLE}},
     };
 
-    static constexpr float normalizedCascadeLevels[SHADOW_CASCADE_COUNT]{0.98f, 0.92f, 0.75f, 0.4f};
+    static constexpr float normalizedCascadeLevels[SHADOW_CASCADE_COUNT]{0.02f, 0.08f, 0.25f, 0.6f};
 
     // used to generate
     DescriptorBufferSampler equiImageDescriptorBuffer;

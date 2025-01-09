@@ -235,7 +235,7 @@ void CascadedShadowMap::getFrustumCornersWorldSpace(const CameraProperties& came
 {
     const glm::vec3 center = cameraProperties.position;
     const glm::vec3 view_dir = cameraProperties.forward;
-    const glm::vec3 up(0.0f, 1.0f, 0.0f);
+    constexpr glm::vec3 up{0.0f, 1.0f, 0.0f};
     const glm::vec3 right = glm::normalize(glm::cross(view_dir, up));
     const glm::vec3 up_corrected = glm::normalize(glm::cross(right, view_dir));
 
@@ -247,20 +247,20 @@ void CascadedShadowMap::getFrustumCornersWorldSpace(const CameraProperties& came
 
     // Near face corners
     const glm::vec3 near_center = center + view_dir * nearPlane;
-    corners[0] = glm::vec4(near_center - up_corrected * near_height - right * near_width, 1.0f);  // bottom-left
-    corners[1] = glm::vec4(near_center + up_corrected * near_height - right * near_width, 1.0f);  // top-left
-    corners[2] = glm::vec4(near_center + up_corrected * near_height + right * near_width, 1.0f);  // top-right
-    corners[3] = glm::vec4(near_center - up_corrected * near_height + right * near_width, 1.0f);  // bottom-right
+    corners[0] = glm::vec4(near_center - up_corrected * near_height - right * near_width, 1.0f); // bottom-left
+    corners[1] = glm::vec4(near_center + up_corrected * near_height - right * near_width, 1.0f); // top-left
+    corners[2] = glm::vec4(near_center + up_corrected * near_height + right * near_width, 1.0f); // top-right
+    corners[3] = glm::vec4(near_center - up_corrected * near_height + right * near_width, 1.0f); // bottom-right
 
     // Far face corners
     const glm::vec3 far_center = center + view_dir * farPlane;
-    corners[4] = glm::vec4(far_center - up_corrected * far_height - right * far_width, 1.0f);    // bottom-left
-    corners[5] = glm::vec4(far_center + up_corrected * far_height - right * far_width, 1.0f);    // top-left
-    corners[6] = glm::vec4(far_center + up_corrected * far_height + right * far_width, 1.0f);    // top-right
-    corners[7] = glm::vec4(far_center - up_corrected * far_height + right * far_width, 1.0f);    // bottom-right
+    corners[4] = glm::vec4(far_center - up_corrected * far_height - right * far_width, 1.0f); // bottom-left
+    corners[5] = glm::vec4(far_center + up_corrected * far_height - right * far_width, 1.0f); // top-left
+    corners[6] = glm::vec4(far_center + up_corrected * far_height + right * far_width, 1.0f); // top-right
+    corners[7] = glm::vec4(far_center - up_corrected * far_height + right * far_width, 1.0f); // bottom-right
 }
 
-glm::mat4 CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, const float cascadeNear, const float cascadeFar)
+glm::mat4 CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, float cascadeNear, float cascadeFar)
 {
     constexpr int32_t numberOfCorners = 8;
     glm::vec4 corners[numberOfCorners];
@@ -275,53 +275,67 @@ glm::mat4 CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 directionalLigh
     static int index{0};
     fmt::print("Center {}: {}, {}, {}\n", index % 5, center.x, center.y, center.z);
     index++;
+    const auto lightView = glm::lookAt(
+        center + directionalLightDirection,
+        center,
+        glm::vec3(0.0f, 1.0f, 0.0f)
+    );
 
-    const glm::mat4 lightView = glm::lookAt(center + directionalLightDirection, center, glm::vec3(0.0f, 1.0f, 0.0f));
+    // Initial bounds calc for ortho
+    glm::vec3 maxBounds{-INFINITY}, minBounds{INFINITY};
+    for (const auto& corner : corners) {
+        glm::vec4 lightSpaceCorner = lightView * corner;
+        minBounds = glm::min(glm::vec3(lightSpaceCorner), minBounds);
+        maxBounds = glm::max(glm::vec3(lightSpaceCorner), maxBounds);
+    }
+    const glm::mat4 ortho = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, -maxBounds.z, -minBounds.z);
 
-    float minX = std::numeric_limits<float>::max();
-    float maxX = std::numeric_limits<float>::lowest();
-    float minY = std::numeric_limits<float>::max();
-    float maxY = std::numeric_limits<float>::lowest();
-    float minZ = std::numeric_limits<float>::max();
-    float maxZ = std::numeric_limits<float>::lowest();
-    for (const auto& v : corners) {
-        const auto trf = lightView * v;
-        minX = std::min(minX, trf.x);
-        maxX = std::max(maxX, trf.x);
-        minY = std::min(minY, trf.y);
-        maxY = std::max(maxY, trf.y);
-        minZ = std::min(minZ, trf.z);
-        maxZ = std::max(maxZ, trf.z);
+    // Find projected bounds for cropping
+    glm::vec3 tmax{-INFINITY};
+    glm::vec3 tmin{INFINITY};
+    const glm::mat4 shadowMVP = ortho * lightView;
+
+    for (const auto& corner : corners) {
+        glm::vec4 trf = shadowMVP * corner;
+        trf.x /= trf.w;
+        trf.y /= trf.w;
+
+        tmin = glm::min(glm::vec3(trf), tmin);
+        tmax = glm::max(glm::vec3(trf), tmax);
     }
 
-    // Tune this parameter according to the scene
-    constexpr float zMult = 10.0f;
-    if (minZ < 0) {
-        minZ *= zMult;
-    } else {
-        minZ /= zMult;
-    }
-    if (maxZ < 0) {
-        maxZ /= zMult;
-    } else {
-        maxZ *= zMult;
-    }
+    // Compute crop matrix
+    glm::vec2 scale(2.0f / (tmax.x - tmin.x), 2.0f / (tmax.y - tmin.y));
+    glm::vec2 offset(-0.5f * (tmax.x + tmin.x) * scale.x,
+                     -0.5f * (tmax.y + tmin.y) * scale.y);
 
-    const glm::mat4 lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
-    return lightProjection * lightView;
+    glm::mat4 cropMatrix(1.0f);
+    cropMatrix[0][0] = scale.x;
+    cropMatrix[1][1] = scale.y;
+    cropMatrix[0][3] = offset.x;
+    cropMatrix[1][3] = offset.y;
+    cropMatrix = glm::transpose(cropMatrix);
+
+    return cropMatrix * ortho * lightView;
 }
 
 
 void CascadedShadowMap::getLightSpaceMatrices(const glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, glm::mat4 matrices[SHADOW_MAP_COUNT])
 {
+    assert(USING_REVERSED_DEPTH_BUFFER);
+    // need to reverse the reversed depth buffer for correct frustum calculations
+    // matrix calculations use these values as "distance from camera". Reversed depth buffer just doesn't jive.
+    const float nearPlane = cameraProperties.farPlane;
+    const float farPlane = cameraProperties.nearPlane;
+
+    fmt::print("Camera Position: {}, {}, {}", cameraProperties.position.x, cameraProperties.position.y, cameraProperties.position.z);
     for (size_t i = 0; i < SHADOW_MAP_COUNT; ++i) {
         if (i == 0) {
-            matrices[i] = getLightSpaceMatrix(directionalLightDirection, cameraProperties, cameraProperties.nearPlane, normalizedCascadeLevels[i] * cameraProperties.nearPlane);
+            matrices[i] = getLightSpaceMatrix(directionalLightDirection, cameraProperties, nearPlane, normalizedCascadeLevels[i] * farPlane);
         } else if (i < SHADOW_CASCADE_COUNT) {
-            matrices[i] = getLightSpaceMatrix(directionalLightDirection, cameraProperties, normalizedCascadeLevels[i - 1] * cameraProperties.nearPlane,
-                                              normalizedCascadeLevels[i] * cameraProperties.nearPlane);
+            matrices[i] = getLightSpaceMatrix(directionalLightDirection, cameraProperties, normalizedCascadeLevels[i - 1] * farPlane, normalizedCascadeLevels[i] * farPlane);
         } else {
-            matrices[i] = getLightSpaceMatrix(directionalLightDirection, cameraProperties, normalizedCascadeLevels[i - 1] * cameraProperties.nearPlane, cameraProperties.farPlane);
+            matrices[i] = getLightSpaceMatrix(directionalLightDirection, cameraProperties, normalizedCascadeLevels[i - 1] * farPlane, cameraProperties.farPlane);
         }
     }
 }
