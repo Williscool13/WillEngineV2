@@ -24,6 +24,7 @@
 #include "../renderer/vk_descriptor_buffer.h"
 #include "../renderer/vk_helpers.h"
 #include "src/renderer/environment/environment.h"
+#include "src/renderer/lighting/directional_light.h"
 #include "src/renderer/pipelines/post_processing/post_process_types.h"
 
 class CascadedShadowMap;
@@ -155,6 +156,8 @@ private: // Scene
 
     Environment* environmentMap{nullptr};
     int32_t environmentMapIndex{0};
+
+    DirectionalLight mainLight = {glm::normalize(glm::vec3(2.0f, -3.0f, 1.0f)), 1.0f, glm::vec3(0.0f)};
 
     int32_t deferredDebug{0};
     int32_t taaDebug{0};

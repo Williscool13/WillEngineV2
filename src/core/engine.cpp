@@ -13,6 +13,7 @@
 #include "imgui_wrapper.h"
 #include "Jolt/Physics/Body/BodyCreationSettings.h"
 #include "Jolt/Physics/Collision/Shape/BoxShape.h"
+#include "src/game/camera/free_camera.h"
 #include "src/game/player/player_character.h"
 #include "src/util/halton.h"
 #include "src/util/time_utils.h"
@@ -233,8 +234,7 @@ void Engine::updateSceneData(VkCommandBuffer cmd) const
         pSceneData->viewProj = pSceneData->proj * pSceneData->view;
 
         if (bEnableShadowMapDebug) {
-            const DirectionalLight light = {glm::normalize(glm::vec3(2.0f, -3.0f, 1.0f)), 1.0f, glm::vec3(0.0f)};
-            const glm::mat4 lightViewProj = CascadedShadowMap::getCascadeViewProjection(light.getDirection(), camera->getCameraProperties(), shadowMapDebug);
+            const glm::mat4 lightViewProj = CascadedShadowMap::getCascadeViewProjection(mainLight.getDirection(), camera->getCameraProperties(), shadowMapDebug);
             pSceneData->viewProj = lightViewProj;
         }
 
@@ -340,11 +340,11 @@ void Engine::draw()
     };
     frustumCullingPipeline->draw(cmd, shadowPassFrustumCullingDrawInfo);
 
-    DirectionalLight light = {glm::normalize(glm::vec3(2.0f, -3.0f, 1.0f)), 1.0f, glm::vec3(0.0f)};
+
     const CascadedShadowMapDrawInfo shadowMapDrawInfo{
         renderObjects,
         player->getCamera()->getCameraProperties(),
-        light,
+        mainLight,
         getCurrentFrameOverlap()
     };
     cascadedShadowMap->draw(cmd, shadowMapDrawInfo);
@@ -507,6 +507,7 @@ void Engine::update(float deltaTime) const
 
     cubeGameObject->setLocalPosition(vertical);
     cubeGameObject2->setLocalPosition(horizontal);
+
     player->update(deltaTime);
 }
 
@@ -770,6 +771,9 @@ void Engine::initScene()
     const auto floorShape = new JPH::BoxShape(JPH::Vec3(20.0f, 1.0f, 20.0f));
     floor->setupRigidbody(floorShape);
 
+    gameObjects.emplace_back(primitives->generateGameObject(2));
+    GameObject* cameraRepresentation = gameObjects.back();
+    cameraRepresentation->setGlobalScale(0.75f);
     // gameObjects.emplace_back(primitives->generateGameObject(0));
     // gameObjects[0]->setName("Cube 1");
     // GameObject* cube2 = primitives->generateGameObject(0);

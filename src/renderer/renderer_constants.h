@@ -7,5 +7,6 @@
 
 constexpr unsigned int FRAME_OVERLAP = 2;
 constexpr char ENGINE_NAME[] = "Will Engine";
+constexpr bool USING_REVERSED_DEPTH_BUFFER = true;
 
 #endif // RENDERER_CONSTANTS_H
