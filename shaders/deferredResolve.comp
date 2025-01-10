@@ -17,16 +17,23 @@ layout (set = 1, binding = 4) uniform sampler2D velocityBuffer; // velocity buff
 
 layout (rgba16f, set = 1, binding = 5) uniform image2D outputImage;
 
-layout (std140, set = 2, binding = 0) uniform SceneDatae {
-    float dummy;
-} dummy;
-/**layout (std140, set = 2, binding = 0) uniform LightData {
-    DirectionalLight mainLight;
-    PointLight pointLights[6];
-} lightData;*/
+layout (set = 2, binding = 0) uniform samplerCube environmentDiffuseAndSpecular;
+layout (set = 2, binding = 1) uniform sampler2D lut;
 
-layout (set = 3, binding = 0) uniform samplerCube environmentDiffuseAndSpecular;
-layout (set = 3, binding = 1) uniform sampler2D lut;
+layout (std140, set = 3, binding = 0) uniform MainLightData {
+    float cascadeSplits[4];
+    mat4 lightViewProj[4];
+    DirectionalLight mainLight;// w is intensity
+} mainLightData;
+
+layout(set = 4, binding = 0) uniform sampler2D shadowMapSampler[];
+
+layout (std140, set = 5, binding = 0) uniform LightData {
+    PointLight pointLights[6];
+} lightData;
+
+layout(set = 6, binding = 0) uniform sampler2D shadowMaps[];
+
 
 layout (push_constant) uniform PushConstants {
     int width;
@@ -58,6 +65,7 @@ float LinearizeDepth(float depth)
 }
 
 void main() {
+    // All calculations are done in World Space unless explicitly declared otherwise
     ivec2 screenPos = ivec2(gl_GlobalInvocationID.xy);
     if (screenPos.x > pushConstants.width || screenPos.y > pushConstants.height) {
         return;
