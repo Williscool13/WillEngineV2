@@ -242,7 +242,7 @@ void Engine::updateSceneData(VkCommandBuffer cmd) const
         pSceneData->invProj = glm::inverse(pSceneData->proj);
         pSceneData->invViewProj = glm::inverse(pSceneData->viewProj);
         pSceneData->cameraWorldPos = camera->getPosition();
-        const glm::mat4 cameraLook = glm::lookAt(glm::vec3(0), camera->getViewDirectionWS(), glm::vec3(0, 1, 0));
+        const glm::mat4 cameraLook = glm::lookAt(glm::vec3(0), camera->getForwardWS(), glm::vec3(0, 1, 0));
         pSceneData->viewProjCameraLookDirection = pSceneData->proj * cameraLook;
 
         pSceneData->frameNumber = getCurrentFrameOverlap();
@@ -509,6 +509,38 @@ void Engine::update(float deltaTime) const
     cubeGameObject2->setLocalPosition(horizontal);
 
     player->update(deltaTime);
+
+    constexpr int32_t numberOfCorners = 8;
+    glm::vec4 corners[numberOfCorners];
+    const FreeCamera* targetCamera = player->getFreeCamera();
+    const CameraProperties properties = targetCamera->getCameraProperties();
+
+    float nearPlane;
+    float farPlane;
+    if (shadowMapDebug == 0) {
+        nearPlane = targetCamera->getFarPlane();
+        farPlane = targetCamera->getNearPlane() * cascadedShadowMap->getCascadeLevel(shadowMapDebug);
+    } else if (shadowMapDebug < SHADOW_CASCADE_COUNT) {
+        nearPlane = targetCamera->getNearPlane() * cascadedShadowMap->getCascadeLevel(shadowMapDebug - 1);
+        farPlane =  targetCamera->getNearPlane() * cascadedShadowMap->getCascadeLevel(shadowMapDebug);
+    } else {
+        nearPlane = targetCamera->getNearPlane() * cascadedShadowMap->getCascadeLevel(shadowMapDebug - 1);
+        farPlane =  targetCamera->getNearPlane();
+    }
+
+    if (bShowPerspectiveBounds) {
+        render_utils::getPerspectiveFrustumCornersWorldSpace(nearPlane, farPlane, targetCamera->getFov(), targetCamera->getAspectRatio(), targetCamera->getPosition(), targetCamera->getForwardWS(), corners);
+    }
+
+    /*gameObjects[1]->setGlobalPosition(corners[0]);
+    gameObjects[2]->setGlobalPosition(corners[1]);
+    gameObjects[3]->setGlobalPosition(corners[2]);
+    gameObjects[4]->setGlobalPosition(corners[3]);
+    gameObjects[5]->setGlobalPosition(corners[4]);
+    gameObjects[6]->setGlobalPosition(corners[5]);
+    gameObjects[7]->setGlobalPosition(corners[6]);
+    gameObjects[8]->setGlobalPosition(corners[7]);
+    gameObjects[9]->setGlobalPosition(targetCamera->getPosition());*/
 }
 
 void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects) const
@@ -771,6 +803,30 @@ void Engine::initScene()
     const auto floorShape = new JPH::BoxShape(JPH::Vec3(20.0f, 1.0f, 20.0f));
     floor->setupRigidbody(floorShape);
 
+    gameObjects.emplace_back(primitives->generateGameObject(0));
+    GameObject* cascade0Corner0 = gameObjects.back();
+    gameObjects.emplace_back(primitives->generateGameObject(0));
+    GameObject* cascade0Corner1 = gameObjects.back();
+    gameObjects.emplace_back(primitives->generateGameObject(0));
+    GameObject* cascade0Corner2 = gameObjects.back();
+    gameObjects.emplace_back(primitives->generateGameObject(0));
+    GameObject* cascade0Corner3 = gameObjects.back();
+    gameObjects.emplace_back(primitives->generateGameObject(1));
+    GameObject* cascade0Corner4 = gameObjects.back();
+    gameObjects.emplace_back(primitives->generateGameObject(1));
+    GameObject* cascade0Corner5 = gameObjects.back();
+    gameObjects.emplace_back(primitives->generateGameObject(1));
+    GameObject* cascade0Corner6 = gameObjects.back();
+    gameObjects.emplace_back(primitives->generateGameObject(1));
+    GameObject* cascade0Corner7 = gameObjects.back();
+    cascade0Corner0->setGlobalScale(5.0f);
+    cascade0Corner1->setGlobalScale(5.0f);
+    cascade0Corner2->setGlobalScale(5.0f);
+    cascade0Corner3->setGlobalScale(5.0f);
+    cascade0Corner4->setGlobalScale(5.0f);
+    cascade0Corner5->setGlobalScale(5.0f);
+    cascade0Corner6->setGlobalScale(5.0f);
+    cascade0Corner7->setGlobalScale(5.0f);
     gameObjects.emplace_back(primitives->generateGameObject(2));
     GameObject* cameraRepresentation = gameObjects.back();
     cameraRepresentation->setGlobalScale(0.75f);

@@ -17,6 +17,8 @@ struct CameraProperties
     glm::mat4 projectionMatrix{};
     glm::vec3 position{};
     glm::vec3 forward{};
+    glm::vec3 right{};
+    glm::vec3 up{};
 };
 
 #endif //CAMERA_TYPES_H

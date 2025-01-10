@@ -171,7 +171,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     if (ImGui::Begin("Camera")) {
         const Camera* camera = engine->player->getCamera();
 
-        glm::vec3 viewDir = camera->getViewDirectionWS();
+        glm::vec3 viewDir = camera->getForwardWS();
         glm::vec3 cameraRotation = camera->transform.getEulerAngles();
         cameraRotation = glm::degrees(cameraRotation);
         glm::vec3 cameraPosition = camera->transform.getPosition();
@@ -352,6 +352,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 fmt::print(" Failed to save pbr render target");
             }
         }
+
+        ImGui::Checkbox("Perspective Bounds", &engine->bShowPerspectiveBounds);
     }
     ImGui::End();
 

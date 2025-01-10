@@ -11,7 +11,7 @@
  */
 class FreeCamera final : public Camera {
 public:
-    explicit FreeCamera(float fov = 75.0f, float aspect = 1700.0f / 900.0f, float nearPlane = 100.0f, float farPlane = 0.0001f);
+    explicit FreeCamera(float fov = 1.308996939f, float aspect = 1700.0f / 900.0f, float nearPlane = 100.0f, float farPlane = 0.0001f);
 
     ~FreeCamera() override = default;
 
