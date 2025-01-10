@@ -204,11 +204,9 @@ void Engine::updateSceneData(VkCommandBuffer cmd) const
 {
     const bool bIsFrameZero = frameNumber == 0;
 
-    //glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(frameNumber) - 0.5f;
     glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(bIsFrameZero ? frameNumber : frameNumber - 1) * 2.0f - 1.0f;
     prevJitter.x /= static_cast<float>(renderExtent.width);
     prevJitter.y /= static_cast<float>(renderExtent.height);
-    //glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber + 1) - 0.5f;
     glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber) * 2.0f - 1.0f;
     currentJitter.x /= static_cast<float>(renderExtent.width);
     currentJitter.y /= static_cast<float>(renderExtent.height);
@@ -226,11 +224,6 @@ void Engine::updateSceneData(VkCommandBuffer cmd) const
 
         pSceneData->view = camera->getViewMatrix();
         pSceneData->proj = camera->getProjMatrix();
-        // constexpr float orthoSize = 30.0f;
-        // const float aspect = camera->getAspectRatio();
-        // const float width = orthoSize * aspect;
-        // constexpr float height = orthoSize;
-        // pSceneData->proj = render_utils::createOrthographicMatrix(width, height, camera->getNearPlane(), camera->getFarPlane());
         pSceneData->viewProj = pSceneData->proj * pSceneData->view;
 
         if (bEnableShadowMapDebug) {
@@ -265,25 +258,6 @@ void Engine::updateSceneData(VkCommandBuffer cmd) const
             .pBufferMemoryBarriers = &barrier
         };
         vkCmdPipelineBarrier2(cmd, &dependencyInfo);
-    }
-    // Update spectate scene data
-    {
-        const auto pSpectateSceneData = static_cast<SceneData*>(spectateSceneDataBuffer.info.pMappedData);
-        const auto spectateView = glm::lookAt(spectateCameraPosition, spectateCameraLookAt, glm::vec3(0.f, 1.0f, 0.f));
-
-        pSpectateSceneData->prevView = bIsFrameZero ? spectateView : pSpectateSceneData->view;
-        pSpectateSceneData->prevProj = bIsFrameZero ? camera->getProjMatrix() : pSpectateSceneData->proj;
-        pSpectateSceneData->prevViewProj = bIsFrameZero ? camera->getProjMatrix() * spectateView : pSpectateSceneData->viewProj;
-        pSpectateSceneData->jitter = bEnableJitter && bEnableTaa ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
-
-        pSpectateSceneData->view = spectateView;
-        pSpectateSceneData->proj = camera->getProjMatrix();
-        pSpectateSceneData->viewProj = pSpectateSceneData->proj * pSpectateSceneData->view;
-        pSpectateSceneData->invView = glm::inverse(pSpectateSceneData->view);
-        pSpectateSceneData->invProj = glm::inverse(pSpectateSceneData->proj);
-        pSpectateSceneData->invViewProj = glm::inverse(pSpectateSceneData->viewProj);
-        pSpectateSceneData->cameraWorldPos = glm::vec4(spectateCameraPosition, 0.f);
-        pSpectateSceneData->viewProjCameraLookDirection = spectateView;
     }
 }
 
@@ -409,7 +383,6 @@ void Engine::draw()
     };
 
     deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);
-    if (bSpectateCameraActive) { DEBUG_drawSpectate(cmd, renderObjects); }
 
     // TAA
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -510,98 +483,58 @@ void Engine::update(float deltaTime) const
 
     player->update(deltaTime);
 
-    constexpr int32_t numberOfCorners = 8;
-    glm::vec4 corners[numberOfCorners];
-    const FreeCamera* targetCamera = player->getFreeCamera();
-    const CameraProperties properties = targetCamera->getCameraProperties();
+    if (player->isUsingDebugCamera()) {
+        constexpr int32_t numberOfCorners = 8;
+        glm::vec4 corners[numberOfCorners];
+        const FreeCamera* targetCamera = player->getFreeCamera();
 
-    float nearPlane;
-    float farPlane;
-    if (shadowMapDebug == 0) {
-        nearPlane = targetCamera->getFarPlane();
-        farPlane = targetCamera->getNearPlane() * cascadedShadowMap->getCascadeLevel(shadowMapDebug);
-    } else if (shadowMapDebug < SHADOW_CASCADE_COUNT) {
-        nearPlane = targetCamera->getNearPlane() * cascadedShadowMap->getCascadeLevel(shadowMapDebug - 1);
-        farPlane =  targetCamera->getNearPlane() * cascadedShadowMap->getCascadeLevel(shadowMapDebug);
+        float nearPlane;
+        float farPlane;
+        if (shadowMapDebug == 0) {
+            nearPlane = targetCamera->getFarPlane();
+            farPlane = targetCamera->getNearPlane() * CascadedShadowMap::getCascadeLevel(shadowMapDebug);
+        } else if (shadowMapDebug < SHADOW_CASCADE_COUNT) {
+            nearPlane = targetCamera->getNearPlane() * CascadedShadowMap::getCascadeLevel(shadowMapDebug - 1);
+            farPlane = targetCamera->getNearPlane() * CascadedShadowMap::getCascadeLevel(shadowMapDebug);
+        } else {
+            nearPlane = targetCamera->getNearPlane() * CascadedShadowMap::getCascadeLevel(shadowMapDebug - 1);
+            farPlane = targetCamera->getNearPlane();
+        }
+
+        if (bShowPerspectiveBounds) {
+            render_utils::getPerspectiveFrustumCornersWorldSpace(nearPlane, farPlane, targetCamera->getFov(), targetCamera->getAspectRatio(), targetCamera->getPosition(), targetCamera->getForwardWS(),
+                                                                 corners);
+        }
+
+        cameraDebugGameObjects[0]->setLocalPosition(targetCamera->getPosition());
+        cameraDebugGameObjects[1]->setLocalPosition(corners[0]);
+        cameraDebugGameObjects[2]->setLocalPosition(corners[1]);
+        cameraDebugGameObjects[3]->setLocalPosition(corners[2]);
+        cameraDebugGameObjects[4]->setLocalPosition(corners[3]);
+        cameraDebugGameObjects[5]->setLocalPosition(corners[4]);
+        cameraDebugGameObjects[6]->setLocalPosition(corners[5]);
+        cameraDebugGameObjects[7]->setLocalPosition(corners[6]);
+        cameraDebugGameObjects[8]->setLocalPosition(corners[7]);
+        cameraDebugGameObjects[1]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
+        cameraDebugGameObjects[2]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
+        cameraDebugGameObjects[3]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
+        cameraDebugGameObjects[4]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
+        cameraDebugGameObjects[5]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
+        cameraDebugGameObjects[6]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
+        cameraDebugGameObjects[7]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
+        cameraDebugGameObjects[8]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
     } else {
-        nearPlane = targetCamera->getNearPlane() * cascadedShadowMap->getCascadeLevel(shadowMapDebug - 1);
-        farPlane =  targetCamera->getNearPlane();
+        constexpr glm::vec3 dormantPosition{0.0f, -50.0f, 0.0f};
+        cameraDebugGameObjects[0]->setLocalPosition(dormantPosition);
+        cameraDebugGameObjects[1]->setLocalPosition(dormantPosition);
+        cameraDebugGameObjects[2]->setLocalPosition(dormantPosition);
+        cameraDebugGameObjects[3]->setLocalPosition(dormantPosition);
+        cameraDebugGameObjects[4]->setLocalPosition(dormantPosition);
+        cameraDebugGameObjects[5]->setLocalPosition(dormantPosition);
+        cameraDebugGameObjects[6]->setLocalPosition(dormantPosition);
+        cameraDebugGameObjects[7]->setLocalPosition(dormantPosition);
+        cameraDebugGameObjects[8]->setLocalPosition(dormantPosition);
     }
-
-    if (bShowPerspectiveBounds) {
-        render_utils::getPerspectiveFrustumCornersWorldSpace(nearPlane, farPlane, targetCamera->getFov(), targetCamera->getAspectRatio(), targetCamera->getPosition(), targetCamera->getForwardWS(), corners);
-    }
-
-    /*gameObjects[1]->setGlobalPosition(corners[0]);
-    gameObjects[2]->setGlobalPosition(corners[1]);
-    gameObjects[3]->setGlobalPosition(corners[2]);
-    gameObjects[4]->setGlobalPosition(corners[3]);
-    gameObjects[5]->setGlobalPosition(corners[4]);
-    gameObjects[6]->setGlobalPosition(corners[5]);
-    gameObjects[7]->setGlobalPosition(corners[6]);
-    gameObjects[8]->setGlobalPosition(corners[7]);
-    gameObjects[9]->setGlobalPosition(targetCamera->getPosition());*/
-}
-
-void Engine::DEBUG_drawSpectate(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects) const
-{
-    VkDebugUtilsLabelEXT label = {};
-    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
-    label.pLabelName = "Debug Draw Spectate Pass";
-    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
-
-    // layout transition #1
-    {
-        vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-        vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-        vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-        vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-        vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
-        vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    }
-
-    // mrt
-    {
-        DeferredMrtDrawInfo deferredDrawInfo{
-            renderObjects,
-            normalRenderTarget.imageView,
-            albedoRenderTarget.imageView,
-            pbrRenderTarget.imageView,
-            velocityRenderTarget.imageView,
-            depthImage.imageView, renderExtent,
-            {static_cast<float>(renderExtent.width) / 3.0f, static_cast<float>(renderExtent.height) / 3.0f},
-            spectateSceneDataDescriptorBuffer,
-            0
-        };
-
-        deferredMrtPipeline->draw(cmd, deferredDrawInfo);
-    }
-
-    // layout transition #2
-    {
-        vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-        vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-        vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-        vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-        vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
-        vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    }
-
-    // resolve
-    {
-        const DeferredResolveDrawInfo deferredResolveDrawInfo{
-            renderExtent,
-            deferredDebug,
-            spectateSceneDataDescriptorBuffer,
-            0,
-            environmentMap,
-            environmentMap->getDiffSpecMapOffset(environmentMapIndex)
-        };
-
-        deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);
-    }
-
-    vkCmdEndDebugUtilsLabelEXT(cmd);
 }
 
 void Engine::cleanup()
@@ -648,8 +581,6 @@ void Engine::cleanup()
         resourceManager->destroyBuffer(sceneDataBufer);
     }
     sceneDataDescriptorBuffer.destroy(context->allocator);
-    resourceManager->destroyBuffer(spectateSceneDataBuffer);
-    spectateSceneDataDescriptorBuffer.destroy(context->allocator);
 
     // Destroy these after destroying all render objects
     vkDestroyDescriptorSetLayout(context->device, emptyDescriptorSetLayout, nullptr);
@@ -713,12 +644,6 @@ void Engine::initRenderer()
     sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData);
     sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = sceneDataBuffers[1], .allocSize = sizeof(SceneData)};
     sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData);
-
-    spectateSceneDataBuffer = resourceManager->createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-    spectateSceneDataDescriptorBuffer = DescriptorBufferUniform(*context, sceneDescriptorLayouts->getSceneDataLayout(), 1);
-    std::vector<DescriptorUniformData> spectatorSceneDataBufferData{1};
-    spectatorSceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = spectateSceneDataBuffer, .allocSize = sizeof(SceneData)};
-    spectateSceneDataDescriptorBuffer.setupData(context->device, spectatorSceneDataBufferData);
 
     frustumCullingPipeline = new FrustumCullingPipeline(*context);
     frustumCullingPipeline->init(
@@ -803,22 +728,26 @@ void Engine::initScene()
     const auto floorShape = new JPH::BoxShape(JPH::Vec3(20.0f, 1.0f, 20.0f));
     floor->setupRigidbody(floorShape);
 
-    gameObjects.emplace_back(primitives->generateGameObject(0));
-    GameObject* cascade0Corner0 = gameObjects.back();
-    gameObjects.emplace_back(primitives->generateGameObject(0));
-    GameObject* cascade0Corner1 = gameObjects.back();
-    gameObjects.emplace_back(primitives->generateGameObject(0));
-    GameObject* cascade0Corner2 = gameObjects.back();
-    gameObjects.emplace_back(primitives->generateGameObject(0));
-    GameObject* cascade0Corner3 = gameObjects.back();
-    gameObjects.emplace_back(primitives->generateGameObject(1));
-    GameObject* cascade0Corner4 = gameObjects.back();
-    gameObjects.emplace_back(primitives->generateGameObject(1));
-    GameObject* cascade0Corner5 = gameObjects.back();
-    gameObjects.emplace_back(primitives->generateGameObject(1));
-    GameObject* cascade0Corner6 = gameObjects.back();
-    gameObjects.emplace_back(primitives->generateGameObject(1));
-    GameObject* cascade0Corner7 = gameObjects.back();
+    cameraDebugGameObjects.emplace_back(primitives->generateGameObject(2));
+    GameObject* cameraRepresentation = cameraDebugGameObjects.back();
+    cameraRepresentation->setGlobalScale(5.0f);
+
+    cameraDebugGameObjects.emplace_back(primitives->generateGameObject(0));
+    GameObject* cascade0Corner0 = cameraDebugGameObjects.back();
+    cameraDebugGameObjects.emplace_back(primitives->generateGameObject(0));
+    GameObject* cascade0Corner1 = cameraDebugGameObjects.back();
+    cameraDebugGameObjects.emplace_back(primitives->generateGameObject(0));
+    GameObject* cascade0Corner2 = cameraDebugGameObjects.back();
+    cameraDebugGameObjects.emplace_back(primitives->generateGameObject(0));
+    GameObject* cascade0Corner3 = cameraDebugGameObjects.back();
+    cameraDebugGameObjects.emplace_back(primitives->generateGameObject(1));
+    GameObject* cascade0Corner4 = cameraDebugGameObjects.back();
+    cameraDebugGameObjects.emplace_back(primitives->generateGameObject(1));
+    GameObject* cascade0Corner5 = cameraDebugGameObjects.back();
+    cameraDebugGameObjects.emplace_back(primitives->generateGameObject(1));
+    GameObject* cascade0Corner6 = cameraDebugGameObjects.back();
+    cameraDebugGameObjects.emplace_back(primitives->generateGameObject(1));
+    GameObject* cascade0Corner7 = cameraDebugGameObjects.back();
     cascade0Corner0->setGlobalScale(5.0f);
     cascade0Corner1->setGlobalScale(5.0f);
     cascade0Corner2->setGlobalScale(5.0f);
@@ -827,9 +756,7 @@ void Engine::initScene()
     cascade0Corner5->setGlobalScale(5.0f);
     cascade0Corner6->setGlobalScale(5.0f);
     cascade0Corner7->setGlobalScale(5.0f);
-    gameObjects.emplace_back(primitives->generateGameObject(2));
-    GameObject* cameraRepresentation = gameObjects.back();
-    cameraRepresentation->setGlobalScale(0.75f);
+
     // gameObjects.emplace_back(primitives->generateGameObject(0));
     // gameObjects[0]->setName("Cube 1");
     // GameObject* cube2 = primitives->generateGameObject(0);
@@ -838,6 +765,10 @@ void Engine::initScene()
     // GameObject* cube5 = primitives->generateGameObject(0);
 
     for (GameObject* gameObject : gameObjects) {
+        scene.addGameObject(gameObject);
+    }
+
+    for (GameObject* gameObject : cameraDebugGameObjects) {
         scene.addGameObject(gameObject);
     }
 

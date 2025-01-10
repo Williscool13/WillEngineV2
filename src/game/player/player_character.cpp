@@ -17,12 +17,14 @@
 PlayerCharacter::PlayerCharacter(const std::string& gameObjectName) : GameObject(gameObjectName)
 {
     freeCamera = new FreeCamera(glm::radians(75.0f), 1920.0f / 1080.0f, 1000, 0.1);
-    freeCamera->transform.translate({0.0f, 1.5f, +1.5f});
+    freeCamera->transform.translate({0.0f, 1.5f, 1.5f});
     freeCamera->updateViewMatrix();
 
     orbitCamera = new OrbitCamera(glm::radians(75.0f), 1920.0f / 1080.0f, 10000, 0.1);
     orbitCamera->setOrbitTarget(this);
 
+    debugCamera = new FreeCamera(glm::radians(75.0f), 1920.0f / 1080.0f, 10000, 0.1);
+    debugCamera->updateViewMatrix();
     currentCamera = freeCamera;
 }
 
@@ -57,6 +59,19 @@ void PlayerCharacter::update(const float deltaTime)
         }
     }
 
+    if (input.isKeyPressed(SDLK_3)) {
+        if (currentCamera && currentCamera != debugCamera) {
+            const glm::vec3 position = currentCamera->transform.getPosition();
+            const glm::quat rotation = currentCamera->transform.getRotation();
+            currentCamera = debugCamera;
+            currentCamera->transform.setPosition(position);
+            currentCamera->transform.setRotation(rotation);
+            currentCamera->updateViewMatrix();
+        } else {
+            currentCamera = debugCamera;
+        }
+    }
+
     if (currentCamera && currentCamera == orbitCamera) {
         const glm::quat cameraRotation = currentCamera->transform.getRotation();
         const glm::vec3 forward = cameraRotation * glm::vec3(0.0f, 0.0f, -1.0f);
@@ -70,6 +85,11 @@ void PlayerCharacter::update(const float deltaTime)
     }
 
     if (currentCamera) { currentCamera->update(deltaTime); }
+}
+
+bool PlayerCharacter::isUsingDebugCamera() const
+{
+    return currentCamera && currentCamera == debugCamera;
 }
 
 void PlayerCharacter::addForceToObject() const

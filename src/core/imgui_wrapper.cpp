@@ -146,25 +146,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         ImGui::Text("Debug View");
         ImGui::SetNextItemWidth(100);
         ImGui::Combo("Debug View", &engine->deferredDebug, debugLabels, IM_ARRAYSIZE(debugLabels));
-
-
-        ImGui::Separator();
-        if (ImGui::BeginChild("Spectate")) {
-            ImGui::Checkbox("Enabled Spectate Camera", &engine->bSpectateCameraActive);
-            if (engine->bSpectateCameraActive) {
-                if (ImGui::TreeNode("Camera Position")) {
-                    ImGui::DragFloat3("Position", &engine->spectateCameraPosition.x, 0.1f);
-                    ImGui::TreePop();
-                }
-
-                // Modify spectateCameraLookAt
-                if (ImGui::TreeNode("Camera Look At")) {
-                    ImGui::DragFloat3("Look At", &engine->spectateCameraLookAt.x, 0.1f);
-                    ImGui::TreePop();
-                }
-            }
-        }
-        ImGui::EndChild();
     }
     ImGui::End();
 
@@ -333,64 +314,79 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             }
         }
 
-        ImGui::SetNextItemWidth(100);
-        ImGui::SliderInt("Shadow Map Level", &engine->shadowMapDebug, 0, SHADOW_CASCADE_COUNT);
-        ImGui::SameLine();
-        std::string buttonText = fmt::format("Save Shadow Map {}", engine->shadowMapDebug);
-        if (ImGui::Button(buttonText.c_str())) {
-            if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
-                std::filesystem::path path = file_utils::imagesSavePath / "shadowMap.png";
-                auto depthNormalize = [](const float depth) {
-                    return logf(1.0f + depth * 15.0f) / logf(16.0f);
-                };
-                AllocatedImage shadowMap = engine->cascadedShadowMap->getShadowMap(engine->shadowMapDebug);
-                if (shadowMap.image != VK_NULL_HANDLE) {
-                    vk_helpers::saveImageR32F(*engine->resourceManager, *engine->immediate, shadowMap, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT, path.string().c_str(),
-                                              depthNormalize);
-                }
-            } else {
-                fmt::print(" Failed to save pbr render target");
-            }
-        }
 
         ImGui::Checkbox("Perspective Bounds", &engine->bShowPerspectiveBounds);
     }
     ImGui::End();
 
-    if (ImGui::Begin("Environment Map")) {
-        const std::unordered_map<int32_t, const char*>& activeEnvironmentMapNames = engine->environmentMap->getActiveEnvironmentMapNames();
-
-        std::vector<std::pair<int32_t, std::string> > indexNamePairs;
-        for (std::pair<const int, const char*> kvp : activeEnvironmentMapNames) {
-            indexNamePairs.emplace_back(kvp.first, kvp.second);
-        }
-        std::sort(indexNamePairs.begin(), indexNamePairs.end());
-        auto it = std::ranges::find_if(indexNamePairs, [this, engine](const auto& pair) {
-            return pair.first == engine->environmentMapIndex;
-        });
-        int currentIndex = (it != indexNamePairs.end()) ? static_cast<int>(std::distance(indexNamePairs.begin(), it)) : 0;
-        struct ComboData
+    if (ImGui::Begin("Maps")) {
+        // Shadow Map Controls
         {
-            const std::vector<std::pair<int32_t, std::string> >* pairs;
-        };
+            ImGui::SetNextItemWidth(100);
+            ImGui::SliderInt("Shadow Map Level", &engine->shadowMapDebug, 0, SHADOW_CASCADE_COUNT);
+            ImGui::SameLine();
+            if (ImGui::Button(fmt::format("Save Shadow Map", engine->shadowMapDebug).c_str())) {
+                if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {
+                    std::filesystem::path path = file_utils::imagesSavePath /
+                                                 fmt::format("shadowMap{}.png", engine->shadowMapDebug);
 
-        // ReSharper disable once CppParameterMayBeConst
-        // ReSharper disable once CppParameterMayBeConstPtrOrRef
-        auto getLabel = [](void* data, int idx, const char** out_text) -> bool {
-            static std::string label;
-            const auto& pairs = *static_cast<const ComboData*>(data)->pairs;
-            label = pairs[idx].second;
-            *out_text = label.c_str();
-            return true;
-        };
+                    auto depthNormalize = [](const float depth) {
+                        return logf(1.0f + depth * 15.0f) / logf(16.0f);
+                    };
 
-        ComboData data{&indexNamePairs};
-        if (ImGui::Combo("Select Environment Map", &currentIndex, getLabel, &data, static_cast<int>(indexNamePairs.size()))) {
-            engine->environmentMapIndex = indexNamePairs[currentIndex].first;
+                    AllocatedImage shadowMap = engine->cascadedShadowMap->getShadowMap(engine->shadowMapDebug);
+                    if (shadowMap.image != VK_NULL_HANDLE) {
+                        vk_helpers::saveImageR32F(
+                            *engine->resourceManager,
+                            *engine->immediate,
+                            shadowMap,
+                            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                            VK_IMAGE_ASPECT_DEPTH_BIT,
+                            path.string().c_str(),
+                            depthNormalize
+                        );
+                    }
+                } else {
+                    fmt::print(" Failed to save depth map image");
+                }
+            }
         }
 
-        // Show both name and index in the status text
-        ImGui::Text("Currently selected: %s (ID: %u)", indexNamePairs[currentIndex].second.c_str(), engine->environmentMapIndex);
+        // Environment Map Selection
+        {
+            const auto& activeEnvironmentMapNames = engine->environmentMap->getActiveEnvironmentMapNames();
+
+            std::vector<std::pair<int32_t, std::string> > indexNamePairs;
+            for (const auto& [index, name] : activeEnvironmentMapNames) {
+                indexNamePairs.emplace_back(index, name);
+            }
+            std::sort(indexNamePairs.begin(), indexNamePairs.end());
+
+            auto it = std::ranges::find_if(indexNamePairs, [this, engine](const auto& pair) {
+                return pair.first == engine->environmentMapIndex;
+            });
+            int currentIndex = (it != indexNamePairs.end()) ? static_cast<int>(std::distance(indexNamePairs.begin(), it)) : 0;
+
+            struct ComboData
+            {
+                const std::vector<std::pair<int32_t, std::string> >* pairs;
+            };
+
+            auto getLabel = [](void* data, int idx, const char** out_text) -> bool {
+                static std::string label;
+                const auto& pairs = *static_cast<const ComboData*>(data)->pairs;
+                label = pairs[idx].second;
+                *out_text = label.c_str();
+                return true;
+            };
+
+            ComboData data{&indexNamePairs};
+            ImGui::SetNextItemWidth(250);
+            if (ImGui::Combo("Select Environment Map", &currentIndex, getLabel,
+                             &data, static_cast<int>(indexNamePairs.size()))) {
+                engine->environmentMapIndex = indexNamePairs[currentIndex].first;
+            }
+        }
     }
     ImGui::End();
 
