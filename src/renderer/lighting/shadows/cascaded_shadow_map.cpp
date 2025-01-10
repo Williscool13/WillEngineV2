@@ -13,6 +13,7 @@
 #include "src/renderer/vk_pipelines.h"
 #include "src/renderer/lighting/directional_light.h"
 #include "src/renderer/render_object/render_object.h"
+#include "src/util/render_utils.h"
 
 CascadedShadowMap::CascadedShadowMap(const VulkanContext& context, ResourceManager& resourceManager)
     : context(context), resourceManager(resourceManager)
@@ -231,68 +232,30 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInf
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }
 
-void CascadedShadowMap::getFrustumCornersWorldSpace(const CameraProperties& cameraProperties, float nearPlane, float farPlane, glm::vec4 corners[8])
-{
-    const glm::vec3 center = cameraProperties.position;
-    const glm::vec3 view_dir = cameraProperties.forward;
-    constexpr glm::vec3 up{0.0f, 1.0f, 0.0f};
-    const glm::vec3 right = glm::normalize(glm::cross(view_dir, up));
-    const glm::vec3 up_corrected = glm::normalize(glm::cross(right, view_dir));
-
-    // Calculate near/far heights and widths using FOV
-    const float near_height = glm::tan(cameraProperties.fov * 0.5f) * nearPlane;
-    const float near_width = near_height * cameraProperties.aspect;
-    const float far_height = glm::tan(cameraProperties.fov * 0.5f) * farPlane;
-    const float far_width = far_height * cameraProperties.aspect;
-
-    // Near face corners
-    const glm::vec3 near_center = center + view_dir * nearPlane;
-    corners[0] = glm::vec4(near_center - up_corrected * near_height - right * near_width, 1.0f); // bottom-left
-    corners[1] = glm::vec4(near_center + up_corrected * near_height - right * near_width, 1.0f); // top-left
-    corners[2] = glm::vec4(near_center + up_corrected * near_height + right * near_width, 1.0f); // top-right
-    corners[3] = glm::vec4(near_center - up_corrected * near_height + right * near_width, 1.0f); // bottom-right
-
-    // Far face corners
-    const glm::vec3 far_center = center + view_dir * farPlane;
-    corners[4] = glm::vec4(far_center - up_corrected * far_height - right * far_width, 1.0f); // bottom-left
-    corners[5] = glm::vec4(far_center + up_corrected * far_height - right * far_width, 1.0f); // top-left
-    corners[6] = glm::vec4(far_center + up_corrected * far_height + right * far_width, 1.0f); // top-right
-    corners[7] = glm::vec4(far_center - up_corrected * far_height + right * far_width, 1.0f); // bottom-right
-}
-
-glm::mat4 CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, float cascadeNear, float cascadeFar)
+glm::mat4 CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 lightDirection, const CameraProperties& cameraProperties, float cascadeNear, float cascadeFar)
 {
     constexpr int32_t numberOfCorners = 8;
     glm::vec4 corners[numberOfCorners];
-    getFrustumCornersWorldSpace(cameraProperties, cascadeNear, cascadeFar, corners);
+    render_utils::getPerspectiveFrustumCornersWorldSpace(cascadeNear, cascadeFar, cameraProperties.fov, cameraProperties.aspect, cameraProperties.position, cameraProperties.forward, corners);
 
-    auto center = glm::vec3(0, 0, 0);
-    for (const auto& v : corners) {
-        center += glm::vec3(v);
-    }
-    center /= numberOfCorners;
+    glm::vec3 center = cameraProperties.position + cameraProperties.forward * 50.0f;
+    glm::vec3 lightPos = center - lightDirection * ((cascadeFar - cascadeNear) / 2.0f);
+    const glm::mat4 lightView = glm::lookAt(lightPos, center, glm::vec3{0.0f, 1.0f, 0.0f});
 
-    static int index{0};
-    fmt::print("Center {}: {}, {}, {}\n", index % 5, center.x, center.y, center.z);
-    index++;
-    const auto lightView = glm::lookAt(
-        center + directionalLightDirection,
-        center,
-        glm::vec3(0.0f, 1.0f, 0.0f)
-    );
-
-    // Initial bounds calc for ortho
-    glm::vec3 maxBounds{-INFINITY}, minBounds{INFINITY};
-    for (const auto& corner : corners) {
-        glm::vec4 lightSpaceCorner = lightView * corner;
-        minBounds = glm::min(glm::vec3(lightSpaceCorner), minBounds);
-        maxBounds = glm::max(glm::vec3(lightSpaceCorner), maxBounds);
-    }
-    const glm::mat4 ortho = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, -maxBounds.z, -minBounds.z);
-
-    // Find projected bounds for cropping
     glm::vec3 tmax{-INFINITY};
     glm::vec3 tmin{INFINITY};
+
+    glm::vec4 transformedCorner0 = lightView * corners[0];
+    tmax.z = transformedCorner0.z;
+    tmin.z = transformedCorner0.z;
+    for (int i = 1; i < numberOfCorners; i++) {
+        glm::vec4 transformedCorner = lightView * corners[i];
+        if (transformedCorner.z > tmax.z) { tmax.z = transformedCorner.z; }
+        if (transformedCorner.z < tmin.z) { tmin.z = transformedCorner.z; }
+    }
+
+
+    const glm::mat4 ortho = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, -tmin.z, -tmax.z);
     const glm::mat4 shadowMVP = ortho * lightView;
 
     for (const auto& corner : corners) {
@@ -300,14 +263,15 @@ glm::mat4 CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 directionalLigh
         trf.x /= trf.w;
         trf.y /= trf.w;
 
-        tmin = glm::min(glm::vec3(trf), tmin);
-        tmax = glm::max(glm::vec3(trf), tmax);
+        if (trf.x > tmax.x) { tmax.x = trf.x; }
+        if (trf.x < tmin.x) { tmin.x = trf.x; }
+        if (trf.y > tmax.y) { tmax.y = trf.y; }
+        if (trf.y < tmin.y) { tmin.y = trf.y; }
     }
 
     // Compute crop matrix
     glm::vec2 scale(2.0f / (tmax.x - tmin.x), 2.0f / (tmax.y - tmin.y));
-    glm::vec2 offset(-0.5f * (tmax.x + tmin.x) * scale.x,
-                     -0.5f * (tmax.y + tmin.y) * scale.y);
+    glm::vec2 offset(-0.5f * (tmax.x + tmin.x) * scale.x, -0.5f * (tmax.y + tmin.y) * scale.y);
 
     glm::mat4 cropMatrix(1.0f);
     cropMatrix[0][0] = scale.x;
@@ -322,20 +286,44 @@ glm::mat4 CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 directionalLigh
 
 void CascadedShadowMap::getLightSpaceMatrices(const glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, glm::mat4 matrices[SHADOW_MAP_COUNT])
 {
+    // Generate splits
+    // https://github.com/diharaw/cascaded-shadow-maps
+    // Practical Split Scheme: https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch10.html
+    // {
+    //     float nd = camera->m_near;
+    //     float fd = camera->m_far;
+    //
+    //     float lambda = m_lambda;
+    //     float ratio = fd / nd;
+    //     m_splits[0].near_plane = nd;
+    //
+    //     for (int i = 1; i < m_split_count; i++) {
+    //         float si = i / (float) m_split_count;
+    //
+    //         // Practical Split Scheme: https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch10.html
+    //         float t_near = lambda * (nd * powf(ratio, si)) + (1 - lambda) * (nd + (fd - nd) * si);
+    //         float t_far = t_near * 1.005f;
+    //         m_splits[i].near_plane = t_near;
+    //         m_splits[i - 1].far_plane = t_far;
+    //     }
+    //
+    //     m_splits[m_split_count - 1].far_plane = fd;
+    // }
+
+
     assert(USING_REVERSED_DEPTH_BUFFER);
     // need to reverse the reversed depth buffer for correct frustum calculations
     // matrix calculations use these values as "distance from camera". Reversed depth buffer just doesn't jive.
     const float nearPlane = cameraProperties.farPlane;
     const float farPlane = cameraProperties.nearPlane;
 
-    fmt::print("Camera Position: {}, {}, {}", cameraProperties.position.x, cameraProperties.position.y, cameraProperties.position.z);
     for (size_t i = 0; i < SHADOW_MAP_COUNT; ++i) {
         if (i == 0) {
             matrices[i] = getLightSpaceMatrix(directionalLightDirection, cameraProperties, nearPlane, normalizedCascadeLevels[i] * farPlane);
         } else if (i < SHADOW_CASCADE_COUNT) {
             matrices[i] = getLightSpaceMatrix(directionalLightDirection, cameraProperties, normalizedCascadeLevels[i - 1] * farPlane, normalizedCascadeLevels[i] * farPlane);
         } else {
-            matrices[i] = getLightSpaceMatrix(directionalLightDirection, cameraProperties, normalizedCascadeLevels[i - 1] * farPlane, cameraProperties.farPlane);
+            matrices[i] = getLightSpaceMatrix(directionalLightDirection, cameraProperties, normalizedCascadeLevels[i - 1] * farPlane, farPlane);
         }
     }
 }

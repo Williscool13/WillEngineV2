@@ -43,7 +43,11 @@ public:
      * Gets the viewing direction of the camera in world space
      * @return
      */
-    glm::vec3 getViewDirectionWS() const;
+    glm::vec3 getForwardWS() const;
+    glm::vec3 getUpWS() const;
+    glm::vec3 getRightWS() const;
+
+
 
     /**
      * Updates the projection matrix. FOV is in degrees and converted to radians in this function
@@ -63,13 +67,13 @@ public:
 
     virtual void update(float deltaTime) = 0;
 
-    CameraProperties getCameraProperties() const { return {cachedFov, cachedAspect, cachedNear, cachedFar, cachedViewMatrix, cachedProjMatrix, transform.getPosition(), getViewDirectionWS()}; }
+    CameraProperties getCameraProperties() const { return {cachedFov, cachedAspect, cachedNear, cachedFar, cachedViewMatrix, cachedProjMatrix, transform.getPosition(), getForwardWS(), getRightWS(), getUpWS()}; }
 
 protected:
     static constexpr bool flipProjectionY{false};
 
     // projection
-    float cachedFov{75.0f};
+    float cachedFov{1.308996939}; // rad(75)
     float cachedAspect{1920.0f / 1080.0f};
     float cachedNear{10000.0f};
     float cachedFar{0.1f};

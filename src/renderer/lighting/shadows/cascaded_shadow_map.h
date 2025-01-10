@@ -48,7 +48,7 @@ public: // Debug
 
     static glm::mat4 getCascadeViewProjection(const glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, const int32_t cascadeLevel)
     {
-        if (cascadeLevel >= SHADOW_CASCADE_COUNT || cascadeLevel < 0) {
+        if (cascadeLevel >= SHADOW_MAP_COUNT || cascadeLevel < 0) {
             return {1.0f};
         }
 
@@ -69,9 +69,7 @@ public: // Debug
     //private: // Pipelines
     static void getLightSpaceMatrices(glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, glm::mat4 matrices[SHADOW_MAP_COUNT]);
 
-    static void getFrustumCornersWorldSpace(const ::CameraProperties& cameraProperties, float nearPlane, float farPlane, glm::vec4 corners[8]);
-
-    static glm::mat4 getLightSpaceMatrix(glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, float cascadeNear, float cascadeFar);
+    static glm::mat4 getLightSpaceMatrix(glm::vec3 lightDirection, const CameraProperties& cameraProperties, float cascadeNear, float cascadeFar);
 
 
     VkPipelineLayout shadowMapGenerationPipelineLayout{VK_NULL_HANDLE};

@@ -12,7 +12,7 @@ class GameObject;
 class OrbitCamera final : public Camera
 {
 public:
-    explicit OrbitCamera(float fov = 75.0f, float aspect = 1700.0f / 900.0f, float nearPlane = 100.0f, float farPlane = 0.0001f);
+    explicit OrbitCamera(float fov = 1.308996939f, float aspect = 1700.0f / 900.0f, float nearPlane = 100.0f, float farPlane = 0.0001f);
 
     ~OrbitCamera() override = default;
 

@@ -63,6 +63,49 @@ namespace render_utils
 
         return ortho;
     }
+
+    inline void getPerspectiveFrustumCornersWorldSpace(const float nearPlane, const float farPlane, const float fov, const float aspect, const glm::vec3& position, const glm::vec3& viewDir, glm::vec4 corners[8])
+    {
+        constexpr glm::vec3 up{0.0f, 1.0f, 0.0f};
+
+        const glm::vec3 right = glm::normalize(glm::cross(viewDir, up));
+        const glm::vec3 up_corrected = glm::normalize(glm::cross(right, viewDir));
+
+        // Calculate near/far heights and widths using FOV
+        const float near_height = glm::tan(fov * 0.5f) * nearPlane;
+        const float near_width = near_height * aspect;
+        const float far_height = glm::tan(fov * 0.5f) * farPlane;
+        const float far_width = far_height * aspect;
+
+        // Near face corners
+        const glm::vec3 near_center = position + viewDir * nearPlane;
+        corners[0] = glm::vec4(near_center - up_corrected * near_height - right * near_width, 1.0f); // bottom-left
+        corners[1] = glm::vec4(near_center + up_corrected * near_height - right * near_width, 1.0f); // top-left
+        corners[2] = glm::vec4(near_center + up_corrected * near_height + right * near_width, 1.0f); // top-right
+        corners[3] = glm::vec4(near_center - up_corrected * near_height + right * near_width, 1.0f); // bottom-right
+
+        // Far face corners
+        const glm::vec3 far_center = position + viewDir * farPlane;
+        corners[4] = glm::vec4(far_center - up_corrected * far_height - right * far_width, 1.0f); // bottom-left
+        corners[5] = glm::vec4(far_center + up_corrected * far_height - right * far_width, 1.0f); // top-left
+        corners[6] = glm::vec4(far_center + up_corrected * far_height + right * far_width, 1.0f); // top-right
+        corners[7] = glm::vec4(far_center - up_corrected * far_height + right * far_width, 1.0f); // bottom-right
+    }
+
+    inline void getOrthoFrustumCornersWorldSpace(const float left, const float right, const float bottom, const float top, const float zNear, const float zFar, glm::vec4 corners[8])
+    {
+        // Near face corners (counter-clockwise from bottom-left)
+        corners[0] = glm::vec4(left,  bottom, zNear, 1.0f);  // bottom-left
+        corners[1] = glm::vec4(left,  top,    zNear, 1.0f);  // top-left
+        corners[2] = glm::vec4(right, top,    zNear, 1.0f);  // top-right
+        corners[3] = glm::vec4(right, bottom, zNear, 1.0f);  // bottom-right
+
+        // Far face corners (counter-clockwise from bottom-left)
+        corners[4] = glm::vec4(left,  bottom, zFar, 1.0f);   // bottom-left
+        corners[5] = glm::vec4(left,  top,    zFar, 1.0f);   // top-left
+        corners[6] = glm::vec4(right, top,    zFar, 1.0f);   // top-right
+        corners[7] = glm::vec4(right, bottom, zFar, 1.0f);   // bottom-right
+    }
 }
 
 #endif
