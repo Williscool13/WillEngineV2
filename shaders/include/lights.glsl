@@ -9,4 +9,6 @@ struct PointLight {
     vec4 position;
     vec3 color;
     float radius;
+    int shadowMapIndex;
+    vec3 pad;
 };

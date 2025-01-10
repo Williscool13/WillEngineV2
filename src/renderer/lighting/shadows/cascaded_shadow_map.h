@@ -10,19 +10,12 @@
 
 #include "shadow_map_descriptor_layouts.h"
 #include "shadow_types.h"
-#include "glm/detail/_noise.hpp"
-#include "glm/detail/_noise.hpp"
-#include "glm/gtx/associated_min_max.hpp"
-#include "glm/gtx/associated_min_max.hpp"
 #include "src/renderer/vk_descriptor_buffer.h"
 #include "src/renderer/vk_types.h"
 
 class DirectionalLight;
 struct ShadowMapPipelineCreateInfo;
 struct CameraProperties;
-
-constexpr uint32_t SHADOW_CASCADE_COUNT = 4;
-constexpr uint32_t SHADOW_MAP_COUNT = SHADOW_CASCADE_COUNT + 1;
 
 class CascadedShadowMap
 {
@@ -88,11 +81,11 @@ private:
     VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
     VkPipeline pipeline{VK_NULL_HANDLE};
 
-    // 0 = near -> 0.98
-    // 1 = 0.98 -> 0.92
-    // 2 = 0.92 -> 0.75
-    // 3 = 0.75 -> 0.40
-    // 4 = 0.40 -> far
+    // 0 = near -> 0.02
+    // 1 = 0.02 -> 0.08
+    // 2 = 0.08 -> 0.25
+    // 3 = 0.25 -> 0.6
+    // 4 = 0.6 -> far
     CascadeShadowMapData shadowMaps[SHADOW_MAP_COUNT]{
         {0, {VK_NULL_HANDLE}},
         {1, {VK_NULL_HANDLE}},

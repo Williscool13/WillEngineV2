@@ -13,6 +13,10 @@
 
 class RenderObject;
 
+static constexpr uint32_t SHADOW_CASCADE_COUNT = 4;
+static constexpr uint32_t SHADOW_MAP_COUNT = SHADOW_CASCADE_COUNT + 1;
+
+
 struct ShadowMapPipelineCreateInfo
 {
     VkDescriptorSetLayout modelAddressesLayout;
@@ -36,8 +40,22 @@ struct ShadowMapPushConstants
 struct CascadeShadowMapData
 {
     int32_t cascadeLevel{-1};
-    AllocatedImage drawShadowMap{VK_NULL_HANDLE}; // debugging for now
     AllocatedImage depthShadowMap{VK_NULL_HANDLE};
+};
+
+struct DirectionalLightData
+{
+    glm::vec3 direction;
+    float intensity;
+    glm::vec3 color;
+    float pad;
+};
+
+struct CascadeShadowData
+{
+    float cascadeSplits[4];
+    glm::mat4 lightViewProj[4];
+    DirectionalLightData directionalLightData;
 };
 
 #endif //SHADOW_TYPES_H

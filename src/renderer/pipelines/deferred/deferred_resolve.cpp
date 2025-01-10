@@ -48,18 +48,18 @@ void DeferredResolvePipeline::createPipelineLayout()
     pushConstants.size = sizeof(DeferredResolveData);
     pushConstants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    VkDescriptorSetLayout setLayouts[4];
+    VkDescriptorSetLayout setLayouts[5];
     setLayouts[0] = sceneDataLayout;
     setLayouts[1] = resolveTargetLayout;
-    setLayouts[2] = emptyLayout; // todo: lights
-    setLayouts[3] = environmentMapLayout;
-
+    setLayouts[2] = environmentMapLayout;
+    setLayouts[3] = emptyLayout; // todo: cascade shadow uniform
+    setLayouts[4] = emptyLayout; // todo: cascade shadow textures
 
     VkPipelineLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layoutInfo.pNext = nullptr;
     layoutInfo.pSetLayouts = setLayouts;
-    layoutInfo.setLayoutCount = 4;
+    layoutInfo.setLayoutCount = 5;
     layoutInfo.pPushConstantRanges = &pushConstants;
     layoutInfo.pushConstantRangeCount = 1;
 
@@ -171,7 +171,7 @@ void DeferredResolvePipeline::draw(VkCommandBuffer cmd, const DeferredResolveDra
 
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &renderTargetsIndex, &zeroOffset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 3, 1, &environmentIndex, &environmentMapOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 2, 1, &environmentIndex, &environmentMapOffset);
 
     const auto x = static_cast<uint32_t>(std::ceil(static_cast<float>(drawInfo.renderExtent.width) / 16.0f));
     const auto y = static_cast<uint32_t>(std::ceil(static_cast<float>(drawInfo.renderExtent.height) / 16.0f));
