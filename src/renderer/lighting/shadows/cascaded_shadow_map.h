@@ -40,7 +40,7 @@ public:
 public: // Debug
     AllocatedImage getShadowMap(const int32_t cascadeLevel) const
     {
-        if (cascadeLevel >= SHADOW_CASCADE_COUNT || cascadeLevel < 0) {
+        if (cascadeLevel >= SHADOW_MAP_COUNT || cascadeLevel < 0) {
             return {};
         }
         return shadowMaps[cascadeLevel].depthShadowMap;
@@ -79,6 +79,7 @@ private:
     const VulkanContext& context;
     ResourceManager& resourceManager;
 
+    VkFormat drawFormat{VK_FORMAT_R16G16B16A16_SFLOAT};
     VkFormat depthFormat{VK_FORMAT_D32_SFLOAT};
     VkExtent2D extent{2048, 2048}; // Default shadow map resolution
 

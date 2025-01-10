@@ -124,7 +124,7 @@ void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelin
         pipelineBuilder.setShaders(vertShader, fragShader);
         pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
         pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
-        pipelineBuilder.enableDepthBias(-1.25f, 0, -1.75f); // negateive for reversed depth buffer
+        //pipelineBuilder.enableDepthBias(-1.25f, 0, -1.75f); // negateive for reversed depth buffer
         pipelineBuilder.disableMultisampling();
         pipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
         pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
@@ -162,8 +162,7 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInf
     getLightSpaceMatrices(drawInfo.directionalLight.getDirection(), drawInfo.cameraProperties, lightSpaceMatrices);
 
     for (const CascadeShadowMapData& cascadeShadowMapData : shadowMaps) {
-        vk_helpers::transitionImage(cmd, shadowMaps->depthShadowMap.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
-
+        vk_helpers::transitionImage(cmd, cascadeShadowMapData.depthShadowMap.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
         VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(cascadeShadowMapData.depthShadowMap.imageView, &clearValue, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
         VkRenderingInfo renderInfo{};
@@ -225,7 +224,7 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInf
 
         vkCmdEndRendering(cmd);
 
-        vk_helpers::transitionImage(cmd, shadowMaps->depthShadowMap.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+        vk_helpers::transitionImage(cmd, cascadeShadowMapData.depthShadowMap.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
     }
 
 

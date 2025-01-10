@@ -90,8 +90,6 @@ public:
 
     void updateSceneData(VkCommandBuffer cmd) const;
 
-    void DEBUG_drawSpectate(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects) const;
-
     /**
      * Cleans up vulkan resources when application has exited. Destroys resources in opposite order of initialization
      * \n Resources -> Command Pool (implicit destroy C. Buffers) -> Swapchain -> Surface -> Device -> Instance -> Window
@@ -151,6 +149,7 @@ private: // Scene
     GameObject* cubeGameObject2{nullptr};
     GameObject* primitiveCubeGameObject{nullptr};
     std::vector<GameObject*> gameObjects{};
+    std::vector<GameObject*> cameraDebugGameObjects{};
 
     CascadedShadowMap* cascadedShadowMap{nullptr};
 
@@ -174,12 +173,6 @@ private: // Scene Descriptors
 
     DescriptorBufferUniform sceneDataDescriptorBuffer;
     AllocatedBuffer sceneDataBuffers[FRAME_OVERLAP];
-
-    bool bSpectateCameraActive{false};
-    DescriptorBufferUniform spectateSceneDataDescriptorBuffer;
-    AllocatedBuffer spectateSceneDataBuffer;
-    glm::vec3 spectateCameraPosition{-9.0f, 1.0f, 0.f};
-    glm::vec3 spectateCameraLookAt{0.5f, 1.8f, 0.f};
 
     bool bEnableTaa{true};
     bool bEnableJitter{true};

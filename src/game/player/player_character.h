@@ -13,7 +13,6 @@ class OrbitCamera;
 class Camera;
 
 
-
 class PlayerCharacter : public GameObject
 {
 private:
@@ -35,6 +34,7 @@ public:
     [[nodiscard]] const Camera* getCamera() const { return currentCamera; }
 
 public: // Debug
+    bool isUsingDebugCamera() const;
     const FreeCamera* getFreeCamera() const { return freeCamera; }
     const OrbitCamera* getOrbitCamera() const { return orbitCamera; }
 
@@ -46,12 +46,16 @@ protected:
 
     OrbitCamera* orbitCamera{nullptr};
     FreeCamera* freeCamera{nullptr};
+
+    FreeCamera* debugCamera{nullptr};
 };
 
 
-class PlayerCollisionFilter final : public JPH::ObjectLayerFilter {
+class PlayerCollisionFilter final : public JPH::ObjectLayerFilter
+{
 public:
-    [[nodiscard]] bool ShouldCollide(const JPH::ObjectLayer inLayer) const override {
+    [[nodiscard]] bool ShouldCollide(const JPH::ObjectLayer inLayer) const override
+    {
         return inLayer != Layers::PLAYER;
     }
 };

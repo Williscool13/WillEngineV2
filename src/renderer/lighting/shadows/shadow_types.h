@@ -36,6 +36,7 @@ struct ShadowMapPushConstants
 struct CascadeShadowMapData
 {
     int32_t cascadeLevel{-1};
+    AllocatedImage drawShadowMap{VK_NULL_HANDLE}; // debugging for now
     AllocatedImage depthShadowMap{VK_NULL_HANDLE};
 };
 
