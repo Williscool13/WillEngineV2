@@ -323,7 +323,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         // Shadow Map Controls
         {
             ImGui::SetNextItemWidth(100);
-            ImGui::SliderInt("Shadow Map Level", &engine->shadowMapDebug, 0, CascadedShadowMap::SHADOW_CASCADE_COUNT);
+            ImGui::SliderInt("Shadow Map Level", &engine->shadowMapDebug, 0, CascadedShadowMap::SHADOW_CASCADE_COUNT - 1);
             ImGui::SameLine();
             if (ImGui::Button(fmt::format("Save Shadow Map", engine->shadowMapDebug).c_str())) {
                 if (file_utils::getOrCreateDirectory(file_utils::imagesSavePath)) {

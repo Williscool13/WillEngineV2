@@ -35,11 +35,6 @@ struct CascadedShadowMapGenerationPushConstants
     glm::mat4 lightMatrix{};
 };
 
-struct CascadeSplit
-{
-    float nearPlane;
-    float farPlane;
-};
 
 struct CascadeShadowMapData
 {
@@ -55,9 +50,14 @@ struct DirectionalLightData
     float pad;
 };
 
+struct CascadeSplit
+{
+    float nearPlane;
+    float farPlane;
+};
 struct CascadeShadowData
 {
-    float cascadeSplits[4];
+    CascadeSplit cascadeSplits[4];
     glm::mat4 lightViewProj[4];
     DirectionalLightData directionalLightData;
 };

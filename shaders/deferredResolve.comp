@@ -4,6 +4,7 @@
 #include "environment.glsl"
 #include "lights.glsl"
 #include "scene.glsl"
+#include "shadows.glsl"
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
@@ -21,9 +22,9 @@ layout (set = 2, binding = 0) uniform samplerCube environmentDiffuseAndSpecular;
 layout (set = 2, binding = 1) uniform sampler2D lut;
 
 layout (std140, set = 3, binding = 0) uniform MainLightData {
-    float cascadeSplits[4];
+    CascadeSplit cascadeSplits[4];
     mat4 lightViewProj[4];
-    DirectionalLight mainLight;// w is intensity
+    DirectionalLight directionalLightData; // w is intensity
 } mainLightData;
 
 layout(set = 4, binding = 0) uniform sampler2D shadowMapSampler[];
