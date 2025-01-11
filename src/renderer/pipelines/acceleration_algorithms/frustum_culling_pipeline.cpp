@@ -97,8 +97,8 @@ void FrustumCullingPipeline::draw(VkCommandBuffer cmd, const FrustumCullDrawInfo
         bindingInfo[0] = drawInfo.sceneData.getDescriptorBufferBindingInfo();
         bindingInfo[1] = renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
 
-        VkDeviceSize sceneDataOffset = drawInfo.currentFrameOverlap * drawInfo.sceneData.getDescriptorBufferSize();
-        VkDeviceSize addressesOffset = drawInfo.currentFrameOverlap * renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferSize();
+        VkDeviceSize sceneDataOffset = drawInfo.sceneData.getDescriptorBufferSize() * 0;
+        VkDeviceSize addressesOffset = renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferSize() * 0;
 
         vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfo);
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);

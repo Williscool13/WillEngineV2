@@ -28,7 +28,7 @@
 #include "src/renderer/pipelines/post_processing/post_process_types.h"
 
 class CascadedShadowMap;
-class ShadowMapDescriptorLayouts;
+class CascadedShadowMapDescriptorLayouts;
 class ImguiWrapper;
 class PlayerCharacter;
 class Physics;
@@ -119,6 +119,7 @@ private: // Vulkan Boilerplate
     Physics* physics = nullptr;
 
     friend void ImguiWrapper::imguiInterface(Engine* engine);
+
     ImguiWrapper* imguiWrapper = nullptr;
 
     //DeletionQueue mainDeletionQueue;
@@ -127,8 +128,6 @@ private: // Rendering
     // Main
     int64_t frameNumber{0};
     FrameData frames[FRAME_OVERLAP]{};
-    int32_t getPreviousFrameOverlap() const { return static_cast<int32_t>((frameNumber == 0 ? 0 : frameNumber - 1) % FRAME_OVERLAP); }
-    int32_t getCurrentFrameOverlap() const { return static_cast<int32_t>(frameNumber % FRAME_OVERLAP); }
     FrameData& getCurrentFrame() { return frames[frameNumber % FRAME_OVERLAP]; }
     bool bStopRendering{false};
 
@@ -166,13 +165,13 @@ private: // Scene
 
 private: // Scene Descriptors
     EnvironmentDescriptorLayouts* environmentDescriptorLayouts = nullptr;
-    ShadowMapDescriptorLayouts* shadowMapDescriptorLayouts = nullptr;
+    CascadedShadowMapDescriptorLayouts* shadowMapDescriptorLayouts = nullptr;
     SceneDescriptorLayouts* sceneDescriptorLayouts = nullptr;
     FrustumCullingDescriptorLayouts* frustumCullDescriptorLayouts = nullptr;
     RenderObjectDescriptorLayout* renderObjectDescriptorLayout = nullptr;
 
     DescriptorBufferUniform sceneDataDescriptorBuffer;
-    AllocatedBuffer sceneDataBuffers[FRAME_OVERLAP];
+    AllocatedBuffer sceneDataBuffer;
 
     bool bEnableTaa{true};
     bool bEnableJitter{true};

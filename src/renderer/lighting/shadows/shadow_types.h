@@ -20,7 +20,8 @@ static constexpr uint32_t SHADOW_MAP_COUNT = SHADOW_CASCADE_COUNT + 1;
 struct ShadowMapPipelineCreateInfo
 {
     VkDescriptorSetLayout modelAddressesLayout;
-    VkDescriptorSetLayout shadowMapLayout;
+    VkDescriptorSetLayout cascadedShadowMapSamplerLayout;
+    VkDescriptorSetLayout cascadedShadowMapUniformLayout;
 };
 
 struct CascadedShadowMapDrawInfo
@@ -28,11 +29,10 @@ struct CascadedShadowMapDrawInfo
     std::vector<RenderObject*> renderObjects{};
     CameraProperties cameraProperties;
     DirectionalLight directionalLight;
-    int32_t currentFrameOverlap;
 };
 
 
-struct ShadowMapPushConstants
+struct CascadedShadowMapGenerationPushConstants
 {
     glm::mat4 lightMatrix{};
 };

@@ -75,7 +75,6 @@ struct SceneData
     glm::vec4 jitter;
 
     glm::vec2 renderTargetSize;
-    int32_t frameNumber; // either 0 or 1
     float deltaTime;
 };
 
