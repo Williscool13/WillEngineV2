@@ -136,7 +136,7 @@ public: // Rendering
     /**
      * Update the model transform in the RenderObject. Only applicable if this gameobject has a pRenderObject associated with it.
      */
-    void recursiveUpdateModelMatrix(int32_t previousFrameOverlapIndex, int32_t currentFrameOverlapIndex);
+    void recursiveUpdateModelMatrix();
 
     void setRenderObjectReference(RenderObject* owner, const int32_t index)
     {

@@ -40,7 +40,7 @@
 #include "src/physics/physics_utils.h"
 #include "src/renderer/environment/environment_map_types.h"
 #include "src/renderer/lighting/shadows/cascaded_shadow_map.h"
-#include "src/renderer/lighting/shadows/shadow_map_descriptor_layouts.h"
+#include "src/renderer/lighting/shadows/cascaded_shadow_map_descriptor_layouts.h"
 #include "src/renderer/lighting/shadows/shadow_types.h"
 #include "src/renderer/pipelines/acceleration_algorithms/frustum_culling_types.h"
 #include "src/util/render_utils.h"
@@ -121,7 +121,7 @@ void Engine::init()
     Physics::Set(physics);
 
     environmentDescriptorLayouts = new EnvironmentDescriptorLayouts(*context);
-    shadowMapDescriptorLayouts = new ShadowMapDescriptorLayouts(*context);
+    shadowMapDescriptorLayouts = new CascadedShadowMapDescriptorLayouts(*context);
     sceneDescriptorLayouts = new SceneDescriptorLayouts(*context);
     frustumCullDescriptorLayouts = new FrustumCullingDescriptorLayouts(*context);
     renderObjectDescriptorLayout = new RenderObjectDescriptorLayout(*context);
@@ -215,7 +215,7 @@ void Engine::updateSceneData(VkCommandBuffer cmd) const
 
     // Update scene data
     {
-        const auto pSceneData = static_cast<SceneData*>(sceneDataBuffers[getCurrentFrameOverlap()].info.pMappedData);
+        const auto pSceneData = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
 
         pSceneData->prevView = bIsFrameZero ? camera->getViewMatrix() : pSceneData->view;
         pSceneData->prevProj = bIsFrameZero ? camera->getProjMatrix() : pSceneData->proj;
@@ -238,7 +238,6 @@ void Engine::updateSceneData(VkCommandBuffer cmd) const
         const glm::mat4 cameraLook = glm::lookAt(glm::vec3(0), camera->getForwardWS(), glm::vec3(0, 1, 0));
         pSceneData->viewProjCameraLookDirection = pSceneData->proj * cameraLook;
 
-        pSceneData->frameNumber = getCurrentFrameOverlap();
         pSceneData->renderTargetSize = {renderExtent.width, renderExtent.height};
         pSceneData->deltaTime = TimeUtils::Get().getDeltaTime();
 
@@ -248,7 +247,7 @@ void Engine::updateSceneData(VkCommandBuffer cmd) const
             .srcAccessMask = VK_ACCESS_2_HOST_WRITE_BIT,
             .dstStageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
             .dstAccessMask = VK_ACCESS_2_UNIFORM_READ_BIT,
-            .buffer = sceneDataBuffers[getCurrentFrameOverlap()].buffer,
+            .buffer = sceneDataBuffer.buffer,
             .offset = 0,
             .size = sizeof(SceneData)
         };
@@ -302,14 +301,16 @@ void Engine::draw()
 
 
     const auto renderStart = std::chrono::system_clock::now();
-    scene.updateSceneModelMatrices(getPreviousFrameOverlap(), getCurrentFrameOverlap());
+    scene.updateSceneModelMatrices();
     updateSceneData(cmd);
+    cascadedShadowMap->updateCascadeData();
+
+
     const std::vector renderObjects{sponza, cube, primitives};
 
     const FrustumCullDrawInfo shadowPassFrustumCullingDrawInfo = {
         renderObjects,
         sceneDataDescriptorBuffer,
-        getCurrentFrameOverlap(),
         false
     };
     frustumCullingPipeline->draw(cmd, shadowPassFrustumCullingDrawInfo);
@@ -319,7 +320,6 @@ void Engine::draw()
         renderObjects,
         player->getCamera()->getCameraProperties(),
         mainLight,
-        getCurrentFrameOverlap()
     };
     cascadedShadowMap->draw(cmd, shadowMapDrawInfo);
 
@@ -327,7 +327,6 @@ void Engine::draw()
     const FrustumCullDrawInfo frustumCullingDrawInfo{
         renderObjects,
         sceneDataDescriptorBuffer,
-        getCurrentFrameOverlap(),
         bEnableFrustumCulling
     };
     frustumCullingPipeline->draw(cmd, frustumCullingDrawInfo);
@@ -340,7 +339,7 @@ void Engine::draw()
         drawImage.imageView,
         depthImage.imageView,
         sceneDataDescriptorBuffer,
-        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(),
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * 0,
         environmentMap->getCubemapDescriptorBuffer(),
         environmentMap->getEnvironmentMapOffset(environmentMapIndex)
     };
@@ -361,7 +360,6 @@ void Engine::draw()
         renderExtent,
         {static_cast<float>(renderExtent.width), static_cast<float>(renderExtent.height)},
         sceneDataDescriptorBuffer,
-        getCurrentFrameOverlap()
     };
 
     deferredMrtPipeline->draw(cmd, deferredMrtDrawInfo);
@@ -377,7 +375,7 @@ void Engine::draw()
         renderExtent,
         deferredDebug,
         sceneDataDescriptorBuffer,
-        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(),
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * 0,
         environmentMap,
         environmentMap->getDiffSpecMapOffset(environmentMapIndex)
     };
@@ -396,7 +394,7 @@ void Engine::draw()
         bEnableTaa,
         taaDebug,
         sceneDataDescriptorBuffer,
-        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap()
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * 0
     };
     taaPipeline->draw(cmd, taaDrawInfo);
 
@@ -577,9 +575,7 @@ void Engine::cleanup()
 
     // destroy all other resources
     //mainDeletionQueue.flush();
-    for (AllocatedBuffer& sceneDataBufer : sceneDataBuffers) {
-        resourceManager->destroyBuffer(sceneDataBufer);
-    }
+    resourceManager->destroyBuffer(sceneDataBuffer);
     sceneDataDescriptorBuffer.destroy(context->allocator);
 
     // Destroy these after destroying all render objects
@@ -634,15 +630,11 @@ void Engine::initRenderer()
     emptyDescriptorSetLayout = layoutBuilder.build(context->device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT, nullptr,
                                                    VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
-    for (AllocatedBuffer& sceneDataBuffer : sceneDataBuffers) {
-        sceneDataBuffer = resourceManager->createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
-    }
+    sceneDataBuffer = resourceManager->createBuffer(sizeof(SceneData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
-    sceneDataDescriptorBuffer = DescriptorBufferUniform(*context, sceneDescriptorLayouts->getSceneDataLayout(), 2);
+    sceneDataDescriptorBuffer = DescriptorBufferUniform(*context, sceneDescriptorLayouts->getSceneDataLayout(), 1);
     std::vector<DescriptorUniformData> sceneDataBufferData{1};
-    sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = sceneDataBuffers[0], .allocSize = sizeof(SceneData)};
-    sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData);
-    sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = sceneDataBuffers[1], .allocSize = sizeof(SceneData)};
+    sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = sceneDataBuffer, .allocSize = sizeof(SceneData)};
     sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData);
 
     frustumCullingPipeline = new FrustumCullingPipeline(*context);
@@ -658,7 +650,8 @@ void Engine::initRenderer()
     cascadedShadowMap = new CascadedShadowMap(*context, *resourceManager);
 
     cascadedShadowMap->init(
-        {renderObjectDescriptorLayout->getAddressesLayout(), shadowMapDescriptorLayouts->getShadowMapLayout()});
+        {renderObjectDescriptorLayout->getAddressesLayout(), shadowMapDescriptorLayouts->getCascadedShadowMapSamplerLayout(), shadowMapDescriptorLayouts->getCascadedShadowMapUniformLayout()}
+    );
 
     deferredMrtPipeline = new DeferredMrtPipeline(*context);
     deferredMrtPipeline->init(

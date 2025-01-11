@@ -20,7 +20,6 @@ struct FrustumCullDrawInfo
 {
     std::vector<RenderObject*> renderObjects;
     const DescriptorBufferUniform& sceneData;
-    int32_t currentFrameOverlap;
     bool enableFrustumCulling;
 };
 

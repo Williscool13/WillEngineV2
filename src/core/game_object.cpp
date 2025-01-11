@@ -215,7 +215,7 @@ std::vector<GameObject*>& GameObject::getChildren()
     return children;
 }
 
-void GameObject::recursiveUpdateModelMatrix(const int32_t previousFrameOverlapIndex, const int32_t currentFrameOverlapIndex)
+void GameObject::recursiveUpdateModelMatrix()
 {
     if (bIsStatic) {
         // if a gameobject is static, all its children must necessarily be static.
@@ -224,13 +224,13 @@ void GameObject::recursiveUpdateModelMatrix(const int32_t previousFrameOverlapIn
 
     if (pRenderObject) {
         if (framesToUpdate > 0) {
-            pRenderObject->updateInstanceData(instanceIndex, getModelMatrix(), previousFrameOverlapIndex, currentFrameOverlapIndex);
+            pRenderObject->updateInstanceData(instanceIndex, getModelMatrix());
             framesToUpdate--;
         }
     }
 
     for (GameObject* child : children) {
-        child->recursiveUpdateModelMatrix(previousFrameOverlapIndex, currentFrameOverlapIndex);
+        child->recursiveUpdateModelMatrix();
     }
 }
 

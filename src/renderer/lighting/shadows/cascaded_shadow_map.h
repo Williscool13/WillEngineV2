@@ -8,7 +8,7 @@
 #include <glm/glm.hpp>
 #include <vulkan/vulkan_core.h>
 
-#include "shadow_map_descriptor_layouts.h"
+#include "cascaded_shadow_map_descriptor_layouts.h"
 #include "shadow_types.h"
 #include "src/renderer/vk_descriptor_buffer.h"
 #include "src/renderer/vk_types.h"
@@ -27,6 +27,8 @@ public:
     ~CascadedShadowMap();
 
     void init(const ShadowMapPipelineCreateInfo& shadowMapPipelineCreateInfo);
+
+    void updateCascadeData();
 
     void draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInfo& drawInfo);
 
@@ -96,10 +98,12 @@ private:
 
     static constexpr float normalizedCascadeLevels[SHADOW_CASCADE_COUNT]{0.02f, 0.08f, 0.25f, 0.6f};
 
-    // used to generate
-    DescriptorBufferSampler equiImageDescriptorBuffer;
-    // used by deferred resolve
-    DescriptorBufferSampler shadowMapDescriptorBuffer;
+
+    // contains the depth maps used by deferred resolve
+    DescriptorBufferSampler cascadedShadowMapDescriptorBufferSampler;
+    // contains the cascaded shadow map properties used by deferred resolve
+    AllocatedBuffer cascadedShadowMapData{VK_NULL_HANDLE};
+    DescriptorBufferUniform cascadedShadowMapDescriptorBufferUniform;
 };
 
 

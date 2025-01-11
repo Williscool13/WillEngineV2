@@ -177,8 +177,8 @@ void DeferredMrtPipeline::draw(VkCommandBuffer cmd, DeferredMrtDrawInfo& drawInf
         descriptorBufferBindingInfo[2] = renderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
         vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptorBufferBindingInfo);
 
-        const VkDeviceSize sceneDataOffset{drawInfo.sceneData.getDescriptorBufferSize() * drawInfo.currentFrameOverlap};
-        const VkDeviceSize addressOffset{drawInfo.currentFrameOverlap * renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize()};
+        const VkDeviceSize sceneDataOffset{drawInfo.sceneData.getDescriptorBufferSize() * 0};
+        const VkDeviceSize addressOffset{renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * 0};
 
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &addressIndex, &addressOffset);

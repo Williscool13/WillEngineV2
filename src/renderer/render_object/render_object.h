@@ -86,7 +86,7 @@ public:
 
     void attachToGameObject(GameObject* gameObject, int32_t meshIndex);
 
-    [[nodiscard]] InstanceData* getInstanceData(const int32_t index, int32_t currentFrameOverlap) const;
+    [[nodiscard]] InstanceData* getInstanceData(const int32_t index) const;
 
     [[nodiscard]] const std::vector<Mesh>& getMeshes() const { return meshes; }
 
@@ -101,7 +101,7 @@ public:
 
     const DescriptorBufferUniform& getFrustumCullingAddressesDescriptorBuffer() { return frustumCullingDescriptorBuffer; }
 
-    void updateInstanceData(int32_t instanceIndex, const glm::mat4& currentFrameModelMatrix, int32_t previousFrameOverlapIndex, int32_t currentFrameOverlapIndex) const;
+    void updateInstanceData(int32_t instanceIndex, const glm::mat4& currentFrameModelMatrix) const;
 
 private:
     void recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent);
@@ -146,12 +146,12 @@ private: // Drawing
     AllocatedBuffer drawIndirectBuffer{};
 
     // addresses
-    AllocatedBuffer addressBuffers[FRAME_OVERLAP]{};
+    AllocatedBuffer addressBuffer{};
     //AllocatedBuffer bufferAddresses;
     //  the actual buffers
     AllocatedBuffer materialBuffer{};
     //AllocatedBuffer modelMatrixBuffer{};
-    AllocatedBuffer modelMatrixBuffers[FRAME_OVERLAP]{};
+    AllocatedBuffer modelMatrixBuffer{};
 
     // Culling
     AllocatedBuffer meshBoundsBuffer{};
@@ -160,7 +160,7 @@ private: // Drawing
     DescriptorBufferSampler textureDescriptorBuffer;
 
 
-    AllocatedBuffer cullingAddressBuffers[FRAME_OVERLAP]{};
+    AllocatedBuffer cullingAddressBuffer{};
     //AllocatedBuffer cullingBufferAddressess;
     AllocatedBuffer boundingSphereIndicesBuffer{};
     DescriptorBufferUniform frustumCullingDescriptorBuffer;

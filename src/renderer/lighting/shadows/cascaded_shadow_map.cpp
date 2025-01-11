@@ -4,7 +4,7 @@
 
 #include "cascaded_shadow_map.h"
 
-#include "shadow_map_descriptor_layouts.h"
+#include "cascaded_shadow_map_descriptor_layouts.h"
 #include "shadow_types.h"
 #include "glm/detail/_noise.hpp"
 #include "glm/detail/_noise.hpp"
@@ -26,7 +26,10 @@ CascadedShadowMap::~CascadedShadowMap()
         cascadeShadowMapData.depthShadowMap = {};
     }
 
-    shadowMapDescriptorBuffer.destroy(context.allocator);
+    resourceManager.destroyBuffer(cascadedShadowMapData);
+
+    cascadedShadowMapDescriptorBufferSampler.destroy(context.allocator);
+    cascadedShadowMapDescriptorBufferUniform.destroy(context.allocator);
 
     if (sampler) {
         vkDestroySampler(context.device, sampler, nullptr);
@@ -82,7 +85,7 @@ void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelin
         layouts[0] = shadowMapPipelineCreateInfo.modelAddressesLayout;
 
         VkPushConstantRange pushConstantRange;
-        pushConstantRange.size = sizeof(ShadowMapPushConstants);
+        pushConstantRange.size = sizeof(CascadedShadowMapGenerationPushConstants);
         pushConstantRange.offset = 0;
         pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
@@ -144,9 +147,28 @@ void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelin
             const VkDescriptorImageInfo imageInfo{.imageView = shadowMapData.depthShadowMap.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
             textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageInfo, false});
         }
-        shadowMapDescriptorBuffer = DescriptorBufferSampler(context, shadowMapPipelineCreateInfo.shadowMapLayout, 1);
-        shadowMapDescriptorBuffer.setupData(context.device, textureDescriptors);
+        cascadedShadowMapDescriptorBufferSampler = DescriptorBufferSampler(context, shadowMapPipelineCreateInfo.cascadedShadowMapSamplerLayout, 1);
+        cascadedShadowMapDescriptorBufferSampler.setupData(context.device, textureDescriptors);
+
+
+        cascadedShadowMapData = resourceManager.createBuffer(sizeof(CascadeShadowData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+        cascadedShadowMapDescriptorBufferUniform = DescriptorBufferUniform(context, shadowMapPipelineCreateInfo.cascadedShadowMapUniformLayout, 1);
+        std::vector<DescriptorUniformData> sceneDataBufferData{1};
+        sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = cascadedShadowMapData, .allocSize = sizeof(CascadeShadowData)};
+        cascadedShadowMapDescriptorBufferUniform.setupData(context.device, sceneDataBufferData);
+        updateCascadeData();
     }
+}
+
+void CascadedShadowMap::updateCascadeData()
+{
+    if (cascadedShadowMapData.buffer == VK_NULL_HANDLE) { return; }
+
+    const auto data = static_cast<CascadeShadowData*>(cascadedShadowMapData.info.pMappedData);
+    data->cascadeSplits;
+    data->directionalLightData;
+    data->lightViewProj;
 }
 
 void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInfo& drawInfo)
@@ -180,10 +202,10 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInf
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
 
-        ShadowMapPushConstants pushConstants{};
+        CascadedShadowMapGenerationPushConstants pushConstants{};
         assert(cascadeShadowMapData.cascadeLevel < SHADOW_MAP_COUNT);
         pushConstants.lightMatrix = lightSpaceMatrices[cascadeShadowMapData.cascadeLevel];
-        vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(ShadowMapPushConstants), &pushConstants);
+        vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(CascadedShadowMapGenerationPushConstants), &pushConstants);
 
         //  Viewport
         VkViewport viewport = {};
@@ -213,7 +235,7 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInf
 
             vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
 
-            const VkDeviceSize addressOffset{drawInfo.currentFrameOverlap * renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize()};
+            const VkDeviceSize addressOffset{renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * 0};
             vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &addressIndex, &addressOffset);
 
 

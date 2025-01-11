@@ -187,9 +187,9 @@ int Scene::getIndexInVector(GameObject* obj, std::vector<GameObject*> vector)
     return -1;
 }
 
-void Scene::updateSceneModelMatrices(const int32_t previousFrameOverlapIndex, const int32_t currentFrameOverlapIndex) const
+void Scene::updateSceneModelMatrices() const
 {
-    sceneRoot->recursiveUpdateModelMatrix(previousFrameOverlapIndex, currentFrameOverlapIndex);
+    sceneRoot->recursiveUpdateModelMatrix();
 }
 
 void Scene::deleteGameObjectRecursive(GameObject* obj)
