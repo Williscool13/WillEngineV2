@@ -15,6 +15,8 @@
 #include "src/renderer/render_object/render_object.h"
 #include "src/util/render_utils.h"
 
+#include "fmt/format.h"
+
 CascadedShadowMap::CascadedShadowMap(const VulkanContext& context, ResourceManager& resourceManager)
     : context(context), resourceManager(resourceManager)
 {}
@@ -49,6 +51,8 @@ CascadedShadowMap::~CascadedShadowMap()
 
 void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelineCreateInfo)
 {
+    generateSplits(shadowMapPipelineCreateInfo.nearPlane, shadowMapPipelineCreateInfo.farPlane);
+
     // Create Resources
     {
         VkSamplerCreateInfo samplerCreateInfo = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
@@ -166,6 +170,8 @@ void CascadedShadowMap::updateCascadeData()
     if (cascadedShadowMapData.buffer == VK_NULL_HANDLE) { return; }
 
     const auto data = static_cast<CascadeShadowData*>(cascadedShadowMapData.info.pMappedData);
+
+    //
     data->cascadeSplits;
     data->directionalLightData;
     data->lightViewProj;
@@ -180,7 +186,7 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInf
 
     constexpr VkClearValue clearValue = {0.0f, 0.0f};
 
-    glm::mat4 lightSpaceMatrices[SHADOW_MAP_COUNT];
+    glm::mat4 lightSpaceMatrices[SHADOW_CASCADE_SPLIT_COUNT];
     getLightSpaceMatrices(drawInfo.directionalLight.getDirection(), drawInfo.cameraProperties, lightSpaceMatrices);
 
     for (const CascadeShadowMapData& cascadeShadowMapData : shadowMaps) {
@@ -203,7 +209,7 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInf
 
 
         CascadedShadowMapGenerationPushConstants pushConstants{};
-        assert(cascadeShadowMapData.cascadeLevel < SHADOW_MAP_COUNT);
+        assert(cascadeShadowMapData.cascadeLevel < SHADOW_CASCADE_SPLIT_COUNT);
         pushConstants.lightMatrix = lightSpaceMatrices[cascadeShadowMapData.cascadeLevel];
         vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(CascadedShadowMapGenerationPushConstants), &pushConstants);
 
@@ -304,47 +310,50 @@ glm::mat4 CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 lightDirection,
     return cropMatrix * ortho * lightView;
 }
 
-
-void CascadedShadowMap::getLightSpaceMatrices(const glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, glm::mat4 matrices[SHADOW_MAP_COUNT])
+void CascadedShadowMap::generateSplits(float nearPlane, float farPlane)
 {
-    // Generate splits
     // https://github.com/diharaw/cascaded-shadow-maps
     // Practical Split Scheme: https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch10.html
-    // {
-    //     float nd = camera->m_near;
-    //     float fd = camera->m_far;
-    //
-    //     float lambda = m_lambda;
-    //     float ratio = fd / nd;
-    //     m_splits[0].near_plane = nd;
-    //
-    //     for (int i = 1; i < m_split_count; i++) {
-    //         float si = i / (float) m_split_count;
-    //
-    //         // Practical Split Scheme: https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch10.html
-    //         float t_near = lambda * (nd * powf(ratio, si)) + (1 - lambda) * (nd + (fd - nd) * si);
-    //         float t_far = t_near * 1.005f;
-    //         m_splits[i].near_plane = t_near;
-    //         m_splits[i - 1].far_plane = t_far;
-    //     }
-    //
-    //     m_splits[m_split_count - 1].far_plane = fd;
-    // }
 
-
-    assert(USING_REVERSED_DEPTH_BUFFER);
     // need to reverse the reversed depth buffer for correct frustum calculations
     // matrix calculations use these values as "distance from camera". Reversed depth buffer just doesn't jive.
-    const float nearPlane = cameraProperties.farPlane;
-    const float farPlane = cameraProperties.nearPlane;
+    const auto temp = nearPlane;
+    nearPlane = farPlane;
+    farPlane = temp;
 
-    for (size_t i = 0; i < SHADOW_MAP_COUNT; ++i) {
-        if (i == 0) {
-            matrices[i] = getLightSpaceMatrix(directionalLightDirection, cameraProperties, nearPlane, normalizedCascadeLevels[i] * farPlane);
-        } else if (i < SHADOW_CASCADE_COUNT) {
-            matrices[i] = getLightSpaceMatrix(directionalLightDirection, cameraProperties, normalizedCascadeLevels[i - 1] * farPlane, normalizedCascadeLevels[i] * farPlane);
-        } else {
-            matrices[i] = getLightSpaceMatrix(directionalLightDirection, cameraProperties, normalizedCascadeLevels[i - 1] * farPlane, farPlane);
-        }
+
+    const float ratio = farPlane / nearPlane;
+    // Set initial near plane
+    splits[0].nearPlane = nearPlane;
+
+    // Calculate splits
+    for (size_t i = 1; i <= SHADOW_CASCADE_COUNT; i++) {
+        const float si = static_cast<float>(i) / static_cast<float>(SHADOW_CASCADE_COUNT);
+
+        const float uniformTerm = nearPlane + (farPlane - nearPlane) * si;
+        const float logTerm = nearPlane * std::pow(ratio, si);
+        const float nearValue = LAMBDA * logTerm + (1.0f - LAMBDA) * uniformTerm;
+
+        const float farValue = nearValue * OVERLAP;
+
+        splits[i].nearPlane = nearValue;
+        splits[i - 1].farPlane = farValue;
+    }
+
+    // Set final far plane
+    splits[SHADOW_CASCADE_COUNT].farPlane = farPlane;
+
+    fmt::print("Generated Splits:\n");
+    for (int i = 0; i < SHADOW_CASCADE_COUNT; i++) {
+        fmt::print("Split {}: {} {}\n", i, splits[i].nearPlane, splits[i].farPlane);
+    }
+}
+
+
+void CascadedShadowMap::getLightSpaceMatrices(const glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, glm::mat4 matrices[SHADOW_CASCADE_SPLIT_COUNT]) const
+{
+    for (size_t i = 0; i < SHADOW_CASCADE_SPLIT_COUNT; ++i) {
+        const CascadeSplit& split = splits[i];
+        matrices[i] = getLightSpaceMatrix(directionalLightDirection, cameraProperties, split.nearPlane, split.farPlane);
     }
 }
