@@ -1,3 +1,9 @@
+struct CascadeSplit
+{
+    float nearPlane;
+    float farPlane;
+};
+
 float getViewSpaceDepth(vec3 worldPos, mat4 viewMatrix) {
     vec4 viewPos = viewMatrix * vec4(worldPos, 1.0);
     return -viewPos.z;

@@ -481,7 +481,7 @@ void Engine::update(float deltaTime) const
 
     player->update(deltaTime);
 
-    if (player->isUsingDebugCamera()) {
+    if (player->isUsingDebugCamera() || bEnableShadowMapDebug) {
         constexpr int32_t numberOfCorners = 8;
         glm::vec4 corners[numberOfCorners];
         const FreeCamera* targetCamera = player->getFreeCamera();

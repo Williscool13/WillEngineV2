@@ -170,11 +170,12 @@ void CascadedShadowMap::updateCascadeData()
     if (cascadedShadowMapData.buffer == VK_NULL_HANDLE) { return; }
 
     const auto data = static_cast<CascadeShadowData*>(cascadedShadowMapData.info.pMappedData);
-
     //
-    data->cascadeSplits;
-    data->directionalLightData;
-    data->lightViewProj;
+    for (size_t i = 0; i < SHADOW_CASCADE_COUNT; i++) {
+        data->cascadeSplits[i] = splits[i];
+    }
+    //data->directionalLightData;
+    //data->lightViewProj;
 }
 
 void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInfo& drawInfo)
@@ -186,7 +187,7 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInf
 
     constexpr VkClearValue clearValue = {0.0f, 0.0f};
 
-    glm::mat4 lightSpaceMatrices[SHADOW_CASCADE_SPLIT_COUNT];
+    glm::mat4 lightSpaceMatrices[SHADOW_CASCADE_COUNT];
     getLightSpaceMatrices(drawInfo.directionalLight.getDirection(), drawInfo.cameraProperties, lightSpaceMatrices);
 
     for (const CascadeShadowMapData& cascadeShadowMapData : shadowMaps) {
@@ -209,7 +210,6 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInf
 
 
         CascadedShadowMapGenerationPushConstants pushConstants{};
-        assert(cascadeShadowMapData.cascadeLevel < SHADOW_CASCADE_SPLIT_COUNT);
         pushConstants.lightMatrix = lightSpaceMatrices[cascadeShadowMapData.cascadeLevel];
         vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(CascadedShadowMapGenerationPushConstants), &pushConstants);
 
@@ -327,7 +327,7 @@ void CascadedShadowMap::generateSplits(float nearPlane, float farPlane)
     splits[0].nearPlane = nearPlane;
 
     // Calculate splits
-    for (size_t i = 1; i <= SHADOW_CASCADE_COUNT; i++) {
+    for (size_t i = 1; i < SHADOW_CASCADE_COUNT; i++) {
         const float si = static_cast<float>(i) / static_cast<float>(SHADOW_CASCADE_COUNT);
 
         const float uniformTerm = nearPlane + (farPlane - nearPlane) * si;
@@ -341,18 +341,18 @@ void CascadedShadowMap::generateSplits(float nearPlane, float farPlane)
     }
 
     // Set final far plane
-    splits[SHADOW_CASCADE_COUNT].farPlane = farPlane;
+    splits[SHADOW_CASCADE_COUNT - 1].farPlane = farPlane;
 
     fmt::print("Generated Splits:\n");
     for (int i = 0; i < SHADOW_CASCADE_COUNT; i++) {
-        fmt::print("Split {}: {} {}\n", i, splits[i].nearPlane, splits[i].farPlane);
+        fmt::print("Split {}: ({} {}), \n", i, splits[i].nearPlane, splits[i].farPlane);
     }
 }
 
 
-void CascadedShadowMap::getLightSpaceMatrices(const glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, glm::mat4 matrices[SHADOW_CASCADE_SPLIT_COUNT]) const
+void CascadedShadowMap::getLightSpaceMatrices(const glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, glm::mat4 matrices[SHADOW_CASCADE_COUNT]) const
 {
-    for (size_t i = 0; i < SHADOW_CASCADE_SPLIT_COUNT; ++i) {
+    for (size_t i = 0; i < SHADOW_CASCADE_COUNT; ++i) {
         const CascadeSplit& split = splits[i];
         matrices[i] = getLightSpaceMatrix(directionalLightDirection, cameraProperties, split.nearPlane, split.farPlane);
     }
