@@ -227,7 +227,7 @@ void Engine::updateSceneData(VkCommandBuffer cmd) const
         pSceneData->viewProj = pSceneData->proj * pSceneData->view;
 
         if (bEnableShadowMapDebug) {
-            const glm::mat4 lightViewProj = CascadedShadowMap::getCascadeViewProjection(mainLight.getDirection(), camera->getCameraProperties(), shadowMapDebug);
+            const glm::mat4 lightViewProj = cascadedShadowMap->getCascadeViewProjection(mainLight.getDirection(), camera->getCameraProperties(), shadowMapDebug);
             pSceneData->viewProj = lightViewProj;
         }
 
@@ -486,22 +486,9 @@ void Engine::update(float deltaTime) const
         glm::vec4 corners[numberOfCorners];
         const FreeCamera* targetCamera = player->getFreeCamera();
 
-        float nearPlane;
-        float farPlane;
-        if (shadowMapDebug == 0) {
-            nearPlane = targetCamera->getFarPlane();
-            farPlane = targetCamera->getNearPlane() * CascadedShadowMap::getCascadeLevel(shadowMapDebug);
-        } else if (shadowMapDebug < SHADOW_CASCADE_COUNT) {
-            nearPlane = targetCamera->getNearPlane() * CascadedShadowMap::getCascadeLevel(shadowMapDebug - 1);
-            farPlane = targetCamera->getNearPlane() * CascadedShadowMap::getCascadeLevel(shadowMapDebug);
-        } else {
-            nearPlane = targetCamera->getNearPlane() * CascadedShadowMap::getCascadeLevel(shadowMapDebug - 1);
-            farPlane = targetCamera->getNearPlane();
-        }
-
         if (bShowPerspectiveBounds) {
-            render_utils::getPerspectiveFrustumCornersWorldSpace(nearPlane, farPlane, targetCamera->getFov(), targetCamera->getAspectRatio(), targetCamera->getPosition(), targetCamera->getForwardWS(),
-                                                                 corners);
+            const CascadeSplit& split = cascadedShadowMap->getCascadeSplit(shadowMapDebug);
+            render_utils::getPerspectiveFrustumCornersWorldSpace(split.nearPlane, split.farPlane, targetCamera->getFov(), targetCamera->getAspectRatio(), targetCamera->getPosition(), targetCamera->getForwardWS(),corners);
         }
 
         cameraDebugGameObjects[0]->setLocalPosition(targetCamera->getPosition());
@@ -650,7 +637,7 @@ void Engine::initRenderer()
     cascadedShadowMap = new CascadedShadowMap(*context, *resourceManager);
 
     cascadedShadowMap->init(
-        {renderObjectDescriptorLayout->getAddressesLayout(), shadowMapDescriptorLayouts->getCascadedShadowMapSamplerLayout(), shadowMapDescriptorLayouts->getCascadedShadowMapUniformLayout()}
+        {renderObjectDescriptorLayout->getAddressesLayout(), shadowMapDescriptorLayouts->getCascadedShadowMapSamplerLayout(), shadowMapDescriptorLayouts->getCascadedShadowMapUniformLayout(), player->getCamera()->getNearPlane(), player->getCamera()->getFarPlane()}
     );
 
     deferredMrtPipeline = new DeferredMrtPipeline(*context);

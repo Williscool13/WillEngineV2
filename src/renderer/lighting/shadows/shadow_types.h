@@ -13,15 +13,13 @@
 
 class RenderObject;
 
-static constexpr uint32_t SHADOW_CASCADE_COUNT = 4;
-static constexpr uint32_t SHADOW_MAP_COUNT = SHADOW_CASCADE_COUNT + 1;
-
-
 struct ShadowMapPipelineCreateInfo
 {
     VkDescriptorSetLayout modelAddressesLayout;
     VkDescriptorSetLayout cascadedShadowMapSamplerLayout;
     VkDescriptorSetLayout cascadedShadowMapUniformLayout;
+    float nearPlane;
+    float farPlane;
 };
 
 struct CascadedShadowMapDrawInfo
@@ -35,6 +33,12 @@ struct CascadedShadowMapDrawInfo
 struct CascadedShadowMapGenerationPushConstants
 {
     glm::mat4 lightMatrix{};
+};
+
+struct CascadeSplit
+{
+    float nearPlane;
+    float farPlane;
 };
 
 struct CascadeShadowMapData

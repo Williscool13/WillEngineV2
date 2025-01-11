@@ -20,6 +20,11 @@ struct CameraProperties;
 class CascadedShadowMap
 {
 public:
+    static constexpr float LAMBDA = 0.5f;
+    static constexpr float OVERLAP = 1.005f;
+    static constexpr uint32_t SHADOW_CASCADE_COUNT = 4;
+    static constexpr uint32_t SHADOW_CASCADE_SPLIT_COUNT = SHADOW_CASCADE_COUNT + 1;
+
     CascadedShadowMap() = delete;
 
     CascadedShadowMap(const VulkanContext& context, ResourceManager& resourceManager);
@@ -35,37 +40,42 @@ public:
 public: // Debug
     AllocatedImage getShadowMap(const int32_t cascadeLevel) const
     {
-        if (cascadeLevel >= SHADOW_MAP_COUNT || cascadeLevel < 0) {
+        if (cascadeLevel >= SHADOW_CASCADE_SPLIT_COUNT || cascadeLevel < 0) {
             return {};
         }
         return shadowMaps[cascadeLevel].depthShadowMap;
     }
 
-    static glm::mat4 getCascadeViewProjection(const glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, const int32_t cascadeLevel)
+    glm::mat4 getCascadeViewProjection(const glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, const int32_t cascadeLevel)
     {
-        if (cascadeLevel >= SHADOW_MAP_COUNT || cascadeLevel < 0) {
+        if (cascadeLevel >= SHADOW_CASCADE_SPLIT_COUNT || cascadeLevel < 0) {
             return {1.0f};
         }
 
-        glm::mat4 lightMatrices[SHADOW_MAP_COUNT];
+        glm::mat4 lightMatrices[SHADOW_CASCADE_SPLIT_COUNT];
         getLightSpaceMatrices(directionalLightDirection, cameraProperties, lightMatrices);
 
         return lightMatrices[cascadeLevel];
     }
 
-    static float getCascadeLevel(const int32_t index)
+    const CascadeSplit& getCascadeSplit(const int32_t index) const
     {
-        if (index >= SHADOW_CASCADE_COUNT || index < 0) {
-            return normalizedCascadeLevels[0];
+        if (index >= SHADOW_CASCADE_SPLIT_COUNT || index < 0) {
+            return splits[0];
         }
-        return normalizedCascadeLevels[index];
+        return splits[index];
     }
 
-    //private: // Pipelines
-    static void getLightSpaceMatrices(glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, glm::mat4 matrices[SHADOW_MAP_COUNT]);
+    void getLightSpaceMatrices(glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, glm::mat4 matrices[SHADOW_CASCADE_SPLIT_COUNT]) const;
 
     static glm::mat4 getLightSpaceMatrix(glm::vec3 lightDirection, const CameraProperties& cameraProperties, float cascadeNear, float cascadeFar);
 
+    /**
+     * Assumes reversed depth buffer
+     * @param nearPlane Exepects a large number (e.g. 10000)
+     * @param farPlane Expects a small number (e.g. 0.1)
+     */
+    void generateSplits(float nearPlane, float farPlane);
 
     VkPipelineLayout shadowMapGenerationPipelineLayout{VK_NULL_HANDLE};
     VkPipeline shadowMapGenerationPipeline{VK_NULL_HANDLE};
@@ -83,12 +93,7 @@ private:
     VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
     VkPipeline pipeline{VK_NULL_HANDLE};
 
-    // 0 = near -> 0.02
-    // 1 = 0.02 -> 0.08
-    // 2 = 0.08 -> 0.25
-    // 3 = 0.25 -> 0.6
-    // 4 = 0.6 -> far
-    CascadeShadowMapData shadowMaps[SHADOW_MAP_COUNT]{
+    CascadeShadowMapData shadowMaps[SHADOW_CASCADE_SPLIT_COUNT]{
         {0, {VK_NULL_HANDLE}},
         {1, {VK_NULL_HANDLE}},
         {2, {VK_NULL_HANDLE}},
@@ -96,8 +101,7 @@ private:
         {4, {VK_NULL_HANDLE}},
     };
 
-    static constexpr float normalizedCascadeLevels[SHADOW_CASCADE_COUNT]{0.02f, 0.08f, 0.25f, 0.6f};
-
+    CascadeSplit splits[SHADOW_CASCADE_SPLIT_COUNT]{};
 
     // contains the depth maps used by deferred resolve
     DescriptorBufferSampler cascadedShadowMapDescriptorBufferSampler;
