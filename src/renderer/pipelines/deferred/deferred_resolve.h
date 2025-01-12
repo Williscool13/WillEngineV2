@@ -11,10 +11,14 @@
 #include "src/renderer/vulkan_context.h"
 #include "src/renderer/environment/environment.h"
 
+class CascadedShadowMap;
+
 struct DeferredResolvePipelineCreateInfo
 {
     VkDescriptorSetLayout sceneDataLayout;
     VkDescriptorSetLayout environmentMapLayout;
+    VkDescriptorSetLayout cascadedShadowUniformLayout;
+    VkDescriptorSetLayout cascadedShadowSamplerLayout;
     VkDescriptorSetLayout emptyLayout;
 };
 
@@ -37,7 +41,8 @@ struct DeferredResolveDrawInfo
     const DescriptorBufferUniform& sceneData;
     const VkDeviceSize sceneDataOffset;
     Environment* environment{nullptr};
-    const VkDeviceSize diffSpecMapOffset;
+    int32_t environmentMapIndex;
+    CascadedShadowMap* cascadedShadowMap{nullptr};
 };
 
 class DeferredResolvePipeline
@@ -74,6 +79,10 @@ private:
      * Transient (Lifetime is managed outside of this pipeline)
      */
     VkDescriptorSetLayout environmentMapLayout{VK_NULL_HANDLE};
+
+    VkDescriptorSetLayout cascadedShadowUniformLayout;
+
+    VkDescriptorSetLayout cascadedShadowSamplerLayout;
 
     DescriptorBufferSampler resolveDescriptorBuffer;
 

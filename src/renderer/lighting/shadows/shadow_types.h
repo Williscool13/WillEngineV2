@@ -32,34 +32,28 @@ struct CascadedShadowMapDrawInfo
 
 struct CascadedShadowMapGenerationPushConstants
 {
-    glm::mat4 lightMatrix{};
-};
-
-
-struct CascadeShadowMapData
-{
-    int32_t cascadeLevel{-1};
-    AllocatedImage depthShadowMap{VK_NULL_HANDLE};
-};
-
-struct DirectionalLightData
-{
-    glm::vec3 direction;
-    float intensity;
-    glm::vec3 color;
-    float pad;
+    int32_t cascadeIndex{};
 };
 
 struct CascadeSplit
 {
     float nearPlane;
     float farPlane;
+    float padding[2];
 };
 struct CascadeShadowData
 {
     CascadeSplit cascadeSplits[4];
     glm::mat4 lightViewProj[4];
     DirectionalLightData directionalLightData;
+};
+
+struct CascadeShadowMapData
+{
+    int32_t cascadeLevel{-1};
+    CascadeSplit split{};
+    AllocatedImage depthShadowMap{VK_NULL_HANDLE};
+    glm::mat4 lightViewProj{};
 };
 
 #endif //SHADOW_TYPES_H

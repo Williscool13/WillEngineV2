@@ -1,4 +1,5 @@
 #version 460
+#extension GL_EXT_nonuniform_qualifier: enable
 
 #include "pbr.glsl"
 #include "environment.glsl"
@@ -21,19 +22,19 @@ layout (rgba16f, set = 1, binding = 5) uniform image2D outputImage;
 layout (set = 2, binding = 0) uniform samplerCube environmentDiffuseAndSpecular;
 layout (set = 2, binding = 1) uniform sampler2D lut;
 
-layout (std140, set = 3, binding = 0) uniform MainLightData {
+layout (std140, set = 3, binding = 0) uniform ShadowCascadeData {
     CascadeSplit cascadeSplits[4];
     mat4 lightViewProj[4];
     DirectionalLight directionalLightData; // w is intensity
-} mainLightData;
+} shadowCascadeData;
 
-layout(set = 4, binding = 0) uniform sampler2D shadowMapSampler[];
+layout (set = 4, binding = 0) uniform sampler2D shadowMapSampler[];
 
 layout (std140, set = 5, binding = 0) uniform LightData {
     PointLight pointLights[6];
 } lightData;
 
-layout(set = 6, binding = 0) uniform sampler2D shadowMaps[];
+layout (set = 6, binding = 0) uniform sampler2D shadowMaps[];
 
 
 layout (push_constant) uniform PushConstants {
@@ -134,12 +135,41 @@ void main() {
         imageStore(outputImage, screenPos, debugColor);
         return;
     }
-    else if (pushConstants.debug == 2) {
+
+    if (pushConstants.debug == 2) {
         // Depth
         float linearDepth = LinearizeDepth(depth);
         float normalizedLinearDepth = linearDepth / 25.0;
         vec4 fragColor = vec4(vec3(normalizedLinearDepth), 1.0);
         imageStore(outputImage, screenPos, vec4(vec3(normalizedLinearDepth), 1.0f));
         return;
+    }
+
+    if (pushConstants.debug == 3) {
+        float viewDepth = getViewSpaceDepth(position, sceneData.view);
+        int cascadeLevel = selectCascadeLevel(viewDepth, shadowCascadeData.cascadeSplits);
+        float value = viewDepth - shadowCascadeData.cascadeSplits[cascadeLevel].nearPlane;
+        float diff = value / (shadowCascadeData.cascadeSplits[cascadeLevel].farPlane - shadowCascadeData.cascadeSplits[cascadeLevel].nearPlane);
+        if (cascadeLevel == 0) {imageStore(outputImage, screenPos, vec4(vec3(diff, 0.0, 0.0), albedo.w));}
+        if (cascadeLevel == 1) {imageStore(outputImage, screenPos, vec4(vec3(0.0, diff, 0.0), albedo.w));}
+        if (cascadeLevel == 2) {imageStore(outputImage, screenPos, vec4(vec3(0.0, 0.0, diff), albedo.w));}
+        if (cascadeLevel == 3) {imageStore(outputImage, screenPos, vec4(vec3(diff), albedo.w));}
+    }
+
+    if (pushConstants.debug == 4) {
+        float viewDepth = getViewSpaceDepth(position, sceneData.view);
+        int cascadeLevel = selectCascadeLevel(viewDepth, shadowCascadeData.cascadeSplits);
+
+        vec4 lightSpacePos = shadowCascadeData.lightViewProj[cascadeLevel] * vec4(position, 1.0);
+        vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
+        projCoords.xy = projCoords.xy * 0.5 + 0.5;
+
+        float currentDepth = projCoords.z;
+        float closestDepth = texture(shadowMapSampler[nonuniformEXT(cascadeLevel)], projCoords.xy).r;
+
+        float shadow = currentDepth > closestDepth ? 1.0 : 0.0;
+
+        //imageStore(outputImage, screenPos, vec4(vec3(projCoords.z - closestDepth), 1.0));
+        imageStore(outputImage, screenPos, vec4(vec3(1 - shadow), 1.0));
     }
 }

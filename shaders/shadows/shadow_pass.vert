@@ -1,9 +1,18 @@
 #version 460
 #extension GL_EXT_buffer_reference: require
+#extension GL_EXT_nonuniform_qualifier: enable
 
 #include "structure.glsl"
+#include "shadows.glsl"
+#include "lights.glsl"
 
-layout (set = 0, binding = 0) uniform Addresses
+layout (std140, set = 0, binding = 0) uniform ShadowCascadeData {
+    CascadeSplit cascadeSplits[4];
+    mat4 lightViewProj[4];
+    DirectionalLight directionalLightData; // w is intensity
+} shadowCascadeData;
+
+layout (set = 1, binding = 0) uniform Addresses
 {
     MaterialData materialBufferDeviceAddress;
     ModelData modelBufferDeviceAddress;
@@ -12,10 +21,10 @@ layout (set = 0, binding = 0) uniform Addresses
 layout (location = 0) in vec3 position;
 
 layout (push_constant) uniform PushConstants {
-    mat4 lightSpaceMatrix;
+    int cascadeIndex;
 } push;
 
 void main() {
     Model models = bufferAddresses.modelBufferDeviceAddress.models[gl_InstanceIndex];
-    gl_Position = push.lightSpaceMatrix * models.currentModelMatrix * vec4(position, 1.0);
+    gl_Position = shadowCascadeData.lightViewProj[push.cascadeIndex] * models.currentModelMatrix * vec4(position, 1.0);
 }

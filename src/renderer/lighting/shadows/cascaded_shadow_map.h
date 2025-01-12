@@ -32,9 +32,12 @@ public:
 
     void init(const ShadowMapPipelineCreateInfo& shadowMapPipelineCreateInfo);
 
-    void updateCascadeData();
+    void updateCascadeData(VkCommandBuffer cmd, const DirectionalLight& mainLight, const CameraProperties& cameraProperties);
 
-    void draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInfo& drawInfo);
+    void draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInfo& drawInfo) const;
+
+    const DescriptorBufferUniform& getCascadedShadowMapUniformBuffer() const { return cascadedShadowMapDescriptorBufferUniform; }
+    const DescriptorBufferSampler& getCascadedShadowMapSamplerBuffer() const { return cascadedShadowMapDescriptorBufferSampler; }
 
 public: // Debug
     AllocatedImage getShadowMap(const int32_t cascadeLevel) const
@@ -45,27 +48,22 @@ public: // Debug
         return shadowMaps[cascadeLevel].depthShadowMap;
     }
 
-    glm::mat4 getCascadeViewProjection(const glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, const int32_t cascadeLevel)
+    glm::mat4 getCascadeViewProjection(const int32_t cascadeLevel) const
     {
         if (cascadeLevel >= SHADOW_CASCADE_COUNT || cascadeLevel < 0) {
             return {1.0f};
         }
 
-        glm::mat4 lightMatrices[SHADOW_CASCADE_COUNT];
-        getLightSpaceMatrices(directionalLightDirection, cameraProperties, lightMatrices);
-
-        return lightMatrices[cascadeLevel];
+        return shadowMaps[cascadeLevel].lightViewProj;
     }
 
     const CascadeSplit& getCascadeSplit(const int32_t index) const
     {
         if (index >= SHADOW_CASCADE_COUNT || index < 0) {
-            return splits[0];
+            return shadowMaps[0].split;
         }
-        return splits[index];
+        return shadowMaps[index].split;
     }
-
-    void getLightSpaceMatrices(glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, glm::mat4 matrices[SHADOW_CASCADE_COUNT]) const;
 
     static glm::mat4 getLightSpaceMatrix(glm::vec3 lightDirection, const CameraProperties& cameraProperties, float cascadeNear, float cascadeFar);
 
@@ -83,9 +81,8 @@ private:
     const VulkanContext& context;
     ResourceManager& resourceManager;
 
-    VkFormat drawFormat{VK_FORMAT_R16G16B16A16_SFLOAT};
     VkFormat depthFormat{VK_FORMAT_D32_SFLOAT};
-    VkExtent2D extent{2048, 2048}; // Default shadow map resolution
+    VkExtent2D extent{2048, 2048};
 
 
     VkSampler sampler{VK_NULL_HANDLE};
@@ -93,10 +90,11 @@ private:
     VkPipeline pipeline{VK_NULL_HANDLE};
 
     CascadeShadowMapData shadowMaps[SHADOW_CASCADE_COUNT]{
-        {0, {VK_NULL_HANDLE}},
-        {1, {VK_NULL_HANDLE}},
-        {2, {VK_NULL_HANDLE}},
-        {3, {VK_NULL_HANDLE}},
+        {0, {}, {VK_NULL_HANDLE}, {}},
+        {1, {}, {VK_NULL_HANDLE}, {}},
+        {2, {}, {VK_NULL_HANDLE}, {}},
+        {3, {}, {VK_NULL_HANDLE}, {}},
+
     };
 
     CascadeSplit splits[SHADOW_CASCADE_COUNT]{};
