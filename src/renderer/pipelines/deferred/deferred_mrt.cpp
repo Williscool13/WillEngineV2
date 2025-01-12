@@ -96,7 +96,7 @@ void DeferredMrtPipeline::init(const DeferredMrtPipelineCreateInfo& createInfo, 
 
         renderPipelineBuilder.setShaders(vertShader, fragShader);
         renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-        renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_FRONT_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+        renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
         renderPipelineBuilder.disableMultisampling();
         renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
         renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);

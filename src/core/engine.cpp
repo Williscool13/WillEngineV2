@@ -227,7 +227,7 @@ void Engine::updateSceneData(VkCommandBuffer cmd) const
         pSceneData->viewProj = pSceneData->proj * pSceneData->view;
 
         if (bEnableShadowMapDebug) {
-            const glm::mat4 lightViewProj = cascadedShadowMap->getCascadeViewProjection(mainLight.getDirection(), camera->getCameraProperties(), shadowMapDebug);
+            const glm::mat4 lightViewProj = cascadedShadowMap->getCascadeViewProjection(shadowMapDebug);
             pSceneData->viewProj = lightViewProj;
         }
 
@@ -303,7 +303,7 @@ void Engine::draw()
     const auto renderStart = std::chrono::system_clock::now();
     scene.updateSceneModelMatrices();
     updateSceneData(cmd);
-    cascadedShadowMap->updateCascadeData();
+    cascadedShadowMap->updateCascadeData(cmd, mainLight, player->getFreeCamera()->getCameraProperties());
 
 
     const std::vector renderObjects{sponza, cube, primitives};
@@ -377,7 +377,8 @@ void Engine::draw()
         sceneDataDescriptorBuffer,
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * 0,
         environmentMap,
-        environmentMap->getDiffSpecMapOffset(environmentMapIndex)
+        environmentMapIndex,
+        cascadedShadowMap
     };
 
     deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);
@@ -482,43 +483,114 @@ void Engine::update(float deltaTime) const
     player->update(deltaTime);
 
     if (player->isUsingDebugCamera() || bEnableShadowMapDebug) {
-        constexpr int32_t numberOfCorners = 8;
-        glm::vec4 corners[numberOfCorners];
         const FreeCamera* targetCamera = player->getFreeCamera();
 
         if (bShowPerspectiveBounds) {
+            constexpr int32_t numberOfCorners = 8;
+            glm::vec4 corners[numberOfCorners];
             const CascadeSplit& split = cascadedShadowMap->getCascadeSplit(shadowMapDebug);
-            render_utils::getPerspectiveFrustumCornersWorldSpace(split.nearPlane, split.farPlane, targetCamera->getFov(), targetCamera->getAspectRatio(), targetCamera->getPosition(), targetCamera->getForwardWS(),corners);
+            render_utils::getPerspectiveFrustumCornersWorldSpace(split.nearPlane, split.farPlane, targetCamera->getFov(), targetCamera->getAspectRatio(), targetCamera->getPosition(),
+                                                                 targetCamera->getForwardWS(), corners);
+            cameraDebugGameObjects[0]->setLocalPosition(targetCamera->getPosition());
+            cameraDebugGameObjects[1]->setLocalPosition(corners[0]);
+            cameraDebugGameObjects[2]->setLocalPosition(corners[1]);
+            cameraDebugGameObjects[3]->setLocalPosition(corners[2]);
+            cameraDebugGameObjects[4]->setLocalPosition(corners[3]);
+            cameraDebugGameObjects[5]->setLocalPosition(corners[4]);
+            cameraDebugGameObjects[6]->setLocalPosition(corners[5]);
+            cameraDebugGameObjects[7]->setLocalPosition(corners[6]);
+            cameraDebugGameObjects[8]->setLocalPosition(corners[7]);
+            cameraDebugGameObjects[1]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
+            cameraDebugGameObjects[2]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
+            cameraDebugGameObjects[3]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
+            cameraDebugGameObjects[4]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
+            cameraDebugGameObjects[5]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
+            cameraDebugGameObjects[6]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
+            cameraDebugGameObjects[7]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
+            cameraDebugGameObjects[8]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
+        } else {
+            constexpr glm::vec3 dormantPosition{0.0f, -50.0f, 0.0f};
+            cameraDebugGameObjects[0]->setLocalPosition(dormantPosition);
+            cameraDebugGameObjects[1]->setLocalPosition(dormantPosition);
+            cameraDebugGameObjects[2]->setLocalPosition(dormantPosition);
+            cameraDebugGameObjects[3]->setLocalPosition(dormantPosition);
+            cameraDebugGameObjects[4]->setLocalPosition(dormantPosition);
+            cameraDebugGameObjects[5]->setLocalPosition(dormantPosition);
+            cameraDebugGameObjects[6]->setLocalPosition(dormantPosition);
+            cameraDebugGameObjects[7]->setLocalPosition(dormantPosition);
+            cameraDebugGameObjects[8]->setLocalPosition(dormantPosition);
         }
 
-        cameraDebugGameObjects[0]->setLocalPosition(targetCamera->getPosition());
-        cameraDebugGameObjects[1]->setLocalPosition(corners[0]);
-        cameraDebugGameObjects[2]->setLocalPosition(corners[1]);
-        cameraDebugGameObjects[3]->setLocalPosition(corners[2]);
-        cameraDebugGameObjects[4]->setLocalPosition(corners[3]);
-        cameraDebugGameObjects[5]->setLocalPosition(corners[4]);
-        cameraDebugGameObjects[6]->setLocalPosition(corners[5]);
-        cameraDebugGameObjects[7]->setLocalPosition(corners[6]);
-        cameraDebugGameObjects[8]->setLocalPosition(corners[7]);
-        cameraDebugGameObjects[1]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
-        cameraDebugGameObjects[2]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
-        cameraDebugGameObjects[3]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
-        cameraDebugGameObjects[4]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
-        cameraDebugGameObjects[5]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
-        cameraDebugGameObjects[6]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
-        cameraDebugGameObjects[7]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
-        cameraDebugGameObjects[8]->setLocalScale(glm::pow(2, shadowMapDebug - 0.5));
-    } else {
-        constexpr glm::vec3 dormantPosition{0.0f, -50.0f, 0.0f};
-        cameraDebugGameObjects[0]->setLocalPosition(dormantPosition);
-        cameraDebugGameObjects[1]->setLocalPosition(dormantPosition);
-        cameraDebugGameObjects[2]->setLocalPosition(dormantPosition);
-        cameraDebugGameObjects[3]->setLocalPosition(dormantPosition);
-        cameraDebugGameObjects[4]->setLocalPosition(dormantPosition);
-        cameraDebugGameObjects[5]->setLocalPosition(dormantPosition);
-        cameraDebugGameObjects[6]->setLocalPosition(dormantPosition);
-        cameraDebugGameObjects[7]->setLocalPosition(dormantPosition);
-        cameraDebugGameObjects[8]->setLocalPosition(dormantPosition);
+        if (bShowOrthographicBounds) {
+            constexpr int32_t numberOfCorners = 8;
+            const CascadeSplit& split = cascadedShadowMap->getCascadeSplit(shadowMapDebug);
+            glm::vec4 corners[numberOfCorners];
+            render_utils::getPerspectiveFrustumCornersWorldSpace(split.nearPlane, split.farPlane, targetCamera->getFov(), targetCamera->getAspectRatio(), targetCamera->getPosition(),
+                                                                 targetCamera->getForwardWS(), corners);
+
+
+            auto cameraProperties = targetCamera->getCameraProperties();
+            glm::vec3 center = cameraProperties.position + cameraProperties.forward * 50.0f;
+            glm::vec3 lightPos = center - mainLight.getDirection() * ((split.farPlane - split.nearPlane) / 2.0f);
+            const glm::mat4 lightView = glm::lookAt(lightPos, center, glm::vec3{0.0f, 1.0f, 0.0f});
+
+            glm::vec3 tmax{-INFINITY};
+            glm::vec3 tmin{INFINITY};
+
+            glm::vec4 transformedCorner0 = lightView * corners[0];
+            tmax.z = transformedCorner0.z;
+            tmin.z = transformedCorner0.z;
+            for (int i = 1; i < numberOfCorners; i++) {
+                glm::vec4 transformedCorner = lightView * corners[i];
+                if (transformedCorner.z > tmax.z) { tmax.z = transformedCorner.z; }
+                if (transformedCorner.z < tmin.z) { tmin.z = transformedCorner.z; }
+            }
+            tmin.z *= 5.0f;
+            tmax.z *= 5.0f;
+
+            const glm::mat4 ortho = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, -tmin.z, -tmax.z);
+            const glm::mat4 shadowMVP = ortho * lightView;
+
+            for (const auto& corner : corners) {
+                glm::vec4 trf = shadowMVP * corner;
+                trf.x /= trf.w;
+                trf.y /= trf.w;
+
+                if (trf.x > tmax.x) { tmax.x = trf.x; }
+                if (trf.x < tmin.x) { tmin.x = trf.x; }
+                if (trf.y > tmax.y) { tmax.y = trf.y; }
+                if (trf.y < tmin.y) { tmin.y = trf.y; }
+            }
+
+            glm::vec2 scale(2.0f / (tmax.x - tmin.x), 2.0f / (tmax.y - tmin.y));
+            glm::vec2 offset(-0.5f * (tmax.x + tmin.x) * scale.x, -0.5f * (tmax.y + tmin.y) * scale.y);
+
+            glm::mat4 cropMatrix(1.0f);
+            cropMatrix[0][0] = scale.x;
+            cropMatrix[1][1] = scale.y;
+            cropMatrix[0][3] = offset.x;
+            cropMatrix[1][3] = offset.y;
+            cropMatrix = glm::transpose(cropMatrix);
+
+            glm::mat4 finalCropMatrix = cropMatrix * ortho * lightView;
+
+            glm::vec3 finalCorners[numberOfCorners];
+            render_utils::getFrustumCurnersFromCropMatrix(finalCropMatrix, finalCorners);
+            // cascadeDebugGameObjects[0]->setLocalPosition(center);
+            // for (int i = 1; i < 9; i++) {
+            //     cascadeDebugGameObjects[i]->setLocalPosition(finalCorners[i - 1]);
+            // }
+            std::array<glm::vec3, 8> corners2 = render_utils::getLightSpaceCorners(cascadedShadowMap->getCascadeViewProjection(shadowMapDebug));
+            cascadeDebugGameObjects[0]->setLocalPosition(center);
+            for (int i = 1; i < 9; i++) {
+                cascadeDebugGameObjects[i]->setLocalPosition(corners2[i - 1]);
+            }
+        } else {
+            constexpr glm::vec3 dormantPosition{0.0f, -50.0f, 0.0f};
+            for (auto gob : cascadeDebugGameObjects) {
+                gob->setLocalPosition(dormantPosition);
+            }
+        }
     }
 }
 
@@ -637,7 +709,10 @@ void Engine::initRenderer()
     cascadedShadowMap = new CascadedShadowMap(*context, *resourceManager);
 
     cascadedShadowMap->init(
-        {renderObjectDescriptorLayout->getAddressesLayout(), shadowMapDescriptorLayouts->getCascadedShadowMapSamplerLayout(), shadowMapDescriptorLayouts->getCascadedShadowMapUniformLayout(), player->getCamera()->getNearPlane(), player->getCamera()->getFarPlane()}
+        {
+            renderObjectDescriptorLayout->getAddressesLayout(), shadowMapDescriptorLayouts->getCascadedShadowMapSamplerLayout(), shadowMapDescriptorLayouts->getCascadedShadowMapUniformLayout(),
+            player->getCamera()->getNearPlane(), player->getCamera()->getFarPlane()
+        }
     );
 
     deferredMrtPipeline = new DeferredMrtPipeline(*context);
@@ -648,7 +723,10 @@ void Engine::initRenderer()
 
     deferredResolvePipeline = new DeferredResolvePipeline(*context);
     deferredResolvePipeline->init(
-        {sceneDescriptorLayouts->getSceneDataLayout(), environmentDescriptorLayouts->getEnvironmentMapLayout(), emptyDescriptorSetLayout}
+        {
+            sceneDescriptorLayouts->getSceneDataLayout(), environmentDescriptorLayouts->getEnvironmentMapLayout(), shadowMapDescriptorLayouts->getCascadedShadowMapUniformLayout(),
+            shadowMapDescriptorLayouts->getCascadedShadowMapSamplerLayout(), emptyDescriptorSetLayout
+        }
     );
     deferredResolvePipeline->setupDescriptorBuffer(
         {
@@ -707,35 +785,69 @@ void Engine::initScene()
     floor->translate({0.0f, -1.0f, 0.0f});
     const auto floorShape = new JPH::BoxShape(JPH::Vec3(20.0f, 1.0f, 20.0f));
     floor->setupRigidbody(floorShape);
+    //
+    {
+        cameraDebugGameObjects.emplace_back(primitives->generateGameObject(2));
+        GameObject* cameraRepresentation = cameraDebugGameObjects.back();
+        cameraRepresentation->setGlobalScale(5.0f);
 
-    cameraDebugGameObjects.emplace_back(primitives->generateGameObject(2));
-    GameObject* cameraRepresentation = cameraDebugGameObjects.back();
-    cameraRepresentation->setGlobalScale(5.0f);
+        cameraDebugGameObjects.emplace_back(primitives->generateGameObject(0));
+        GameObject* cascade0Corner0 = cameraDebugGameObjects.back();
+        cameraDebugGameObjects.emplace_back(primitives->generateGameObject(0));
+        GameObject* cascade0Corner1 = cameraDebugGameObjects.back();
+        cameraDebugGameObjects.emplace_back(primitives->generateGameObject(0));
+        GameObject* cascade0Corner2 = cameraDebugGameObjects.back();
+        cameraDebugGameObjects.emplace_back(primitives->generateGameObject(0));
+        GameObject* cascade0Corner3 = cameraDebugGameObjects.back();
+        cameraDebugGameObjects.emplace_back(primitives->generateGameObject(1));
+        GameObject* cascade0Corner4 = cameraDebugGameObjects.back();
+        cameraDebugGameObjects.emplace_back(primitives->generateGameObject(1));
+        GameObject* cascade0Corner5 = cameraDebugGameObjects.back();
+        cameraDebugGameObjects.emplace_back(primitives->generateGameObject(1));
+        GameObject* cascade0Corner6 = cameraDebugGameObjects.back();
+        cameraDebugGameObjects.emplace_back(primitives->generateGameObject(1));
+        GameObject* cascade0Corner7 = cameraDebugGameObjects.back();
+        cascade0Corner0->setGlobalScale(5.0f);
+        cascade0Corner1->setGlobalScale(5.0f);
+        cascade0Corner2->setGlobalScale(5.0f);
+        cascade0Corner3->setGlobalScale(5.0f);
+        cascade0Corner4->setGlobalScale(5.0f);
+        cascade0Corner5->setGlobalScale(5.0f);
+        cascade0Corner6->setGlobalScale(5.0f);
+        cascade0Corner7->setGlobalScale(5.0f);
+    }
+    //
+    {
+        cascadeDebugGameObjects.emplace_back(primitives->generateGameObject(2));
+        GameObject* center = cascadeDebugGameObjects.back();
+        center->setGlobalScale(50.0f);
 
-    cameraDebugGameObjects.emplace_back(primitives->generateGameObject(0));
-    GameObject* cascade0Corner0 = cameraDebugGameObjects.back();
-    cameraDebugGameObjects.emplace_back(primitives->generateGameObject(0));
-    GameObject* cascade0Corner1 = cameraDebugGameObjects.back();
-    cameraDebugGameObjects.emplace_back(primitives->generateGameObject(0));
-    GameObject* cascade0Corner2 = cameraDebugGameObjects.back();
-    cameraDebugGameObjects.emplace_back(primitives->generateGameObject(0));
-    GameObject* cascade0Corner3 = cameraDebugGameObjects.back();
-    cameraDebugGameObjects.emplace_back(primitives->generateGameObject(1));
-    GameObject* cascade0Corner4 = cameraDebugGameObjects.back();
-    cameraDebugGameObjects.emplace_back(primitives->generateGameObject(1));
-    GameObject* cascade0Corner5 = cameraDebugGameObjects.back();
-    cameraDebugGameObjects.emplace_back(primitives->generateGameObject(1));
-    GameObject* cascade0Corner6 = cameraDebugGameObjects.back();
-    cameraDebugGameObjects.emplace_back(primitives->generateGameObject(1));
-    GameObject* cascade0Corner7 = cameraDebugGameObjects.back();
-    cascade0Corner0->setGlobalScale(5.0f);
-    cascade0Corner1->setGlobalScale(5.0f);
-    cascade0Corner2->setGlobalScale(5.0f);
-    cascade0Corner3->setGlobalScale(5.0f);
-    cascade0Corner4->setGlobalScale(5.0f);
-    cascade0Corner5->setGlobalScale(5.0f);
-    cascade0Corner6->setGlobalScale(5.0f);
-    cascade0Corner7->setGlobalScale(5.0f);
+        cascadeDebugGameObjects.emplace_back(primitives->generateGameObject(0));
+        GameObject* cascade0Corner0 = cascadeDebugGameObjects.back();
+        cascadeDebugGameObjects.emplace_back(primitives->generateGameObject(0));
+        GameObject* cascade0Corner1 = cascadeDebugGameObjects.back();
+        cascadeDebugGameObjects.emplace_back(primitives->generateGameObject(0));
+        GameObject* cascade0Corner2 = cascadeDebugGameObjects.back();
+        cascadeDebugGameObjects.emplace_back(primitives->generateGameObject(0));
+        GameObject* cascade0Corner3 = cascadeDebugGameObjects.back();
+        cascadeDebugGameObjects.emplace_back(primitives->generateGameObject(1));
+        GameObject* cascade0Corner4 = cascadeDebugGameObjects.back();
+        cascadeDebugGameObjects.emplace_back(primitives->generateGameObject(1));
+        GameObject* cascade0Corner5 = cascadeDebugGameObjects.back();
+        cascadeDebugGameObjects.emplace_back(primitives->generateGameObject(1));
+        GameObject* cascade0Corner6 = cascadeDebugGameObjects.back();
+        cascadeDebugGameObjects.emplace_back(primitives->generateGameObject(1));
+        GameObject* cascade0Corner7 = cascadeDebugGameObjects.back();
+        cascade0Corner0->setGlobalScale(5.0f);
+        cascade0Corner1->setGlobalScale(5.0f);
+        cascade0Corner2->setGlobalScale(5.0f);
+        cascade0Corner3->setGlobalScale(5.0f);
+        cascade0Corner4->setGlobalScale(5.0f);
+        cascade0Corner5->setGlobalScale(5.0f);
+        cascade0Corner6->setGlobalScale(5.0f);
+        cascade0Corner7->setGlobalScale(5.0f);
+    }
+
 
     // gameObjects.emplace_back(primitives->generateGameObject(0));
     // gameObjects[0]->setName("Cube 1");
@@ -751,6 +863,11 @@ void Engine::initScene()
     for (GameObject* gameObject : cameraDebugGameObjects) {
         scene.addGameObject(gameObject);
     }
+
+    for (GameObject* gameObject : cascadeDebugGameObjects) {
+        scene.addGameObject(gameObject);
+    }
+
 
     cubeGameObject = cube->generateGameObject(0);
     cubeGameObject->setName("Vertical Moving Cube");

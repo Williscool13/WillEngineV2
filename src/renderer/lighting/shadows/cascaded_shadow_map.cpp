@@ -6,8 +6,6 @@
 
 #include "cascaded_shadow_map_descriptor_layouts.h"
 #include "shadow_types.h"
-#include "glm/detail/_noise.hpp"
-#include "glm/detail/_noise.hpp"
 #include "src/core/camera/camera.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/vk_pipelines.h"
@@ -67,8 +65,8 @@ void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelin
         samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 
-        samplerCreateInfo.compareEnable = VK_TRUE;
-        samplerCreateInfo.compareOp = VK_COMPARE_OP_LESS;
+        /*samplerCreateInfo.compareEnable = VK_TRUE;
+        samplerCreateInfo.compareOp = VK_COMPARE_OP_GREATER;*/
 
         //????????
         //sampl.anisotropyEnable = VK_TRUE;
@@ -76,7 +74,6 @@ void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelin
 
         vkCreateSampler(context.device, &samplerCreateInfo, nullptr, &sampler);
 
-        //glm::ortho()
         for (CascadeShadowMapData& cascadeShadowMapData : shadowMaps) {
             cascadeShadowMapData.depthShadowMap = resourceManager.createImage({extent.width, extent.height, 1}, depthFormat,
                                                                               VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
@@ -85,8 +82,9 @@ void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelin
 
     // Pipeline Layout
     {
-        VkDescriptorSetLayout layouts[1];
-        layouts[0] = shadowMapPipelineCreateInfo.modelAddressesLayout;
+        VkDescriptorSetLayout layouts[2];
+        layouts[0] = shadowMapPipelineCreateInfo.cascadedShadowMapUniformLayout;
+        layouts[1] = shadowMapPipelineCreateInfo.modelAddressesLayout;
 
         VkPushConstantRange pushConstantRange;
         pushConstantRange.size = sizeof(CascadedShadowMapGenerationPushConstants);
@@ -95,7 +93,7 @@ void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelin
 
         VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
         layoutInfo.pNext = nullptr;
-        layoutInfo.setLayoutCount = 1;
+        layoutInfo.setLayoutCount = 2;
         layoutInfo.pSetLayouts = layouts;
         layoutInfo.pPushConstantRanges = &pushConstantRange;
         layoutInfo.pushConstantRangeCount = 1;
@@ -131,10 +129,11 @@ void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelin
         pipelineBuilder.setShaders(vertShader, fragShader);
         pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
         pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
-        //pipelineBuilder.enableDepthBias(-1.25f, 0, -1.75f); // negateive for reversed depth buffer
+        pipelineBuilder.enableDepthBias(1.25f, 0, 1.75f);
         pipelineBuilder.disableMultisampling();
         pipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
-        pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+        //pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+        pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_LESS_OR_EQUAL);
         pipelineBuilder.setupRenderer({}, depthFormat);
         pipelineBuilder.setupPipelineLayout(pipelineLayout);
 
@@ -148,8 +147,8 @@ void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelin
     {
         std::vector<DescriptorImageData> textureDescriptors;
         for (const CascadeShadowMapData& shadowMapData : shadowMaps) {
-            const VkDescriptorImageInfo imageInfo{.imageView = shadowMapData.depthShadowMap.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
-            textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, imageInfo, false});
+            const VkDescriptorImageInfo imageInfo{.sampler = sampler, .imageView = shadowMapData.depthShadowMap.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+            textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imageInfo, false});
         }
         cascadedShadowMapDescriptorBufferSampler = DescriptorBufferSampler(context, shadowMapPipelineCreateInfo.cascadedShadowMapSamplerLayout, 1);
         cascadedShadowMapDescriptorBufferSampler.setupData(context.device, textureDescriptors);
@@ -161,34 +160,53 @@ void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelin
         std::vector<DescriptorUniformData> sceneDataBufferData{1};
         sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = cascadedShadowMapData, .allocSize = sizeof(CascadeShadowData)};
         cascadedShadowMapDescriptorBufferUniform.setupData(context.device, sceneDataBufferData);
-        updateCascadeData();
     }
 }
 
-void CascadedShadowMap::updateCascadeData()
+void CascadedShadowMap::updateCascadeData(VkCommandBuffer cmd, const DirectionalLight& mainLight, const CameraProperties& cameraProperties)
 {
     if (cascadedShadowMapData.buffer == VK_NULL_HANDLE) { return; }
 
-    const auto data = static_cast<CascadeShadowData*>(cascadedShadowMapData.info.pMappedData);
-    //
-    for (size_t i = 0; i < SHADOW_CASCADE_COUNT; i++) {
-        data->cascadeSplits[i] = splits[i];
+    // doesn't need to happen every frame, only if near/far changes
+    // generateSplits(cameraProperties.nearPlane, cameraProperties.farPlane);
+
+    for (CascadeShadowMapData& shadowData : shadowMaps) {
+        shadowData.lightViewProj = getLightSpaceMatrix(mainLight.getDirection(), cameraProperties, shadowData.split.nearPlane, shadowData.split.farPlane);
     }
-    //data->directionalLightData;
-    //data->lightViewProj;
+
+    const auto data = static_cast<CascadeShadowData*>(cascadedShadowMapData.info.pMappedData);
+    for (size_t i = 0; i < SHADOW_CASCADE_COUNT; i++) {
+        data->cascadeSplits[i] = shadowMaps[i].split;
+        data->lightViewProj[i] = shadowMaps[i].lightViewProj;
+    }
+    data->directionalLightData = mainLight.getData();
+
+    VkBufferMemoryBarrier2 barrier{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
+        .srcStageMask = VK_PIPELINE_STAGE_2_HOST_BIT,
+        .srcAccessMask = VK_ACCESS_2_HOST_WRITE_BIT,
+        .dstStageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
+        .dstAccessMask = VK_ACCESS_2_UNIFORM_READ_BIT,
+        .buffer = cascadedShadowMapData.buffer,
+        .offset = 0,
+        .size = sizeof(CascadeShadowData)
+    };
+    const VkDependencyInfo dependencyInfo{
+        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+        .bufferMemoryBarrierCount = 1,
+        .pBufferMemoryBarriers = &barrier
+    };
+    vkCmdPipelineBarrier2(cmd, &dependencyInfo);
 }
 
-void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInfo& drawInfo)
+void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInfo& drawInfo) const
 {
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
     label.pLabelName = "Shadow Pass";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
-    constexpr VkClearValue clearValue = {0.0f, 0.0f};
-
-    glm::mat4 lightSpaceMatrices[SHADOW_CASCADE_COUNT];
-    getLightSpaceMatrices(drawInfo.directionalLight.getDirection(), drawInfo.cameraProperties, lightSpaceMatrices);
+    constexpr VkClearValue clearValue = {1.0f, 1.0f};
 
     for (const CascadeShadowMapData& cascadeShadowMapData : shadowMaps) {
         vk_helpers::transitionImage(cmd, cascadeShadowMapData.depthShadowMap.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -210,7 +228,7 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInf
 
 
         CascadedShadowMapGenerationPushConstants pushConstants{};
-        pushConstants.lightMatrix = lightSpaceMatrices[cascadeShadowMapData.cascadeLevel];
+        pushConstants.cascadeIndex = cascadeShadowMapData.cascadeLevel;
         vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(CascadedShadowMapGenerationPushConstants), &pushConstants);
 
         //  Viewport
@@ -235,14 +253,18 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInf
         for (const RenderObject* renderObject : drawInfo.renderObjects) {
             if (!renderObject->canDraw()) { continue; }
 
-            VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1];
-            constexpr uint32_t addressIndex{0};
-            descriptorBufferBindingInfo[0] = renderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
+            VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];
+            constexpr uint32_t shadowDataIndex{0};
+            constexpr uint32_t addressIndex{1};
+            descriptorBufferBindingInfo[0] = cascadedShadowMapDescriptorBufferUniform.getDescriptorBufferBindingInfo();
+            descriptorBufferBindingInfo[1] = renderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
 
-            vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
+            vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
 
+            const VkDeviceSize shadowDataOffset{cascadedShadowMapDescriptorBufferUniform.getDescriptorBufferSize() * 0};
             const VkDeviceSize addressOffset{renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * 0};
-            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &addressIndex, &addressOffset);
+            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &shadowDataIndex, &shadowDataOffset);
+            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &addressIndex, &addressOffset);
 
 
             vkCmdBindVertexBuffers(cmd, 0, 1, &renderObject->getVertexBuffer().buffer, &zeroOffset);
@@ -265,49 +287,39 @@ glm::mat4 CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 lightDirection,
     glm::vec4 corners[numberOfCorners];
     render_utils::getPerspectiveFrustumCornersWorldSpace(cascadeNear, cascadeFar, cameraProperties.fov, cameraProperties.aspect, cameraProperties.position, cameraProperties.forward, corners);
 
-    glm::vec3 center = cameraProperties.position + cameraProperties.forward * 50.0f;
-    glm::vec3 lightPos = center - lightDirection * ((cascadeFar - cascadeNear) / 2.0f);
-    const glm::mat4 lightView = glm::lookAt(lightPos, center, glm::vec3{0.0f, 1.0f, 0.0f});
+    glm::vec3 center{0.0f};
+    for (const auto& v : corners) {
+        center += glm::vec3(v);
 
-    glm::vec3 tmax{-INFINITY};
-    glm::vec3 tmin{INFINITY};
-
-    glm::vec4 transformedCorner0 = lightView * corners[0];
-    tmax.z = transformedCorner0.z;
-    tmin.z = transformedCorner0.z;
-    for (int i = 1; i < numberOfCorners; i++) {
-        glm::vec4 transformedCorner = lightView * corners[i];
-        if (transformedCorner.z > tmax.z) { tmax.z = transformedCorner.z; }
-        if (transformedCorner.z < tmin.z) { tmin.z = transformedCorner.z; }
     }
-
-
-    const glm::mat4 ortho = glm::ortho(-1.0f, 1.0f, -1.0f, 1.0f, -tmin.z, -tmax.z);
-    const glm::mat4 shadowMVP = ortho * lightView;
-
-    for (const auto& corner : corners) {
-        glm::vec4 trf = shadowMVP * corner;
-        trf.x /= trf.w;
-        trf.y /= trf.w;
-
-        if (trf.x > tmax.x) { tmax.x = trf.x; }
-        if (trf.x < tmin.x) { tmin.x = trf.x; }
-        if (trf.y > tmax.y) { tmax.y = trf.y; }
-        if (trf.y < tmin.y) { tmin.y = trf.y; }
+    center /= numberOfCorners;
+    const auto lightView = glm::lookAt(
+        center - lightDirection,
+        center,
+        cameraProperties.up
+        //glm::vec3(0.0f, 1.0f, 0.0f)
+    );
+    float minX = std::numeric_limits<float>::max();
+    float maxX = std::numeric_limits<float>::lowest();
+    float minY = std::numeric_limits<float>::max();
+    float maxY = std::numeric_limits<float>::lowest();
+    float minZ = std::numeric_limits<float>::max();
+    float maxZ = std::numeric_limits<float>::lowest();
+    for (const auto& v : corners) {
+        const auto trf = lightView * v;
+        minX = std::min(minX, trf.x);
+        maxX = std::max(maxX, trf.x);
+        minY = std::min(minY, trf.y);
+        maxY = std::max(maxY, trf.y);
+        minZ = std::min(minZ, trf.z);
+        maxZ = std::max(maxZ, trf.z);
     }
+    constexpr float zMult = 10.0f;
+    minZ *= zMult;
+    maxZ *= zMult;
 
-    // Compute crop matrix
-    glm::vec2 scale(2.0f / (tmax.x - tmin.x), 2.0f / (tmax.y - tmin.y));
-    glm::vec2 offset(-0.5f * (tmax.x + tmin.x) * scale.x, -0.5f * (tmax.y + tmin.y) * scale.y);
-
-    glm::mat4 cropMatrix(1.0f);
-    cropMatrix[0][0] = scale.x;
-    cropMatrix[1][1] = scale.y;
-    cropMatrix[0][3] = offset.x;
-    cropMatrix[1][3] = offset.y;
-    cropMatrix = glm::transpose(cropMatrix);
-
-    return cropMatrix * ortho * lightView;
+    const glm::mat4 lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+    return lightProjection * lightView;
 }
 
 void CascadedShadowMap::generateSplits(float nearPlane, float farPlane)
@@ -321,12 +333,9 @@ void CascadedShadowMap::generateSplits(float nearPlane, float farPlane)
     nearPlane = farPlane;
     farPlane = temp;
 
-
     const float ratio = farPlane / nearPlane;
-    // Set initial near plane
-    splits[0].nearPlane = nearPlane;
+    shadowMaps[0].split.nearPlane = nearPlane;
 
-    // Calculate splits
     for (size_t i = 1; i < SHADOW_CASCADE_COUNT; i++) {
         const float si = static_cast<float>(i) / static_cast<float>(SHADOW_CASCADE_COUNT);
 
@@ -336,24 +345,9 @@ void CascadedShadowMap::generateSplits(float nearPlane, float farPlane)
 
         const float farValue = nearValue * OVERLAP;
 
-        splits[i].nearPlane = nearValue;
-        splits[i - 1].farPlane = farValue;
+        shadowMaps[i].split.nearPlane = nearValue;
+        shadowMaps[i - 1].split.farPlane = farValue;
     }
 
-    // Set final far plane
-    splits[SHADOW_CASCADE_COUNT - 1].farPlane = farPlane;
-
-    fmt::print("Generated Splits:\n");
-    for (int i = 0; i < SHADOW_CASCADE_COUNT; i++) {
-        fmt::print("Split {}: ({} {}), \n", i, splits[i].nearPlane, splits[i].farPlane);
-    }
-}
-
-
-void CascadedShadowMap::getLightSpaceMatrices(const glm::vec3 directionalLightDirection, const CameraProperties& cameraProperties, glm::mat4 matrices[SHADOW_CASCADE_COUNT]) const
-{
-    for (size_t i = 0; i < SHADOW_CASCADE_COUNT; ++i) {
-        const CascadeSplit& split = splits[i];
-        matrices[i] = getLightSpaceMatrix(directionalLightDirection, cameraProperties, split.nearPlane, split.farPlane);
-    }
+    shadowMaps[SHADOW_CASCADE_COUNT - 1].split.farPlane = farPlane;
 }

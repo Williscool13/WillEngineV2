@@ -149,6 +149,7 @@ private: // Scene
     GameObject* primitiveCubeGameObject{nullptr};
     std::vector<GameObject*> gameObjects{};
     std::vector<GameObject*> cameraDebugGameObjects{};
+    std::vector<GameObject*> cascadeDebugGameObjects{};
 
     CascadedShadowMap* cascadedShadowMap{nullptr};
 
@@ -162,6 +163,7 @@ private: // Scene
     int32_t shadowMapDebug{0};
     // if false shows bounds of ortho made from this persp
     bool bShowPerspectiveBounds{true};
+    bool bShowOrthographicBounds{true};
 
 private: // Scene Descriptors
     EnvironmentDescriptorLayouts* environmentDescriptorLayouts = nullptr;

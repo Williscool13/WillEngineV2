@@ -16,7 +16,7 @@
 
 PlayerCharacter::PlayerCharacter(const std::string& gameObjectName) : GameObject(gameObjectName)
 {
-    freeCamera = new FreeCamera(glm::radians(75.0f), 1920.0f / 1080.0f, 1000, 0.1);
+    freeCamera = new FreeCamera(glm::radians(75.0f), 1920.0f / 1080.0f, 100, 0.1);
     freeCamera->transform.translate({0.0f, 1.5f, 1.5f});
     freeCamera->updateViewMatrix();
 
@@ -46,10 +46,6 @@ void PlayerCharacter::update(const float deltaTime)
     if (input.isKeyPressed(SDLK_1)) {
         if (currentCamera != freeCamera){
             currentCamera = freeCamera;
-            if (freeCamera && orbitCamera) {
-                freeCamera->transform.setPosition(orbitCamera->transform.getPosition());
-                freeCamera->transform.setRotation(orbitCamera->transform.getRotation());
-            }
         }
 
     }

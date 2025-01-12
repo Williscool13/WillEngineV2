@@ -5,6 +5,7 @@
 #include "deferred_resolve.h"
 
 #include "src/renderer/vk_descriptors.h"
+#include "src/renderer/lighting/shadows/cascaded_shadow_map.h"
 
 DeferredResolvePipeline::DeferredResolvePipeline(VulkanContext& context)
     : context(context)
@@ -20,6 +21,8 @@ void DeferredResolvePipeline::init(const DeferredResolvePipelineCreateInfo& crea
     sceneDataLayout = createInfo.sceneDataLayout;
     emptyLayout = createInfo.emptyLayout;
     environmentMapLayout = createInfo.environmentMapLayout;
+    cascadedShadowSamplerLayout = createInfo.cascadedShadowSamplerLayout;
+    cascadedShadowUniformLayout = createInfo.cascadedShadowUniformLayout;
 
     createDescriptorLayouts();
     createPipelineLayout();
@@ -52,8 +55,8 @@ void DeferredResolvePipeline::createPipelineLayout()
     setLayouts[0] = sceneDataLayout;
     setLayouts[1] = resolveTargetLayout;
     setLayouts[2] = environmentMapLayout;
-    setLayouts[3] = emptyLayout; // todo: cascade shadow uniform
-    setLayouts[4] = emptyLayout; // todo: cascade shadow textures
+    setLayouts[3] = cascadedShadowUniformLayout;
+    setLayouts[4] = cascadedShadowSamplerLayout;
 
     VkPipelineLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -156,22 +159,31 @@ void DeferredResolvePipeline::draw(VkCommandBuffer cmd, const DeferredResolveDra
 
     vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(DeferredResolveData), &pushConstants);
 
-    VkDescriptorBufferBindingInfoEXT bindingInfos[3] = {};
+    VkDescriptorBufferBindingInfoEXT bindingInfos[5] = {};
     bindingInfos[0] = drawInfo.sceneData.getDescriptorBufferBindingInfo();
     bindingInfos[1] = resolveDescriptorBuffer.getDescriptorBufferBindingInfo();
     bindingInfos[2] = drawInfo.environment->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo();
-    vkCmdBindDescriptorBuffersEXT(cmd, 3, bindingInfos);
+    bindingInfos[3] = drawInfo.cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferBindingInfo();
+    bindingInfos[4] = drawInfo.cascadedShadowMap->getCascadedShadowMapSamplerBuffer().getDescriptorBufferBindingInfo();
+    vkCmdBindDescriptorBuffersEXT(cmd, 5, bindingInfos);
 
     constexpr VkDeviceSize zeroOffset{0};
     constexpr uint32_t sceneDataIndex{0};
     constexpr uint32_t renderTargetsIndex{1};
     constexpr uint32_t environmentIndex{2};
-    const VkDeviceSize sceneDataOffset = drawInfo.sceneDataOffset;
-    const VkDeviceSize environmentMapOffset = drawInfo.diffSpecMapOffset;
+    constexpr uint32_t cascadedShadowMapUniformIndex{3};
+    constexpr uint32_t cascadedShadowMapSamplerIndex{4};
+
+    const VkDeviceSize sceneDataOffset{drawInfo.sceneDataOffset};
+    const VkDeviceSize environmentMapOffset{drawInfo.environment->getDiffSpecMapOffset(drawInfo.environmentMapIndex)};
+    constexpr VkDeviceSize cascadedShadowMapUniformOffset{0};
+    constexpr VkDeviceSize cascadedShadowMapSamplerOffset{0};
 
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &renderTargetsIndex, &zeroOffset);
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 2, 1, &environmentIndex, &environmentMapOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 3, 1, &cascadedShadowMapUniformIndex, &cascadedShadowMapUniformOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 4, 1, &cascadedShadowMapSamplerIndex, &cascadedShadowMapSamplerOffset);
 
     const auto x = static_cast<uint32_t>(std::ceil(static_cast<float>(drawInfo.renderExtent.width) / 16.0f));
     const auto y = static_cast<uint32_t>(std::ceil(static_cast<float>(drawInfo.renderExtent.height) / 16.0f));

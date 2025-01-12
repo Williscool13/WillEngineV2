@@ -7,6 +7,15 @@
 
 #include <glm/glm.hpp>
 
+
+struct DirectionalLightData
+{
+    glm::vec3 direction;
+    float intensity;
+    glm::vec3 color;
+    float pad;
+};
+
 class DirectionalLight
 {
 public:
@@ -20,6 +29,8 @@ public:
     [[nodiscard]] glm::vec3 getDirection() const { return glm::normalize(direction); }
     [[nodiscard]] float getIntensity() const { return intensity; }
     [[nodiscard]] glm::vec3 getColor() const { return color; }
+
+    DirectionalLightData getData() const { return { glm::normalize(direction), intensity, color }; }
 
 private:
     glm::vec3 direction{};

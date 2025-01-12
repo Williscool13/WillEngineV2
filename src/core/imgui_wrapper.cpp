@@ -142,7 +142,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
 
         ImGui::Separator();
-        const char* debugLabels[] = {"None", "Velocity Buffer", "Depth Buffer"};
+        const char* debugLabels[] = {"None", "Velocity Buffer", "Depth Buffer", "Cascaded Shadow Map Cascades", "Shadow Factor"};
         ImGui::Text("Debug View");
         ImGui::SetNextItemWidth(100);
         ImGui::Combo("Debug View", &engine->deferredDebug, debugLabels, IM_ARRAYSIZE(debugLabels));
@@ -316,6 +316,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
 
         ImGui::Checkbox("Perspective Bounds", &engine->bShowPerspectiveBounds);
+        ImGui::Checkbox("Orthographic Bounds", &engine->bShowOrthographicBounds);
     }
     ImGui::End();
 
