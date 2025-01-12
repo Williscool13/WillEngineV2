@@ -169,6 +169,15 @@ set(UTIL_SOURCES
         src/renderer/pipelines/acceleration_algorithms/frustum_culling_types.h
 )
 
+
+if (WIN32)
+    enable_language(RC)
+    set(WINDOWS_SOURCES
+            src/resources.h
+            src/resources.rc
+    )
+endif ()
+
 add_executable(WillEngine main.cpp
         ${IMGUI_SOURCES}
         ${FASTGLTF_SOURCES}
@@ -178,6 +187,7 @@ add_executable(WillEngine main.cpp
         ${RENDERER_SOURCES}
         ${GAME_SOURCES}
         ${UTIL_SOURCES}
+        ${WINDOWS_SOURCES}
 )
 
 
