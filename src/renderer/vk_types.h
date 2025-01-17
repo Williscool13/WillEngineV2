@@ -80,9 +80,10 @@ struct SceneData
 
 struct DeferredResolveData
 {
-    uint32_t width{1700};
-    uint32_t height{900};
-    uint32_t debug{0};
+    int32_t width{1700};
+    int32_t height{900};
+    int32_t debug{0};
+    int32_t disableShadows{0};
 };
 
 

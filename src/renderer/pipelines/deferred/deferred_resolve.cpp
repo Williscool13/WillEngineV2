@@ -156,6 +156,7 @@ void DeferredResolvePipeline::draw(VkCommandBuffer cmd, const DeferredResolveDra
     pushConstants.width = drawInfo.renderExtent.width;
     pushConstants.height = drawInfo.renderExtent.height;
     pushConstants.debug = drawInfo.debugMode;
+    pushConstants.disableShadows = drawInfo.disableShadows;
 
     vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(DeferredResolveData), &pushConstants);
 

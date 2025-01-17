@@ -26,7 +26,7 @@ public:
 
     void clear();
 
-    VkPipeline buildPipeline(VkDevice device, VkPipelineCreateFlagBits flags);
+    VkPipeline buildPipeline(VkDevice device, VkPipelineCreateFlagBits flags, std::vector<VkDynamicState> additionalDynamicStates = {});
 
     void setShaders(VkShaderModule vertexShader);
 

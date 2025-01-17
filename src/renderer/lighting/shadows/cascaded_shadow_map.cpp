@@ -49,7 +49,7 @@ CascadedShadowMap::~CascadedShadowMap()
 
 void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelineCreateInfo)
 {
-    generateSplits(shadowMapPipelineCreateInfo.nearPlane, shadowMapPipelineCreateInfo.farPlane);
+    generateSplits(cascadeNear, cascadeFar);
 
     // Create Resources
     {
@@ -65,8 +65,8 @@ void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelin
         samplerCreateInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         samplerCreateInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 
-        /*samplerCreateInfo.compareEnable = VK_TRUE;
-        samplerCreateInfo.compareOp = VK_COMPARE_OP_GREATER;*/
+        samplerCreateInfo.compareEnable = VK_TRUE;
+        samplerCreateInfo.compareOp = VK_COMPARE_OP_LESS;
 
         //????????
         //sampl.anisotropyEnable = VK_TRUE;
@@ -128,8 +128,9 @@ void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelin
 
         pipelineBuilder.setShaders(vertShader, fragShader);
         pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-        pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
-        pipelineBuilder.enableDepthBias(1.25f, 0, 1.75f);
+        pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+        // set later during shadow pass
+        pipelineBuilder.enableDepthBias(0.0f, 0, 0.0f);
         pipelineBuilder.disableMultisampling();
         pipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
         //pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
@@ -137,7 +138,7 @@ void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelin
         pipelineBuilder.setupRenderer({}, depthFormat);
         pipelineBuilder.setupPipelineLayout(pipelineLayout);
 
-        pipeline = pipelineBuilder.buildPipeline(context.device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        pipeline = pipelineBuilder.buildPipeline(context.device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT, {VK_DYNAMIC_STATE_DEPTH_BIAS});
 
         vkDestroyShaderModule(context.device, vertShader, nullptr);
         vkDestroyShaderModule(context.device, fragShader, nullptr);
@@ -157,9 +158,13 @@ void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelin
         cascadedShadowMapData = resourceManager.createBuffer(sizeof(CascadeShadowData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
 
         cascadedShadowMapDescriptorBufferUniform = DescriptorBufferUniform(context, shadowMapPipelineCreateInfo.cascadedShadowMapUniformLayout, 1);
-        std::vector<DescriptorUniformData> sceneDataBufferData{1};
-        sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = cascadedShadowMapData, .allocSize = sizeof(CascadeShadowData)};
-        cascadedShadowMapDescriptorBufferUniform.setupData(context.device, sceneDataBufferData);
+        std::vector<DescriptorUniformData> cascadeData{1};
+        cascadeData[0] = DescriptorUniformData{.uniformBuffer = cascadedShadowMapData, .allocSize = sizeof(CascadeShadowData)};
+        cascadedShadowMapDescriptorBufferUniform.setupData(context.device, cascadeData);
+
+        const auto data = static_cast<CascadeShadowData*>(cascadedShadowMapData.info.pMappedData);
+        data->nearShadowPlane = cascadeNear;
+        data->farShadowPlane = cascadeFar;
     }
 }
 
@@ -180,23 +185,6 @@ void CascadedShadowMap::updateCascadeData(VkCommandBuffer cmd, const Directional
         data->lightViewProj[i] = shadowMaps[i].lightViewProj;
     }
     data->directionalLightData = mainLight.getData();
-
-    VkBufferMemoryBarrier2 barrier{
-        .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
-        .srcStageMask = VK_PIPELINE_STAGE_2_HOST_BIT,
-        .srcAccessMask = VK_ACCESS_2_HOST_WRITE_BIT,
-        .dstStageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-        .dstAccessMask = VK_ACCESS_2_UNIFORM_READ_BIT,
-        .buffer = cascadedShadowMapData.buffer,
-        .offset = 0,
-        .size = sizeof(CascadeShadowData)
-    };
-    const VkDependencyInfo dependencyInfo{
-        .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-        .bufferMemoryBarrierCount = 1,
-        .pBufferMemoryBarriers = &barrier
-    };
-    vkCmdPipelineBarrier2(cmd, &dependencyInfo);
 }
 
 void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInfo& drawInfo) const
@@ -226,6 +214,7 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInf
         vkCmdBeginRendering(cmd, &renderInfo);
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
+        vkCmdSetDepthBias(cmd, cascadeBias[cascadeShadowMapData.cascadeLevel][0], 0.0f, cascadeBias[cascadeShadowMapData.cascadeLevel][1]);
 
         CascadedShadowMapGenerationPushConstants pushConstants{};
         pushConstants.cascadeIndex = cascadeShadowMapData.cascadeLevel;
@@ -290,14 +279,13 @@ glm::mat4 CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 lightDirection,
     glm::vec3 center{0.0f};
     for (const auto& v : corners) {
         center += glm::vec3(v);
-
     }
     center /= numberOfCorners;
     const auto lightView = glm::lookAt(
         center - lightDirection,
         center,
-        cameraProperties.up
-        //glm::vec3(0.0f, 1.0f, 0.0f)
+        //cameraProperties.up
+        glm::vec3(0.0f, 1.0f, 0.0f)
     );
     float minX = std::numeric_limits<float>::max();
     float maxX = std::numeric_limits<float>::lowest();
@@ -314,7 +302,7 @@ glm::mat4 CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 lightDirection,
         minZ = std::min(minZ, trf.z);
         maxZ = std::max(maxZ, trf.z);
     }
-    constexpr float zMult = 10.0f;
+    constexpr float zMult = 5.0f;
     minZ *= zMult;
     maxZ *= zMult;
 
@@ -329,9 +317,9 @@ void CascadedShadowMap::generateSplits(float nearPlane, float farPlane)
 
     // need to reverse the reversed depth buffer for correct frustum calculations
     // matrix calculations use these values as "distance from camera". Reversed depth buffer just doesn't jive.
-    const auto temp = nearPlane;
+    /*const auto temp = nearPlane;
     nearPlane = farPlane;
-    farPlane = temp;
+    farPlane = temp;*/
 
     const float ratio = farPlane / nearPlane;
     shadowMaps[0].split.nearPlane = nearPlane;

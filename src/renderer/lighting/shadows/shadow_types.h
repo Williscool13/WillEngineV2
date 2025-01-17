@@ -18,8 +18,6 @@ struct ShadowMapPipelineCreateInfo
     VkDescriptorSetLayout modelAddressesLayout;
     VkDescriptorSetLayout cascadedShadowMapSamplerLayout;
     VkDescriptorSetLayout cascadedShadowMapUniformLayout;
-    float nearPlane;
-    float farPlane;
 };
 
 struct CascadedShadowMapDrawInfo
@@ -46,6 +44,9 @@ struct CascadeShadowData
     CascadeSplit cascadeSplits[4];
     glm::mat4 lightViewProj[4];
     DirectionalLightData directionalLightData;
+    float nearShadowPlane;
+    float farShadowPlane;
+    glm::vec2 pad;
 };
 
 struct CascadeShadowMapData
