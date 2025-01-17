@@ -69,8 +69,11 @@ set(CORE_SOURCES
         src/core/game_object.h
         src/core/camera/camera.cpp
         src/core/camera/camera.h
+        src/core/camera/camera_types.h
         src/core/imgui_wrapper.cpp
         src/core/imgui_wrapper.h
+        src/core/transform.cpp
+        src/core/transform.h
 )
 
 
@@ -85,6 +88,8 @@ set(PHYSICS_SOURCES
         src/physics/physics_utils.h
         src/physics/physics_types.cpp
         src/physics/physics_types.h
+        src/physics/debug/debug_renderer.cpp
+        src/physics/debug/debug_renderer.h
 )
 
 set(RENDERER_SOURCES
@@ -98,10 +103,19 @@ set(RENDERER_SOURCES
         src/renderer/render_object/render_object.h
         src/renderer/environment/environment.cpp
         src/renderer/environment/environment.h
+        src/renderer/environment/environment_map_types.h
+        src/renderer/lighting/shadows/cascaded_shadow_map_descriptor_layouts.cpp
+        src/renderer/lighting/shadows/cascaded_shadow_map_descriptor_layouts.h
+        src/renderer/lighting/directional_light.cpp
+        src/renderer/lighting/directional_light.h
+        src/renderer/lighting/shadows/cascaded_shadow_map.cpp
+        src/renderer/lighting/shadows/cascaded_shadow_map.h
+        src/renderer/lighting/shadows/shadow_types.h
         src/renderer/pipelines/acceleration_algorithms/frustum_culling_descriptor_layout.cpp
         src/renderer/pipelines/acceleration_algorithms/frustum_culling_descriptor_layout.h
         src/renderer/pipelines/acceleration_algorithms/frustum_culling_pipeline.cpp
         src/renderer/pipelines/acceleration_algorithms/frustum_culling_pipeline.h
+        src/renderer/pipelines/acceleration_algorithms/frustum_culling_types.h
         src/renderer/pipelines/deferred/deferred_mrt.cpp
         src/renderer/pipelines/deferred/deferred_mrt.h
         src/renderer/pipelines/deferred/deferred_resolve.cpp
@@ -112,6 +126,7 @@ set(RENDERER_SOURCES
         src/renderer/pipelines/environment/environment_map_pipeline.h
         src/renderer/pipelines/post_processing/post_process.cpp
         src/renderer/pipelines/post_processing/post_process.h
+        src/renderer/pipelines/post_processing/post_process_types.h
         src/renderer/pipelines/environment/environment_descriptor_layouts.cpp
         src/renderer/pipelines/environment/environment_descriptor_layouts.h
         src/renderer/scene/scene_descriptor_layouts.cpp
@@ -132,11 +147,14 @@ set(RENDERER_SOURCES
         src/renderer/vk_pipelines.h
         src/renderer/data_structures/bounding_sphere.cpp
         src/renderer/data_structures/bounding_sphere.h
+
 )
 
 set(GAME_SOURCES
         src/game/camera/free_camera.cpp
         src/game/camera/free_camera.h
+        src/game/camera/orbit_camera.cpp
+        src/game/camera/orbit_camera.h
         src/game/player/player_character.cpp
         src/game/player/player_character.h
 )
@@ -146,27 +164,10 @@ set(UTIL_SOURCES
         src/util/time_utils.cpp
         src/util/time_utils.h
         src/util/render_utils.h
-        src/core/transform.cpp
-        src/core/transform.h
         src/util/file_utils.cpp
         src/util/file_utils.h
         src/util/halton.cpp
         src/util/halton.h
-        src/renderer/pipelines/post_processing/post_process_types.h
-        src/game/camera/orbit_camera.cpp
-        src/game/camera/orbit_camera.h
-        src/physics/debug/debug_renderer.cpp
-        src/physics/debug/debug_renderer.h
-        src/renderer/lighting/shadows/cascaded_shadow_map_descriptor_layouts.cpp
-        src/renderer/lighting/shadows/cascaded_shadow_map_descriptor_layouts.h
-        src/renderer/lighting/directional_light.cpp
-        src/renderer/lighting/directional_light.h
-        src/renderer/lighting/shadows/cascaded_shadow_map.cpp
-        src/renderer/lighting/shadows/cascaded_shadow_map.h
-        src/renderer/lighting/shadows/shadow_types.h
-        src/renderer/environment/environment_map_types.h
-        src/core/camera/camera_types.h
-        src/renderer/pipelines/acceleration_algorithms/frustum_culling_types.h
 )
 
 

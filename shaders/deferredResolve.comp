@@ -26,9 +26,12 @@ layout (std140, set = 3, binding = 0) uniform ShadowCascadeData {
     CascadeSplit cascadeSplits[4];
     mat4 lightViewProj[4];
     DirectionalLight directionalLightData; // w is intensity
+    float nearShadowPlane;
+    float farShadowPlane;
+    vec2 pad;
 } shadowCascadeData;
 
-layout (set = 4, binding = 0) uniform sampler2D shadowMapSampler[];
+layout (set = 4, binding = 0) uniform sampler2DShadow shadowMapSampler[];
 
 layout (std140, set = 5, binding = 0) uniform LightData {
     PointLight pointLights[6];
@@ -41,6 +44,7 @@ layout (push_constant) uniform PushConstants {
     int width;
     int height;
     int debug;
+    int disableShadows;
 } pushConstants;
 
 vec3 reconstructPosition(ivec2 texCoord, float depth) {
@@ -91,10 +95,11 @@ void main() {
     vec3 N = normal;
     vec3 V = normalize(sceneData.cameraPos.xyz - position);
 
+    vec3 test = shadowCascadeData.directionalLightData.direction;
+    test.xz = -test.xz;
 
-    vec3 mainLightDirTest = normalize(vec3(0.5f, 0.5f, 0.0f));
-    vec3 L = normalize(mainLightDirTest); // for point lights, light.pos - inPosition
-    //vec3 L = normalize(lightData.mainLight.direction); // for point lights, light.pos - inPosition
+    //vec3 L = normalize(shadowCascadeData.directionalLightData.direction); // for point lights, light.pos - inPosition
+    vec3 L = normalize(test ); // for point lights, light.pos - inPosition
     vec3 H = normalize(V + L);
 
     // SPECULAR
@@ -115,14 +120,22 @@ void main() {
     float nDotL = max(dot(N, L), 0.0f);
     vec3 diffuse = Lambert(kD, albedo.xyz);
 
+    // SHADOWS
+    int cascadeLevel = getCascadeLevel(position, sceneData.view, shadowCascadeData.cascadeSplits);
+    float shadowFactor = getShadowFactorPCF5(position, shadowCascadeData.lightViewProj[cascadeLevel], shadowMapSampler[nonuniformEXT(cascadeLevel)], shadowCascadeData.farShadowPlane);
+    if (pushConstants.disableShadows > 0) { shadowFactor = 1; }
+    float indirectAttenuation = mix(0.6, 1.0, shadowFactor);
+
     // IBL REFLECTIONS
     vec3 irradiance = DiffuseIrradiance(environmentDiffuseAndSpecular, N);
-    vec3 reflectionDiffuse = irradiance * albedo.xyz;
+    vec3 reflectionDiffuse = irradiance * albedo.xyz * indirectAttenuation;
 
-    vec3 reflectionSpecular = SpecularReflection(environmentDiffuseAndSpecular, lut, V, N, roughness, F);
+    vec3 reflectionSpecular = SpecularReflection(environmentDiffuseAndSpecular, lut, V, N, roughness, F) * indirectAttenuation;
+
     vec3 ambient = (kD * reflectionDiffuse + reflectionSpecular);
 
-    vec3 finalColor = (diffuse + specular) * vec3(1.0f) * nDotL;
+
+    vec3 finalColor = (diffuse + specular) * vec3(1.0f) * nDotL * shadowFactor;
     //vec3 finalColor = (diffuse + specular) * lightData.mainLight.color * nDotL;
     finalColor += ambient;
 
@@ -157,19 +170,8 @@ void main() {
     }
 
     if (pushConstants.debug == 4) {
-        float viewDepth = getViewSpaceDepth(position, sceneData.view);
-        int cascadeLevel = selectCascadeLevel(viewDepth, shadowCascadeData.cascadeSplits);
-
-        vec4 lightSpacePos = shadowCascadeData.lightViewProj[cascadeLevel] * vec4(position, 1.0);
-        vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
-        projCoords.xy = projCoords.xy * 0.5 + 0.5;
-
-        float currentDepth = projCoords.z;
-        float closestDepth = texture(shadowMapSampler[nonuniformEXT(cascadeLevel)], projCoords.xy).r;
-
-        float shadow = currentDepth > closestDepth ? 1.0 : 0.0;
-
-        //imageStore(outputImage, screenPos, vec4(vec3(projCoords.z - closestDepth), 1.0));
+        int cascadeLevel = getCascadeLevel(position, sceneData.view, shadowCascadeData.cascadeSplits);
+        float shadow = getShadowFactorPCF5(position, shadowCascadeData.lightViewProj[cascadeLevel], shadowMapSampler[nonuniformEXT(cascadeLevel)], shadowCascadeData.farShadowPlane);
         imageStore(outputImage, screenPos, vec4(vec3(1 - shadow), 1.0));
     }
 }

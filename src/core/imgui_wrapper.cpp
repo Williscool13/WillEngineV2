@@ -125,6 +125,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             ImGui::Combo("TAA Debug View", &engine->taaDebug, taaDebugLabels, IM_ARRAYSIZE(taaDebugLabels));
         }
         ImGui::Separator();
+        ImGui::Checkbox("Disable Shadows", &engine->bDebugDisableShadows);
         ImGui::Checkbox("Enable Shadow Map Debug", &engine->bEnableShadowMapDebug);
         ImGui::Checkbox("Enable Frustum Culling", &engine->bEnableFrustumCulling);
         ImGui::Separator();

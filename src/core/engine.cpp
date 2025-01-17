@@ -213,51 +213,32 @@ void Engine::updateSceneData(VkCommandBuffer cmd) const
 
     const Camera* camera = player->getCamera();
 
-    // Update scene data
-    {
-        const auto pSceneData = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
 
-        pSceneData->prevView = bIsFrameZero ? camera->getViewMatrix() : pSceneData->view;
-        pSceneData->prevProj = bIsFrameZero ? camera->getProjMatrix() : pSceneData->proj;
-        pSceneData->prevViewProj = bIsFrameZero ? camera->getViewProjMatrix() : pSceneData->viewProj;
-        pSceneData->jitter = bEnableJitter ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
+    const auto pSceneData = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
 
-        pSceneData->view = camera->getViewMatrix();
-        pSceneData->proj = camera->getProjMatrix();
-        pSceneData->viewProj = pSceneData->proj * pSceneData->view;
+    pSceneData->prevView = bIsFrameZero ? camera->getViewMatrix() : pSceneData->view;
+    pSceneData->prevProj = bIsFrameZero ? camera->getProjMatrix() : pSceneData->proj;
+    pSceneData->prevViewProj = bIsFrameZero ? camera->getViewProjMatrix() : pSceneData->viewProj;
+    pSceneData->jitter = bEnableJitter ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
 
-        if (bEnableShadowMapDebug) {
-            const glm::mat4 lightViewProj = cascadedShadowMap->getCascadeViewProjection(shadowMapDebug);
-            pSceneData->viewProj = lightViewProj;
-        }
+    pSceneData->view = camera->getViewMatrix();
+    pSceneData->proj = camera->getProjMatrix();
+    pSceneData->viewProj = pSceneData->proj * pSceneData->view;
 
-        pSceneData->invView = glm::inverse(pSceneData->view);
-        pSceneData->invProj = glm::inverse(pSceneData->proj);
-        pSceneData->invViewProj = glm::inverse(pSceneData->viewProj);
-        pSceneData->cameraWorldPos = camera->getPosition();
-        const glm::mat4 cameraLook = glm::lookAt(glm::vec3(0), camera->getForwardWS(), glm::vec3(0, 1, 0));
-        pSceneData->viewProjCameraLookDirection = pSceneData->proj * cameraLook;
-
-        pSceneData->renderTargetSize = {renderExtent.width, renderExtent.height};
-        pSceneData->deltaTime = TimeUtils::Get().getDeltaTime();
-
-        VkBufferMemoryBarrier2 barrier{
-            .sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2,
-            .srcStageMask = VK_PIPELINE_STAGE_2_HOST_BIT,
-            .srcAccessMask = VK_ACCESS_2_HOST_WRITE_BIT,
-            .dstStageMask = VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT,
-            .dstAccessMask = VK_ACCESS_2_UNIFORM_READ_BIT,
-            .buffer = sceneDataBuffer.buffer,
-            .offset = 0,
-            .size = sizeof(SceneData)
-        };
-        const VkDependencyInfo dependencyInfo{
-            .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
-            .bufferMemoryBarrierCount = 1,
-            .pBufferMemoryBarriers = &barrier
-        };
-        vkCmdPipelineBarrier2(cmd, &dependencyInfo);
+    if (bEnableShadowMapDebug) {
+        const glm::mat4 lightViewProj = cascadedShadowMap->getCascadeViewProjection(shadowMapDebug);
+        pSceneData->viewProj = lightViewProj;
     }
+
+    pSceneData->invView = glm::inverse(pSceneData->view);
+    pSceneData->invProj = glm::inverse(pSceneData->proj);
+    pSceneData->invViewProj = glm::inverse(pSceneData->viewProj);
+    pSceneData->cameraWorldPos = camera->getPosition();
+    const glm::mat4 cameraLook = glm::lookAt(glm::vec3(0), camera->getForwardWS(), glm::vec3(0, 1, 0));
+    pSceneData->viewProjCameraLookDirection = pSceneData->proj * cameraLook;
+
+    pSceneData->renderTargetSize = {renderExtent.width, renderExtent.height};
+    pSceneData->deltaTime = TimeUtils::Get().getDeltaTime();
 }
 
 
@@ -374,6 +355,7 @@ void Engine::draw()
     DeferredResolveDrawInfo deferredResolveDrawInfo{
         renderExtent,
         deferredDebug,
+        bDebugDisableShadows ? 1 : 0,
         sceneDataDescriptorBuffer,
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * 0,
         environmentMap,
@@ -710,8 +692,7 @@ void Engine::initRenderer()
 
     cascadedShadowMap->init(
         {
-            renderObjectDescriptorLayout->getAddressesLayout(), shadowMapDescriptorLayouts->getCascadedShadowMapSamplerLayout(), shadowMapDescriptorLayouts->getCascadedShadowMapUniformLayout(),
-            player->getCamera()->getNearPlane(), player->getCamera()->getFarPlane()
+            renderObjectDescriptorLayout->getAddressesLayout(), shadowMapDescriptorLayouts->getCascadedShadowMapSamplerLayout(), shadowMapDescriptorLayouts->getCascadedShadowMapUniformLayout()
         }
     );
 

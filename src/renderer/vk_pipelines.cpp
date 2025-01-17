@@ -19,7 +19,7 @@ void PipelineBuilder::clear()
     shaderStages.clear();
 }
 
-VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkPipelineCreateFlagBits flags)
+VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkPipelineCreateFlagBits flags, std::vector<VkDynamicState> additionalDynamicStates)
 {
     // Viewport, details not necessary here (dynamic rendering)
     VkPipelineViewportStateCreateInfo viewportState = {}; {
@@ -69,8 +69,9 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkPipelineCreateFlagB
     pipelineInfo.flags = flags;
 
     // Dynamic state
-    VkDynamicState state[] = {VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
-    const VkPipelineDynamicStateCreateInfo dynamicInfo = generateDynamicStates(state, 2);
+    additionalDynamicStates.push_back(VK_DYNAMIC_STATE_VIEWPORT);
+    additionalDynamicStates.push_back(VK_DYNAMIC_STATE_SCISSOR);
+    const VkPipelineDynamicStateCreateInfo dynamicInfo = generateDynamicStates(additionalDynamicStates.data(), additionalDynamicStates.size());
     pipelineInfo.pDynamicState = &dynamicInfo;
 
     // Create Pipeline

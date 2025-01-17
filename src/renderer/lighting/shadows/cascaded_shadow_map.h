@@ -23,6 +23,17 @@ public:
     static constexpr float LAMBDA = 0.5f;
     static constexpr float OVERLAP = 1.005f;
     static constexpr uint32_t SHADOW_CASCADE_COUNT = 4;
+    static constexpr float cascadeNear = 0.1f;
+    static constexpr float cascadeFar = 100.0f;
+    static constexpr glm::vec2 cascadeBias[SHADOW_CASCADE_COUNT] = {
+        {10.0f, 7.5f},
+        {9.0f, 7.0f},
+        {8.0f, 6.5f},
+        {5.0f, 6.0f},
+        //{8.0f, 6.0f},
+        //{6.0f, 4.5f},
+        //{4.0f, 3.0f},
+    };
 
     CascadedShadowMap() = delete;
 
@@ -94,7 +105,6 @@ private:
         {1, {}, {VK_NULL_HANDLE}, {}},
         {2, {}, {VK_NULL_HANDLE}, {}},
         {3, {}, {VK_NULL_HANDLE}, {}},
-
     };
 
     CascadeSplit splits[SHADOW_CASCADE_COUNT]{};
