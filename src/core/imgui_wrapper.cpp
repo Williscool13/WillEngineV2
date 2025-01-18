@@ -126,8 +126,19 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         }
         ImGui::Separator();
         ImGui::Checkbox("Disable Shadows", &engine->bDebugDisableShadows);
+        const char* pcfLevels[] = {"None", "3x3", "5x5"};
+        static int32_t pcfIndex{2};
+        if (ImGui::Combo("PCF Level", &pcfIndex, pcfLevels, IM_ARRAYSIZE(pcfLevels))) {
+            switch (pcfIndex) {
+                case 0: engine->debugPcfLevel = 0; break;
+                case 1: engine->debugPcfLevel = 3; break;
+                case 2: engine->debugPcfLevel = 5; break;
+                default: engine->debugPcfLevel = 0; break;
+            }
+        }
         ImGui::Checkbox("Enable Shadow Map Debug", &engine->bEnableShadowMapDebug);
         ImGui::Checkbox("Enable Frustum Culling", &engine->bEnableFrustumCulling);
+
         ImGui::Separator();
 
         if (ImGui::TreeNode("Post-Process Effects")) {

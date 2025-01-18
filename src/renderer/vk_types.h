@@ -84,6 +84,7 @@ struct DeferredResolveData
     int32_t height{900};
     int32_t debug{0};
     int32_t disableShadows{0};
+    int32_t pcfLevel{5};
 };
 
 

@@ -26,7 +26,7 @@ public:
     static constexpr float cascadeNear = 0.1f;
     static constexpr float cascadeFar = 100.0f;
     static constexpr glm::vec2 cascadeBias[SHADOW_CASCADE_COUNT] = {
-        {10.0f, 7.5f},
+        {5.0f, 5.0f},
         {9.0f, 7.0f},
         {8.0f, 6.5f},
         {5.0f, 6.0f},
@@ -93,8 +93,8 @@ private:
     ResourceManager& resourceManager;
 
     VkFormat depthFormat{VK_FORMAT_D32_SFLOAT};
-    VkExtent2D extent{2048, 2048};
-
+    //VkExtent2D extent{2048, 2048};
+    VkExtent2D extent{4096, 4096};
 
     VkSampler sampler{VK_NULL_HANDLE};
     VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
