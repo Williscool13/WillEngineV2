@@ -124,22 +124,28 @@ void main() {
 
     // SHADOWS
     float shadowFactor = 1.0f;
-    if (pushConstants.disableShadows == 0) {
-        if (nDotL <= 0.0) {
-            shadowFactor = 0.0f;
+    int cascadeLevel = getCascadeLevel(position, sceneData.view, shadowCascadeData.cascadeSplits);
+    if (cascadeLevel >= 0 && cascadeLevel <= 3) {
+        float _tempShadowFactor;
+        if (pushConstants.pcfLevel == 5) {
+            _tempShadowFactor = getShadowFactorPCF5(position, shadowCascadeData.lightViewProj[cascadeLevel], shadowMapSampler[nonuniformEXT(cascadeLevel)], shadowCascadeData.farShadowPlane);
         } else {
-            int cascadeLevel = getCascadeLevel(position, sceneData.view, shadowCascadeData.cascadeSplits);
-            if (cascadeLevel < 4) {
-                if (pushConstants.pcfLevel == 5) {
-                    shadowFactor = getShadowFactorPCF5(position, shadowCascadeData.lightViewProj[cascadeLevel], shadowMapSampler[nonuniformEXT(cascadeLevel)], shadowCascadeData.farShadowPlane);
-                } else {
-                    shadowFactor = getShadowFactor(position, shadowCascadeData.lightViewProj[cascadeLevel], shadowMapSampler[nonuniformEXT(cascadeLevel)], shadowCascadeData.farShadowPlane);
-                }
-            }
+            _tempShadowFactor = getShadowFactor(position, shadowCascadeData.lightViewProj[cascadeLevel], shadowMapSampler[nonuniformEXT(cascadeLevel)], shadowCascadeData.farShadowPlane);
+        }
+
+        if (nDotL <= 0.0) {
+            // shadow affects IBL greater as the angle approaches opposite
+            shadowFactor = mix(_tempShadowFactor, 0.0f, -nDotL * 2);;
+        } else {
+            shadowFactor = _tempShadowFactor;
         }
     }
 
-    float indirectAttenuation = mix(0.6, 1.0, shadowFactor);
+    if (pushConstants.disableShadows == 1) {
+        shadowFactor = 1.0f;
+    }
+
+    float indirectAttenuation = mix(0.4, 1.0, shadowFactor);
 
     // IBL REFLECTIONS
     vec3 irradiance = DiffuseIrradiance(environmentDiffuseAndSpecular, N);
@@ -186,14 +192,6 @@ void main() {
     }
 
     if (pushConstants.debug == 4) {
-        float shadow = 0.0f;
-        if (nDotL > 0.0) {
-            int cascadeLevel = getCascadeLevel(position, sceneData.view, shadowCascadeData.cascadeSplits);
-            if (cascadeLevel < 4) {
-                shadow = getShadowFactorPCF5(position, shadowCascadeData.lightViewProj[cascadeLevel], shadowMapSampler[nonuniformEXT(cascadeLevel)], shadowCascadeData.farShadowPlane);
-            }
-        }
-
-        imageStore(outputImage, screenPos, vec4(vec3(1 - shadow), 1.0));
+        imageStore(outputImage, screenPos, vec4(vec3(1 - shadowFactor), 1.0));
     }
 }

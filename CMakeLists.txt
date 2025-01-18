@@ -176,6 +176,7 @@ if (WIN32)
     set(WINDOWS_SOURCES
             src/resources.h
             src/resources.rc
+            src/renderer/lighting/shadows/shadow_constants.h
     )
 endif ()
 

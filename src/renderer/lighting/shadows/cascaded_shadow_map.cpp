@@ -49,7 +49,7 @@ CascadedShadowMap::~CascadedShadowMap()
 
 void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelineCreateInfo)
 {
-    generateSplits(cascadeNear, cascadeFar);
+    generateSplits(shadow_constants::CASCADE_NEAR, shadow_constants::CASCADE_FAR);
 
     // Create Resources
     {
@@ -75,7 +75,7 @@ void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelin
         vkCreateSampler(context.device, &samplerCreateInfo, nullptr, &sampler);
 
         for (CascadeShadowMapData& cascadeShadowMapData : shadowMaps) {
-            cascadeShadowMapData.depthShadowMap = resourceManager.createImage({extent.width, extent.height, 1}, depthFormat,
+            cascadeShadowMapData.depthShadowMap = resourceManager.createImage({shadow_constants::CASCADE_EXTENT.width, shadow_constants::CASCADE_EXTENT.height, 1}, depthFormat,
                                                                               VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
         }
     }
@@ -163,8 +163,8 @@ void CascadedShadowMap::init(const ShadowMapPipelineCreateInfo& shadowMapPipelin
         cascadedShadowMapDescriptorBufferUniform.setupData(context.device, cascadeData);
 
         const auto data = static_cast<CascadeShadowData*>(cascadedShadowMapData.info.pMappedData);
-        data->nearShadowPlane = cascadeNear;
-        data->farShadowPlane = cascadeFar;
+        data->nearShadowPlane = shadow_constants::CASCADE_NEAR;
+        data->farShadowPlane = shadow_constants::CASCADE_FAR;
     }
 }
 
@@ -180,7 +180,7 @@ void CascadedShadowMap::updateCascadeData(VkCommandBuffer cmd, const Directional
     }
 
     const auto data = static_cast<CascadeShadowData*>(cascadedShadowMapData.info.pMappedData);
-    for (size_t i = 0; i < SHADOW_CASCADE_COUNT; i++) {
+    for (size_t i = 0; i < shadow_constants::SHADOW_CASCADE_COUNT; i++) {
         data->cascadeSplits[i] = shadowMaps[i].split;
         data->lightViewProj[i] = shadowMaps[i].lightViewProj;
     }
@@ -204,7 +204,7 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInf
         renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
         renderInfo.pNext = nullptr;
 
-        renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, extent};
+        renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, shadow_constants::CASCADE_EXTENT};
         renderInfo.layerCount = 1;
         renderInfo.colorAttachmentCount = 0;
         renderInfo.pColorAttachments = nullptr;
@@ -214,7 +214,7 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInf
         vkCmdBeginRendering(cmd, &renderInfo);
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-        vkCmdSetDepthBias(cmd, cascadeBias[cascadeShadowMapData.cascadeLevel][0], 0.0f, cascadeBias[cascadeShadowMapData.cascadeLevel][1]);
+        vkCmdSetDepthBias(cmd, shadow_constants::CASCADE_BIAS[cascadeShadowMapData.cascadeLevel][0], 0.0f, shadow_constants::CASCADE_BIAS[cascadeShadowMapData.cascadeLevel][1]);
 
         CascadedShadowMapGenerationPushConstants pushConstants{};
         pushConstants.cascadeIndex = cascadeShadowMapData.cascadeLevel;
@@ -224,8 +224,8 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInf
         VkViewport viewport = {};
         viewport.x = 0;
         viewport.y = 0;
-        viewport.width = extent.width;
-        viewport.height = extent.height;
+        viewport.width = shadow_constants::CASCADE_EXTENT.width;
+        viewport.height = shadow_constants::CASCADE_EXTENT.height;
         viewport.minDepth = 0.f;
         viewport.maxDepth = 1.f;
         vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -233,8 +233,8 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInf
         VkRect2D scissor = {};
         scissor.offset.x = 0;
         scissor.offset.y = 0;
-        scissor.extent.width = extent.width;
-        scissor.extent.height = extent.height;
+        scissor.extent.width = shadow_constants::CASCADE_EXTENT.width;
+        scissor.extent.height = shadow_constants::CASCADE_EXTENT.height;
         vkCmdSetScissor(cmd, 0, 1, &scissor);
 
         constexpr VkDeviceSize zeroOffset{0};
@@ -367,14 +367,14 @@ void CascadedShadowMap::generateSplits(float nearPlane, float farPlane)
 
     fmt::print("Shadow Map: (Splits) {} - ", shadowMaps[0].split.nearPlane);
 
-    for (size_t i = 1; i < SHADOW_CASCADE_COUNT; i++) {
-        const float si = static_cast<float>(i) / static_cast<float>(SHADOW_CASCADE_COUNT);
+    for (size_t i = 1; i < shadow_constants::SHADOW_CASCADE_COUNT; i++) {
+        const float si = static_cast<float>(i) / static_cast<float>(shadow_constants::SHADOW_CASCADE_COUNT);
 
         const float uniformTerm = nearPlane + (farPlane - nearPlane) * si;
         const float logTerm = nearPlane * std::pow(ratio, si);
-        const float nearValue = LAMBDA * logTerm + (1.0f - LAMBDA) * uniformTerm;
+        const float nearValue = shadow_constants::LAMBDA * logTerm + (1.0f - shadow_constants::LAMBDA) * uniformTerm;
 
-        const float farValue = nearValue * OVERLAP;
+        const float farValue = nearValue * shadow_constants::OVERLAP;
 
         shadowMaps[i].split.nearPlane = nearValue;
         shadowMaps[i - 1].split.farPlane = farValue;
@@ -382,7 +382,7 @@ void CascadedShadowMap::generateSplits(float nearPlane, float farPlane)
         fmt::print("{} - ", shadowMaps[i].split.nearPlane);
     }
 
-    shadowMaps[SHADOW_CASCADE_COUNT - 1].split.farPlane = farPlane;
-    fmt::print("{}\n", shadowMaps[SHADOW_CASCADE_COUNT - 1].split.farPlane);
+    shadowMaps[shadow_constants::SHADOW_CASCADE_COUNT - 1].split.farPlane = farPlane;
+    fmt::print("{}\n", shadowMaps[shadow_constants::SHADOW_CASCADE_COUNT - 1].split.farPlane);
 
 }
