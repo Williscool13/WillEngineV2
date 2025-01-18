@@ -9,6 +9,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include "cascaded_shadow_map_descriptor_layouts.h"
+#include "shadow_constants.h"
 #include "shadow_types.h"
 #include "src/renderer/vk_descriptor_buffer.h"
 #include "src/renderer/vk_types.h"
@@ -20,21 +21,6 @@ struct CameraProperties;
 class CascadedShadowMap
 {
 public:
-    static constexpr float LAMBDA = 0.5f;
-    static constexpr float OVERLAP = 1.005f;
-    static constexpr uint32_t SHADOW_CASCADE_COUNT = 4;
-    static constexpr float cascadeNear = 0.1f;
-    static constexpr float cascadeFar = 100.0f;
-    static constexpr glm::vec2 cascadeBias[SHADOW_CASCADE_COUNT] = {
-        {5.0f, 5.0f},
-        {9.0f, 7.0f},
-        {8.0f, 6.5f},
-        {5.0f, 6.0f},
-        //{8.0f, 6.0f},
-        //{6.0f, 4.5f},
-        //{4.0f, 3.0f},
-    };
-
     CascadedShadowMap() = delete;
 
     CascadedShadowMap(const VulkanContext& context, ResourceManager& resourceManager);
@@ -53,7 +39,7 @@ public:
 public: // Debug
     AllocatedImage getShadowMap(const int32_t cascadeLevel) const
     {
-        if (cascadeLevel >= SHADOW_CASCADE_COUNT || cascadeLevel < 0) {
+        if (cascadeLevel >= shadow_constants::SHADOW_CASCADE_COUNT || cascadeLevel < 0) {
             return {};
         }
         return shadowMaps[cascadeLevel].depthShadowMap;
@@ -61,7 +47,7 @@ public: // Debug
 
     glm::mat4 getCascadeViewProjection(const int32_t cascadeLevel) const
     {
-        if (cascadeLevel >= SHADOW_CASCADE_COUNT || cascadeLevel < 0) {
+        if (cascadeLevel >= shadow_constants::SHADOW_CASCADE_COUNT || cascadeLevel < 0) {
             return {1.0f};
         }
 
@@ -70,7 +56,7 @@ public: // Debug
 
     const CascadeSplit& getCascadeSplit(const int32_t index) const
     {
-        if (index >= SHADOW_CASCADE_COUNT || index < 0) {
+        if (index >= shadow_constants::SHADOW_CASCADE_COUNT || index < 0) {
             return shadowMaps[0].split;
         }
         return shadowMaps[index].split;
@@ -100,14 +86,14 @@ private:
     VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
     VkPipeline pipeline{VK_NULL_HANDLE};
 
-    CascadeShadowMapData shadowMaps[SHADOW_CASCADE_COUNT]{
+    CascadeShadowMapData shadowMaps[shadow_constants::SHADOW_CASCADE_COUNT]{
         {0, {}, {VK_NULL_HANDLE}, {}},
         {1, {}, {VK_NULL_HANDLE}, {}},
         {2, {}, {VK_NULL_HANDLE}, {}},
         {3, {}, {VK_NULL_HANDLE}, {}},
     };
 
-    CascadeSplit splits[SHADOW_CASCADE_COUNT]{};
+    CascadeSplit splits[shadow_constants::SHADOW_CASCADE_COUNT]{};
 
     // contains the depth maps used by deferred resolve
     DescriptorBufferSampler cascadedShadowMapDescriptorBufferSampler;
