@@ -281,32 +281,73 @@ glm::mat4 CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 lightDirection,
         center += glm::vec3(v);
     }
     center /= numberOfCorners;
-    const auto lightView = glm::lookAt(
-        center - lightDirection,
-        center,
-        //cameraProperties.up
+    // const auto lightView = glm::lookAt(
+    //     center - lightDirection,
+    //     center,
+    //     //cameraProperties.up
+    //     glm::vec3(0.0f, 1.0f, 0.0f)
+    // );
+    // float minX = std::numeric_limits<float>::max();
+    // float maxX = std::numeric_limits<float>::lowest();
+    // float minY = std::numeric_limits<float>::max();
+    // float maxY = std::numeric_limits<float>::lowest();
+    // float minZ = std::numeric_limits<float>::max();
+    // float maxZ = std::numeric_limits<float>::lowest();
+    // for (const auto& v : corners) {
+    //     const auto trf = lightView * v;
+    //     minX = std::min(minX, trf.x);
+    //     maxX = std::max(maxX, trf.x);
+    //     minY = std::min(minY, trf.y);
+    //     maxY = std::max(maxY, trf.y);
+    //     minZ = std::min(minZ, trf.z);
+    //     maxZ = std::max(maxZ, trf.z);
+    // }
+    // constexpr float zMult = 10.0f;
+    // minZ *= zMult;
+    // maxZ *= zMult;
+    //
+    // const glm::mat4 lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+    // return lightProjection * lightView;
+    // Get frustum corners as before
+
+
+    // Calculate radius from furthest corners
+    float radius = glm::length(glm::vec3(corners[0]) - glm::vec3(corners[6])) / 2.0f;
+
+    // Calculate texels per unit for this cascade
+    float texelsPerUnit = 4096.0f / (radius * 2.0f);
+
+    // Create texel-snapping matrices
+    glm::mat4 scalar = glm::scale(glm::mat4(1.0f), glm::vec3(texelsPerUnit));
+    glm::mat4 baseLookAt = glm::lookAt(
+        glm::vec3(0.0f),
+        -lightDirection,
         glm::vec3(0.0f, 1.0f, 0.0f)
     );
-    float minX = std::numeric_limits<float>::max();
-    float maxX = std::numeric_limits<float>::lowest();
-    float minY = std::numeric_limits<float>::max();
-    float maxY = std::numeric_limits<float>::lowest();
-    float minZ = std::numeric_limits<float>::max();
-    float maxZ = std::numeric_limits<float>::lowest();
-    for (const auto& v : corners) {
-        const auto trf = lightView * v;
-        minX = std::min(minX, trf.x);
-        maxX = std::max(maxX, trf.x);
-        minY = std::min(minY, trf.y);
-        maxY = std::max(maxY, trf.y);
-        minZ = std::min(minZ, trf.z);
-        maxZ = std::max(maxZ, trf.z);
-    }
-    constexpr float zMult = 5.0f;
-    minZ *= zMult;
-    maxZ *= zMult;
 
-    const glm::mat4 lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+    // Combine and invert
+    glm::mat4 lookAtWithScale = scalar * baseLookAt;
+    glm::mat4 lookAtScaleInv = glm::inverse(lookAtWithScale);
+
+    // Snap center to texel-sized increments
+    glm::vec3 snappedCenter = center;
+    snappedCenter = glm::vec3(lookAtWithScale * glm::vec4(snappedCenter, 1.0f));
+    snappedCenter = glm::floor(snappedCenter);
+    snappedCenter = glm::vec3(lookAtScaleInv * glm::vec4(snappedCenter, 1.0f));
+
+    // Create light view matrix with snapped position
+    glm::vec3 eye = snappedCenter - (lightDirection * radius * 2.0f);
+    const glm::mat4 lightView = glm::lookAt(eye, snappedCenter, glm::vec3(0.0f, 1.0f, 0.0f));
+
+    // Create ortho projection with consistent size
+    constexpr float zMult = 10.0f;
+    float orthoSize = radius * 6.0f; // Add room for objects outside view
+    const glm::mat4 lightProjection = glm::ortho(
+        -orthoSize, orthoSize,
+        -orthoSize, orthoSize,
+        -orthoSize * zMult, orthoSize * zMult
+    );
+
     return lightProjection * lightView;
 }
 
@@ -324,6 +365,8 @@ void CascadedShadowMap::generateSplits(float nearPlane, float farPlane)
     const float ratio = farPlane / nearPlane;
     shadowMaps[0].split.nearPlane = nearPlane;
 
+    fmt::print("Shadow Map: (Splits) {} - ", shadowMaps[0].split.nearPlane);
+
     for (size_t i = 1; i < SHADOW_CASCADE_COUNT; i++) {
         const float si = static_cast<float>(i) / static_cast<float>(SHADOW_CASCADE_COUNT);
 
@@ -335,7 +378,11 @@ void CascadedShadowMap::generateSplits(float nearPlane, float farPlane)
 
         shadowMaps[i].split.nearPlane = nearValue;
         shadowMaps[i - 1].split.farPlane = farValue;
+
+        fmt::print("{} - ", shadowMaps[i].split.nearPlane);
     }
 
     shadowMaps[SHADOW_CASCADE_COUNT - 1].split.farPlane = farPlane;
+    fmt::print("{}\n", shadowMaps[SHADOW_CASCADE_COUNT - 1].split.farPlane);
+
 }

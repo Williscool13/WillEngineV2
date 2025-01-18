@@ -356,6 +356,7 @@ void Engine::draw()
         renderExtent,
         deferredDebug,
         bDebugDisableShadows ? 1 : 0,
+        debugPcfLevel,
         sceneDataDescriptorBuffer,
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * 0,
         environmentMap,

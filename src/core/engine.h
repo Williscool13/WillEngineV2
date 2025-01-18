@@ -161,6 +161,7 @@ private: // Scene
     int32_t deferredDebug{0};
     int32_t taaDebug{0};
     bool bDebugDisableShadows{false};
+    int32_t debugPcfLevel{5};
     int32_t shadowMapDebug{0};
     // if false shows bounds of ortho made from this persp
     bool bShowPerspectiveBounds{true};

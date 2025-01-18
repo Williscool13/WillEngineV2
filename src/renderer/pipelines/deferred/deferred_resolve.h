@@ -39,6 +39,7 @@ struct DeferredResolveDrawInfo
     VkExtent2D renderExtent{};
     int32_t debugMode{};
     int32_t disableShadows{};
+    int32_t pcfLevel{};
     const DescriptorBufferUniform& sceneData;
     const VkDeviceSize sceneDataOffset;
     Environment* environment{nullptr};

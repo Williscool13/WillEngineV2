@@ -23,7 +23,11 @@ int selectCascadeLevel(float viewSpaceDepth, CascadeSplit[4] cascadeSplits) {
         return 2;
     }
 
-    return 3;
+    if (viewSpaceDepth < cascadeSplits[3].farPlane){
+        return 3;
+    }
+
+    return 4;
 }
 
 int getCascadeLevel(vec3 worldPos, mat4 viewMatrix, CascadeSplit cascadeSplits[4]) {
@@ -36,7 +40,7 @@ float getShadowFactor(vec3 worldPos, mat4 cascadeLightViewProj, sampler2DShadow 
     vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
     projCoords.xy = projCoords.xy * 0.5 + 0.5;
     float currentDepth = projCoords.z;
-    if (projCoords.z > cascadeFarPlane) { return 0; }
+    if (projCoords.z > cascadeFarPlane) { return 1.0; }
 
     float shadow = texture(shadowMap, vec3(projCoords.xy, currentDepth));
     return shadow;
@@ -47,7 +51,7 @@ float getShadowFactorPCF5(vec3 worldPos, mat4 cascadeLightViewProj, sampler2DSha
     vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
     projCoords.xy = projCoords.xy * 0.5 + 0.5;
     float currentDepth = projCoords.z;
-    if (projCoords.z > cascadeFarPlane) { return 0; }
+    if (projCoords.z > cascadeFarPlane) { return 1.0; }
 
     float shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
