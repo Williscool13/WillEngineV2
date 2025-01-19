@@ -198,6 +198,33 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInf
 
     for (const CascadeShadowMapData& cascadeShadowMapData : shadowMaps) {
         vk_helpers::transitionImage(cmd, cascadeShadowMapData.depthShadowMap.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+        // {
+        //     VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+        //     imageBarrier.pNext = nullptr;
+        //
+        //     imageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_NONE;
+        //     imageBarrier.srcAccessMask = 0;
+        //     imageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+        //     imageBarrier.dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        //
+        //     imageBarrier.oldLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        //     imageBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+        //
+        //     const VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        //
+        //     imageBarrier.subresourceRange = vk_helpers::imageSubresourceRange(aspectMask);
+        //     imageBarrier.image = cascadeShadowMapData.depthShadowMap.image;
+        //
+        //     VkDependencyInfo depInfo{};
+        //     depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+        //     depInfo.pNext = nullptr;
+        //
+        //     depInfo.imageMemoryBarrierCount = 1;
+        //     depInfo.pImageMemoryBarriers = &imageBarrier;
+        //
+        //     vkCmdPipelineBarrier2(cmd, &depInfo);
+        // }
+
         VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(cascadeShadowMapData.depthShadowMap.imageView, &clearValue, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
         VkRenderingInfo renderInfo{};
@@ -264,6 +291,32 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, const CascadedShadowMapDrawInf
         vkCmdEndRendering(cmd);
 
         vk_helpers::transitionImage(cmd, cascadeShadowMapData.depthShadowMap.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+        // {
+        //     VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+        //     imageBarrier.pNext = nullptr;
+        //
+        //     imageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
+        //     imageBarrier.srcAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+        //     imageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT;
+        //     imageBarrier.dstAccessMask = VK_ACCESS_2_SHADER_READ_BIT;
+        //
+        //     imageBarrier.oldLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+        //     imageBarrier.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        //
+        //     const VkImageAspectFlags aspectMask = VK_IMAGE_ASPECT_DEPTH_BIT;
+        //
+        //     imageBarrier.subresourceRange = vk_helpers::imageSubresourceRange(aspectMask);
+        //     imageBarrier.image = cascadeShadowMapData.depthShadowMap.image;
+        //
+        //     VkDependencyInfo depInfo{};
+        //     depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+        //     depInfo.pNext = nullptr;
+        //
+        //     depInfo.imageMemoryBarrierCount = 1;
+        //     depInfo.pImageMemoryBarriers = &imageBarrier;
+        //
+        //     vkCmdPipelineBarrier2(cmd, &depInfo);
+        // }
     }
 
 
@@ -281,74 +334,76 @@ glm::mat4 CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 lightDirection,
         center += glm::vec3(v);
     }
     center /= numberOfCorners;
-    // const auto lightView = glm::lookAt(
-    //     center - lightDirection,
-    //     center,
-    //     //cameraProperties.up
-    //     glm::vec3(0.0f, 1.0f, 0.0f)
-    // );
-    // float minX = std::numeric_limits<float>::max();
-    // float maxX = std::numeric_limits<float>::lowest();
-    // float minY = std::numeric_limits<float>::max();
-    // float maxY = std::numeric_limits<float>::lowest();
-    // float minZ = std::numeric_limits<float>::max();
-    // float maxZ = std::numeric_limits<float>::lowest();
-    // for (const auto& v : corners) {
-    //     const auto trf = lightView * v;
-    //     minX = std::min(minX, trf.x);
-    //     maxX = std::max(maxX, trf.x);
-    //     minY = std::min(minY, trf.y);
-    //     maxY = std::max(maxY, trf.y);
-    //     minZ = std::min(minZ, trf.z);
-    //     maxZ = std::max(maxZ, trf.z);
-    // }
-    // constexpr float zMult = 10.0f;
-    // minZ *= zMult;
-    // maxZ *= zMult;
-    //
-    // const glm::mat4 lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
-    // return lightProjection * lightView;
-    // Get frustum corners as before
 
-
-    // Calculate radius from furthest corners
-    float radius = glm::length(glm::vec3(corners[0]) - glm::vec3(corners[6])) / 2.0f;
-
-    // Calculate texels per unit for this cascade
-    float texelsPerUnit = 4096.0f / (radius * 2.0f);
-
-    // Create texel-snapping matrices
-    glm::mat4 scalar = glm::scale(glm::mat4(1.0f), glm::vec3(texelsPerUnit));
-    glm::mat4 baseLookAt = glm::lookAt(
-        glm::vec3(0.0f),
-        -lightDirection,
+    const auto lightView = glm::lookAt(
+        center - lightDirection,
+        center,
+        //cameraProperties.up
         glm::vec3(0.0f, 1.0f, 0.0f)
     );
-
-    // Combine and invert
-    glm::mat4 lookAtWithScale = scalar * baseLookAt;
-    glm::mat4 lookAtScaleInv = glm::inverse(lookAtWithScale);
-
-    // Snap center to texel-sized increments
-    glm::vec3 snappedCenter = center;
-    snappedCenter = glm::vec3(lookAtWithScale * glm::vec4(snappedCenter, 1.0f));
-    snappedCenter = glm::floor(snappedCenter);
-    snappedCenter = glm::vec3(lookAtScaleInv * glm::vec4(snappedCenter, 1.0f));
-
-    // Create light view matrix with snapped position
-    glm::vec3 eye = snappedCenter - (lightDirection * radius * 2.0f);
-    const glm::mat4 lightView = glm::lookAt(eye, snappedCenter, glm::vec3(0.0f, 1.0f, 0.0f));
-
-    // Create ortho projection with consistent size
+    float minX = std::numeric_limits<float>::max();
+    float maxX = std::numeric_limits<float>::lowest();
+    float minY = std::numeric_limits<float>::max();
+    float maxY = std::numeric_limits<float>::lowest();
+    float minZ = std::numeric_limits<float>::max();
+    float maxZ = std::numeric_limits<float>::lowest();
+    for (const auto& v : corners) {
+        const auto trf = lightView * v;
+        minX = std::min(minX, trf.x);
+        maxX = std::max(maxX, trf.x);
+        minY = std::min(minY, trf.y);
+        maxY = std::max(maxY, trf.y);
+        minZ = std::min(minZ, trf.z);
+        maxZ = std::max(maxZ, trf.z);
+    }
     constexpr float zMult = 10.0f;
-    float orthoSize = radius * 6.0f; // Add room for objects outside view
-    const glm::mat4 lightProjection = glm::ortho(
-        -orthoSize, orthoSize,
-        -orthoSize, orthoSize,
-        -orthoSize * zMult, orthoSize * zMult
-    );
+    minZ *= zMult;
+    maxZ *= zMult;
 
+    float cascadeBound = cascadeFar - cascadeNear;
+    float worldUnitsPerTexel = cascadeBound / static_cast<float>(shadow_constants::CASCADE_EXTENT.width);
+    glm::vec3 minBounds{minX, minY, minZ};
+    glm::vec3 maxBounds{maxX, maxY, maxZ};
+    minBounds = glm::floor(minBounds / worldUnitsPerTexel) * worldUnitsPerTexel;
+    maxBounds = glm::floor(maxBounds / worldUnitsPerTexel) * worldUnitsPerTexel;
+    const glm::mat4 lightProjection = glm::ortho(minBounds.x, maxBounds.x, minBounds.y, maxBounds.y, minBounds.z, maxBounds.z);
     return lightProjection * lightView;
+
+
+    //const glm::mat4 lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+    //return lightProjection * lightView;
+
+
+    // float radius = glm::length(glm::vec3(corners[0]) - glm::vec3(corners[6])) / 2.0f;
+    // float texelsPerUnit = shadow_constants::CASCADE_EXTENT.width / (radius * 2.0f);
+    //
+    // glm::mat4 scalar = glm::scale(glm::mat4(1.0f), glm::vec3(texelsPerUnit));
+    // glm::mat4 baseLookAt = glm::lookAt(
+    //     glm::vec3(0.0f),
+    //     lightDirection,
+    //     glm::vec3(0.0f, 1.0f, 0.0f)
+    // );
+    //
+    // glm::mat4 lookAtWithScale = scalar * baseLookAt;
+    // glm::mat4 lookAtScaleInv = glm::inverse(lookAtWithScale);
+    // glm::vec3 snappedCenter = center;
+    // snappedCenter = glm::vec3(lookAtWithScale * glm::vec4(snappedCenter, 1.0f));
+    // snappedCenter = glm::floor(snappedCenter);
+    // snappedCenter = glm::vec3(lookAtScaleInv * glm::vec4(snappedCenter, 1.0f));
+    //
+    // glm::vec3 eye = snappedCenter + (lightDirection * radius * 2.0f);
+    // const glm::mat4 lightView = glm::lookAt(eye, snappedCenter, glm::vec3(0.0f, 1.0f, 0.0f));
+    //
+    // // Create ortho projection with consistent size
+    // constexpr float zMult = 5.0f;
+    // float orthoSize = radius * 6.0f;
+    // const glm::mat4 lightProjection = glm::ortho(
+    //     -orthoSize, orthoSize,
+    //     -orthoSize, orthoSize,
+    //     orthoSize * zMult, -orthoSize * zMult
+    // );
+    //
+    // return lightProjection * lightView;
 }
 
 void CascadedShadowMap::generateSplits(float nearPlane, float farPlane)
@@ -384,5 +439,4 @@ void CascadedShadowMap::generateSplits(float nearPlane, float farPlane)
 
     shadowMaps[shadow_constants::SHADOW_CASCADE_COUNT - 1].split.farPlane = farPlane;
     fmt::print("{}\n", shadowMaps[shadow_constants::SHADOW_CASCADE_COUNT - 1].split.farPlane);
-
 }
