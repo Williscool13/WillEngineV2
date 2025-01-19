@@ -124,7 +124,7 @@ void main() {
 
     // SHADOWS
     float shadowFactor = 1.0f;
-    int cascadeLevel = getCascadeLevel(position, sceneData.view, shadowCascadeData.cascadeSplits);
+    int cascadeLevel = getCascadeLevel(position + normal * 0.05f, sceneData.view, shadowCascadeData.cascadeSplits);
     if (cascadeLevel >= 0 && cascadeLevel <= 3) {
         float _tempShadowFactor;
         if (pushConstants.pcfLevel == 5) {
@@ -135,7 +135,7 @@ void main() {
 
         if (nDotL <= 0.0) {
             // shadow affects IBL greater as the angle approaches opposite
-            shadowFactor = mix(_tempShadowFactor, 0.0f, -nDotL * 2);;
+            shadowFactor = mix(_tempShadowFactor, 0.0f, -nDotL * 2);
         } else {
             shadowFactor = _tempShadowFactor;
         }
@@ -193,5 +193,6 @@ void main() {
 
     if (pushConstants.debug == 4) {
         imageStore(outputImage, screenPos, vec4(vec3(1 - shadowFactor), 1.0));
+        imageStore(outputImage, screenPos, vec4(vec3(nDotL), 1.0));
     }
 }
