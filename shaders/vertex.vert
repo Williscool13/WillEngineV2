@@ -1,7 +1,7 @@
 #version 450
 
-layout(location = 0) out vec2 TexCoord;
-layout(location = 1) out vec3 Color;
+layout(location = 0) out vec2 texCoord;
+layout(location = 1) out vec3 color;
 
 layout(push_constant) uniform PushConstants {
     float time;
@@ -16,7 +16,7 @@ void main() {
 
     vec2 pos = positions[gl_VertexIndex];
 
-    TexCoord = pos * 0.5 + 0.5;
+    texCoord = pos * 0.5 + 0.5;
 
     vec3 colors[3] = vec3[](
     vec3(1.0, 0.0, 0.0),  // Red
@@ -27,7 +27,7 @@ void main() {
     float t = fract(pushConstants.time);
     int currentColorIndex = (gl_VertexIndex + int(pushConstants.time)) % 3;
     int nextColorIndex = (currentColorIndex + 1) % 3;
-    Color = mix(colors[currentColorIndex], colors[nextColorIndex], t);
+    color = mix(colors[currentColorIndex], colors[nextColorIndex], t);
 
     gl_Position = vec4(pos, 1.0, 1.0);
 }

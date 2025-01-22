@@ -73,8 +73,10 @@ void Engine::init()
 
     imguiWrapper = new ImguiWrapper(*context, {window, swapchainImageFormat});
 
-    computePipeline = new BasicComputePipeline(*context);
+    computePipeline = new basic_compute::BasicComputePipeline(*context);
     computePipeline->setupDescriptors({drawImage.imageView});
+    renderPipeline = new basic_render::BasicRenderPipeline({drawImageFormat, depthImageFormat}, *context);
+    renderPipeline->setupDescriptors({resourceManager->getDefaultSamplerNearest(), resourceManager->getErrorCheckerboardImage().imageView});
 
 
     const auto end = std::chrono::system_clock::now();
@@ -163,7 +165,8 @@ void Engine::draw()
     // draw geometry into _drawImage
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
-    // drawRender(cmd);
+    renderPipeline->draw(cmd, {renderExtent, drawImage.imageView, depthImage.imageView});
+
 
     // copy Draw Image into Swapchain Image
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -214,56 +217,9 @@ void Engine::draw()
 
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    stats.renderTime = stats.renderTime * 0.99f + elapsed.count() / 1000.0f * 0.01f;
+    stats.renderTime = stats.renderTime * 0.99f + static_cast<float>(elapsed.count()) / 1000.0f * 0.01f;
     stats.totalTime = stats.renderTime + stats.gameTime + stats.physicsTime;
 }
-
-// void Engine::drawRender(VkCommandBuffer cmd)
-// {
-//     VkClearValue depthClearValue = {0.0f, 0};
-//     VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawImage.imageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-//     VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthImage.imageView, &depthClearValue,
-//                                                                            VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-//     VkRenderingInfo renderInfo = vk_helpers::renderingInfo(renderExtent, &colorAttachment, &depthAttachment);
-//
-//
-//     vkCmdBeginRendering(cmd, &renderInfo);
-//
-//     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipeline);
-//
-//     // Dynamic States
-//     //  Viewport
-//     VkViewport viewport = {};
-//     viewport.x = 0;
-//     viewport.y = 0;
-//     viewport.width = renderExtent.width;
-//     viewport.height = renderExtent.height;
-//     viewport.minDepth = 0.f;
-//     viewport.maxDepth = 1.f;
-//     vkCmdSetViewport(cmd, 0, 1, &viewport);
-//     //  Scissor
-//     VkRect2D scissor = {};
-//     scissor.offset.x = 0;
-//     scissor.offset.y = 0;
-//     scissor.extent.width = renderExtent.width;
-//     scissor.extent.height = renderExtent.height;
-//     vkCmdSetScissor(cmd, 0, 1, &scissor);
-//
-//     VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1];
-//     descriptorBufferBindingInfo[0] = renderImageDescriptorBuffer.getDescriptorBufferBindingInfo();
-//     vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
-//     uint32_t bufferIndexImage = 0;
-//     VkDeviceSize bufferOffset = 0;
-//
-//     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderPipelineLayout
-//                                        , 0, 1, &bufferIndexImage, &bufferOffset);
-//
-//     //vkCmdDrawIndexed(cmd, draw.indexCount, 1, draw.firstIndex, 0, 0);
-//     float time = SDL_GetTicks64() / 1000.0f;
-//     vkCmdPushConstants(cmd, renderPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(float), &time);
-//     vkCmdDraw(cmd, 3, 1, 0, 0);
-//     vkCmdEndRendering(cmd);
-// }
 
 void Engine::cleanup()
 {
@@ -271,13 +227,12 @@ void Engine::cleanup()
 
     vkDeviceWaitIdle(context->device);
 
-
     delete computePipeline;
+    delete renderPipeline;
 
     delete imguiWrapper;
 
-    // Main Rendering Command and Fence
-    for (auto& frame : frames) {
+    for (const FrameData& frame : frames) {
         vkDestroyCommandPool(context->device, frame._commandPool, nullptr);
 
         //destroy sync objects
@@ -294,83 +249,14 @@ void Engine::cleanup()
 
 
     vkDestroySwapchainKHR(context->device, swapchain, nullptr);
-    for (int i = 0; i < swapchainImageViews.size(); i++) {
-        vkDestroyImageView(context->device, swapchainImageViews[i], nullptr);
+    for (VkImageView swapchainImageView : swapchainImageViews) {
+        vkDestroyImageView(context->device, swapchainImageView, nullptr);
     }
 
     delete context;
 
     SDL_DestroyWindow(window);
 }
-
-
-// void Engine::initRenderPipelines()
-// { {
-//         DescriptorLayoutBuilder layoutBuilder;
-//         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-//
-//         renderImageDescriptorSetLayout = layoutBuilder.build(device, VK_SHADER_STAGE_FRAGMENT_BIT
-//                                                              , nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-//     }
-//     renderImageDescriptorBuffer = DescriptorBufferSampler(instance, device
-//                                                           , physicalDevice, allocator, renderImageDescriptorSetLayout, 1);
-//
-//     VkDescriptorImageInfo fullscreenCombined{};
-//     fullscreenCombined.sampler = defaultSamplerNearest;
-//     fullscreenCombined.imageView = errorCheckerboardImage.imageView;
-//     fullscreenCombined.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-//     // needs to match the order of the bindings in the layout
-//     std::vector<DescriptorImageData> combined_descriptor = {
-//         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, &fullscreenCombined, 1}
-//     };
-//     renderImageDescriptorBuffer.setupData(device, combined_descriptor);
-//
-//
-//     VkShaderModule vertShader;
-//     if (!vk_helpers::loadShaderModule("shaders/vertex.vert.spv", device, &vertShader)) {
-//         throw std::runtime_error("Error when building the triangle vertex shader module(compute.comp.spv)");
-//     }
-//     VkShaderModule fragShader;
-//     if (!vk_helpers::loadShaderModule("shaders/fragment.frag.spv", device, &fragShader)) {
-//         fmt::print("Error when building the triangle fragment shader module\n");
-//     }
-//
-//
-//     VkPipelineLayoutCreateInfo layout_info = vk_helpers::pipelineLayoutCreateInfo();
-//     layout_info.setLayoutCount = 1;
-//     layout_info.pSetLayouts = &renderImageDescriptorSetLayout;
-//     VkPushConstantRange renderPushConstantRange{};
-//     renderPushConstantRange.offset = 0;
-//     renderPushConstantRange.size = sizeof(float);
-//     renderPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-//     layout_info.pPushConstantRanges = &renderPushConstantRange;
-//     layout_info.pushConstantRangeCount = 1;
-//
-//     VK_CHECK(vkCreatePipelineLayout(device, &layout_info, nullptr, &renderPipelineLayout));
-//
-//
-//     PipelineBuilder renderPipelineBuilder;
-//     renderPipelineBuilder.setShaders(vertShader, fragShader);
-//     renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-//     renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
-//     renderPipelineBuilder.disableMultisampling();
-//     renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
-//     renderPipelineBuilder.enableDepthtest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-//     renderPipelineBuilder.setupRenderer(drawImage.imageFormat, depthImage.imageFormat);
-//     renderPipelineBuilder.setupPipelineLayout(renderPipelineLayout);
-//
-//     renderPipeline = renderPipelineBuilder.buildPipeline(device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-//
-//     vkDestroyShaderModule(device, vertShader, nullptr);
-//     vkDestroyShaderModule(device, fragShader, nullptr);
-//
-//     mainDeletionQueue.pushFunction([&]() {
-//         vkDestroyDescriptorSetLayout(device, renderImageDescriptorSetLayout, nullptr);
-//         renderImageDescriptorBuffer.destroy(device, allocator);
-//         vkDestroyPipelineLayout(device, renderPipelineLayout, nullptr);
-//         vkDestroyPipeline(device, renderPipeline, nullptr);
-//     });
-// }
 
 void Engine::createSwapchain(uint32_t width, uint32_t height)
 {
@@ -435,8 +321,8 @@ void Engine::createDrawResources(uint32_t width, uint32_t height)
         renderImageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
         vmaCreateImage(context->allocator, &renderImageInfo, &renderImageAllocationInfo, &drawImage.image, &drawImage.allocation, nullptr);
 
-        VkImageViewCreateInfo rview_info = vk_helpers::imageviewCreateInfo(drawImage.imageFormat, drawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
-        VK_CHECK(vkCreateImageView(context->device, &rview_info, nullptr, &drawImage.imageView));
+        VkImageViewCreateInfo renderViewInfo = vk_helpers::imageviewCreateInfo(drawImage.imageFormat, drawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
+        VK_CHECK(vkCreateImageView(context->device, &renderViewInfo, nullptr, &drawImage.imageView));
     }
     // Depth Image
     {
