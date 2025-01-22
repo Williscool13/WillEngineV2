@@ -61,6 +61,12 @@ set(HALF_SOURCES
 set(CORE_SOURCES
         src/core/engine.cpp
         src/core/engine.h
+        src/core/input.cpp
+        src/core/input.h
+        src/core/time_utils.cpp
+        src/core/time_utils.h
+        src/core/engine_types.cpp
+        src/core/engine_types.h
 )
 
 
@@ -78,6 +84,15 @@ set(RENDERER_SOURCES
         src/renderer/vk_pipelines.h
         src/renderer/vk_types.cpp
         src/renderer/vk_types.h
+        src/renderer/vulkan_context.h
+        src/renderer/vulkan_context.cpp
+        src/renderer/imgui_wrapper.cpp
+        src/renderer/imgui_wrapper.h
+        src/renderer/immediate_submitter.cpp
+        src/renderer/immediate_submitter.h
+        src/renderer/renderer_constants.h
+        src/renderer/resource_manager.h
+        src/renderer/resource_manager.cpp
 )
 
 set(GAME_SOURCES
@@ -94,6 +109,8 @@ if (WIN32)
     set(WINDOWS_SOURCES
             src/resources.h
             src/resources.rc
+            src/renderer/pipelines/basic_compute/basic_compute_pipeline.cpp
+            src/renderer/pipelines/basic_compute/basic_compute_pipeline.h
     )
 endif ()
 

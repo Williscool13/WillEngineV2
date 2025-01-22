@@ -5,69 +5,19 @@
 #ifndef ENGINE_H
 #define ENGINE_H
 
-#include <chrono>
-#include <deque>
-#include <functional>
-#include <array>
-#include <thread>
+#include "engine_types.h"
+#include "src/renderer/imgui_wrapper.h"
+#include "src/renderer/renderer_constants.h"
+#include "src/renderer/pipelines/basic_compute/basic_compute_pipeline.h"
 
 
-#include <vulkan/vulkan.h>
-#include <vulkan/vulkan_core.h>
-#include <vulkan/vk_enum_string_helper.h>
-#include <volk.h>
-#include <VkBootstrap.h>
-#include <vk_mem_alloc.h>
-
-#include <SDL.h>
-#include <SDL_vulkan.h>
-#include <fmt/format.h>
-#include <imgui.h>
-#include <imgui_impl_sdl2.h>
-#include <imgui_impl_vulkan.h>
-#include <glm/mat4x4.hpp>
-#include <glm/vec4.hpp>
-#include "glm/detail/func_packing.inl"
-
-#include "../renderer/vk_types.h"
-#include "../renderer/vk_descriptors.h"
-#include "../renderer/vk_descriptor_buffer.h"
-#include "../renderer/vk_helpers.h"
-
-constexpr unsigned int FRAME_OVERLAP = 2;
+using will_engine::EngineStats;
+using will_engine::FrameData;
+using basic_compute::BasicComputePipeline;
 
 
-struct DeletionQueue {
-    std::deque<std::function<void()> > deletors;
-
-    void pushFunction(std::function<void()>&& function)
-    {
-        deletors.push_back(function);
-    }
-
-    void flush()
-    {
-        // reverse iterate the deletion queue to execute all the functions
-        for (auto& it: deletors) {
-            (it)();
-        }
-
-        deletors.clear();
-    }
-};
-
-struct FrameData {
-    VkCommandPool _commandPool;
-    VkCommandBuffer _mainCommandBuffer;
-    VkSemaphore _swapchainSemaphore, _renderSemaphore;
-    VkFence _renderFence;
-
-    // Frame Lifetime Deletion Queue
-    DeletionQueue _deletionQueue;
-};
-
-
-class Engine {
+class Engine
+{
 public:
     void init();
 
@@ -75,76 +25,45 @@ public:
 
     void draw();
 
-    void drawCompute(VkCommandBuffer cmd);
-
-    void drawRender(VkCommandBuffer cmd);
-
-    void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView);
-
     /**
      * Cleans up vulkan resources when application has exited. Destroys resources in opposite order of initialization
      * \n Resources -> Command Pool (implicit destroy C. Buffers) -> Swapchain -> Surface -> Device -> Instance -> Window
      */
     void cleanup();
 
-private: // Initialization
-    void initVulkan();
 
-    void initSwapchain();
-
-    void initCommands();
-
-    void initSyncStructures();
-
-    void initDefaultData();
-
-    void initDearImgui();
-
-    void initPipelines();
-
-    void initComputePipelines();
-
-    void initRenderPipelines();
-
-    void immediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function) const;
-
-private: // Vulkan Boilerplate
+private:
     VkExtent2D windowExtent{1700, 900};
-    struct SDL_Window *window{nullptr};
+    SDL_Window* window{nullptr};
 
-    VkInstance instance{};
-    VkSurfaceKHR surface{};
-    VkPhysicalDevice physicalDevice{};
-    VkDevice device{};
-    VkQueue graphicsQueue{};
-    uint32_t graphicsQueueFamily{};
-    VmaAllocator allocator{};
-    VkDebugUtilsMessengerEXT debug_messenger{};
+    VulkanContext* context{nullptr};
+    ImmediateSubmitter* immediate = nullptr;
+    ResourceManager* resourceManager = nullptr;
+    // Physics* physics = nullptr;
+    ImguiWrapper* imguiWrapper = nullptr;
 
-    DeletionQueue mainDeletionQueue;
+    EngineStats stats{};
 
 private: // Rendering
     // Main
     int frameNumber{0};
     FrameData frames[FRAME_OVERLAP]{};
-    FrameData &getCurrentFrame() { return frames[frameNumber % FRAME_OVERLAP]; };
-    bool stopRendering{false};
+    FrameData& getCurrentFrame() { return frames[frameNumber % FRAME_OVERLAP]; };
 
-    float frameTime{};
-    float drawTime{};
+    bool bStopRendering{false};
+    bool bResizeRequested{false};
 
-    // Immediate Mode
-    VkFence immFence{VK_NULL_HANDLE};
-    VkCommandBuffer immCommandBuffer{VK_NULL_HANDLE};
-    VkCommandPool immCommandPool{VK_NULL_HANDLE};
-    //void immediate_submit(std::function<void(VkCommandBuffer cmd)>&& function);
+    friend void ImguiWrapper::imguiInterface(Engine* engine);
+
+    const VkFormat drawImageFormat{VK_FORMAT_R16G16B16A16_SFLOAT};
+    const VkFormat depthImageFormat{VK_FORMAT_D32_SFLOAT};
+    const VkFormat velocityImageFormat{VK_FORMAT_R16G16_SFLOAT};
+    const VkFormat normalImageFormat{VK_FORMAT_R16G16B16A16_SNORM}; //VK_FORMAT_R8G8B8A8_SNORM - 8888 is too inaccurate for normals
+    const VkFormat albedoImageFormat{VK_FORMAT_R8G8B8A8_UNORM};
+    const VkFormat pbrImageFormat{VK_FORMAT_R8G8B8A8_UNORM};
 
 private: // Pipelines
-    VkDescriptorSetLayout computeImageDescriptorSetLayout;
-    DescriptorBufferSampler computeImageDescriptorBuffer;
-    VkPipelineLayout backgroundEffectPipelineLayout;
-
-    VkPipeline computePipeline;
+    BasicComputePipeline* computePipeline{nullptr};
 
     VkDescriptorSetLayout renderImageDescriptorSetLayout;
     VkDescriptorSetLayout renderUniformDescriptorSetLayout;
@@ -161,50 +80,17 @@ private: // Swapchain
     std::vector<VkImageView> swapchainImageViews;
     VkExtent2D swapchainExtent{};
 
-    bool resizeRequested{false};
-
     void createSwapchain(uint32_t width, uint32_t height);
-
     void resizeSwapchain();
 
 private: // Draw Images
-    // todo: In anticipation of deferred rendering, not implementing MSAA
     AllocatedImage drawImage{};
     AllocatedImage depthImage{};
-    VkExtent2D drawExtent{};
+    const VkExtent2D renderExtent{1920, 1080};
     float renderScale{1.0f};
     float maxRenderScale{1.0f};
 
-    void createDrawImages(uint32_t width, uint32_t height);
-
-private: // Default Data
-    AllocatedImage whiteImage;
-    AllocatedImage errorCheckerboardImage;
-    VkSampler defaultSamplerLinear{VK_NULL_HANDLE};
-    VkSampler defaultSamplerNearest{VK_NULL_HANDLE};
-
-private: // DearImgui
-    VkDescriptorPool imguiPool{VK_NULL_HANDLE};
-
-public: // Buffers
-    AllocatedBuffer createBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) const;
-
-    AllocatedBuffer createStagingBuffer(size_t allocSize) const;
-
-    void copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, VkDeviceSize size) const;
-
-    VkDeviceAddress getBufferAddress(const AllocatedBuffer& buffer) const;
-
-    void destroyBuffer(const AllocatedBuffer& buffer) const;
-
-public: // Images
-    AllocatedImage createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
-
-    AllocatedImage createImage(const void *data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,
-                               bool mipmapped = false) const;
-
-    static int getChannelCount(VkFormat format); // todo: move this static into vkhelpers
-    void destroyImage(const AllocatedImage& img) const;
+    void createDrawResources(uint32_t width, uint32_t height);
 };
 
 #endif //ENGINE_H
