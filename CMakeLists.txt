@@ -74,8 +74,14 @@ set(PHYSICS_SOURCES
 )
 
 set(RENDERER_SOURCES
-        src/renderer/vk_descriptor_buffer.cpp
-        src/renderer/vk_descriptor_buffer.h
+        src/renderer/vulkan/descriptor_buffer/descriptor_buffer.cpp
+        src/renderer/vulkan/descriptor_buffer/descriptor_buffer.h
+        src/renderer/vulkan/descriptor_buffer/descriptor_buffer_sampler.cpp
+        src/renderer/vulkan/descriptor_buffer/descriptor_buffer_sampler.h
+        src/renderer/vulkan/descriptor_buffer/descriptor_buffer_types.cpp
+        src/renderer/vulkan/descriptor_buffer/descriptor_buffer_types.h
+        src/renderer/vulkan/descriptor_buffer/descriptor_buffer_uniform.cpp
+        src/renderer/vulkan/descriptor_buffer/descriptor_buffer_uniform.h
         src/renderer/vk_descriptors.cpp
         src/renderer/vk_descriptors.h
         src/renderer/vk_helpers.h
@@ -111,6 +117,9 @@ if (WIN32)
             src/resources.rc
             src/renderer/pipelines/basic_compute/basic_compute_pipeline.cpp
             src/renderer/pipelines/basic_compute/basic_compute_pipeline.h
+            src/renderer/pipelines/basic_render/basic_render_pipeline.cpp
+            src/renderer/pipelines/basic_render/basic_render_pipeline.h
+
     )
 endif ()
 

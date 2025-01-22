@@ -8,11 +8,6 @@
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
 
-
-class VkTypes {
-
-};
-
 struct AllocatedImage {
     VkImage image {VK_NULL_HANDLE};
     VkImageView imageView{VK_NULL_HANDLE};

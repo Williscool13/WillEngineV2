@@ -8,6 +8,9 @@
 
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/vk_descriptors.h"
+#include "src/renderer/vk_helpers.h"
+#include "src/renderer/vulkan/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "src/renderer/vulkan/descriptor_buffer/descriptor_buffer_types.h"
 
 namespace basic_compute
 {
@@ -78,7 +81,7 @@ BasicComputePipeline::~BasicComputePipeline()
 
 void BasicComputePipeline::setupDescriptors(const ComputeDescriptorInfo& descriptorInfo)
 {
-    std::vector<DescriptorImageData> imageDescriptor;
+    std::vector<will_engine::DescriptorImageData> imageDescriptor;
     imageDescriptor.reserve(1);
 
     VkDescriptorImageInfo drawImageDescriptor{};
