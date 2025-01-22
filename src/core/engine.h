@@ -7,8 +7,10 @@
 
 #include "engine_types.h"
 #include "src/renderer/imgui_wrapper.h"
+#include "src/renderer/immediate_submitter.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/pipelines/basic_compute/basic_compute_pipeline.h"
+#include "src/renderer/vulkan/descriptor_buffer/descriptor_buffer_uniform.h"
 
 
 using will_engine::EngineStats;

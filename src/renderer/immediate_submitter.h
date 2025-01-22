@@ -9,6 +9,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include "vk_helpers.h"
+#include "volk.h"
 #include "vulkan_context.h"
 
 class ImmediateSubmitter
