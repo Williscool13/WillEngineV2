@@ -4,25 +4,26 @@
 
 #include "vk_descriptor_buffer.h"
 
+#include "vulkan_context.h"
+
 VkPhysicalDeviceDescriptorBufferPropertiesEXT DescriptorBuffer::deviceDescriptorBufferProperties = {};
 bool DescriptorBuffer::devicePropertiesRetrieved = false;
 
-class DescriptorBufferException : public std::runtime_error {
+class DescriptorBufferException final : public std::runtime_error
+{
 public:
     explicit DescriptorBufferException(const std::string& message) : std::runtime_error(message) {}
 };
 
-DescriptorBuffer::DescriptorBuffer(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator,
-                                   VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount)
+DescriptorBuffer::DescriptorBuffer(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount)
 {
     if (!devicePropertiesRetrieved) {
-        fmt::print("Descriptor Buffer: Doing First Time Setup\n");
         VkPhysicalDeviceProperties2KHR device_properties{};
         deviceDescriptorBufferProperties = {};
         deviceDescriptorBufferProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT;
         device_properties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR;
         device_properties.pNext = &deviceDescriptorBufferProperties;
-        vkGetPhysicalDeviceProperties2(physicalDevice, &device_properties);
+        vkGetPhysicalDeviceProperties2(context.physicalDevice, &device_properties);
         devicePropertiesRetrieved = true;
     }
 
@@ -30,29 +31,33 @@ DescriptorBuffer::DescriptorBuffer(VkInstance instance, VkDevice device, VkPhysi
 
 
     // Get size per Descriptor Set
-    vkGetDescriptorSetLayoutSizeEXT(device, descriptorSetLayout, &descriptorBufferSize);
+    vkGetDescriptorSetLayoutSizeEXT(context.device, descriptorSetLayout, &descriptorBufferSize);
     descriptorBufferSize = vk_helpers::getAlignedSize(descriptorBufferSize, deviceDescriptorBufferProperties.descriptorBufferOffsetAlignment);
     // Get Descriptor Buffer offset
-    vkGetDescriptorSetLayoutBindingOffsetEXT(device, descriptorSetLayout, 0u, &descriptorBufferOffset);
+    vkGetDescriptorSetLayoutBindingOffsetEXT(context.device, descriptorSetLayout, 0u, &descriptorBufferOffset);
 
-    freeIndices = std::vector<int>();
-    for (int i = 0; i < maxObjectCount; i++) { freeIndices.push_back(i); }
+    freeIndices = std::unordered_set<int>();
+    for (int i = 0; i < maxObjectCount; i++) { freeIndices.insert(i); }
 
     this->maxObjectCount = maxObjectCount;
 }
 
-void DescriptorBuffer::destroy(VkDevice device, VmaAllocator allocator)
+void DescriptorBuffer::destroy(VmaAllocator allocator)
 {
     //TODO: Maybe need to loop through all active indices and free those resources too? idk
-    vmaDestroyBuffer(allocator, descriptorBuffer.buffer, descriptorBuffer.allocation);
+    if (descriptorBuffer.buffer != VK_NULL_HANDLE) {
+        vmaDestroyBuffer(allocator, descriptorBuffer.buffer, descriptorBuffer.allocation);
+    }
+
+    descriptorBuffer = {VK_NULL_HANDLE};
 }
 
-void DescriptorBuffer::freeDescriptorBuffer(int index)
+void DescriptorBuffer::freeDescriptorBuffer(const int index)
 {
-    freeIndices.push_back(index);
+    freeIndices.insert(index);
 }
 
-VkDescriptorBufferBindingInfoEXT DescriptorBuffer::getDescriptorBufferBindingInfo()
+VkDescriptorBufferBindingInfoEXT DescriptorBuffer::getDescriptorBufferBindingInfo() const
 {
     VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info{};
     descriptor_buffer_binding_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT;
@@ -62,9 +67,8 @@ VkDescriptorBufferBindingInfoEXT DescriptorBuffer::getDescriptorBufferBindingInf
     return descriptor_buffer_binding_info;
 }
 
-DescriptorBufferUniform::DescriptorBufferUniform(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator,
-                                                 VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount)
-    : DescriptorBuffer(instance, device, physicalDevice, allocator, descriptorSetLayout, maxObjectCount)
+DescriptorBufferUniform::DescriptorBufferUniform(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount)
+    : DescriptorBuffer(context, descriptorSetLayout, maxObjectCount)
 {
     VkBufferCreateInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     bufferInfo.pNext = nullptr;
@@ -75,26 +79,35 @@ DescriptorBufferUniform::DescriptorBufferUniform(VkInstance instance, VkDevice d
     VmaAllocationCreateInfo vmaAllocInfo = {};
     vmaAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
     vmaAllocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    VK_CHECK(vmaCreateBuffer(allocator, &bufferInfo, &vmaAllocInfo, &descriptorBuffer.buffer, &descriptorBuffer.allocation, &descriptorBuffer.info));
+    VK_CHECK(vmaCreateBuffer(context.allocator, &bufferInfo, &vmaAllocInfo, &descriptorBuffer.buffer, &descriptorBuffer.allocation, &descriptorBuffer.info));
 
-    descriptorBufferGpuAddress = vk_helpers::getDeviceAddress(device, descriptorBuffer.buffer);
+    descriptorBufferGpuAddress = vk_helpers::getDeviceAddress(context.device, descriptorBuffer.buffer);
 }
 
-int DescriptorBufferUniform::setupData(VkDevice device, std::vector<DescriptorUniformData>& uniformBuffers)
+int DescriptorBufferUniform::setupData(VkDevice device, const std::vector<DescriptorUniformData>& uniformBuffers, int index)
 {
-    // TODO: Manage what happens if attempt to allocate a descriptor buffer set but out of space
-    if (freeIndices.empty()) {
-        throw DescriptorBufferException("Ran out of space in DescriptorBufferUniform");
-    }
+    int descriptorBufferIndex;
+    if (index < 0) {
+        if (freeIndices.empty()) {
+            // TODO: Manage what happens if attempt to allocate a descriptor buffer set but out of space
+            throw DescriptorBufferException("No space in DescriptorBufferSampler\n");
+        }
 
-    const int descriptorBufferIndex = freeIndices[0];
-    freeIndices.erase(freeIndices.begin());
+        descriptorBufferIndex = *freeIndices.begin();
+        freeIndices.erase(freeIndices.begin());
+    } else {
+        if (index >= maxObjectCount) {
+            fmt::print("Specified index is higher than max allowed objects");
+            return -1;
+        }
+        descriptorBufferIndex = index;
+    }
 
 
     uint64_t accum_offset{descriptorBufferOffset};
 
     for (int i = 0; i < uniformBuffers.size(); i++) {
-        VkDeviceAddress uniformBufferAddress = vk_helpers::getDeviceAddress(device, uniformBuffers[i].uniformBuffer.buffer);
+        const VkDeviceAddress uniformBufferAddress = vk_helpers::getDeviceAddress(device, uniformBuffers[i].uniformBuffer.buffer);
 
 
         VkDescriptorAddressInfoEXT descriptorAddressInfo = {};
@@ -112,7 +125,7 @@ int DescriptorBufferUniform::setupData(VkDevice device, std::vector<DescriptorUn
         // at index 0, should be -> (pointer) + (baseOffset + 0 * uniformBufferSize) + (descriptorBufferIndex * descriptorBufferSize)
         // at index 1, should be -> (pointer) + (baseOffset + 1 * uniformBufferSize) + (descriptorBufferIndex * descriptorBufferSize)
         // at index 2, should be -> (pointer) + (baseOffset + 2 * uniformBufferSize) + (descriptorBufferIndex * descriptorBufferSize)
-        char *buffer_ptr_offset = static_cast<char *>(descriptorBuffer.info.pMappedData) + accum_offset + descriptorBufferIndex *
+        char* buffer_ptr_offset = static_cast<char*>(descriptorBuffer.info.pMappedData) + accum_offset + descriptorBufferIndex *
                                   descriptorBufferSize;
 
         vkGetDescriptorEXT(
@@ -129,14 +142,13 @@ int DescriptorBufferUniform::setupData(VkDevice device, std::vector<DescriptorUn
     return descriptorBufferIndex;
 }
 
-VkBufferUsageFlagBits DescriptorBufferUniform::getBufferUsageFlags()
+VkBufferUsageFlagBits DescriptorBufferUniform::getBufferUsageFlags() const
 {
     return VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT;
 }
 
-DescriptorBufferSampler::DescriptorBufferSampler(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator,
-                                                 VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount)
-    : DescriptorBuffer(instance, device, physicalDevice, allocator, descriptorSetLayout, maxObjectCount)
+DescriptorBufferSampler::DescriptorBufferSampler(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, const int maxObjectCount)
+    : DescriptorBuffer(context, descriptorSetLayout, maxObjectCount)
 {
     VkBufferCreateInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     bufferInfo.pNext = nullptr;
@@ -148,21 +160,21 @@ DescriptorBufferSampler::DescriptorBufferSampler(VkInstance instance, VkDevice d
     VmaAllocationCreateInfo vmaAllocInfo = {};
     vmaAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
     vmaAllocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    VK_CHECK(vmaCreateBuffer(allocator, &bufferInfo, &vmaAllocInfo, &descriptorBuffer.buffer, &descriptorBuffer.allocation, &descriptorBuffer.info));
+    VK_CHECK(vmaCreateBuffer(context.allocator, &bufferInfo, &vmaAllocInfo, &descriptorBuffer.buffer, &descriptorBuffer.allocation, &descriptorBuffer.info));
 
-    descriptorBufferGpuAddress = vk_helpers::getDeviceAddress(device, descriptorBuffer.buffer);
+    descriptorBufferGpuAddress = vk_helpers::getDeviceAddress(context.device, descriptorBuffer.buffer);
 }
 
-int DescriptorBufferSampler::setupData(VkDevice device, std::vector<DescriptorImageData> imageBuffers, int index /*= -1*/)
+int DescriptorBufferSampler::setupData(VkDevice device, const std::vector<DescriptorImageData>& imageBuffers, const int index /*= -1*/)
 {
-    int descriptorBufferIndex{};
+    int descriptorBufferIndex;
     if (index < 0) {
-        // TODO: Manage what happens if attempt to allocate a descriptor buffer set but out of space
         if (freeIndices.empty()) {
+            // TODO: Manage what happens if attempt to allocate a descriptor buffer set but out of space
             throw DescriptorBufferException("No space in DescriptorBufferSampler\n");
         }
 
-        descriptorBufferIndex = freeIndices[0];
+        descriptorBufferIndex = *freeIndices.begin();
         freeIndices.erase(freeIndices.begin());
     } else {
         if (index >= maxObjectCount) {
@@ -172,84 +184,80 @@ int DescriptorBufferSampler::setupData(VkDevice device, std::vector<DescriptorIm
         descriptorBufferIndex = index;
     }
 
-    uint64_t accum_offset{descriptorBufferOffset};
+    uint64_t accumOffset{descriptorBufferOffset};
 
     if (deviceDescriptorBufferProperties.combinedImageSamplerDescriptorSingleArray == VK_FALSE) {
         fmt::print("This implementation does not support combinedImageSamplerDescriptorSingleArray\n");
         return -1;
     }
 
-    for (int i = 0; i < imageBuffers.size(); i++) {
-        const DescriptorImageData currentData = imageBuffers[i];
-        for (int j = 0; j < currentData.count; j++) {
-            // If the image info is null, that means that the entry is added just for padding. Don't bother doing GetDescriptorEXT and just add offset value.
-            if (currentData.image_info == nullptr) {
-                size_t descriptor_size;
-                switch (currentData.type) {
-                    case VK_DESCRIPTOR_TYPE_SAMPLER:
-                        descriptor_size = deviceDescriptorBufferProperties.samplerDescriptorSize;
-                        break;
-                    case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-                        descriptor_size = deviceDescriptorBufferProperties.combinedImageSamplerDescriptorSize;
-                        break;
-                    case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-                        descriptor_size = deviceDescriptorBufferProperties.sampledImageDescriptorSize;
-                        break;
-                    case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-                        descriptor_size = deviceDescriptorBufferProperties.storageImageDescriptorSize;
-                        break;
-                    default:
-                        fmt::print("DescriptorBufferImage::setup_data() called with a non-image/sampler type in its data");
-                        return -1;
-                }
-                accum_offset += descriptor_size;
-                continue;
-            }
-
-            VkDescriptorGetInfoEXT image_descriptor_info{VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT};
-            image_descriptor_info.type = currentData.type;
-            size_t descriptor_size{};
-
+    for (const DescriptorImageData currentData : imageBuffers) {
+        if (currentData.bIsPadding) {
+            size_t descriptorSize;
             switch (currentData.type) {
                 case VK_DESCRIPTOR_TYPE_SAMPLER:
-                    image_descriptor_info.data.pSampler = &currentData.image_info[j].sampler;
-                    descriptor_size = deviceDescriptorBufferProperties.samplerDescriptorSize;
+                    descriptorSize = deviceDescriptorBufferProperties.samplerDescriptorSize;
                     break;
                 case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-                    image_descriptor_info.data.pCombinedImageSampler = &currentData.image_info[j];
-                    descriptor_size = deviceDescriptorBufferProperties.combinedImageSamplerDescriptorSize;
+                    descriptorSize = deviceDescriptorBufferProperties.combinedImageSamplerDescriptorSize;
                     break;
                 case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-                    image_descriptor_info.data.pSampledImage = &currentData.image_info[j];
-                    descriptor_size = deviceDescriptorBufferProperties.sampledImageDescriptorSize;
+                    descriptorSize = deviceDescriptorBufferProperties.sampledImageDescriptorSize;
                     break;
                 case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-                    image_descriptor_info.data.pStorageImage = &currentData.image_info[j];
-                    descriptor_size = deviceDescriptorBufferProperties.storageImageDescriptorSize;
+                    descriptorSize = deviceDescriptorBufferProperties.storageImageDescriptorSize;
                     break;
                 default:
-                    fmt::print("DescriptorBufferImage::setup_data() called with a non-image/sampler descriptor type\n");
+                    fmt::print("DescriptorBufferImage::setup_data() called with a non-image/sampler type in its data");
                     return -1;
             }
-
-            char *buffer_ptr_offset = static_cast<char *>(descriptorBuffer.info.pMappedData) + accum_offset + descriptorBufferIndex *
-                                      descriptorBufferSize;
-
-            vkGetDescriptorEXT(
-                device,
-                &image_descriptor_info,
-                descriptor_size,
-                buffer_ptr_offset
-            );
-
-            accum_offset += descriptor_size;
+            accumOffset += descriptorSize;
+            continue;
         }
+
+        VkDescriptorGetInfoEXT image_descriptor_info{VK_STRUCTURE_TYPE_DESCRIPTOR_GET_INFO_EXT};
+        image_descriptor_info.type = currentData.type;
+        image_descriptor_info.pNext = nullptr;
+        size_t descriptor_size;
+
+        switch (currentData.type) {
+            case VK_DESCRIPTOR_TYPE_SAMPLER:
+                image_descriptor_info.data.pSampler = &currentData.imageInfo.sampler;
+                descriptor_size = deviceDescriptorBufferProperties.samplerDescriptorSize;
+                break;
+            case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
+                image_descriptor_info.data.pCombinedImageSampler = &currentData.imageInfo;
+                descriptor_size = deviceDescriptorBufferProperties.combinedImageSamplerDescriptorSize;
+                break;
+            case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
+                image_descriptor_info.data.pSampledImage = &currentData.imageInfo;
+                descriptor_size = deviceDescriptorBufferProperties.sampledImageDescriptorSize;
+                break;
+            case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
+                image_descriptor_info.data.pStorageImage = &currentData.imageInfo;
+                descriptor_size = deviceDescriptorBufferProperties.storageImageDescriptorSize;
+                break;
+            default:
+                fmt::print("DescriptorBufferImage::setup_data() called with a non-image/sampler descriptor type\n");
+                return -1;
+        }
+        char* buffer_ptr_offset = static_cast<char*>(descriptorBuffer.info.pMappedData) + accumOffset + descriptorBufferIndex *
+                                  descriptorBufferSize;
+
+        vkGetDescriptorEXT(
+            device,
+            &image_descriptor_info,
+            descriptor_size,
+            buffer_ptr_offset
+        );
+
+        accumOffset += descriptor_size;
     }
 
     return descriptorBufferIndex;
 }
 
-VkBufferUsageFlagBits DescriptorBufferSampler::getBufferUsageFlags()
+VkBufferUsageFlagBits DescriptorBufferSampler::getBufferUsageFlags() const
 {
     return static_cast<VkBufferUsageFlagBits>(VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT | VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT);
 }

@@ -17,11 +17,25 @@
 #include "../../extern/fmt/include/fmt/format.h"
 #include "vk_types.h"
 
+#include <fastgltf/core.hpp>
+#include <fastgltf/types.hpp>
+#include <fastgltf/tools.hpp>
+
+#include "glm/gtc/packing.hpp"
+
+class ImmediateSubmitter;
+class ResourceManager;
+class Engine;
+
 namespace vk_helpers
 {
     VkImageCreateInfo imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
 
+    VkImageCreateInfo cubemapCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
+
     VkImageViewCreateInfo imageviewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags);
+
+    VkImageViewCreateInfo cubemapViewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags);
 
     VkImageSubresourceRange imageSubresourceRange(VkImageAspectFlags aspectMask);
 
@@ -41,12 +55,12 @@ namespace vk_helpers
 
     VkSemaphoreSubmitInfo semaphoreSubmitInfo(VkPipelineStageFlags2 stageMask, VkSemaphore semaphore);
 
-    VkRenderingAttachmentInfo attachmentInfo(VkImageView view, VkClearValue *clear,
+    VkRenderingAttachmentInfo attachmentInfo(VkImageView view, const VkClearValue* clear,
                                              VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/);
 
-    VkRenderingInfo renderingInfo(VkExtent2D renderExtent, VkRenderingAttachmentInfo *colorAttachment, VkRenderingAttachmentInfo *depthAttachment);
+    VkRenderingInfo renderingInfo(VkExtent2D renderExtent, const VkRenderingAttachmentInfo* colorAttachment, const VkRenderingAttachmentInfo* depthAttachment);
 
-    VkSubmitInfo2 submitInfo(VkCommandBufferSubmitInfo *cmd, VkSemaphoreSubmitInfo *signalSemaphoreInfo, VkSemaphoreSubmitInfo *waitSemaphoreInfo);
+    VkSubmitInfo2 submitInfo(const VkCommandBufferSubmitInfo* cmd, const VkSemaphoreSubmitInfo* signalSemaphoreInfo, const VkSemaphoreSubmitInfo* waitSemaphoreInfo);
 
     VkPresentInfoKHR presentInfo();
 
@@ -68,9 +82,13 @@ namespace vk_helpers
     VkDeviceSize getAlignedSize(VkDeviceSize value, VkDeviceSize alignment);
 
 
-    void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout);
+    void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
+
+    void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageAspectFlags aspectMask, VkImageLayout targetLayout);
 
     void copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize);
+
+    void copyDepthToDepth(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize);
 
     void generateMipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize);
 
@@ -78,7 +96,8 @@ namespace vk_helpers
     VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo();
 
     VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shaderModule,
-                                                                  const char *entry = "main");
+                                                                  const char* entry = "main");
+
     /**
      * Loads a shader module from the file paths specified
      * @param filePath
@@ -86,7 +105,45 @@ namespace vk_helpers
      * @param outShaderModule
      * @return
      */
-    bool loadShaderModule(const char *filePath, VkDevice device, VkShaderModule *outShaderModule);
+    bool loadShaderModule(const char* filePath, VkDevice device, VkShaderModule* outShaderModule);
+
+
+    VkFilter extractFilter(fastgltf::Filter filter);
+
+    VkSamplerMipmapMode extractMipmapMode(fastgltf::Filter filter);
+
+    std::optional<AllocatedImage> loadImage(const ResourceManager& resourceManager, const fastgltf::Asset& asset, const fastgltf::Image& image, const std::filesystem::path& parentFolder);
+
+    /**
+     * Loads a fastgltf texture.
+     * @param texture
+     * @param gltf
+     * @param imageIndex
+     * @param samplerIndex
+     * @param imageOffset
+     * @param samplerOffset
+     */
+    void loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, int& imageIndex, int& samplerIndex,
+                     uint32_t
+                     imageOffset = 0, uint32_t samplerOffset = 0);
+
+    void saveImageRGBA32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+                          const char* savePath, bool overrideAlpha = true);
+
+    void saveImageRGBA16SFLOAT(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+                               const char* savePath, bool overrideAlpha = true);
+
+    void savePacked32Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+                         const char* savePath, const std::function<glm::vec4(uint32_t)>& unpackingFunction);
+
+    void savePacked64Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+                         const char* savePath, const std::function<glm::vec4(uint64_t)>& unpackingFunction);
+
+    /**
+     * Save the Allocated image as a grayscaled image. The image must be a format with only 1 channel (e.g. R32 or D32)
+     */
+    void saveImageR32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+                       const char* savePath, const std::function<float(float)>& valueTransform);
 }
 
 

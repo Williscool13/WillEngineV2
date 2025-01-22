@@ -6,6 +6,7 @@
 #ifndef VKDESCRIPTORBUFFER_H
 #define VKDESCRIPTORBUFFER_H
 
+#include <unordered_set>
 #include <vector>
 
 #include <vk_mem_alloc.h>
@@ -16,30 +17,40 @@
 #include "vk_helpers.h"
 
 
-struct DescriptorImageData {
-    VkDescriptorType type;
-    VkDescriptorImageInfo *image_info;
-    size_t count;
+class VulkanContext;
+
+struct DescriptorImageData
+{
+    VkDescriptorType type{VK_DESCRIPTOR_TYPE_SAMPLER};
+    VkDescriptorImageInfo imageInfo{};
+    bool bIsPadding{false};
 };
 
-struct DescriptorUniformData {
-    AllocatedBuffer uniformBuffer;
-    size_t allocSize;
+struct DescriptorUniformData
+{
+    AllocatedBuffer uniformBuffer{};
+    size_t allocSize{};
 };
 
 
-class DescriptorBuffer {
+class DescriptorBuffer
+{
 public:
     DescriptorBuffer() = default;
 
-    DescriptorBuffer(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator,
-                     VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount = 10);
+    virtual ~DescriptorBuffer() = default;
 
-    void destroy(VkDevice device, VmaAllocator allocator);
+    DescriptorBuffer(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount = 10);
+
+    void destroy(VmaAllocator allocator);
 
     void freeDescriptorBuffer(int index);
 
-    VkDescriptorBufferBindingInfoEXT getDescriptorBufferBindingInfo();
+    VkDescriptorBufferBindingInfoEXT getDescriptorBufferBindingInfo() const;
+
+    [[nodiscard]] VkDeviceSize getDescriptorBufferSize() const { return descriptorBufferSize; }
+
+    bool isIndexOccupied(const int index) const { return freeIndices.contains(index); }
 
 protected:
     /**
@@ -59,14 +70,14 @@ protected:
     VkDeviceSize descriptorBufferOffset{};
 
 
-    std::vector<int> freeIndices;
+    std::unordered_set<int> freeIndices;
     /**
      * Must be specified when this descriptor buffer is created.
      * \n Total descriptor buffer size will be offset + size * maxObjectCount
      */
     int maxObjectCount{10};
 
-    virtual VkBufferUsageFlagBits getBufferUsageFlags() = 0;
+    virtual VkBufferUsageFlagBits getBufferUsageFlags() const = 0;
 
     /**
      * Physical device properties that are the same for all descriptor buffers (assuming device is the same)
@@ -75,40 +86,38 @@ protected:
     static bool devicePropertiesRetrieved;
 };
 
-class DescriptorBufferUniform : public DescriptorBuffer {
+class DescriptorBufferUniform final : public DescriptorBuffer
+{
 public:
     DescriptorBufferUniform() = default;
 
     /**
      *
-     * @param instance
-     * @param device
-     * @param physicalDevice
-     * @param allocator
+     * @param context
      * @param descriptorSetLayout
      * @param maxObjectCount
      */
-    DescriptorBufferUniform(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator,
-                            VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount = 10);
+    DescriptorBufferUniform(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount = 10);
 
     /**
      * Allocates a descriptor set instance to a free index in the descriptor buffer. The vector passed to this should be equal in layout to
      * the descriptor set layout this descriptor buffer was initialized with.
      * @param device the device the uniform buffer is created in and this descriptor buffer was initialized with
      * @param uniformBuffers the uniform buffer and their corresponding total sizes to insert to the descriptor buffer
+     * @param index
      * @return the index of the allocated descriptor set. Store and use when binding during draw call.
      */
-    int setupData(VkDevice device, std::vector<DescriptorUniformData>& uniformBuffers);
+    int32_t setupData(VkDevice device, const std::vector<DescriptorUniformData>& uniformBuffers, int index = -1);
 
-    VkBufferUsageFlagBits getBufferUsageFlags() override;
+    VkBufferUsageFlagBits getBufferUsageFlags() const override;
 };
 
-class DescriptorBufferSampler : public DescriptorBuffer {
+class DescriptorBufferSampler final : public DescriptorBuffer
+{
 public:
     DescriptorBufferSampler() = default;
 
-    DescriptorBufferSampler(VkInstance instance, VkDevice device, VkPhysicalDevice physicalDevice, VmaAllocator allocator,
-                            VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount = 10);
+    DescriptorBufferSampler(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount = 10);
 
     /**
      * Allocates a descriptor set instance to a free index in the descriptor buffer. The vector passed to this should be equal in layout to
@@ -118,9 +127,9 @@ public:
      * @param index optional. If specified, will allocate/overwrite the descriptor set in that index of the descriptor buffer
      * @return the index of the allocated descriptor set. Store and use when binding during draw call.
      */
-    int setupData(VkDevice device, std::vector<DescriptorImageData> imageBuffers, int index = -1);
+    int setupData(VkDevice device, const std::vector<DescriptorImageData>& imageBuffers, int index = -1);
 
-    VkBufferUsageFlagBits getBufferUsageFlags() override;
+    VkBufferUsageFlagBits getBufferUsageFlags() const override;
 };
 
 #endif //VKDESCRIPTORBUFFER_H
