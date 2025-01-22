@@ -7,7 +7,9 @@
 
 #include <filesystem>
 
-#include "../renderer/vk_pipelines.h"
+#include <vulkan/vulkan_core.h>
+#include <volk.h>
+#include "src/renderer/vk_pipelines.h"
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -18,8 +20,11 @@
 
 void Engine::init()
 {
+    fmt::print("----------------------------------------\n");
     fmt::print("Initializing Will Engine V2\n");
-    auto start = std::chrono::system_clock::now(); {
+    auto start = std::chrono::system_clock::now();
+    //
+    {
         // We initialize SDL and create a window with it.
         SDL_Init(SDL_INIT_VIDEO);
         auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);

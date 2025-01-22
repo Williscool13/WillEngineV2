@@ -59,115 +59,33 @@ set(HALF_SOURCES
 )
 
 set(CORE_SOURCES
-        src/core/Engine.cpp
-        src/core/Engine.h
-        src/core/scene.cpp
-        src/core/scene.h
-        src/core/input.cpp
-        src/core/input.h
-        src/core/game_object.cpp
-        src/core/game_object.h
-        src/core/camera/camera.cpp
-        src/core/camera/camera.h
-        src/core/camera/camera_types.h
-        src/core/imgui_wrapper.cpp
-        src/core/imgui_wrapper.h
-        src/core/transform.cpp
-        src/core/transform.h
+        src/core/engine.cpp
+        src/core/engine.h
 )
 
 
 set(PHYSICS_SOURCES
-        src/physics/physics.cpp
-        src/physics/physics.h
-        src/physics/physics_filters.cpp
-        src/physics/physics_filters.h
-        src/physics/physics_body.cpp
-        src/physics/physics_body.h
-        src/physics/physics_utils.cpp
-        src/physics/physics_utils.h
-        src/physics/physics_types.cpp
-        src/physics/physics_types.h
-        src/physics/debug/debug_renderer.cpp
-        src/physics/debug/debug_renderer.h
 )
 
 set(RENDERER_SOURCES
-        src/renderer/vulkan_context.cpp
-        src/renderer/vulkan_context.h
-        src/renderer/resource_manager.cpp
-        src/renderer/resource_manager.h
-        src/renderer/immediate_submitter.cpp
-        src/renderer/immediate_submitter.h
-        src/renderer/render_object/render_object.cpp
-        src/renderer/render_object/render_object.h
-        src/renderer/environment/environment.cpp
-        src/renderer/environment/environment.h
-        src/renderer/environment/environment_map_types.h
-        src/renderer/lighting/shadows/cascaded_shadow_map_descriptor_layouts.cpp
-        src/renderer/lighting/shadows/cascaded_shadow_map_descriptor_layouts.h
-        src/renderer/lighting/directional_light.cpp
-        src/renderer/lighting/directional_light.h
-        src/renderer/lighting/shadows/cascaded_shadow_map.cpp
-        src/renderer/lighting/shadows/cascaded_shadow_map.h
-        src/renderer/lighting/shadows/shadow_types.h
-        src/renderer/pipelines/acceleration_algorithms/frustum_culling_descriptor_layout.cpp
-        src/renderer/pipelines/acceleration_algorithms/frustum_culling_descriptor_layout.h
-        src/renderer/pipelines/acceleration_algorithms/frustum_culling_pipeline.cpp
-        src/renderer/pipelines/acceleration_algorithms/frustum_culling_pipeline.h
-        src/renderer/pipelines/acceleration_algorithms/frustum_culling_types.h
-        src/renderer/pipelines/deferred/deferred_mrt.cpp
-        src/renderer/pipelines/deferred/deferred_mrt.h
-        src/renderer/pipelines/deferred/deferred_resolve.cpp
-        src/renderer/pipelines/deferred/deferred_resolve.h
-        src/renderer/pipelines/post_processing/temporal_antialiasing.cpp
-        src/renderer/pipelines/post_processing/temporal_antialiasing.h
-        src/renderer/pipelines/environment/environment_map_pipeline.cpp
-        src/renderer/pipelines/environment/environment_map_pipeline.h
-        src/renderer/pipelines/post_processing/post_process.cpp
-        src/renderer/pipelines/post_processing/post_process.h
-        src/renderer/pipelines/post_processing/post_process_types.h
-        src/renderer/pipelines/environment/environment_descriptor_layouts.cpp
-        src/renderer/pipelines/environment/environment_descriptor_layouts.h
-        src/renderer/scene/scene_descriptor_layouts.cpp
-        src/renderer/scene/scene_descriptor_layouts.h
-        src/renderer/render_object/render_object_descriptor_layout.cpp
-        src/renderer/render_object/render_object_descriptor_layout.h
-        src/renderer/vk_helpers.cpp
-        src/renderer/vk_helpers.h
-        src/renderer/vk_types.cpp
-        src/renderer/vk_types.h
-        src/renderer/vk_descriptors.cpp
-        src/renderer/vk_descriptors.h
         src/renderer/vk_descriptor_buffer.cpp
         src/renderer/vk_descriptor_buffer.h
-        src/renderer/vk_loader.cpp
-        src/renderer/vk_loader.h
+        src/renderer/vk_descriptors.cpp
+        src/renderer/vk_descriptors.h
+        src/renderer/vk_helpers.h
         src/renderer/vk_pipelines.cpp
+        src/renderer/vk_helpers.cpp
         src/renderer/vk_pipelines.h
-        src/renderer/data_structures/bounding_sphere.cpp
-        src/renderer/data_structures/bounding_sphere.h
-
+        src/renderer/vk_types.cpp
+        src/renderer/vk_types.h
 )
 
 set(GAME_SOURCES
-        src/game/camera/free_camera.cpp
-        src/game/camera/free_camera.h
-        src/game/camera/orbit_camera.cpp
-        src/game/camera/orbit_camera.h
-        src/game/player/player_character.cpp
-        src/game/player/player_character.h
+
 )
 
 set(UTIL_SOURCES
         src/util/math_constants.h
-        src/util/time_utils.cpp
-        src/util/time_utils.h
-        src/util/render_utils.h
-        src/util/file_utils.cpp
-        src/util/file_utils.h
-        src/util/halton.cpp
-        src/util/halton.h
 )
 
 
@@ -176,7 +94,6 @@ if (WIN32)
     set(WINDOWS_SOURCES
             src/resources.h
             src/resources.rc
-            src/renderer/lighting/shadows/shadow_constants.h
     )
 endif ()
 
