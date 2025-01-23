@@ -63,14 +63,26 @@ set(CORE_SOURCES
         src/core/engine.h
         src/core/input.cpp
         src/core/input.h
-        src/core/time_utils.cpp
-        src/core/time_utils.h
+        src/core/time.cpp
+        src/core/time.h
         src/core/engine_types.cpp
         src/core/engine_types.h
+        src/core/transform.h
+        src/core/transform.cpp
+        src/core/game_object/game_object.h
+        src/core/game_object/game_object.cpp
 )
 
 
 set(PHYSICS_SOURCES
+        src/physics/physics.cpp
+        src/physics/physics.h
+        src/physics/physics_filters.cpp
+        src/physics/physics_filters.h
+        src/physics/physics_types.h
+        src/physics/physics_utils.h
+        src/physics/debug/debug_renderer.cpp
+        src/physics/debug/debug_renderer.h
 )
 
 set(RENDERER_SOURCES
@@ -119,6 +131,8 @@ if (WIN32)
             src/renderer/pipelines/basic_compute/basic_compute_pipeline.h
             src/renderer/pipelines/basic_render/basic_render_pipeline.cpp
             src/renderer/pipelines/basic_render/basic_render_pipeline.h
+            src/core/game_object/physics_body.h
+            src/physics/physics_constants.h
 
     )
 endif ()
