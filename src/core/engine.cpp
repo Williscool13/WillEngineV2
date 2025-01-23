@@ -107,6 +107,7 @@ void Engine::init()
 
 void Engine::run()
 {
+    fmt::print("----------------------------------------\n");
     fmt::print("Running {}\n", ENGINE_NAME);
 
     SDL_Event e;

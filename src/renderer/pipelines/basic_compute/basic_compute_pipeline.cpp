@@ -33,7 +33,7 @@ BasicComputePipeline::BasicComputePipeline(VulkanContext& context) : context(con
 
 
     VkShaderModule gradientShader;
-    if (!vk_helpers::loadShaderModule("shaders\\compute.comp.spv", context.device, &gradientShader)) {
+    if (!vk_helpers::loadShaderModule("shaders/basic/compute.comp.spv", context.device, &gradientShader)) {
         throw std::runtime_error("Error when building the compute shader (compute.comp.spv)");
     }
 

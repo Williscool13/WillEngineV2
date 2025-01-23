@@ -22,11 +22,11 @@ BasicRenderPipeline::BasicRenderPipeline(const RenderPipelineInfo& pipelineInfo,
 
 
     VkShaderModule vertShader;
-    if (!vk_helpers::loadShaderModule("shaders/vertex.vert.spv", context.device, &vertShader)) {
+    if (!vk_helpers::loadShaderModule("shaders/basic/vertex.vert.spv", context.device, &vertShader)) {
         throw std::runtime_error("Error when building the triangle vertex shader module(vertex.vert)");
     }
     VkShaderModule fragShader;
-    if (!vk_helpers::loadShaderModule("shaders/fragment.frag.spv", context.device, &fragShader)) {
+    if (!vk_helpers::loadShaderModule("shaders/basic/fragment.frag.spv", context.device, &fragShader)) {
         fmt::print("Error when building the triangle fragment shader module(fragment.frag)\n");
     }
 

@@ -1,0 +1,230 @@
+#version 460
+
+#include "colors.glsl"
+#include "depth.glsl"
+#include "scene.glsl"
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+// layout (std140, set = 0, binding = 0) uniform SceneData - scene.glsl
+
+layout (set = 1, binding = 0) uniform sampler2D drawImage;
+layout (set = 1, binding = 1) uniform sampler2D drawHistory;
+layout (set = 1, binding = 2) uniform sampler2D depthImage;
+layout (set = 1, binding = 3) uniform sampler2D velocityBuffer;
+layout (rgba16f, set = 1, binding = 4) uniform image2D outputImage;
+
+layout (push_constant) uniform PushConstants {
+    vec2 texelSize;
+    int width;
+    int height;
+    float blendValue;
+    bool bEnabled;
+    int debug;
+} push;
+
+const float FLT_EPS = 0.00000001f;
+
+vec3 clipAABB(vec3 cMin, vec3 cMax, vec3 cAvg, vec3 color) {
+    // note: only clips towards aabb center (but fast!)
+    vec3 p_clip = 0.5 * (cMax + cMin);
+    vec3 e_clip = 0.5 * (cMax - cMin) + FLT_EPS;
+
+    vec3 v_clip = color - p_clip;
+    vec3 v_unit = v_clip.xyz / e_clip;
+    vec3 a_unit = abs(v_unit);
+    float ma_unit = max(a_unit.x, max(a_unit.y, a_unit.z));
+
+    if (ma_unit > 1.0)
+    return p_clip + v_clip / ma_unit;
+    else
+    return color;
+}
+
+vec3 findClosestFragment3x3(vec2 uv)
+{
+    vec2 du = vec2(push.texelSize.x);
+    vec2 dv = vec2(push.texelSize.y);
+
+    vec3 topL = vec3(-1, -1, texture(depthImage, uv - dv - du).x);
+    vec3 topM = vec3(0, -1, texture(depthImage, uv - dv).x);
+    vec3 topR = vec3(1, -1, texture(depthImage, uv - dv + du).x);
+
+    vec3 midL = vec3(-1, 0, texture(depthImage, uv - du).x);
+    vec3 midM = vec3(0, 0, texture(depthImage, uv).x);
+    vec3 midR = vec3(1, 0, texture(depthImage, uv + du).x);
+
+    vec3 botL = vec3(-1, 1, texture(depthImage, uv + dv - du).x);
+    vec3 botM = vec3(0, 1, texture(depthImage, uv + dv).x);
+    vec3 botR = vec3(1, 1, texture(depthImage, uv + dv + du).x);
+
+    vec3 dMin = topL;
+    // reversed depth
+    if (topM.z > dMin.z) dMin = topM;
+    if (topR.z > dMin.z) dMin = topR;
+    if (midL.z > dMin.z) dMin = midL;
+    if (midM.z > dMin.z) dMin = midM;
+    if (midR.z > dMin.z) dMin = midR;
+    if (botL.z > dMin.z) dMin = botL;
+    if (botM.z > dMin.z) dMin = botM;
+    if (botR.z > dMin.z) dMin = botR;
+
+    return vec3(uv + push.texelSize * dMin.xy, dMin.z);
+}
+
+vec3 temporalReprojection(vec2 uv, vec2 velocity) {
+    vec3 currentSample = RGBToYCoCg(texture(drawImage, uv).rgb);
+    vec3 historySample = RGBToYCoCg(texture(drawHistory, uv - velocity).rgb);
+
+    vec2 du = vec2(push.texelSize.x);
+    vec2 dv = vec2(push.texelSize.y);
+
+    // MINMAX_3X3_ROUNDED
+    vec3 topL = RGBToYCoCg(texture(drawImage, uv - dv - du).rgb);
+    vec3 topM = RGBToYCoCg(texture(drawImage, uv - dv).rgb);
+    vec3 topR = RGBToYCoCg(texture(drawImage, uv - dv + du).rgb);
+    vec3 midL = RGBToYCoCg(texture(drawImage, uv - du).rgb);
+    vec3 midM = RGBToYCoCg(texture(drawImage, uv).rgb);
+    vec3 midR = RGBToYCoCg(texture(drawImage, uv + du).rgb);
+    vec3 botL = RGBToYCoCg(texture(drawImage, uv + dv - du).rgb);
+    vec3 botM = RGBToYCoCg(texture(drawImage, uv + dv).rgb);
+    vec3 botR = RGBToYCoCg(texture(drawImage, uv + dv + du).rgb);
+
+    vec3 cMin = min(min(min(min(min(min(min(min(topL, topM), topR), midL), midM), midR), botL), botM), botR);
+    vec3 cMax = max(max(max(max(max(max(max(max(topL, topM), topR), midL), midM), midR), botL), botM), botR);
+    vec3 cAvg = (topL + topM + topR + midL + midM + midR + botL + botM + botR) / 9.0;
+
+    {
+        vec3 cMin5 = min(min(min(min(topM, midL), midM), midR), botM);
+        vec3 cMax5 = max(max(max(max(topM, midL), midM), midR), botM);
+        vec3 cAvg5 = (topM + midL + midM + midR + botM) / 5.0;
+        cMin = 0.5 * (cMin + cMin5);
+        cMax = 0.5 * (cMax + cMax5);
+        cAvg = 0.5 * (cAvg + cAvg5);
+    }
+
+
+    vec2 chromaExtent = vec2(.25 * 0.5 * (cMax.r - cMin.r));
+    vec2 chromaCenter = currentSample.gb;
+    cMin.yz = chromaCenter - chromaExtent;
+    cMax.yz = chromaCenter + chromaExtent;
+    cAvg.yz = chromaCenter;
+
+    currentSample = clipAABB(cMin, cMax, clamp(cAvg, cMin, cMax), currentSample);
+
+    float currentLuminance = currentSample.r;
+    float historyLuminance = historySample.r;
+
+
+    // ??????
+    float unbiased_diff = abs(currentLuminance - historyLuminance) / max(currentLuminance, max(historyLuminance, 0.2));
+    float unbiased_weight = 1.0 - unbiased_diff;
+    float unbiased_weight_sqr = unbiased_weight * unbiased_weight;
+    //float k_feedback = lerp(_FeedbackMin, _FeedbackMax, unbiased_weight_sqr);
+    //float k_feedback = mix(push.minBlend, push.maxBlend, unbiased_weight_sqr);
+    float k_feedback = 0;
+
+    // output
+    return mix(currentSample, historySample, k_feedback);
+}
+
+vec3 varianceClipping(vec3 color, vec2 uv) {
+    // https://developer.download.nvidia.com/gameworks/events/GDC2016/msalvi_temporal_supersampling.pdf
+    // 3x3 kernel
+    const float totalSamples = 9.0;
+    vec3 mean = vec3(0.0);
+    vec3 squaredSum = vec3(0.0);
+    vec3 minColor = vec3(1.0);
+    vec3 maxColor = vec3(0.0);
+
+    for (int y = -1; y <= 1; y++) {
+        for (int x = -1; x <= 1; x++) {
+            vec2 offset = vec2(x, y) * push.texelSize;
+            vec3 sampleRGB = texture(drawImage, uv + offset).rgb;
+            vec3 sampleYCoCg = RGBToYCoCg(sampleRGB);
+
+            mean += sampleYCoCg;
+            squaredSum += sampleYCoCg * sampleYCoCg;
+
+            minColor = min(minColor, sampleYCoCg);
+            maxColor = max(maxColor, sampleYCoCg);
+        }
+    }
+
+    mean /= totalSamples;
+    squaredSum /= totalSamples;
+    vec3 variance = squaredSum - mean * mean;
+    vec3 stddev = sqrt(max(variance, vec3(0.0)));
+
+    vec3 gamma = vec3(1.0, 1.25, 1.25);
+    vec3 minc = mean - gamma * stddev;
+    vec3 maxc = mean + gamma * stddev;
+
+    minc = max(minc, minColor);
+    maxc = min(maxc, maxColor);
+
+    return clamp(color, minc, maxc);
+}
+
+void main() {
+    ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
+    if (pixel.x >= push.width || pixel.y >= push.height) {
+        return;
+    }
+    vec2 uv = (vec2(pixel) + 0.5) * push.texelSize;
+
+    if (!push.bEnabled) {
+        imageStore(outputImage, pixel, texture(drawImage, uv));
+        return;
+    }
+
+    // https://github.com/playdeadgames/temporal.git
+    // vec3 closestFrag = findClosestFragment3x3(uv);
+    // vec2 cuv = closestFrag.xy;
+    // vec2 cve = texture(velocityBuffer, cuv).rg;
+    // vec3 finalCol = temporalReprojection(cuv, cve);
+    // vec3 rgbFinalColor = YCoCgToRGB(finalCol);
+    // imageStore(outputImage, pixel, vec4(rgbFinalColor, 1.0));
+    // return;
+    vec3 currentColor = texture(drawImage, uv).rgb;
+    vec2 velocity = texture(velocityBuffer, uv).rg;
+    vec2 historyUv = uv - velocity;
+    bool validHistory = all(greaterThanEqual(historyUv, vec2(0.0))) && all(lessThan(historyUv, vec2(1.0)));
+    vec3 resultRGB;
+
+
+    if (!validHistory) {
+        resultRGB = currentColor;
+    } else {
+        vec3 currentYCoCg = RGBToYCoCg(currentColor);
+        vec3 historyColor = texture(drawHistory, historyUv).rgb;
+        vec3 historyYCoCg = RGBToYCoCg(historyColor);
+
+        historyYCoCg = varianceClipping(historyYCoCg, uv);
+
+        float alpha = 1 - push.blendValue;
+        vec3 resultYCoCg = mix(currentYCoCg, historyYCoCg, alpha);
+        resultRGB = YCoCgToRGB(resultYCoCg);
+    }
+
+
+
+    switch (push.debug) {
+        case 1:
+            imageStore(outputImage, pixel, vec4(vec2(velocity) * 10.0f, 0.0, 1.0));
+            return;
+        case 2:
+            imageStore(outputImage, pixel, vec4(vec3(validHistory ? 1.0f : 0.0f), 1.0));
+            return;
+        case 3:
+            return;
+        case 4:
+            return;
+        case 5:
+            return;
+        default:
+            break;
+    }
+
+    imageStore(outputImage, pixel, vec4(resultRGB, 1.0));
+}
