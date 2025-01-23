@@ -46,19 +46,25 @@ private:
     EngineStats stats{};
 
 private: // Rendering
-    int frameNumber{0};
+    int32_t frameNumber{0};
     FrameData frames[FRAME_OVERLAP]{};
-    FrameData& getCurrentFrame() { return frames[frameNumber % FRAME_OVERLAP]; };
+    int32_t getCurrentFrameOverlap() const { return frameNumber % FRAME_OVERLAP; }
+    FrameData& getCurrentFrame() { return frames[getCurrentFrameOverlap()]; }
 
     bool bStopRendering{false};
     bool bResizeRequested{false};
 
 
-    const VkExtent2D renderExtent{1920, 1080};
+
     AllocatedImage drawImage{};
     AllocatedImage depthImage{};
 
     void createDrawResources(uint32_t width, uint32_t height);
+
+private: // Scene Data
+    DescriptorBufferUniform sceneDataDescriptorBuffer;
+    AllocatedBuffer sceneDataBuffers[FRAME_OVERLAP]{};
+    VkDescriptorSetLayout sceneDataLayout{VK_NULL_HANDLE};
 
 private: // Pipelines
     basic_compute::BasicComputePipeline* computePipeline{nullptr};

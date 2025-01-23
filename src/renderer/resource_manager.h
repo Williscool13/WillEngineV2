@@ -21,6 +21,8 @@ public:
 
     [[nodiscard]] AllocatedBuffer createBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) const;
 
+    AllocatedBuffer createHostSequentialUniformBuffer(size_t allocSize) const;
+
     [[nodiscard]] AllocatedBuffer createStagingBuffer(size_t allocSize) const;
 
     [[nodiscard]] AllocatedBuffer createReceivingBuffer(size_t allocSize) const;

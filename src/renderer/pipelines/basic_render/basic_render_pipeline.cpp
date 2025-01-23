@@ -34,11 +34,13 @@ BasicRenderPipeline::BasicRenderPipeline(const RenderPipelineInfo& pipelineInfo,
     VkPushConstantRange renderPushConstantRange{};
     renderPushConstantRange.offset = 0;
     renderPushConstantRange.size = sizeof(RenderPushConstant);
-    renderPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    renderPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
     VkPipelineLayoutCreateInfo layout_info = vk_helpers::pipelineLayoutCreateInfo();
-    layout_info.setLayoutCount = 1;
-    layout_info.pSetLayouts = &samplerDescriptorLayout;
+    layout_info.setLayoutCount = 2;
+
+    VkDescriptorSetLayout layouts[2]{samplerDescriptorLayout, pipelineInfo.sceneDataLayout};
+    layout_info.pSetLayouts = layouts;
     layout_info.pPushConstantRanges = &renderPushConstantRange;
     layout_info.pushConstantRangeCount = 1;
 
@@ -96,9 +98,9 @@ void BasicRenderPipeline::setupDescriptors(const RenderDescriptorInfo& descripto
 void BasicRenderPipeline::draw(VkCommandBuffer cmd, const RenderDrawInfo& drawInfo) const
 {
     if (drawInfo.drawImage == VK_NULL_HANDLE || drawInfo.depthImage == VK_NULL_HANDLE) { return; }
-    constexpr VkClearValue depthClearValue = {0.0f, 0};
-    const VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawInfo.drawImage, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    const VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthImage, &depthClearValue, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    constexpr VkClearValue clearValue = {0.0f, 0};
+    const VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawInfo.drawImage, &clearValue, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    const VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthImage, &clearValue, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
     const VkRenderingInfo renderInfo = vk_helpers::renderingInfo(drawInfo.renderExtent, &colorAttachment, &depthAttachment);
 
     vkCmdBeginRendering(cmd, &renderInfo);
@@ -122,15 +124,21 @@ void BasicRenderPipeline::draw(VkCommandBuffer cmd, const RenderDrawInfo& drawIn
     scissor.extent.height = drawInfo.renderExtent.height;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1];
+    VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];
     descriptorBufferBindingInfo[0] = samplerDescriptorBuffer.getDescriptorBufferBindingInfo();
-    vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
-    constexpr uint32_t bufferIndexImage = 0;
+    descriptorBufferBindingInfo[1] = drawInfo.sceneDataBinding;
+    vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
+    constexpr uint32_t imageBufferIndex = 0;
+    constexpr uint32_t sceneDataIndex = 1;
+    const VkDeviceSize sceneDataOffset = drawInfo.sceneDataOffset;
 
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &bufferIndexImage, &ZERO_DEVICE_SIZE);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &imageBufferIndex, &ZERO_DEVICE_SIZE);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &sceneDataIndex, &sceneDataOffset);
 
     const float time = static_cast<float>(SDL_GetTicks64()) / 1000.0f;
-    vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(float), &time);
+    RenderPushConstant push{};
+    push.currentFrame = drawInfo.currentFrame;
+    vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(RenderPushConstant), &push);
     vkCmdDraw(cmd, 3, 1, 0, 0);
     vkCmdEndRendering(cmd);
 }

@@ -7,6 +7,7 @@
 
 #include <vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
+#include <glm/glm.hpp>
 
 struct AllocatedImage {
     VkImage image {VK_NULL_HANDLE};
@@ -22,7 +23,30 @@ struct AllocatedBuffer {
     VmaAllocationInfo info;
 };
 
+struct SceneData
+{
+    glm::mat4 view{1.0f};
+    glm::mat4 proj{1.0f};
+    glm::mat4 viewProj{1.0f};
+    glm::vec4 cameraWorldPos{0.0f};
+    glm::mat4 viewProjCameraLookDirection{1.0f};
 
+    glm::mat4 invView{1.0f};
+    glm::mat4 invProj{1.0f};
+    glm::mat4 invViewProj{1.0f};
 
+    glm::mat4 prevView{1.0f};
+    glm::mat4 prevProj{1.0f};
+    glm::mat4 prevViewProj{1.0f};
+
+    /**
+     * x,y is current; z,w is previous
+     */
+    glm::vec4 jitter{0.0f};
+
+    glm::vec2 renderTargetSize{};
+    float deltaTime{};
+    int32_t currentFrame{0};
+};
 
 #endif //VKTYPES_H

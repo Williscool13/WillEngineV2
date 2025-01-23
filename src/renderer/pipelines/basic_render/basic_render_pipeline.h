@@ -16,6 +16,7 @@ struct RenderPipelineInfo
 {
     VkFormat colorFormat;
     VkFormat depthFormat;
+    VkDescriptorSetLayout sceneDataLayout;
 };
 
 struct RenderDescriptorInfo
@@ -29,11 +30,14 @@ struct RenderDrawInfo
     VkExtent2D renderExtent{};
     VkImageView drawImage{VK_NULL_HANDLE};
     VkImageView depthImage{VK_NULL_HANDLE};
+    VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
+    VkDeviceSize sceneDataOffset{0};
+    int32_t currentFrame{};
 };
 
 struct RenderPushConstant
 {
-    float value;
+    int32_t currentFrame;
 };
 
 

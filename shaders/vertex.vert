@@ -4,7 +4,7 @@ layout(location = 0) out vec2 texCoord;
 layout(location = 1) out vec3 color;
 
 layout(push_constant) uniform PushConstants {
-    float time;
+    int frameNumber;
 } pushConstants;
 
 void main() {
@@ -24,10 +24,11 @@ void main() {
     vec3(0.0, 0.0, 1.0)   // Blue
     );
     // Smooth color transition
-    float t = fract(pushConstants.time);
-    int currentColorIndex = (gl_VertexIndex + int(pushConstants.time)) % 3;
-    int nextColorIndex = (currentColorIndex + 1) % 3;
-    color = mix(colors[currentColorIndex], colors[nextColorIndex], t);
+//    float t = fract(pushConstants.time);
+//    int currentColorIndex = (gl_VertexIndex + int(pushConstants.time)) % 3;
+//    int nextColorIndex = (currentColorIndex + 1) % 3;
+//    color = mix(colors[currentColorIndex], colors[nextColorIndex], t);
+    color = colors[gl_VertexIndex];
 
     gl_Position = vec4(pos, 1.0, 1.0);
 }
