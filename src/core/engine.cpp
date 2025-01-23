@@ -6,7 +6,6 @@
 
 #include <thread>
 
-
 #include <VkBootstrap.h>
 
 #include "src/core/input.h"
@@ -21,28 +20,27 @@
 #define USE_VALIDATION_LAYERS true
 #endif
 
-using will_engine::Time;
-using will_engine::Input;
-
+namespace will_engine
+{
 void Engine::init()
 {
     fmt::print("----------------------------------------\n");
     fmt::print("Initializing {}\n", ENGINE_NAME);
     auto start = std::chrono::system_clock::now();
-    //
-    {
-        // We initialize SDL and create a window with it.
-        SDL_Init(SDL_INIT_VIDEO);
-        auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
-        window = SDL_CreateWindow(
-            ENGINE_NAME,
-            SDL_WINDOWPOS_UNDEFINED,
-            SDL_WINDOWPOS_UNDEFINED,
-            static_cast<int>(windowExtent.width), // narrowing
-            static_cast<int>(windowExtent.height), // narrowing
-            window_flags);
-    }
+
+    // We initialize SDL and create a window with it.
+    SDL_Init(SDL_INIT_VIDEO);
+    auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+
+    window = SDL_CreateWindow(
+        ENGINE_NAME,
+        SDL_WINDOWPOS_UNDEFINED,
+        SDL_WINDOWPOS_UNDEFINED,
+        static_cast<int>(windowExtent.width),
+        static_cast<int>(windowExtent.height),
+        window_flags);
+
 
     context = new VulkanContext(window, USE_VALIDATION_LAYERS);
 
@@ -192,7 +190,10 @@ void Engine::draw()
     // draw geometry into _drawImage
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
-    renderPipeline->draw(cmd, {RENDER_EXTENTS, drawImage.imageView, depthImage.imageView, sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(), sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(), frameNumber});
+    renderPipeline->draw(cmd, {
+                             RENDER_EXTENTS, drawImage.imageView, depthImage.imageView, sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+                             sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(), frameNumber
+                         });
 
     // copy Draw Image into Swapchain Image
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -376,4 +377,5 @@ void Engine::createDrawResources(uint32_t width, uint32_t height)
         VkImageViewCreateInfo depthViewInfo = vk_helpers::imageviewCreateInfo(depthImage.imageFormat, depthImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
         VK_CHECK(vkCreateImageView(context->device, &depthViewInfo, nullptr, &depthImage.imageView));
     }
+}
 }

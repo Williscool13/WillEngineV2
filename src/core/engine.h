@@ -13,11 +13,8 @@
 #include "src/renderer/pipelines/basic_render/basic_render_pipeline.h"
 #include "src/renderer/vulkan/descriptor_buffer/descriptor_buffer_uniform.h"
 
-
-using will_engine::EngineStats;
-using will_engine::FrameData;
-
-
+namespace will_engine
+{
 class Engine
 {
 public:
@@ -55,7 +52,6 @@ private: // Rendering
     bool bResizeRequested{false};
 
 
-
     AllocatedImage drawImage{};
     AllocatedImage depthImage{};
 
@@ -89,7 +85,10 @@ private: // Swapchain
 
     void resizeSwapchain();
 
-    friend void ImguiWrapper::imguiInterface(Engine* engine);
+public:
+    friend void ImguiWrapper::imguiInterface(const Engine* engine);
 };
+}
+
 
 #endif //ENGINE_H
