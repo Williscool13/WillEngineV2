@@ -9,7 +9,7 @@
 
 #include "src/core/engine.h"
 #include "src/core/input.h"
-#include "src/core/time_utils.h"
+#include "src/core/time.h"
 
 using will_engine::Input;
 using will_engine::Time;

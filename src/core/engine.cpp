@@ -10,7 +10,7 @@
 #include <VkBootstrap.h>
 
 #include "src/core/input.h"
-#include "src/core/time_utils.h"
+#include "src/core/time.h"
 #include "src/renderer/immediate_submitter.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/vk_descriptors.h"
@@ -102,7 +102,7 @@ void Engine::init()
 
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    fmt::print("Finished Initialization in {} seconds\n\n", static_cast<float>(elapsed.count()) / 1000000.0f);
+    fmt::print("Finished Initialization in {} seconds\n", static_cast<float>(elapsed.count()) / 1000000.0f);
 }
 
 void Engine::run()
@@ -249,7 +249,8 @@ void Engine::draw()
 
 void Engine::cleanup()
 {
-    fmt::print("Cleaning up Will Engine V2\n");
+    fmt::print("----------------------------------------\n");
+    fmt::print("Cleaning up {}n", ENGINE_NAME);
 
     vkDeviceWaitIdle(context->device);
 
