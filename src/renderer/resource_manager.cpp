@@ -13,7 +13,6 @@
 #include "vulkan_context.h"
 
 
-
 ResourceManager::ResourceManager(const VulkanContext& context, ImmediateSubmitter& immediate) : context(context), immediate(immediate)
 {
     // white
@@ -77,6 +76,26 @@ AllocatedBuffer ResourceManager::createBuffer(const size_t allocSize, const VkBu
     return newBuffer;
 }
 
+AllocatedBuffer ResourceManager::createHostSequentialUniformBuffer(const size_t allocSize) const
+{
+    const VkBufferCreateInfo bufferInfo{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = allocSize,
+        .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+    };
+
+    constexpr VmaAllocationCreateInfo allocInfo{
+        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+    };
+
+    AllocatedBuffer newBuffer{};
+    VK_CHECK(vmaCreateBuffer(context.allocator, &bufferInfo, &allocInfo,&newBuffer.buffer, &newBuffer.allocation, &newBuffer.info));
+
+    return newBuffer;
+}
+
 AllocatedBuffer ResourceManager::createStagingBuffer(const size_t allocSize) const
 {
     return createBuffer(allocSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
@@ -90,25 +109,25 @@ AllocatedBuffer ResourceManager::createReceivingBuffer(const size_t allocSize) c
 void ResourceManager::copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, const VkDeviceSize size) const
 {
     immediate.submit([&](VkCommandBuffer cmd) {
-       VkBufferCopy vertexCopy{};
-       vertexCopy.dstOffset = 0;
-       vertexCopy.srcOffset = 0;
-       vertexCopy.size = size;
+        VkBufferCopy vertexCopy{};
+        vertexCopy.dstOffset = 0;
+        vertexCopy.srcOffset = 0;
+        vertexCopy.size = size;
 
-       vkCmdCopyBuffer(cmd, src.buffer, dst.buffer, 1, &vertexCopy);
-   });
+        vkCmdCopyBuffer(cmd, src.buffer, dst.buffer, 1, &vertexCopy);
+    });
 }
 
 void ResourceManager::copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, const VkDeviceSize size, const VkDeviceSize offset) const
 {
     immediate.submit([&](VkCommandBuffer cmd) {
-       VkBufferCopy vertexCopy{};
-       vertexCopy.dstOffset = offset;
-       vertexCopy.srcOffset = offset;
-       vertexCopy.size = size;
+        VkBufferCopy vertexCopy{};
+        vertexCopy.dstOffset = offset;
+        vertexCopy.srcOffset = offset;
+        vertexCopy.size = size;
 
-       vkCmdCopyBuffer(cmd, src.buffer, dst.buffer, 1, &vertexCopy);
-   });
+        vkCmdCopyBuffer(cmd, src.buffer, dst.buffer, 1, &vertexCopy);
+    });
 }
 
 
@@ -155,6 +174,7 @@ AllocatedImage ResourceManager::createImage(const VkExtent3D size, const VkForma
 
     return newImage;
 }
+
 AllocatedImage ResourceManager::createImage(const void* data, const size_t dataSize, const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped) const
 {
     const size_t data_size = dataSize;
@@ -192,6 +212,7 @@ AllocatedImage ResourceManager::createImage(const void* data, const size_t dataS
 
     return newImage;
 }
+
 AllocatedImage ResourceManager::createCubemap(const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped) const
 {
     AllocatedImage newImage{};
@@ -215,6 +236,7 @@ AllocatedImage ResourceManager::createCubemap(const VkExtent3D size, const VkFor
 
     return newImage;
 }
+
 void ResourceManager::destroyImage(const AllocatedImage& img) const
 {
     vkDestroyImageView(context.device, img.imageView, nullptr);

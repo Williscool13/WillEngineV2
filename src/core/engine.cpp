@@ -7,12 +7,13 @@
 #include <thread>
 
 
-#include "VkBootstrap.h"
+#include <VkBootstrap.h>
 
 #include "src/core/input.h"
 #include "src/core/time_utils.h"
 #include "src/renderer/immediate_submitter.h"
 #include "src/renderer/resource_manager.h"
+#include "src/renderer/vk_descriptors.h"
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -46,7 +47,7 @@ void Engine::init()
     context = new VulkanContext(window, USE_VALIDATION_LAYERS);
 
     createSwapchain(windowExtent.width, windowExtent.height);
-    createDrawResources(renderExtent.width, renderExtent.height);
+    createDrawResources(RENDER_EXTENTS.width, RENDER_EXTENTS.height);
 
     // Command Pools
     VkCommandPoolCreateInfo commandPoolInfo = vk_helpers::commandPoolCreateInfo(context->graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
@@ -73,11 +74,31 @@ void Engine::init()
 
     imguiWrapper = new ImguiWrapper(*context, {window, swapchainImageFormat});
 
+    //
+    {
+        DescriptorLayoutBuilder layoutBuilder;
+        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        sceneDataLayout = layoutBuilder.build(context->device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT, nullptr,
+                                              VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+
+        for (int i{0}; i < FRAME_OVERLAP; i++) {
+            sceneDataBuffers[i] = resourceManager->createHostSequentialUniformBuffer(sizeof(SceneData));
+        }
+
+
+        sceneDataDescriptorBuffer = DescriptorBufferUniform(*context, sceneDataLayout, FRAME_OVERLAP);
+
+        std::vector<DescriptorUniformData> sceneDataBufferData{1};
+        for (int i{0}; i < FRAME_OVERLAP; i++) {
+            sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = sceneDataBuffers[i], .allocSize = sizeof(SceneData)};
+            sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData, i);
+        }
+    }
+
     computePipeline = new basic_compute::BasicComputePipeline(*context);
     computePipeline->setupDescriptors({drawImage.imageView});
-    renderPipeline = new basic_render::BasicRenderPipeline({drawImageFormat, depthImageFormat}, *context);
+    renderPipeline = new basic_render::BasicRenderPipeline({drawImageFormat, depthImageFormat, sceneDataLayout}, *context);
     renderPipeline->setupDescriptors({resourceManager->getDefaultSamplerNearest(), resourceManager->getErrorCheckerboardImage().imageView});
-
 
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -159,19 +180,23 @@ void Engine::draw()
     const VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
+
+    const AllocatedBuffer& sceneDataBuffer = sceneDataBuffers[getCurrentFrameOverlap()];
+    const auto pSceneData = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
+    pSceneData->currentFrame = frameNumber;
+
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    computePipeline->draw(cmd, {renderExtent});
+    computePipeline->draw(cmd, {RENDER_EXTENTS});
 
     // draw geometry into _drawImage
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
-    renderPipeline->draw(cmd, {renderExtent, drawImage.imageView, depthImage.imageView});
-
+    renderPipeline->draw(cmd, {RENDER_EXTENTS, drawImage.imageView, depthImage.imageView, sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(), sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(), frameNumber});
 
     // copy Draw Image into Swapchain Image
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::copyImageToImage(cmd, drawImage.image, swapchainImages[swapchainImageIndex], renderExtent, swapchainExtent);
+    vk_helpers::copyImageToImage(cmd, drawImage.image, swapchainImages[swapchainImageIndex], RENDER_EXTENTS, swapchainExtent);
 
     // draw ImGui into Swapchain Image
     vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -230,6 +255,12 @@ void Engine::cleanup()
     delete computePipeline;
     delete renderPipeline;
 
+    for (AllocatedBuffer sceneBuffer : sceneDataBuffers) {
+        resourceManager->destroyBuffer(sceneBuffer);
+    }
+    vkDestroyDescriptorSetLayout(context->device, sceneDataLayout, nullptr);
+    sceneDataDescriptorBuffer.destroy(context->allocator);
+
     delete imguiWrapper;
 
     for (const FrameData& frame : frames) {
@@ -262,7 +293,7 @@ void Engine::createSwapchain(uint32_t width, uint32_t height)
 {
     vkb::SwapchainBuilder swapchainBuilder{context->physicalDevice, context->device, context->surface};
 
-    swapchainImageFormat = VK_FORMAT_B8G8R8A8_UNORM;
+    swapchainImageFormat = VK_FORMAT_R8G8B8A8_UNORM;
 
     vkb::Swapchain vkbSwapchain = swapchainBuilder
             .set_desired_format(VkSurfaceFormatKHR{.format = swapchainImageFormat, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
