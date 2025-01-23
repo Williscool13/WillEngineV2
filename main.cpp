@@ -13,7 +13,7 @@
 
 int main(int argc, char* argv[])
 {
-    Engine engine;
+    will_engine::Engine engine;
 
     engine.init();
 

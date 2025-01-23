@@ -228,10 +228,7 @@ void GameObject::recursiveUpdateModelMatrix()
         }
     }
 
-    for (GameObject* child
-         :
-         children
-    ) {
+    for (GameObject* child : children) {
         child->recursiveUpdateModelMatrix();
     }
 }

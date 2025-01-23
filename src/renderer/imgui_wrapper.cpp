@@ -11,9 +11,8 @@
 #include "src/core/input.h"
 #include "src/core/time.h"
 
-using will_engine::Input;
-using will_engine::Time;
-
+namespace will_engine
+{
 ImguiWrapper::ImguiWrapper(const VulkanContext& context, const ImguiWrapperInfo& imguiWrapperInfo) : context(context)
 {
     // DearImGui implementation, basically copied directly from the Vulkan/SDl2 from DearImGui samples.
@@ -84,7 +83,7 @@ void ImguiWrapper::handleInput(const SDL_Event& e)
     ImGui_ImplSDL2_ProcessEvent(&e);
 }
 
-void ImguiWrapper::imguiInterface(Engine* engine)
+void ImguiWrapper::imguiInterface(const Engine* engine)
 {
     Input& input = Input::Get();
     Time& time = Time::Get();
@@ -105,6 +104,12 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::Render();
 }
 
+
+// void ImguiWrapper::imguiInterface(::Engine* engine)
+// {
+
+// }
+
 void ImguiWrapper::drawImgui(VkCommandBuffer cmd, const VkImageView targetImageView, const VkExtent2D swapchainExtent)
 {
     VkDebugUtilsLabelEXT label = {};
@@ -119,4 +124,5 @@ void ImguiWrapper::drawImgui(VkCommandBuffer cmd, const VkImageView targetImageV
     vkCmdEndRendering(cmd);
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
+}
 }

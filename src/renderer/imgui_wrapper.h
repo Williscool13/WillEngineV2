@@ -7,6 +7,8 @@
 
 #include <src/renderer/vulkan_context.h>
 
+namespace will_engine
+{
 class Engine;
 
 struct ImguiWrapperInfo
@@ -18,15 +20,18 @@ struct ImguiWrapperInfo
 /**
  * All dear imgui vulkan/SDL2 integration. Mostly copied from imgui's samples
  */
-class ImguiWrapper {
+class ImguiWrapper
+{
+public:
     friend class Engine;
+
     ImguiWrapper(const VulkanContext& context, const ImguiWrapperInfo& imguiWrapperInfo);
 
     ~ImguiWrapper();
 
     void handleInput(const SDL_Event& e);
 
-    void imguiInterface(Engine* engine);
+    void imguiInterface(const Engine* engine);
 
     void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView, VkExtent2D swapchainExtent);
 
@@ -35,7 +40,6 @@ private:
 
     VkDescriptorPool imguiPool{VK_NULL_HANDLE};
 };
-
-
+}
 
 #endif //IMGUI_WRAPPER_H
