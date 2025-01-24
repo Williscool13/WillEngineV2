@@ -71,6 +71,7 @@ set(CORE_SOURCES
         src/core/transform.cpp
         src/core/game_object/game_object.h
         src/core/game_object/game_object.cpp
+        src/core/game_object/physics_body.h
 )
 
 
@@ -81,19 +82,20 @@ set(PHYSICS_SOURCES
         src/physics/physics_filters.h
         src/physics/physics_types.h
         src/physics/physics_utils.h
+        src/physics/physics_constants.h
         src/physics/debug/debug_renderer.cpp
         src/physics/debug/debug_renderer.h
 )
 
 set(RENDERER_SOURCES
-        src/renderer/vulkan/descriptor_buffer/descriptor_buffer.cpp
-        src/renderer/vulkan/descriptor_buffer/descriptor_buffer.h
-        src/renderer/vulkan/descriptor_buffer/descriptor_buffer_sampler.cpp
-        src/renderer/vulkan/descriptor_buffer/descriptor_buffer_sampler.h
-        src/renderer/vulkan/descriptor_buffer/descriptor_buffer_types.cpp
-        src/renderer/vulkan/descriptor_buffer/descriptor_buffer_types.h
-        src/renderer/vulkan/descriptor_buffer/descriptor_buffer_uniform.cpp
-        src/renderer/vulkan/descriptor_buffer/descriptor_buffer_uniform.h
+        src/renderer/vulkan_context.h
+        src/renderer/vulkan_context.cpp
+        src/renderer/resource_manager.h
+        src/renderer/resource_manager.cpp
+        src/renderer/immediate_submitter.h
+        src/renderer/immediate_submitter.cpp
+        src/renderer/imgui_wrapper.h
+        src/renderer/imgui_wrapper.cpp
         src/renderer/vk_descriptors.cpp
         src/renderer/vk_descriptors.h
         src/renderer/vk_helpers.h
@@ -102,15 +104,20 @@ set(RENDERER_SOURCES
         src/renderer/vk_pipelines.h
         src/renderer/vk_types.cpp
         src/renderer/vk_types.h
-        src/renderer/vulkan_context.h
-        src/renderer/vulkan_context.cpp
-        src/renderer/imgui_wrapper.cpp
-        src/renderer/imgui_wrapper.h
-        src/renderer/immediate_submitter.cpp
-        src/renderer/immediate_submitter.h
         src/renderer/renderer_constants.h
-        src/renderer/resource_manager.h
-        src/renderer/resource_manager.cpp
+        src/renderer/pipelines/basic_compute/basic_compute_pipeline.cpp
+        src/renderer/pipelines/basic_compute/basic_compute_pipeline.h
+        src/renderer/pipelines/basic_render/basic_render_pipeline.cpp
+        src/renderer/pipelines/basic_render/basic_render_pipeline.h
+        src/renderer/vulkan/descriptor_buffer/descriptor_buffer.cpp
+        src/renderer/vulkan/descriptor_buffer/descriptor_buffer.h
+        src/renderer/vulkan/descriptor_buffer/descriptor_buffer_sampler.cpp
+        src/renderer/vulkan/descriptor_buffer/descriptor_buffer_sampler.h
+        src/renderer/vulkan/descriptor_buffer/descriptor_buffer_types.cpp
+        src/renderer/vulkan/descriptor_buffer/descriptor_buffer_types.h
+        src/renderer/vulkan/descriptor_buffer/descriptor_buffer_uniform.cpp
+        src/renderer/vulkan/descriptor_buffer/descriptor_buffer_uniform.h
+        src/renderer/render_object/render_object_constants.h
 )
 
 set(GAME_SOURCES
@@ -127,12 +134,12 @@ if (WIN32)
     set(WINDOWS_SOURCES
             src/resources.h
             src/resources.rc
-            src/renderer/pipelines/basic_compute/basic_compute_pipeline.cpp
-            src/renderer/pipelines/basic_compute/basic_compute_pipeline.h
-            src/renderer/pipelines/basic_render/basic_render_pipeline.cpp
-            src/renderer/pipelines/basic_render/basic_render_pipeline.h
-            src/core/game_object/physics_body.h
-            src/physics/physics_constants.h
+            src/core/game_object/renderable.h
+            src/renderer/render_object/render_object.h
+            src/renderer/render_object/render_object.cpp
+            src/renderer/render_object/render_object_types.h
+            src/renderer/render_object/render_object_types.cpp
+            src/util/file_utils.h
 
     )
 endif ()

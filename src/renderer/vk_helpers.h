@@ -102,21 +102,6 @@ VkFilter extractFilter(fastgltf::Filter filter);
 
 VkSamplerMipmapMode extractMipmapMode(fastgltf::Filter filter);
 
-std::optional<AllocatedImage> loadImage(const ResourceManager& resourceManager, const fastgltf::Asset& asset, const fastgltf::Image& image, const std::filesystem::path& parentFolder);
-
-/**
- * Loads a fastgltf texture.
- * @param texture
- * @param gltf
- * @param imageIndex
- * @param samplerIndex
- * @param imageOffset
- * @param samplerOffset
- */
-void loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, int& imageIndex, int& samplerIndex,
-                 uint32_t
-                 imageOffset = 0, uint32_t samplerOffset = 0);
-
 void saveImageRGBA32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
                       const char* savePath, bool overrideAlpha = true);
 
