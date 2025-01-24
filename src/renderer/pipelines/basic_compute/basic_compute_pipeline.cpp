@@ -9,10 +9,10 @@
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/vk_descriptors.h"
 #include "src/renderer/vk_helpers.h"
-#include "src/renderer/vulkan/descriptor_buffer/descriptor_buffer_sampler.h"
-#include "src/renderer/vulkan/descriptor_buffer/descriptor_buffer_types.h"
+#include "src/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "src/renderer/descriptor_buffer/descriptor_buffer_types.h"
 
-namespace basic_compute
+namespace will_engine::basic_compute
 {
 BasicComputePipeline::BasicComputePipeline(VulkanContext& context) : context(context)
 

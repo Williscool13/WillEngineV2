@@ -6,10 +6,10 @@
 #define BASIC_COMPUTE_PIPELINE_H
 
 #include "src/renderer/vulkan_context.h"
-#include "src/renderer/vulkan/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "src/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
 
 
-namespace basic_compute
+namespace will_engine::basic_compute
 {
 struct ComputeDescriptorInfo
 {

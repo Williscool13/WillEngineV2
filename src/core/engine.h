@@ -11,11 +11,13 @@
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/pipelines/basic_compute/basic_compute_pipeline.h"
 #include "src/renderer/pipelines/basic_render/basic_render_pipeline.h"
-#include "src/renderer/vulkan/descriptor_buffer/descriptor_buffer_uniform.h"
+#include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
+#include "src/renderer/pipelines/deferred_mrt/deferred_mrt.h"
 
 namespace will_engine
 {
 class RenderObject;
+class GameObject;
 
 namespace physics
 {
@@ -62,26 +64,39 @@ private: // Rendering
     AllocatedImage drawImage{};
     AllocatedImage depthImage{};
 
-    void createDrawResources(uint32_t width, uint32_t height);
+    void createDrawResources();
 
 private: // Scene Data
     DescriptorBufferUniform sceneDataDescriptorBuffer;
     AllocatedBuffer sceneDataBuffers[FRAME_OVERLAP]{};
-    VkDescriptorSetLayout sceneDataLayout{VK_NULL_HANDLE};
 
     RenderObject* cube{nullptr};
+
+    GameObject* test{nullptr};
 
 private: // Pipelines
     basic_compute::BasicComputePipeline* computePipeline{nullptr};
     basic_render::BasicRenderPipeline* renderPipeline{nullptr};
+    deferred_mrt::DeferredMrtPipeline* deferredMrtPipeline{nullptr};
 
+private: // Render Targets
+    /**
+     * 8.8.8 Normals - 8 unused
+     */
+    AllocatedImage normalRenderTarget{};
+    /**
+     * 8.8.8 RGB Albedo - 8 unused
+     */
+    AllocatedImage albedoRenderTarget{};
+    /**
+     * 8 Metallic, 8 Roughness, 8 emission (unused), 8 Unused
+     */
+    AllocatedImage pbrRenderTarget{};
+    /**
+     * 16 X and 16 Y
+     */
+    AllocatedImage velocityRenderTarget{};
 
-    const VkFormat drawImageFormat{VK_FORMAT_R16G16B16A16_SFLOAT};
-    const VkFormat depthImageFormat{VK_FORMAT_D32_SFLOAT};
-    const VkFormat velocityImageFormat{VK_FORMAT_R16G16_SFLOAT};
-    const VkFormat normalImageFormat{VK_FORMAT_R16G16B16A16_SNORM}; //VK_FORMAT_R8G8B8A8_SNORM - 8888 is too inaccurate for normals
-    const VkFormat albedoImageFormat{VK_FORMAT_R8G8B8A8_UNORM};
-    const VkFormat pbrImageFormat{VK_FORMAT_R8G8B8A8_UNORM};
 
 private: // Swapchain
     VkSwapchainKHR swapchain{};
