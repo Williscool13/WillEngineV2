@@ -9,8 +9,11 @@
 #include "glm/gtc/packing.hpp"
 
 #include "immediate_submitter.h"
+#include "vk_descriptors.h"
 #include "vk_helpers.h"
 #include "vulkan_context.h"
+#include "render_object/render_object_constants.h"
+#include "vulkan/descriptor_buffer/descriptor_buffer_uniform.h"
 
 
 ResourceManager::ResourceManager(const VulkanContext& context, ImmediateSubmitter& immediate) : context(context), immediate(immediate)
@@ -48,14 +51,41 @@ ResourceManager::ResourceManager(const VulkanContext& context, ImmediateSubmitte
         sampl.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
         vkCreateSampler(context.device, &sampl, nullptr, &defaultSamplerLinear);
     }
+    // Frustum Cull Layout
+    {
+        DescriptorLayoutBuilder layoutBuilder;
+        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        frustumCullLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    }
+
+    // Render Object Addresses
+    {
+        DescriptorLayoutBuilder layoutBuilder;
+        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        addressesLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    }
+
+    // Render Object Textures
+    {
+        DescriptorLayoutBuilder layoutBuilder;
+        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_SAMPLER, will_engine::render_object_constants::MAX_SAMPLER_COUNT);
+        layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, will_engine::render_object_constants::MAX_IMAGES_COUNT);
+        texturesLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    }
 }
 
 ResourceManager::~ResourceManager()
 {
+    if (context.device == VK_NULL_HANDLE) { return; }
+
     destroyImage(whiteImage);
     destroyImage(errorCheckerboardImage);
     vkDestroySampler(context.device, defaultSamplerNearest, nullptr);
     vkDestroySampler(context.device, defaultSamplerLinear, nullptr);
+    vkDestroyDescriptorSetLayout(context.device, frustumCullLayout, nullptr);
+    vkDestroyDescriptorSetLayout(context.device, addressesLayout, nullptr);
+    vkDestroyDescriptorSetLayout(context.device, texturesLayout, nullptr);
+
 }
 
 AllocatedBuffer ResourceManager::createBuffer(const size_t allocSize, const VkBufferUsageFlags usage, const VmaMemoryUsage memoryUsage) const
@@ -76,7 +106,7 @@ AllocatedBuffer ResourceManager::createBuffer(const size_t allocSize, const VkBu
     return newBuffer;
 }
 
-AllocatedBuffer ResourceManager::createHostSequentialUniformBuffer(const size_t allocSize) const
+AllocatedBuffer ResourceManager::createHostSequentialBuffer(const size_t allocSize) const
 {
     const VkBufferCreateInfo bufferInfo{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -96,9 +126,45 @@ AllocatedBuffer ResourceManager::createHostSequentialUniformBuffer(const size_t 
     return newBuffer;
 }
 
+AllocatedBuffer ResourceManager::createDeviceBuffer(const size_t allocSize) const
+{
+    const VkBufferCreateInfo bufferInfo{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = allocSize,
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+    };
+
+    constexpr VmaAllocationCreateInfo allocInfo{
+        .flags = 0,
+        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
+        .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT
+    };
+
+    AllocatedBuffer newBuffer{};
+    VK_CHECK(vmaCreateBuffer(context.allocator, &bufferInfo, &allocInfo, &newBuffer.buffer, &newBuffer.allocation, &newBuffer.info));
+
+    return newBuffer;
+}
+
 AllocatedBuffer ResourceManager::createStagingBuffer(const size_t allocSize) const
 {
-    return createBuffer(allocSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+    const VkBufferCreateInfo bufferInfo{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = allocSize,
+        .usage = VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+    };
+
+    constexpr VmaAllocationCreateInfo allocInfo{
+        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_SEQUENTIAL_WRITE_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+    };
+
+    AllocatedBuffer newBuffer{};
+    VK_CHECK(vmaCreateBuffer(context.allocator, &bufferInfo, &allocInfo, &newBuffer.buffer, &newBuffer.allocation, &newBuffer.info));
+
+    return newBuffer;
 }
 
 AllocatedBuffer ResourceManager::createReceivingBuffer(const size_t allocSize) const
@@ -144,6 +210,13 @@ void ResourceManager::destroyBuffer(AllocatedBuffer& buffer) const
     if (buffer.buffer == VK_NULL_HANDLE) { return; }
     vmaDestroyBuffer(context.allocator, buffer.buffer, buffer.allocation);
     buffer.buffer = VK_NULL_HANDLE;
+}
+
+VkSampler ResourceManager::createSampler(const VkSamplerCreateInfo& createInfo) const
+{
+    VkSampler newSampler;
+    vkCreateSampler(context.device, &createInfo, nullptr, &newSampler);
+    return newSampler;
 }
 
 AllocatedImage ResourceManager::createImage(const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped) const
@@ -241,4 +314,39 @@ void ResourceManager::destroyImage(const AllocatedImage& img) const
 {
     vkDestroyImageView(context.device, img.imageView, nullptr);
     vmaDestroyImage(context.allocator, img.image, img.allocation);
+}
+
+void ResourceManager::destroySampler(const VkSampler& sampler) const
+{
+    vkDestroySampler(context.device, sampler, nullptr);
+}
+
+DescriptorBufferSampler ResourceManager::createDescriptorBufferSampler(VkDescriptorSetLayout layout, int32_t maxObjectCount) const
+{
+    return DescriptorBufferSampler(context, layout, maxObjectCount);
+}
+
+void ResourceManager::setupDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer, const std::vector<will_engine::DescriptorImageData>& imageBuffers, const int index) const
+{
+    descriptorBuffer.setupData(context.device, imageBuffers, index);
+}
+
+DescriptorBufferUniform ResourceManager::createDescriptorBufferUniform(VkDescriptorSetLayout layout, int32_t maxObjectCount) const
+{
+    return DescriptorBufferUniform(context, layout, maxObjectCount);
+}
+
+void ResourceManager::setupDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer, const std::vector<will_engine::DescriptorUniformData>& uniformBuffers, const int index) const
+{
+    descriptorBuffer.setupData(context.device, uniformBuffers, index);
+}
+
+void ResourceManager::destroyDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer) const
+{
+    descriptorBuffer.destroy(context.allocator);
+}
+
+void ResourceManager::destroyDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer) const
+{
+    descriptorBuffer.destroy(context.allocator);
 }

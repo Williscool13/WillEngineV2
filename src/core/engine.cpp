@@ -10,9 +10,11 @@
 
 #include "src/core/input.h"
 #include "src/core/time.h"
+#include "src/physics/physics.h"
 #include "src/renderer/immediate_submitter.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/vk_descriptors.h"
+#include "../renderer/render_object/render_object.h"
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -67,8 +69,8 @@ void Engine::init()
 
     immediate = new ImmediateSubmitter(*context);
     resourceManager = new ResourceManager(*context, *immediate);
-    // physics = new Physics();
-    // Physics::Set(physics);
+    physics = new physics::Physics();
+    physics::Physics::Set(physics);
 
     imguiWrapper = new ImguiWrapper(*context, {window, swapchainImageFormat});
 
@@ -80,9 +82,8 @@ void Engine::init()
                                               VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
         for (int i{0}; i < FRAME_OVERLAP; i++) {
-            sceneDataBuffers[i] = resourceManager->createHostSequentialUniformBuffer(sizeof(SceneData));
+            sceneDataBuffers[i] = resourceManager->createHostSequentialBuffer(sizeof(SceneData));
         }
-
 
         sceneDataDescriptorBuffer = DescriptorBufferUniform(*context, sceneDataLayout, FRAME_OVERLAP);
 
@@ -97,6 +98,8 @@ void Engine::init()
     computePipeline->setupDescriptors({drawImage.imageView});
     renderPipeline = new basic_render::BasicRenderPipeline({drawImageFormat, depthImageFormat, sceneDataLayout}, *context);
     renderPipeline->setupDescriptors({resourceManager->getDefaultSamplerNearest(), resourceManager->getErrorCheckerboardImage().imageView});
+
+    cube = new RenderObject{"assets/models/cube.gltf", resourceManager};
 
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -255,6 +258,8 @@ void Engine::cleanup()
 
     vkDeviceWaitIdle(context->device);
 
+    delete cube;
+
     delete computePipeline;
     delete renderPipeline;
 
@@ -278,9 +283,9 @@ void Engine::cleanup()
     resourceManager->destroyImage(drawImage);
     resourceManager->destroyImage(depthImage);
 
+    delete physics;
     delete immediate;
     delete resourceManager;
-
 
     vkDestroySwapchainKHR(context->device, swapchain, nullptr);
     for (VkImageView swapchainImageView : swapchainImageViews) {

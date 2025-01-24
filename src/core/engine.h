@@ -15,6 +15,13 @@
 
 namespace will_engine
 {
+class RenderObject;
+
+namespace physics
+{
+    class Physics;
+}
+
 class Engine
 {
 public:
@@ -37,7 +44,7 @@ private:
     VulkanContext* context{nullptr};
     ImmediateSubmitter* immediate = nullptr;
     ResourceManager* resourceManager = nullptr;
-    // Physics* physics = nullptr;
+    physics::Physics* physics = nullptr;
     ImguiWrapper* imguiWrapper = nullptr;
 
     EngineStats stats{};
@@ -61,6 +68,8 @@ private: // Scene Data
     DescriptorBufferUniform sceneDataDescriptorBuffer;
     AllocatedBuffer sceneDataBuffers[FRAME_OVERLAP]{};
     VkDescriptorSetLayout sceneDataLayout{VK_NULL_HANDLE};
+
+    RenderObject* cube{nullptr};
 
 private: // Pipelines
     basic_compute::BasicComputePipeline* computePipeline{nullptr};

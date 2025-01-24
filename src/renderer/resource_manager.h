@@ -5,6 +5,8 @@
 #ifndef RESOURCE_MANAGER_H
 #define RESOURCE_MANAGER_H
 #include "vk_types.h"
+#include "vulkan/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "vulkan/descriptor_buffer/descriptor_buffer_uniform.h"
 
 
 class ImmediateSubmitter;
@@ -21,7 +23,9 @@ public:
 
     [[nodiscard]] AllocatedBuffer createBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) const;
 
-    AllocatedBuffer createHostSequentialUniformBuffer(size_t allocSize) const;
+    AllocatedBuffer createHostSequentialBuffer(size_t allocSize) const;
+
+    AllocatedBuffer createDeviceBuffer(size_t allocSize) const;
 
     [[nodiscard]] AllocatedBuffer createStagingBuffer(size_t allocSize) const;
 
@@ -35,6 +39,8 @@ public:
 
     void destroyBuffer(AllocatedBuffer& buffer) const;
 
+    [[nodiscard]] VkSampler createSampler(const VkSamplerCreateInfo& createInfo) const;
+
     [[nodiscard]] AllocatedImage createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
 
     [[nodiscard]] AllocatedImage createImage(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
@@ -43,11 +49,28 @@ public:
 
     void destroyImage(const AllocatedImage& img) const;
 
+    void destroySampler(const VkSampler& sampler) const;
+
+    [[nodiscard]] DescriptorBufferSampler createDescriptorBufferSampler(VkDescriptorSetLayout layout, int32_t maxObjectCount) const;
+
+    void setupDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer, const std::vector<will_engine::DescriptorImageData>& imageBuffers, int index = -1) const;
+
+    [[nodiscard]] DescriptorBufferUniform createDescriptorBufferUniform(VkDescriptorSetLayout layout, int32_t maxObjectCount) const;
+
+    void setupDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer, const std::vector<will_engine::DescriptorUniformData>& uniformBuffers, int index = -1) const;
+
+    void destroyDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer) const;
+
+    void destroyDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer) const;
+
 public:
     [[nodiscard]] VkSampler getDefaultSamplerLinear() const { return defaultSamplerLinear; }
     [[nodiscard]] VkSampler getDefaultSamplerNearest() const { return defaultSamplerNearest; }
     [[nodiscard]] AllocatedImage getWhiteImage() const { return whiteImage; }
     [[nodiscard]] AllocatedImage getErrorCheckerboardImage() const { return errorCheckerboardImage; }
+    [[nodiscard]] VkDescriptorSetLayout getFrustumCullLayout() const { return frustumCullLayout; }
+    [[nodiscard]] VkDescriptorSetLayout getAddressesLayout() const { return addressesLayout; }
+    [[nodiscard]] VkDescriptorSetLayout getTexturesLayout() const { return texturesLayout; }
 
 private:
     const VulkanContext& context;
@@ -57,6 +80,16 @@ private:
     AllocatedImage errorCheckerboardImage{};
     VkSampler defaultSamplerLinear{VK_NULL_HANDLE};
     VkSampler defaultSamplerNearest{VK_NULL_HANDLE};
+
+    VkDescriptorSetLayout frustumCullLayout{VK_NULL_HANDLE};
+    /**
+     * Material and Instance Buffer Addresses
+     */
+    VkDescriptorSetLayout addressesLayout{VK_NULL_HANDLE};
+    /**
+     * Sampler and Image Arrays
+     */
+    VkDescriptorSetLayout texturesLayout{VK_NULL_HANDLE};
 };
 
 #endif //RESOURCE_MANAGER_H
