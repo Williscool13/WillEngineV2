@@ -8,18 +8,33 @@
 #include <filesystem>
 
 #include "render_object_types.h"
+#include "render_reference.h"
 #include "extern/fastgltf/include/fastgltf/types.hpp"
 #include "src/renderer/resource_manager.h"
 
+
 namespace will_engine
 {
-class RenderObject
+class GameObject;
+
+class RenderObject : public IRenderReference
 {
 public:
-
     RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager* resourceManager);
 
-    ~RenderObject();
+    ~RenderObject() override;
+
+    bool canDraw() const { return instanceBufferSize > 0; }
+    const DescriptorBufferUniform& getAddressesDescriptorBuffer() const { return addressesDescriptorBuffer; }
+    const DescriptorBufferSampler& getTextureDescriptorBuffer() const { return textureDescriptorBuffer; }
+    [[nodiscard]] const AllocatedBuffer& getVertexBuffer() const { return vertexBuffer; }
+    [[nodiscard]] const AllocatedBuffer& getIndexBuffer() const { return indexBuffer; }
+    [[nodiscard]] const AllocatedBuffer& getIndirectBuffer() const { return drawIndirectBuffer; }
+    [[nodiscard]] size_t getDrawIndirectCommandCount() const { return drawCommands.size(); }
+
+    bool attachToGameObject(GameObject* gameObject, int32_t meshIndex);
+
+    void updateInstanceData(int32_t instanceIndex, const glm::mat4& currentFrameModelMatrix) override;
 
 private: // Model Data
     bool parseGltf(const std::filesystem::path& gltfFilepath);
@@ -32,6 +47,12 @@ private: // Model Data
 
 private: // Buffer Data
     bool generateBuffers();
+
+    void expandInstanceBuffer(uint32_t countToAdd, bool copyPrevious = true);
+
+    void uploadCullingBufferData();
+
+    [[nodiscard]] InstanceData* getInstanceData(int32_t index) const;
 
 private: // Model Data
     ResourceManager* resourceManager{nullptr};
@@ -48,10 +69,6 @@ private: // Model Data
 
     static constexpr int32_t samplerOffset{1};
     static constexpr int32_t imageOffset{1};
-
-private: // Buffer Data
-    void expandInstanceBuffer(uint32_t countToAdd, bool copyPrevious = true);
-    void uploadCullingBufferData();
 
 private: // Buffer Data
     /**

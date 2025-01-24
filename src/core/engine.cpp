@@ -8,13 +8,15 @@
 
 #include <VkBootstrap.h>
 
+#include "game_object/game_object.h"
 #include "src/core/input.h"
 #include "src/core/time.h"
 #include "src/physics/physics.h"
 #include "src/renderer/immediate_submitter.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/vk_descriptors.h"
-#include "../renderer/render_object/render_object.h"
+#include "src/renderer/render_object/render_object.h"
+#include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -47,7 +49,7 @@ void Engine::init()
     context = new VulkanContext(window, USE_VALIDATION_LAYERS);
 
     createSwapchain(windowExtent.width, windowExtent.height);
-    createDrawResources(RENDER_EXTENTS.width, RENDER_EXTENTS.height);
+    createDrawResources();
 
     // Command Pools
     VkCommandPoolCreateInfo commandPoolInfo = vk_helpers::commandPoolCreateInfo(context->graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
@@ -76,16 +78,11 @@ void Engine::init()
 
     //
     {
-        DescriptorLayoutBuilder layoutBuilder;
-        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        sceneDataLayout = layoutBuilder.build(context->device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT, nullptr,
-                                              VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-
         for (int i{0}; i < FRAME_OVERLAP; i++) {
             sceneDataBuffers[i] = resourceManager->createHostSequentialBuffer(sizeof(SceneData));
         }
 
-        sceneDataDescriptorBuffer = DescriptorBufferUniform(*context, sceneDataLayout, FRAME_OVERLAP);
+        sceneDataDescriptorBuffer = DescriptorBufferUniform(*context, resourceManager->getSceneDataLayout(), FRAME_OVERLAP);
 
         std::vector<DescriptorUniformData> sceneDataBufferData{1};
         for (int i{0}; i < FRAME_OVERLAP; i++) {
@@ -96,10 +93,16 @@ void Engine::init()
 
     computePipeline = new basic_compute::BasicComputePipeline(*context);
     computePipeline->setupDescriptors({drawImage.imageView});
-    renderPipeline = new basic_render::BasicRenderPipeline({drawImageFormat, depthImageFormat, sceneDataLayout}, *context);
+    renderPipeline = new basic_render::BasicRenderPipeline({DRAW_FORMAT, DEPTH_FORMAT, resourceManager->getSceneDataLayout()}, *context);
     renderPipeline->setupDescriptors({resourceManager->getDefaultSamplerNearest(), resourceManager->getErrorCheckerboardImage().imageView});
+    deferredMrtPipeline = new deferred_mrt::DeferredMrtPipeline(resourceManager);
 
     cube = new RenderObject{"assets/models/cube.gltf", resourceManager};
+    test = new GameObject("Cube");
+
+    cube->attachToGameObject(test, 0);
+    test->recursiveUpdateModelMatrix();
+
 
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -186,6 +189,9 @@ void Engine::draw()
     const AllocatedBuffer& sceneDataBuffer = sceneDataBuffers[getCurrentFrameOverlap()];
     const auto pSceneData = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
     pSceneData->currentFrame = frameNumber;
+    pSceneData->view = glm::lookAt(glm::vec3(-20, 0, 0), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    pSceneData->proj = glm::perspective(glm::radians(75.0f), 1920.0f/1080.0f, 0.1f, 50.0f);
+    pSceneData->viewProj = pSceneData->proj * pSceneData->view;
 
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     computePipeline->draw(cmd, {RENDER_EXTENTS});
@@ -197,6 +203,25 @@ void Engine::draw()
                              RENDER_EXTENTS, drawImage.imageView, depthImage.imageView, sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
                              sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(), frameNumber
                          });
+
+    vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    deferred_mrt::DeferredMrtDrawInfo deferredMrtDrawInfo{
+        {cube},
+        normalRenderTarget.imageView,
+        albedoRenderTarget.imageView,
+        pbrRenderTarget.imageView,
+        velocityRenderTarget.imageView,
+        depthImage.imageView,
+        RENDER_EXTENTS,
+        {static_cast<float>(RENDER_EXTENTS.width), static_cast<float>(RENDER_EXTENTS.height)},
+        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap()
+    };
+    deferredMrtPipeline->draw(cmd, deferredMrtDrawInfo);
 
     // copy Draw Image into Swapchain Image
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -262,11 +287,11 @@ void Engine::cleanup()
 
     delete computePipeline;
     delete renderPipeline;
+    delete deferredMrtPipeline;
 
     for (AllocatedBuffer sceneBuffer : sceneDataBuffers) {
         resourceManager->destroyBuffer(sceneBuffer);
     }
-    vkDestroyDescriptorSetLayout(context->device, sceneDataLayout, nullptr);
     sceneDataDescriptorBuffer.destroy(context->allocator);
 
     delete imguiWrapper;
@@ -282,6 +307,10 @@ void Engine::cleanup()
 
     resourceManager->destroyImage(drawImage);
     resourceManager->destroyImage(depthImage);
+    resourceManager->destroyImage(normalRenderTarget);
+    resourceManager->destroyImage(albedoRenderTarget);
+    resourceManager->destroyImage(pbrRenderTarget);
+    resourceManager->destroyImage(velocityRenderTarget);
 
     delete physics;
     delete immediate;
@@ -340,12 +369,12 @@ void Engine::resizeSwapchain()
     fmt::print("Window extent has been updated to {}x{}\n", windowExtent.width, windowExtent.height);
 }
 
-void Engine::createDrawResources(uint32_t width, uint32_t height)
+void Engine::createDrawResources()
 {
     // Draw Image
     {
-        drawImage.imageFormat = drawImageFormat;
-        VkExtent3D drawImageExtent = {width, height, 1};
+        drawImage.imageFormat = DRAW_FORMAT;
+        constexpr VkExtent3D drawImageExtent = {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1};
         drawImage.imageExtent = drawImageExtent;
         VkImageUsageFlags drawImageUsages{};
         drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
@@ -365,8 +394,8 @@ void Engine::createDrawResources(uint32_t width, uint32_t height)
     }
     // Depth Image
     {
-        depthImage.imageFormat = depthImageFormat;
-        VkExtent3D depthImageExtent = {width, height, 1};
+        depthImage.imageFormat = DEPTH_FORMAT;
+        constexpr VkExtent3D depthImageExtent = {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1};
         depthImage.imageExtent = depthImageExtent;
         VkImageUsageFlags depthImageUsages{};
         depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
@@ -381,6 +410,39 @@ void Engine::createDrawResources(uint32_t width, uint32_t height)
 
         VkImageViewCreateInfo depthViewInfo = vk_helpers::imageviewCreateInfo(depthImage.imageFormat, depthImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
         VK_CHECK(vkCreateImageView(context->device, &depthViewInfo, nullptr, &depthImage.imageView));
+    }
+    // Render Targets
+    {
+        const auto generateRenderTarget = std::function([this](const VkFormat renderTargetFormat) {
+            constexpr VkExtent3D imageExtent = {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1};
+            VkImageUsageFlags usageFlags{};
+            usageFlags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+            usageFlags |= VK_IMAGE_USAGE_STORAGE_BIT;
+            usageFlags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+            usageFlags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+            usageFlags |= VK_IMAGE_USAGE_SAMPLED_BIT;
+            VmaAllocationCreateInfo renderImageAllocationInfo = {};
+            renderImageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+            renderImageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+            AllocatedImage renderTarget{};
+            renderTarget.imageFormat = renderTargetFormat;
+            renderTarget.imageExtent = imageExtent;
+            const VkImageCreateInfo imageInfo = vk_helpers::imageCreateInfo(renderTarget.imageFormat, usageFlags, imageExtent);
+            vmaCreateImage(context->allocator, &imageInfo, &renderImageAllocationInfo, &renderTarget.image, &renderTarget.allocation,
+                           nullptr);
+
+            const VkImageViewCreateInfo imageViewInfo = vk_helpers::imageviewCreateInfo(renderTarget.imageFormat, renderTarget.image,
+                                                                                        VK_IMAGE_ASPECT_COLOR_BIT);
+            VK_CHECK(vkCreateImageView(context->device, &imageViewInfo, nullptr, &renderTarget.imageView));
+
+            return renderTarget;
+        });
+
+        normalRenderTarget = generateRenderTarget(NORMAL_FORMAT);
+        albedoRenderTarget = generateRenderTarget(ALBEDO_FORMAT);
+        pbrRenderTarget = generateRenderTarget(PBR_FORMAT);
+        velocityRenderTarget = generateRenderTarget(VELOCITY_FORMAT);
     }
 }
 }

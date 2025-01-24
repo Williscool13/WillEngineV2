@@ -4,9 +4,12 @@
 
 #ifndef RESOURCE_MANAGER_H
 #define RESOURCE_MANAGER_H
+#include <filesystem>
+
+#include "vk_pipelines.h"
 #include "vk_types.h"
-#include "vulkan/descriptor_buffer/descriptor_buffer_sampler.h"
-#include "vulkan/descriptor_buffer/descriptor_buffer_uniform.h"
+#include "descriptor_buffer/descriptor_buffer_sampler.h"
+#include "descriptor_buffer/descriptor_buffer_uniform.h"
 
 
 class ImmediateSubmitter;
@@ -25,7 +28,7 @@ public:
 
     AllocatedBuffer createHostSequentialBuffer(size_t allocSize) const;
 
-    AllocatedBuffer createDeviceBuffer(size_t allocSize) const;
+    AllocatedBuffer createDeviceBuffer(size_t allocSize, VkBufferUsageFlags additionalUsages = 0) const;
 
     [[nodiscard]] AllocatedBuffer createStagingBuffer(size_t allocSize) const;
 
@@ -39,7 +42,11 @@ public:
 
     void destroyBuffer(AllocatedBuffer& buffer) const;
 
+
     [[nodiscard]] VkSampler createSampler(const VkSamplerCreateInfo& createInfo) const;
+
+    void destroySampler(const VkSampler& sampler) const;
+
 
     [[nodiscard]] AllocatedImage createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
 
@@ -49,7 +56,6 @@ public:
 
     void destroyImage(const AllocatedImage& img) const;
 
-    void destroySampler(const VkSampler& sampler) const;
 
     [[nodiscard]] DescriptorBufferSampler createDescriptorBufferSampler(VkDescriptorSetLayout layout, int32_t maxObjectCount) const;
 
@@ -63,11 +69,27 @@ public:
 
     void destroyDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer) const;
 
+
+    VkShaderModule createShaderModule(const std::filesystem::path& path) const;
+
+    void destroyShaderModule(VkShaderModule& shaderModule) const;
+
+
+    VkPipelineLayout createPipelineLayout(const VkPipelineLayoutCreateInfo& createInfo) const;
+
+    void destroyPipelineLayout(VkPipelineLayout& pipelineLayout) const;
+
+    VkPipeline createRenderPipeline(PipelineBuilder& builder) const;
+
+    void destroyRenderPipeline(VkPipeline& pipeline) const;
+
 public:
     [[nodiscard]] VkSampler getDefaultSamplerLinear() const { return defaultSamplerLinear; }
     [[nodiscard]] VkSampler getDefaultSamplerNearest() const { return defaultSamplerNearest; }
     [[nodiscard]] AllocatedImage getWhiteImage() const { return whiteImage; }
     [[nodiscard]] AllocatedImage getErrorCheckerboardImage() const { return errorCheckerboardImage; }
+
+    [[nodiscard]] VkDescriptorSetLayout getSceneDataLayout() const { return sceneDataLayout; }
     [[nodiscard]] VkDescriptorSetLayout getFrustumCullLayout() const { return frustumCullLayout; }
     [[nodiscard]] VkDescriptorSetLayout getAddressesLayout() const { return addressesLayout; }
     [[nodiscard]] VkDescriptorSetLayout getTexturesLayout() const { return texturesLayout; }
@@ -81,6 +103,7 @@ private:
     VkSampler defaultSamplerLinear{VK_NULL_HANDLE};
     VkSampler defaultSamplerNearest{VK_NULL_HANDLE};
 
+    VkDescriptorSetLayout sceneDataLayout{VK_NULL_HANDLE};
     VkDescriptorSetLayout frustumCullLayout{VK_NULL_HANDLE};
     /**
      * Material and Instance Buffer Addresses

@@ -11,25 +11,28 @@
 #include <src/renderer/renderer_constants.h>
 #include <vulkan/vulkan_core.h>
 
+#include "renderable.h"
 #include "src/core/transform.h"
 #include "src/physics/physics.h"
 #include "src/physics/physics_filters.h"
 #include "src/physics/physics_utils.h"
 #include "Jolt/Physics/Body/BodyCreationSettings.h"
+#include "src/renderer/render_object/render_reference.h"
 
-class RenderObject;
 
 //using TransformChangedCallback = std::function<void(const glm::mat4&)>;
 namespace will_engine
 {
-class GameObject : public IPhysicsBody
+class RenderObject;
+
+class GameObject final : public IPhysicsBody, public IRenderable
 {
 public:
     GameObject();
 
     explicit GameObject(std::string gameObjectName);
 
-    virtual ~GameObject();
+    ~GameObject() override;
 
     virtual void update(float deltaTime) {}
 
@@ -55,7 +58,7 @@ public: // Hierarchy
     void reparent(GameObject* newParent = nullptr, bool maintainWorldTransform = true);
 
 
-    GameObject* getParent();
+    GameObject* getParent() const;
 
     std::vector<GameObject*>& getChildren();
 
@@ -95,43 +98,31 @@ public: // Transform
     glm::quat getGlobalRotation() { return getGlobalTransform().getRotation(); }
     glm::vec3 getGlobalScale() { return getGlobalTransform().getScale(); }
 
-    void setLocalPosition(glm::vec3 localPosition);
+    void setLocalPosition(glm::vec3 localPosition, bool isPhysics = false);
 
-    void setLocalRotation(glm::quat localRotation);
+    void setLocalRotation(glm::quat localRotation, bool isPhysics = false);
 
-    void setLocalScale(glm::vec3 localScale);
+    void setLocalScale(glm::vec3 localScale, bool isPhysics = false);
 
-    void setLocalScale(const float localScale) { setLocalScale(glm::vec3(localScale)); }
+    void setLocalScale(float localScale, bool isPhysics = false);
 
-    void setLocalTransform(const Transform& newLocalTransform);
+    void setLocalTransform(const Transform& newLocalTransform, bool isPhysics = false);
 
-    void setGlobalPosition(glm::vec3 globalPosition);
+    void setGlobalPosition(glm::vec3 globalPosition, bool isPhysics = false);
 
-    void setGlobalRotation(glm::quat globalRotation);
+    void setGlobalRotation(glm::quat globalRotation, bool isPhysics = false);
 
-    void setGlobalScale(glm::vec3 newScale);
+    void setGlobalScale(glm::vec3 newScale, bool isPhysics = false);
 
-    void setGlobalScale(const float globalScale) { setGlobalScale(glm::vec3(globalScale)); }
+    void setGlobalScale(float globalScale, bool isPhysics = false);
 
-    void setGlobalTransform(const Transform& newGlobalTransform);
+    void setGlobalTransform(const Transform& newGlobalTransform, bool isPhysics = false);
 
-    void translate(const glm::vec3 translation)
-    {
-        transform.translate(translation);
-        dirty();
-    }
+    void translate(glm::vec3 translation, bool isPhysics = false);
 
-    void rotate(const glm::quat rotation)
-    {
-        transform.rotate(rotation);
-        dirty();
-    }
+    void rotate(glm::quat rotation, bool isPhysics = false);
 
-    void rotateAxis(const float angle, const glm::vec3& axis)
-    {
-        transform.rotateAxis(angle, axis);
-        dirty();
-    }
+    void rotateAxis(float angle, const glm::vec3& axis, bool isPhysics = false);
 
 public: // Rendering
     /**
@@ -139,9 +130,9 @@ public: // Rendering
      */
     void recursiveUpdateModelMatrix();
 
-    void setRenderObjectReference(RenderObject* owner, const int32_t index)
+    void setRenderObjectReference(IRenderReference* owner, const int32_t index) override
     {
-        pRenderObject = owner;
+        pRenderReference = owner;
         instanceIndex = index;
     }
 
@@ -153,14 +144,14 @@ private: // Rendering
     /**
      * The render object that is responsible for drawing this gameobject's model
      */
-    RenderObject* pRenderObject{nullptr};
+    IRenderReference* pRenderReference{nullptr};
     int32_t instanceIndex{-1};
 
 public: // Physics
     void setTransform(const glm::vec3& position, const glm::quat& rotation) override
     {
-        setGlobalPosition(position);
-        setGlobalRotation(rotation);
+        setGlobalPosition(position, true);
+        setGlobalRotation(rotation, true);
     }
 
     glm::vec3 getPosition() override { return getGlobalPosition(); }

@@ -5,8 +5,8 @@
 #ifndef BASIC_RENDER_PIPELINE_H
 #define BASIC_RENDER_PIPELINE_H
 #include "src/renderer/vulkan_context.h"
-#include "src/renderer/vulkan/descriptor_buffer/descriptor_buffer_sampler.h"
-#include "src/renderer/vulkan/descriptor_buffer/descriptor_buffer_uniform.h"
+#include "src/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 
 
 namespace basic_render

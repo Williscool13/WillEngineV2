@@ -13,7 +13,7 @@
 #include "vk_helpers.h"
 #include "vulkan_context.h"
 #include "render_object/render_object_constants.h"
-#include "vulkan/descriptor_buffer/descriptor_buffer_uniform.h"
+#include "descriptor_buffer/descriptor_buffer_uniform.h"
 
 
 ResourceManager::ResourceManager(const VulkanContext& context, ImmediateSubmitter& immediate) : context(context), immediate(immediate)
@@ -37,19 +37,26 @@ ResourceManager::ResourceManager(const VulkanContext& context, ImmediateSubmitte
     }
     // nearest sampler
     {
-        VkSamplerCreateInfo sampl = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
-        sampl.magFilter = VK_FILTER_NEAREST;
-        sampl.minFilter = VK_FILTER_NEAREST;
-        sampl.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-        vkCreateSampler(context.device, &sampl, nullptr, &defaultSamplerNearest);
+        VkSamplerCreateInfo samplerInfo = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+        samplerInfo.magFilter = VK_FILTER_NEAREST;
+        samplerInfo.minFilter = VK_FILTER_NEAREST;
+        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        vkCreateSampler(context.device, &samplerInfo, nullptr, &defaultSamplerNearest);
     }
     // linear sampler
     {
-        VkSamplerCreateInfo sampl = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
-        sampl.magFilter = VK_FILTER_LINEAR;
-        sampl.minFilter = VK_FILTER_LINEAR;
-        sampl.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
-        vkCreateSampler(context.device, &sampl, nullptr, &defaultSamplerLinear);
+        VkSamplerCreateInfo samplerInfo = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+        samplerInfo.magFilter = VK_FILTER_LINEAR;
+        samplerInfo.minFilter = VK_FILTER_LINEAR;
+        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        vkCreateSampler(context.device, &samplerInfo, nullptr, &defaultSamplerLinear);
+    }
+    // Scene Data Layout
+    {
+        DescriptorLayoutBuilder layoutBuilder;
+        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+        sceneDataLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT, nullptr,
+                                              VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
     // Frustum Cull Layout
     {
@@ -82,10 +89,10 @@ ResourceManager::~ResourceManager()
     destroyImage(errorCheckerboardImage);
     vkDestroySampler(context.device, defaultSamplerNearest, nullptr);
     vkDestroySampler(context.device, defaultSamplerLinear, nullptr);
+    vkDestroyDescriptorSetLayout(context.device, sceneDataLayout, nullptr);
     vkDestroyDescriptorSetLayout(context.device, frustumCullLayout, nullptr);
     vkDestroyDescriptorSetLayout(context.device, addressesLayout, nullptr);
     vkDestroyDescriptorSetLayout(context.device, texturesLayout, nullptr);
-
 }
 
 AllocatedBuffer ResourceManager::createBuffer(const size_t allocSize, const VkBufferUsageFlags usage, const VmaMemoryUsage memoryUsage) const
@@ -126,12 +133,12 @@ AllocatedBuffer ResourceManager::createHostSequentialBuffer(const size_t allocSi
     return newBuffer;
 }
 
-AllocatedBuffer ResourceManager::createDeviceBuffer(const size_t allocSize) const
+AllocatedBuffer ResourceManager::createDeviceBuffer(const size_t allocSize, const VkBufferUsageFlags additionalUsages) const
 {
     const VkBufferCreateInfo bufferInfo{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .size = allocSize,
-        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT,
+        .usage = VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | additionalUsages,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE
     };
 
@@ -349,4 +356,49 @@ void ResourceManager::destroyDescriptorBufferUniform(DescriptorBufferUniform& de
 void ResourceManager::destroyDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer) const
 {
     descriptorBuffer.destroy(context.allocator);
+}
+
+VkShaderModule ResourceManager::createShaderModule(const std::filesystem::path& path) const
+{
+    VkShaderModule shader;
+    const bool res = vk_helpers::loadShaderModule(path.string().c_str(), context.device, &shader);
+    if (!res) {
+        throw std::runtime_error("Error when building the deferred vertex shader module(deferredMrt.vert.spv)\n");
+    }
+
+    return shader;
+}
+
+void ResourceManager::destroyShaderModule(VkShaderModule& shaderModule) const
+{
+    vkDestroyShaderModule(context.device, shaderModule, nullptr);
+    shaderModule = VK_NULL_HANDLE;
+}
+
+VkPipelineLayout ResourceManager::createPipelineLayout(const VkPipelineLayoutCreateInfo& createInfo) const
+{
+    VkPipelineLayout pipelineLayout;
+    VK_CHECK(vkCreatePipelineLayout(context.device, &createInfo, nullptr, &pipelineLayout));
+    return pipelineLayout;
+}
+
+
+void ResourceManager::destroyPipelineLayout(VkPipelineLayout& pipelineLayout) const
+{
+    if (pipelineLayout == VK_NULL_HANDLE) { return; }
+    vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
+    pipelineLayout = VK_NULL_HANDLE;
+}
+
+VkPipeline ResourceManager::createRenderPipeline(PipelineBuilder& builder) const
+{
+    const VkPipeline pipeline = builder.buildPipeline(context.device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    return pipeline;
+}
+
+void ResourceManager::destroyRenderPipeline(VkPipeline& pipeline) const
+{
+    if (pipeline == VK_NULL_HANDLE) { return; }
+    vkDestroyPipeline(context.device, pipeline, nullptr);
+    pipeline = VK_NULL_HANDLE;
 }

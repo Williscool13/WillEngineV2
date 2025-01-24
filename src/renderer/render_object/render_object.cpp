@@ -14,7 +14,8 @@
 #include "src/renderer/vk_helpers.h"
 #include "src/renderer/vulkan_context.h"
 #include "render_object_constants.h"
-#include "src/util/file_utils.h"
+#include "src/core/game_object/game_object.h"
+#include "src/util/file.h"
 
 namespace will_engine
 {
@@ -64,17 +65,57 @@ RenderObject::~RenderObject()
     resourceManager->destroyDescriptorBufferSampler(textureDescriptorBuffer);
 }
 
+bool RenderObject::attachToGameObject(GameObject* gameObject, const int32_t meshIndex)
+{
+    if (gameObject == nullptr) { return false; }
+    if (meshIndex < 0 || meshIndex >= meshes.size()) { return false; }
+
+
+    const uint32_t instanceIndex = instanceBufferSize;
+    expandInstanceBuffer(1);
+
+    const std::vector<Primitive>& meshPrimitives = meshes[meshIndex].primitives;
+    drawCommands.reserve(drawCommands.size() + meshPrimitives.size());
+    boundingSphereIndices.reserve(boundingSphereIndices.size() + meshPrimitives.size());
+
+    for (const Primitive primitive : meshPrimitives) {
+        drawCommands.emplace_back();
+        VkDrawIndexedIndirectCommand& indirectData = drawCommands.back();
+        indirectData.firstIndex = primitive.firstIndex;
+        indirectData.indexCount = primitive.indexCount;
+        indirectData.vertexOffset = primitive.vertexOffset;
+        indirectData.instanceCount = 1;
+        indirectData.firstInstance = instanceIndex;
+
+        boundingSphereIndices.emplace_back();
+        uint32_t& boundingSphereIndex = boundingSphereIndices.back();
+        boundingSphereIndex = primitive.boundingSphereIndex;
+    }
+
+    gameObject->setRenderObjectReference(this, static_cast<int32_t>(instanceIndex));
+
+    uploadCullingBufferData();
+    return true;
+}
+
+void RenderObject::updateInstanceData(const int32_t instanceIndex, const glm::mat4& currentFrameModelMatrix)
+{
+    InstanceData* pInstanceData = getInstanceData(instanceIndex);
+    if (pInstanceData == nullptr) { return; }
+
+    pInstanceData->previousModelMatrix = pInstanceData->currentModelMatrix;
+    pInstanceData->currentModelMatrix = currentFrameModelMatrix;
+}
+
 bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
 {
     auto start = std::chrono::system_clock::now();
-    fastgltf::Parser parser{};
 
+    fastgltf::Parser parser{};
     constexpr auto gltfOptions = fastgltf::Options::DontRequireValidAssetMember
                                  | fastgltf::Options::AllowDouble
                                  | fastgltf::Options::LoadExternalBuffers
                                  | fastgltf::Options::LoadExternalImages;
-
-    fastgltf::Asset gltf;
 
     auto gltfFile = fastgltf::MappedGltfFile::FromPath(gltfFilepath);
     if (!static_cast<bool>(gltfFile)) { fmt::print("Failed to open glTF file: {}\n", getErrorMessage(gltfFile.error())); }
@@ -85,7 +126,7 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
         return false;
     }
 
-    gltf = std::move(load.get());
+    fastgltf::Asset gltf = std::move(load.get());
 
     samplers.reserve(gltf.samplers.size() + samplerOffset);
     samplers.push_back(this->resourceManager->getDefaultSamplerNearest());
@@ -498,13 +539,13 @@ bool RenderObject::generateBuffers()
 
     AllocatedBuffer vertexStaging = resourceManager->createStagingBuffer(vertices.size() * sizeof(Vertex));
     memcpy(vertexStaging.info.pMappedData, vertices.data(), vertices.size() * sizeof(Vertex));
-    vertexBuffer = resourceManager->createDeviceBuffer(vertices.size() * sizeof(Vertex));
+    vertexBuffer = resourceManager->createDeviceBuffer(vertices.size() * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     resourceManager->copyBuffer(vertexStaging, vertexBuffer, vertices.size() * sizeof(Vertex));
     resourceManager->destroyBuffer(vertexStaging);
 
     AllocatedBuffer indexStaging = resourceManager->createStagingBuffer(indices.size() * sizeof(uint32_t));
     memcpy(indexStaging.info.pMappedData, indices.data(), indices.size() * sizeof(uint32_t));
-    indexBuffer = resourceManager->createDeviceBuffer(indices.size() * sizeof(uint32_t));
+    indexBuffer = resourceManager->createDeviceBuffer(indices.size() * sizeof(uint32_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
     resourceManager->copyBuffer(indexStaging, indexBuffer, indices.size() * sizeof(uint32_t));
     resourceManager->destroyBuffer(indexStaging);
 
@@ -555,7 +596,6 @@ void RenderObject::expandInstanceBuffer(const uint32_t countToAdd, const bool co
     modelMatrixBuffer = tempInstanceBuffer;
 
     const VkDeviceAddress instanceBufferAddress = resourceManager->getBufferAddress(modelMatrixBuffer);
-
     memcpy(static_cast<char*>(addressBuffer.info.pMappedData) + sizeof(VkDeviceAddress), &instanceBufferAddress, sizeof(VkDeviceAddress));
 }
 
@@ -574,7 +614,7 @@ void RenderObject::uploadCullingBufferData()
 
     AllocatedBuffer indirectStaging = resourceManager->createStagingBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
     memcpy(indirectStaging.info.pMappedData, drawCommands.data(), drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-    drawIndirectBuffer = resourceManager->createDeviceBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+    drawIndirectBuffer = resourceManager->createDeviceBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand), VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
 
     resourceManager->copyBuffer(indirectStaging, drawIndirectBuffer, drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
     resourceManager->destroyBuffer(indirectStaging);
@@ -593,5 +633,21 @@ void RenderObject::uploadCullingBufferData()
     memcpy(stagingCullingAddressesBuffer.info.pMappedData, &cullingAddresses, sizeof(FrustumCullingBuffers));
     resourceManager->copyBuffer(stagingCullingAddressesBuffer, cullingAddressBuffer, sizeof(FrustumCullingBuffers));
     resourceManager->destroyBuffer(stagingCullingAddressesBuffer);
+}
+
+InstanceData* RenderObject::getInstanceData(const int32_t index) const
+{
+    if (modelMatrixBuffer.buffer == VK_NULL_HANDLE) { return nullptr; }
+
+    if (index < 0 || index >= instanceBufferSize) {
+        assert(false && "Instance index out of bounds");
+    }
+
+    const auto basePtr = static_cast<char*>(modelMatrixBuffer.info.pMappedData);
+    void* target = basePtr + index * sizeof(InstanceData);
+
+    assert(reinterpret_cast<uintptr_t>(target) % alignof(InstanceData) == 0 && "Misaligned instance data access");
+
+    return static_cast<InstanceData*>(target);
 }
 }

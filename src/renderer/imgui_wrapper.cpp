@@ -10,6 +10,7 @@
 #include "src/core/engine.h"
 #include "src/core/input.h"
 #include "src/core/time.h"
+#include "src/util/file.h"
 
 namespace will_engine
 {
@@ -98,6 +99,28 @@ void ImguiWrapper::imguiInterface(const Engine* engine)
         ImGui::Text("Render Time: %.2f ms", engine->stats.renderTime);
         ImGui::Text("Frame Time: %.2f ms", engine->stats.totalTime);
         ImGui::Text("Delta Time: %.2f ms", time.getDeltaTime() * 1000.0f);
+    }
+    ImGui::End();
+
+    if (ImGui::Begin("Save Final Image")) {
+        if (ImGui::Button("Save Normal Render Target")) {
+            if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                std::filesystem::path path = file::imagesSavePath / "normalRT.png";
+                auto unpackFunc = [](const uint32_t packedColor) {
+                    glm::vec4 pixel = glm::unpackSnorm4x8(packedColor);
+                    pixel.r = pixel.r * 0.5f + 0.5f;
+                    pixel.g = pixel.g * 0.5f + 0.5f;
+                    pixel.b = pixel.b * 0.5f + 0.5f;
+                    pixel.a = 1.0f;
+                    return pixel;
+                };
+
+                vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->normalRenderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
+                                            path.string().c_str(), unpackFunc);
+            } else {
+                fmt::print(" Failed to save normal render target");
+            }
+        }
     }
     ImGui::End();
 
