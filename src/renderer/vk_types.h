@@ -17,6 +17,18 @@ struct AllocatedImage {
     VkFormat imageFormat{};
 };
 
+struct CubemapImageView {
+    VkImageView imageView;
+    VkExtent3D imageExtent;
+    float roughness;
+    int32_t descriptorBufferIndex;
+};
+
+struct AllocatedCubemap {
+    AllocatedImage allocatedImage;
+    std::vector<CubemapImageView> cubemapImageViews; // one for each active mip level
+};
+
 struct AllocatedBuffer {
     VkBuffer buffer;
     VmaAllocation allocation;

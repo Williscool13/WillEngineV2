@@ -4,6 +4,7 @@
 
 #ifndef BASIC_RENDER_PIPELINE_H
 #define BASIC_RENDER_PIPELINE_H
+#include "src/renderer/resource_manager.h"
 #include "src/renderer/vulkan_context.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
@@ -11,13 +12,6 @@
 
 namespace basic_render
 {
-
-struct RenderPipelineInfo
-{
-    VkFormat colorFormat;
-    VkFormat depthFormat;
-    VkDescriptorSetLayout sceneDataLayout;
-};
 
 struct RenderDescriptorInfo
 {
@@ -44,7 +38,7 @@ struct RenderPushConstant
 class BasicRenderPipeline
 {
 public:
-    explicit BasicRenderPipeline(const RenderPipelineInfo& pipelineInfo, VulkanContext& context);
+    explicit BasicRenderPipeline(ResourceManager& resourceManager);
 
     ~BasicRenderPipeline();
 
@@ -53,15 +47,13 @@ public:
     void draw(VkCommandBuffer cmd, const RenderDrawInfo& drawInfo) const;
 
 private:
-    VulkanContext& context;
+    ResourceManager& resourceManager;
 
     VkDescriptorSetLayout samplerDescriptorLayout{VK_NULL_HANDLE};
-    //VkDescriptorSetLayout renderUniformDescriptorSetLayout{VK_NULL_HANDLE};
     VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
     VkPipeline pipeline{VK_NULL_HANDLE};
 
     DescriptorBufferSampler samplerDescriptorBuffer;
-    //DescriptorBufferUniform uniformDescriptorBuffer;
 };
 }
 

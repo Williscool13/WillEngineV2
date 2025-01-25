@@ -10,7 +10,7 @@
 
 using will_engine::DescriptorBufferException;
 
-DescriptorBufferUniform::DescriptorBufferUniform(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount)
+DescriptorBufferUniform::DescriptorBufferUniform(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int32_t maxObjectCount)
     : DescriptorBuffer(context, descriptorSetLayout, maxObjectCount)
 {
     VkBufferCreateInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
@@ -27,7 +27,7 @@ DescriptorBufferUniform::DescriptorBufferUniform(const VulkanContext& context, V
     descriptorBufferGpuAddress = vk_helpers::getDeviceAddress(context.device, descriptorBuffer.buffer);
 }
 
-int DescriptorBufferUniform::setupData(VkDevice device, const std::vector<DescriptorUniformData>& uniformBuffers, int index)
+int DescriptorBufferUniform::setupData(VkDevice device, const std::vector<DescriptorUniformData>& uniformBuffers, int32_t index)
 {
     int descriptorBufferIndex;
     if (index < 0) {

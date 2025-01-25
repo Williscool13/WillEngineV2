@@ -21,7 +21,7 @@ public:
      * @param descriptorSetLayout
      * @param maxObjectCount
      */
-    DescriptorBufferUniform(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount = 10);
+    DescriptorBufferUniform(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int32_t maxObjectCount = 10);
 
     /**
      * Allocates a descriptor set instance to a free index in the descriptor buffer. The vector passed to this should be equal in layout to
@@ -31,7 +31,7 @@ public:
      * @param index
      * @return the index of the allocated descriptor set. Store and use when binding during draw call.
      */
-    int32_t setupData(VkDevice device, const std::vector<DescriptorUniformData>& uniformBuffers, int index = -1);
+    int32_t setupData(VkDevice device, const std::vector<DescriptorUniformData>& uniformBuffers, int32_t index = -1);
 
     VkBufferUsageFlagBits getBufferUsageFlags() const override;
 };

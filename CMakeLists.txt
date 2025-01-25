@@ -72,6 +72,13 @@ set(CORE_SOURCES
         src/core/game_object/game_object.h
         src/core/game_object/game_object.cpp
         src/core/game_object/physics_body.h
+        src/core/camera/camera.cpp
+        src/core/camera/camera.h
+        src/core/camera/camera_types.h
+        src/core/camera/free_camera.cpp
+        src/core/camera/free_camera.h
+        src/core/camera/orbit_camera.cpp
+        src/core/camera/orbit_camera.h
 )
 
 
@@ -152,6 +159,8 @@ if (WIN32)
             src/renderer/environment/environment.h
             src/renderer/environment/environment_constants.h
             src/renderer/environment/environment_types.h
+            src/renderer/pipelines/post_process/post_process_pipeline.cpp
+            src/renderer/pipelines/post_process/post_process_pipeline.h
 
     )
 endif ()

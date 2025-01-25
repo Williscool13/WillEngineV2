@@ -43,7 +43,7 @@ struct DeferredResolveDrawInfo
 class DeferredResolvePipeline
 {
 public:
-    explicit DeferredResolvePipeline(ResourceManager* _resourceManager);
+    explicit DeferredResolvePipeline(ResourceManager& resourceManager);
 
     ~DeferredResolvePipeline();
 
@@ -52,7 +52,7 @@ public:
     void draw(VkCommandBuffer cmd, const DeferredResolveDrawInfo& drawInfo) const;
 
 private:
-    ResourceManager* resourceManager{nullptr};
+    ResourceManager& resourceManager;
 
     VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
     VkPipeline pipeline{VK_NULL_HANDLE};

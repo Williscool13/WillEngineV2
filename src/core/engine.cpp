@@ -14,9 +14,10 @@
 #include "src/physics/physics.h"
 #include "src/renderer/immediate_submitter.h"
 #include "src/renderer/resource_manager.h"
-#include "src/renderer/vk_descriptors.h"
 #include "src/renderer/render_object/render_object.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
+#include "src/renderer/environment/environment.h"
+#include "src/renderer/pipelines/environment/environment_pipeline.h"
 #include "src/util/halton.h"
 
 #ifdef NDEBUG
@@ -75,6 +76,11 @@ void Engine::init()
     physics = new physics::Physics();
     physics::Physics::Set(physics);
 
+    environmentMap = new environment::Environment(*resourceManager, *immediate);
+    const std::filesystem::path envMapSource = "assets/environments";
+    environmentMap->loadEnvironment("Overcast Sky", (envMapSource / "kloofendal_overcast_puresky_4k.hdr").string().c_str(), 0);
+    environmentMap->loadEnvironment("Wasteland", (envMapSource / "wasteland_clouds_puresky_4k.hdr").string().c_str(), 1);
+
     imguiWrapper = new ImguiWrapper(*context, {window, swapchainImageFormat});
 
     for (int i{0}; i < FRAME_OVERLAP; i++) {
@@ -87,9 +93,9 @@ void Engine::init()
         sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData, i);
     }
 
-    deferredMrtPipeline = new deferred_mrt::DeferredMrtPipeline(resourceManager);
-    deferredResolvePipeline = new deferred_resolve::DeferredResolvePipeline(resourceManager);
-    //environmentPipeline = new environment::EnvironmentPipeline(resourceManager, environmentMapLayout);
+    deferredMrtPipeline = new deferred_mrt::DeferredMrtPipeline(*resourceManager);
+    deferredResolvePipeline = new deferred_resolve::DeferredResolvePipeline(*resourceManager);
+    environmentPipeline = new environment_pipeline::EnvironmentPipeline(*resourceManager, environmentMap->getCubemapDescriptorSetLayout());
 
     const deferred_resolve::DeferredResolveDescriptor deferredResolveDescriptor{
         normalRenderTarget.imageView,
@@ -102,13 +108,15 @@ void Engine::init()
     };
     deferredResolvePipeline->setupDescriptorBuffer(deferredResolveDescriptor);
 
-    cube = new RenderObject{"assets/models/cube.gltf", resourceManager};
-    primitives = new RenderObject{"assets/models/primitives/primitives.gltf", resourceManager};
+
+    cube = new RenderObject{"assets/models/cube.gltf", *resourceManager};
+    primitives = new RenderObject{"assets/models/primitives/primitives.gltf", *resourceManager};
     test = new GameObject("3d Box");
 
     primitives->attachToGameObject(test, 0);
     test->recursiveUpdateModelMatrix();
 
+    camera = new FreeCamera();
 
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -169,28 +177,63 @@ void Engine::run()
     }
 }
 
-void Engine::updateSceneData() const
+void Engine::update(float deltaTime)
+{
+    camera->update(deltaTime);
+}
+
+void Engine::updateRenderSceneData(float deltaTime) const
 {
     const AllocatedBuffer& sceneDataBuffer = sceneDataBuffers[getCurrentFrameOverlap()];
     const auto pSceneData = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
 
-    // const bool bIsFrameZero = frameNumber == 0;
-    // glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(bIsFrameZero ? frameNumber : frameNumber - 1) * 2.0f - 1.0f;
-    // prevJitter.x /= RENDER_EXTENT_WIDTH;
-    // prevJitter.y /= RENDER_EXTENT_HEIGHT;
-    // glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber) * 2.0f - 1.0f;
-    // currentJitter.x /= RENDER_EXTENT_WIDTH;
-    // currentJitter.y /= RENDER_EXTENT_HEIGHT;
+     const bool bIsFrameZero = frameNumber == 0;
+    glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(bIsFrameZero ? frameNumber : frameNumber - 1) * 2.0f - 1.0f;
+    prevJitter.x /= RENDER_EXTENT_WIDTH;
+    prevJitter.y /= RENDER_EXTENT_HEIGHT;
+    glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber) * 2.0f - 1.0f;
+    currentJitter.x /= RENDER_EXTENT_WIDTH;
+    currentJitter.y /= RENDER_EXTENT_HEIGHT;
 
-    pSceneData->currentFrame = frameNumber;
-    pSceneData->view = glm::lookAt(glm::vec3(-20, 0, 0), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    pSceneData->proj = glm::perspective(glm::radians(75.0f), 1920.0f / 1080.0f, 0.1f, 50.0f);
+    pSceneData->prevView = bIsFrameZero ? camera->getViewMatrix() : pSceneData->view;
+    pSceneData->prevProj = bIsFrameZero ? camera->getProjMatrix() : pSceneData->proj;
+    pSceneData->prevViewProj = bIsFrameZero ? camera->getViewProjMatrix() : pSceneData->viewProj;
+    //pSceneData->jitter = bEnableJitter ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
+    pSceneData->jitter = glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y);
+
+    pSceneData->view = camera->getViewMatrix();
+    pSceneData->proj = camera->getProjMatrix();
     pSceneData->viewProj = pSceneData->proj * pSceneData->view;
+
+    pSceneData->invView = glm::inverse(pSceneData->view);
+    pSceneData->invProj = glm::inverse(pSceneData->proj);
+    pSceneData->invViewProj = glm::inverse(pSceneData->viewProj);
+    pSceneData->cameraWorldPos = camera->getPosition();
+    const glm::mat4 cameraLook = glm::lookAt(glm::vec3(0), camera->getForwardWS(), glm::vec3(0, 1, 0));
+    pSceneData->viewProjCameraLookDirection = pSceneData->proj * cameraLook;
+
+    pSceneData->renderTargetSize = {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
+    pSceneData->deltaTime = deltaTime;
+
 }
 
 void Engine::draw()
 {
     const auto start = std::chrono::system_clock::now();
+
+    const float deltaTime = Time::Get().getDeltaTime();
+
+    const auto physicsStart = std::chrono::system_clock::now();
+    physics->update(deltaTime);
+    const auto physicsEnd = std::chrono::system_clock::now();
+    const float elapsedPhysics = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(physicsEnd - physicsStart).count()) / 1000.0f;
+    stats.physicsTime = stats.physicsTime * 0.99 + elapsedPhysics * 0.01f;
+
+    const auto gameStart = std::chrono::system_clock::now();
+    update(deltaTime);
+    const auto gameEnd = std::chrono::system_clock::now();
+    const float elapsedGame = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(gameEnd - gameStart).count()) / 1000.0f;
+    stats.gameTime = stats.gameTime * 0.99 + elapsedGame * 0.01f;
 
     // GPU -> VPU sync (fence)
     VK_CHECK(vkWaitForFences(context->device, 1, &getCurrentFrame()._renderFence, true, 1000000000));
@@ -210,10 +253,23 @@ void Engine::draw()
     const VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
-    updateSceneData();
+
+    const auto renderStart = std::chrono::system_clock::now();
+    updateRenderSceneData(deltaTime);
 
     vk_helpers::clearColorImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+    will_engine::environment_pipeline::EnvironmentDrawInfo environmentPipelineDrawInfo{
+        drawImage.imageView,
+        depthImage.imageView,
+        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(),
+        environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferBindingInfo(),
+        environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferSize() * 1,
+    };
+    environmentPipeline->draw(cmd, environmentPipelineDrawInfo);
+
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -258,6 +314,10 @@ void Engine::draw()
     // End Command Buffer Recording
     VK_CHECK(vkEndCommandBuffer(cmd));
 
+    const auto renderEnd = std::chrono::system_clock::now();
+    const float elapsedRenderMs = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(renderEnd - renderStart).count()) / 1000.0f;
+    stats.renderTime = stats.renderTime * 0.99 + elapsedRenderMs * 0.01f;
+
     // Submission
     const VkCommandBufferSubmitInfo cmdSubmitInfo = vk_helpers::commandBufferSubmitInfo(cmd);
     const VkSemaphoreSubmitInfo waitInfo = vk_helpers::semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR, getCurrentFrame()._swapchainSemaphore);
@@ -293,8 +353,9 @@ void Engine::draw()
 
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    stats.renderTime = stats.renderTime * 0.99f + static_cast<float>(elapsed.count()) / 1000.0f * 0.01f;
-    stats.totalTime = stats.renderTime + stats.gameTime + stats.physicsTime;
+    const float elapsedMs = static_cast<float>(elapsed.count()) / 1000.0f;
+
+    stats.totalTime = stats.totalTime * 0.99f + elapsedMs * 0.01f;
 }
 
 void Engine::cleanup()
@@ -334,6 +395,7 @@ void Engine::cleanup()
     resourceManager->destroyImage(pbrRenderTarget);
     resourceManager->destroyImage(velocityRenderTarget);
 
+    delete environmentMap;
     delete physics;
     delete immediate;
     delete resourceManager;

@@ -8,12 +8,10 @@
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/resource_manager.h"
 
-will_engine::environment::EnvironmentPipeline::EnvironmentPipeline(ResourceManager* _resourceManager, VkDescriptorSetLayout environmentMapLayout) : resourceManager(_resourceManager)
+will_engine::environment_pipeline::EnvironmentPipeline::EnvironmentPipeline(ResourceManager& resourceManager, VkDescriptorSetLayout environmentMapLayout) : resourceManager(resourceManager)
 {
-    if (!resourceManager) { return; }
-
     VkDescriptorSetLayout layouts[2];
-    layouts[0] = resourceManager->getSceneDataLayout();
+    layouts[0] = resourceManager.getSceneDataLayout();
     layouts[1] = environmentMapLayout;
 
     VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
@@ -23,11 +21,11 @@ will_engine::environment::EnvironmentPipeline::EnvironmentPipeline(ResourceManag
     layoutInfo.pPushConstantRanges = nullptr;
     layoutInfo.pushConstantRangeCount = 0;
 
-    pipelineLayout = resourceManager->createPipelineLayout(layoutInfo);
+    pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
 
-    VkShaderModule vertShader = resourceManager->createShaderModule("shaders/environment/environment.vert.spv");
-    VkShaderModule fragShader = resourceManager->createShaderModule("shaders/environment/environment.frag.spv");
+    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/environment/environment.vert.spv");
+    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/environment/environment.frag.spv");
 
     PipelineBuilder pipelineBuilder;
     pipelineBuilder.setShaders(vertShader, fragShader);
@@ -40,23 +38,21 @@ will_engine::environment::EnvironmentPipeline::EnvironmentPipeline(ResourceManag
     pipelineBuilder.setupPipelineLayout(pipelineLayout);
 
 
-    pipeline = resourceManager->createRenderPipeline(pipelineBuilder);
+    pipeline = resourceManager.createRenderPipeline(pipelineBuilder);
 
-    resourceManager->destroyShaderModule(vertShader);
-    resourceManager->destroyShaderModule(fragShader);
+    resourceManager.destroyShaderModule(vertShader);
+    resourceManager.destroyShaderModule(fragShader);
 }
 
-will_engine::environment::EnvironmentPipeline::~EnvironmentPipeline()
+will_engine::environment_pipeline::EnvironmentPipeline::~EnvironmentPipeline()
 {
-    if (!resourceManager) { return; }
-
-    resourceManager->destroyPipeline(pipeline);
-    resourceManager->destroyPipelineLayout(pipelineLayout);
+    resourceManager.destroyPipeline(pipeline);
+    resourceManager.destroyPipelineLayout(pipelineLayout);
 }
 
-void will_engine::environment::EnvironmentPipeline::draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& drawInfo) const
+void will_engine::environment_pipeline::EnvironmentPipeline::draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& drawInfo) const
 {
-VkDebugUtilsLabelEXT label{};
+    VkDebugUtilsLabelEXT label{};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
     label.pLabelName = "Environment Map";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);

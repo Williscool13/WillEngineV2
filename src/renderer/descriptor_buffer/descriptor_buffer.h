@@ -25,17 +25,19 @@ public:
 
     virtual ~DescriptorBuffer() = default;
 
-    DescriptorBuffer(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount = 10);
+    DescriptorBuffer(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int32_t maxObjectCount = 10);
 
     void destroy(VmaAllocator allocator);
 
-    void freeDescriptorBufferIndex(int index);
+    void freeDescriptorBufferIndex(int32_t index);
+
+    void freeAllDescriptorBufferIndices();
 
     VkDescriptorBufferBindingInfoEXT getDescriptorBufferBindingInfo() const;
 
     [[nodiscard]] VkDeviceSize getDescriptorBufferSize() const { return descriptorBufferSize; }
 
-    bool isIndexOccupied(const int index) const { return freeIndices.contains(index); }
+    bool isIndexOccupied(const int32_t index) const { return freeIndices.contains(index); }
 
 protected:
     /**
