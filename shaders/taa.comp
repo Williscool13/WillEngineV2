@@ -19,7 +19,6 @@ layout (push_constant) uniform PushConstants {
     int width;
     int height;
     float blendValue;
-    bool bEnabled;
     int debug;
 } push;
 
@@ -173,7 +172,7 @@ void main() {
     }
     vec2 uv = (vec2(pixel) + 0.5) * push.texelSize;
 
-    if (!push.bEnabled) {
+    if (push.debug == 1) {
         imageStore(outputImage, pixel, texture(drawImage, uv));
         return;
     }
@@ -210,21 +209,22 @@ void main() {
 
 
     switch (push.debug) {
-        case 1:
+        case 2:
             imageStore(outputImage, pixel, vec4(vec2(velocity) * 10.0f, 0.0, 1.0));
             return;
-        case 2:
-            imageStore(outputImage, pixel, vec4(vec3(validHistory ? 1.0f : 0.0f), 1.0));
-            return;
         case 3:
+            imageStore(outputImage, pixel, vec4(vec3(validHistory ? 1.0f : 0.0f), 1.0));
             return;
         case 4:
             return;
         case 5:
+            return;
+        case 6:
             return;
         default:
             break;
     }
 
     imageStore(outputImage, pixel, vec4(resultRGB, 1.0));
+
 }

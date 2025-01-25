@@ -24,13 +24,19 @@ public:
 
     ~RenderObject() override;
 
-    bool canDraw() const { return instanceBufferSize > 0; }
+    GameObject* generateGameObject();
+
+    bool canDraw() const { return instanceBufferCapacity > 0; }
     const DescriptorBufferUniform& getAddressesDescriptorBuffer() const { return addressesDescriptorBuffer; }
     const DescriptorBufferSampler& getTextureDescriptorBuffer() const { return textureDescriptorBuffer; }
     [[nodiscard]] const AllocatedBuffer& getVertexBuffer() const { return vertexBuffer; }
     [[nodiscard]] const AllocatedBuffer& getIndexBuffer() const { return indexBuffer; }
     [[nodiscard]] const AllocatedBuffer& getIndirectBuffer() const { return drawIndirectBuffer; }
     [[nodiscard]] size_t getDrawIndirectCommandCount() const { return drawCommands.size(); }
+
+    GameObject* generateGameObject(int32_t meshIndex, const Transform& startingTransform);
+
+    void recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent);
 
     bool attachToGameObject(GameObject* gameObject, int32_t meshIndex);
 
@@ -72,9 +78,13 @@ private: // Model Data
 
 private: // Buffer Data
     /**
-     * The number of instances in the instance buffer
+     * The current number of active instance in the instance buffer
      */
     uint32_t instanceBufferSize{0};
+    /**
+     * The number of instances the instance buffer can contain
+     */
+    uint32_t instanceBufferCapacity{0};
 
     std::vector<VkDrawIndexedIndirectCommand> drawCommands{};
     std::vector<uint32_t> boundingSphereIndices;

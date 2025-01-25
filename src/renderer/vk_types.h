@@ -58,7 +58,6 @@ struct SceneData
 
     glm::vec2 renderTargetSize{};
     float deltaTime{};
-    int32_t currentFrame{0};
 };
 
 #endif //VKTYPES_H

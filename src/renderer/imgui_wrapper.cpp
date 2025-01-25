@@ -84,7 +84,7 @@ void ImguiWrapper::handleInput(const SDL_Event& e)
     ImGui_ImplSDL2_ProcessEvent(&e);
 }
 
-void ImguiWrapper::imguiInterface(const Engine* engine)
+void ImguiWrapper::imguiInterface(Engine* engine)
 {
     Input& input = Input::Get();
     Time& time = Time::Get();
@@ -99,6 +99,15 @@ void ImguiWrapper::imguiInterface(const Engine* engine)
         ImGui::Text("Render Time: %.2f ms", engine->stats.renderTime);
         ImGui::Text("Frame Time: %.2f ms", engine->stats.totalTime);
         ImGui::Text("Delta Time: %.2f ms", time.getDeltaTime() * 1000.0f);
+    }
+    ImGui::End();
+
+    if (ImGui::Begin("TAA")) {
+        ImGui::Checkbox("Enable Jitter", &engine->bEnableJitter);
+        ImGui::Text("Taa Debug View");
+        ImGui::SetNextItemWidth(100);
+        const char* taaDebugLabels[] = {"None", "Velocity", "Validity", "-", "-", "-"};
+        ImGui::Combo("TAA Debug View", &engine->taaDebug, taaDebugLabels, IM_ARRAYSIZE(taaDebugLabels));
     }
     ImGui::End();
 

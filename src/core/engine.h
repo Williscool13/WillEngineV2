@@ -14,6 +14,8 @@
 #include "src/renderer/environment/environment.h"
 #include "src/renderer/pipelines/deferred_mrt/deferred_mrt.h"
 #include "src/renderer/pipelines/deferred_resolve/deferred_resolve.h"
+#include "src/renderer/pipelines/post_process/post_process_pipeline.h"
+#include "src/renderer/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h"
 
 namespace will_engine
 {
@@ -37,7 +39,7 @@ public:
 
     void run();
 
-    void update(float deltaTime);
+    void update(float deltaTime) const;
 
     void updateRenderSceneData(float deltaTime) const;
 
@@ -65,6 +67,7 @@ private:
 private: // Rendering
     int32_t frameNumber{0};
     FrameData frames[FRAME_OVERLAP]{};
+    int32_t getPreviousFrameOverlap() const { return glm::max(frameNumber - 1, 0) % FRAME_OVERLAP; }
     int32_t getCurrentFrameOverlap() const { return frameNumber % FRAME_OVERLAP; }
     FrameData& getCurrentFrame() { return frames[getCurrentFrameOverlap()]; }
 
@@ -72,6 +75,11 @@ private: // Rendering
     bool bResizeRequested{false};
 
     void createDrawResources();
+
+private: // Debug
+    bool bEnableJitter{true};
+    int32_t taaDebug{0};
+
 
 private: // Scene Data
     DescriptorBufferUniform sceneDataDescriptorBuffer;
@@ -81,13 +89,16 @@ private: // Scene Data
 
     RenderObject* cube{nullptr};
     RenderObject* primitives{nullptr};
+    RenderObject* sponza{nullptr};
 
     GameObject* test{nullptr};
 
 private: // Pipelines
+    environment_pipeline::EnvironmentPipeline* environmentPipeline{nullptr};
     deferred_mrt::DeferredMrtPipeline* deferredMrtPipeline{nullptr};
     deferred_resolve::DeferredResolvePipeline* deferredResolvePipeline{nullptr};
-    environment_pipeline::EnvironmentPipeline* environmentPipeline{nullptr};
+    temporal_antialiasing_pipeline::TemporalAntialiasingPipeline* temporalAntialiasingPipeline{nullptr};
+    post_process_pipeline::PostProcessPipeline* postProcessPipeline{nullptr};
 
 private: // Draw Resources
     AllocatedImage drawImage{};
@@ -109,6 +120,16 @@ private: // Draw Resources
      * 16 X and 16 Y
      */
     AllocatedImage velocityRenderTarget{};
+    /**
+    * The results of the TAA pass will be outputted into this buffer
+    */
+    AllocatedImage taaResolveTarget{};
+
+    /**
+     * A copy of the previous TAA Resolve Buffer
+     */
+    AllocatedImage historyBuffer{};
+    AllocatedImage postProcessOutputBuffer{};
 
 private: // Swapchain
     VkSwapchainKHR swapchain{};
@@ -122,7 +143,7 @@ private: // Swapchain
     void resizeSwapchain();
 
 public:
-    friend void ImguiWrapper::imguiInterface(const Engine* engine);
+    friend void ImguiWrapper::imguiInterface(Engine* engine);
 };
 }
 

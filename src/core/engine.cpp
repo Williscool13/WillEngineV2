@@ -93,9 +93,11 @@ void Engine::init()
         sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData, i);
     }
 
+    environmentPipeline = new environment_pipeline::EnvironmentPipeline(*resourceManager, environmentMap->getCubemapDescriptorSetLayout());
     deferredMrtPipeline = new deferred_mrt::DeferredMrtPipeline(*resourceManager);
     deferredResolvePipeline = new deferred_resolve::DeferredResolvePipeline(*resourceManager);
-    environmentPipeline = new environment_pipeline::EnvironmentPipeline(*resourceManager, environmentMap->getCubemapDescriptorSetLayout());
+    temporalAntialiasingPipeline = new temporal_antialiasing_pipeline::TemporalAntialiasingPipeline(*resourceManager);
+    postProcessPipeline = new post_process_pipeline::PostProcessPipeline(*resourceManager);
 
     const deferred_resolve::DeferredResolveDescriptor deferredResolveDescriptor{
         normalRenderTarget.imageView,
@@ -108,13 +110,30 @@ void Engine::init()
     };
     deferredResolvePipeline->setupDescriptorBuffer(deferredResolveDescriptor);
 
+    const temporal_antialiasing_pipeline::TemporalAntialiasingDescriptor temporalAntialiasingDescriptor{
+        drawImage.imageView,
+        historyBuffer.imageView,
+        depthImage.imageView,
+        velocityRenderTarget.imageView,
+        taaResolveTarget.imageView,
+        resourceManager->getDefaultSamplerLinear()
+
+    };
+    temporalAntialiasingPipeline->setupDescriptorBuffer(temporalAntialiasingDescriptor);
+
+    const post_process_pipeline::PostProcessDescriptor postProcessDescriptor{
+        taaResolveTarget.imageView,
+        postProcessOutputBuffer.imageView,
+        resourceManager->getDefaultSamplerLinear()
+    };
+    postProcessPipeline->setupDescriptorBuffer(postProcessDescriptor);
 
     cube = new RenderObject{"assets/models/cube.gltf", *resourceManager};
     primitives = new RenderObject{"assets/models/primitives/primitives.gltf", *resourceManager};
-    test = new GameObject("3d Box");
+    sponza = new RenderObject{"assets/models/sponza2/Sponza.gltf", *resourceManager};
 
-    primitives->attachToGameObject(test, 0);
-    test->recursiveUpdateModelMatrix();
+    test = sponza->generateGameObject();
+    //primitives->attachToGameObject(test, 0);
 
     camera = new FreeCamera();
 
@@ -177,17 +196,19 @@ void Engine::run()
     }
 }
 
-void Engine::update(float deltaTime)
+void Engine::update(const float deltaTime) const
 {
     camera->update(deltaTime);
 }
 
-void Engine::updateRenderSceneData(float deltaTime) const
+void Engine::updateRenderSceneData(const float deltaTime) const
 {
+    const AllocatedBuffer& previousSceneDataBuffer = sceneDataBuffers[getCurrentFrameOverlap()];
     const AllocatedBuffer& sceneDataBuffer = sceneDataBuffers[getCurrentFrameOverlap()];
     const auto pSceneData = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
+    const auto pPreviousSceneData = static_cast<SceneData*>(previousSceneDataBuffer.info.pMappedData);
 
-     const bool bIsFrameZero = frameNumber == 0;
+    const bool bIsFrameZero = frameNumber == 0;
     glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(bIsFrameZero ? frameNumber : frameNumber - 1) * 2.0f - 1.0f;
     prevJitter.x /= RENDER_EXTENT_WIDTH;
     prevJitter.y /= RENDER_EXTENT_HEIGHT;
@@ -195,11 +216,10 @@ void Engine::updateRenderSceneData(float deltaTime) const
     currentJitter.x /= RENDER_EXTENT_WIDTH;
     currentJitter.y /= RENDER_EXTENT_HEIGHT;
 
-    pSceneData->prevView = bIsFrameZero ? camera->getViewMatrix() : pSceneData->view;
-    pSceneData->prevProj = bIsFrameZero ? camera->getProjMatrix() : pSceneData->proj;
-    pSceneData->prevViewProj = bIsFrameZero ? camera->getViewProjMatrix() : pSceneData->viewProj;
-    //pSceneData->jitter = bEnableJitter ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
-    pSceneData->jitter = glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y);
+    pSceneData->prevView = bIsFrameZero ? camera->getViewMatrix() : pPreviousSceneData->view;
+    pSceneData->prevProj = bIsFrameZero ? camera->getProjMatrix() : pPreviousSceneData->proj;
+    pSceneData->prevViewProj = bIsFrameZero ? camera->getViewProjMatrix() : pPreviousSceneData->viewProj;
+    pSceneData->jitter = bEnableJitter ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
 
     pSceneData->view = camera->getViewMatrix();
     pSceneData->proj = camera->getProjMatrix();
@@ -214,7 +234,6 @@ void Engine::updateRenderSceneData(float deltaTime) const
 
     pSceneData->renderTargetSize = {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
     pSceneData->deltaTime = deltaTime;
-
 }
 
 void Engine::draw()
@@ -255,18 +274,19 @@ void Engine::draw()
 
 
     const auto renderStart = std::chrono::system_clock::now();
+    test->recursiveUpdateModelMatrix();
     updateRenderSceneData(deltaTime);
 
     vk_helpers::clearColorImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
 
-    will_engine::environment_pipeline::EnvironmentDrawInfo environmentPipelineDrawInfo{
+    environment_pipeline::EnvironmentDrawInfo environmentPipelineDrawInfo{
         drawImage.imageView,
         depthImage.imageView,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(),
         environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferBindingInfo(),
-        environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferSize() * 1,
+        environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferSize() * 0,
     };
     environmentPipeline->draw(cmd, environmentPipelineDrawInfo);
 
@@ -276,7 +296,7 @@ void Engine::draw()
     vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     const deferred_mrt::DeferredMrtDrawInfo deferredMrtDrawInfo{
-        {primitives},
+        {cube, primitives, sponza},
         normalRenderTarget.imageView,
         albedoRenderTarget.imageView,
         pbrRenderTarget.imageView,
@@ -300,10 +320,30 @@ void Engine::draw()
     };
     deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);
 
-    // copy Draw Image into Swapchain Image
-    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    const VkImageLayout originLayout = frameNumber == 0 ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+    vk_helpers::transitionImage(cmd, historyBuffer.image, originLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    const temporal_antialiasing_pipeline::TemporalAntialiasingDrawInfo taaDrawInfo{
+        0.1f,
+        taaDebug,
+        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap()
+    };
+    temporalAntialiasingPipeline->draw(cmd, taaDrawInfo);
+
+    vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, historyBuffer.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::copyImageToImage(cmd, taaResolveTarget.image, historyBuffer.image, RENDER_EXTENTS, RENDER_EXTENTS);
+
+    vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, postProcessOutputBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    postProcessPipeline->draw(cmd, post_process::PostProcessType::ALL);
+
+    vk_helpers::transitionImage(cmd, postProcessOutputBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::copyImageToImage(cmd, drawImage.image, swapchainImages[swapchainImageIndex], RENDER_EXTENTS, swapchainExtent);
+    vk_helpers::copyImageToImage(cmd, postProcessOutputBuffer.image, swapchainImages[swapchainImageIndex], RENDER_EXTENTS, swapchainExtent);
 
     // draw ImGui into Swapchain Image
     vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -367,10 +407,14 @@ void Engine::cleanup()
 
     delete cube;
     delete primitives;
+    delete sponza;
 
+    delete environmentPipeline;
     delete deferredMrtPipeline;
     delete deferredResolvePipeline;
-    delete environmentPipeline;
+    delete temporalAntialiasingPipeline;
+    delete postProcessPipeline;
+
 
     for (AllocatedBuffer sceneBuffer : sceneDataBuffers) {
         resourceManager->destroyBuffer(sceneBuffer);
@@ -394,6 +438,9 @@ void Engine::cleanup()
     resourceManager->destroyImage(albedoRenderTarget);
     resourceManager->destroyImage(pbrRenderTarget);
     resourceManager->destroyImage(velocityRenderTarget);
+    resourceManager->destroyImage(taaResolveTarget);
+    resourceManager->destroyImage(historyBuffer);
+    resourceManager->destroyImage(postProcessOutputBuffer);
 
     delete environmentMap;
     delete physics;
@@ -527,6 +574,63 @@ void Engine::createDrawResources()
         albedoRenderTarget = generateRenderTarget(ALBEDO_FORMAT);
         pbrRenderTarget = generateRenderTarget(PBR_FORMAT);
         velocityRenderTarget = generateRenderTarget(VELOCITY_FORMAT);
+    }
+    // TAA Resolve
+    {
+        taaResolveTarget.imageFormat = DRAW_FORMAT;
+        constexpr VkExtent3D imageExtent = {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1};
+        taaResolveTarget.imageExtent = imageExtent;
+        VkImageUsageFlags taaResolveUsages{};
+        taaResolveUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
+        taaResolveUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        taaResolveUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
+
+        const VkImageCreateInfo taaResolveImageInfo = vk_helpers::imageCreateInfo(taaResolveTarget.imageFormat, taaResolveUsages, imageExtent);
+
+        VmaAllocationCreateInfo taaResolveAllocationInfo = {};
+        taaResolveAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        taaResolveAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        vmaCreateImage(context->allocator, &taaResolveImageInfo, &taaResolveAllocationInfo, &taaResolveTarget.image, &taaResolveTarget.allocation, nullptr);
+
+        const VkImageViewCreateInfo taaResolveImageViewInfo = vk_helpers::imageviewCreateInfo(taaResolveTarget.imageFormat, taaResolveTarget.image, VK_IMAGE_ASPECT_COLOR_BIT);
+        VK_CHECK(vkCreateImageView(context->device, &taaResolveImageViewInfo, nullptr, &taaResolveTarget.imageView));
+    }
+    // Draw History
+    {
+        historyBuffer.imageFormat = DRAW_FORMAT;
+        constexpr VkExtent3D imageExtent = {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1};
+        historyBuffer.imageExtent = imageExtent;
+        VkImageUsageFlags historyBufferUsages{};
+        historyBufferUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
+        historyBufferUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+        const VkImageCreateInfo historyBufferImageInfo = vk_helpers::imageCreateInfo(historyBuffer.imageFormat, historyBufferUsages, imageExtent);
+
+        VmaAllocationCreateInfo historyBufferAllocationInfo = {};
+        historyBufferAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        historyBufferAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        vmaCreateImage(context->allocator, &historyBufferImageInfo, &historyBufferAllocationInfo, &historyBuffer.image, &historyBuffer.allocation, nullptr);
+
+        const VkImageViewCreateInfo historyBufferImageViewInfo = vk_helpers::imageviewCreateInfo(historyBuffer.imageFormat, historyBuffer.image, VK_IMAGE_ASPECT_COLOR_BIT);
+        VK_CHECK(vkCreateImageView(context->device, &historyBufferImageViewInfo, nullptr, &historyBuffer.imageView));
+    }
+    // Post Process Resolve
+    {
+        postProcessOutputBuffer.imageFormat = DRAW_FORMAT;
+        constexpr VkExtent3D imageExtent = {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1};
+        postProcessOutputBuffer.imageExtent = imageExtent;
+        VkImageUsageFlags usageFlags{};
+        usageFlags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        usageFlags |= VK_IMAGE_USAGE_SAMPLED_BIT;
+        const VkImageCreateInfo imageCreateInfo = vk_helpers::imageCreateInfo(postProcessOutputBuffer.imageFormat, usageFlags, imageExtent);
+
+        VmaAllocationCreateInfo imageAllocationInfo = {};
+        imageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+        imageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+        vmaCreateImage(context->allocator, &imageCreateInfo, &imageAllocationInfo, &postProcessOutputBuffer.image, &postProcessOutputBuffer.allocation, nullptr);
+
+        VkImageViewCreateInfo rview_info = vk_helpers::imageviewCreateInfo(postProcessOutputBuffer.imageFormat, postProcessOutputBuffer.image, VK_IMAGE_ASPECT_COLOR_BIT);
+        VK_CHECK(vkCreateImageView(context->device, &rview_info, nullptr, &postProcessOutputBuffer.imageView));
     }
 }
 }

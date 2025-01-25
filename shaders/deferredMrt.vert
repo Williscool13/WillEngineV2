@@ -60,5 +60,4 @@ void main() {
     outPrevMvpPosition = prevClipPos;
 
     gl_Position = currClipPos;
-    //gl_Position = outCurrMvpPosition;
 }
