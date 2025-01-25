@@ -356,9 +356,9 @@ DescriptorBufferSampler ResourceManager::createDescriptorBufferSampler(VkDescrip
     return DescriptorBufferSampler(context, layout, maxObjectCount);
 }
 
-void ResourceManager::setupDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer, const std::vector<will_engine::DescriptorImageData>& imageBuffers, const int index) const
+int32_t ResourceManager::setupDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer, const std::vector<will_engine::DescriptorImageData>& imageBuffers, const int index) const
 {
-    descriptorBuffer.setupData(context.device, imageBuffers, index);
+    return descriptorBuffer.setupData(context.device, imageBuffers, index);
 }
 
 DescriptorBufferUniform ResourceManager::createDescriptorBufferUniform(VkDescriptorSetLayout layout, int32_t maxObjectCount) const
@@ -366,9 +366,9 @@ DescriptorBufferUniform ResourceManager::createDescriptorBufferUniform(VkDescrip
     return DescriptorBufferUniform(context, layout, maxObjectCount);
 }
 
-void ResourceManager::setupDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer, const std::vector<will_engine::DescriptorUniformData>& uniformBuffers, const int index) const
+int32_t ResourceManager::setupDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer, const std::vector<will_engine::DescriptorUniformData>& uniformBuffers, const int index) const
 {
-    descriptorBuffer.setupData(context.device, uniformBuffers, index);
+    return descriptorBuffer.setupData(context.device, uniformBuffers, index);
 }
 
 void ResourceManager::destroyDescriptorBuffer(DescriptorBuffer& descriptorBuffer) const
@@ -429,7 +429,7 @@ void ResourceManager::destroyPipeline(VkPipeline& pipeline) const
     pipeline = VK_NULL_HANDLE;
 }
 
-VkDescriptorSetLayout ResourceManager::buildDescriptorSetLayout(DescriptorLayoutBuilder& layoutBuilder, const VkShaderStageFlagBits shaderStageFlags, const VkDescriptorSetLayoutCreateFlagBits layoutCreateFlags) const
+VkDescriptorSetLayout ResourceManager::createDescriptorSetLayout(DescriptorLayoutBuilder& layoutBuilder, const VkShaderStageFlagBits shaderStageFlags, const VkDescriptorSetLayoutCreateFlagBits layoutCreateFlags) const
 {
     return layoutBuilder.build(context.device, shaderStageFlags, nullptr, layoutCreateFlags);
 }
@@ -439,4 +439,18 @@ void ResourceManager::destroyDescriptorSetLayout(VkDescriptorSetLayout& descript
     if (descriptorSetLayout == VK_NULL_HANDLE) { return; }
     vkDestroyDescriptorSetLayout(context.device, descriptorSetLayout, nullptr);
     descriptorSetLayout = VK_NULL_HANDLE;
+}
+
+VkImageView ResourceManager::createImageView(const VkImageViewCreateInfo& viewInfo) const
+{
+    VkImageView imageView;
+    VK_CHECK(vkCreateImageView(context.device, &viewInfo, nullptr, &imageView));
+    return imageView;
+}
+
+void ResourceManager::destroyImageView(VkImageView& imageView) const
+{
+    if (imageView == VK_NULL_HANDLE) { return; }
+    vkDestroyImageView(context.device, imageView, nullptr);
+    imageView = VK_NULL_HANDLE;
 }

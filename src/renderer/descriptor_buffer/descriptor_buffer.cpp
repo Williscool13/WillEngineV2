@@ -12,7 +12,7 @@
 VkPhysicalDeviceDescriptorBufferPropertiesEXT DescriptorBuffer::deviceDescriptorBufferProperties = {};
 bool DescriptorBuffer::devicePropertiesRetrieved = false;
 
-DescriptorBuffer::DescriptorBuffer(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount)
+DescriptorBuffer::DescriptorBuffer(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int32_t maxObjectCount)
 {
     if (!devicePropertiesRetrieved) {
         VkPhysicalDeviceProperties2KHR device_properties{};
@@ -33,8 +33,8 @@ DescriptorBuffer::DescriptorBuffer(const VulkanContext& context, VkDescriptorSet
     // Get Descriptor Buffer offset
     vkGetDescriptorSetLayoutBindingOffsetEXT(context.device, descriptorSetLayout, 0u, &descriptorBufferOffset);
 
-    freeIndices = std::unordered_set<int>();
-    for (int i = 0; i < maxObjectCount; i++) { freeIndices.insert(i); }
+    freeIndices = std::unordered_set<int32_t>();
+    for (int32_t i = 0; i < maxObjectCount; i++) { freeIndices.insert(i); }
 
     this->maxObjectCount = maxObjectCount;
 }
@@ -46,9 +46,14 @@ void DescriptorBuffer::destroy(const VmaAllocator allocator)
     descriptorBuffer = {VK_NULL_HANDLE};
 }
 
-void DescriptorBuffer::freeDescriptorBufferIndex(const int index)
+void DescriptorBuffer::freeDescriptorBufferIndex(const int32_t index)
 {
     freeIndices.insert(index);
+}
+
+void DescriptorBuffer::freeAllDescriptorBufferIndices()
+{
+    for (int32_t i = 0; i < maxObjectCount; i++) { freeIndices.insert(i); }
 }
 
 VkDescriptorBufferBindingInfoEXT DescriptorBuffer::getDescriptorBufferBindingInfo() const

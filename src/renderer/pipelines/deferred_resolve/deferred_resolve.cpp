@@ -9,22 +9,19 @@
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/vk_descriptors.h"
 
-will_engine::deferred_resolve::DeferredResolvePipeline::DeferredResolvePipeline(ResourceManager* _resourceManager) : resourceManager(_resourceManager)
+will_engine::deferred_resolve::DeferredResolvePipeline::DeferredResolvePipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
-    if (!resourceManager) { return; }
-
-
     VkPushConstantRange pushConstants = {};
     pushConstants.offset = 0;
     pushConstants.size = sizeof(DeferredResolvePushConstants);
     pushConstants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
     VkDescriptorSetLayout setLayouts[5];
-    setLayouts[0] = resourceManager->getSceneDataLayout();
-    setLayouts[1] = resourceManager->getRenderTargetsLayout();
-    setLayouts[2] = resourceManager->getEmptyLayout(); // environmentMapLayout;
-    setLayouts[3] = resourceManager->getEmptyLayout(); // cascadedShadowUniformLayout;
-    setLayouts[4] = resourceManager->getEmptyLayout(); // cascadedShadowSamplerLayout;
+    setLayouts[0] = resourceManager.getSceneDataLayout();
+    setLayouts[1] = resourceManager.getRenderTargetsLayout();
+    setLayouts[2] = resourceManager.getEmptyLayout(); // environmentMapLayout;
+    setLayouts[3] = resourceManager.getEmptyLayout(); // cascadedShadowUniformLayout;
+    setLayouts[4] = resourceManager.getEmptyLayout(); // cascadedShadowSamplerLayout;
 
     VkPipelineLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -34,9 +31,9 @@ will_engine::deferred_resolve::DeferredResolvePipeline::DeferredResolvePipeline(
     layoutInfo.pPushConstantRanges = &pushConstants;
     layoutInfo.pushConstantRangeCount = 1;
 
-    pipelineLayout = resourceManager->createPipelineLayout(layoutInfo);
+    pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
-    VkShaderModule deferredResolveShader = resourceManager->createShaderModule("shaders/deferredResolve.comp.spv");
+    VkShaderModule deferredResolveShader = resourceManager.createShaderModule("shaders/deferredResolve.comp.spv");
 
     VkPipelineShaderStageCreateInfo stageInfo = {};
     stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -52,19 +49,17 @@ will_engine::deferred_resolve::DeferredResolvePipeline::DeferredResolvePipeline(
     pipelineInfo.stage = stageInfo;
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-    pipeline = resourceManager->createComputePipeline(pipelineInfo);
-    resourceManager->destroyShaderModule(deferredResolveShader);
+    pipeline = resourceManager.createComputePipeline(pipelineInfo);
+    resourceManager.destroyShaderModule(deferredResolveShader);
 
-    resolveDescriptorBuffer = resourceManager->createDescriptorBufferSampler(resourceManager->getRenderTargetsLayout(), 1);
+    resolveDescriptorBuffer = resourceManager.createDescriptorBufferSampler(resourceManager.getRenderTargetsLayout(), 1);
 }
 
 will_engine::deferred_resolve::DeferredResolvePipeline::~DeferredResolvePipeline()
 {
-    if (!resourceManager) { return; }
-
-    resourceManager->destroyPipelineLayout(pipelineLayout);
-    resourceManager->destroyPipeline(pipeline);
-    resourceManager->destroyDescriptorBuffer(resolveDescriptorBuffer);
+    resourceManager.destroyPipelineLayout(pipelineLayout);
+    resourceManager.destroyPipeline(pipeline);
+    resourceManager.destroyDescriptorBuffer(resolveDescriptorBuffer);
 }
 
 void will_engine::deferred_resolve::DeferredResolvePipeline::setupDescriptorBuffer(const DeferredResolveDescriptor& drawInfo)
@@ -108,7 +103,7 @@ void will_engine::deferred_resolve::DeferredResolvePipeline::setupDescriptorBuff
     renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, velocityTarget, false});
     renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, drawImageTarget, false});
 
-    resourceManager->setupDescriptorBufferSampler(resolveDescriptorBuffer, renderTargetDescriptors, 0);
+    resourceManager.setupDescriptorBufferSampler(resolveDescriptorBuffer, renderTargetDescriptors, 0);
 }
 
 void will_engine::deferred_resolve::DeferredResolvePipeline::draw(VkCommandBuffer cmd, const DeferredResolveDrawInfo& drawInfo) const

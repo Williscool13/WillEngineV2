@@ -14,7 +14,7 @@ class DescriptorBufferSampler final : public DescriptorBuffer
 public:
     DescriptorBufferSampler() = default;
 
-    DescriptorBufferSampler(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int maxObjectCount = 10);
+    DescriptorBufferSampler(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int32_t maxObjectCount = 10);
 
     /**
      * Allocates a descriptor set instance to a free index in the descriptor buffer. The vector passed to this should be equal in layout to
@@ -24,7 +24,7 @@ public:
      * @param index optional. If specified, will allocate/overwrite the descriptor set in that index of the descriptor buffer
      * @return the index of the allocated descriptor set. Store and use when binding during draw call.
      */
-    int setupData(VkDevice device, const std::vector<will_engine::DescriptorImageData>& imageBuffers, int index = -1);
+    int32_t setupData(VkDevice device, const std::vector<will_engine::DescriptorImageData>& imageBuffers, int32_t index = -1);
 
     VkBufferUsageFlagBits getBufferUsageFlags() const override;
 };

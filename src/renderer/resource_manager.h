@@ -60,11 +60,11 @@ public:
 
     [[nodiscard]] DescriptorBufferSampler createDescriptorBufferSampler(VkDescriptorSetLayout layout, int32_t maxObjectCount) const;
 
-    void setupDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer, const std::vector<will_engine::DescriptorImageData>& imageBuffers, int index = -1) const;
+    int32_t setupDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer, const std::vector<will_engine::DescriptorImageData>& imageBuffers, int index = -1) const;
 
     [[nodiscard]] DescriptorBufferUniform createDescriptorBufferUniform(VkDescriptorSetLayout layout, int32_t maxObjectCount) const;
 
-    void setupDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer, const std::vector<will_engine::DescriptorUniformData>& uniformBuffers, int index = -1) const;
+    int32_t setupDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer, const std::vector<will_engine::DescriptorUniformData>& uniformBuffers, int index = -1) const;
 
     void destroyDescriptorBuffer(DescriptorBuffer& descriptorBuffer) const;
 
@@ -84,9 +84,13 @@ public:
 
     void destroyPipeline(VkPipeline& pipeline) const;
 
-    VkDescriptorSetLayout buildDescriptorSetLayout(DescriptorLayoutBuilder& layoutBuilder, VkShaderStageFlagBits shaderStageFlags, VkDescriptorSetLayoutCreateFlagBits layoutCreateFlags) const;
+    VkDescriptorSetLayout createDescriptorSetLayout(DescriptorLayoutBuilder& layoutBuilder, VkShaderStageFlagBits shaderStageFlags, VkDescriptorSetLayoutCreateFlagBits layoutCreateFlags) const;
 
     void destroyDescriptorSetLayout(VkDescriptorSetLayout& descriptorSetLayout) const;
+
+    VkImageView createImageView(const VkImageViewCreateInfo& viewInfo) const;
+
+    void destroyImageView(VkImageView& imageView) const;
 
 public:
     [[nodiscard]] VkSampler getDefaultSamplerLinear() const { return defaultSamplerLinear; }
@@ -100,7 +104,6 @@ public:
     [[nodiscard]] VkDescriptorSetLayout getAddressesLayout() const { return addressesLayout; }
     [[nodiscard]] VkDescriptorSetLayout getTexturesLayout() const { return texturesLayout; }
     [[nodiscard]] VkDescriptorSetLayout getRenderTargetsLayout() const { return renderTargetsLayout; }
-
 
 private:
     const VulkanContext& context;

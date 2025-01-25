@@ -11,7 +11,7 @@
 using will_engine::DescriptorImageData;
 using will_engine::DescriptorBufferException;
 
-DescriptorBufferSampler::DescriptorBufferSampler(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, const int maxObjectCount)
+DescriptorBufferSampler::DescriptorBufferSampler(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, const int32_t maxObjectCount)
     : DescriptorBuffer(context, descriptorSetLayout, maxObjectCount)
 {
     VkBufferCreateInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
@@ -29,7 +29,7 @@ DescriptorBufferSampler::DescriptorBufferSampler(const VulkanContext& context, V
     descriptorBufferGpuAddress = vk_helpers::getDeviceAddress(context.device, descriptorBuffer.buffer);
 }
 
-int DescriptorBufferSampler::setupData(VkDevice device, const std::vector<DescriptorImageData>& imageBuffers, const int index /*= -1*/)
+int32_t DescriptorBufferSampler::setupData(VkDevice device, const std::vector<DescriptorImageData>& imageBuffers, const int32_t index /*= -1*/)
 {
     int descriptorBufferIndex;
     if (index < 0) {

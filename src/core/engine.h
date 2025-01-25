@@ -6,20 +6,24 @@
 #define ENGINE_H
 
 #include "engine_types.h"
+#include "camera/free_camera.h"
 #include "src/renderer/imgui_wrapper.h"
 #include "src/renderer/immediate_submitter.h"
 #include "src/renderer/renderer_constants.h"
-#include "src/renderer/pipelines/basic_compute/basic_compute_pipeline.h"
-#include "src/renderer/pipelines/basic_render/basic_render_pipeline.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
+#include "src/renderer/environment/environment.h"
 #include "src/renderer/pipelines/deferred_mrt/deferred_mrt.h"
 #include "src/renderer/pipelines/deferred_resolve/deferred_resolve.h"
-#include "src/renderer/pipelines/environment/environment_pipeline.h"
 
 namespace will_engine
 {
 class RenderObject;
 class GameObject;
+
+namespace environment_pipeline
+{
+    class EnvironmentPipeline;
+}
 
 namespace physics
 {
@@ -33,7 +37,9 @@ public:
 
     void run();
 
-    void updateSceneData() const;
+    void update(float deltaTime);
+
+    void updateRenderSceneData(float deltaTime) const;
 
     void draw();
 
@@ -51,6 +57,7 @@ private:
     ImmediateSubmitter* immediate = nullptr;
     ResourceManager* resourceManager = nullptr;
     physics::Physics* physics = nullptr;
+    environment::Environment* environmentMap{nullptr};
     ImguiWrapper* imguiWrapper = nullptr;
 
     EngineStats stats{};
@@ -64,15 +71,13 @@ private: // Rendering
     bool bStopRendering{false};
     bool bResizeRequested{false};
 
-
-    AllocatedImage drawImage{};
-    AllocatedImage depthImage{};
-
     void createDrawResources();
 
 private: // Scene Data
     DescriptorBufferUniform sceneDataDescriptorBuffer;
     AllocatedBuffer sceneDataBuffers[FRAME_OVERLAP]{};
+
+    FreeCamera* camera{nullptr};
 
     RenderObject* cube{nullptr};
     RenderObject* primitives{nullptr};
@@ -82,9 +87,12 @@ private: // Scene Data
 private: // Pipelines
     deferred_mrt::DeferredMrtPipeline* deferredMrtPipeline{nullptr};
     deferred_resolve::DeferredResolvePipeline* deferredResolvePipeline{nullptr};
-    environment::EnvironmentPipeline* environmentPipeline{nullptr};
+    environment_pipeline::EnvironmentPipeline* environmentPipeline{nullptr};
 
-private: // Render Targets
+private: // Draw Resources
+    AllocatedImage drawImage{};
+    AllocatedImage depthImage{};
+
     /**
      * 8.8.8 Normals - 8 unused
      */
@@ -101,7 +109,6 @@ private: // Render Targets
      * 16 X and 16 Y
      */
     AllocatedImage velocityRenderTarget{};
-
 
 private: // Swapchain
     VkSwapchainKHR swapchain{};

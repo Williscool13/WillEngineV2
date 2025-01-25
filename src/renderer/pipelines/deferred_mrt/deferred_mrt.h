@@ -34,14 +34,14 @@ struct DeferredMrtDrawInfo
 class DeferredMrtPipeline
 {
 public:
-    explicit DeferredMrtPipeline(ResourceManager* _resourceManager);
+    explicit DeferredMrtPipeline(ResourceManager& resourceManager);
 
     ~DeferredMrtPipeline();
 
     void draw(VkCommandBuffer cmd, const DeferredMrtDrawInfo& drawInfo) const;
 
 private:
-    ResourceManager* resourceManager{nullptr};
+    ResourceManager& resourceManager;
 
     VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
     VkPipeline pipeline{VK_NULL_HANDLE};

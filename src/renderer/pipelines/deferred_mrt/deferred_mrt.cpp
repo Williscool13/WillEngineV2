@@ -9,14 +9,12 @@
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/render_object/render_object_types.h"
 
-will_engine::deferred_mrt::DeferredMrtPipeline::DeferredMrtPipeline(ResourceManager* _resourceManager) : resourceManager(_resourceManager)
+will_engine::deferred_mrt::DeferredMrtPipeline::DeferredMrtPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
-    if (!_resourceManager) { return; }
-
     VkDescriptorSetLayout descriptorLayout[3];
-    descriptorLayout[0] = resourceManager->getSceneDataLayout();
-    descriptorLayout[1] = resourceManager->getAddressesLayout();
-    descriptorLayout[2] = resourceManager->getTexturesLayout();
+    descriptorLayout[0] = resourceManager.getSceneDataLayout();
+    descriptorLayout[1] = resourceManager.getAddressesLayout();
+    descriptorLayout[2] = resourceManager.getTexturesLayout();
 
 
     VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
@@ -26,10 +24,10 @@ will_engine::deferred_mrt::DeferredMrtPipeline::DeferredMrtPipeline(ResourceMana
     layoutInfo.pPushConstantRanges = nullptr;
     layoutInfo.pushConstantRangeCount = 0;
 
-    pipelineLayout = resourceManager->createPipelineLayout(layoutInfo);
+    pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
-    VkShaderModule vertShader = resourceManager->createShaderModule("shaders/deferredMrt.vert.spv");
-    VkShaderModule fragShader = resourceManager->createShaderModule("shaders/deferredMrt.frag.spv");
+    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/deferredMrt.vert.spv");
+    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/deferredMrt.frag.spv");
 
     PipelineBuilder renderPipelineBuilder;
     VkVertexInputBindingDescription mainBinding{};
@@ -74,22 +72,19 @@ will_engine::deferred_mrt::DeferredMrtPipeline::DeferredMrtPipeline(ResourceMana
     renderPipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_FORMAT);
     renderPipelineBuilder.setupPipelineLayout(pipelineLayout);
 
-    pipeline = resourceManager->createRenderPipeline(renderPipelineBuilder);
-    resourceManager->destroyShaderModule(vertShader);
-    resourceManager->destroyShaderModule(fragShader);
+    pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder);
+    resourceManager.destroyShaderModule(vertShader);
+    resourceManager.destroyShaderModule(fragShader);
 }
 
 will_engine::deferred_mrt::DeferredMrtPipeline::~DeferredMrtPipeline()
 {
-    if (!resourceManager) { return; }
-
-    resourceManager->destroyPipelineLayout(pipelineLayout);
-    resourceManager->destroyPipeline(pipeline);
+    resourceManager.destroyPipelineLayout(pipelineLayout);
+    resourceManager.destroyPipeline(pipeline);
 }
 
 void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, const DeferredMrtDrawInfo& drawInfo) const
 {
-    if (!resourceManager) { return; }
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
     label.pLabelName = "Deferred MRT Pass";

@@ -20,7 +20,7 @@ class GameObject;
 class RenderObject : public IRenderReference
 {
 public:
-    RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager* resourceManager);
+    RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager);
 
     ~RenderObject() override;
 
@@ -55,7 +55,7 @@ private: // Buffer Data
     [[nodiscard]] InstanceData* getInstanceData(int32_t index) const;
 
 private: // Model Data
-    ResourceManager* resourceManager{nullptr};
+    ResourceManager& resourceManager;
 
     std::vector<VkSampler> samplers{};
     std::vector<AllocatedImage> images{};

@@ -2,14 +2,14 @@
 // Created by William on 2025-01-25.
 //
 
-#ifndef ENVIRONMENT_H
-#define ENVIRONMENT_H
+#ifndef ENVIRONMENT_PIPELINE_H
+#define ENVIRONMENT_PIPELINE_H
 #include <vulkan/vulkan_core.h>
 
 
 class ResourceManager;
 
-namespace will_engine::environment
+namespace will_engine::environment_pipeline
 {
 struct EnvironmentDrawInfo
 {
@@ -25,14 +25,14 @@ struct EnvironmentDrawInfo
 class EnvironmentPipeline
 {
 public:
-    EnvironmentPipeline(ResourceManager* _resourceManager, VkDescriptorSetLayout environmentMapLayout);
+    EnvironmentPipeline(ResourceManager& resourceManager, VkDescriptorSetLayout environmentMapLayout);
 
     ~EnvironmentPipeline();
 
     void draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& drawInfo) const;
 
 private:
-    ResourceManager* resourceManager{nullptr};
+    ResourceManager& resourceManager;
 
     VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
     VkPipeline pipeline{VK_NULL_HANDLE};
@@ -40,4 +40,4 @@ private:
 }
 
 
-#endif //ENVIRONMENT_H
+#endif //ENVIRONMENT_PIPELINE_H

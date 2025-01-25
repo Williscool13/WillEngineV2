@@ -12,39 +12,30 @@
 
 namespace basic_render
 {
-BasicRenderPipeline::BasicRenderPipeline(const RenderPipelineInfo& pipelineInfo, VulkanContext& context) : context(context)
+BasicRenderPipeline::BasicRenderPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
     DescriptorLayoutBuilder layoutBuilder;
     layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    samplerDescriptorLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    samplerDescriptorLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    samplerDescriptorBuffer = resourceManager.createDescriptorBufferSampler(samplerDescriptorLayout, 1);
 
-    samplerDescriptorBuffer = DescriptorBufferSampler(context, samplerDescriptorLayout, 1);
-
-
-    VkShaderModule vertShader;
-    if (!vk_helpers::loadShaderModule("shaders/basic/vertex.vert.spv", context.device, &vertShader)) {
-        throw std::runtime_error("Error when building the triangle vertex shader module(vertex.vert)");
-    }
-    VkShaderModule fragShader;
-    if (!vk_helpers::loadShaderModule("shaders/basic/fragment.frag.spv", context.device, &fragShader)) {
-        fmt::print("Error when building the triangle fragment shader module(fragment.frag)\n");
-    }
-
+    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/basic/vertex.vert.spv");
+    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/basic/fragment.frag.spv");
 
     VkPushConstantRange renderPushConstantRange{};
     renderPushConstantRange.offset = 0;
     renderPushConstantRange.size = sizeof(RenderPushConstant);
     renderPushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 
-    VkPipelineLayoutCreateInfo layout_info = vk_helpers::pipelineLayoutCreateInfo();
-    layout_info.setLayoutCount = 2;
+    VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
+    layoutInfo.setLayoutCount = 2;
 
-    VkDescriptorSetLayout layouts[2]{samplerDescriptorLayout, pipelineInfo.sceneDataLayout};
-    layout_info.pSetLayouts = layouts;
-    layout_info.pPushConstantRanges = &renderPushConstantRange;
-    layout_info.pushConstantRangeCount = 1;
+    VkDescriptorSetLayout layouts[2]{samplerDescriptorLayout, resourceManager.getSceneDataLayout()};
+    layoutInfo.pSetLayouts = layouts;
+    layoutInfo.pPushConstantRanges = &renderPushConstantRange;
+    layoutInfo.pushConstantRangeCount = 1;
 
-    VK_CHECK(vkCreatePipelineLayout(context.device, &layout_info, nullptr, &pipelineLayout));
+    pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
     PipelineBuilder renderPipelineBuilder;
     renderPipelineBuilder.setShaders(vertShader, fragShader);
@@ -53,32 +44,21 @@ BasicRenderPipeline::BasicRenderPipeline(const RenderPipelineInfo& pipelineInfo,
     renderPipelineBuilder.disableMultisampling();
     renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
     renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    renderPipelineBuilder.setupRenderer({pipelineInfo.colorFormat}, pipelineInfo.depthFormat);
+    renderPipelineBuilder.setupRenderer({DRAW_FORMAT}, DEPTH_FORMAT);
     renderPipelineBuilder.setupPipelineLayout(pipelineLayout);
 
-    pipeline = renderPipelineBuilder.buildPipeline(context.device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder);
 
-    vkDestroyShaderModule(context.device, vertShader, nullptr);
-    vkDestroyShaderModule(context.device, fragShader, nullptr);
+    resourceManager.destroyShaderModule(vertShader);
+    resourceManager.destroyShaderModule(fragShader);
 }
 
 BasicRenderPipeline::~BasicRenderPipeline()
 {
-    if (context.device == VK_NULL_HANDLE) { return; }
-    if (pipeline) {
-        vkDestroyPipeline(context.device, pipeline, nullptr);
-        pipeline = VK_NULL_HANDLE;
-    }
-    if (pipelineLayout) {
-        vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
-        pipelineLayout = VK_NULL_HANDLE;
-    }
-    if (samplerDescriptorLayout) {
-        vkDestroyDescriptorSetLayout(context.device, samplerDescriptorLayout, nullptr);
-        samplerDescriptorLayout = VK_NULL_HANDLE;
-    }
-
-    samplerDescriptorBuffer.destroy(context.allocator);
+    resourceManager.destroyPipeline(pipeline);
+    resourceManager.destroyPipelineLayout(pipelineLayout);
+    resourceManager.destroyDescriptorSetLayout(samplerDescriptorLayout);
+    resourceManager.destroyDescriptorBuffer(samplerDescriptorBuffer);
 }
 
 void BasicRenderPipeline::setupDescriptors(const RenderDescriptorInfo& descriptorInfo)
@@ -92,7 +72,7 @@ void BasicRenderPipeline::setupDescriptors(const RenderDescriptorInfo& descripto
     textureImage.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     imageDescriptor.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, textureImage, false});
-    samplerDescriptorBuffer.setupData(context.device, imageDescriptor, 0);
+    resourceManager.setupDescriptorBufferSampler(samplerDescriptorBuffer, imageDescriptor, 0);
 }
 
 void BasicRenderPipeline::draw(VkCommandBuffer cmd, const RenderDrawInfo& drawInfo) const

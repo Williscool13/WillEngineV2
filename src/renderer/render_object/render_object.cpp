@@ -19,50 +19,47 @@
 
 namespace will_engine
 {
-RenderObject::RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager* resourceManager)
+RenderObject::RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
-    if (!resourceManager) { return; }
-    this->resourceManager = resourceManager;
     if (!parseGltf(gltfFilepath)) { return; }
     generateBuffers();
 }
 
 RenderObject::~RenderObject()
 {
-    if (resourceManager == nullptr) { return; }
     for (auto& image : images) {
-        if (image.image == resourceManager->getErrorCheckerboardImage().image || image.image == resourceManager->getWhiteImage().image) {
+        if (image.image == resourceManager.getErrorCheckerboardImage().image || image.image == resourceManager.getWhiteImage().image) {
             //dont destroy the default images
             continue;
         }
 
-        resourceManager->destroyImage(image);
+        resourceManager.destroyImage(image);
     }
 
     for (const auto& sampler : samplers) {
-        if (sampler == resourceManager->getDefaultSamplerNearest() || sampler == resourceManager->getDefaultSamplerLinear()) {
+        if (sampler == resourceManager.getDefaultSamplerNearest() || sampler == resourceManager.getDefaultSamplerLinear()) {
             //dont destroy the default samplers
             continue;
         }
 
-        resourceManager->destroySampler(sampler);
+        resourceManager.destroySampler(sampler);
     }
 
-    resourceManager->destroyBuffer(indexBuffer);
-    resourceManager->destroyBuffer(vertexBuffer);
-    resourceManager->destroyBuffer(drawIndirectBuffer);
+    resourceManager.destroyBuffer(indexBuffer);
+    resourceManager.destroyBuffer(vertexBuffer);
+    resourceManager.destroyBuffer(drawIndirectBuffer);
 
-    resourceManager->destroyBuffer(addressBuffer);
-    resourceManager->destroyBuffer(materialBuffer);
-    resourceManager->destroyBuffer(modelMatrixBuffer);
+    resourceManager.destroyBuffer(addressBuffer);
+    resourceManager.destroyBuffer(materialBuffer);
+    resourceManager.destroyBuffer(modelMatrixBuffer);
 
-    resourceManager->destroyBuffer(meshBoundsBuffer);
-    resourceManager->destroyBuffer(boundingSphereIndicesBuffer);
-    resourceManager->destroyBuffer(cullingAddressBuffer);
+    resourceManager.destroyBuffer(meshBoundsBuffer);
+    resourceManager.destroyBuffer(boundingSphereIndicesBuffer);
+    resourceManager.destroyBuffer(cullingAddressBuffer);
 
-    resourceManager->destroyDescriptorBuffer(addressesDescriptorBuffer);
-    resourceManager->destroyDescriptorBuffer(frustumCullingDescriptorBuffer);
-    resourceManager->destroyDescriptorBuffer(textureDescriptorBuffer);
+    resourceManager.destroyDescriptorBuffer(addressesDescriptorBuffer);
+    resourceManager.destroyDescriptorBuffer(frustumCullingDescriptorBuffer);
+    resourceManager.destroyDescriptorBuffer(textureDescriptorBuffer);
 }
 
 bool RenderObject::attachToGameObject(GameObject* gameObject, const int32_t meshIndex)
@@ -127,7 +124,7 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
     fastgltf::Asset gltf = std::move(load.get());
 
     samplers.reserve(gltf.samplers.size() + samplerOffset);
-    samplers.push_back(this->resourceManager->getDefaultSamplerNearest());
+    samplers.push_back(this->resourceManager.getDefaultSamplerNearest());
     for (const fastgltf::Sampler& gltfSampler : gltf.samplers) {
         VkSamplerCreateInfo samplerInfo = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO, .pNext = nullptr};
         samplerInfo.maxLod = VK_LOD_CLAMP_NONE;
@@ -137,19 +134,19 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
         samplerInfo.minFilter = vk_helpers::extractFilter(gltfSampler.minFilter.value_or(fastgltf::Filter::Nearest));
 
         samplerInfo.mipmapMode = vk_helpers::extractMipmapMode(gltfSampler.minFilter.value_or(fastgltf::Filter::Linear));
-        samplers.emplace_back(this->resourceManager->createSampler(samplerInfo));
+        samplers.emplace_back(this->resourceManager.createSampler(samplerInfo));
     }
 
     assert(samplers.size() <= render_object_constants::MAX_SAMPLER_COUNT);
 
     images.reserve(gltf.images.size() + imageOffset);
-    images.push_back(this->resourceManager->getWhiteImage());
+    images.push_back(this->resourceManager.getWhiteImage());
     for (const fastgltf::Image& gltfImage : gltf.images) {
         std::optional<AllocatedImage> newImage = loadImage(gltf, gltfImage, gltfFilepath.parent_path());
         if (newImage.has_value()) {
             images.push_back(*newImage);
         } else {
-            images.push_back(this->resourceManager->getErrorCheckerboardImage());
+            images.push_back(this->resourceManager.getErrorCheckerboardImage());
         }
     }
 
@@ -388,7 +385,7 @@ std::optional<AllocatedImage> RenderObject::loadImage(const fastgltf::Asset& ass
                     imagesize.height = height;
                     imagesize.depth = 1;
                     const size_t size = width * height * 4;
-                    newImage = resourceManager->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
+                    newImage = resourceManager.createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
 
                     stbi_image_free(data);
                 }
@@ -403,7 +400,7 @@ std::optional<AllocatedImage> RenderObject::loadImage(const fastgltf::Asset& ass
                     imagesize.height = height;
                     imagesize.depth = 1;
                     const size_t size = width * height * 4;
-                    newImage = resourceManager->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
+                    newImage = resourceManager.createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
 
                     stbi_image_free(data);
                 }
@@ -427,7 +424,7 @@ std::optional<AllocatedImage> RenderObject::loadImage(const fastgltf::Asset& ass
                                        imagesize.height = height;
                                        imagesize.depth = 1;
                                        const size_t size = width * height * 4;
-                                       newImage = resourceManager->createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
+                                       newImage = resourceManager.createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
                                        stbi_image_free(data);
                                    }
                                }
@@ -524,55 +521,55 @@ bool RenderObject::generateBuffers()
     }
 
 
-    textureDescriptorBuffer = resourceManager->createDescriptorBufferSampler(resourceManager->getTexturesLayout(), 1);
-    resourceManager->setupDescriptorBufferSampler(textureDescriptorBuffer, textureDescriptors, 0);
+    textureDescriptorBuffer = resourceManager.createDescriptorBufferSampler(resourceManager.getTexturesLayout(), 1);
+    resourceManager.setupDescriptorBufferSampler(textureDescriptorBuffer, textureDescriptors, 0);
 
 
-    AllocatedBuffer materialStaging = resourceManager->createStagingBuffer(materials.size() * sizeof(Material));
+    AllocatedBuffer materialStaging = resourceManager.createStagingBuffer(materials.size() * sizeof(Material));
     memcpy(materialStaging.info.pMappedData, materials.data(), materials.size() * sizeof(Material));
-    materialBuffer = resourceManager->createDeviceBuffer(materials.size() * sizeof(Material));
-    resourceManager->copyBuffer(materialStaging, materialBuffer, materials.size() * sizeof(Material));
-    resourceManager->destroyBuffer(materialStaging);
+    materialBuffer = resourceManager.createDeviceBuffer(materials.size() * sizeof(Material));
+    resourceManager.copyBuffer(materialStaging, materialBuffer, materials.size() * sizeof(Material));
+    resourceManager.destroyBuffer(materialStaging);
 
 
-    AllocatedBuffer vertexStaging = resourceManager->createStagingBuffer(vertices.size() * sizeof(Vertex));
+    AllocatedBuffer vertexStaging = resourceManager.createStagingBuffer(vertices.size() * sizeof(Vertex));
     memcpy(vertexStaging.info.pMappedData, vertices.data(), vertices.size() * sizeof(Vertex));
-    vertexBuffer = resourceManager->createDeviceBuffer(vertices.size() * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-    resourceManager->copyBuffer(vertexStaging, vertexBuffer, vertices.size() * sizeof(Vertex));
-    resourceManager->destroyBuffer(vertexStaging);
+    vertexBuffer = resourceManager.createDeviceBuffer(vertices.size() * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    resourceManager.copyBuffer(vertexStaging, vertexBuffer, vertices.size() * sizeof(Vertex));
+    resourceManager.destroyBuffer(vertexStaging);
 
-    AllocatedBuffer indexStaging = resourceManager->createStagingBuffer(indices.size() * sizeof(uint32_t));
+    AllocatedBuffer indexStaging = resourceManager.createStagingBuffer(indices.size() * sizeof(uint32_t));
     memcpy(indexStaging.info.pMappedData, indices.data(), indices.size() * sizeof(uint32_t));
-    indexBuffer = resourceManager->createDeviceBuffer(indices.size() * sizeof(uint32_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-    resourceManager->copyBuffer(indexStaging, indexBuffer, indices.size() * sizeof(uint32_t));
-    resourceManager->destroyBuffer(indexStaging);
+    indexBuffer = resourceManager.createDeviceBuffer(indices.size() * sizeof(uint32_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    resourceManager.copyBuffer(indexStaging, indexBuffer, indices.size() * sizeof(uint32_t));
+    resourceManager.destroyBuffer(indexStaging);
 
     // Addresses (Texture and Uniform model data)
-    addressBuffer = resourceManager->createHostSequentialBuffer(sizeof(VkDeviceAddress) * 2);
-    addressesDescriptorBuffer = resourceManager->createDescriptorBufferUniform(resourceManager->getAddressesLayout(), 1);
+    addressBuffer = resourceManager.createHostSequentialBuffer(sizeof(VkDeviceAddress) * 2);
+    addressesDescriptorBuffer = resourceManager.createDescriptorBufferUniform(resourceManager.getAddressesLayout(), 1);
     DescriptorUniformData addressesUniformData{
         .uniformBuffer = addressBuffer,
         .allocSize = sizeof(VkDeviceAddress) * 2,
     };
-    resourceManager->setupDescriptorBufferUniform(addressesDescriptorBuffer, {addressesUniformData}, 0);
+    resourceManager.setupDescriptorBufferUniform(addressesDescriptorBuffer, {addressesUniformData}, 0);
 
     // Only copy material buffer for now, since model buffer doesn't exist yet.
-    const VkDeviceAddress materialBufferAddress = resourceManager->getBufferAddress(materialBuffer);
+    const VkDeviceAddress materialBufferAddress = resourceManager.getBufferAddress(materialBuffer);
     memcpy(addressBuffer.info.pMappedData, &materialBufferAddress, sizeof(VkDeviceAddress));
 
-    frustumCullingDescriptorBuffer = resourceManager->createDescriptorBufferUniform(resourceManager->getFrustumCullLayout(), 1);
-    cullingAddressBuffer = resourceManager->createDeviceBuffer(sizeof(FrustumCullingBuffers));
+    frustumCullingDescriptorBuffer = resourceManager.createDescriptorBufferUniform(resourceManager.getFrustumCullLayout(), 1);
+    cullingAddressBuffer = resourceManager.createDeviceBuffer(sizeof(FrustumCullingBuffers));
     const DescriptorUniformData cullingAddressesUniformData{
         .uniformBuffer = cullingAddressBuffer,
         .allocSize = sizeof(FrustumCullingBuffers),
     };
-    resourceManager->setupDescriptorBufferUniform(frustumCullingDescriptorBuffer, {cullingAddressesUniformData}, 0);
+    resourceManager.setupDescriptorBufferUniform(frustumCullingDescriptorBuffer, {cullingAddressesUniformData}, 0);
 
-    AllocatedBuffer meshBoundsStaging = resourceManager->createStagingBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
+    AllocatedBuffer meshBoundsStaging = resourceManager.createStagingBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
     memcpy(meshBoundsStaging.info.pMappedData, boundingSpheres.data(), sizeof(BoundingSphere) * boundingSpheres.size());
-    meshBoundsBuffer = resourceManager->createDeviceBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
-    resourceManager->copyBuffer(meshBoundsStaging, meshBoundsBuffer, sizeof(BoundingSphere) * boundingSpheres.size());
-    resourceManager->destroyBuffer(meshBoundsStaging);
+    meshBoundsBuffer = resourceManager.createDeviceBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
+    resourceManager.copyBuffer(meshBoundsStaging, meshBoundsBuffer, sizeof(BoundingSphere) * boundingSpheres.size());
+    resourceManager.destroyBuffer(meshBoundsStaging);
 
     return true;
 }
@@ -585,15 +582,15 @@ void RenderObject::expandInstanceBuffer(const uint32_t countToAdd, const bool co
     if (instanceBufferSize == 0) { return; }
 
     // Host because it can be modified any time by gameobjects
-    const AllocatedBuffer tempInstanceBuffer = resourceManager->createHostSequentialBuffer(instanceBufferSize * sizeof(InstanceData));
+    const AllocatedBuffer tempInstanceBuffer = resourceManager.createHostSequentialBuffer(instanceBufferSize * sizeof(InstanceData));
 
     if (copyPrevious && oldBufferSize > 0) {
-        resourceManager->copyBuffer(modelMatrixBuffer, tempInstanceBuffer, oldBufferSize * sizeof(InstanceData));
+        resourceManager.copyBuffer(modelMatrixBuffer, tempInstanceBuffer, oldBufferSize * sizeof(InstanceData));
     }
-    resourceManager->destroyBuffer(modelMatrixBuffer);
+    resourceManager.destroyBuffer(modelMatrixBuffer);
     modelMatrixBuffer = tempInstanceBuffer;
 
-    const VkDeviceAddress instanceBufferAddress = resourceManager->getBufferAddress(modelMatrixBuffer);
+    const VkDeviceAddress instanceBufferAddress = resourceManager.getBufferAddress(modelMatrixBuffer);
     memcpy(static_cast<char*>(addressBuffer.info.pMappedData) + sizeof(VkDeviceAddress), &instanceBufferAddress, sizeof(VkDeviceAddress));
 }
 
@@ -601,36 +598,36 @@ void RenderObject::uploadCullingBufferData()
 {
     if (instanceBufferSize == 0) { return; }
 
-    resourceManager->destroyBuffer(drawIndirectBuffer);
-    resourceManager->destroyBuffer(boundingSphereIndicesBuffer);
+    resourceManager.destroyBuffer(drawIndirectBuffer);
+    resourceManager.destroyBuffer(boundingSphereIndicesBuffer);
 
-    AllocatedBuffer stagingBoundingSphereIndicesBuffer = resourceManager->createStagingBuffer(boundingSphereIndices.size() * sizeof(uint32_t));
+    AllocatedBuffer stagingBoundingSphereIndicesBuffer = resourceManager.createStagingBuffer(boundingSphereIndices.size() * sizeof(uint32_t));
     memcpy(stagingBoundingSphereIndicesBuffer.info.pMappedData, boundingSphereIndices.data(), boundingSphereIndices.size() * sizeof(uint32_t));
-    boundingSphereIndicesBuffer = resourceManager->createDeviceBuffer(boundingSphereIndices.size() * sizeof(uint32_t));
-    resourceManager->copyBuffer(stagingBoundingSphereIndicesBuffer, boundingSphereIndicesBuffer, boundingSphereIndices.size() * sizeof(uint32_t));
-    resourceManager->destroyBuffer(stagingBoundingSphereIndicesBuffer);
+    boundingSphereIndicesBuffer = resourceManager.createDeviceBuffer(boundingSphereIndices.size() * sizeof(uint32_t));
+    resourceManager.copyBuffer(stagingBoundingSphereIndicesBuffer, boundingSphereIndicesBuffer, boundingSphereIndices.size() * sizeof(uint32_t));
+    resourceManager.destroyBuffer(stagingBoundingSphereIndicesBuffer);
 
-    AllocatedBuffer indirectStaging = resourceManager->createStagingBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+    AllocatedBuffer indirectStaging = resourceManager.createStagingBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
     memcpy(indirectStaging.info.pMappedData, drawCommands.data(), drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-    drawIndirectBuffer = resourceManager->createDeviceBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand), VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+    drawIndirectBuffer = resourceManager.createDeviceBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand), VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
 
-    resourceManager->copyBuffer(indirectStaging, drawIndirectBuffer, drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-    resourceManager->destroyBuffer(indirectStaging);
+    resourceManager.copyBuffer(indirectStaging, drawIndirectBuffer, drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+    resourceManager.destroyBuffer(indirectStaging);
 
 
     const FrustumCullingBuffers cullingAddresses{
-        .meshBoundsBuffer = resourceManager->getBufferAddress(meshBoundsBuffer),
-        .commandBuffer = resourceManager->getBufferAddress(drawIndirectBuffer),
+        .meshBoundsBuffer = resourceManager.getBufferAddress(meshBoundsBuffer),
+        .commandBuffer = resourceManager.getBufferAddress(drawIndirectBuffer),
         .commandBufferCount = static_cast<uint32_t>(drawCommands.size()),
-        .modelMatrixBuffer = resourceManager->getBufferAddress(modelMatrixBuffer),
-        .meshIndicesBuffer = resourceManager->getBufferAddress(boundingSphereIndicesBuffer),
+        .modelMatrixBuffer = resourceManager.getBufferAddress(modelMatrixBuffer),
+        .meshIndicesBuffer = resourceManager.getBufferAddress(boundingSphereIndicesBuffer),
         .padding = {},
     };
 
-    AllocatedBuffer stagingCullingAddressesBuffer = resourceManager->createStagingBuffer(sizeof(FrustumCullingBuffers));
+    AllocatedBuffer stagingCullingAddressesBuffer = resourceManager.createStagingBuffer(sizeof(FrustumCullingBuffers));
     memcpy(stagingCullingAddressesBuffer.info.pMappedData, &cullingAddresses, sizeof(FrustumCullingBuffers));
-    resourceManager->copyBuffer(stagingCullingAddressesBuffer, cullingAddressBuffer, sizeof(FrustumCullingBuffers));
-    resourceManager->destroyBuffer(stagingCullingAddressesBuffer);
+    resourceManager.copyBuffer(stagingCullingAddressesBuffer, cullingAddressBuffer, sizeof(FrustumCullingBuffers));
+    resourceManager.destroyBuffer(stagingCullingAddressesBuffer);
 }
 
 InstanceData* RenderObject::getInstanceData(const int32_t index) const
