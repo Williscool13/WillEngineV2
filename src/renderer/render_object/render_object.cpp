@@ -62,13 +62,78 @@ RenderObject::~RenderObject()
     resourceManager.destroyDescriptorBuffer(textureDescriptorBuffer);
 }
 
+GameObject* RenderObject::generateGameObject()
+{
+    // get number of meshes in the entire model
+    uint32_t instanceCount{0};
+    for (const RenderNode& renderNode : renderNodes) {
+        if (renderNode.meshIndex != -1) {
+            instanceCount++;
+        }
+    }
+
+    expandInstanceBuffer(instanceCount);
+
+    auto* superRoot = new GameObject();
+    for (const int32_t rootNode : topNodes) {
+        recursiveGenerateGameObject(renderNodes[rootNode], superRoot);
+    }
+
+    uploadCullingBufferData();
+    return superRoot;
+}
+
+GameObject* RenderObject::generateGameObject(const int32_t meshIndex, const Transform& startingTransform)
+{
+    if (meshIndex >= meshes.size()) { return nullptr; }
+
+    auto* gameObject = new GameObject();
+    attachToGameObject(gameObject, meshIndex);
+    gameObject->setGlobalTransform(startingTransform);
+
+    return gameObject;
+}
+
+void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent)
+{
+    const auto gameObject = new GameObject();
+
+    if (renderNode.meshIndex != -1) {
+        // InstanceIndex is used to know which model matrix to use form the model matrix array
+        // All primitives in a mesh use the same model matrix
+        const std::vector<Primitive>& meshPrimitives = meshes[renderNode.meshIndex].primitives;
+        drawCommands.reserve(drawCommands.size() + meshPrimitives.size());
+
+        for (const Primitive primitive : meshPrimitives) {
+            drawCommands.emplace_back();
+            VkDrawIndexedIndirectCommand& indirectData = drawCommands.back();
+            indirectData.firstIndex = primitive.firstIndex;
+            indirectData.indexCount = primitive.indexCount;
+            indirectData.vertexOffset = primitive.vertexOffset;
+            indirectData.instanceCount = 1;
+            indirectData.firstInstance = instanceBufferSize;
+
+            boundingSphereIndices.push_back(primitive.boundingSphereIndex);
+        }
+
+        gameObject->setRenderObjectReference(this, static_cast<int32_t>(instanceBufferSize));
+        instanceBufferSize++;
+    }
+
+    gameObject->setLocalTransform(renderNode.transform);
+    parent->addChild(gameObject, false);
+
+    for (const auto& child : renderNode.children) {
+        recursiveGenerateGameObject(*child, gameObject);
+    }
+}
+
 bool RenderObject::attachToGameObject(GameObject* gameObject, const int32_t meshIndex)
 {
     if (gameObject == nullptr) { return false; }
     if (meshIndex < 0 || meshIndex >= meshes.size()) { return false; }
 
 
-    const uint32_t instanceIndex = instanceBufferSize;
     expandInstanceBuffer(1);
 
     const std::vector<Primitive>& meshPrimitives = meshes[meshIndex].primitives;
@@ -82,12 +147,13 @@ bool RenderObject::attachToGameObject(GameObject* gameObject, const int32_t mesh
         indirectData.indexCount = primitive.indexCount;
         indirectData.vertexOffset = primitive.vertexOffset;
         indirectData.instanceCount = 1;
-        indirectData.firstInstance = instanceIndex;
+        indirectData.firstInstance = instanceBufferSize;
 
         boundingSphereIndices.push_back(primitive.boundingSphereIndex);
     }
 
-    gameObject->setRenderObjectReference(this, static_cast<int32_t>(instanceIndex));
+    gameObject->setRenderObjectReference(this, static_cast<int32_t>(instanceBufferSize));
+    instanceBufferSize++;
 
     uploadCullingBufferData();
     return true;
@@ -576,13 +642,13 @@ bool RenderObject::generateBuffers()
 
 void RenderObject::expandInstanceBuffer(const uint32_t countToAdd, const bool copyPrevious)
 {
-    const uint32_t oldBufferSize = instanceBufferSize;
-    instanceBufferSize += countToAdd;
+    const uint32_t oldBufferSize = instanceBufferCapacity;
+    instanceBufferCapacity += countToAdd;
 
-    if (instanceBufferSize == 0) { return; }
+    if (instanceBufferCapacity == 0) { return; }
 
     // Host because it can be modified any time by gameobjects
-    const AllocatedBuffer tempInstanceBuffer = resourceManager.createHostSequentialBuffer(instanceBufferSize * sizeof(InstanceData));
+    const AllocatedBuffer tempInstanceBuffer = resourceManager.createHostSequentialBuffer(instanceBufferCapacity * sizeof(InstanceData));
 
     if (copyPrevious && oldBufferSize > 0) {
         resourceManager.copyBuffer(modelMatrixBuffer, tempInstanceBuffer, oldBufferSize * sizeof(InstanceData));
@@ -596,7 +662,7 @@ void RenderObject::expandInstanceBuffer(const uint32_t countToAdd, const bool co
 
 void RenderObject::uploadCullingBufferData()
 {
-    if (instanceBufferSize == 0) { return; }
+    if (instanceBufferCapacity == 0) { return; }
 
     resourceManager.destroyBuffer(drawIndirectBuffer);
     resourceManager.destroyBuffer(boundingSphereIndicesBuffer);
@@ -634,7 +700,7 @@ InstanceData* RenderObject::getInstanceData(const int32_t index) const
 {
     if (modelMatrixBuffer.buffer == VK_NULL_HANDLE) { return nullptr; }
 
-    if (index < 0 || index >= instanceBufferSize) {
+    if (index < 0 || index >= instanceBufferCapacity) {
         assert(false && "Instance index out of bounds");
     }
 

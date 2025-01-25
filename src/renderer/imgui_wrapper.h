@@ -31,7 +31,7 @@ public:
 
     void handleInput(const SDL_Event& e);
 
-    void imguiInterface(const Engine* engine);
+    void imguiInterface(Engine* engine);
 
     void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView, VkExtent2D swapchainExtent);
 
