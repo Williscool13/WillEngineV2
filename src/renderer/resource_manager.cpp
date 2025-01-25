@@ -51,6 +51,14 @@ ResourceManager::ResourceManager(const VulkanContext& context, ImmediateSubmitte
         samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
         vkCreateSampler(context.device, &samplerInfo, nullptr, &defaultSamplerLinear);
     }
+    // Empty (WIP/unused)
+    {
+        DescriptorLayoutBuilder layoutBuilder;
+        emptyDescriptorSetLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT, nullptr,
+                                                       VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+
+    }
+
     // Scene Data Layout
     {
         DescriptorLayoutBuilder layoutBuilder;
@@ -79,6 +87,19 @@ ResourceManager::ResourceManager(const VulkanContext& context, ImmediateSubmitte
         layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, will_engine::render_object_constants::MAX_IMAGES_COUNT);
         texturesLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
+    // Render Targets
+    {
+        DescriptorLayoutBuilder layoutBuilder;
+        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        layoutBuilder.addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        layoutBuilder.addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+        layoutBuilder.addBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+
+        renderTargetsLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    }
+
 }
 
 ResourceManager::~ResourceManager()
@@ -89,10 +110,12 @@ ResourceManager::~ResourceManager()
     destroyImage(errorCheckerboardImage);
     vkDestroySampler(context.device, defaultSamplerNearest, nullptr);
     vkDestroySampler(context.device, defaultSamplerLinear, nullptr);
+    vkDestroyDescriptorSetLayout(context.device, emptyDescriptorSetLayout, nullptr);
     vkDestroyDescriptorSetLayout(context.device, sceneDataLayout, nullptr);
     vkDestroyDescriptorSetLayout(context.device, frustumCullLayout, nullptr);
     vkDestroyDescriptorSetLayout(context.device, addressesLayout, nullptr);
     vkDestroyDescriptorSetLayout(context.device, texturesLayout, nullptr);
+    vkDestroyDescriptorSetLayout(context.device, renderTargetsLayout, nullptr);
 }
 
 AllocatedBuffer ResourceManager::createBuffer(const size_t allocSize, const VkBufferUsageFlags usage, const VmaMemoryUsage memoryUsage) const
@@ -348,12 +371,7 @@ void ResourceManager::setupDescriptorBufferUniform(DescriptorBufferUniform& desc
     descriptorBuffer.setupData(context.device, uniformBuffers, index);
 }
 
-void ResourceManager::destroyDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer) const
-{
-    descriptorBuffer.destroy(context.allocator);
-}
-
-void ResourceManager::destroyDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer) const
+void ResourceManager::destroyDescriptorBuffer(DescriptorBuffer& descriptorBuffer) const
 {
     descriptorBuffer.destroy(context.allocator);
 }
@@ -363,7 +381,8 @@ VkShaderModule ResourceManager::createShaderModule(const std::filesystem::path& 
     VkShaderModule shader;
     const bool res = vk_helpers::loadShaderModule(path.string().c_str(), context.device, &shader);
     if (!res) {
-        throw std::runtime_error("Error when building the deferred vertex shader module(deferredMrt.vert.spv)\n");
+        const std::string message = fmt::format("Error when building shader {}", path.filename().string());
+        throw std::runtime_error(message);
     }
 
     return shader;
@@ -396,9 +415,28 @@ VkPipeline ResourceManager::createRenderPipeline(PipelineBuilder& builder) const
     return pipeline;
 }
 
-void ResourceManager::destroyRenderPipeline(VkPipeline& pipeline) const
+VkPipeline ResourceManager::createComputePipeline(const VkComputePipelineCreateInfo& pipelineInfo) const
+{
+    VkPipeline computePipeline;
+    vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &computePipeline);
+    return computePipeline;
+}
+
+void ResourceManager::destroyPipeline(VkPipeline& pipeline) const
 {
     if (pipeline == VK_NULL_HANDLE) { return; }
     vkDestroyPipeline(context.device, pipeline, nullptr);
     pipeline = VK_NULL_HANDLE;
+}
+
+VkDescriptorSetLayout ResourceManager::buildDescriptorSetLayout(DescriptorLayoutBuilder& layoutBuilder, const VkShaderStageFlagBits shaderStageFlags, const VkDescriptorSetLayoutCreateFlagBits layoutCreateFlags) const
+{
+    return layoutBuilder.build(context.device, shaderStageFlags, nullptr, layoutCreateFlags);
+}
+
+void ResourceManager::destroyDescriptorSetLayout(VkDescriptorSetLayout& descriptorSetLayout) const
+{
+    if (descriptorSetLayout == VK_NULL_HANDLE) { return; }
+    vkDestroyDescriptorSetLayout(context.device, descriptorSetLayout, nullptr);
+    descriptorSetLayout = VK_NULL_HANDLE;
 }

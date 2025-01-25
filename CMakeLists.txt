@@ -139,10 +139,19 @@ if (WIN32)
             src/renderer/render_object/render_object.cpp
             src/renderer/render_object/render_object_types.h
             src/renderer/render_object/render_object_types.cpp
-            src/util/file_utils.h
+            src/util/file.h
             src/renderer/pipelines/deferred_mrt/deferred_mrt.cpp
             src/renderer/pipelines/deferred_mrt/deferred_mrt.h
             src/renderer/render_object/render_reference.h
+            src/util/halton.h
+            src/renderer/pipelines/deferred_resolve/deferred_resolve.cpp
+            src/renderer/pipelines/deferred_resolve/deferred_resolve.h
+            src/renderer/pipelines/environment/environment_pipeline.cpp
+            src/renderer/pipelines/environment/environment_pipeline.h
+            src/renderer/environment/environment.cpp
+            src/renderer/environment/environment.h
+            src/renderer/environment/environment_constants.h
+            src/renderer/environment/environment_types.h
 
     )
 endif ()

@@ -9,10 +9,9 @@
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/render_object/render_object_types.h"
 
-will_engine::deferred_mrt::DeferredMrtPipeline::DeferredMrtPipeline(ResourceManager* _resourceManager)
+will_engine::deferred_mrt::DeferredMrtPipeline::DeferredMrtPipeline(ResourceManager* _resourceManager) : resourceManager(_resourceManager)
 {
     if (!_resourceManager) { return; }
-    resourceManager = _resourceManager;
 
     VkDescriptorSetLayout descriptorLayout[3];
     descriptorLayout[0] = resourceManager->getSceneDataLayout();
@@ -85,11 +84,12 @@ will_engine::deferred_mrt::DeferredMrtPipeline::~DeferredMrtPipeline()
     if (!resourceManager) { return; }
 
     resourceManager->destroyPipelineLayout(pipelineLayout);
-    resourceManager->destroyRenderPipeline(pipeline);
+    resourceManager->destroyPipeline(pipeline);
 }
 
-void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, DeferredMrtDrawInfo& drawInfo) const
+void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, const DeferredMrtDrawInfo& drawInfo) const
 {
+    if (!resourceManager) { return; }
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
     label.pLabelName = "Deferred MRT Pass";
@@ -113,7 +113,7 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, D
     deferredAttachments[2] = pbrAttachment;
     deferredAttachments[3] = velocityAttachment;
 
-    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, drawInfo.renderExtent};
+    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, RENDER_EXTENTS};
     renderInfo.layerCount = 1;
     renderInfo.colorAttachmentCount = 4;
     renderInfo.pColorAttachments = deferredAttachments;
@@ -127,8 +127,8 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, D
     VkViewport viewport = {};
     viewport.x = 0;
     viewport.y = 0;
-    viewport.width = drawInfo.viewportRenderExtent[0];
-    viewport.height = drawInfo.viewportRenderExtent[1];
+    viewport.width = RENDER_EXTENT_WIDTH;
+    viewport.height = RENDER_EXTENT_HEIGHT;
     viewport.minDepth = 0.f;
     viewport.maxDepth = 1.f;
     vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -136,8 +136,8 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, D
     VkRect2D scissor = {};
     scissor.offset.x = 0;
     scissor.offset.y = 0;
-    scissor.extent.width = drawInfo.renderExtent.width;
-    scissor.extent.height = drawInfo.renderExtent.height;
+    scissor.extent.width = RENDER_EXTENTS.width;
+    scissor.extent.height = RENDER_EXTENTS.height;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
     constexpr VkDeviceSize zeroOffset{0};

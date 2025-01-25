@@ -103,9 +103,19 @@ void ImguiWrapper::imguiInterface(const Engine* engine)
     ImGui::End();
 
     if (ImGui::Begin("Save Final Image")) {
+        if (ImGui::Button("Save Draw Image")) {
+            if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                const std::filesystem::path path = file::imagesSavePath / "drawImage.png";
+                vk_helpers::saveImageRGBA16SFLOAT(*engine->resourceManager, *engine->immediate, engine->drawImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
+                                                  path.string().c_str());
+            } else {
+                fmt::print(" Failed to find/create image save path directory");
+            }
+        }
+
         if (ImGui::Button("Save Normal Render Target")) {
             if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                std::filesystem::path path = file::imagesSavePath / "normalRT.png";
+                const std::filesystem::path path = file::imagesSavePath / "normalRT.png";
                 auto unpackFunc = [](const uint32_t packedColor) {
                     glm::vec4 pixel = glm::unpackSnorm4x8(packedColor);
                     pixel.r = pixel.r * 0.5f + 0.5f;
@@ -115,7 +125,7 @@ void ImguiWrapper::imguiInterface(const Engine* engine)
                     return pixel;
                 };
 
-                vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->normalRenderTarget, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
+                vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->normalRenderTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
                                             path.string().c_str(), unpackFunc);
             } else {
                 fmt::print(" Failed to save normal render target");
