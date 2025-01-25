@@ -13,6 +13,8 @@
 #include "src/renderer/pipelines/basic_render/basic_render_pipeline.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/pipelines/deferred_mrt/deferred_mrt.h"
+#include "src/renderer/pipelines/deferred_resolve/deferred_resolve.h"
+#include "src/renderer/pipelines/environment/environment_pipeline.h"
 
 namespace will_engine
 {
@@ -30,6 +32,8 @@ public:
     void init();
 
     void run();
+
+    void updateSceneData() const;
 
     void draw();
 
@@ -71,13 +75,14 @@ private: // Scene Data
     AllocatedBuffer sceneDataBuffers[FRAME_OVERLAP]{};
 
     RenderObject* cube{nullptr};
+    RenderObject* primitives{nullptr};
 
     GameObject* test{nullptr};
 
 private: // Pipelines
-    basic_compute::BasicComputePipeline* computePipeline{nullptr};
-    basic_render::BasicRenderPipeline* renderPipeline{nullptr};
     deferred_mrt::DeferredMrtPipeline* deferredMrtPipeline{nullptr};
+    deferred_resolve::DeferredResolvePipeline* deferredResolvePipeline{nullptr};
+    environment::EnvironmentPipeline* environmentPipeline{nullptr};
 
 private: // Render Targets
     /**

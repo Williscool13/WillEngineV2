@@ -6,6 +6,7 @@
 #define RESOURCE_MANAGER_H
 #include <filesystem>
 
+#include "vk_descriptors.h"
 #include "vk_pipelines.h"
 #include "vk_types.h"
 #include "descriptor_buffer/descriptor_buffer_sampler.h"
@@ -65,9 +66,7 @@ public:
 
     void setupDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer, const std::vector<will_engine::DescriptorUniformData>& uniformBuffers, int index = -1) const;
 
-    void destroyDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer) const;
-
-    void destroyDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer) const;
+    void destroyDescriptorBuffer(DescriptorBuffer& descriptorBuffer) const;
 
 
     VkShaderModule createShaderModule(const std::filesystem::path& path) const;
@@ -81,7 +80,13 @@ public:
 
     VkPipeline createRenderPipeline(PipelineBuilder& builder) const;
 
-    void destroyRenderPipeline(VkPipeline& pipeline) const;
+    VkPipeline createComputePipeline(const VkComputePipelineCreateInfo& pipelineInfo) const;
+
+    void destroyPipeline(VkPipeline& pipeline) const;
+
+    VkDescriptorSetLayout buildDescriptorSetLayout(DescriptorLayoutBuilder& layoutBuilder, VkShaderStageFlagBits shaderStageFlags, VkDescriptorSetLayoutCreateFlagBits layoutCreateFlags) const;
+
+    void destroyDescriptorSetLayout(VkDescriptorSetLayout& descriptorSetLayout) const;
 
 public:
     [[nodiscard]] VkSampler getDefaultSamplerLinear() const { return defaultSamplerLinear; }
@@ -89,10 +94,13 @@ public:
     [[nodiscard]] AllocatedImage getWhiteImage() const { return whiteImage; }
     [[nodiscard]] AllocatedImage getErrorCheckerboardImage() const { return errorCheckerboardImage; }
 
+    [[nodiscard]] VkDescriptorSetLayout getEmptyLayout() const { return emptyDescriptorSetLayout; }
     [[nodiscard]] VkDescriptorSetLayout getSceneDataLayout() const { return sceneDataLayout; }
     [[nodiscard]] VkDescriptorSetLayout getFrustumCullLayout() const { return frustumCullLayout; }
     [[nodiscard]] VkDescriptorSetLayout getAddressesLayout() const { return addressesLayout; }
     [[nodiscard]] VkDescriptorSetLayout getTexturesLayout() const { return texturesLayout; }
+    [[nodiscard]] VkDescriptorSetLayout getRenderTargetsLayout() const { return renderTargetsLayout; }
+
 
 private:
     const VulkanContext& context;
@@ -102,6 +110,8 @@ private:
     AllocatedImage errorCheckerboardImage{};
     VkSampler defaultSamplerLinear{VK_NULL_HANDLE};
     VkSampler defaultSamplerNearest{VK_NULL_HANDLE};
+
+    VkDescriptorSetLayout emptyDescriptorSetLayout{VK_NULL_HANDLE};
 
     VkDescriptorSetLayout sceneDataLayout{VK_NULL_HANDLE};
     VkDescriptorSetLayout frustumCullLayout{VK_NULL_HANDLE};
@@ -113,6 +123,11 @@ private:
      * Sampler and Image Arrays
      */
     VkDescriptorSetLayout texturesLayout{VK_NULL_HANDLE};
+
+    /**
+     * Used in deferred resolve
+     */
+    VkDescriptorSetLayout renderTargetsLayout{VK_NULL_HANDLE};
 };
 
 #endif //RESOURCE_MANAGER_H

@@ -60,9 +60,9 @@ RenderObject::~RenderObject()
     resourceManager->destroyBuffer(boundingSphereIndicesBuffer);
     resourceManager->destroyBuffer(cullingAddressBuffer);
 
-    resourceManager->destroyDescriptorBufferUniform(addressesDescriptorBuffer);
-    resourceManager->destroyDescriptorBufferUniform(frustumCullingDescriptorBuffer);
-    resourceManager->destroyDescriptorBufferSampler(textureDescriptorBuffer);
+    resourceManager->destroyDescriptorBuffer(addressesDescriptorBuffer);
+    resourceManager->destroyDescriptorBuffer(frustumCullingDescriptorBuffer);
+    resourceManager->destroyDescriptorBuffer(textureDescriptorBuffer);
 }
 
 bool RenderObject::attachToGameObject(GameObject* gameObject, const int32_t meshIndex)
@@ -87,9 +87,7 @@ bool RenderObject::attachToGameObject(GameObject* gameObject, const int32_t mesh
         indirectData.instanceCount = 1;
         indirectData.firstInstance = instanceIndex;
 
-        boundingSphereIndices.emplace_back();
-        uint32_t& boundingSphereIndex = boundingSphereIndices.back();
-        boundingSphereIndex = primitive.boundingSphereIndex;
+        boundingSphereIndices.push_back(primitive.boundingSphereIndex);
     }
 
     gameObject->setRenderObjectReference(this, static_cast<int32_t>(instanceIndex));

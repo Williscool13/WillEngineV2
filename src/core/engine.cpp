@@ -17,6 +17,7 @@
 #include "src/renderer/vk_descriptors.h"
 #include "src/renderer/render_object/render_object.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
+#include "src/util/halton.h"
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -52,7 +53,7 @@ void Engine::init()
     createDrawResources();
 
     // Command Pools
-    VkCommandPoolCreateInfo commandPoolInfo = vk_helpers::commandPoolCreateInfo(context->graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+    const VkCommandPoolCreateInfo commandPoolInfo = vk_helpers::commandPoolCreateInfo(context->graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     for (auto& frame : frames) {
         VK_CHECK(vkCreateCommandPool(context->device, &commandPoolInfo, nullptr, &frame._commandPool));
         VkCommandBufferAllocateInfo cmdAllocInfo = vk_helpers::commandBufferAllocateInfo(frame._commandPool);
@@ -76,31 +77,36 @@ void Engine::init()
 
     imguiWrapper = new ImguiWrapper(*context, {window, swapchainImageFormat});
 
-    //
-    {
-        for (int i{0}; i < FRAME_OVERLAP; i++) {
-            sceneDataBuffers[i] = resourceManager->createHostSequentialBuffer(sizeof(SceneData));
-        }
-
-        sceneDataDescriptorBuffer = DescriptorBufferUniform(*context, resourceManager->getSceneDataLayout(), FRAME_OVERLAP);
-
-        std::vector<DescriptorUniformData> sceneDataBufferData{1};
-        for (int i{0}; i < FRAME_OVERLAP; i++) {
-            sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = sceneDataBuffers[i], .allocSize = sizeof(SceneData)};
-            sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData, i);
-        }
+    for (int i{0}; i < FRAME_OVERLAP; i++) {
+        sceneDataBuffers[i] = resourceManager->createHostSequentialBuffer(sizeof(SceneData));
+    }
+    sceneDataDescriptorBuffer = DescriptorBufferUniform(*context, resourceManager->getSceneDataLayout(), FRAME_OVERLAP);
+    std::vector<DescriptorUniformData> sceneDataBufferData{1};
+    for (int i{0}; i < FRAME_OVERLAP; i++) {
+        sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = sceneDataBuffers[i], .allocSize = sizeof(SceneData)};
+        sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData, i);
     }
 
-    computePipeline = new basic_compute::BasicComputePipeline(*context);
-    computePipeline->setupDescriptors({drawImage.imageView});
-    renderPipeline = new basic_render::BasicRenderPipeline({DRAW_FORMAT, DEPTH_FORMAT, resourceManager->getSceneDataLayout()}, *context);
-    renderPipeline->setupDescriptors({resourceManager->getDefaultSamplerNearest(), resourceManager->getErrorCheckerboardImage().imageView});
     deferredMrtPipeline = new deferred_mrt::DeferredMrtPipeline(resourceManager);
+    deferredResolvePipeline = new deferred_resolve::DeferredResolvePipeline(resourceManager);
+    //environmentPipeline = new environment::EnvironmentPipeline(resourceManager, environmentMapLayout);
+
+    const deferred_resolve::DeferredResolveDescriptor deferredResolveDescriptor{
+        normalRenderTarget.imageView,
+        albedoRenderTarget.imageView,
+        pbrRenderTarget.imageView,
+        depthImage.imageView,
+        velocityRenderTarget.imageView,
+        drawImage.imageView,
+        resourceManager->getDefaultSamplerLinear()
+    };
+    deferredResolvePipeline->setupDescriptorBuffer(deferredResolveDescriptor);
 
     cube = new RenderObject{"assets/models/cube.gltf", resourceManager};
-    test = new GameObject("Cube");
+    primitives = new RenderObject{"assets/models/primitives/primitives.gltf", resourceManager};
+    test = new GameObject("3d Box");
 
-    cube->attachToGameObject(test, 0);
+    primitives->attachToGameObject(test, 0);
     test->recursiveUpdateModelMatrix();
 
 
@@ -163,6 +169,25 @@ void Engine::run()
     }
 }
 
+void Engine::updateSceneData() const
+{
+    const AllocatedBuffer& sceneDataBuffer = sceneDataBuffers[getCurrentFrameOverlap()];
+    const auto pSceneData = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
+
+    // const bool bIsFrameZero = frameNumber == 0;
+    // glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(bIsFrameZero ? frameNumber : frameNumber - 1) * 2.0f - 1.0f;
+    // prevJitter.x /= RENDER_EXTENT_WIDTH;
+    // prevJitter.y /= RENDER_EXTENT_HEIGHT;
+    // glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber) * 2.0f - 1.0f;
+    // currentJitter.x /= RENDER_EXTENT_WIDTH;
+    // currentJitter.y /= RENDER_EXTENT_HEIGHT;
+
+    pSceneData->currentFrame = frameNumber;
+    pSceneData->view = glm::lookAt(glm::vec3(-20, 0, 0), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+    pSceneData->proj = glm::perspective(glm::radians(75.0f), 1920.0f / 1080.0f, 0.1f, 50.0f);
+    pSceneData->viewProj = pSceneData->proj * pSceneData->view;
+}
+
 void Engine::draw()
 {
     const auto start = std::chrono::system_clock::now();
@@ -185,46 +210,42 @@ void Engine::draw()
     const VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
+    updateSceneData();
 
-    const AllocatedBuffer& sceneDataBuffer = sceneDataBuffers[getCurrentFrameOverlap()];
-    const auto pSceneData = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
-    pSceneData->currentFrame = frameNumber;
-    pSceneData->view = glm::lookAt(glm::vec3(-20, 0, 0), glm::vec3(0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-    pSceneData->proj = glm::perspective(glm::radians(75.0f), 1920.0f/1080.0f, 0.1f, 50.0f);
-    pSceneData->viewProj = pSceneData->proj * pSceneData->view;
-
-    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    computePipeline->draw(cmd, {RENDER_EXTENTS});
-
-    // draw geometry into _drawImage
-    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::clearColorImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
-    renderPipeline->draw(cmd, {
-                             RENDER_EXTENTS, drawImage.imageView, depthImage.imageView, sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
-                             sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(), frameNumber
-                         });
-
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    deferred_mrt::DeferredMrtDrawInfo deferredMrtDrawInfo{
-        {cube},
+    const deferred_mrt::DeferredMrtDrawInfo deferredMrtDrawInfo{
+        {primitives},
         normalRenderTarget.imageView,
         albedoRenderTarget.imageView,
         pbrRenderTarget.imageView,
         velocityRenderTarget.imageView,
         depthImage.imageView,
-        RENDER_EXTENTS,
-        {static_cast<float>(RENDER_EXTENTS.width), static_cast<float>(RENDER_EXTENTS.height)},
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap()
     };
     deferredMrtPipeline->draw(cmd, deferredMrtDrawInfo);
 
+
+    vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    const deferred_resolve::DeferredResolveDrawInfo deferredResolveDrawInfo{
+        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap()
+    };
+    deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);
+
     // copy Draw Image into Swapchain Image
-    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::copyImageToImage(cmd, drawImage.image, swapchainImages[swapchainImageIndex], RENDER_EXTENTS, swapchainExtent);
 
@@ -284,10 +305,11 @@ void Engine::cleanup()
     vkDeviceWaitIdle(context->device);
 
     delete cube;
+    delete primitives;
 
-    delete computePipeline;
-    delete renderPipeline;
     delete deferredMrtPipeline;
+    delete deferredResolvePipeline;
+    delete environmentPipeline;
 
     for (AllocatedBuffer sceneBuffer : sceneDataBuffers) {
         resourceManager->destroyBuffer(sceneBuffer);
