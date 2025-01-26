@@ -31,6 +31,13 @@ add_subdirectory(extern/volk)
 add_subdirectory(extern/vk-bootstrap)
 add_subdirectory(extern/fastgltf)
 add_subdirectory(extern/fastgltf/deps) # simdjson
+add_subdirectory(extern/SPIRV-Headers)
+add_subdirectory(extern/SPIRV-Tools)
+add_subdirectory(extern/glslang)
+set(SHADERC_SKIP_TESTS ON)
+set(SHADERC_SKIP_EXAMPLES ON)
+set(SHADERC_SKIP_COPYRIGHT_CHECK ON)
+add_subdirectory(extern/shaderc)
 
 include(extern/JoltPhysics/Jolt/Jolt.cmake)
 set(CMAKE_CXX_STANDARD 20) # Jolt sets it to 17
@@ -206,15 +213,6 @@ target_include_directories(WillEngine PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
 )
 
-
-add_custom_target(compile_shaders
-        COMMAND ${CMAKE_CURRENT_BINARY_DIR}/shaders/compile_shaders_fast.sh
-        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/shaders
-        DEPENDS ${shader_copy_target}
-        COMMENT "Compiling shaders"
-)
-add_dependencies(WillEngine compile_shaders)
-
 target_link_libraries(WillEngine PRIVATE
         ${SDL2MAIN_LIBRARY} # Needs to happen before SDL2_LIBRARY
         ${SDL2_LIBRARY}
@@ -225,4 +223,5 @@ target_link_libraries(WillEngine PRIVATE
         vk-bootstrap::vk-bootstrap
         fastgltf
         Jolt
+        shaderc
 )

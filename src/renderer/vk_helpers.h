@@ -90,16 +90,6 @@ VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo();
 VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shaderModule,
                                                               const char* entry = "main");
 
-/**
- * Loads a shader module from the file paths specified
- * @param filePath
- * @param device
- * @param outShaderModule
- * @return
- */
-bool loadShaderModule(const char* filePath, VkDevice device, VkShaderModule* outShaderModule);
-
-
 VkFilter extractFilter(fastgltf::Filter filter);
 
 VkSamplerMipmapMode extractMipmapMode(fastgltf::Filter filter);

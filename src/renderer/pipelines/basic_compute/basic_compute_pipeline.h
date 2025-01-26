@@ -5,6 +5,7 @@
 #ifndef BASIC_COMPUTE_PIPELINE_H
 #define BASIC_COMPUTE_PIPELINE_H
 
+#include "src/renderer/resource_manager.h"
 #include "src/renderer/vulkan_context.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
 
@@ -24,7 +25,7 @@ struct ComputeDrawInfo
 class BasicComputePipeline
 {
 public:
-    explicit BasicComputePipeline(VulkanContext& context);
+    explicit BasicComputePipeline(ResourceManager& resourceManager);
 
     ~BasicComputePipeline();
 
@@ -38,7 +39,8 @@ private:
     void createPipeline();
 
 private:
-    VulkanContext& context;
+    ResourceManager& resourceManager;
+
     VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
     VkPipeline pipeline{VK_NULL_HANDLE};
     VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};

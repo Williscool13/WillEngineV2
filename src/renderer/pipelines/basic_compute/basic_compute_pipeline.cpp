@@ -14,12 +14,12 @@
 
 namespace will_engine::basic_compute
 {
-BasicComputePipeline::BasicComputePipeline(VulkanContext& context) : context(context)
+BasicComputePipeline::BasicComputePipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
 
 {
     DescriptorLayoutBuilder builder;
     builder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-    descriptorSetLayout = builder.build(context.device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    descriptorSetLayout = resourceManager.createDescriptorSetLayout(builder, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
     VkPipelineLayoutCreateInfo layoutCreateInfo{};
     layoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -28,31 +28,19 @@ BasicComputePipeline::BasicComputePipeline(VulkanContext& context) : context(con
     layoutCreateInfo.setLayoutCount = 1;
     layoutCreateInfo.pPushConstantRanges = nullptr;
     layoutCreateInfo.pushConstantRangeCount = 0;
-
-    VK_CHECK(vkCreatePipelineLayout(context.device, &layoutCreateInfo, nullptr, &pipelineLayout));
+    pipelineLayout = resourceManager.createPipelineLayout(layoutCreateInfo);
 
     createPipeline();
 
-    samplerDescriptorBuffer = DescriptorBufferSampler(context, descriptorSetLayout, 1);
+    samplerDescriptorBuffer = resourceManager.createDescriptorBufferSampler(descriptorSetLayout, 1);
 }
 
 BasicComputePipeline::~BasicComputePipeline()
 {
-    if (context.device == VK_NULL_HANDLE) { return; }
-    if (pipeline) {
-        vkDestroyPipeline(context.device, pipeline, nullptr);
-        pipeline = VK_NULL_HANDLE;
-    }
-    if (pipelineLayout) {
-        vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
-        pipelineLayout = VK_NULL_HANDLE;
-    }
-    if (descriptorSetLayout) {
-        vkDestroyDescriptorSetLayout(context.device, descriptorSetLayout, nullptr);
-        descriptorSetLayout = VK_NULL_HANDLE;
-    }
-
-    samplerDescriptorBuffer.destroy(context.allocator);
+    resourceManager.destroyPipeline(pipeline);
+    resourceManager.destroyPipelineLayout(pipelineLayout);
+    resourceManager.destroyDescriptorSetLayout(descriptorSetLayout);
+    resourceManager.destroyDescriptorBuffer(samplerDescriptorBuffer);
 }
 
 void BasicComputePipeline::setupDescriptors(const ComputeDescriptorInfo& descriptorInfo)
@@ -66,7 +54,7 @@ void BasicComputePipeline::setupDescriptors(const ComputeDescriptorInfo& descrip
 
     imageDescriptor.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, drawImageDescriptor, false});
 
-    samplerDescriptorBuffer.setupData(context.device, imageDescriptor, 0);
+    resourceManager.setupDescriptorBufferSampler(samplerDescriptorBuffer, imageDescriptor, 0);
 }
 
 void BasicComputePipeline::draw(VkCommandBuffer cmd, ComputeDrawInfo drawInfo) const
@@ -85,10 +73,7 @@ void BasicComputePipeline::draw(VkCommandBuffer cmd, ComputeDrawInfo drawInfo) c
 
 void BasicComputePipeline::createPipeline()
 {
-    VkShaderModule gradientShader;
-    if (!vk_helpers::loadShaderModule("shaders/basic/compute.comp.spv", context.device, &gradientShader)) {
-        throw std::runtime_error("Error when building the compute shader (compute.comp.spv)");
-    }
+    VkShaderModule gradientShader = resourceManager.createShaderModule("shaders/basic/compute.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
     stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -104,9 +89,8 @@ void BasicComputePipeline::createPipeline()
     computePipelineCreateInfo.stage = stageInfo;
     computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-    VK_CHECK(vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &pipeline));
+    pipeline = resourceManager.createComputePipeline(computePipelineCreateInfo);
 
-    // Cleanup
-    vkDestroyShaderModule(context.device, gradientShader, nullptr);
+    resourceManager.destroyShaderModule(gradientShader);
 }
 }

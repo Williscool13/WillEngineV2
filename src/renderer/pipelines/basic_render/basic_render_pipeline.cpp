@@ -109,8 +109,8 @@ void BasicRenderPipeline::draw(VkCommandBuffer cmd, const RenderDrawInfo& drawIn
 
 void BasicRenderPipeline::createPipeline()
 {
-    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/basic/vertex.vert.spv");
-    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/basic/fragment.frag.spv");
+    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/basic/vertex.vert");
+    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/basic/fragment.frag");
 
     PipelineBuilder renderPipelineBuilder;
     renderPipelineBuilder.setShaders(vertShader, fragShader);
