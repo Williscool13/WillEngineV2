@@ -40,12 +40,15 @@ struct DeferredResolveDrawInfo
     VkDeviceSize sceneDataOffset{0};
     VkDescriptorBufferBindingInfoEXT environmentIBLBinding{};
     VkDeviceSize environmentIBLOffset{0};
+    VkDescriptorBufferBindingInfoEXT cascadeUniformBinding{};
+    VkDeviceSize cascadeUniformOffset{0};
+    VkDescriptorBufferBindingInfoEXT cascadeSamplerBinding{};
 };
 
 class DeferredResolvePipeline
 {
 public:
-    explicit DeferredResolvePipeline(ResourceManager& resourceManager, VkDescriptorSetLayout environmentIBLLayout);
+    explicit DeferredResolvePipeline(ResourceManager& resourceManager, VkDescriptorSetLayout environmentIBLLayout, VkDescriptorSetLayout cascadeUniformLayout, VkDescriptorSetLayout cascadeSamplerlayout);
 
     ~DeferredResolvePipeline();
 

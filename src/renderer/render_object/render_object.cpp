@@ -672,7 +672,8 @@ void RenderObject::expandInstanceBuffer(const uint32_t countToAdd, const bool co
     for (int i = 0; i < FRAME_OVERLAP; ++i) {
         // Create new buffer for model matrix with new size
         // Host because it can be modified any time by gameobjects
-        const AllocatedBuffer tempInstanceBuffer = resourceManager.createHostSequentialBuffer(instanceBufferCapacity * sizeof(InstanceData));
+        // Random because updating of the model matrix is anticipated to be sporadic/random
+        const AllocatedBuffer tempInstanceBuffer = resourceManager.createHostRandomBuffer(instanceBufferCapacity * sizeof(InstanceData));
 
         // Copy contents of old buffer into new buffer and destroy old buffer
         if (copyPrevious && oldBufferSize > 0) {
