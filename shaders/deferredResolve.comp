@@ -129,8 +129,6 @@ void main() {
         }
 
         if (nDotL <= 0.0) {
-            //shadowFactor = 0;
-            // shadow affects IBL greater as the angle approaches opposite
             shadowFactor = mix(_tempShadowFactor, 0.0f, -nDotL * 2) * metallic;
         } else {
             shadowFactor = _tempShadowFactor;
@@ -141,7 +139,7 @@ void main() {
         shadowFactor = 1.0f;
     }
 
-    float indirectAttenuation = mix(0.4, 1.0, shadowFactor);
+    float indirectAttenuation = mix(0.2, 1.0, shadowFactor);
 
     // IBL REFLECTIONS
     vec3 irradiance = DiffuseIrradiance(environmentDiffuseAndSpecular, N);
@@ -153,44 +151,48 @@ void main() {
 
 
     vec3 finalColor = (diffuse + specular) * vec3(1.0f) * nDotL * shadowFactor;
-    //vec3 finalColor = (diffuse + specular) * lightData.mainLight.color * nDotL;
     finalColor += ambient;
 
     imageStore(outputImage, screenPos, vec4(finalColor, albedo.w));
 
-    if (pushConstants.debug == 1) {
-        // Velocity
-        vec2 velocity = texture(velocityBuffer, uv).rg * 10.0;
-        vec4 debugColor = vec4(velocity.x, velocity.y, 0.0, 0.0);
-        imageStore(outputImage, screenPos, debugColor);
-        return;
-    }
 
-    if (pushConstants.debug == 2) {
-        // Depth
-        float linearDepth = LinearizeDepth(depth);
-        float normalizedLinearDepth = linearDepth / 25.0;
-        vec4 fragColor = vec4(vec3(normalizedLinearDepth), 1.0);
-        imageStore(outputImage, screenPos, vec4(vec3(normalizedLinearDepth), 1.0f));
-        return;
+    switch (pushConstants.debug) {
+        case 1:
+            float linearDepth = LinearizeDepth(depth);
+            float normalizedLinearDepth = linearDepth / 25.0;
+            vec4 fragColor = vec4(vec3(normalizedLinearDepth), 1.0);
+            imageStore(outputImage, screenPos, vec4(vec3(normalizedLinearDepth), 1.0f));
+            break;
+        case 2:
+            vec2 velocity = texture(velocityBuffer, uv).rg * 10.0;
+            vec4 debugColor = vec4(velocity.x, velocity.y, 0.0, 0.0);
+            imageStore(outputImage, screenPos, debugColor);
+            break;
+        case 3:
+            imageStore(outputImage, screenPos, albedo);
+            break;
+        case 4:
+            imageStore(outputImage, screenPos, vec4(normal, 1.0f));
+            break;
+        case 5:
+            imageStore(outputImage, screenPos, pbrData);
+            break;
+        case 6:
+            imageStore(outputImage, screenPos, vec4(vec3(shadowFactor), 1.0f));
+            break;
+        case 7:
+            float viewDepth = getViewSpaceDepth(position, sceneData.view);
+            int cascadeLevel = selectCascadeLevel(viewDepth, shadowCascadeData.cascadeSplits);
+            float value = viewDepth - shadowCascadeData.cascadeSplits[cascadeLevel].nearPlane;
+            float diff = value / (shadowCascadeData.cascadeSplits[cascadeLevel].farPlane - shadowCascadeData.cascadeSplits[cascadeLevel].nearPlane);
+            if (cascadeLevel == 0) {imageStore(outputImage, screenPos, vec4(vec3(diff, 0.0, 0.0), albedo.w));}
+            if (cascadeLevel == 1) {imageStore(outputImage, screenPos, vec4(vec3(0.0, diff, 0.0), albedo.w));}
+            if (cascadeLevel == 2) {imageStore(outputImage, screenPos, vec4(vec3(0.0, 0.0, diff), albedo.w));}
+            if (cascadeLevel == 3) {imageStore(outputImage, screenPos, vec4(vec3(diff), albedo.w));}
+            if (cascadeLevel == 4) {imageStore(outputImage, screenPos, vec4(1.0, 0.0, 1.0, 1.0));}
+            break;
+        case 8:
+            imageStore(outputImage, screenPos, vec4(vec3(nDotL), 1.0));
+            break;
     }
-
-    if (pushConstants.debug == 3) {
-        float viewDepth = getViewSpaceDepth(position, sceneData.view);
-        int cascadeLevel = selectCascadeLevel(viewDepth, shadowCascadeData.cascadeSplits);
-        float value = viewDepth - shadowCascadeData.cascadeSplits[cascadeLevel].nearPlane;
-        float diff = value / (shadowCascadeData.cascadeSplits[cascadeLevel].farPlane - shadowCascadeData.cascadeSplits[cascadeLevel].nearPlane);
-        if (cascadeLevel == 0) {imageStore(outputImage, screenPos, vec4(vec3(diff, 0.0, 0.0), albedo.w));}
-        if (cascadeLevel == 1) {imageStore(outputImage, screenPos, vec4(vec3(0.0, diff, 0.0), albedo.w));}
-        if (cascadeLevel == 2) {imageStore(outputImage, screenPos, vec4(vec3(0.0, 0.0, diff), albedo.w));}
-        if (cascadeLevel == 3) {imageStore(outputImage, screenPos, vec4(vec3(diff), albedo.w));}
-        if (cascadeLevel == 4) {imageStore(outputImage, screenPos, vec4(1.0, 0.0, 1.0, 1.0));}
-    }
-
-    if (pushConstants.debug == 4) {
-        imageStore(outputImage, screenPos, vec4(vec3(1 - shadowFactor), 1.0));
-        imageStore(outputImage, screenPos, vec4(vec3(nDotL), 1.0));
-    }
-
-    //imageStore(outputImage, screenPos, vec4(vec3(nDotL), 1.0));
 }

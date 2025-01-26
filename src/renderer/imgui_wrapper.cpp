@@ -117,7 +117,10 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         }
         ImGui::EndChild();
 
-        if (ImGui::BeginChild("TAA", ImVec2(0, 50))) {
+        if (ImGui::BeginChild("Pipelines", ImVec2(0, 100))) {
+            ImGui::Text("Deferred Debug");
+            const char* deferredDebugOptions[]{"None", "Depth", "Velocity", "Albedo", "Normal", "PBR", "Shadows", "Cascade Level", "nDotL"};
+            ImGui::Combo("Deferred Debug", &engine->deferredDebug, deferredDebugOptions, IM_ARRAYSIZE(deferredDebugOptions));
             ImGui::Text("Temporal Anti-Aliasing");
             ImGui::Checkbox("Enable TAA", &engine->bEnableTaa);
             ImGui::Separator();

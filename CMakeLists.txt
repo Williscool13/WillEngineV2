@@ -15,9 +15,6 @@ add_definitions(-DJPH_ENABLE_ASSERT_MESSAGES=1)
 # Vulkan
 find_package(Vulkan REQUIRED)
 
-# shaderc
-# find_package(shaderc REQUIRED)
-
 # SDL2
 set(SDL2_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/lib/SDL2.lib")
 set(SDL2MAIN_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/lib/SDL2main.lib")
@@ -122,10 +119,37 @@ set(RENDERER_SOURCES
         src/renderer/vk_types.cpp
         src/renderer/vk_types.h
         src/renderer/renderer_constants.h
+        src/renderer/render_object/render_object.h
+        src/renderer/render_object/render_object.cpp
+        src/renderer/render_object/render_object_types.h
+        src/renderer/render_object/render_object_types.cpp
+        src/renderer/render_object/render_reference.h
+        src/renderer/environment/environment.cpp
+        src/renderer/environment/environment.h
+        src/renderer/environment/environment_constants.h
+        src/renderer/environment/environment_types.h
+        src/renderer/pipelines/deferred_mrt/deferred_mrt.cpp
+        src/renderer/pipelines/deferred_mrt/deferred_mrt.h
+        src/renderer/pipelines/deferred_resolve/deferred_resolve.cpp
+        src/renderer/pipelines/deferred_resolve/deferred_resolve.h
+        src/renderer/pipelines/environment/environment_pipeline.cpp
+        src/renderer/pipelines/environment/environment_pipeline.h
+        src/renderer/pipelines/post_process/post_process_pipeline.cpp
+        src/renderer/pipelines/post_process/post_process_pipeline.h
+        src/renderer/pipelines/frustum_cull/frustum_cull_pipeline.cpp
+        src/renderer/pipelines/frustum_cull/frustum_cull_pipeline.h
+        src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.cpp
+        src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h
         src/renderer/pipelines/basic_compute/basic_compute_pipeline.cpp
         src/renderer/pipelines/basic_compute/basic_compute_pipeline.h
         src/renderer/pipelines/basic_render/basic_render_pipeline.cpp
         src/renderer/pipelines/basic_render/basic_render_pipeline.h
+        src/renderer/lighting/directional_light.h
+        src/renderer/lighting/directional_light.cpp
+        src/renderer/lighting/shadows/cascaded_shadow_map.cpp
+        src/renderer/lighting/shadows/cascaded_shadow_map.h
+        src/renderer/lighting/shadows/shadows.h
+        src/renderer/lighting/shadows/shadow_types.h
         src/renderer/descriptor_buffer/descriptor_buffer.cpp
         src/renderer/descriptor_buffer/descriptor_buffer.h
         src/renderer/descriptor_buffer/descriptor_buffer_sampler.cpp
@@ -135,14 +159,18 @@ set(RENDERER_SOURCES
         src/renderer/descriptor_buffer/descriptor_buffer_uniform.cpp
         src/renderer/descriptor_buffer/descriptor_buffer_uniform.h
         src/renderer/render_object/render_object_constants.h
+        src/renderer/post_process/post_process_types.h
 )
 
 set(GAME_SOURCES
-
+        src/core/game_object/renderable.h
 )
 
 set(UTIL_SOURCES
         src/util/math_constants.h
+        src/util/file.h
+        src/util/halton.h
+        src/util/render_utils.h
 )
 
 
@@ -151,38 +179,7 @@ if (WIN32)
     set(WINDOWS_SOURCES
             src/resources.h
             src/resources.rc
-            src/core/game_object/renderable.h
-            src/renderer/render_object/render_object.h
-            src/renderer/render_object/render_object.cpp
-            src/renderer/render_object/render_object_types.h
-            src/renderer/render_object/render_object_types.cpp
-            src/util/file.h
-            src/renderer/pipelines/deferred_mrt/deferred_mrt.cpp
-            src/renderer/pipelines/deferred_mrt/deferred_mrt.h
-            src/renderer/render_object/render_reference.h
-            src/util/halton.h
-            src/renderer/pipelines/deferred_resolve/deferred_resolve.cpp
-            src/renderer/pipelines/deferred_resolve/deferred_resolve.h
-            src/renderer/pipelines/environment/environment_pipeline.cpp
-            src/renderer/pipelines/environment/environment_pipeline.h
-            src/renderer/environment/environment.cpp
-            src/renderer/environment/environment.h
-            src/renderer/environment/environment_constants.h
-            src/renderer/environment/environment_types.h
-            src/renderer/pipelines/post_process/post_process_pipeline.cpp
-            src/renderer/pipelines/post_process/post_process_pipeline.h
-            src/renderer/post_process/post_process_types.h
-            src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.cpp
-            src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h
-            src/renderer/lighting/directional_light.h
-            src/renderer/lighting/directional_light.cpp
-            src/renderer/lighting/shadows/cascaded_shadow_map.cpp
-            src/renderer/lighting/shadows/cascaded_shadow_map.h
-            src/renderer/lighting/shadows/shadows.h
-            src/renderer/lighting/shadows/shadow_types.h
-            src/util/render_utils.h
-            src/renderer/pipelines/frustum_cull/frustum_cull_pipeline.cpp
-            src/renderer/pipelines/frustum_cull/frustum_cull_pipeline.h
+
 
     )
 endif ()

@@ -13,11 +13,6 @@ class ResourceManager;
 
 namespace will_engine::deferred_mrt
 {
-struct DeferredMrtPushConstants
-{
-    glm::mat4 testMatrix;
-};
-
 struct DeferredMrtDrawInfo
 {
     bool bClearColor{true};
