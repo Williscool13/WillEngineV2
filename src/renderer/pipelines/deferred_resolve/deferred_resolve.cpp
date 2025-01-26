@@ -9,7 +9,9 @@
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/vk_descriptors.h"
 
-will_engine::deferred_resolve::DeferredResolvePipeline::DeferredResolvePipeline(ResourceManager& resourceManager, VkDescriptorSetLayout environmentIBLLayout, VkDescriptorSetLayout cascadeUniformLayout, VkDescriptorSetLayout cascadeSamplerlayout) : resourceManager(resourceManager)
+will_engine::deferred_resolve::DeferredResolvePipeline::DeferredResolvePipeline(ResourceManager& resourceManager, VkDescriptorSetLayout environmentIBLLayout,
+                                                                                VkDescriptorSetLayout cascadeUniformLayout, VkDescriptorSetLayout cascadeSamplerlayout) : resourceManager(
+    resourceManager)
 {
     VkPushConstantRange pushConstants = {};
     pushConstants.offset = 0;
@@ -33,24 +35,7 @@ will_engine::deferred_resolve::DeferredResolvePipeline::DeferredResolvePipeline(
 
     pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
-    VkShaderModule deferredResolveShader = resourceManager.createShaderModule("shaders/deferredResolve.comp.spv");
-
-    VkPipelineShaderStageCreateInfo stageInfo = {};
-    stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    stageInfo.pNext = nullptr;
-    stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageInfo.module = deferredResolveShader;
-    stageInfo.pName = "main";
-
-    VkComputePipelineCreateInfo pipelineInfo = {};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pipelineInfo.pNext = nullptr;
-    pipelineInfo.layout = pipelineLayout;
-    pipelineInfo.stage = stageInfo;
-    pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
-
-    pipeline = resourceManager.createComputePipeline(pipelineInfo);
-    resourceManager.destroyShaderModule(deferredResolveShader);
+    createPipeline();
 
     resolveDescriptorBuffer = resourceManager.createDescriptorBufferSampler(resourceManager.getRenderTargetsLayout(), 1);
 }
@@ -160,4 +145,26 @@ void will_engine::deferred_resolve::DeferredResolvePipeline::draw(VkCommandBuffe
     vkCmdDispatch(cmd, x, y, 1);
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
+}
+
+void will_engine::deferred_resolve::DeferredResolvePipeline::createPipeline()
+{
+    VkShaderModule deferredResolveShader = resourceManager.createShaderModule("shaders/deferredResolve.comp.spv");
+
+    VkPipelineShaderStageCreateInfo stageInfo = {};
+    stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stageInfo.pNext = nullptr;
+    stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    stageInfo.module = deferredResolveShader;
+    stageInfo.pName = "main";
+
+    VkComputePipelineCreateInfo pipelineInfo = {};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pipelineInfo.pNext = nullptr;
+    pipelineInfo.layout = pipelineLayout;
+    pipelineInfo.stage = stageInfo;
+    pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+
+    pipeline = resourceManager.createComputePipeline(pipelineInfo);
+    resourceManager.destroyShaderModule(deferredResolveShader);
 }

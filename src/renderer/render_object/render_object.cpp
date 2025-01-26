@@ -65,7 +65,7 @@ RenderObject::~RenderObject()
     resourceManager.destroyDescriptorBuffer(textureDescriptorBuffer);
 }
 
-GameObject* RenderObject::generateGameObject()
+GameObject* RenderObject::generateGameObject(const std::string& gameObjectName)
 {
     // get number of meshes in the entire model
     uint32_t instanceCount{0};
@@ -77,7 +77,7 @@ GameObject* RenderObject::generateGameObject()
 
     expandInstanceBuffer(instanceCount);
 
-    auto* superRoot = new GameObject();
+    auto* superRoot = new GameObject(gameObjectName);
     for (const int32_t rootNode : topNodes) {
         recursiveGenerateGameObject(renderNodes[rootNode], superRoot);
     }
@@ -192,7 +192,7 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
                                  | fastgltf::Options::LoadExternalImages;
 
     auto gltfFile = fastgltf::MappedGltfFile::FromPath(gltfFilepath);
-    if (!static_cast<bool>(gltfFile)) { fmt::print("Failed to open glTF file: {}\n", getErrorMessage(gltfFile.error())); }
+    if (!static_cast<bool>(gltfFile)) { fmt::print("Failed to open glTF file ({}): {}\n", gltfFilepath.filename().string(), getErrorMessage(gltfFile.error())); }
 
     auto load = parser.loadGltf(gltfFile.get(), gltfFilepath.parent_path(), gltfOptions);
     if (!load) {
@@ -673,7 +673,7 @@ void RenderObject::expandInstanceBuffer(const uint32_t countToAdd, const bool co
         // Create new buffer for model matrix with new size
         // Host because it can be modified any time by gameobjects
         // Random because updating of the model matrix is anticipated to be sporadic/random
-        const AllocatedBuffer tempInstanceBuffer = resourceManager.createHostRandomBuffer(instanceBufferCapacity * sizeof(InstanceData));
+        const AllocatedBuffer tempInstanceBuffer = resourceManager.createHostRandomBuffer(instanceBufferCapacity * sizeof(InstanceData), VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 
         // Copy contents of old buffer into new buffer and destroy old buffer
         if (copyPrevious && oldBufferSize > 0) {

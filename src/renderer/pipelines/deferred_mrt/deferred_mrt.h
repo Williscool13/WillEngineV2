@@ -13,7 +13,6 @@ class ResourceManager;
 
 namespace will_engine::deferred_mrt
 {
-
 struct DeferredMrtPushConstants
 {
     glm::mat4 testMatrix;
@@ -21,13 +20,14 @@ struct DeferredMrtPushConstants
 
 struct DeferredMrtDrawInfo
 {
+    bool bClearColor{true};
+    glm::vec2 viewportExtents{RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
     std::vector<RenderObject*> renderObjects{};
     VkImageView normalTarget{VK_NULL_HANDLE};
     VkImageView albedoTarget{VK_NULL_HANDLE};
     VkImageView pbrTarget{VK_NULL_HANDLE};
     VkImageView velocityTarget{VK_NULL_HANDLE};
     VkImageView depthTarget{VK_NULL_HANDLE};
-    int32_t currentFrameOverlap{0};
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};
 };
@@ -40,6 +40,11 @@ public:
     ~DeferredMrtPipeline();
 
     void draw(VkCommandBuffer cmd, const DeferredMrtDrawInfo& drawInfo) const;
+
+    void reloadShaders() { createPipeline(); }
+
+private:
+    void createPipeline();
 
 private:
     ResourceManager& resourceManager;

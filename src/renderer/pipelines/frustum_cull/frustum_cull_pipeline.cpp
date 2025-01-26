@@ -30,24 +30,7 @@ will_engine::frustum_cull_pipeline::FrustumCullPipeline::FrustumCullPipeline(Res
     pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
 
-    VkShaderModule computeShader = resourceManager.createShaderModule("shaders/frustumCull.comp.spv");
-
-    VkPipelineShaderStageCreateInfo stageInfo{};
-    stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    stageInfo.pNext = nullptr;
-    stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageInfo.module = computeShader;
-    stageInfo.pName = "main";
-
-    VkComputePipelineCreateInfo pipelineInfo;
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pipelineInfo.pNext = nullptr;
-    pipelineInfo.layout = pipelineLayout;
-    pipelineInfo.stage = stageInfo;
-    pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
-
-    pipeline = resourceManager.createComputePipeline(pipelineInfo);
-    resourceManager.destroyShaderModule(computeShader);
+    createPipeline();
 }
 
 will_engine::frustum_cull_pipeline::FrustumCullPipeline::~FrustumCullPipeline()
@@ -90,4 +73,26 @@ void will_engine::frustum_cull_pipeline::FrustumCullPipeline::draw(VkCommandBuff
     }
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
+}
+
+void will_engine::frustum_cull_pipeline::FrustumCullPipeline::createPipeline()
+{
+    VkShaderModule computeShader = resourceManager.createShaderModule("shaders/frustumCull.comp.spv");
+
+    VkPipelineShaderStageCreateInfo stageInfo{};
+    stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stageInfo.pNext = nullptr;
+    stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    stageInfo.module = computeShader;
+    stageInfo.pName = "main";
+
+    VkComputePipelineCreateInfo pipelineInfo;
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pipelineInfo.pNext = nullptr;
+    pipelineInfo.layout = pipelineLayout;
+    pipelineInfo.stage = stageInfo;
+    pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+
+    pipeline = resourceManager.createComputePipeline(pipelineInfo);
+    resourceManager.destroyShaderModule(computeShader);
 }

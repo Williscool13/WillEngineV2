@@ -19,9 +19,6 @@ BasicRenderPipeline::BasicRenderPipeline(ResourceManager& resourceManager) : res
     samplerDescriptorLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     samplerDescriptorBuffer = resourceManager.createDescriptorBufferSampler(samplerDescriptorLayout, 1);
 
-    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/basic/vertex.vert.spv");
-    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/basic/fragment.frag.spv");
-
     VkPushConstantRange renderPushConstantRange{};
     renderPushConstantRange.offset = 0;
     renderPushConstantRange.size = sizeof(RenderPushConstant);
@@ -37,20 +34,7 @@ BasicRenderPipeline::BasicRenderPipeline(ResourceManager& resourceManager) : res
 
     pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
-    PipelineBuilder renderPipelineBuilder;
-    renderPipelineBuilder.setShaders(vertShader, fragShader);
-    renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-    renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
-    renderPipelineBuilder.disableMultisampling();
-    renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
-    renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    renderPipelineBuilder.setupRenderer({DRAW_FORMAT}, DEPTH_FORMAT);
-    renderPipelineBuilder.setupPipelineLayout(pipelineLayout);
-
-    pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder);
-
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
+    createPipeline();
 }
 
 BasicRenderPipeline::~BasicRenderPipeline()
@@ -121,5 +105,26 @@ void BasicRenderPipeline::draw(VkCommandBuffer cmd, const RenderDrawInfo& drawIn
     vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(RenderPushConstant), &push);
     vkCmdDraw(cmd, 3, 1, 0, 0);
     vkCmdEndRendering(cmd);
+}
+
+void BasicRenderPipeline::createPipeline()
+{
+    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/basic/vertex.vert.spv");
+    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/basic/fragment.frag.spv");
+
+    PipelineBuilder renderPipelineBuilder;
+    renderPipelineBuilder.setShaders(vertShader, fragShader);
+    renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
+    renderPipelineBuilder.disableMultisampling();
+    renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
+    renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+    renderPipelineBuilder.setupRenderer({DRAW_FORMAT}, DEPTH_FORMAT);
+    renderPipelineBuilder.setupPipelineLayout(pipelineLayout);
+
+    pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder);
+
+    resourceManager.destroyShaderModule(vertShader);
+    resourceManager.destroyShaderModule(fragShader);
 }
 }

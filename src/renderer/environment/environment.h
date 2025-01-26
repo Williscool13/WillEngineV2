@@ -68,6 +68,9 @@ public:
     DescriptorBufferSampler& getCubemapDescriptorBuffer() { return cubemapDescriptorBuffer; }
     DescriptorBufferSampler& getDiffSpecMapDescriptorBuffer() { return diffSpecMapDescriptorBuffer; }
 
+public: // Debug
+    const std::unordered_map<int32_t, const char*>& getActiveEnvironmentMapNames() { return activeEnvironmentMapNames; }
+
 private:
     ResourceManager& resourceManager;
     ImmediateSubmitter& immediate;

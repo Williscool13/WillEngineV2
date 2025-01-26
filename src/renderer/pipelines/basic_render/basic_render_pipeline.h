@@ -12,7 +12,6 @@
 
 namespace basic_render
 {
-
 struct RenderDescriptorInfo
 {
     VkSampler sampler{VK_NULL_HANDLE};
@@ -45,6 +44,11 @@ public:
     void setupDescriptors(const RenderDescriptorInfo& descriptorInfo);
 
     void draw(VkCommandBuffer cmd, const RenderDrawInfo& drawInfo) const;
+
+    void reloadShaders() { createPipeline(); }
+
+private:
+    void createPipeline();
 
 private:
     ResourceManager& resourceManager;

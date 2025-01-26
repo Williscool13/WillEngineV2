@@ -7,6 +7,11 @@
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
 
+#include "vk_helpers.h"
+#include "volk.h"
+#include "environment/environment.h"
+#include "lighting/shadows/cascaded_shadow_map.h"
+#include "lighting/shadows/shadows.h"
 #include "src/core/engine.h"
 #include "src/core/input.h"
 #include "src/core/time.h"
@@ -86,8 +91,7 @@ void ImguiWrapper::handleInput(const SDL_Event& e)
 
 void ImguiWrapper::imguiInterface(Engine* engine)
 {
-    Input& input = Input::Get();
-    Time& time = Time::Get();
+    const Time& time = Time::Get();
 
     ImGui_ImplVulkan_NewFrame();
     ImGui_ImplSDL2_NewFrame();
@@ -102,55 +106,201 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     }
     ImGui::End();
 
-    if (ImGui::Begin("TAA")) {
-        ImGui::Checkbox("Enable Jitter", &engine->bEnableJitter);
-        ImGui::Text("Taa Debug View");
-        ImGui::SetNextItemWidth(100);
-        const char* taaDebugLabels[] = {"None", "Velocity", "Validity", "-", "-", "-"};
-        ImGui::Combo("TAA Debug View", &engine->taaDebug, taaDebugLabels, IM_ARRAYSIZE(taaDebugLabels));
+    if (ImGui::Begin("Renderer")) {
+        if (ImGui::BeginChild("Shaders", ImVec2(0, 50))) {
+            ImGui::Text("Shaders");
+            ImGui::SetNextItemWidth(75.0f);
+            if (ImGui::Button("Hot-Reload Shaders")) {
+                engine->hotReloadShaders();
+            }
+            ImGui::Separator();
+        }
+        ImGui::EndChild();
+
+        if (ImGui::BeginChild("TAA", ImVec2(0, 50))) {
+            ImGui::Text("Temporal Anti-Aliasing");
+            ImGui::Checkbox("Enable TAA", &engine->bEnableTaa);
+            ImGui::Separator();
+        }
+        ImGui::EndChild();
+
+        if (ImGui::BeginChild("Frustum Cull Debug Draw", ImVec2(0, 50))) {
+            ImGui::Text("Frustum Cull Debug Draw");
+            ImGui::Checkbox("Enable Frustum Cull Debug Draw", &engine->bEnableDebugFrustumCullDraw);
+            ImGui::Separator();
+        }
+        ImGui::EndChild();
+
+        if (ImGui::BeginChild("Environment Map", ImVec2(0, 50))) {
+            ImGui::Text("Environment Map");
+            const auto& activeEnvironmentMapNames = engine->environmentMap->getActiveEnvironmentMapNames();
+
+            std::vector<std::pair<int32_t, std::string> > indexNamePairs;
+            for (const auto& [index, name] : activeEnvironmentMapNames) {
+                indexNamePairs.emplace_back(index, name);
+            }
+            std::sort(indexNamePairs.begin(), indexNamePairs.end());
+
+            auto it = std::ranges::find_if(indexNamePairs, [this, engine](const auto& pair) {
+                return pair.first == engine->environmentMapIndex;
+            });
+            int currentIndex = (it != indexNamePairs.end()) ? static_cast<int>(std::distance(indexNamePairs.begin(), it)) : 0;
+
+            struct ComboData
+            {
+                const std::vector<std::pair<int32_t, std::string> >* pairs;
+            };
+
+            auto getLabel = [](void* data, int idx, const char** out_text) -> bool {
+                static std::string label;
+                const auto& pairs = *static_cast<const ComboData*>(data)->pairs;
+                label = pairs[idx].second;
+                *out_text = label.c_str();
+                return true;
+            };
+
+            ComboData data{&indexNamePairs};
+            ImGui::SetNextItemWidth(250);
+            if (ImGui::Combo("Environment", &currentIndex, getLabel, &data, static_cast<int>(indexNamePairs.size()))) {
+                engine->environmentMapIndex = indexNamePairs[currentIndex].first;
+            }
+            ImGui::Separator();
+        }
+        ImGui::EndChild();
+
+        if (ImGui::BeginChild("Cascaded Shadow Map", ImVec2(0, 50))) {
+            ImGui::Text("Cascaded Shadow Map");
+            ImGui::SetNextItemWidth(100);
+            static int32_t shadowMapDebug{0};
+            ImGui::SliderInt("Shadow Map Level", &shadowMapDebug, 0, shadows::SHADOW_CASCADE_COUNT - 1);
+            ImGui::SameLine();
+            if (ImGui::Button(fmt::format("Save Shadow Map", shadowMapDebug).c_str())) {
+                if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                    std::filesystem::path path = file::imagesSavePath / fmt::format("shadowMap{}.png", shadowMapDebug);
+
+                    auto depthNormalize = [](const float depth) {
+                        return logf(1.0f + depth * 15.0f) / logf(16.0f);
+                    };
+
+                    AllocatedImage shadowMap = engine->cascadedShadowMap->getShadowMap(shadowMapDebug);
+                    if (shadowMap.image != VK_NULL_HANDLE) {
+                        vk_helpers::saveImageR32F(
+                            *engine->resourceManager,
+                            *engine->immediate,
+                            shadowMap,
+                            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                            VK_IMAGE_ASPECT_DEPTH_BIT,
+                            path.string().c_str(),
+                            depthNormalize
+                        );
+                    }
+                } else {
+                    fmt::print(" Failed to save depth map image");
+                }
+            }
+        }
+        ImGui::EndChild();
+
+        if (ImGui::BeginChild("Save Images", ImVec2(0, 160))) {
+            ImGui::SetNextItemWidth(75);
+            ImGui::Text("Save Images");
+            if (ImGui::Button("Save Draw Image")) {
+                if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                    const std::filesystem::path path = file::imagesSavePath / "drawImage.png";
+                    vk_helpers::saveImageRGBA16SFLOAT(*engine->resourceManager, *engine->immediate, engine->drawImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
+                                                      path.string().c_str());
+                } else {
+                    fmt::print(" Failed to find/create image save path directory");
+                }
+            }
+
+            ImGui::SetNextItemWidth(75);
+            if (ImGui::Button("Save Depth Image")) {
+                if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                    const std::filesystem::path path = file::imagesSavePath / "depthImage.png";
+                    auto depthNormalize = [](const float depth) {
+                        return logf(1.0f + depth * 15.0f) / logf(16.0f);
+                    };
+                    vk_helpers::saveImageR32F(*engine->resourceManager, *engine->immediate, engine->depthImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT,
+                                              path.string().c_str(), depthNormalize);
+                } else {
+                    fmt::print(" Failed to find/create image save path directory");
+                }
+            }
+
+            ImGui::SetNextItemWidth(75);
+            if (ImGui::Button("Save Normals")) {
+                if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                    const std::filesystem::path path = file::imagesSavePath / "normalRT.png";
+                    auto unpackFunc = [](const uint32_t packedColor) {
+                        glm::vec4 pixel = glm::unpackSnorm4x8(packedColor);
+                        pixel.r = pixel.r * 0.5f + 0.5f;
+                        pixel.g = pixel.g * 0.5f + 0.5f;
+                        pixel.b = pixel.b * 0.5f + 0.5f;
+                        pixel.a = 1.0f;
+                        return pixel;
+                    };
+
+                    vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->normalRenderTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
+                                                path.string().c_str(), unpackFunc);
+                } else {
+                    fmt::print(" Failed to save normal render target");
+                }
+            }
+
+            ImGui::SetNextItemWidth(75);
+            if (ImGui::Button("Save Albedo Render Target")) {
+                if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                    const std::filesystem::path path = file::imagesSavePath / "albedoRT.png";
+                    auto unpackFunc = [](const uint32_t packedColor) {
+                        glm::vec4 pixel = glm::unpackUnorm4x8(packedColor);
+                        pixel.a = 1.0f;
+                        return pixel;
+                    };
+
+                    vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->albedoRenderTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
+                } else {
+                    fmt::print(" Failed to save albedo render target");
+                }
+            }
+
+            ImGui::SetNextItemWidth(75);
+            if (ImGui::Button("Save PBR Render Target")) {
+                if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                    std::filesystem::path path = file::imagesSavePath / "pbrRT.png";
+                    auto unpackFunc = [](const uint32_t packedColor) {
+                        glm::vec4 pixel = glm::unpackUnorm4x8(packedColor);
+                        pixel.a = 1.0f;
+                        return pixel;
+                    };
+                    vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->pbrRenderTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                                VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
+                } else {
+                    fmt::print(" Failed to save pbr render target");
+                }
+            }
+
+            ImGui::SetNextItemWidth(75);
+            if (ImGui::Button("Save Post Process Resolve Target")) {
+                if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                    std::filesystem::path path = file::imagesSavePath / "postProcesResolve.png";
+                    vk_helpers::saveImageRGBA16SFLOAT(*engine->resourceManager, *engine->immediate, engine->postProcessOutputBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                                                      VK_IMAGE_ASPECT_COLOR_BIT,
+                                                      path.string().c_str());
+                } else {
+                    fmt::print(" Failed to find/create image save path directory");
+                }
+            }
+            ImGui::Separator();
+        }
+        ImGui::EndChild();
     }
     ImGui::End();
 
-    if (ImGui::Begin("Save Final Image")) {
-        if (ImGui::Button("Save Draw Image")) {
-            if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                const std::filesystem::path path = file::imagesSavePath / "drawImage.png";
-                vk_helpers::saveImageRGBA16SFLOAT(*engine->resourceManager, *engine->immediate, engine->drawImage, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
-                                                  path.string().c_str());
-            } else {
-                fmt::print(" Failed to find/create image save path directory");
-            }
-        }
-
-        if (ImGui::Button("Save Normal Render Target")) {
-            if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                const std::filesystem::path path = file::imagesSavePath / "normalRT.png";
-                auto unpackFunc = [](const uint32_t packedColor) {
-                    glm::vec4 pixel = glm::unpackSnorm4x8(packedColor);
-                    pixel.r = pixel.r * 0.5f + 0.5f;
-                    pixel.g = pixel.g * 0.5f + 0.5f;
-                    pixel.b = pixel.b * 0.5f + 0.5f;
-                    pixel.a = 1.0f;
-                    return pixel;
-                };
-
-                vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->normalRenderTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
-                                            path.string().c_str(), unpackFunc);
-            } else {
-                fmt::print(" Failed to save normal render target");
-            }
-        }
-    }
-    ImGui::End();
 
     ImGui::Render();
 }
-
-
-// void ImguiWrapper::imguiInterface(::Engine* engine)
-// {
-
-// }
 
 void ImguiWrapper::drawImgui(VkCommandBuffer cmd, const VkImageView targetImageView, const VkExtent2D swapchainExtent)
 {

@@ -48,13 +48,19 @@ struct DeferredResolveDrawInfo
 class DeferredResolvePipeline
 {
 public:
-    explicit DeferredResolvePipeline(ResourceManager& resourceManager, VkDescriptorSetLayout environmentIBLLayout, VkDescriptorSetLayout cascadeUniformLayout, VkDescriptorSetLayout cascadeSamplerlayout);
+    explicit DeferredResolvePipeline(ResourceManager& resourceManager, VkDescriptorSetLayout environmentIBLLayout, VkDescriptorSetLayout cascadeUniformLayout,
+                                     VkDescriptorSetLayout cascadeSamplerlayout);
 
     ~DeferredResolvePipeline();
 
     void setupDescriptorBuffer(const DeferredResolveDescriptor& drawInfo);
 
     void draw(VkCommandBuffer cmd, const DeferredResolveDrawInfo& drawInfo) const;
+
+    void reloadShaders() { createPipeline(); }
+
+private:
+    void createPipeline();
 
 private:
     ResourceManager& resourceManager;

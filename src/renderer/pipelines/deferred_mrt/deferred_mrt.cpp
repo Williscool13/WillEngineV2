@@ -5,6 +5,8 @@
 #include "deferred_mrt.h"
 
 #include "volk.h"
+
+#include "src/core/engine.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/render_object/render_object_types.h"
@@ -26,6 +28,101 @@ will_engine::deferred_mrt::DeferredMrtPipeline::DeferredMrtPipeline(ResourceMana
 
     pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
+    createPipeline();
+}
+
+will_engine::deferred_mrt::DeferredMrtPipeline::~DeferredMrtPipeline()
+{
+    resourceManager.destroyPipelineLayout(pipelineLayout);
+    resourceManager.destroyPipeline(pipeline);
+}
+
+void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, const DeferredMrtDrawInfo& drawInfo) const
+{
+    VkDebugUtilsLabelEXT label = {};
+    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+    label.pLabelName = "Deferred MRT Pass";
+    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
+
+    VkClearValue clearValue = {0.0f, 0.0f};
+
+    VkRenderingAttachmentInfo normalAttachment = vk_helpers::attachmentInfo(drawInfo.normalTarget, drawInfo.bClearColor ? &clearValue : nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo albedoAttachment = vk_helpers::attachmentInfo(drawInfo.albedoTarget, drawInfo.bClearColor ? &clearValue : nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo pbrAttachment = vk_helpers::attachmentInfo(drawInfo.pbrTarget, drawInfo.bClearColor ? &clearValue : nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo velocityAttachment = vk_helpers::attachmentInfo(drawInfo.velocityTarget, drawInfo.bClearColor ? &clearValue : nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthTarget, drawInfo.bClearColor ? &clearValue : nullptr, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+    VkRenderingInfo renderInfo{};
+    renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    renderInfo.pNext = nullptr;
+
+    VkRenderingAttachmentInfo deferredAttachments[4];
+    deferredAttachments[0] = normalAttachment;
+    deferredAttachments[1] = albedoAttachment;
+    deferredAttachments[2] = pbrAttachment;
+    deferredAttachments[3] = velocityAttachment;
+
+    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, RENDER_EXTENTS};
+    renderInfo.layerCount = 1;
+    renderInfo.colorAttachmentCount = 4;
+    renderInfo.pColorAttachments = deferredAttachments;
+    renderInfo.pDepthAttachment = &depthAttachment;
+    renderInfo.pStencilAttachment = nullptr;
+
+    vkCmdBeginRendering(cmd, &renderInfo);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
+    //  Viewport
+    VkViewport viewport = {};
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width = drawInfo.viewportExtents.x;
+    viewport.height = drawInfo.viewportExtents.y;
+    viewport.minDepth = 0.f;
+    viewport.maxDepth = 1.f;
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+    //  Scissor
+    VkRect2D scissor = {};
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
+    scissor.extent.width = RENDER_EXTENTS.width;
+    scissor.extent.height = RENDER_EXTENTS.height;
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    constexpr VkDeviceSize zeroOffset{0};
+
+    for (const RenderObject* renderObject : drawInfo.renderObjects) {
+        if (!renderObject->canDraw()) { continue; }
+
+        constexpr uint32_t sceneDataIndex{0};
+        constexpr uint32_t addressIndex{1};
+        constexpr uint32_t texturesIndex{2};
+
+        VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[3];
+        descriptorBufferBindingInfo[0] = drawInfo.sceneDataBinding;
+        descriptorBufferBindingInfo[1] = renderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
+        descriptorBufferBindingInfo[2] = renderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
+        vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptorBufferBindingInfo);
+
+        const VkDeviceSize sceneDataOffset{drawInfo.sceneDataOffset};
+        const VkDeviceSize addressOffset{renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * Engine::getCurrentFrameOverlap()};
+
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &addressIndex, &addressOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &texturesIndex, &zeroOffset);
+
+        vkCmdBindVertexBuffers(cmd, 0, 1, &renderObject->getVertexBuffer().buffer, &zeroOffset);
+        vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexedIndirect(cmd, renderObject->getIndirectBuffer().buffer, 0, renderObject->getDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
+    }
+
+    vkCmdEndRendering(cmd);
+
+    vkCmdEndDebugUtilsLabelEXT(cmd);
+}
+
+void will_engine::deferred_mrt::DeferredMrtPipeline::createPipeline()
+{
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/deferredMrt.vert.spv");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/deferredMrt.frag.spv");
 
@@ -75,95 +172,4 @@ will_engine::deferred_mrt::DeferredMrtPipeline::DeferredMrtPipeline(ResourceMana
     pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder);
     resourceManager.destroyShaderModule(vertShader);
     resourceManager.destroyShaderModule(fragShader);
-}
-
-will_engine::deferred_mrt::DeferredMrtPipeline::~DeferredMrtPipeline()
-{
-    resourceManager.destroyPipelineLayout(pipelineLayout);
-    resourceManager.destroyPipeline(pipeline);
-}
-
-void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, const DeferredMrtDrawInfo& drawInfo) const
-{
-    VkDebugUtilsLabelEXT label = {};
-    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
-    label.pLabelName = "Deferred MRT Pass";
-    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
-
-    VkClearValue clearValue = {0.0f, 0.0f};
-
-    VkRenderingAttachmentInfo normalAttachment = vk_helpers::attachmentInfo(drawInfo.normalTarget, &clearValue, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo albedoAttachment = vk_helpers::attachmentInfo(drawInfo.albedoTarget, &clearValue, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo pbrAttachment = vk_helpers::attachmentInfo(drawInfo.pbrTarget, &clearValue, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo velocityAttachment = vk_helpers::attachmentInfo(drawInfo.velocityTarget, &clearValue, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthTarget, &clearValue, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-
-    VkRenderingInfo renderInfo{};
-    renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-    renderInfo.pNext = nullptr;
-
-    VkRenderingAttachmentInfo deferredAttachments[4];
-    deferredAttachments[0] = normalAttachment;
-    deferredAttachments[1] = albedoAttachment;
-    deferredAttachments[2] = pbrAttachment;
-    deferredAttachments[3] = velocityAttachment;
-
-    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, RENDER_EXTENTS};
-    renderInfo.layerCount = 1;
-    renderInfo.colorAttachmentCount = 4;
-    renderInfo.pColorAttachments = deferredAttachments;
-    renderInfo.pDepthAttachment = &depthAttachment;
-    renderInfo.pStencilAttachment = nullptr;
-
-    vkCmdBeginRendering(cmd, &renderInfo);
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-
-    //  Viewport
-    VkViewport viewport = {};
-    viewport.x = 0;
-    viewport.y = 0;
-    viewport.width = RENDER_EXTENT_WIDTH;
-    viewport.height = RENDER_EXTENT_HEIGHT;
-    viewport.minDepth = 0.f;
-    viewport.maxDepth = 1.f;
-    vkCmdSetViewport(cmd, 0, 1, &viewport);
-    //  Scissor
-    VkRect2D scissor = {};
-    scissor.offset.x = 0;
-    scissor.offset.y = 0;
-    scissor.extent.width = RENDER_EXTENTS.width;
-    scissor.extent.height = RENDER_EXTENTS.height;
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
-
-    constexpr VkDeviceSize zeroOffset{0};
-
-    for (const RenderObject* renderObject : drawInfo.renderObjects) {
-        if (!renderObject->canDraw()) { continue; }
-
-        constexpr uint32_t sceneDataIndex{0};
-        constexpr uint32_t addressIndex{1};
-        constexpr uint32_t texturesIndex{2};
-
-        VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[3];
-        descriptorBufferBindingInfo[0] = drawInfo.sceneDataBinding;
-        descriptorBufferBindingInfo[1] = renderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
-        descriptorBufferBindingInfo[2] = renderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
-        vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptorBufferBindingInfo);
-
-        const VkDeviceSize sceneDataOffset{drawInfo.sceneDataOffset};
-        //const VkDeviceSize addressOffset{renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap};
-        const VkDeviceSize addressOffset{renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap};
-
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &addressIndex, &addressOffset);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &texturesIndex, &zeroOffset);
-
-        vkCmdBindVertexBuffers(cmd, 0, 1, &renderObject->getVertexBuffer().buffer, &zeroOffset);
-        vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexedIndirect(cmd, renderObject->getIndirectBuffer().buffer, 0, renderObject->getDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
-    }
-
-    vkCmdEndRendering(cmd);
-
-    vkCmdEndDebugUtilsLabelEXT(cmd);
 }

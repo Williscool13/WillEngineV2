@@ -17,6 +17,7 @@ struct TemporalAntialiasingPushConstants
     float blendValue;
     int32_t taaDebug;
 };
+
 struct TemporalAntialiasingDescriptor
 {
     VkImageView drawImage;
@@ -27,7 +28,8 @@ struct TemporalAntialiasingDescriptor
     VkSampler sampler;
 };
 
-struct TemporalAntialiasingDrawInfo{
+struct TemporalAntialiasingDrawInfo
+{
     float blendValue{};
     int32_t debugMode{};
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
@@ -44,6 +46,11 @@ public:
     void setupDescriptorBuffer(const TemporalAntialiasingDescriptor& descriptor);
 
     void draw(VkCommandBuffer cmd, const TemporalAntialiasingDrawInfo& drawInfo) const;
+
+    void reloadShaders() { createPipeline(); }
+
+private:
+    void createPipeline();
 
 private:
     ResourceManager& resourceManager;

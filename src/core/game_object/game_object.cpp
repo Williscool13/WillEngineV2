@@ -19,7 +19,12 @@ GameObject::GameObject() : gameObjectId(nextId++)
 
 GameObject::GameObject(std::string gameObjectName) : gameObjectId(nextId++)
 {
-    this->gameObjectName = std::move(gameObjectName);
+    if (gameObjectName == "") {
+        this->gameObjectName = "GameObject_" + std::to_string(gameObjectId);
+    } else {
+        this->gameObjectName = std::move(gameObjectName);
+    }
+
 }
 
 GameObject::~GameObject()

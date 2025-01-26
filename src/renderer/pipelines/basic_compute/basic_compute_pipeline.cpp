@@ -31,31 +31,7 @@ BasicComputePipeline::BasicComputePipeline(VulkanContext& context) : context(con
 
     VK_CHECK(vkCreatePipelineLayout(context.device, &layoutCreateInfo, nullptr, &pipelineLayout));
 
-
-    VkShaderModule gradientShader;
-    if (!vk_helpers::loadShaderModule("shaders/basic/compute.comp.spv", context.device, &gradientShader)) {
-        throw std::runtime_error("Error when building the compute shader (compute.comp.spv)");
-    }
-
-    VkPipelineShaderStageCreateInfo stageinfo{};
-    stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    stageinfo.pNext = nullptr;
-    stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageinfo.module = gradientShader;
-    stageinfo.pName = "main"; // entry point in shader
-
-    VkComputePipelineCreateInfo computePipelineCreateInfo{};
-    computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    computePipelineCreateInfo.pNext = nullptr;
-    computePipelineCreateInfo.layout = pipelineLayout;
-    computePipelineCreateInfo.stage = stageinfo;
-    computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
-
-    VK_CHECK(vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &pipeline));
-
-    // Cleanup
-    vkDestroyShaderModule(context.device, gradientShader, nullptr);
-
+    createPipeline();
 
     samplerDescriptorBuffer = DescriptorBufferSampler(context, descriptorSetLayout, 1);
 }
@@ -105,5 +81,32 @@ void BasicComputePipeline::draw(VkCommandBuffer cmd, ComputeDrawInfo drawInfo) c
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &bufferIndexImage, &ZERO_DEVICE_SIZE);
 
     vkCmdDispatch(cmd, std::ceil(drawInfo.renderExtent.width / 16.0), std::ceil(drawInfo.renderExtent.height / 16.0), 1);
+}
+
+void BasicComputePipeline::createPipeline()
+{
+    VkShaderModule gradientShader;
+    if (!vk_helpers::loadShaderModule("shaders/basic/compute.comp.spv", context.device, &gradientShader)) {
+        throw std::runtime_error("Error when building the compute shader (compute.comp.spv)");
+    }
+
+    VkPipelineShaderStageCreateInfo stageInfo{};
+    stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stageInfo.pNext = nullptr;
+    stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    stageInfo.module = gradientShader;
+    stageInfo.pName = "main"; // entry point in shader
+
+    VkComputePipelineCreateInfo computePipelineCreateInfo{};
+    computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    computePipelineCreateInfo.pNext = nullptr;
+    computePipelineCreateInfo.layout = pipelineLayout;
+    computePipelineCreateInfo.stage = stageInfo;
+    computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+
+    VK_CHECK(vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &pipeline));
+
+    // Cleanup
+    vkDestroyShaderModule(context.device, gradientShader, nullptr);
 }
 }
