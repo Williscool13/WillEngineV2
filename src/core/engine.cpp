@@ -87,16 +87,21 @@ void Engine::init()
     for (int i{0}; i < FRAME_OVERLAP; i++) {
         sceneDataBuffers[i] = resourceManager->createHostSequentialBuffer(sizeof(SceneData));
     }
-    sceneDataDescriptorBuffer = DescriptorBufferUniform(*context, resourceManager->getSceneDataLayout(), FRAME_OVERLAP);
+    sceneDataDescriptorBuffer = DescriptorBufferUniform(*context, resourceManager->getSceneDataLayout(), FRAME_OVERLAP + 1);
     std::vector<DescriptorUniformData> sceneDataBufferData{1};
     for (int i{0}; i < FRAME_OVERLAP; i++) {
         sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = sceneDataBuffers[i], .allocSize = sizeof(SceneData)};
         sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData, i);
     }
+    debugSceneDataBuffer = resourceManager->createHostSequentialBuffer(sizeof(SceneData));
+    sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = debugSceneDataBuffer, .allocSize = sizeof(SceneData)};
+    sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData, FRAME_OVERLAP);
 
+    frustumCullPipeline = new frustum_cull_pipeline::FrustumCullPipeline(*resourceManager);
     environmentPipeline = new environment_pipeline::EnvironmentPipeline(*resourceManager, environmentMap->getCubemapDescriptorSetLayout());
     deferredMrtPipeline = new deferred_mrt::DeferredMrtPipeline(*resourceManager);
-    deferredResolvePipeline = new deferred_resolve::DeferredResolvePipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(), cascadedShadowMap->getCascadedShadowMapUniformLayout(), cascadedShadowMap->getCascadedShadowMapSamplerLayout());
+    deferredResolvePipeline = new deferred_resolve::DeferredResolvePipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
+                                                                            cascadedShadowMap->getCascadedShadowMapUniformLayout(), cascadedShadowMap->getCascadedShadowMapSamplerLayout());
     temporalAntialiasingPipeline = new temporal_antialiasing_pipeline::TemporalAntialiasingPipeline(*resourceManager);
     postProcessPipeline = new post_process_pipeline::PostProcessPipeline(*resourceManager);
 
@@ -235,6 +240,26 @@ void Engine::updateRenderSceneData(const float deltaTime) const
 
     pSceneData->renderTargetSize = {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
     pSceneData->deltaTime = deltaTime;
+
+
+    const auto pDebugSceneData = static_cast<SceneData*>(debugSceneDataBuffer.info.pMappedData);
+    pDebugSceneData->jitter = glm::vec4(0.0f);
+    pDebugSceneData->view = glm::lookAt(glm::vec3(0), glm::vec3(0, 0, -1), glm::vec3(0, 1, 0));
+    pDebugSceneData->proj = camera->getProjMatrix();
+    pDebugSceneData->viewProj = pDebugSceneData->proj * pDebugSceneData->view;
+
+    pDebugSceneData->prevView = pDebugSceneData->view;
+    pDebugSceneData->prevProj = pDebugSceneData->proj;
+    pDebugSceneData->prevViewProj = pDebugSceneData->viewProj;
+
+    pDebugSceneData->invView = glm::inverse(pDebugSceneData->view);
+    pDebugSceneData->invProj = glm::inverse(pDebugSceneData->proj);
+    pDebugSceneData->prevViewProj = pDebugSceneData->viewProj;
+    pDebugSceneData->cameraWorldPos = glm::vec4(0.0f);
+    pDebugSceneData->renderTargetSize = {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
+    pDebugSceneData->deltaTime = deltaTime;
+
+
 }
 
 void Engine::draw()
@@ -280,6 +305,14 @@ void Engine::draw()
     cascadedShadowMap->update(mainLight, camera);
     std::vector renderObjects{cube, primitives, sponza};
 
+    frustum_cull_pipeline::FrustumCullDrawInfo csmFrustumCullDrawInfo{
+        renderObjects,
+        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(),
+        false
+    };
+    frustumCullPipeline->draw(cmd, csmFrustumCullDrawInfo);
+
     cascadedShadowMap->draw(cmd, renderObjects);
 
     vk_helpers::clearColorImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -290,6 +323,7 @@ void Engine::draw()
         depthImage.imageView,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(),
+
         environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferBindingInfo(),
         environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferSize() * 0,
     };
@@ -299,6 +333,14 @@ void Engine::draw()
     vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    frustum_cull_pipeline::FrustumCullDrawInfo deferredFrustumCullDrawInfo{
+        renderObjects,
+        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(),
+        true
+    };
+    frustumCullPipeline->draw(cmd, deferredFrustumCullDrawInfo);
 
     const deferred_mrt::DeferredMrtDrawInfo deferredMrtDrawInfo{
         renderObjects,
@@ -420,6 +462,7 @@ void Engine::cleanup()
     delete primitives;
     delete sponza;
 
+    delete frustumCullPipeline;
     delete environmentPipeline;
     delete deferredMrtPipeline;
     delete deferredResolvePipeline;
@@ -430,6 +473,7 @@ void Engine::cleanup()
     for (AllocatedBuffer sceneBuffer : sceneDataBuffers) {
         resourceManager->destroyBuffer(sceneBuffer);
     }
+    resourceManager->destroyBuffer(debugSceneDataBuffer);
     sceneDataDescriptorBuffer.destroy(context->allocator);
 
     delete imguiWrapper;
