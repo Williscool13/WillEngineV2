@@ -10,6 +10,7 @@
 #include "render_object_types.h"
 #include "render_reference.h"
 #include "extern/fastgltf/include/fastgltf/types.hpp"
+#include "src/renderer/renderer_constants.h"
 #include "src/renderer/resource_manager.h"
 
 
@@ -17,7 +18,7 @@ namespace will_engine
 {
 class GameObject;
 
-class RenderObject : public IRenderReference
+class RenderObject final : public IRenderReference
 {
 public:
     RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager);
@@ -40,7 +41,7 @@ public:
 
     bool attachToGameObject(GameObject* gameObject, int32_t meshIndex);
 
-    void updateInstanceData(int32_t instanceIndex, const glm::mat4& currentFrameModelMatrix) override;
+    void updateInstanceData(int32_t instanceIndex, const glm::mat4& newModelMatrix) override;
 
 private: // Model Data
     bool parseGltf(const std::filesystem::path& gltfFilepath);
@@ -54,11 +55,15 @@ private: // Model Data
 private: // Buffer Data
     bool generateBuffers();
 
+    /**
+     * Expand all model matrix buffers and copy contents of previous model matrix buffers into the new one.
+     * \n Also update the addresses buffer to point to the new model matrix buffers
+     * @param countToAdd
+     * @param copyPrevious
+     */
     void expandInstanceBuffer(uint32_t countToAdd, bool copyPrevious = true);
 
     void uploadCullingBufferData();
-
-    [[nodiscard]] InstanceData* getInstanceData(int32_t index) const;
 
 private: // Model Data
     ResourceManager& resourceManager;
@@ -94,16 +99,16 @@ private: // Buffer Data
     AllocatedBuffer drawIndirectBuffer{};
 
     // addresses
-    AllocatedBuffer addressBuffer{};
+    AllocatedBuffer addressBuffers[FRAME_OVERLAP]{};
     //  the actual buffers
     AllocatedBuffer materialBuffer{};
-    AllocatedBuffer modelMatrixBuffer{};
+    AllocatedBuffer modelMatrixBuffers[FRAME_OVERLAP]{};
 
     DescriptorBufferUniform addressesDescriptorBuffer;
     DescriptorBufferSampler textureDescriptorBuffer;
 
     AllocatedBuffer meshBoundsBuffer{};
-    AllocatedBuffer cullingAddressBuffer{};
+    AllocatedBuffer cullingAddressBuffers[FRAME_OVERLAP]{};
     AllocatedBuffer boundingSphereIndicesBuffer{};
     DescriptorBufferUniform frustumCullingDescriptorBuffer;
 };

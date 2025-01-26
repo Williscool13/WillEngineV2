@@ -64,11 +64,12 @@ private:
 
     EngineStats stats{};
 
+public:
+    static int32_t getPreviousFrameOverlap() { return glm::max(frameNumber - 1, 0) % FRAME_OVERLAP; }
+    static int32_t getCurrentFrameOverlap() { return frameNumber % FRAME_OVERLAP; }
 private: // Rendering
-    int32_t frameNumber{0};
+    static int32_t frameNumber;
     FrameData frames[FRAME_OVERLAP]{};
-    int32_t getPreviousFrameOverlap() const { return glm::max(frameNumber - 1, 0) % FRAME_OVERLAP; }
-    int32_t getCurrentFrameOverlap() const { return frameNumber % FRAME_OVERLAP; }
     FrameData& getCurrentFrame() { return frames[getCurrentFrameOverlap()]; }
 
     bool bStopRendering{false};

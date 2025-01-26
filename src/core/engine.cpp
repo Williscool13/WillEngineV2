@@ -28,6 +28,8 @@
 
 namespace will_engine
 {
+int32_t Engine::frameNumber = 0;
+
 void Engine::init()
 {
     fmt::print("----------------------------------------\n");
@@ -203,7 +205,7 @@ void Engine::update(const float deltaTime) const
 
 void Engine::updateRenderSceneData(const float deltaTime) const
 {
-    const AllocatedBuffer& previousSceneDataBuffer = sceneDataBuffers[getCurrentFrameOverlap()];
+    const AllocatedBuffer& previousSceneDataBuffer = sceneDataBuffers[getPreviousFrameOverlap()];
     const AllocatedBuffer& sceneDataBuffer = sceneDataBuffers[getCurrentFrameOverlap()];
     const auto pSceneData = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
     const auto pPreviousSceneData = static_cast<SceneData*>(previousSceneDataBuffer.info.pMappedData);
@@ -302,6 +304,7 @@ void Engine::draw()
         pbrRenderTarget.imageView,
         velocityRenderTarget.imageView,
         depthImage.imageView,
+        getCurrentFrameOverlap(),
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap()
     };
