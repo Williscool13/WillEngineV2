@@ -77,12 +77,11 @@ void Engine::init()
     resourceManager = new ResourceManager(*context, *immediate);
     physics = new physics::Physics();
     physics::Physics::Set(physics);
-
     environmentMap = new environment::Environment(*resourceManager, *immediate);
     const std::filesystem::path envMapSource = "assets/environments";
     environmentMap->loadEnvironment("Overcast Sky", (envMapSource / "kloofendal_overcast_puresky_4k.hdr").string().c_str(), 0);
     environmentMap->loadEnvironment("Wasteland", (envMapSource / "wasteland_clouds_puresky_4k.hdr").string().c_str(), 1);
-
+    cascadedShadowMap = new cascaded_shadows::CascadedShadowMap(*resourceManager);
     imguiWrapper = new ImguiWrapper(*context, {window, swapchainImageFormat});
 
     for (int i{0}; i < FRAME_OVERLAP; i++) {
@@ -97,7 +96,7 @@ void Engine::init()
 
     environmentPipeline = new environment_pipeline::EnvironmentPipeline(*resourceManager, environmentMap->getCubemapDescriptorSetLayout());
     deferredMrtPipeline = new deferred_mrt::DeferredMrtPipeline(*resourceManager);
-    deferredResolvePipeline = new deferred_resolve::DeferredResolvePipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout());
+    deferredResolvePipeline = new deferred_resolve::DeferredResolvePipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(), cascadedShadowMap->getCascadedShadowMapUniformLayout(), cascadedShadowMap->getCascadedShadowMapSamplerLayout());
     temporalAntialiasingPipeline = new temporal_antialiasing_pipeline::TemporalAntialiasingPipeline(*resourceManager);
     postProcessPipeline = new post_process_pipeline::PostProcessPipeline(*resourceManager);
 
@@ -278,6 +277,10 @@ void Engine::draw()
     const auto renderStart = std::chrono::system_clock::now();
     test->recursiveUpdateModelMatrix();
     updateRenderSceneData(deltaTime);
+    cascadedShadowMap->update(mainLight, camera);
+    std::vector renderObjects{cube, primitives, sponza};
+
+    cascadedShadowMap->draw(cmd, renderObjects);
 
     vk_helpers::clearColorImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -298,7 +301,7 @@ void Engine::draw()
     vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     const deferred_mrt::DeferredMrtDrawInfo deferredMrtDrawInfo{
-        {cube, primitives, sponza},
+        renderObjects,
         normalRenderTarget.imageView,
         albedoRenderTarget.imageView,
         pbrRenderTarget.imageView,
@@ -322,6 +325,9 @@ void Engine::draw()
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(),
         environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo(),
         environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferSize() * 0,
+        cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferBindingInfo(),
+        cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferSize() * getCurrentFrameOverlap(),
+        cascadedShadowMap->getCascadedShadowMapSamplerBuffer().getDescriptorBufferBindingInfo(),
     };
     deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);
 
@@ -447,6 +453,7 @@ void Engine::cleanup()
     resourceManager->destroyImage(historyBuffer);
     resourceManager->destroyImage(postProcessOutputBuffer);
 
+    delete cascadedShadowMap;
     delete environmentMap;
     delete physics;
     delete immediate;

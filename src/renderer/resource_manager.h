@@ -29,6 +29,8 @@ public:
 
     AllocatedBuffer createHostSequentialBuffer(size_t allocSize) const;
 
+    AllocatedBuffer createHostRandomBuffer(size_t allocSize) const;
+
     AllocatedBuffer createDeviceBuffer(size_t allocSize, VkBufferUsageFlags additionalUsages = 0) const;
 
     [[nodiscard]] AllocatedBuffer createStagingBuffer(size_t allocSize) const;
@@ -78,7 +80,7 @@ public:
 
     void destroyPipelineLayout(VkPipelineLayout& pipelineLayout) const;
 
-    VkPipeline createRenderPipeline(PipelineBuilder& builder) const;
+    VkPipeline createRenderPipeline(PipelineBuilder& builder, const std::vector<VkDynamicState>& additionalDynamicStates = {}) const;
 
     VkPipeline createComputePipeline(const VkComputePipelineCreateInfo& pipelineInfo) const;
 

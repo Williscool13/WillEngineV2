@@ -12,6 +12,7 @@
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/environment/environment.h"
+#include "src/renderer/lighting/shadows/cascaded_shadow_map.h"
 #include "src/renderer/pipelines/deferred_mrt/deferred_mrt.h"
 #include "src/renderer/pipelines/deferred_resolve/deferred_resolve.h"
 #include "src/renderer/pipelines/post_process/post_process_pipeline.h"
@@ -60,6 +61,7 @@ private:
     ResourceManager* resourceManager = nullptr;
     physics::Physics* physics = nullptr;
     environment::Environment* environmentMap{nullptr};
+    cascaded_shadows::CascadedShadowMap* cascadedShadowMap{nullptr};
     ImguiWrapper* imguiWrapper = nullptr;
 
     EngineStats stats{};
@@ -87,6 +89,7 @@ private: // Scene Data
     AllocatedBuffer sceneDataBuffers[FRAME_OVERLAP]{};
 
     FreeCamera* camera{nullptr};
+    DirectionalLight mainLight{glm::normalize(glm::vec3(1.0f, -1.0f, 1.0f)), 1.0f, glm::vec3(0.0f)};
 
     RenderObject* cube{nullptr};
     RenderObject* primitives{nullptr};

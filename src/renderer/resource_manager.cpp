@@ -56,7 +56,6 @@ ResourceManager::ResourceManager(const VulkanContext& context, ImmediateSubmitte
         DescriptorLayoutBuilder layoutBuilder;
         emptyDescriptorSetLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT, nullptr,
                                                        VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-
     }
 
     // Scene Data Layout
@@ -99,7 +98,6 @@ ResourceManager::ResourceManager(const VulkanContext& context, ImmediateSubmitte
 
         renderTargetsLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
-
 }
 
 ResourceManager::~ResourceManager()
@@ -150,6 +148,25 @@ AllocatedBuffer ResourceManager::createHostSequentialBuffer(const size_t allocSi
         .usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
     };
 
+    AllocatedBuffer newBuffer{};
+    VK_CHECK(vmaCreateBuffer(context.allocator, &bufferInfo, &allocInfo,&newBuffer.buffer, &newBuffer.allocation, &newBuffer.info));
+
+    return newBuffer;
+}
+
+AllocatedBuffer ResourceManager::createHostRandomBuffer(size_t allocSize) const
+{
+    const VkBufferCreateInfo bufferInfo{
+        .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
+        .size = allocSize,
+        .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        .sharingMode = VK_SHARING_MODE_EXCLUSIVE
+    };
+
+    constexpr VmaAllocationCreateInfo allocInfo{
+        .flags = VMA_ALLOCATION_CREATE_HOST_ACCESS_RANDOM_BIT | VMA_ALLOCATION_CREATE_MAPPED_BIT,
+        .usage = VMA_MEMORY_USAGE_AUTO_PREFER_HOST,
+    };
     AllocatedBuffer newBuffer{};
     VK_CHECK(vmaCreateBuffer(context.allocator, &bufferInfo, &allocInfo,&newBuffer.buffer, &newBuffer.allocation, &newBuffer.info));
 
@@ -409,9 +426,9 @@ void ResourceManager::destroyPipelineLayout(VkPipelineLayout& pipelineLayout) co
     pipelineLayout = VK_NULL_HANDLE;
 }
 
-VkPipeline ResourceManager::createRenderPipeline(PipelineBuilder& builder) const
+VkPipeline ResourceManager::createRenderPipeline(PipelineBuilder& builder, const std::vector<VkDynamicState>& additionalDynamicStates) const
 {
-    const VkPipeline pipeline = builder.buildPipeline(context.device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    const VkPipeline pipeline = builder.buildPipeline(context.device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT, additionalDynamicStates);
     return pipeline;
 }
 
@@ -429,7 +446,8 @@ void ResourceManager::destroyPipeline(VkPipeline& pipeline) const
     pipeline = VK_NULL_HANDLE;
 }
 
-VkDescriptorSetLayout ResourceManager::createDescriptorSetLayout(DescriptorLayoutBuilder& layoutBuilder, const VkShaderStageFlagBits shaderStageFlags, const VkDescriptorSetLayoutCreateFlagBits layoutCreateFlags) const
+VkDescriptorSetLayout ResourceManager::createDescriptorSetLayout(DescriptorLayoutBuilder& layoutBuilder, const VkShaderStageFlagBits shaderStageFlags,
+                                                                 const VkDescriptorSetLayoutCreateFlagBits layoutCreateFlags) const
 {
     return layoutBuilder.build(context.device, shaderStageFlags, nullptr, layoutCreateFlags);
 }

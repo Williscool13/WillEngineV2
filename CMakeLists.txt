@@ -164,6 +164,13 @@ if (WIN32)
             src/renderer/post_process/post_process_types.h
             src/renderer/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.cpp
             src/renderer/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h
+            src/renderer/lighting/directional_light.h
+            src/renderer/lighting/directional_light.cpp
+            src/renderer/lighting/shadows/cascaded_shadow_map.cpp
+            src/renderer/lighting/shadows/cascaded_shadow_map.h
+            src/renderer/lighting/shadows/shadows.h
+            src/renderer/lighting/shadows/shadow_types.h
+            src/util/render_utils.h
 
     )
 endif ()
