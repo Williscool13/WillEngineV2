@@ -149,6 +149,7 @@ void will_engine::deferred_resolve::DeferredResolvePipeline::draw(VkCommandBuffe
 
 void will_engine::deferred_resolve::DeferredResolvePipeline::createPipeline()
 {
+    resourceManager.destroyPipeline(pipeline);
     VkShaderModule deferredResolveShader = resourceManager.createShaderModule("shaders/deferredResolve.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo = {};

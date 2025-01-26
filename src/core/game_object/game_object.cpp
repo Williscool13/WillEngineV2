@@ -48,6 +48,7 @@ GameObject::~GameObject()
 
 void GameObject::setName(std::string newName)
 {
+    if (gameObjectName == "") { return; }
     gameObjectName = std::move(newName);
 }
 

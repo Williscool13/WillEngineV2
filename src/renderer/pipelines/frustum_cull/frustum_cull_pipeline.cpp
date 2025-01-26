@@ -77,6 +77,7 @@ void will_engine::frustum_cull_pipeline::FrustumCullPipeline::draw(VkCommandBuff
 
 void will_engine::frustum_cull_pipeline::FrustumCullPipeline::createPipeline()
 {
+    resourceManager.destroyPipeline(pipeline);
     VkShaderModule computeShader = resourceManager.createShaderModule("shaders/frustumCull.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};

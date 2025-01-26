@@ -135,6 +135,7 @@ void will_engine::temporal_antialiasing_pipeline::TemporalAntialiasingPipeline::
 
 void will_engine::temporal_antialiasing_pipeline::TemporalAntialiasingPipeline::createPipeline()
 {
+    resourceManager.destroyPipeline(pipeline);
     VkShaderModule computeShader = resourceManager.createShaderModule("shaders/taa.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};

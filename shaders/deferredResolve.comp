@@ -65,7 +65,7 @@ vec3 reconstructPosition(ivec2 texCoord, float depth) {
 
 float LinearizeDepth(float depth)
 {
-    float near = 10000.0;
+    float near = 1000.0;
     float far = 0.01;
     float z = depth * 2.0 - 1.0; // Convert to NDC
     return (2.0 * near * far) / (far + near - z * (far - near));
@@ -159,7 +159,7 @@ void main() {
     switch (pushConstants.debug) {
         case 1:
             float linearDepth = LinearizeDepth(depth);
-            float normalizedLinearDepth = linearDepth / 25.0;
+            float normalizedLinearDepth = linearDepth / 5000.0;
             vec4 fragColor = vec4(vec3(normalizedLinearDepth), 1.0);
             imageStore(outputImage, screenPos, vec4(vec3(normalizedLinearDepth), 1.0f));
             break;

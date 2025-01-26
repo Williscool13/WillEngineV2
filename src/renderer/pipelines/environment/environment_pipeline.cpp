@@ -85,6 +85,7 @@ void will_engine::environment_pipeline::EnvironmentPipeline::draw(VkCommandBuffe
 
 void will_engine::environment_pipeline::EnvironmentPipeline::createPipeline()
 {
+    resourceManager.destroyPipeline(pipeline);
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/environment/environment.vert");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/environment/environment.frag");
 

@@ -104,6 +104,7 @@ void will_engine::post_process_pipeline::PostProcessPipeline::draw(VkCommandBuff
 
 void will_engine::post_process_pipeline::PostProcessPipeline::createPipeline()
 {
+    resourceManager.destroyPipeline(pipeline);
     VkShaderModule computeShader = resourceManager.createShaderModule("shaders/postProcess.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
