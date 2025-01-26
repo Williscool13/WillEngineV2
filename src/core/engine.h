@@ -15,6 +15,7 @@
 #include "src/renderer/lighting/shadows/cascaded_shadow_map.h"
 #include "src/renderer/pipelines/deferred_mrt/deferred_mrt.h"
 #include "src/renderer/pipelines/deferred_resolve/deferred_resolve.h"
+#include "src/renderer/pipelines/frustum_cull/frustum_cull_pipeline.h"
 #include "src/renderer/pipelines/post_process/post_process_pipeline.h"
 #include "src/renderer/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h"
 
@@ -87,6 +88,7 @@ private: // Debug
 private: // Scene Data
     DescriptorBufferUniform sceneDataDescriptorBuffer;
     AllocatedBuffer sceneDataBuffers[FRAME_OVERLAP]{};
+    AllocatedBuffer debugSceneDataBuffer{};
 
     FreeCamera* camera{nullptr};
     DirectionalLight mainLight{glm::normalize(glm::vec3(1.0f, -1.0f, 1.0f)), 1.0f, glm::vec3(0.0f)};
@@ -98,6 +100,7 @@ private: // Scene Data
     GameObject* test{nullptr};
 
 private: // Pipelines
+    frustum_cull_pipeline::FrustumCullPipeline* frustumCullPipeline{nullptr};
     environment_pipeline::EnvironmentPipeline* environmentPipeline{nullptr};
     deferred_mrt::DeferredMrtPipeline* deferredMrtPipeline{nullptr};
     deferred_resolve::DeferredResolvePipeline* deferredResolvePipeline{nullptr};

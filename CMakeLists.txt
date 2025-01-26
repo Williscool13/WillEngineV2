@@ -171,6 +171,8 @@ if (WIN32)
             src/renderer/lighting/shadows/shadows.h
             src/renderer/lighting/shadows/shadow_types.h
             src/util/render_utils.h
+            src/renderer/pipelines/frustum_cull/frustum_cull_pipeline.cpp
+            src/renderer/pipelines/frustum_cull/frustum_cull_pipeline.h
 
     )
 endif ()
