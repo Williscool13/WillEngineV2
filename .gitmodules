@@ -31,3 +31,6 @@
 [submodule "extern/shaderc"]
 	path = extern/shaderc
 	url = https://github.com/google/shaderc.git
+[submodule "extern/SPIRV-Tools"]
+	path = extern/SPIRV-Tools
+	url = https://github.com/KhronosGroup/SPIRV-Tools.git
