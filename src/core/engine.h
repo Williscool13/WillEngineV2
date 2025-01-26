@@ -128,6 +128,7 @@ private: // Rendering
 private: // Debug
     bool bEnableTaa{true};
     bool bEnableDebugFrustumCullDraw{false};
+    int32_t deferredDebug{0};
     void hotReloadShaders();
 
 private: // Scene Data

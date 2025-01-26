@@ -29,13 +29,14 @@ struct DeferredResolvePushConstants
 {
     int32_t width{1700};
     int32_t height{900};
-    int32_t debug{0};
+    int32_t deferredDebug{0};
     int32_t disableShadows{0};
     int32_t pcfLevel{5};
 };
 
 struct DeferredResolveDrawInfo
 {
+    int32_t deferredDebug{0};
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};
     VkDescriptorBufferBindingInfoEXT environmentIBLBinding{};
