@@ -154,12 +154,12 @@ AllocatedBuffer ResourceManager::createHostSequentialBuffer(const size_t allocSi
     return newBuffer;
 }
 
-AllocatedBuffer ResourceManager::createHostRandomBuffer(size_t allocSize) const
+AllocatedBuffer ResourceManager::createHostRandomBuffer(const size_t allocSize, const VkBufferUsageFlags additionalUsages) const
 {
     const VkBufferCreateInfo bufferInfo{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .size = allocSize,
-        .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | additionalUsages,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE
     };
 

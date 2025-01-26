@@ -27,7 +27,8 @@ struct FrustumCullDrawInfo
     bool enableFrustumCulling;
 };
 
-class FrustumCullPipeline {
+class FrustumCullPipeline
+{
 public:
     explicit FrustumCullPipeline(ResourceManager& resourceManager);
 
@@ -35,15 +36,18 @@ public:
 
     void draw(VkCommandBuffer cmd, const FrustumCullDrawInfo& drawInfo) const;
 
+    void reloadShaders() { createPipeline(); }
+
+private:
+    void createPipeline();
+
 private:
     ResourceManager& resourceManager;
 
     VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
     VkPipeline pipeline{VK_NULL_HANDLE};
 };
-
 }
-
 
 
 #endif //FRUSTUM_CULL_PIPELINE_H

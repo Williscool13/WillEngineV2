@@ -32,6 +32,11 @@ public:
 
     void draw(VkCommandBuffer cmd, ComputeDrawInfo drawInfo) const;
 
+    void reloadShaders() { createPipeline(); }
+
+private:
+    void createPipeline();
+
 private:
     VulkanContext& context;
     VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};

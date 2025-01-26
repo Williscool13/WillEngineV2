@@ -67,6 +67,14 @@ public:
     const DescriptorBufferUniform& getCascadedShadowMapUniformBuffer() const { return cascadedShadowMapDescriptorBufferUniform; }
     const DescriptorBufferSampler& getCascadedShadowMapSamplerBuffer() const { return cascadedShadowMapDescriptorBufferSampler; }
 
+public: // Debug
+    AllocatedImage getShadowMap(const int32_t cascadeLevel) const
+    {
+        if (cascadeLevel >= shadows::SHADOW_CASCADE_COUNT || cascadeLevel < 0) {
+            return shadowMaps[0].depthShadowMap;
+        }
+        return shadowMaps[cascadeLevel].depthShadowMap;
+    }
 private:
     ResourceManager& resourceManager;
 

@@ -4,23 +4,62 @@
 
 #ifndef ENGINE_H
 #define ENGINE_H
+#include <SDL_video.h>
+#include <vulkan/vulkan_core.h>
+#include <glm/glm.hpp>
 
 #include "engine_types.h"
-#include "camera/free_camera.h"
 #include "src/renderer/imgui_wrapper.h"
-#include "src/renderer/immediate_submitter.h"
 #include "src/renderer/renderer_constants.h"
+#include "src/renderer/vk_types.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
-#include "src/renderer/environment/environment.h"
-#include "src/renderer/lighting/shadows/cascaded_shadow_map.h"
-#include "src/renderer/pipelines/deferred_mrt/deferred_mrt.h"
-#include "src/renderer/pipelines/deferred_resolve/deferred_resolve.h"
-#include "src/renderer/pipelines/frustum_cull/frustum_cull_pipeline.h"
-#include "src/renderer/pipelines/post_process/post_process_pipeline.h"
-#include "src/renderer/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h"
+#include "src/renderer/lighting/directional_light.h"
+
+
+class ResourceManager;
+class ImmediateSubmitter;
+class VulkanContext;
 
 namespace will_engine
 {
+namespace post_process_pipeline
+{
+    class PostProcessPipeline;
+}
+
+namespace deferred_resolve
+{
+    class DeferredResolvePipeline;
+}
+
+namespace deferred_mrt
+{
+    class DeferredMrtPipeline;
+}
+
+namespace frustum_cull_pipeline
+{
+    class FrustumCullPipeline;
+}
+
+class FreeCamera;
+class ImguiWrapper;
+
+namespace cascaded_shadows
+{
+    class CascadedShadowMap;
+}
+
+namespace environment
+{
+    class Environment;
+}
+
+namespace temporal_antialiasing_pipeline
+{
+    class TemporalAntialiasingPipeline;
+}
+
 class RenderObject;
 class GameObject;
 
@@ -39,13 +78,19 @@ class Engine
 public:
     void init();
 
+    void initRenderer();
+
+    void initGame();
+
     void run();
 
-    void update(float deltaTime) const;
+    void update(float deltaTime);
 
-    void updateRenderSceneData(float deltaTime) const;
+    void updateGame(float deltaTime) const;
 
-    void draw();
+    void updateRender(float deltaTime) const;
+
+    void draw(float deltaTime);
 
     /**
      * Cleans up vulkan resources when application has exited. Destroys resources in opposite order of initialization
@@ -81,9 +126,9 @@ private: // Rendering
     void createDrawResources();
 
 private: // Debug
-    bool bEnableJitter{true};
-    int32_t taaDebug{0};
-
+    bool bEnableTaa{true};
+    bool bEnableDebugFrustumCullDraw{false};
+    void hotReloadShaders();
 
 private: // Scene Data
     DescriptorBufferUniform sceneDataDescriptorBuffer;
@@ -92,11 +137,15 @@ private: // Scene Data
 
     FreeCamera* camera{nullptr};
     DirectionalLight mainLight{glm::normalize(glm::vec3(1.0f, -1.0f, 1.0f)), 1.0f, glm::vec3(0.0f)};
+    int32_t environmentMapIndex{0};
+
 
     RenderObject* cube{nullptr};
     RenderObject* primitives{nullptr};
     RenderObject* sponza{nullptr};
+    //RenderObject* checkeredFloor{nullptr};
 
+    std::vector<GameObject*> gameObjects{};
     GameObject* test{nullptr};
 
 private: // Pipelines

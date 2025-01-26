@@ -8,7 +8,9 @@
 
 #include <VkBootstrap.h>
 
+#include "camera/free_camera.h"
 #include "game_object/game_object.h"
+#include "Jolt/Physics/Collision/Shape/BoxShape.h"
 #include "src/core/input.h"
 #include "src/core/time.h"
 #include "src/physics/physics.h"
@@ -17,7 +19,13 @@
 #include "src/renderer/render_object/render_object.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/environment/environment.h"
+#include "src/renderer/lighting/shadows/cascaded_shadow_map.h"
+#include "src/renderer/pipelines/deferred_mrt/deferred_mrt.h"
+#include "src/renderer/pipelines/deferred_resolve/deferred_resolve.h"
 #include "src/renderer/pipelines/environment/environment_pipeline.h"
+#include "src/renderer/pipelines/frustum_cull/frustum_cull_pipeline.h"
+#include "src/renderer/pipelines/post_process/post_process_pipeline.h"
+#include "src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h"
 #include "src/util/halton.h"
 
 #ifdef NDEBUG
@@ -39,7 +47,10 @@ void Engine::init()
 
     // We initialize SDL and create a window with it.
     SDL_Init(SDL_INIT_VIDEO);
-    auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
+    constexpr auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE);
+    windowExtent = {1920, 1080};
+
+    //auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
     window = SDL_CreateWindow(
         ENGINE_NAME,
@@ -84,6 +95,18 @@ void Engine::init()
     cascadedShadowMap = new cascaded_shadows::CascadedShadowMap(*resourceManager);
     imguiWrapper = new ImguiWrapper(*context, {window, swapchainImageFormat});
 
+
+    initRenderer();
+    initGame();
+
+
+    const auto end = std::chrono::system_clock::now();
+    const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    fmt::print("Finished Initialization in {} seconds\n", static_cast<float>(elapsed.count()) / 1000000.0f);
+}
+
+void Engine::initRenderer()
+{
     for (int i{0}; i < FRAME_OVERLAP; i++) {
         sceneDataBuffers[i] = resourceManager->createHostSequentialBuffer(sizeof(SceneData));
     }
@@ -133,19 +156,51 @@ void Engine::init()
         resourceManager->getDefaultSamplerLinear()
     };
     postProcessPipeline->setupDescriptorBuffer(postProcessDescriptor);
+}
 
+void Engine::initGame()
+{
     cube = new RenderObject{"assets/models/cube.gltf", *resourceManager};
     primitives = new RenderObject{"assets/models/primitives/primitives.gltf", *resourceManager};
     sponza = new RenderObject{"assets/models/sponza2/Sponza.gltf", *resourceManager};
+    //checkeredFloor = new RenderObject("assets/models/checkered_floor.glb", *resourceManager);
 
     test = sponza->generateGameObject();
     //primitives->attachToGameObject(test, 0);
+    gameObjects.reserve(10);
+
+    const auto floor = new GameObject("FLOOR");
+    primitives->attachToGameObject(floor, 0);
+    //checkeredFloor->attachToGameObject(floor, 0);
+    floor->setGlobalScale({20.0f, 1.0f, 20.0f});
+    floor->translate({0.0f, -2.0f, 0.0f});
+    const auto floorShape = new JPH::BoxShape(JPH::Vec3(20.0f, 1.0f, 20.0f));
+    floor->setupRigidbody(floorShape);
+
+    gameObjects.push_back(floor);
+
+
+    const auto sphere = new GameObject("SPHERE");
+    primitives->attachToGameObject(sphere, 3);
+    sphere->setupRigidbody(physics->getUnitSphereShape(), JPH::EMotionType::Dynamic, physics::Layers::PLAYER);
+    gameObjects.push_back(sphere);
 
     camera = new FreeCamera();
+}
 
-    const auto end = std::chrono::system_clock::now();
-    const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    fmt::print("Finished Initialization in {} seconds\n", static_cast<float>(elapsed.count()) / 1000000.0f);
+void Engine::update(const float deltaTime)
+{
+    const auto physicsStart = std::chrono::system_clock::now();
+    physics->update(deltaTime);
+    const auto physicsEnd = std::chrono::system_clock::now();
+    const float elapsedPhysics = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(physicsEnd - physicsStart).count()) / 1000.0f;
+    stats.physicsTime = stats.physicsTime * 0.99 + elapsedPhysics * 0.01f;
+
+    const auto gameStart = std::chrono::system_clock::now();
+    updateGame(deltaTime);
+    const auto gameEnd = std::chrono::system_clock::now();
+    const float elapsedGame = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(gameEnd - gameStart).count()) / 1000.0f;
+    stats.gameTime = stats.gameTime * 0.99 + elapsedGame * 0.01f;
 }
 
 void Engine::run()
@@ -198,16 +253,18 @@ void Engine::run()
 
         imguiWrapper->imguiInterface(this);
 
-        draw();
+        const float deltaTime = Time::Get().getDeltaTime();
+        update(deltaTime);
+        draw(deltaTime);
     }
 }
 
-void Engine::update(const float deltaTime) const
+void Engine::updateGame(const float deltaTime) const
 {
     camera->update(deltaTime);
 }
 
-void Engine::updateRenderSceneData(const float deltaTime) const
+void Engine::updateRender(const float deltaTime) const
 {
     const AllocatedBuffer& previousSceneDataBuffer = sceneDataBuffers[getPreviousFrameOverlap()];
     const AllocatedBuffer& sceneDataBuffer = sceneDataBuffers[getCurrentFrameOverlap()];
@@ -225,7 +282,7 @@ void Engine::updateRenderSceneData(const float deltaTime) const
     pSceneData->prevView = bIsFrameZero ? camera->getViewMatrix() : pPreviousSceneData->view;
     pSceneData->prevProj = bIsFrameZero ? camera->getProjMatrix() : pPreviousSceneData->proj;
     pSceneData->prevViewProj = bIsFrameZero ? camera->getViewProjMatrix() : pPreviousSceneData->viewProj;
-    pSceneData->jitter = bEnableJitter ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
+    pSceneData->jitter = bEnableTaa ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
 
     pSceneData->view = camera->getViewMatrix();
     pSceneData->proj = camera->getProjMatrix();
@@ -258,27 +315,11 @@ void Engine::updateRenderSceneData(const float deltaTime) const
     pDebugSceneData->cameraWorldPos = glm::vec4(0.0f);
     pDebugSceneData->renderTargetSize = {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
     pDebugSceneData->deltaTime = deltaTime;
-
-
 }
 
-void Engine::draw()
+void Engine::draw(float deltaTime)
 {
     const auto start = std::chrono::system_clock::now();
-
-    const float deltaTime = Time::Get().getDeltaTime();
-
-    const auto physicsStart = std::chrono::system_clock::now();
-    physics->update(deltaTime);
-    const auto physicsEnd = std::chrono::system_clock::now();
-    const float elapsedPhysics = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(physicsEnd - physicsStart).count()) / 1000.0f;
-    stats.physicsTime = stats.physicsTime * 0.99 + elapsedPhysics * 0.01f;
-
-    const auto gameStart = std::chrono::system_clock::now();
-    update(deltaTime);
-    const auto gameEnd = std::chrono::system_clock::now();
-    const float elapsedGame = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(gameEnd - gameStart).count()) / 1000.0f;
-    stats.gameTime = stats.gameTime * 0.99 + elapsedGame * 0.01f;
 
     // GPU -> VPU sync (fence)
     VK_CHECK(vkWaitForFences(context->device, 1, &getCurrentFrame()._renderFence, true, 1000000000));
@@ -298,12 +339,15 @@ void Engine::draw()
     const VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
-
     const auto renderStart = std::chrono::system_clock::now();
+
     test->recursiveUpdateModelMatrix();
-    updateRenderSceneData(deltaTime);
+    for (auto gameObject : gameObjects) {
+        gameObject->recursiveUpdateModelMatrix();;
+    }
+    updateRender(deltaTime);
     cascadedShadowMap->update(mainLight, camera);
-    std::vector renderObjects{cube, primitives, sponza};
+    std::vector renderObjects{cube, primitives, sponza};//, checkeredFloor};
 
     frustum_cull_pipeline::FrustumCullDrawInfo csmFrustumCullDrawInfo{
         renderObjects,
@@ -325,7 +369,7 @@ void Engine::draw()
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(),
 
         environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferBindingInfo(),
-        environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferSize() * 0,
+        environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferSize() * environmentMapIndex,
     };
     environmentPipeline->draw(cmd, environmentPipelineDrawInfo);
 
@@ -343,18 +387,34 @@ void Engine::draw()
     frustumCullPipeline->draw(cmd, deferredFrustumCullDrawInfo);
 
     const deferred_mrt::DeferredMrtDrawInfo deferredMrtDrawInfo{
+        true,
+        {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT},
         renderObjects,
         normalRenderTarget.imageView,
         albedoRenderTarget.imageView,
         pbrRenderTarget.imageView,
         velocityRenderTarget.imageView,
         depthImage.imageView,
-        getCurrentFrameOverlap(),
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap()
     };
     deferredMrtPipeline->draw(cmd, deferredMrtDrawInfo);
 
+    if (bEnableDebugFrustumCullDraw) {
+        const deferred_mrt::DeferredMrtDrawInfo debugDeferredMrtDrawInfo{
+            false,
+            {RENDER_EXTENT_WIDTH / 3.0f, RENDER_EXTENT_HEIGHT / 3.0f},
+            renderObjects,
+            normalRenderTarget.imageView,
+            albedoRenderTarget.imageView,
+            pbrRenderTarget.imageView,
+            velocityRenderTarget.imageView,
+            depthImage.imageView,
+            sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+            sceneDataDescriptorBuffer.getDescriptorBufferSize() * FRAME_OVERLAP
+        };
+        deferredMrtPipeline->draw(cmd, debugDeferredMrtDrawInfo);
+    }
 
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -366,7 +426,7 @@ void Engine::draw()
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(),
         environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo(),
-        environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferSize() * 0,
+        environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferSize() * environmentMapIndex,
         cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferBindingInfo(),
         cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferSize() * getCurrentFrameOverlap(),
         cascadedShadowMap->getCascadedShadowMapSamplerBuffer().getDescriptorBufferBindingInfo(),
@@ -380,7 +440,7 @@ void Engine::draw()
 
     const temporal_antialiasing_pipeline::TemporalAntialiasingDrawInfo taaDrawInfo{
         0.1f,
-        taaDebug,
+        bEnableTaa ? 0 : 1,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap()
     };
@@ -688,5 +748,15 @@ void Engine::createDrawResources()
         VkImageViewCreateInfo rview_info = vk_helpers::imageviewCreateInfo(postProcessOutputBuffer.imageFormat, postProcessOutputBuffer.image, VK_IMAGE_ASPECT_COLOR_BIT);
         VK_CHECK(vkCreateImageView(context->device, &rview_info, nullptr, &postProcessOutputBuffer.imageView));
     }
+}
+
+void Engine::hotReloadShaders()
+{
+    frustumCullPipeline->reloadShaders();
+    environmentPipeline->reloadShaders();
+    deferredMrtPipeline->reloadShaders();
+    deferredResolvePipeline->reloadShaders();
+    temporalAntialiasingPipeline->reloadShaders();
+    postProcessPipeline->reloadShaders();
 }
 }

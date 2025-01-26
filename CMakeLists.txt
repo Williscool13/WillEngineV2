@@ -162,8 +162,8 @@ if (WIN32)
             src/renderer/pipelines/post_process/post_process_pipeline.cpp
             src/renderer/pipelines/post_process/post_process_pipeline.h
             src/renderer/post_process/post_process_types.h
-            src/renderer/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.cpp
-            src/renderer/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h
+            src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.cpp
+            src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h
             src/renderer/lighting/directional_light.h
             src/renderer/lighting/directional_light.cpp
             src/renderer/lighting/shadows/cascaded_shadow_map.cpp

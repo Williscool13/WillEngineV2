@@ -25,7 +25,7 @@ public:
 
     ~RenderObject() override;
 
-    GameObject* generateGameObject();
+    GameObject* generateGameObject(const std::string& gameObjectName = "");
 
     bool canDraw() const { return instanceBufferCapacity > 0; }
     const DescriptorBufferUniform& getAddressesDescriptorBuffer() const { return addressesDescriptorBuffer; }

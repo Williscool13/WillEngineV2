@@ -173,6 +173,7 @@ void main() {
     vec2 uv = (vec2(pixel) + 0.5) * push.texelSize;
 
     if (push.debug == 1) {
+        // disabled
         imageStore(outputImage, pixel, texture(drawImage, uv));
         return;
     }
@@ -204,25 +205,6 @@ void main() {
         float alpha = 1 - push.blendValue;
         vec3 resultYCoCg = mix(currentYCoCg, historyYCoCg, alpha);
         resultRGB = YCoCgToRGB(resultYCoCg);
-    }
-
-
-
-    switch (push.debug) {
-        case 2:
-            imageStore(outputImage, pixel, vec4(vec2(velocity) * 10.0f, 0.0, 1.0));
-            return;
-        case 3:
-            imageStore(outputImage, pixel, vec4(vec3(validHistory ? 1.0f : 0.0f), 1.0));
-            return;
-        case 4:
-            return;
-        case 5:
-            return;
-        case 6:
-            return;
-        default:
-            break;
     }
 
     imageStore(outputImage, pixel, vec4(resultRGB, 1.0));

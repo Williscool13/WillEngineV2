@@ -29,7 +29,7 @@ public:
 
     AllocatedBuffer createHostSequentialBuffer(size_t allocSize) const;
 
-    AllocatedBuffer createHostRandomBuffer(size_t allocSize) const;
+    AllocatedBuffer createHostRandomBuffer(size_t allocSize, VkBufferUsageFlags additionalUsages = 0) const;
 
     AllocatedBuffer createDeviceBuffer(size_t allocSize, VkBufferUsageFlags additionalUsages = 0) const;
 

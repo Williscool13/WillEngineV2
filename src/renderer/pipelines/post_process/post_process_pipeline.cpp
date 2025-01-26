@@ -34,24 +34,7 @@ will_engine::post_process_pipeline::PostProcessPipeline::PostProcessPipeline(Res
 
     pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
-    VkShaderModule computeShader = resourceManager.createShaderModule("shaders/postProcess.comp.spv");
-
-    VkPipelineShaderStageCreateInfo stageInfo{};
-    stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    stageInfo.pNext = nullptr;
-    stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageInfo.module = computeShader;
-    stageInfo.pName = "main";
-
-    VkComputePipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pipelineInfo.pNext = nullptr;
-    pipelineInfo.layout = pipelineLayout;
-    pipelineInfo.stage = stageInfo;
-    pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
-
-    pipeline = resourceManager.createComputePipeline(pipelineInfo);
-    resourceManager.destroyShaderModule(computeShader);
+    createPipeline();
 
     descriptorBuffer = resourceManager.createDescriptorBufferSampler(descriptorSetLayout, 1);
 }
@@ -84,7 +67,8 @@ void will_engine::post_process_pipeline::PostProcessPipeline::setupDescriptorBuf
     resourceManager.setupDescriptorBufferSampler(descriptorBuffer, descriptors, 0);
 }
 
-void will_engine::post_process_pipeline::PostProcessPipeline::draw(VkCommandBuffer cmd, post_process::PostProcessType postProcessFlags) const{
+void will_engine::post_process_pipeline::PostProcessPipeline::draw(VkCommandBuffer cmd, post_process::PostProcessType postProcessFlags) const
+{
     if (!descriptorBuffer.isIndexOccupied(0)) {
         fmt::print("Descriptor buffer not yet set up");
         return;
@@ -116,4 +100,26 @@ void will_engine::post_process_pipeline::PostProcessPipeline::draw(VkCommandBuff
     vkCmdDispatch(cmd, x, y, 1);
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
+}
+
+void will_engine::post_process_pipeline::PostProcessPipeline::createPipeline()
+{
+    VkShaderModule computeShader = resourceManager.createShaderModule("shaders/postProcess.comp.spv");
+
+    VkPipelineShaderStageCreateInfo stageInfo{};
+    stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    stageInfo.pNext = nullptr;
+    stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+    stageInfo.module = computeShader;
+    stageInfo.pName = "main";
+
+    VkComputePipelineCreateInfo pipelineInfo{};
+    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+    pipelineInfo.pNext = nullptr;
+    pipelineInfo.layout = pipelineLayout;
+    pipelineInfo.stage = stageInfo;
+    pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+
+    pipeline = resourceManager.createComputePipeline(pipelineInfo);
+    resourceManager.destroyShaderModule(computeShader);
 }

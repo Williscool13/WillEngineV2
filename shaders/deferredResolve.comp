@@ -129,8 +129,9 @@ void main() {
         }
 
         if (nDotL <= 0.0) {
+            //shadowFactor = 0;
             // shadow affects IBL greater as the angle approaches opposite
-            shadowFactor = mix(_tempShadowFactor, 0.0f, -nDotL * 2);
+            shadowFactor = mix(_tempShadowFactor, 0.0f, -nDotL * 2) * metallic;
         } else {
             shadowFactor = _tempShadowFactor;
         }
@@ -174,20 +175,22 @@ void main() {
         return;
     }
 
-    //    if (pushConstants.debug == 3) {
-    //        float viewDepth = getViewSpaceDepth(position, sceneData.view);
-    //        int cascadeLevel = selectCascadeLevel(viewDepth, shadowCascadeData.cascadeSplits);
-    //        float value = viewDepth - shadowCascadeData.cascadeSplits[cascadeLevel].nearPlane;
-    //        float diff = value / (shadowCascadeData.cascadeSplits[cascadeLevel].farPlane - shadowCascadeData.cascadeSplits[cascadeLevel].nearPlane);
-    //        if (cascadeLevel == 0) {imageStore(outputImage, screenPos, vec4(vec3(diff, 0.0, 0.0), albedo.w));}
-    //        if (cascadeLevel == 1) {imageStore(outputImage, screenPos, vec4(vec3(0.0, diff, 0.0), albedo.w));}
-    //        if (cascadeLevel == 2) {imageStore(outputImage, screenPos, vec4(vec3(0.0, 0.0, diff), albedo.w));}
-    //        if (cascadeLevel == 3) {imageStore(outputImage, screenPos, vec4(vec3(diff), albedo.w));}
-    //        if (cascadeLevel == 4) {imageStore(outputImage, screenPos, vec4(1.0, 0.0, 1.0, 1.0));}
-    //    }
+    if (pushConstants.debug == 3) {
+        float viewDepth = getViewSpaceDepth(position, sceneData.view);
+        int cascadeLevel = selectCascadeLevel(viewDepth, shadowCascadeData.cascadeSplits);
+        float value = viewDepth - shadowCascadeData.cascadeSplits[cascadeLevel].nearPlane;
+        float diff = value / (shadowCascadeData.cascadeSplits[cascadeLevel].farPlane - shadowCascadeData.cascadeSplits[cascadeLevel].nearPlane);
+        if (cascadeLevel == 0) {imageStore(outputImage, screenPos, vec4(vec3(diff, 0.0, 0.0), albedo.w));}
+        if (cascadeLevel == 1) {imageStore(outputImage, screenPos, vec4(vec3(0.0, diff, 0.0), albedo.w));}
+        if (cascadeLevel == 2) {imageStore(outputImage, screenPos, vec4(vec3(0.0, 0.0, diff), albedo.w));}
+        if (cascadeLevel == 3) {imageStore(outputImage, screenPos, vec4(vec3(diff), albedo.w));}
+        if (cascadeLevel == 4) {imageStore(outputImage, screenPos, vec4(1.0, 0.0, 1.0, 1.0));}
+    }
 
     if (pushConstants.debug == 4) {
         imageStore(outputImage, screenPos, vec4(vec3(1 - shadowFactor), 1.0));
         imageStore(outputImage, screenPos, vec4(vec3(nDotL), 1.0));
     }
+
+    imageStore(outputImage, screenPos, vec4(vec3(nDotL), 1.0));
 }

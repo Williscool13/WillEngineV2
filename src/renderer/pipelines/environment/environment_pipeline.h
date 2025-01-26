@@ -31,6 +31,11 @@ public:
 
     void draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& drawInfo) const;
 
+    void reloadShaders() { createPipeline(); }
+
+private:
+    void createPipeline();
+
 private:
     ResourceManager& resourceManager;
 

@@ -23,25 +23,7 @@ will_engine::environment_pipeline::EnvironmentPipeline::EnvironmentPipeline(Reso
 
     pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
-
-    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/environment/environment.vert.spv");
-    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/environment/environment.frag.spv");
-
-    PipelineBuilder pipelineBuilder;
-    pipelineBuilder.setShaders(vertShader, fragShader);
-    pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-    pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
-    pipelineBuilder.disableMultisampling();
-    pipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
-    pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    pipelineBuilder.setupRenderer({DRAW_FORMAT}, DEPTH_FORMAT);
-    pipelineBuilder.setupPipelineLayout(pipelineLayout);
-
-
-    pipeline = resourceManager.createRenderPipeline(pipelineBuilder);
-
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
+    createPipeline();
 }
 
 will_engine::environment_pipeline::EnvironmentPipeline::~EnvironmentPipeline()
@@ -99,4 +81,26 @@ void will_engine::environment_pipeline::EnvironmentPipeline::draw(VkCommandBuffe
     vkCmdEndRendering(cmd);
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
+}
+
+void will_engine::environment_pipeline::EnvironmentPipeline::createPipeline()
+{
+    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/environment/environment.vert.spv");
+    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/environment/environment.frag.spv");
+
+    PipelineBuilder pipelineBuilder;
+    pipelineBuilder.setShaders(vertShader, fragShader);
+    pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
+    pipelineBuilder.disableMultisampling();
+    pipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
+    pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+    pipelineBuilder.setupRenderer({DRAW_FORMAT}, DEPTH_FORMAT);
+    pipelineBuilder.setupPipelineLayout(pipelineLayout);
+
+
+    pipeline = resourceManager.createRenderPipeline(pipelineBuilder);
+
+    resourceManager.destroyShaderModule(vertShader);
+    resourceManager.destroyShaderModule(fragShader);
 }

@@ -25,7 +25,8 @@ struct PostProcessPushConstants
     int32_t padding;
 };
 
-class PostProcessPipeline {
+class PostProcessPipeline
+{
 public:
     explicit PostProcessPipeline(ResourceManager& resourceManager);
 
@@ -34,6 +35,11 @@ public:
     void setupDescriptorBuffer(const PostProcessDescriptor& bufferInfo);
 
     void draw(VkCommandBuffer cmd, post_process::PostProcessType postProcessFlags) const;
+
+    void reloadShaders() { createPipeline(); }
+
+private:
+    void createPipeline();
 
 private:
     ResourceManager& resourceManager;
@@ -44,8 +50,6 @@ private:
     DescriptorBufferSampler descriptorBuffer;
 };
 }
-
-
 
 
 #endif //POST_PROCESS_PIPELINE_H
