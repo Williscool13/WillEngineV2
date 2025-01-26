@@ -73,6 +73,7 @@ void BasicComputePipeline::draw(VkCommandBuffer cmd, ComputeDrawInfo drawInfo) c
 
 void BasicComputePipeline::createPipeline()
 {
+    resourceManager.destroyPipeline(pipeline);
     VkShaderModule gradientShader = resourceManager.createShaderModule("shaders/basic/compute.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};

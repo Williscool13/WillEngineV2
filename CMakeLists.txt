@@ -179,6 +179,9 @@ if (WIN32)
     set(WINDOWS_SOURCES
             src/resources.h
             src/resources.rc
+            src/core/scene.cpp
+            src/core/scene.h
+            src/renderer/lighting/shadows/shadows.cpp
 
 
     )

@@ -9,6 +9,7 @@
 #include <glm/glm.hpp>
 
 #include "engine_types.h"
+#include "scene.h"
 #include "src/renderer/imgui_wrapper.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/vk_types.h"
@@ -140,6 +141,7 @@ private: // Scene Data
     DirectionalLight mainLight{glm::normalize(glm::vec3(1.0f, -1.0f, 1.0f)), 1.0f, glm::vec3(0.0f)};
     int32_t environmentMapIndex{0};
 
+    Scene* scene{nullptr};
 
     RenderObject* cube{nullptr};
     RenderObject* primitives{nullptr};
@@ -147,7 +149,6 @@ private: // Scene Data
     //RenderObject* checkeredFloor{nullptr};
 
     std::vector<GameObject*> gameObjects{};
-    GameObject* test{nullptr};
 
 private: // Pipelines
     frustum_cull_pipeline::FrustumCullPipeline* frustumCullPipeline{nullptr};

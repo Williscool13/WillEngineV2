@@ -160,14 +160,19 @@ void Engine::initRenderer()
 
 void Engine::initGame()
 {
+    scene = new Scene();
     cube = new RenderObject{"assets/models/cube.gltf", *resourceManager};
     primitives = new RenderObject{"assets/models/primitives/primitives.gltf", *resourceManager};
     sponza = new RenderObject{"assets/models/sponza2/Sponza.gltf", *resourceManager};
     //checkeredFloor = new RenderObject("assets/models/checkered_floor.glb", *resourceManager);
 
-    test = sponza->generateGameObject();
-    //primitives->attachToGameObject(test, 0);
+
+
     gameObjects.reserve(10);
+
+    GameObject* sponzaObject = sponza->generateGameObject("SPONZA");
+    sponzaObject->translate({30.0f, 0, -30.0f});
+    gameObjects.push_back(sponzaObject);
 
     const auto floor = new GameObject("FLOOR");
     primitives->attachToGameObject(floor, 0);
@@ -186,21 +191,10 @@ void Engine::initGame()
     gameObjects.push_back(sphere);
 
     camera = new FreeCamera();
-}
 
-void Engine::update(const float deltaTime)
-{
-    const auto physicsStart = std::chrono::system_clock::now();
-    physics->update(deltaTime);
-    const auto physicsEnd = std::chrono::system_clock::now();
-    const float elapsedPhysics = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(physicsEnd - physicsStart).count()) / 1000.0f;
-    stats.physicsTime = stats.physicsTime * 0.99 + elapsedPhysics * 0.01f;
-
-    const auto gameStart = std::chrono::system_clock::now();
-    updateGame(deltaTime);
-    const auto gameEnd = std::chrono::system_clock::now();
-    const float elapsedGame = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(gameEnd - gameStart).count()) / 1000.0f;
-    stats.gameTime = stats.gameTime * 0.99 + elapsedGame * 0.01f;
+    for (const auto gameObject : gameObjects) {
+        scene->addGameObject(gameObject);
+    }
 }
 
 void Engine::run()
@@ -257,6 +251,21 @@ void Engine::run()
         update(deltaTime);
         draw(deltaTime);
     }
+}
+
+void Engine::update(const float deltaTime)
+{
+    const auto physicsStart = std::chrono::system_clock::now();
+    physics->update(deltaTime);
+    const auto physicsEnd = std::chrono::system_clock::now();
+    const float elapsedPhysics = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(physicsEnd - physicsStart).count()) / 1000.0f;
+    stats.physicsTime = stats.physicsTime * 0.99 + elapsedPhysics * 0.01f;
+
+    const auto gameStart = std::chrono::system_clock::now();
+    updateGame(deltaTime);
+    const auto gameEnd = std::chrono::system_clock::now();
+    const float elapsedGame = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(gameEnd - gameStart).count()) / 1000.0f;
+    stats.gameTime = stats.gameTime * 0.99 + elapsedGame * 0.01f;
 }
 
 void Engine::updateGame(const float deltaTime) const
@@ -341,13 +350,10 @@ void Engine::draw(float deltaTime)
 
     const auto renderStart = std::chrono::system_clock::now();
 
-    test->recursiveUpdateModelMatrix();
-    for (auto gameObject : gameObjects) {
-        gameObject->recursiveUpdateModelMatrix();;
-    }
+    scene->update();
     updateRender(deltaTime);
     cascadedShadowMap->update(mainLight, camera);
-    std::vector renderObjects{cube, primitives, sponza};//, checkeredFloor};
+    std::vector renderObjects{cube, primitives, sponza}; //, checkeredFloor};
 
     frustum_cull_pipeline::FrustumCullDrawInfo csmFrustumCullDrawInfo{
         renderObjects,
@@ -367,7 +373,6 @@ void Engine::draw(float deltaTime)
         depthImage.imageView,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(),
-
         environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferBindingInfo(),
         environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferSize() * environmentMapIndex,
     };
@@ -558,6 +563,7 @@ void Engine::cleanup()
     resourceManager->destroyImage(historyBuffer);
     resourceManager->destroyImage(postProcessOutputBuffer);
 
+    delete scene;
     delete cascadedShadowMap;
     delete environmentMap;
     delete physics;

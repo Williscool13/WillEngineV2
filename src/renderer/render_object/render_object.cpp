@@ -105,6 +105,7 @@ void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, Gam
         // InstanceIndex is used to know which model matrix to use form the model matrix array
         // All primitives in a mesh use the same model matrix
         const std::vector<Primitive>& meshPrimitives = meshes[renderNode.meshIndex].primitives;
+        gameObject->setName(meshes[renderNode.meshIndex].name);
         drawCommands.reserve(drawCommands.size() + meshPrimitives.size());
 
         for (const Primitive primitive : meshPrimitives) {

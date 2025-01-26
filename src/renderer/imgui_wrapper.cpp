@@ -117,7 +117,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         }
         ImGui::EndChild();
 
-        if (ImGui::BeginChild("Pipelines", ImVec2(0, 100))) {
+        if (ImGui::BeginChild("Pipelines", ImVec2(0, 80))) {
             ImGui::Text("Deferred Debug");
             const char* deferredDebugOptions[]{"None", "Depth", "Velocity", "Albedo", "Normal", "PBR", "Shadows", "Cascade Level", "nDotL"};
             ImGui::Combo("Deferred Debug", &engine->deferredDebug, deferredDebugOptions, IM_ARRAYSIZE(deferredDebugOptions));
@@ -171,8 +171,13 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         }
         ImGui::EndChild();
 
-        if (ImGui::BeginChild("Cascaded Shadow Map", ImVec2(0, 50))) {
+        if (ImGui::BeginChild("Cascaded Shadow Map", ImVec2(0, 140))) {
             ImGui::Text("Cascaded Shadow Map");
+            ImGui::InputFloat3("Main Light Direction", engine->mainLight.direction);
+            ImGui::InputFloat2("Cascade 1 Bias", shadows::CASCADE_BIAS[0]);
+            ImGui::InputFloat2("Cascade 2 Bias", shadows::CASCADE_BIAS[1]);
+            ImGui::InputFloat2("Cascade 3 Bias", shadows::CASCADE_BIAS[2]);
+            ImGui::InputFloat2("Cascade 4 Bias", shadows::CASCADE_BIAS[3]);
             ImGui::SetNextItemWidth(100);
             static int32_t shadowMapDebug{0};
             ImGui::SliderInt("Shadow Map Level", &shadowMapDebug, 0, shadows::SHADOW_CASCADE_COUNT - 1);
@@ -301,6 +306,9 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     }
     ImGui::End();
 
+    if (engine->scene) {
+        engine->scene->imguiSceneGraph();
+    }
 
     ImGui::Render();
 }

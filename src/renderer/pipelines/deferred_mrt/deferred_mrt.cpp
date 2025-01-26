@@ -123,6 +123,7 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
 
 void will_engine::deferred_mrt::DeferredMrtPipeline::createPipeline()
 {
+    resourceManager.destroyPipeline(pipeline);
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/deferredMrt.vert");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/deferredMrt.frag");
 
