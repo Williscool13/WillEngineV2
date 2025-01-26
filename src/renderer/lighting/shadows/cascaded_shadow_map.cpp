@@ -102,8 +102,8 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
     pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
 
-    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.vert.spv");
-    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.frag.spv");
+    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.vert");
+    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.frag");
 
     PipelineBuilder pipelineBuilder;
     VkVertexInputBindingDescription mainBinding{};

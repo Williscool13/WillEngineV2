@@ -81,7 +81,7 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
 
         equiToCubemapPipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
-        VkShaderModule computeShader = resourceManager.createShaderModule("shaders/environment/equitoface.comp.spv");
+        VkShaderModule computeShader = resourceManager.createShaderModule("shaders/environment/equitoface.comp");
 
         VkPipelineShaderStageCreateInfo stageInfo{};
         stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -119,7 +119,7 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
 
         cubemapToDiffusePipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
-        VkShaderModule computeShader = resourceManager.createShaderModule("shaders/environment/cubetodiffirra.comp.spv");
+        VkShaderModule computeShader = resourceManager.createShaderModule("shaders/environment/cubetodiffirra.comp");
 
         VkPipelineShaderStageCreateInfo stageInfo{};
         stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -157,7 +157,7 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
 
         cubemapToSpecularPipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
-        VkShaderModule computeShader = resourceManager.createShaderModule("shaders/environment/cubetospecprefilter.comp.spv");
+        VkShaderModule computeShader = resourceManager.createShaderModule("shaders/environment/cubetospecprefilter.comp");
 
         VkPipelineShaderStageCreateInfo stageInfo{};
         stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -190,7 +190,7 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
 
         lutPipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
-        VkShaderModule computeShader = resourceManager.createShaderModule("shaders/environment/brdflut.comp.spv");
+        VkShaderModule computeShader = resourceManager.createShaderModule("shaders/environment/brdflut.comp");
 
         VkPipelineShaderStageCreateInfo stageInfo{};
         stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;

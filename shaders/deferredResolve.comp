@@ -192,5 +192,5 @@ void main() {
         imageStore(outputImage, screenPos, vec4(vec3(nDotL), 1.0));
     }
 
-    imageStore(outputImage, screenPos, vec4(vec3(nDotL), 1.0));
+    //imageStore(outputImage, screenPos, vec4(vec3(nDotL), 1.0));
 }

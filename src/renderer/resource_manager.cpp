@@ -4,6 +4,8 @@
 
 #include "resource_manager.h"
 
+#include <fstream>
+
 #include "glm/glm.hpp"
 #include "glm/fwd.hpp"
 #include "glm/gtc/packing.hpp"
@@ -14,6 +16,8 @@
 #include "vulkan_context.h"
 #include "render_object/render_object_constants.h"
 #include "descriptor_buffer/descriptor_buffer_uniform.h"
+#include "extern/shaderc/libshaderc_util/include/libshaderc_util/file_finder.h"
+#include "shaderc/shaderc.hpp"
 
 
 ResourceManager::ResourceManager(const VulkanContext& context, ImmediateSubmitter& immediate) : context(context), immediate(immediate)
@@ -395,14 +399,76 @@ void ResourceManager::destroyDescriptorBuffer(DescriptorBuffer& descriptorBuffer
 
 VkShaderModule ResourceManager::createShaderModule(const std::filesystem::path& path) const
 {
-    VkShaderModule shader;
-    const bool res = vk_helpers::loadShaderModule(path.string().c_str(), context.device, &shader);
-    if (!res) {
-        const std::string message = fmt::format("Error when building shader {}", path.filename().string());
-        throw std::runtime_error(message);
+    auto start = std::chrono::system_clock::now();
+    // Pre-Compiled
+    if (path.extension() == ".spv") {
+        const std::filesystem::path shaderPath(path.string().c_str());
+        std::ifstream file(shaderPath, std::ios::ate | std::ios::binary);
+        if (!file.is_open()) {
+            throw std::runtime_error(fmt::format("Failed to read file {}", shaderPath.string()));
+        }
+
+        const size_t fileSize = file.tellg();
+        std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
+
+        file.seekg(0);
+        file.read(reinterpret_cast<char*>(buffer.data()), fileSize);
+
+        file.close();
+
+        // create a new shader module, using the buffer we loaded
+        VkShaderModuleCreateInfo createInfo = {
+            .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+            .codeSize = buffer.size() * sizeof(uint32_t),
+            .pCode = buffer.data(),
+        };
+
+        VkShaderModule shader;
+        if (vkCreateShaderModule(context.device, &createInfo, nullptr, &shader) != VK_SUCCESS) {
+            throw std::runtime_error(fmt::format("Failed to load shader {}", path.filename().string()));
+        }
+
+        const auto end = std::chrono::system_clock::now();
+        const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+        //fmt::print("Created shader module {} in {:.2f}ms\n", path.filename().string(), static_cast<float>(elapsed.count()) / 1000000.0f);
+        return shader;
     }
 
-    return shader;
+    std::ifstream file(path.string());
+    auto source = std::string(std::istreambuf_iterator(file), std::istreambuf_iterator<char>());
+    shaderc_shader_kind kind;
+    if (path.extension() == ".vert") kind = shaderc_vertex_shader;
+    else if (path.extension() == ".frag") kind = shaderc_fragment_shader;
+    else if (path.extension() == ".comp") kind = shaderc_compute_shader;
+    else throw std::runtime_error(fmt::format("Unknown shader type: {}", path.extension().string()));
+
+    shaderc::Compiler compiler;
+    shaderc::CompileOptions options;
+
+    std::vector<std::string> include_paths = {"shaders/include"};
+    options.SetIncluder(std::make_unique<CustomIncluder>(include_paths));
+    auto result = compiler.CompileGlslToSpv(source, kind, "shader", options);
+
+    if (result.GetCompilationStatus() != shaderc_compilation_status_success) {
+        throw std::runtime_error(result.GetErrorMessage());
+    }
+
+    std::vector<uint32_t> spirv = {result.cbegin(), result.cend()};
+    VkShaderModuleCreateInfo createInfo{
+        .sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
+        .codeSize = spirv.size() * sizeof(uint32_t),
+        .pCode = spirv.data()
+    };
+
+    VkShaderModule shaderModule;
+    if (vkCreateShaderModule(context.device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
+        throw std::runtime_error("Failed to create shader module");
+    }
+
+    const auto end = std::chrono::system_clock::now();
+    const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    //fmt::print("Created shader module {} in {:.2f}ms\n", path.filename().string(), static_cast<float>(elapsed.count()) / 1000000.0f);
+    return shaderModule;
 }
 
 void ResourceManager::destroyShaderModule(VkShaderModule& shaderModule) const
