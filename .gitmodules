@@ -37,3 +37,6 @@
 [submodule "extern/SPIRV-Headers"]
 	path = extern/SPIRV-Headers
 	url = https://github.com/KhronosGroup/SPIRV-Headers.git
+[submodule "extern/glslang"]
+	path = extern/glslang
+	url = https://github.com/KhronosGroup/glslang.git
