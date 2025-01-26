@@ -63,6 +63,7 @@ private:
 
 public:
     [[nodiscard]] VkDescriptorSetLayout getCubemapDescriptorSetLayout() const { return cubemapSamplerLayout; }
+    [[nodiscard]] VkDescriptorSetLayout getDiffSpecMapDescriptorSetlayout() const {return environmentIBLLayout; }
 
     DescriptorBufferSampler& getCubemapDescriptorBuffer() { return cubemapDescriptorBuffer; }
     DescriptorBufferSampler& getDiffSpecMapDescriptorBuffer() { return diffSpecMapDescriptorBuffer; }
@@ -82,7 +83,7 @@ private:
      * Final PBR data, used for pbr calculations (diff/spec and LUT)
      * Diff/Spec Irradiance Cubemap (LOD 1-4 spec, LOD 5 diff), and 2D-LUT
      */
-    VkDescriptorSetLayout environmentMapLayout{VK_NULL_HANDLE};
+    VkDescriptorSetLayout environmentIBLLayout{VK_NULL_HANDLE};
 
     DescriptorBufferSampler equiImageDescriptorBuffer;
     DescriptorBufferSampler cubemapStorageDescriptorBuffer;

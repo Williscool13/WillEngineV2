@@ -95,7 +95,7 @@ void Engine::init()
 
     environmentPipeline = new environment_pipeline::EnvironmentPipeline(*resourceManager, environmentMap->getCubemapDescriptorSetLayout());
     deferredMrtPipeline = new deferred_mrt::DeferredMrtPipeline(*resourceManager);
-    deferredResolvePipeline = new deferred_resolve::DeferredResolvePipeline(*resourceManager);
+    deferredResolvePipeline = new deferred_resolve::DeferredResolvePipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout());
     temporalAntialiasingPipeline = new temporal_antialiasing_pipeline::TemporalAntialiasingPipeline(*resourceManager);
     postProcessPipeline = new post_process_pipeline::PostProcessPipeline(*resourceManager);
 
@@ -316,7 +316,9 @@ void Engine::draw()
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     const deferred_resolve::DeferredResolveDrawInfo deferredResolveDrawInfo{
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
-        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap()
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(),
+        environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo(),
+        environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferSize() * 0,
     };
     deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);
 

@@ -49,7 +49,7 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
             DescriptorLayoutBuilder layoutBuilder;
             layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // 1 cubemap  - diffuse/spec
             layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // 1 2d image - lut
-            environmentMapLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT),
+            environmentIBLLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT),
                                                                              VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
         }
     }
@@ -259,7 +259,7 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
 
     // sample cubemap
     cubemapDescriptorBuffer = resourceManager.createDescriptorBufferSampler(cubemapSamplerLayout, MAX_ENVIRONMENT_MAPS);
-    diffSpecMapDescriptorBuffer = resourceManager.createDescriptorBufferSampler(environmentMapLayout, MAX_ENVIRONMENT_MAPS);
+    diffSpecMapDescriptorBuffer = resourceManager.createDescriptorBufferSampler(environmentIBLLayout, MAX_ENVIRONMENT_MAPS);
 }
 
 will_engine::environment::Environment::~Environment()
@@ -294,7 +294,7 @@ will_engine::environment::Environment::~Environment()
     resourceManager.destroyDescriptorSetLayout(cubemapStorageLayout);
     resourceManager.destroyDescriptorSetLayout(cubemapSamplerLayout);
     resourceManager.destroyDescriptorSetLayout(lutLayout);
-    resourceManager.destroyDescriptorSetLayout(environmentMapLayout);
+    resourceManager.destroyDescriptorSetLayout(environmentIBLLayout);
 }
 
 void will_engine::environment::Environment::loadEnvironment(const char* name, const char* path, int environmentMapIndex)
