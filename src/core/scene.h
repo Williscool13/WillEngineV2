@@ -4,9 +4,11 @@
 
 #ifndef SCENE_H
 #define SCENE_H
-#include <unordered_set>
 
-#include "game_object/game_object.h"
+#include <unordered_set>
+#include <vulkan/vulkan_core.h>
+
+#include "game_object/hierarchical.h"
 
 namespace will_engine
 {
@@ -17,20 +19,19 @@ public:
 
     ~Scene();
 
-    void addGameObject(GameObject* gameObject);
+    void addGameObject(IHierarchical* gameObject);
 
-    bool isGameObjectInScene(GameObject* obj);
+    bool isGameObjectInScene(IHierarchical* obj);
 
-    static void parentGameObject(GameObject* obj);
+    static void indent(IHierarchical* obj);
 
-    static void unparentGameObject(GameObject* obj);
+    static void undent(IHierarchical* obj);
 
-    void moveObject(const GameObject* obj, int diff) const;
+    void moveObject(const IHierarchical* obj, int diff) const;
 
 private: // Scene properties
-    GameObject* sceneRoot;
-    std::unordered_set<GameObject*> activeGameObjects;
-
+    IHierarchical* sceneRoot;
+    std::unordered_set<IHierarchical*> activeGameObjects;
 
 private: // Dear ImGui
 
@@ -38,7 +39,7 @@ private: // Dear ImGui
 public:
     void imguiSceneGraph();
 
-    void displayGameObject(GameObject* obj, int32_t depth = 0);
+    void displayGameObject(IHierarchical* obj, int32_t depth = 0);
 
     void update(int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
 
@@ -49,13 +50,7 @@ private:
      * @param vector
      * @return
      */
-    static int getIndexInVector(const GameObject* obj, const std::vector<GameObject*>& vector);
-
-    /**
-     * Deletes the specified gameobjects and all its children recursively.
-     * @param obj
-     */
-    void deleteGameObjectRecursive(GameObject* obj);
+    static int getIndexInVector(const IHierarchical* obj, const std::vector<IHierarchical*>& vector);
 };
 }
 
