@@ -128,11 +128,8 @@ void main() {
             _tempShadowFactor = getShadowFactor(position, shadowCascadeData.lightViewProj[cascadeLevel], shadowMapSampler[nonuniformEXT(cascadeLevel)], shadowCascadeData.farShadowPlane);
         }
 
-        if (nDotL <= 0.0) {
-            shadowFactor = mix(_tempShadowFactor, 0.0f, -nDotL * 2) * metallic;
-        } else {
-            shadowFactor = _tempShadowFactor;
-        }
+        shadowFactor = clamp(smoothstep(-0.15f, 0.5f, dot(N, L)) * _tempShadowFactor, 0, 1);
+
     }
 
     if (pushConstants.disableShadows == 1) {
@@ -192,7 +189,7 @@ void main() {
             if (cascadeLevel == 4) {imageStore(outputImage, screenPos, vec4(1.0, 0.0, 1.0, 1.0));}
             break;
         case 8:
-            imageStore(outputImage, screenPos, vec4(vec3(nDotL), 1.0));
+            imageStore(outputImage, screenPos, vec4(vec3(dot(N, L)), 1.0));
             break;
     }
 }

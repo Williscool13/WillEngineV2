@@ -271,10 +271,10 @@ void Engine::updateGame(const float deltaTime) const
     camera->update(deltaTime);
 }
 
-void Engine::updateRender(const float deltaTime) const
+void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap) const
 {
-    const AllocatedBuffer& previousSceneDataBuffer = sceneDataBuffers[getPreviousFrameOverlap()];
-    const AllocatedBuffer& sceneDataBuffer = sceneDataBuffers[getCurrentFrameOverlap()];
+    const AllocatedBuffer& previousSceneDataBuffer = sceneDataBuffers[previousFrameOverlap];
+    const AllocatedBuffer& sceneDataBuffer = sceneDataBuffers[currentFrameOverlap];
     const auto pSceneData = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
     const auto pPreviousSceneData = static_cast<SceneData*>(previousSceneDataBuffer.info.pMappedData);
 
@@ -349,10 +349,10 @@ void Engine::draw(float deltaTime)
     const auto renderStart = std::chrono::system_clock::now();
 
     int32_t currentFrameOverlap = getCurrentFrameOverlap();
-    int32_t previousFrameOverlap = getCurrentFrameOverlap();
+    int32_t previousFrameOverlap = getPreviousFrameOverlap();
 
     scene->update(currentFrameOverlap, previousFrameOverlap);
-    updateRender(deltaTime);
+    updateRender(deltaTime, currentFrameOverlap, previousFrameOverlap);
     cascadedShadowMap->update(mainLight, camera, currentFrameOverlap);
     std::vector renderObjects{cube, primitives, sponza}; //, checkeredFloor};
 
@@ -434,11 +434,11 @@ void Engine::draw(float deltaTime)
     const deferred_resolve::DeferredResolveDrawInfo deferredResolveDrawInfo{
         deferredDebug,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
-        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(),
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
         environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo(),
         environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferSize() * environmentMapIndex,
         cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferBindingInfo(),
-        cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferSize() * getCurrentFrameOverlap(),
+        cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferSize() * currentFrameOverlap,
         cascadedShadowMap->getCascadedShadowMapSamplerBuffer().getDescriptorBufferBindingInfo(),
     };
     deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);
@@ -452,7 +452,7 @@ void Engine::draw(float deltaTime)
         0.1f,
         bEnableTaa ? 0 : 1,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
-        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap()
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
     };
     temporalAntialiasingPipeline->draw(cmd, taaDrawInfo);
 

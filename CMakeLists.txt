@@ -24,7 +24,7 @@ set(PHYSICS_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics")
 
 add_subdirectory(extern/glm)
 add_subdirectory(extern/fmt)
-add_subdirectory(extern/volk)
+    add_subdirectory(extern/volk)
 add_subdirectory(extern/vk-bootstrap)
 add_subdirectory(extern/fastgltf)
 add_subdirectory(extern/fastgltf/deps) # simdjson
@@ -183,7 +183,7 @@ if (WIN32)
             src/core/scene.h
             src/renderer/lighting/shadows/shadows.cpp
             src/core/game_object/transformable.h
-            src/core/game_object/hierarchal.h
+            src/core/game_object/hierarchical.h
 
 
     )

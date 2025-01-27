@@ -171,7 +171,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         }
         ImGui::EndChild();
 
-        if (ImGui::BeginChild("Cascaded Shadow Map", ImVec2(0, 140))) {
+        if (ImGui::BeginChild("Cascaded Shadow Map", ImVec2(0, 1600))) {
             ImGui::Text("Cascaded Shadow Map");
             ImGui::InputFloat3("Main Light Direction", engine->mainLight.direction);
             ImGui::InputFloat2("Cascade 1 Bias", shadows::CASCADE_BIAS[0]);
@@ -206,6 +206,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     fmt::print(" Failed to save depth map image");
                 }
             }
+
+            ImGui::Separator();
         }
         ImGui::EndChild();
 
