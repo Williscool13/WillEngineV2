@@ -1,0 +1,98 @@
+//
+// Created by William on 2025-01-24.
+//
+
+#ifndef MODEL_TYPES_H
+#define MODEL_TYPES_H
+#include <string>
+#include <glm/glm.hpp>
+#include <vulkan/vulkan_core.h>
+
+#include "src/core/transform.h"
+
+namespace will_engine
+{
+enum class MaterialType
+{
+    OPAQUE      = 0,
+    TRANSPARENT = 1,
+    MASK        = 2,
+};
+
+struct Material
+{
+    glm::vec4 colorFactor{1.0f};
+    glm::vec4 metalRoughFactors{0.0f, 1.0f, 0.0f, 0.0f}; // x: metallic, y: roughness
+    glm::ivec4 textureImageIndices{-1}; // x: color image, y: metallic image, z: pad, w: pad
+    glm::ivec4 textureSamplerIndices{-1}; // x: color sampler, y: metallic sampler, z: pad, w: pad
+    glm::vec4 alphaCutoff{1.0f, 0.0f, 0.0f, 0.0f}; // x: alpha cutoff, y: alpha mode, z: padding, w: padding
+};
+
+struct Vertex
+{
+    glm::vec3 position;
+    glm::vec3 normal{1.0f, 0.0f, 0.0f};
+    glm::vec4 color{1.0f};
+    glm::vec2 uv{0,0};
+    glm::uint32_t materialIndex{0};
+};
+
+struct Primitive
+{
+    uint32_t firstIndex{0}; // ID of the instance (used to get model matrix)
+    uint32_t indexCount{0};
+    int32_t vertexOffset{0};
+    bool bHasTransparent{false};
+    uint32_t boundingSphereIndex{0};
+};
+
+struct Mesh
+{
+    std::string name;
+    std::vector<Primitive> primitives;
+};
+
+struct BoundingSphere {
+    BoundingSphere() = default;
+    explicit BoundingSphere(const std::vector<Vertex>& vertices);
+
+    glm::vec3 center{};
+    float radius{};
+};
+
+struct RenderNode
+{
+    Transform transform;
+    std::vector<RenderNode*> children;
+    RenderNode* parent;
+    int32_t meshIndex{-1};
+};
+
+
+struct RenderObjectLayouts
+{
+    VkDescriptorSetLayout frustumCullLayout;
+    VkDescriptorSetLayout addressesLayout;
+    VkDescriptorSetLayout texturesLayout;
+};
+
+struct InstanceData
+{
+    glm::mat4 currentModelMatrix;
+    glm::mat4 previousModelMatrix;
+};
+
+struct FrustumCullingBuffers
+{
+    VkDeviceAddress meshBoundsBuffer;
+    VkDeviceAddress commandBuffer;
+    uint32_t commandBufferCount;
+    VkDeviceAddress modelMatrixBuffer;
+    VkDeviceAddress meshIndicesBuffer;
+    glm::vec3 padding;
+};
+
+}
+
+
+#endif //MODEL_TYPES_H
