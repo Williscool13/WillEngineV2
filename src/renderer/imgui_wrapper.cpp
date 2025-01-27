@@ -171,7 +171,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         }
         ImGui::EndChild();
 
-        if (ImGui::BeginChild("Cascaded Shadow Map", ImVec2(0, 1600))) {
+        if (ImGui::BeginChild("Cascaded Shadow Map", ImVec2(0, 160))) {
             ImGui::Text("Cascaded Shadow Map");
             ImGui::InputFloat3("Main Light Direction", engine->mainLight.direction);
             ImGui::InputFloat2("Cascade 1 Bias", shadows::CASCADE_BIAS[0]);
