@@ -6,11 +6,12 @@
 #include <SDL_events.h>
 #include <unordered_map>
 
-
+namespace will_engine
+{
 /**
- * THe singleton input manager.
- * \n Access specific keyboard inputs with SDL_Keycode and mouse inputs with numbers (0 is lmb, 1 is mmb, 2 is rmb)
- */
+* The singleton input manager.
+* \n Access specific keyboard inputs with SDL_Keycode and mouse inputs with numbers (0 is lmb, 1 is mmb, 2 is rmb)
+*/
 class Input
 {
 public:
@@ -81,5 +82,7 @@ private:
 
     static void UpdateInputState(InputStateData& inputButton, bool isPressed);
 };
+}
+
 
 #endif //INPUT_H

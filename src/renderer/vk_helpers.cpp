@@ -5,12 +5,14 @@
 #include "vk_helpers.h"
 
 #include <filesystem>
+#include <fstream>
 #include <stb_image.h>
 #include <stb_image_write.h>
+#include "volk.h"
+#include "extern/half/half/half.hpp"
 
 #include "immediate_submitter.h"
 #include "resource_manager.h"
-#include "extern/half/half/half.hpp"
 
 VkImageCreateInfo vk_helpers::imageCreateInfo(const VkFormat format, const VkImageUsageFlags usageFlags, const VkExtent3D extent)
 {
@@ -262,8 +264,22 @@ VkDeviceSize vk_helpers::getAlignedSize(const VkDeviceSize value, VkDeviceSize a
     return (value + alignment - 1) & ~(alignment - 1);
 }
 
+void vk_helpers::clearColorImage(VkCommandBuffer cmd, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout, VkClearColorValue clearColor)
+{
+    transitionImage(cmd, image, srcLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    constexpr VkImageSubresourceRange range{
+        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+        .baseMipLevel = 0,
+        .levelCount = 1,
+        .baseArrayLayer = 0,
+        .layerCount = 1
+    };
+    vkCmdClearColorImage(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColor, 1, &range);
+    transitionImage(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, dstLayout, VK_IMAGE_ASPECT_COLOR_BIT);
+}
 
-void vk_helpers::transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout, VkImageAspectFlags aspectFlags)
+
+void vk_helpers::transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout, VkImageAspectFlags aspectMask)
 {
     VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
     imageBarrier.pNext = nullptr;
@@ -272,35 +288,6 @@ void vk_helpers::transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayo
     imageBarrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
     imageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
     imageBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT;
-
-    imageBarrier.oldLayout = currentLayout;
-    imageBarrier.newLayout = targetLayout;
-
-    const VkImageAspectFlags aspectMask = aspectFlags;
-
-    imageBarrier.subresourceRange = imageSubresourceRange(aspectMask);
-    imageBarrier.image = image;
-
-    VkDependencyInfo depInfo{};
-    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
-    depInfo.pNext = nullptr;
-
-    depInfo.imageMemoryBarrierCount = 1;
-    depInfo.pImageMemoryBarriers = &imageBarrier;
-
-    vkCmdPipelineBarrier2(cmd, &depInfo);
-}
-
-void vk_helpers::transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageAspectFlags aspectMask,
-                                 VkImageLayout targetLayout)
-{
-    VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
-    imageBarrier.pNext = nullptr;
-
-    imageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-    imageBarrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT;
-    imageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
-    imageBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT;
 
     imageBarrier.oldLayout = currentLayout;
     imageBarrier.newLayout = targetLayout;
@@ -485,55 +472,6 @@ VkPipelineShaderStageCreateInfo vk_helpers::pipelineShaderStageCreateInfo(VkShad
     return info;
 }
 
-bool vk_helpers::loadShaderModule(const char* filePath, VkDevice device, VkShaderModule* outShaderModule)
-{
-    const std::filesystem::path shaderPath(filePath);
-
-    // open the file. With cursor at the end
-    std::ifstream file(shaderPath, std::ios::ate | std::ios::binary);
-
-
-    if (!file.is_open()) {
-        return false;
-    }
-
-    // find what the size of the file is by looking up the location of the cursor
-    // because the cursor is at the end, it gives the size directly in bytes
-    const size_t fileSize = (size_t) file.tellg();
-
-    // spirv expects the buffer to be on uint32, so make sure to reserve a int
-    // vector big enough for the entire file
-    std::vector<uint32_t> buffer(fileSize / sizeof(uint32_t));
-
-    // put file cursor at beginning
-    file.seekg(0);
-
-    // load the entire file into the buffer
-    file.read(reinterpret_cast<char*>(buffer.data()), fileSize);
-
-    // now that the file is loaded into the buffer, we can close it
-    file.close();
-
-    // create a new shader module, using the buffer we loaded
-    VkShaderModuleCreateInfo createInfo = {};
-    createInfo.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
-    createInfo.pNext = nullptr;
-
-    // codeSize has to be in bytes, so multply the ints in the buffer by size of
-    // int to know the real size of the buffer
-    createInfo.codeSize = buffer.size() * sizeof(uint32_t);
-    createInfo.pCode = buffer.data();
-
-    // check that the creation goes well.
-    VkShaderModule shaderModule;
-    if (vkCreateShaderModule(device, &createInfo, nullptr, &shaderModule) != VK_SUCCESS) {
-        return false;
-    }
-    *outShaderModule = shaderModule;
-    return true;
-}
-
-
 VkFilter vk_helpers::extractFilter(const fastgltf::Filter filter)
 {
     switch (filter) {
@@ -566,144 +504,6 @@ VkSamplerMipmapMode vk_helpers::extractMipmapMode(const fastgltf::Filter filter)
     }
 }
 
-std::optional<AllocatedImage> vk_helpers::loadImage(const ResourceManager& resourceManager, const fastgltf::Asset& asset, const fastgltf::Image& image,
-                                                    const std::filesystem::path& parentFolder)
-{
-    AllocatedImage newImage{};
-
-    int width{}, height{}, nrChannels{};
-
-    std::visit(
-        fastgltf::visitor{
-            [](auto& arg) {},
-            [&](const fastgltf::sources::URI& fileName) {
-                assert(fileName.fileByteOffset == 0); // We don't support offsets with stbi.
-                assert(fileName.uri.isLocalPath()); // We're only capable of loading
-                // local files.
-                const std::wstring widePath(fileName.uri.path().begin(), fileName.uri.path().end());
-                const std::filesystem::path fullPath = parentFolder / widePath;
-
-                //std::string extension = getFileExtension(fullpath);
-                /*if (isKTXFile(extension)) {
-                    ktxTexture* kTexture;
-                    KTX_error_code ktxresult;
-
-                    ktxresult = ktxTexture_CreateFromNamedFile(
-                        fullpath.c_str(),
-                        KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT,
-                        &kTexture);
-
-
-                    if (ktxresult == KTX_SUCCESS) {
-                        VkImageFormatProperties formatProperties;
-                        VkResult result = vkGetPhysicalDeviceImageFormatProperties(engine->_physicalDevice
-                            , ktxTexture_GetVkFormat(kTexture), VK_IMAGE_TYPE_2D
-                            , VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT, 0, &formatProperties);
-                        if (result == VK_ERROR_FORMAT_NOT_SUPPORTED) {
-                            fmt::print("Image found with format not supported\n");
-                            VkExtent3D imagesize;
-                            imagesize.width = 1;
-                            imagesize.height = 1;
-                            imagesize.depth = 1;
-                            unsigned char data[4] = { 255, 0, 255, 1 };
-                            newImage = engine->_resourceConstructor->create_image(data, 4, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
-                        }
-                        else {
-                            unsigned char* data = (unsigned char*)ktxTexture_GetData(kTexture);
-                            VkExtent3D imageExtents{};
-                            imageExtents.width = kTexture->baseWidth;
-                            imageExtents.height = kTexture->baseHeight;
-                            imageExtents.depth = 1;
-                            newImage = engine->_resourceConstructor->create_image(data, kTexture->dataSize, imageExtents, ktxTexture_GetVkFormat(kTexture), VK_IMAGE_USAGE_SAMPLED_BIT, false);
-                        }
-
-                    }
-
-                    ktxTexture_Destroy(kTexture);
-                }*/
-
-                // ReSharper disable once CppTooWideScope
-                unsigned char* data = stbi_load(fullPath.string().c_str(), &width, &height, &nrChannels, 4);
-                if (data) {
-                    VkExtent3D imagesize;
-                    imagesize.width = width;
-                    imagesize.height = height;
-                    imagesize.depth = 1;
-                    const size_t size = width * height * 4;
-                    newImage = resourceManager.createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
-
-                    stbi_image_free(data);
-                }
-            },
-            [&](const fastgltf::sources::Array& vector) {
-                // ReSharper disable once CppTooWideScope
-                unsigned char* data = stbi_load_from_memory(reinterpret_cast<const unsigned char*>(vector.bytes.data()),
-                                                            static_cast<int>(vector.bytes.size()), &width, &height, &nrChannels, 4);
-                if (data) {
-                    VkExtent3D imagesize;
-                    imagesize.width = width;
-                    imagesize.height = height;
-                    imagesize.depth = 1;
-                    const size_t size = width * height * 4;
-                    newImage = resourceManager.createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
-
-                    stbi_image_free(data);
-                }
-            },
-            [&](const fastgltf::sources::BufferView& view) {
-                const fastgltf::BufferView& bufferView = asset.bufferViews[view.bufferViewIndex];
-                const fastgltf::Buffer& buffer = asset.buffers[bufferView.bufferIndex];
-                // We only care about VectorWithMime here, because we
-                // specify LoadExternalBuffers, meaning all buffers
-                // are already loaded into a vector.
-                std::visit(fastgltf::visitor{
-                               [](auto& arg) {},
-                               [&](const fastgltf::sources::Array& vector) {
-                                   // ReSharper disable once CppTooWideScope
-                                   unsigned char* data = stbi_load_from_memory(
-                                       reinterpret_cast<const stbi_uc*>(vector.bytes.data() + bufferView.byteOffset),
-                                       static_cast<int>(bufferView.byteLength), &width, &height, &nrChannels, 4);
-                                   if (data) {
-                                       VkExtent3D imagesize;
-                                       imagesize.width = width;
-                                       imagesize.height = height;
-                                       imagesize.depth = 1;
-                                       const size_t size = width * height * 4;
-                                       newImage = resourceManager.createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
-                                       stbi_image_free(data);
-                                   }
-                               }
-                           }, buffer.data);
-            }
-        }, image.data);
-
-    // if any of the attempts to load the data failed, we havent written the image
-    // so handle is null
-    if (newImage.image == VK_NULL_HANDLE) {
-        fmt::print("Image failed to load: {}\n", image.name.c_str());
-        return {};
-    } else {
-        return newImage;
-    }
-}
-
-void vk_helpers::loadTexture(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, int& imageIndex,
-                             int& samplerIndex, const uint32_t imageOffset, const uint32_t samplerOffset)
-{
-    if (!texture.has_value()) {
-        return;
-    }
-
-    const size_t textureIndex = texture.value().textureIndex;
-    if (gltf.textures[textureIndex].imageIndex.has_value()) {
-        imageIndex = gltf.textures[textureIndex].imageIndex.value() + imageOffset;
-    }
-
-    if (gltf.textures[textureIndex].samplerIndex.has_value()) {
-        samplerIndex = gltf.textures[textureIndex].samplerIndex.value() + samplerOffset;
-    }
-}
-
 void vk_helpers::saveImageRGBA32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, const VkImageLayout imageLayout,
                                   const VkImageAspectFlags aspectFlag,
                                   const char* savePath, const bool overrideAlpha)
@@ -723,7 +523,7 @@ void vk_helpers::saveImageRGBA32F(const ResourceManager& resourceManager, const 
         bufferCopyRegion.bufferRowLength = 0;
         bufferCopyRegion.bufferImageHeight = 0;
 
-        vk_helpers::transitionImage(cmd, image.image, imageLayout, aspectFlag, VK_IMAGE_LAYOUT_GENERAL);
+        vk_helpers::transitionImage(cmd, image.image, imageLayout, VK_IMAGE_LAYOUT_GENERAL, aspectFlag);
 
         vkCmdCopyImageToBuffer(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer.buffer, 1, &bufferCopyRegion);
 
@@ -752,7 +552,8 @@ void vk_helpers::saveImageRGBA32F(const ResourceManager& resourceManager, const 
     resourceManager.destroyBuffer(receivingBuffer);
 }
 
-void vk_helpers::saveImageRGBA16SFLOAT(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+void vk_helpers::saveImageRGBA16SFLOAT(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout,
+                                       VkImageAspectFlags aspectFlag,
                                        const char* savePath, const bool overrideAlpha)
 {
     using half_float::half;
@@ -771,7 +572,7 @@ void vk_helpers::saveImageRGBA16SFLOAT(const ResourceManager& resourceManager, c
         bufferCopyRegion.bufferRowLength = 0;
         bufferCopyRegion.bufferImageHeight = 0;
 
-        vk_helpers::transitionImage(cmd, image.image, imageLayout, aspectFlag, VK_IMAGE_LAYOUT_GENERAL);
+        vk_helpers::transitionImage(cmd, image.image, imageLayout, VK_IMAGE_LAYOUT_GENERAL, aspectFlag);
 
         vkCmdCopyImageToBuffer(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer.buffer, 1, &bufferCopyRegion);
 
@@ -801,7 +602,7 @@ void vk_helpers::saveImageRGBA16SFLOAT(const ResourceManager& resourceManager, c
 }
 
 void vk_helpers::savePacked32Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-    const char* savePath, const std::function<glm::vec4(uint32_t)>& unpackingFunction)
+                                 const char* savePath, const std::function<glm::vec4(uint32_t)>& unpackingFunction)
 {
     const size_t dataSize = image.imageExtent.width * image.imageExtent.height * sizeof(uint32_t);
     AllocatedBuffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
@@ -817,7 +618,7 @@ void vk_helpers::savePacked32Bit(const ResourceManager& resourceManager, const I
         bufferCopyRegion.bufferRowLength = 0;
         bufferCopyRegion.bufferImageHeight = 0;
 
-        vk_helpers::transitionImage(cmd, image.image, imageLayout, aspectFlag, VK_IMAGE_LAYOUT_GENERAL);
+        vk_helpers::transitionImage(cmd, image.image, imageLayout, VK_IMAGE_LAYOUT_GENERAL, aspectFlag);
 
         vkCmdCopyImageToBuffer(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer.buffer, 1, &bufferCopyRegion);
 
@@ -845,7 +646,7 @@ void vk_helpers::savePacked32Bit(const ResourceManager& resourceManager, const I
 }
 
 void vk_helpers::savePacked64Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-    const char* savePath, const std::function<glm::vec4(uint64_t)>& unpackingFunction)
+                                 const char* savePath, const std::function<glm::vec4(uint64_t)>& unpackingFunction)
 {
     const size_t dataSize = image.imageExtent.width * image.imageExtent.height * sizeof(uint64_t);
     AllocatedBuffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
@@ -861,7 +662,7 @@ void vk_helpers::savePacked64Bit(const ResourceManager& resourceManager, const I
         bufferCopyRegion.bufferRowLength = 0;
         bufferCopyRegion.bufferImageHeight = 0;
 
-        vk_helpers::transitionImage(cmd, image.image, imageLayout, aspectFlag, VK_IMAGE_LAYOUT_GENERAL);
+        vk_helpers::transitionImage(cmd, image.image, imageLayout, VK_IMAGE_LAYOUT_GENERAL, aspectFlag);
 
         vkCmdCopyImageToBuffer(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer.buffer, 1, &bufferCopyRegion);
 
@@ -905,7 +706,7 @@ void vk_helpers::saveImageR32F(const ResourceManager& resourceManager, const Imm
         bufferCopyRegion.bufferRowLength = 0;
         bufferCopyRegion.bufferImageHeight = 0;
 
-        vk_helpers::transitionImage(cmd, image.image, imageLayout, aspectFlag, VK_IMAGE_LAYOUT_GENERAL);
+        vk_helpers::transitionImage(cmd, image.image, imageLayout, VK_IMAGE_LAYOUT_GENERAL, aspectFlag);
 
         vkCmdCopyImageToBuffer(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer.buffer, 1, &bufferCopyRegion);
 

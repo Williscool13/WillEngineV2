@@ -1,0 +1,47 @@
+//GLSL version to use
+#version 460
+
+//size of a workgroup for compute
+layout (local_size_x = 16, local_size_y = 16) in;
+
+//descriptor bindings for the pipeline
+layout(rgba16f,set = 0, binding = 0) uniform image2D image;
+
+
+vec3 ray_color(vec3 ray_direction)
+{
+	vec3 unit_direction = normalize(ray_direction);
+	float t = 0.5*(unit_direction.y + 1.0);
+	return (t)*vec3(1.0, 1.0, 1.0) + (1-t)*vec3(0.5, 0.7, 1.0);
+}
+
+void main()
+{
+    ivec2 texelCoord = ivec2(gl_GlobalInvocationID.xy);
+	ivec2 size = imageSize(image);
+
+    if(texelCoord.x < size.x && texelCoord.y < size.y)
+    {
+        float focal_length = 1.0;
+        float viewport_height = 2.0;
+        float viewport_width = viewport_height * float(size.x) / float(size.y);
+        vec3 cam_center = vec3(0, 0, 0);
+        vec3 viewport_u = vec3(viewport_width, 0, 0);
+        vec3 viewport_v = vec3(0, -viewport_height, 0);
+        float pixel_delta_u = viewport_width / float(size.x);
+        float pixel_delta_v = viewport_height / float(size.y);
+        vec3 upper_left = cam_center - viewport_u/2.0 + viewport_v/2.0 - vec3(0, 0, focal_length);
+        vec3 pixel00_loc = upper_left + vec3(0, 0, 0);
+        vec3 pixel_center = pixel00_loc + vec3(float(texelCoord.x) * pixel_delta_u, float(texelCoord.y) * pixel_delta_v, 0);
+        vec3 ray_direction = pixel_center - cam_center;
+
+        vec4 color = vec4(0.0);
+        color.x = float(texelCoord.x)/(size.x);
+        color.y = float(texelCoord.y)/(size.y);
+        color = vec4(ray_color(ray_direction), 1.0);
+
+
+
+        imageStore(image, texelCoord, color);
+    }
+}

@@ -8,35 +8,34 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-Camera::Camera(const float fov, const float aspect, const float nearPlane, const float farPlane)
+will_engine::Camera::Camera(const float fov, const float aspect, const float nearPlane, const float farPlane)
 {
-    // depth buffer is reversed in this engine.
     updateProjMatrix(fov, aspect, nearPlane, farPlane);
     updateViewMatrix();
     updateViewProjMatrix();
 }
 
-glm::mat4 Camera::getRotationMatrixWS() const
+glm::mat4 will_engine::Camera::getRotationMatrixWS() const
 {
     return glm::mat4_cast(transform.getRotation());
 }
 
-glm::vec3 Camera::getForwardWS() const
+glm::vec3 will_engine::Camera::getForwardWS() const
 {
     return transform.getRotation() * glm::vec3(0.0f, 0.0f, -1.0f);
 }
 
-glm::vec3 Camera::getUpWS() const
+glm::vec3 will_engine::Camera::getUpWS() const
 {
     return transform.getRotation() * glm::vec3(0.0f, 1.0f, 0.0f);
 }
 
-glm::vec3 Camera::getRightWS() const
+glm::vec3 will_engine::Camera::getRightWS() const
 {
     return transform.getRotation() * glm::vec3(1.0f, 0.0f, 0.0f);
 }
 
-void Camera::updateProjMatrix(float fov, float aspect, float nearPlane, float farPlane)
+void will_engine::Camera::updateProjMatrix(float fov, float aspect, float nearPlane, float farPlane)
 {
     cachedFov = fov;
     cachedAspect = aspect;
@@ -49,7 +48,7 @@ void Camera::updateProjMatrix(float fov, float aspect, float nearPlane, float fa
     updateViewProjMatrix();
 }
 
-void Camera::updateViewMatrix()
+void will_engine::Camera::updateViewMatrix()
 {
     const glm::vec3 position = transform.getPosition();
     const glm::vec3 forward = getForwardWS();
@@ -59,7 +58,7 @@ void Camera::updateViewMatrix()
 }
 
 
-void Camera::updateViewProjMatrix()
+void will_engine::Camera::updateViewProjMatrix()
 {
     cachedViewProjMatrix = cachedProjMatrix * cachedViewMatrix;
 }

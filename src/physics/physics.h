@@ -11,34 +11,31 @@
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/Core/JobSystemThreadPool.h>
 
-class PhysicsBody;
+#include "physics_types.h"
+#include "src/core/game_object/physics_body.h"
+
 class GameObject;
 
 namespace JPH
 {
-    class CylinderShape;
-    class CapsuleShape;
-    class SphereShape;
-    class BoxShape;
-    class ContactListener;
-    class BodyActivationListener;
-    class BroadPhaseLayerInterface;
-    class ObjectVsBroadPhaseLayerFilter;
-    class ObjectLayerPairFilter;
+class CylinderShape;
+class CapsuleShape;
+class SphereShape;
+class BoxShape;
+class ContactListener;
+class BodyActivationListener;
+class BroadPhaseLayerInterface;
+class ObjectVsBroadPhaseLayerFilter;
+class ObjectLayerPairFilter;
 }
 
+namespace will_engine::physics
+{
 class Physics
 {
 public:
-    static Physics* Get()
-    {
-        return physics;
-    }
-
-    static void Set(Physics* physics)
-    {
-        Physics::physics = physics;
-    }
+    static Physics* Get() { return physics; }
+    static void Set(Physics* _physics) { physics = _physics; }
 
     /**
      * Application-wide physics context. Exists for the application's lifetime
@@ -57,22 +54,21 @@ public:
 
     JPH::BodyInterface& getBodyInterface() const;
 
-    const std::unordered_map<uint32_t, PhysicsBody>& getGameObjectToPhysicsBodyMap() const { return physicsBodies; }
+    //const std::unordered_map<uint32_t, PhysicsBody>& getGameObjectToPhysicsBodyMap() const { return physicsBodies; }
 
+    JPH::BodyID addRigidBody(IPhysicsBody* pb, const JPH::ShapeRefC& shape, bool isDynamic = true);
 
-    JPH::BodyID addRigidBody(GameObject* obj, const JPH::ShapeRefC& shape, bool isDynamic = true);
+    JPH::BodyID addRigidBody(IPhysicsBody* pb, const JPH::BodyCreationSettings& settings);
 
-    JPH::BodyID addRigidBody(GameObject* obj, const JPH::BodyCreationSettings& settings);
+    void removeRigidBody(const IPhysicsBody* pb);
 
-    void removeRigidBody(const GameObject* object);
-
-    void removeRigidBodies(const std::vector<GameObject>& objects);
+    void removeRigidBodies(const std::vector<IPhysicsBody*>& objects);
 
     void updateTransforms() const;
 
-    void interpolateTransforms(float alpha) const;
+    IPhysicsBody* getPhysicsBodyFromId(JPH::BodyID bodyId);
 
-    GameObject* getGameObjectFromBody(JPH::BodyID bodyId) const;
+    bool doesPhysicsBodyExists(const JPH::BodyID bodyId) const { return physicsObjects.contains(bodyId); }
 
 private:
     // Core systems
@@ -89,32 +85,20 @@ private:
     JPH::ContactListener* contactListener = nullptr;
     JPH::BodyActivationListener* bodyActivationListener = nullptr;
 
-    // Constants
-    static constexpr uint32_t MAX_BODIES = 10240;
-    static constexpr uint32_t MAX_BODY_PAIRS = 10240;
-    static constexpr uint32_t MAX_CONTACT_CONSTRAINTS = 10240;
-    static constexpr uint32_t NUM_BODY_MUTEXES = 0; // 0 for default
-    static constexpr uint32_t TEMP_ALLOCATOR_SIZE = 10 * 1024 * 1024; // 10MB
+    std::unordered_map<JPH::BodyID, PhysicsObject> physicsObjects;
 
-    static constexpr int32_t WORLD_FLOOR_HEIGHT = -20;
-
-    std::unordered_map<uint32_t, PhysicsBody> physicsBodies;
-
-public:
+public: // Shapes
     JPH::ShapeRefC getUnitCubeShape() const { return unitCubeShape; }
     JPH::ShapeRefC getUnitSphereShape() const { return unitSphereShape; }
     JPH::ShapeRefC getUnitCapsuleShape() const { return unitCapsuleShape; }
     JPH::ShapeRefC getUnitCylinderShape() const { return unitCylinderShape; }
 
-private: // Shapes
+private:
     JPH::ShapeRefC unitCubeShape = nullptr;
     JPH::ShapeRefC unitSphereShape = nullptr;
     JPH::ShapeRefC unitCapsuleShape = nullptr;
     JPH::ShapeRefC unitCylinderShape = nullptr;
-
-private: // Physics Time
-    static constexpr float FIXED_TIMESTEP = 1.0f/60.0f;
-    float timeAccumulator = 0.0f;
 };
+}
 
 #endif //PHYSICS_H

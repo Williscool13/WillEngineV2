@@ -5,9 +5,11 @@
 #ifndef IMMEDIATE_SUBMITTER_H
 #define IMMEDIATE_SUBMITTER_H
 
+#include <functional>
 #include <vulkan/vulkan_core.h>
 
 #include "vk_helpers.h"
+#include "volk.h"
 #include "vulkan_context.h"
 
 class ImmediateSubmitter
@@ -43,7 +45,7 @@ public:
         function(cmd);
         VK_CHECK(vkEndCommandBuffer(cmd));
 
-        const VkCommandBufferSubmitInfo cmdSubmitInfo = vk_helpers::commandBufferSubmitInfo(cmd);
+        VkCommandBufferSubmitInfo cmdSubmitInfo = vk_helpers::commandBufferSubmitInfo(cmd);
         const VkSubmitInfo2 submitInfo = vk_helpers::submitInfo(&cmdSubmitInfo, nullptr, nullptr);
 
         VK_CHECK(vkQueueSubmit2(context.graphicsQueue, 1, &submitInfo, immFence));

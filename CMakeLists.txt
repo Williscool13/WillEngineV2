@@ -24,10 +24,17 @@ set(PHYSICS_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics")
 
 add_subdirectory(extern/glm)
 add_subdirectory(extern/fmt)
-add_subdirectory(extern/volk)
+    add_subdirectory(extern/volk)
 add_subdirectory(extern/vk-bootstrap)
 add_subdirectory(extern/fastgltf)
 add_subdirectory(extern/fastgltf/deps) # simdjson
+add_subdirectory(extern/SPIRV-Headers)
+add_subdirectory(extern/SPIRV-Tools)
+add_subdirectory(extern/glslang)
+set(SHADERC_SKIP_TESTS ON)
+set(SHADERC_SKIP_EXAMPLES ON)
+set(SHADERC_SKIP_COPYRIGHT_CHECK ON)
+add_subdirectory(extern/shaderc)
 
 include(extern/JoltPhysics/Jolt/Jolt.cmake)
 set(CMAKE_CXX_STANDARD 20) # Jolt sets it to 17
@@ -59,21 +66,26 @@ set(HALF_SOURCES
 )
 
 set(CORE_SOURCES
-        src/core/Engine.cpp
-        src/core/Engine.h
-        src/core/scene.cpp
-        src/core/scene.h
+        src/core/engine.cpp
+        src/core/engine.h
         src/core/input.cpp
         src/core/input.h
-        src/core/game_object.cpp
-        src/core/game_object.h
+        src/core/time.cpp
+        src/core/time.h
+        src/core/engine_types.cpp
+        src/core/engine_types.h
+        src/core/transform.h
+        src/core/transform.cpp
+        src/core/game_object/game_object.h
+        src/core/game_object/game_object.cpp
+        src/core/game_object/physics_body.h
         src/core/camera/camera.cpp
         src/core/camera/camera.h
         src/core/camera/camera_types.h
-        src/core/imgui_wrapper.cpp
-        src/core/imgui_wrapper.h
-        src/core/transform.cpp
-        src/core/transform.h
+        src/core/camera/free_camera.cpp
+        src/core/camera/free_camera.h
+        src/core/camera/orbit_camera.cpp
+        src/core/camera/orbit_camera.h
 )
 
 
@@ -82,92 +94,83 @@ set(PHYSICS_SOURCES
         src/physics/physics.h
         src/physics/physics_filters.cpp
         src/physics/physics_filters.h
-        src/physics/physics_body.cpp
-        src/physics/physics_body.h
-        src/physics/physics_utils.cpp
-        src/physics/physics_utils.h
-        src/physics/physics_types.cpp
         src/physics/physics_types.h
+        src/physics/physics_utils.h
+        src/physics/physics_constants.h
         src/physics/debug/debug_renderer.cpp
         src/physics/debug/debug_renderer.h
 )
 
 set(RENDERER_SOURCES
-        src/renderer/vulkan_context.cpp
         src/renderer/vulkan_context.h
-        src/renderer/resource_manager.cpp
+        src/renderer/vulkan_context.cpp
         src/renderer/resource_manager.h
-        src/renderer/immediate_submitter.cpp
+        src/renderer/resource_manager.cpp
         src/renderer/immediate_submitter.h
-        src/renderer/render_object/render_object.cpp
-        src/renderer/render_object/render_object.h
-        src/renderer/environment/environment.cpp
-        src/renderer/environment/environment.h
-        src/renderer/environment/environment_map_types.h
-        src/renderer/lighting/shadows/cascaded_shadow_map_descriptor_layouts.cpp
-        src/renderer/lighting/shadows/cascaded_shadow_map_descriptor_layouts.h
-        src/renderer/lighting/directional_light.cpp
-        src/renderer/lighting/directional_light.h
-        src/renderer/lighting/shadows/cascaded_shadow_map.cpp
-        src/renderer/lighting/shadows/cascaded_shadow_map.h
-        src/renderer/lighting/shadows/shadow_types.h
-        src/renderer/pipelines/acceleration_algorithms/frustum_culling_descriptor_layout.cpp
-        src/renderer/pipelines/acceleration_algorithms/frustum_culling_descriptor_layout.h
-        src/renderer/pipelines/acceleration_algorithms/frustum_culling_pipeline.cpp
-        src/renderer/pipelines/acceleration_algorithms/frustum_culling_pipeline.h
-        src/renderer/pipelines/acceleration_algorithms/frustum_culling_types.h
-        src/renderer/pipelines/deferred/deferred_mrt.cpp
-        src/renderer/pipelines/deferred/deferred_mrt.h
-        src/renderer/pipelines/deferred/deferred_resolve.cpp
-        src/renderer/pipelines/deferred/deferred_resolve.h
-        src/renderer/pipelines/post_processing/temporal_antialiasing.cpp
-        src/renderer/pipelines/post_processing/temporal_antialiasing.h
-        src/renderer/pipelines/environment/environment_map_pipeline.cpp
-        src/renderer/pipelines/environment/environment_map_pipeline.h
-        src/renderer/pipelines/post_processing/post_process.cpp
-        src/renderer/pipelines/post_processing/post_process.h
-        src/renderer/pipelines/post_processing/post_process_types.h
-        src/renderer/pipelines/environment/environment_descriptor_layouts.cpp
-        src/renderer/pipelines/environment/environment_descriptor_layouts.h
-        src/renderer/scene/scene_descriptor_layouts.cpp
-        src/renderer/scene/scene_descriptor_layouts.h
-        src/renderer/render_object/render_object_descriptor_layout.cpp
-        src/renderer/render_object/render_object_descriptor_layout.h
-        src/renderer/vk_helpers.cpp
-        src/renderer/vk_helpers.h
-        src/renderer/vk_types.cpp
-        src/renderer/vk_types.h
+        src/renderer/immediate_submitter.cpp
+        src/renderer/imgui_wrapper.h
+        src/renderer/imgui_wrapper.cpp
         src/renderer/vk_descriptors.cpp
         src/renderer/vk_descriptors.h
-        src/renderer/vk_descriptor_buffer.cpp
-        src/renderer/vk_descriptor_buffer.h
-        src/renderer/vk_loader.cpp
-        src/renderer/vk_loader.h
+        src/renderer/vk_helpers.h
         src/renderer/vk_pipelines.cpp
+        src/renderer/vk_helpers.cpp
         src/renderer/vk_pipelines.h
-        src/renderer/data_structures/bounding_sphere.cpp
-        src/renderer/data_structures/bounding_sphere.h
-
+        src/renderer/vk_types.cpp
+        src/renderer/vk_types.h
+        src/renderer/renderer_constants.h
+        src/renderer/render_object/render_object.h
+        src/renderer/render_object/render_object.cpp
+        src/renderer/render_object/render_object_types.h
+        src/renderer/render_object/render_object_types.cpp
+        src/renderer/render_object/render_reference.h
+        src/renderer/environment/environment.cpp
+        src/renderer/environment/environment.h
+        src/renderer/environment/environment_constants.h
+        src/renderer/environment/environment_types.h
+        src/renderer/pipelines/deferred_mrt/deferred_mrt.cpp
+        src/renderer/pipelines/deferred_mrt/deferred_mrt.h
+        src/renderer/pipelines/deferred_resolve/deferred_resolve.cpp
+        src/renderer/pipelines/deferred_resolve/deferred_resolve.h
+        src/renderer/pipelines/environment/environment_pipeline.cpp
+        src/renderer/pipelines/environment/environment_pipeline.h
+        src/renderer/pipelines/post_process/post_process_pipeline.cpp
+        src/renderer/pipelines/post_process/post_process_pipeline.h
+        src/renderer/pipelines/frustum_cull/frustum_cull_pipeline.cpp
+        src/renderer/pipelines/frustum_cull/frustum_cull_pipeline.h
+        src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.cpp
+        src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h
+        src/renderer/pipelines/basic_compute/basic_compute_pipeline.cpp
+        src/renderer/pipelines/basic_compute/basic_compute_pipeline.h
+        src/renderer/pipelines/basic_render/basic_render_pipeline.cpp
+        src/renderer/pipelines/basic_render/basic_render_pipeline.h
+        src/renderer/lighting/directional_light.h
+        src/renderer/lighting/directional_light.cpp
+        src/renderer/lighting/shadows/cascaded_shadow_map.cpp
+        src/renderer/lighting/shadows/cascaded_shadow_map.h
+        src/renderer/lighting/shadows/shadows.h
+        src/renderer/lighting/shadows/shadow_types.h
+        src/renderer/descriptor_buffer/descriptor_buffer.cpp
+        src/renderer/descriptor_buffer/descriptor_buffer.h
+        src/renderer/descriptor_buffer/descriptor_buffer_sampler.cpp
+        src/renderer/descriptor_buffer/descriptor_buffer_sampler.h
+        src/renderer/descriptor_buffer/descriptor_buffer_types.cpp
+        src/renderer/descriptor_buffer/descriptor_buffer_types.h
+        src/renderer/descriptor_buffer/descriptor_buffer_uniform.cpp
+        src/renderer/descriptor_buffer/descriptor_buffer_uniform.h
+        src/renderer/render_object/render_object_constants.h
+        src/renderer/post_process/post_process_types.h
 )
 
 set(GAME_SOURCES
-        src/game/camera/free_camera.cpp
-        src/game/camera/free_camera.h
-        src/game/camera/orbit_camera.cpp
-        src/game/camera/orbit_camera.h
-        src/game/player/player_character.cpp
-        src/game/player/player_character.h
+        src/core/game_object/renderable.h
 )
 
 set(UTIL_SOURCES
         src/util/math_constants.h
-        src/util/time_utils.cpp
-        src/util/time_utils.h
-        src/util/render_utils.h
-        src/util/file_utils.cpp
-        src/util/file_utils.h
-        src/util/halton.cpp
+        src/util/file.h
         src/util/halton.h
+        src/util/render_utils.h
 )
 
 
@@ -176,7 +179,13 @@ if (WIN32)
     set(WINDOWS_SOURCES
             src/resources.h
             src/resources.rc
-            src/renderer/lighting/shadows/shadow_constants.h
+            src/core/scene.cpp
+            src/core/scene.h
+            src/renderer/lighting/shadows/shadows.cpp
+            src/core/game_object/transformable.h
+            src/core/game_object/hierarchical.h
+
+
     )
 endif ()
 
@@ -206,15 +215,6 @@ target_include_directories(WillEngine PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
 )
 
-
-add_custom_target(compile_shaders
-        COMMAND ${CMAKE_CURRENT_BINARY_DIR}/shaders/compile_shaders_fast.sh
-        WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/shaders
-        DEPENDS ${shader_copy_target}
-        COMMENT "Compiling shaders"
-)
-add_dependencies(WillEngine compile_shaders)
-
 target_link_libraries(WillEngine PRIVATE
         ${SDL2MAIN_LIBRARY} # Needs to happen before SDL2_LIBRARY
         ${SDL2_LIBRARY}
@@ -225,4 +225,5 @@ target_link_libraries(WillEngine PRIVATE
         vk-bootstrap::vk-bootstrap
         fastgltf
         Jolt
+        shaderc
 )
