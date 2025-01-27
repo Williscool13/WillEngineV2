@@ -4,6 +4,8 @@
 
 #include "input.h"
 
+namespace will_engine
+{
 Input::Input()
 {
     keyStateData[SDLK_ESCAPE] = {};
@@ -181,4 +183,5 @@ Input::InputStateData Input::getMouseData(const uint8_t mouseButton) const
         return it->second;
     }
     return {};
+}
 }

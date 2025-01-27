@@ -1,235 +1,219 @@
 //
-// Created by William on 2024-08-25.
+// Created by William on 2025-01-25.
 //
 
 #include "environment.h"
 
-#include <cassert>
 #include <stb_image.h>
+#include <vulkan/vulkan_core.h>
 
-#include "src/renderer/immediate_submitter.h"
+#include "environment_constants.h"
 #include "src/renderer/resource_manager.h"
-#include "src/renderer/vk_descriptor_buffer.h"
-#include "src/renderer/pipelines/environment/environment_descriptor_layouts.h"
-#include "src/util/file_utils.h"
+#include "src/util/file.h"
 
-const VkExtent3D Environment::SPECULAR_PREFILTERED_BASE_EXTENTS = {512, 512, 1};
-const VkExtent3D Environment::LUT_IMAGE_EXTENT = {512, 512, 1};
-
-Environment::Environment(VulkanContext& context, ResourceManager& resourceManager, ImmediateSubmitter& immediate, EnvironmentDescriptorLayouts& environmentDescriptorLayouts)
-    : context(context), resourceManager(resourceManager), immediate(immediate), descriptorLayouts(environmentDescriptorLayouts)
+will_engine::environment::Environment::Environment(ResourceManager& resourceManager, ImmediateSubmitter& immediate)
+    : resourceManager(resourceManager), immediate(immediate)
 {
-    // sampler
+    // Descriptor Set Layouts
     {
-        VkSamplerCreateInfo sampl = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
-
-        sampl.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-        sampl.minLod = 0;
-        sampl.maxLod = VK_LOD_CLAMP_NONE;
-        sampl.magFilter = VK_FILTER_LINEAR;
-        sampl.minFilter = VK_FILTER_LINEAR;
-
-        sampl.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        sampl.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        sampl.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-
-        vkCreateSampler(context.device, &sampl, nullptr, &sampler);
-    }
-
-    // equi to cubemap pipeline
-    {
-        // Pipeline Layout
+        //  Equirectangular Image Descriptor Set Layout
         {
-            VkPushConstantRange pushConstantRange = {};
-            pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-            pushConstantRange.offset = 0;
-            pushConstantRange.size = sizeof(EquiToCubePushConstantData);
-
-            VkDescriptorSetLayout layouts[]{descriptorLayouts.getEquiImageLayout(), descriptorLayouts.getCubemapStorageLayout()};
-
-            VkPipelineLayoutCreateInfo layout_info{};
-            layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-            layout_info.setLayoutCount = 2;
-            layout_info.pSetLayouts = layouts;
-            layout_info.pushConstantRangeCount = 1;
-            layout_info.pPushConstantRanges = &pushConstantRange;
-
-            VK_CHECK(vkCreatePipelineLayout(context.device, &layout_info, nullptr, &equiToCubemapPipelineLayout));
+            DescriptorLayoutBuilder layoutBuilder;
+            layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+            equiImageLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT),
+                                                                        VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
         }
 
-        // Pipeline
+        //  (Storage) Cubemap Descriptor Set Layout
         {
-            VkShaderModule computeShader;
-            if (!vk_helpers::loadShaderModule("shaders/environment/equitoface.comp.spv", context.device, &computeShader)) {
-                fmt::print("Error when building the compute shader (equitoface.comp.spv)\n");
-                abort();
-            }
+            DescriptorLayoutBuilder layoutBuilder;
+            layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+            cubemapStorageLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        }
+        //  (Sampler) Cubemap Descriptor Set Layout
+        {
+            DescriptorLayoutBuilder layoutBuilder;
+            layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+            cubemapSamplerLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT),
+                                                                             VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        }
+        // LUT generation
+        {
+            DescriptorLayoutBuilder layoutBuilder;
+            layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
+            lutLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        }
 
-            VkPipelineShaderStageCreateInfo stageinfo{};
-            stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-            stageinfo.pNext = nullptr;
-            stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-            stageinfo.module = computeShader;
-            stageinfo.pName = "main"; // entry point in shader
-
-            VkComputePipelineCreateInfo computePipelineCreateInfo{};
-            computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-            computePipelineCreateInfo.pNext = nullptr;
-            computePipelineCreateInfo.layout = equiToCubemapPipelineLayout;
-            computePipelineCreateInfo.stage = stageinfo;
-            computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
-
-            VK_CHECK(vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &equiToCubemapPipeline));
-
-            vkDestroyShaderModule(context.device, computeShader, nullptr);
+        // Full Cubemap Descriptor - contains PBR IBL data
+        {
+            DescriptorLayoutBuilder layoutBuilder;
+            layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // 1 cubemap  - diffuse/spec
+            layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // 1 2d image - lut
+            environmentIBLLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT),
+                                                                             VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
         }
     }
 
-    // cubemap to diffuse pipeline
+    VkSamplerCreateInfo samplerInfo = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+
+    samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    samplerInfo.minLod = 0;
+    samplerInfo.maxLod = VK_LOD_CLAMP_NONE;
+    samplerInfo.magFilter = VK_FILTER_LINEAR;
+    samplerInfo.minFilter = VK_FILTER_LINEAR;
+
+    samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+    samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+
+    sampler = resourceManager.createSampler(samplerInfo);
+
+    // Equi -> Cubemap Pipeline
     {
-        // Pipeline Layout
-        {
-            VkDescriptorSetLayout layouts[]{descriptorLayouts.getCubemapSamplerLayout(), descriptorLayouts.getCubemapStorageLayout()};
+        VkDescriptorSetLayout layouts[]{equiImageLayout, cubemapStorageLayout};
 
-            VkPushConstantRange pushConstantRange = {};
-            pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-            pushConstantRange.offset = 0;
-            pushConstantRange.size = sizeof(CubeToDiffusePushConstantData);
+        VkPipelineLayoutCreateInfo layoutInfo{};
+        layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        layoutInfo.setLayoutCount = 2;
+        layoutInfo.pSetLayouts = layouts;
+        layoutInfo.pushConstantRangeCount = 0;
+        layoutInfo.pPushConstantRanges = nullptr;
 
-            VkPipelineLayoutCreateInfo layout_info{};
-            layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-            layout_info.setLayoutCount = 2;
-            layout_info.pSetLayouts = layouts;
-            layout_info.pushConstantRangeCount = 1;
-            layout_info.pPushConstantRanges = &pushConstantRange;
+        equiToCubemapPipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
-            VK_CHECK(vkCreatePipelineLayout(context.device, &layout_info, nullptr, &cubemapToDiffusePipelineLayout));
-        }
+        VkShaderModule computeShader = resourceManager.createShaderModule("shaders/environment/equitoface.comp");
 
-        // Pipeline
-        {
-            VkShaderModule computeShader;
-            if (!vk_helpers::loadShaderModule("shaders/environment/cubetodiffirra.comp.spv", context.device, &computeShader)) {
-                fmt::print("Error when building the compute shader (cubetodiffspec.comp.spv)\n");
-                abort();
-            }
+        VkPipelineShaderStageCreateInfo stageInfo{};
+        stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        stageInfo.pNext = nullptr;
+        stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+        stageInfo.module = computeShader;
+        stageInfo.pName = "main";
 
-            VkPipelineShaderStageCreateInfo stageinfo{};
-            stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-            stageinfo.pNext = nullptr;
-            stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-            stageinfo.module = computeShader;
-            stageinfo.pName = "main"; // entry point in shader
+        VkComputePipelineCreateInfo computePipelineCreateInfo{};
+        computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+        computePipelineCreateInfo.pNext = nullptr;
+        computePipelineCreateInfo.layout = equiToCubemapPipelineLayout;
+        computePipelineCreateInfo.stage = stageInfo;
+        computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-            VkComputePipelineCreateInfo computePipelineCreateInfo{};
-            computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-            computePipelineCreateInfo.pNext = nullptr;
-            computePipelineCreateInfo.layout = cubemapToDiffusePipelineLayout;
-            computePipelineCreateInfo.stage = stageinfo;
-            computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
-
-            VK_CHECK(vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &cubemapToDiffusePipeline));
-
-            vkDestroyShaderModule(context.device, computeShader, nullptr);
-        }
+        equiToCubemapPipeline = resourceManager.createComputePipeline(computePipelineCreateInfo);
+        resourceManager.destroyShaderModule(computeShader);
     }
 
-    // cubemap to specular pipeline
+    // Cubemap -> Diff Pipeline
     {
-        // Pipeline Layout
-        {
-            VkDescriptorSetLayout layouts[]{descriptorLayouts.getCubemapSamplerLayout(), descriptorLayouts.getCubemapStorageLayout()};
+        VkDescriptorSetLayout layouts[]{cubemapSamplerLayout, cubemapStorageLayout};
 
-            VkPushConstantRange pushConstantRange = {};
-            pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-            pushConstantRange.offset = 0;
-            pushConstantRange.size = sizeof(CubeToPrefilteredConstantData);
+        VkPushConstantRange pushConstantRange = {};
+        pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+        pushConstantRange.offset = 0;
+        pushConstantRange.size = sizeof(CubeToDiffusePushConstantData);
 
-            VkPipelineLayoutCreateInfo layout_info{};
-            layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-            layout_info.setLayoutCount = 2;
-            layout_info.pSetLayouts = layouts;
-            layout_info.pushConstantRangeCount = 1;
-            layout_info.pPushConstantRanges = &pushConstantRange;
+        VkPipelineLayoutCreateInfo layoutInfo{};
+        layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        layoutInfo.setLayoutCount = 2;
+        layoutInfo.pSetLayouts = layouts;
+        layoutInfo.pushConstantRangeCount = 1;
+        layoutInfo.pPushConstantRanges = &pushConstantRange;
 
-            VK_CHECK(vkCreatePipelineLayout(context.device, &layout_info, nullptr, &cubemapToSpecularPipelineLayout));
-        }
+        cubemapToDiffusePipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
-        // Pipelin
-        {
-            VkShaderModule computeShader;
-            if (!vk_helpers::loadShaderModule("shaders/environment/cubetospecprefilter.comp.spv", context.device, &computeShader)) {
-                fmt::print("Error when building the compute shader (cubetospecprefilter.comp.spv)\n");
-                abort();
-            }
+        VkShaderModule computeShader = resourceManager.createShaderModule("shaders/environment/cubetodiffirra.comp");
 
-            VkPipelineShaderStageCreateInfo stageinfo{};
-            stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-            stageinfo.pNext = nullptr;
-            stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-            stageinfo.module = computeShader;
-            stageinfo.pName = "main"; // entry point in shader
+        VkPipelineShaderStageCreateInfo stageInfo{};
+        stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        stageInfo.pNext = nullptr;
+        stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+        stageInfo.module = computeShader;
+        stageInfo.pName = "main";
 
-            VkComputePipelineCreateInfo computePipelineCreateInfo{};
-            computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-            computePipelineCreateInfo.pNext = nullptr;
-            computePipelineCreateInfo.layout = cubemapToSpecularPipelineLayout;
-            computePipelineCreateInfo.stage = stageinfo;
-            computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+        VkComputePipelineCreateInfo computePipelineCreateInfo{};
+        computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+        computePipelineCreateInfo.pNext = nullptr;
+        computePipelineCreateInfo.layout = cubemapToDiffusePipelineLayout;
+        computePipelineCreateInfo.stage = stageInfo;
+        computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-            VK_CHECK(vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &cubemapToSpecularPipeline));
-
-            vkDestroyShaderModule(context.device, computeShader, nullptr);
-        }
+        cubemapToDiffusePipeline = resourceManager.createComputePipeline(computePipelineCreateInfo);
+        resourceManager.destroyShaderModule(computeShader);
     }
 
-    // lut generation pipeline
+    // Cubemap -> Spec Pipeline
     {
-        // Pipeline Layout
-        {
-            VkDescriptorSetLayout layouts[1]{descriptorLayouts.getLutLayout()};
+        VkDescriptorSetLayout layouts[]{cubemapSamplerLayout, cubemapStorageLayout};
 
-            VkPipelineLayoutCreateInfo layout_info{};
-            layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-            layout_info.setLayoutCount = 1;
-            layout_info.pSetLayouts = layouts;
-            layout_info.pushConstantRangeCount = 0;
-            layout_info.pPushConstantRanges = nullptr;
+        VkPushConstantRange pushConstantRange = {};
+        pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
+        pushConstantRange.offset = 0;
+        pushConstantRange.size = sizeof(CubeToPrefilteredConstantData);
 
-            VK_CHECK(vkCreatePipelineLayout(context.device, &layout_info, nullptr, &lutPipelineLayout));
-        }
+        VkPipelineLayoutCreateInfo layoutInfo{};
+        layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        layoutInfo.setLayoutCount = 2;
+        layoutInfo.pSetLayouts = layouts;
+        layoutInfo.pushConstantRangeCount = 1;
+        layoutInfo.pPushConstantRanges = &pushConstantRange;
 
-        // Pipeline
-        {
-            VkShaderModule computeShader;
-            if (!vk_helpers::loadShaderModule("shaders/environment/brdflut.comp.spv", context.device, &computeShader)) {
-                fmt::print("Error when building the compute shader (brdflut.comp.spv)\n");
-                abort();
-            }
+        cubemapToSpecularPipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
-            VkPipelineShaderStageCreateInfo stageinfo{};
-            stageinfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-            stageinfo.pNext = nullptr;
-            stageinfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-            stageinfo.module = computeShader;
-            stageinfo.pName = "main"; // entry point in shader
+        VkShaderModule computeShader = resourceManager.createShaderModule("shaders/environment/cubetospecprefilter.comp");
 
-            VkComputePipelineCreateInfo computePipelineCreateInfo{};
-            computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-            computePipelineCreateInfo.pNext = nullptr;
-            computePipelineCreateInfo.layout = lutPipelineLayout;
-            computePipelineCreateInfo.stage = stageinfo;
-            computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+        VkPipelineShaderStageCreateInfo stageInfo{};
+        stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        stageInfo.pNext = nullptr;
+        stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+        stageInfo.module = computeShader;
+        stageInfo.pName = "main";
 
-            VK_CHECK(vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &computePipelineCreateInfo, nullptr, &lutPipeline));
+        VkComputePipelineCreateInfo computePipelineCreateInfo{};
+        computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+        computePipelineCreateInfo.pNext = nullptr;
+        computePipelineCreateInfo.layout = cubemapToSpecularPipelineLayout;
+        computePipelineCreateInfo.stage = stageInfo;
+        computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-            vkDestroyShaderModule(context.device, computeShader, nullptr);
-        }
+        cubemapToSpecularPipeline = resourceManager.createComputePipeline(computePipelineCreateInfo);
+        resourceManager.destroyShaderModule(computeShader);
     }
 
-    // Create LUT here, because its the same for all environment maps
+    // LUT Generation
     {
-        lutDescriptorBuffer = DescriptorBufferSampler(context, descriptorLayouts.getLutLayout(), 1);
+        VkDescriptorSetLayout layouts[1]{lutLayout};
+
+        VkPipelineLayoutCreateInfo layoutInfo{};
+        layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+        layoutInfo.setLayoutCount = 1;
+        layoutInfo.pSetLayouts = layouts;
+        layoutInfo.pushConstantRangeCount = 0;
+        layoutInfo.pPushConstantRanges = nullptr;
+
+        lutPipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+
+        VkShaderModule computeShader = resourceManager.createShaderModule("shaders/environment/brdflut.comp");
+
+        VkPipelineShaderStageCreateInfo stageInfo{};
+        stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+        stageInfo.pNext = nullptr;
+        stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
+        stageInfo.module = computeShader;
+        stageInfo.pName = "main";
+
+        VkComputePipelineCreateInfo computePipelineCreateInfo{};
+        computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
+        computePipelineCreateInfo.pNext = nullptr;
+        computePipelineCreateInfo.layout = lutPipelineLayout;
+        computePipelineCreateInfo.stage = stageInfo;
+        computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
+
+        lutPipeline = resourceManager.createComputePipeline(computePipelineCreateInfo);
+        resourceManager.destroyShaderModule(computeShader);
+    }
+
+
+    // Execute LUT Generation
+    {
+        lutDescriptorBuffer = resourceManager.createDescriptorBufferSampler(lutLayout, 1);
 
         lutImage = resourceManager.createImage(LUT_IMAGE_EXTENT, VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
 
@@ -240,65 +224,92 @@ Environment::Environment(VulkanContext& context, ResourceManager& resourceManage
 
         std::vector<DescriptorImageData> descriptor = {{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, lutDescriptorInfo}};
 
+        resourceManager.setupDescriptorBufferSampler(lutDescriptorBuffer, descriptor, 0);
 
-        lutDescriptorBuffer.setupData(context.device, descriptor); // index 0, obviously
-        generateLutImmediate();
+        immediate.submit([&](VkCommandBuffer cmd) {
+            vk_helpers::transitionImage(cmd, lutImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, lutPipeline);
+
+            VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1];
+            descriptorBufferBindingInfo[0] = lutDescriptorBuffer.getDescriptorBufferBindingInfo();
+
+            constexpr uint32_t lutIndex = 0;
+            constexpr VkDeviceSize zeroOffset = 0;
+
+            vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
+            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, lutPipelineLayout, 0, 1, &lutIndex, &zeroOffset);
+
+            // must be divisible by 16, dont want to bother bounds checking in shader code
+            assert(LUT_IMAGE_EXTENT.width % 8 == 0 && LUT_IMAGE_EXTENT.height % 8 == 0);
+            const uint32_t xDisp = LUT_IMAGE_EXTENT.width / 8;
+            const uint32_t yDisp = LUT_IMAGE_EXTENT.height / 8;
+            constexpr uint32_t z_disp = 1;
+            vkCmdDispatch(cmd, xDisp, yDisp, z_disp);
+
+            vk_helpers::transitionImage(cmd, lutImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        });
     }
 
-    equiImageDescriptorBuffer = DescriptorBufferSampler(context, descriptorLayouts.getEquiImageLayout(), 1);
-    // 0 is original cubemap, 1 is diff irr, 2 is spec pref, 3 to 13 is for 10 mip levels of spec pref
-    cubemapStorageDescriptorBuffer = DescriptorBufferSampler(context, descriptorLayouts.getCubemapStorageLayout(), 12);
+    equiImageDescriptorBuffer = resourceManager.createDescriptorBufferSampler(equiImageLayout, 1);
+    // 0 will be filled and cleared for equi->cubemap
+    // 0 to 4 and 5 will be filled with spec + diffuse cubemaps but will be cleared right after.
+    // This will not exceed 6 size
+    cubemapStorageDescriptorBuffer = resourceManager.createDescriptorBufferSampler(cubemapStorageLayout, 6);
 
     // sample cubemap
-    cubemapDescriptorBuffer = DescriptorBufferSampler(context, descriptorLayouts.getCubemapSamplerLayout(), MAX_ENVIRONMENT_MAPS);
-    diffSpecMapDescriptorBuffer = DescriptorBufferSampler(context, descriptorLayouts.getEnvironmentMapLayout(), MAX_ENVIRONMENT_MAPS);
+    cubemapDescriptorBuffer = resourceManager.createDescriptorBufferSampler(cubemapSamplerLayout, MAX_ENVIRONMENT_MAPS);
+    diffSpecMapDescriptorBuffer = resourceManager.createDescriptorBufferSampler(environmentIBLLayout, MAX_ENVIRONMENT_MAPS);
 }
 
-Environment::~Environment()
+will_engine::environment::Environment::~Environment()
 {
-    vkDestroyPipelineLayout(context.device, equiToCubemapPipelineLayout, nullptr);
-    vkDestroyPipeline(context.device, equiToCubemapPipeline, nullptr);
-    vkDestroyPipelineLayout(context.device, cubemapToDiffusePipelineLayout, nullptr);
-    vkDestroyPipeline(context.device, cubemapToDiffusePipeline, nullptr);
-    vkDestroyPipelineLayout(context.device, cubemapToSpecularPipelineLayout, nullptr);
-    vkDestroyPipeline(context.device, cubemapToSpecularPipeline, nullptr);
-    vkDestroyPipelineLayout(context.device, lutPipelineLayout, nullptr);
-    vkDestroyPipeline(context.device, lutPipeline, nullptr);
-    equiToCubemapPipelineLayout = VK_NULL_HANDLE;
-    equiToCubemapPipeline = VK_NULL_HANDLE;
-    cubemapToDiffusePipelineLayout = VK_NULL_HANDLE;
-    cubemapToDiffusePipeline = VK_NULL_HANDLE;
-    cubemapToSpecularPipelineLayout = VK_NULL_HANDLE;
-    cubemapToSpecularPipeline = VK_NULL_HANDLE;
+    resourceManager.destroyPipelineLayout(equiToCubemapPipelineLayout);
+    resourceManager.destroyPipelineLayout(cubemapToDiffusePipelineLayout);
+    resourceManager.destroyPipelineLayout(cubemapToSpecularPipelineLayout);
+    resourceManager.destroyPipelineLayout(lutPipelineLayout);
+    resourceManager.destroyPipeline(equiToCubemapPipeline);
+    resourceManager.destroyPipeline(cubemapToDiffusePipeline);
+    resourceManager.destroyPipeline(cubemapToSpecularPipeline);
+    resourceManager.destroyPipeline(lutPipeline);
+
+
+    resourceManager.destroySampler(sampler);
+
+    resourceManager.destroyDescriptorBuffer(cubemapStorageDescriptorBuffer);
+    resourceManager.destroyDescriptorBuffer(cubemapDescriptorBuffer);
+    resourceManager.destroyDescriptorBuffer(equiImageDescriptorBuffer);
+    resourceManager.destroyDescriptorBuffer(diffSpecMapDescriptorBuffer);
+    resourceManager.destroyDescriptorBuffer(lutDescriptorBuffer);
 
     resourceManager.destroyImage(lutImage);
     lutImage = {};
-    lutDescriptorBuffer.destroy(context.allocator);
-
-    vkDestroySampler(context.device, sampler, nullptr);
-
-    cubemapStorageDescriptorBuffer.destroy(context.allocator);
-    cubemapDescriptorBuffer.destroy(context.allocator);
-    equiImageDescriptorBuffer.destroy(context.allocator);
-    diffSpecMapDescriptorBuffer.destroy(context.allocator);
-
     for (EnvironmentMapData& envMap : environmentMaps) {
         resourceManager.destroyImage(envMap.cubemapImage);
         resourceManager.destroyImage(envMap.specDiffCubemap);
     }
+
+
+    resourceManager.destroyDescriptorSetLayout(equiImageLayout);
+    resourceManager.destroyDescriptorSetLayout(cubemapStorageLayout);
+    resourceManager.destroyDescriptorSetLayout(cubemapSamplerLayout);
+    resourceManager.destroyDescriptorSetLayout(lutLayout);
+    resourceManager.destroyDescriptorSetLayout(environmentIBLLayout);
 }
 
-void Environment::loadEnvironment(const char* name, const char* path, int environmentMapIndex)
+void will_engine::environment::Environment::loadEnvironment(const char* name, const char* path, int environmentMapIndex)
 {
     auto start = std::chrono::system_clock::now();
     std::filesystem::path cubemapPath{path};
 
     EnvironmentMapData newEnvMapData{};
     newEnvMapData.sourcePath = cubemapPath.string();
-    VkExtent3D extents = {CUBEMAP_RESOLUTION, CUBEMAP_RESOLUTION, 1};
 
+    if (environmentMapIndex >= MAX_ENVIRONMENT_MAPS || environmentMapIndex < 0) {
+        environmentMapIndex = glm::clamp(environmentMapIndex, 0, MAX_ENVIRONMENT_MAPS - 1);
+        fmt::print("Environment map index out of range ({}). Clamping to 0 - {}\n", environmentMapIndex, MAX_ENVIRONMENT_MAPS - 1);
+    }
 
-    assert(environmentMapIndex < MAX_ENVIRONMENT_MAPS && environmentMapIndex >= 0);
     AllocatedImage equiImage;
     int width, height, channels;
     if (float* imageData = stbi_loadf(newEnvMapData.sourcePath.c_str(), &width, &height, &channels, 4)) {
@@ -308,11 +319,14 @@ void Environment::loadEnvironment(const char* name, const char* path, int enviro
     } else {
         fmt::print("Failed to load Equirectangular Image ({})\n", path);
     }
-    assert(equiImage.imageExtent.width % 4 == 0);
-    assert(equiImage.imageExtent.width / 4 == CUBEMAP_RESOLUTION);
+    if (equiImage.imageExtent.width % 4 != 0 || equiImage.imageExtent.width / 4 != CUBEMAP_RESOLUTION) {
+        fmt::print("Dimensions of the equirectangular image is incorrect. Failed to load environment map ({})", path);
+        return;
+    }
 
-    // Equi -> Cubemap - recreate in case resolution changed
-    newEnvMapData.cubemapImage = resourceManager.createCubemap(extents, VK_FORMAT_R32G32B32A32_SFLOAT,
+
+    // Equirectangular -> Cubemap - recreate in case resolution changed
+    newEnvMapData.cubemapImage = resourceManager.createCubemap(CUBEMAP_EXTENTS, VK_FORMAT_R32G32B32A32_SFLOAT,
                                                                VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
                                                                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
 
@@ -324,31 +338,51 @@ void Environment::loadEnvironment(const char* name, const char* path, int enviro
 
     // needs to match the order of the bindings in the layout
     std::vector<DescriptorImageData> combined_descriptor = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, equiImageDescriptorInfo}};
-    equiImageDescriptorBuffer.setupData(context.device, combined_descriptor);
-
+    int32_t equipIndex = resourceManager.setupDescriptorBufferSampler(equiImageDescriptorBuffer, combined_descriptor);
 
     VkDescriptorImageInfo cubemapDescriptor{};
     cubemapDescriptor.sampler = sampler;
     cubemapDescriptor.imageView = newEnvMapData.cubemapImage.imageView;
     cubemapDescriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
     std::vector<DescriptorImageData> cubemapStorageDescriptor = {{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, cubemapDescriptor}};
-    int cubemapIndex = cubemapStorageDescriptorBuffer.setupData(context.device, cubemapStorageDescriptor);
+    int32_t cubemapIndex = resourceManager.setupDescriptorBufferSampler(cubemapStorageDescriptorBuffer, cubemapStorageDescriptor);
+
     cubemapDescriptor.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     std::vector<DescriptorImageData> cubemapSamplerDescriptor = {{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, cubemapDescriptor}};
-    cubemapDescriptorBuffer.setupData(context.device, cubemapSamplerDescriptor, environmentMapIndex);
+    resourceManager.setupDescriptorBufferSampler(cubemapDescriptorBuffer, cubemapSamplerDescriptor, environmentMapIndex);
 
 
-    equiToCubemapImmediate(newEnvMapData.cubemapImage, cubemapIndex);
+    immediate.submit([&](VkCommandBuffer cmd) {
+        vk_helpers::transitionImage(cmd, newEnvMapData.cubemapImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, equiToCubemapPipeline);
+
+        VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info[2];
+        descriptor_buffer_binding_info[0] = equiImageDescriptorBuffer.getDescriptorBufferBindingInfo();
+        descriptor_buffer_binding_info[1] = cubemapStorageDescriptorBuffer.getDescriptorBufferBindingInfo();
+        vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptor_buffer_binding_info);
+
+        constexpr uint32_t _equiImageIndex = 0;
+        constexpr uint32_t _cubemapIndex = 1;
+        const VkDeviceSize equiOffset = equipIndex * equiImageDescriptorBuffer.getDescriptorBufferSize();
+        const VkDeviceSize cubemapOffset = cubemapIndex * cubemapStorageDescriptorBuffer.getDescriptorBufferSize();
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, equiToCubemapPipelineLayout, 0, 1, &_equiImageIndex, &equiOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, equiToCubemapPipelineLayout, 1, 1, &_cubemapIndex, &cubemapOffset);
+
+        vkCmdDispatch(cmd, CUBEMAP_EXTENTS.width / 16, CUBEMAP_EXTENTS.height / 16, 6);
+
+        vk_helpers::transitionImage(cmd, newEnvMapData.cubemapImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    });
 
     // can safely destroy the cubemap image view in the storage buffer
     resourceManager.destroyImage(equiImage);
-    cubemapStorageDescriptorBuffer.freeDescriptorBuffer(cubemapIndex);
-    equiImageDescriptorBuffer.freeDescriptorBuffer(0); // always 0
+    cubemapStorageDescriptorBuffer.freeDescriptorBufferIndex(cubemapIndex);
+    equiImageDescriptorBuffer.freeDescriptorBufferIndex(equipIndex);
 
 
     auto end0 = std::chrono::system_clock::now();
     auto elapsed0 = std::chrono::duration_cast<std::chrono::microseconds>(end0 - start);
-    fmt::print("Environment Map: {} | Cubemap {:.1f}ms | ", file_utils::getFileName(path), elapsed0.count() / 1000.0f);
+    fmt::print("Environment Map: {} | Cubemap {:.1f}ms | ", file::getFileName(path), elapsed0.count() / 1000.0f);
     newEnvMapData.specDiffCubemap = resourceManager.createCubemap(SPECULAR_PREFILTERED_BASE_EXTENTS, VK_FORMAT_R32G32B32A32_SFLOAT,
                                                                   VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                                                                   VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
@@ -357,49 +391,108 @@ void Environment::loadEnvironment(const char* name, const char* path, int enviro
 
     AllocatedCubemap specDiffCubemap = {};
     specDiffCubemap.allocatedImage = newEnvMapData.specDiffCubemap;
-    specDiffCubemap.mipLevels = SPECULAR_PREFILTERED_MIP_LEVELS;
-    specDiffCubemap.cubemapImageViews = std::vector<CubemapImageView>(SPECULAR_PREFILTERED_MIP_LEVELS);
-    assert(SPECULAR_PREFILTERED_BASE_EXTENTS.width == SPECULAR_PREFILTERED_BASE_EXTENTS.height);
+    specDiffCubemap.cubemapImageViews = std::vector<CubemapImageView>(ENVIRONMENT_MAP_MIP_COUNT);
 
-    for (int i = 0; i < SPECULAR_PREFILTERED_MIP_LEVELS; i++) {
+    for (int i = 0; i < ENVIRONMENT_MAP_MIP_COUNT; i++) {
         CubemapImageView cubemapImageView{};
-        VkImageViewCreateInfo view_info = vk_helpers::cubemapViewCreateInfo(newEnvMapData.specDiffCubemap.imageFormat, newEnvMapData.specDiffCubemap.image, VK_IMAGE_ASPECT_COLOR_BIT);
-        view_info.subresourceRange.baseMipLevel = i;
-        VK_CHECK(vkCreateImageView(context.device, &view_info, nullptr, &cubemapImageView.imageView));
+        VkImageViewCreateInfo viewInfo = vk_helpers::cubemapViewCreateInfo(newEnvMapData.specDiffCubemap.imageFormat, newEnvMapData.specDiffCubemap.image, VK_IMAGE_ASPECT_COLOR_BIT);
+        viewInfo.subresourceRange.baseMipLevel = i;
+        cubemapImageView.imageView = resourceManager.createImageView(viewInfo);
 
-        auto length = static_cast<uint32_t>(SPECULAR_PREFILTERED_BASE_EXTENTS.width / pow(2, i)); // w and h always equal
+        auto length = static_cast<uint32_t>(SPECULAR_PREFILTERED_BASE_EXTENTS.width / pow(2, i)); // w and h always equal (assumption)
         cubemapImageView.imageExtent = {length, length, 1};
-        float roughness;
-        int j = i;
-        if (i == DIFFUSE_IRRADIANCE_MIP_LEVEL) {
-            roughness = -1;
-        } // diffuse irradiance map
-        else {
-            roughness = static_cast<float>(j) / static_cast<float>(SPECULAR_PREFILTERED_MIP_LEVELS - 2);
-        }
+        // 0, 0.25, 0.5, 0.75, 1.0, diffuse
+        float roughness = i >= SPECULAR_PREFILTERED_MIP_LEVELS ? -1.0f : static_cast<float>(i) / static_cast<float>(SPECULAR_PREFILTERED_MIP_LEVELS - 1);
 
         cubemapImageView.roughness = roughness;
 
         VkDescriptorImageInfo prefilteredCubemapStorage{};
-        prefilteredCubemapStorage.sampler = nullptr; // sampler not actually used in storage image
         prefilteredCubemapStorage.imageView = cubemapImageView.imageView;
         prefilteredCubemapStorage.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
         std::vector<DescriptorImageData> prefilteredCubemapStorageDescriptor = {{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, prefilteredCubemapStorage}};
 
-        int descriptorBufferIndex = cubemapStorageDescriptorBuffer.setupData(context.device, prefilteredCubemapStorageDescriptor);
+        int32_t descriptorBufferIndex = resourceManager.setupDescriptorBufferSampler(cubemapStorageDescriptorBuffer, prefilteredCubemapStorageDescriptor);
         cubemapImageView.descriptorBufferIndex = descriptorBufferIndex;
-
         specDiffCubemap.cubemapImageViews[i] = cubemapImageView;
     }
 
-    cubemapToDiffuseSpecularImmediate(specDiffCubemap, environmentMapIndex);
-    // can safely destroy all the mip level image views
-    for (int i = 0; i < specDiffCubemap.mipLevels; i++) {
-        vkDestroyImageView(context.device, specDiffCubemap.cubemapImageViews[i].imageView, nullptr);
-        cubemapStorageDescriptorBuffer.freeDescriptorBuffer(specDiffCubemap.cubemapImageViews[i].descriptorBufferIndex);
-    }
+    immediate.submit([&](VkCommandBuffer cmd) {
+        vk_helpers::transitionImage(cmd, specDiffCubemap.allocatedImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
+
+        VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];
+        descriptorBufferBindingInfo[0] = cubemapDescriptorBuffer.getDescriptorBufferBindingInfo();
+        descriptorBufferBindingInfo[1] = cubemapStorageDescriptorBuffer.getDescriptorBufferBindingInfo();
+
+        constexpr uint32_t _cubemapIndex = 0;
+        constexpr uint32_t storageCubemapIndex = 1;
+        const VkDeviceSize sampleOffset = environmentMapIndex * cubemapDescriptorBuffer.getDescriptorBufferSize();
+
+        // Diffuse
+        {
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToDiffusePipeline);
+            vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
+
+            assert(specDiffCubemap.cubemapImageViews.size() == ENVIRONMENT_MAP_MIP_COUNT);
+            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToDiffusePipelineLayout, 0, 1, &_cubemapIndex, &sampleOffset);
+            const CubemapImageView& diffuse = specDiffCubemap.cubemapImageViews[ENVIRONMENT_MAP_MIP_COUNT - 1];
+            const VkDeviceSize diffusemapOffset = cubemapStorageDescriptorBuffer.getDescriptorBufferSize() * diffuse.descriptorBufferIndex;
+            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToDiffusePipelineLayout, 1, 1, &storageCubemapIndex, &diffusemapOffset);
+
+            CubeToDiffusePushConstantData pushData{};
+            pushData.sampleDelta = DIFFUSE_SAMPLE_DELTA;
+            vkCmdPushConstants(cmd, cubemapToDiffusePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(CubeToDiffusePushConstantData), &pushData);
+
+            // width and height should be 32 (if extents are 512), don't need bounds check in shader code
+            const auto xDispatch = static_cast<uint32_t>(std::ceil(diffuse.imageExtent.width / 8.0f));
+            const auto yDispatch = static_cast<uint32_t>(std::ceil(diffuse.imageExtent.height / 8.0f));
+
+            vkCmdDispatch(cmd, xDispatch, yDispatch, 6);
+        }
+
+
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToSpecularPipeline);
+
+        // Specular
+        {
+            vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
+            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToSpecularPipelineLayout, 0, 1, &_cubemapIndex, &sampleOffset);
+
+            for (int i = 0; i < SPECULAR_PREFILTERED_MIP_LEVELS; i++) {
+                const CubemapImageView& current = specDiffCubemap.cubemapImageViews[i];
+
+                VkDeviceSize irradiancemap_offset = cubemapStorageDescriptorBuffer.getDescriptorBufferSize() * current.descriptorBufferIndex;
+                vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToSpecularPipelineLayout, 1, 1, &storageCubemapIndex,
+                                                   &irradiancemap_offset);
+
+                CubeToPrefilteredConstantData pushData{};
+                pushData.roughness = current.roughness;
+                pushData.imageWidth = current.imageExtent.width;
+                pushData.imageHeight = current.imageExtent.height;
+                pushData.sampleCount = static_cast<uint32_t>(SPECULAR_SAMPLE_COUNT);
+                vkCmdPushConstants(cmd, cubemapToSpecularPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(CubeToDiffusePushConstantData),
+                                   &pushData);
+
+                const auto xDispatch = static_cast<uint32_t>(std::ceil(current.imageExtent.width / 8.0f));
+                const auto yDispatch = static_cast<uint32_t>(std::ceil(current.imageExtent.height / 8.0f));
+
+
+                vkCmdDispatch(cmd, xDispatch, yDispatch, 6);
+            }
+        }
+
+
+        vk_helpers::transitionImage(cmd, specDiffCubemap.allocatedImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    });
+
+
+    // can safely destroy all the storage mip level image views since we don't plan on writing to them anymore
+    for (CubemapImageView specDiffView : specDiffCubemap.cubemapImageViews) {
+        resourceManager.destroyImageView(specDiffView.imageView);
+    }
+    specDiffCubemap.cubemapImageViews.clear();
+    cubemapStorageDescriptorBuffer.freeAllDescriptorBufferIndices();
 
     auto end1 = std::chrono::system_clock::now();
     auto elapsed1 = std::chrono::duration_cast<std::chrono::microseconds>(end1 - end0);
@@ -421,148 +514,12 @@ void Environment::loadEnvironment(const char* name, const char* path, int enviro
         {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, lutDescriptorInfo}
     };
 
-    diffSpecMapDescriptorBuffer.setupData(context.device, combinedDescriptor2, environmentMapIndex);
+    resourceManager.setupDescriptorBufferSampler(diffSpecMapDescriptorBuffer, combinedDescriptor2, environmentMapIndex);
 
     environmentMaps[environmentMapIndex] = newEnvMapData;
-
     activeEnvironmentMapNames.insert({environmentMapIndex, name});
 
     auto end3 = std::chrono::system_clock::now();
     auto elapsed3 = std::chrono::duration_cast<std::chrono::microseconds>(end3 - start);
-
     fmt::print("Total {:.1f}ms\n", elapsed3.count() / 1000.0f);
-}
-
-void Environment::equiToCubemapImmediate(const AllocatedImage& _cubemapImage, const int _cubemapStorageDescriptorIndex) const
-{
-    immediate.submit([&](VkCommandBuffer cmd) {
-        constexpr VkExtent3D extents = {CUBEMAP_RESOLUTION, CUBEMAP_RESOLUTION, 1};
-
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, equiToCubemapPipeline);
-
-        vk_helpers::transitionImage(cmd, _cubemapImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
-
-        VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info[2];
-
-        descriptor_buffer_binding_info[0] = equiImageDescriptorBuffer.getDescriptorBufferBindingInfo();
-        descriptor_buffer_binding_info[1] = cubemapStorageDescriptorBuffer.getDescriptorBufferBindingInfo();
-
-        vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptor_buffer_binding_info);
-        constexpr uint32_t equiImageIndex = 0;
-        constexpr uint32_t cubemapIndex = 1;
-
-        constexpr VkDeviceSize offset = 0;
-        const VkDeviceSize cubemapOffset = _cubemapStorageDescriptorIndex * cubemapStorageDescriptorBuffer.getDescriptorBufferSize();
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, equiToCubemapPipelineLayout
-                                           , 0, 1, &equiImageIndex, &offset);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, equiToCubemapPipelineLayout
-                                           , 1, 1, &cubemapIndex, &cubemapOffset);
-
-
-        EquiToCubePushConstantData pushData{};
-        pushData.flipY = FLIP_Y;
-        vkCmdPushConstants(cmd, equiToCubemapPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(EquiToCubePushConstantData), &pushData);
-
-        assert(extents.width % 16 == 0 && extents.height % 16 == 0);
-        vkCmdDispatch(cmd, extents.width / 16, extents.height / 16, 6);
-
-        vk_helpers::transitionImage(cmd, _cubemapImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    });
-}
-
-void Environment::cubemapToDiffuseSpecularImmediate(const AllocatedCubemap& cubemapMips, const int cubemapSampleDescriptorIndex) const
-{
-    immediate.submit([&](VkCommandBuffer cmd) {
-        vk_helpers::transitionImage(cmd, cubemapMips.allocatedImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
-
-
-        VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];
-        descriptorBufferBindingInfo[0] = cubemapDescriptorBuffer.getDescriptorBufferBindingInfo();
-        descriptorBufferBindingInfo[1] = cubemapStorageDescriptorBuffer.getDescriptorBufferBindingInfo();
-
-        constexpr uint32_t cubemapIndex = 0;
-        constexpr uint32_t storageCubemapIndex = 1;
-        const VkDeviceSize sampleOffset = cubemapSampleDescriptorIndex * cubemapDescriptorBuffer.getDescriptorBufferSize();
-        // Diffuse
-        {
-            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToDiffusePipeline);
-            vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
-            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToDiffusePipelineLayout, 0, 1, &cubemapIndex, &sampleOffset);
-
-            const CubemapImageView& diffuse = cubemapMips.cubemapImageViews[5];
-            assert(diffuse.roughness == -1);
-
-            const VkDeviceSize diffusemapOffset = cubemapStorageDescriptorBuffer.getDescriptorBufferSize() * diffuse.descriptorBufferIndex;
-            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToDiffusePipelineLayout, 1, 1, &storageCubemapIndex, &diffusemapOffset);
-
-            CubeToDiffusePushConstantData pushData{};
-            pushData.sampleDelta = DIFFUFE_SAMPLE_DELTA;
-            vkCmdPushConstants(cmd, cubemapToDiffusePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(CubeToDiffusePushConstantData), &pushData);
-
-            // width and height should be 32, dont need bounds check in shader code
-            const auto xDispatch = static_cast<uint32_t>(std::ceil(diffuse.imageExtent.width / 8.0f));
-            const auto yDispatch = static_cast<uint32_t>(std::ceil(diffuse.imageExtent.height / 8.0f));
-
-            vkCmdDispatch(cmd, xDispatch, yDispatch, 6);
-        }
-
-
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToSpecularPipeline);
-        vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToSpecularPipelineLayout, 0, 1, &cubemapIndex,
-                                           &sampleOffset);
-
-        for (int i = 0; i < SPECULAR_PREFILTERED_MIP_LEVELS; i++) {
-            if (i == 5) continue; // skip the diffuse map mip level
-            const CubemapImageView& current = cubemapMips.cubemapImageViews[i];
-
-            VkDeviceSize irradiancemap_offset = cubemapStorageDescriptorBuffer.getDescriptorBufferSize() * current.descriptorBufferIndex;
-            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToSpecularPipelineLayout, 1, 1, &storageCubemapIndex,
-                                               &irradiancemap_offset);
-
-            CubeToPrefilteredConstantData pushData{};
-            pushData.roughness = current.roughness;
-            pushData.imageWidth = current.imageExtent.width;
-            pushData.imageHeight = current.imageExtent.height;
-            pushData.sampleCount = static_cast<uint32_t>(SPECULAR_SAMPLE_COUNT);
-            vkCmdPushConstants(cmd, cubemapToSpecularPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(CubeToDiffusePushConstantData),
-                               &pushData);
-
-            const auto xDispatch = static_cast<uint32_t>(std::ceil(current.imageExtent.width / 8.0f));
-            const auto yDispatch = static_cast<uint32_t>(std::ceil(current.imageExtent.height / 8.0f));
-
-
-            vkCmdDispatch(cmd, xDispatch, yDispatch, 6);
-        }
-
-
-        vk_helpers::transitionImage(cmd, cubemapMips.allocatedImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    });
-}
-
-void Environment::generateLutImmediate() const
-{
-    immediate.submit([&](VkCommandBuffer cmd) {
-        vk_helpers::transitionImage(cmd, lutImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
-
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, lutPipeline);
-
-        VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1];
-        descriptorBufferBindingInfo[0] = lutDescriptorBuffer.getDescriptorBufferBindingInfo();
-
-        constexpr uint32_t lutIndex = 0;
-        constexpr VkDeviceSize zeroOffset = 0;
-
-        vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, lutPipelineLayout, 0, 1, &lutIndex, &zeroOffset);
-
-        // must be divisible by 16, dont want to bother bounds checking in shader code
-        assert(LUT_IMAGE_EXTENT.width % 8 == 0 && LUT_IMAGE_EXTENT.height % 8 == 0);
-        const uint32_t xDisp = LUT_IMAGE_EXTENT.width / 8;
-        const uint32_t yDisp = LUT_IMAGE_EXTENT.height / 8;
-        constexpr uint32_t z_disp = 1;
-        vkCmdDispatch(cmd, xDisp, yDisp, z_disp);
-
-        vk_helpers::transitionImage(cmd, lutImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    });
 }

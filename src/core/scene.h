@@ -1,14 +1,17 @@
 //
-// Created by William on 2024-08-24.
+// Created by William on 2025-01-27.
 //
 
 #ifndef SCENE_H
 #define SCENE_H
+
 #include <unordered_set>
+#include <vulkan/vulkan_core.h>
 
-#include "game_object.h"
+#include "game_object/hierarchical.h"
 
-
+namespace will_engine
+{
 class Scene
 {
 public:
@@ -16,37 +19,40 @@ public:
 
     ~Scene();
 
-    GameObject* createGameObject(std::string name);
+    void addGameObject(IHierarchical* gameObject);
 
-    void addGameObject(GameObject* gameObject);
+    bool isGameObjectInScene(IHierarchical* obj);
 
-    bool isGameObjectValid(GameObject* obj);
+    static void indent(IHierarchical* obj);
+
+    static void undent(IHierarchical* obj);
+
+    void moveObject(const IHierarchical* obj, int diff) const;
 
 private: // Scene properties
-    GameObject* sceneRoot;
-    std::unordered_set<GameObject*> activeGameObjects;
+    IHierarchical* sceneRoot;
+    std::unordered_set<IHierarchical*> activeGameObjects;
 
-    void displayGameObject(GameObject* obj, int depth = 0);
+private: // Dear ImGui
 
-    void parentGameObject(GameObject* obj);
-
-    void unparentGameObject(GameObject* obj);
-
-    void moveObject(GameObject* obj, int diff);
 
 public:
     void imguiSceneGraph();
 
-    void updateSceneModelMatrices() const;
+    void displayGameObject(IHierarchical* obj, int32_t depth = 0);
+
+    void update(int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
 
 private:
-    static int getIndexInVector(GameObject* obj, std::vector<GameObject*> vector);
-
-    void deleteGameObjectRecursive(GameObject* obj);
-
-public: // Debug
-    GameObject* DEBUG_getSceneRoot() const;
+    /**
+     * Gets the index of the specified gameobject in the vector. Returns -1 if not found. O(n) complexity
+     * @param obj
+     * @param vector
+     * @return
+     */
+    static int getIndexInVector(const IHierarchical* obj, const std::vector<IHierarchical*>& vector);
 };
+}
 
 
 #endif //SCENE_H

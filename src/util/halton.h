@@ -8,6 +8,7 @@
 #include <glm/glm.hpp>
 #include <fmt/format.h>
 
+namespace will_engine{
 class HaltonSequence
 {
 public:
@@ -29,7 +30,6 @@ public:
         {0.4375, 0.8148148},
         {0.9375, 0.25925925},
         {0.03125,0.5925926},
-
     };
 
     static glm::vec2 getJitterHardcoded(const uint32_t frameNumber) {
@@ -73,6 +73,8 @@ private:
         return r;
     }
 };
+}
+
 
 
 #endif //HALTON_H

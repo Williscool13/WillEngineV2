@@ -36,19 +36,20 @@ VulkanContext::VulkanContext(SDL_Window* window, bool useValidationLayers)
     // vk 1.3
     VkPhysicalDeviceVulkan13Features features{};
     features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_3_FEATURES;
-    features.dynamicRendering = true;
-    features.synchronization2 = true;
+    features.dynamicRendering = VK_TRUE;
+    features.synchronization2 = VK_TRUE;
 
     // vk 1.2
     VkPhysicalDeviceVulkan12Features features12{};
     features12.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES;
-    features12.bufferDeviceAddress = true;
-    features12.descriptorIndexing = true;
-    features12.runtimeDescriptorArray = true;
-    features12.shaderSampledImageArrayNonUniformIndexing = true;
+    features12.bufferDeviceAddress = VK_TRUE;
+    features12.descriptorIndexing = VK_TRUE;
+    features12.runtimeDescriptorArray = VK_TRUE;
+    features12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
 
-    VkPhysicalDeviceFeatures other_features{};
-    other_features.multiDrawIndirect = true;
+    VkPhysicalDeviceFeatures otherFeatures{};
+    otherFeatures.multiDrawIndirect = VK_TRUE;
+    otherFeatures.samplerAnisotropy = VK_TRUE;
 
     // Descriptor Buffer Extension
     VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptorBufferFeatures = {};
@@ -60,7 +61,7 @@ VulkanContext::VulkanContext(SDL_Window* window, bool useValidationLayers)
             .set_minimum_version(1, 3)
             .set_required_features_13(features)
             .set_required_features_12(features12)
-            .set_required_features(other_features)
+            .set_required_features(otherFeatures)
             .add_required_extension(VK_EXT_DESCRIPTOR_BUFFER_EXTENSION_NAME)
             .set_surface(surface)
             .select()

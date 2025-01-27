@@ -7,6 +7,8 @@
 
 #include <glm/glm.hpp>
 
+namespace will_engine
+{
 struct CameraProperties
 {
     float fov{};
@@ -20,5 +22,6 @@ struct CameraProperties
     glm::vec3 right{};
     glm::vec3 up{};
 };
+}
 
 #endif //CAMERA_TYPES_H

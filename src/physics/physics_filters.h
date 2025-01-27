@@ -9,6 +9,8 @@
 #include <Jolt/Physics/Collision/ObjectLayer.h>
 #include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayer.h>
 
+namespace will_engine::physics
+{
 namespace Layers
 {
     static constexpr JPH::ObjectLayer NON_MOVING{0};
@@ -78,5 +80,6 @@ public:
      */
     [[nodiscard]] bool ShouldCollide(JPH::ObjectLayer inLayer1, JPH::ObjectLayer inLayer2) const override;
 };
+}
 
 #endif //PHYSICS_FILTERS_H

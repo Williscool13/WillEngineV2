@@ -8,6 +8,8 @@
 #include <src/physics/physics.h>
 #include <Jolt/Renderer/DebugRenderer.h>
 
+namespace will_engine::physics
+{
 class DebugRendererImpl final : public JPH::DebugRenderer
 {
 public:
@@ -22,10 +24,10 @@ public:
     Batch CreateTriangleBatch(const Vertex* inVertices, int inVertexCount, const JPH::uint32* inIndices, int inIndexCount) override;
 
     void DrawGeometry(JPH::RMat44Arg inModelMatrix, const JPH::AABox& inWorldSpaceBounds, float inLODScaleSq, JPH::ColorArg inModelColor, const GeometryRef& inGeometry, ECullMode inCullMode,
-                              ECastShadow inCastShadow, EDrawMode inDrawMode) override;
+                      ECastShadow inCastShadow, EDrawMode inDrawMode) override;
 
     void DrawText3D(JPH::RVec3Arg inPosition, const JPH::string_view& inString, JPH::ColorArg inColor, float inHeight) override;
 };
-
+}
 
 #endif //DEBUG_RENDERER_H

@@ -4,91 +4,94 @@
 
 #ifndef ENGINE_H
 #define ENGINE_H
-
-#include <deque>
-#include <functional>
-
-
+#include <SDL_video.h>
 #include <vulkan/vulkan_core.h>
-
-
-#include <VkBootstrap.h>
-
-#include <SDL.h>
 #include <glm/glm.hpp>
-#include <src/renderer/renderer_constants.h>
 
-#include "imgui_wrapper.h"
+#include "engine_types.h"
 #include "scene.h"
-#include "../renderer/vk_types.h"
-#include "../renderer/vk_descriptor_buffer.h"
-#include "../renderer/vk_helpers.h"
-#include "src/renderer/environment/environment.h"
+#include "src/renderer/imgui_wrapper.h"
+#include "src/renderer/renderer_constants.h"
+#include "src/renderer/vk_types.h"
+#include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/lighting/directional_light.h"
-#include "src/renderer/pipelines/post_processing/post_process_types.h"
 
-class CascadedShadowMap;
-class CascadedShadowMapDescriptorLayouts;
-class ImguiWrapper;
-class PlayerCharacter;
-class Physics;
+
 class ResourceManager;
 class ImmediateSubmitter;
-class DeferredResolvePipeline;
-class DeferredMrtPipeline;
-class RenderObjectDescriptorLayout;
-class TaaPipeline;
-class PostProcessPipeline;
-class EnvironmentPipeline;
-class FrustumCullingPipeline;
-class FrustumCullingDescriptorLayouts;
-class EnvironmentDescriptorLayouts;
-class SceneDescriptorLayouts;
+class VulkanContext;
 
-struct DeletionQueue
+namespace will_engine
 {
-    std::deque<std::function<void()> > deleteQueue;
-
-    void pushFunction(std::function<void()>&& function)
-    {
-        deleteQueue.push_back(function);
-    }
-
-    void flush()
-    {
-        // reverse iterate the deletion queue to execute all the functions
-        for (auto& it : deleteQueue) {
-            (it)();
-        }
-
-        deleteQueue.clear();
-    }
-};
-
-struct FrameData
+namespace post_process_pipeline
 {
-    VkCommandPool _commandPool;
-    VkCommandBuffer _mainCommandBuffer;
-    VkSemaphore _swapchainSemaphore, _renderSemaphore;
-    VkFence _renderFence;
+    class PostProcessPipeline;
+}
 
-    // Frame Lifetime Deletion Queue
-    DeletionQueue _deletionQueue;
-};
+namespace deferred_resolve
+{
+    class DeferredResolvePipeline;
+}
 
+namespace deferred_mrt
+{
+    class DeferredMrtPipeline;
+}
+
+namespace frustum_cull_pipeline
+{
+    class FrustumCullPipeline;
+}
+
+class FreeCamera;
+class ImguiWrapper;
+
+namespace cascaded_shadows
+{
+    class CascadedShadowMap;
+}
+
+namespace environment
+{
+    class Environment;
+}
+
+namespace temporal_antialiasing_pipeline
+{
+    class TemporalAntialiasingPipeline;
+}
+
+class RenderObject;
+class GameObject;
+
+namespace environment_pipeline
+{
+    class EnvironmentPipeline;
+}
+
+namespace physics
+{
+    class Physics;
+}
 
 class Engine
 {
 public:
     void init();
 
+    void initRenderer();
+
+    void initGame();
+
     void run();
 
-    void draw();
+    void update(float deltaTime);
 
-    void update(float deltaTime) const;
+    void updateGame(float deltaTime) const;
 
-    void updateSceneData(VkCommandBuffer cmd) const;
+    void updateRender(float deltaTime, int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
+
+    void draw(float deltaTime);
 
     /**
      * Cleans up vulkan resources when application has exited. Destroys resources in opposite order of initialization
@@ -96,136 +99,66 @@ public:
      */
     void cleanup();
 
-private: // Initialization
-    void initRenderer();
-
-    void initScene();
-
-private: // Vulkan Boilerplate
-    /**
-     * The extents of the window. Used to initialize the swapchain image.
-     */
+private:
     VkExtent2D windowExtent{1700, 900};
-    /**
-     * All graphics operation in this program operate with these extents and are scaled down with a blit into the window extents
-     */
-    const VkExtent2D renderExtent{1920, 1080};
-    //const VkExtent2D renderExtent{3840, 2160};
     SDL_Window* window{nullptr};
 
-    VulkanContext* context = nullptr;
+    VulkanContext* context{nullptr};
     ImmediateSubmitter* immediate = nullptr;
     ResourceManager* resourceManager = nullptr;
-    Physics* physics = nullptr;
-
-    friend void ImguiWrapper::imguiInterface(Engine* engine);
-
+    physics::Physics* physics = nullptr;
+    environment::Environment* environmentMap{nullptr};
+    cascaded_shadows::CascadedShadowMap* cascadedShadowMap{nullptr};
     ImguiWrapper* imguiWrapper = nullptr;
 
-    //DeletionQueue mainDeletionQueue;
+    EngineStats stats{};
 
 private: // Rendering
-    // Main
-    int64_t frameNumber{0};
+    int32_t frameNumber{0};
+    int32_t getPreviousFrameOverlap() const { return glm::max(frameNumber - 1, 0) % FRAME_OVERLAP; }
+    int32_t getCurrentFrameOverlap() const { return frameNumber % FRAME_OVERLAP; }
     FrameData frames[FRAME_OVERLAP]{};
-    FrameData& getCurrentFrame() { return frames[frameNumber % FRAME_OVERLAP]; }
+    FrameData& getCurrentFrame() { return frames[getCurrentFrameOverlap()]; }
+
     bool bStopRendering{false};
-
-    double frameTime{};
-    double renderTime{};
-    double gameTime{};
-    double physicsTime{};
-
-private: // Scene
-    PlayerCharacter* player{nullptr};
-    Scene scene{};
-
-    RenderObject* sponza{nullptr};
-    RenderObject* cube{nullptr};
-    RenderObject* primitives{nullptr};
-    GameObject* sponzaObject{nullptr};
-    GameObject* cubeGameObject{nullptr};
-    GameObject* cubeGameObject2{nullptr};
-    GameObject* primitiveCubeGameObject{nullptr};
-    std::vector<GameObject*> gameObjects{};
-    std::vector<GameObject*> cameraDebugGameObjects{};
-    std::vector<GameObject*> cascadeDebugGameObjects{};
-
-    CascadedShadowMap* cascadedShadowMap{nullptr};
-
-    Environment* environmentMap{nullptr};
-    int32_t environmentMapIndex{0};
-
-    DirectionalLight mainLight = {glm::normalize(glm::vec3(1.0f, -1.0f, 1.0f)), 1.0f, glm::vec3(0.0f)};
-
-    int32_t deferredDebug{0};
-    int32_t taaDebug{0};
-    bool bDebugDisableShadows{false};
-    int32_t debugPcfLevel{5};
-    int32_t shadowMapDebug{0};
-    // if false shows bounds of ortho made from this persp
-    bool bShowPerspectiveBounds{true};
-    bool bShowOrthographicBounds{true};
-
-private: // Scene Descriptors
-    EnvironmentDescriptorLayouts* environmentDescriptorLayouts = nullptr;
-    CascadedShadowMapDescriptorLayouts* shadowMapDescriptorLayouts = nullptr;
-    SceneDescriptorLayouts* sceneDescriptorLayouts = nullptr;
-    FrustumCullingDescriptorLayouts* frustumCullDescriptorLayouts = nullptr;
-    RenderObjectDescriptorLayout* renderObjectDescriptorLayout = nullptr;
-
-    DescriptorBufferUniform sceneDataDescriptorBuffer;
-    AllocatedBuffer sceneDataBuffer;
-
-    bool bEnableTaa{true};
-    bool bEnableJitter{true};
-    float taaBlend{0.1f};
-    bool bEnableShadowMapDebug{false};
-    bool bEnableFrustumCulling{true};
-
-    PostProcessType postProcessFlags{PostProcessType::Sharpening | PostProcessType::Tonemapping};
-
-private: // Pipelines
-    // Frustum Culling
-    FrustumCullingPipeline* frustumCullingPipeline{nullptr};
-
-    EnvironmentPipeline* environmentPipeline{nullptr};
-
-    // Deferred MRT
-    DeferredMrtPipeline* deferredMrtPipeline{nullptr};
-
-    // Deferred Resolve
-    DeferredResolvePipeline* deferredResolvePipeline{nullptr};
-
-    // TAA
-    TaaPipeline* taaPipeline{nullptr};
-
-    // PostProcess
-    PostProcessPipeline* postProcessPipeline{nullptr};
-
-private: // Swapchain
-    VkSwapchainKHR swapchain{};
-    VkFormat swapchainImageFormat{};
-    std::vector<VkImage> swapchainImages;
-    std::vector<VkImageView> swapchainImageViews;
-    VkExtent2D swapchainExtent{};
-
     bool bResizeRequested{false};
 
-    void createSwapchain(uint32_t width, uint32_t height);
+    void createDrawResources();
 
-    void resizeSwapchain();
+private: // Debug
+    bool bEnableTaa{true};
+    bool bEnableDebugFrustumCullDraw{false};
+    int32_t deferredDebug{0};
 
-private: // Render Targets
-    const VkFormat drawImageFormat{VK_FORMAT_R16G16B16A16_SFLOAT};
-    const VkFormat depthImageFormat{VK_FORMAT_D32_SFLOAT};
-    const VkFormat velocityImageFormat{VK_FORMAT_R16G16_SFLOAT};
-    const VkFormat normalImageFormat{VK_FORMAT_R16G16B16A16_SNORM}; //VK_FORMAT_R8G8B8A8_SNORM - 8888 is too inaccurate for normals
-    const VkFormat albedoImageFormat{VK_FORMAT_R8G8B8A8_UNORM};
-    const VkFormat pbrImageFormat{VK_FORMAT_R8G8B8A8_UNORM};
+    void hotReloadShaders() const;
 
-    void createDrawResources(uint32_t width, uint32_t height);
+private: // Scene Data
+    DescriptorBufferUniform sceneDataDescriptorBuffer;
+    AllocatedBuffer sceneDataBuffers[FRAME_OVERLAP]{};
+    AllocatedBuffer debugSceneDataBuffer{};
 
+    FreeCamera* camera{nullptr};
+    DirectionalLight mainLight{glm::normalize(glm::vec3(1.0f, -1.0f, 1.0f)), 1.0f, glm::vec3(0.0f)};
+    int32_t environmentMapIndex{0};
+
+    Scene* scene{nullptr};
+
+    RenderObject* cube{nullptr};
+    RenderObject* primitives{nullptr};
+    RenderObject* sponza{nullptr};
+    //RenderObject* checkeredFloor{nullptr};
+
+    std::vector<GameObject*> gameObjects{};
+
+private: // Pipelines
+    frustum_cull_pipeline::FrustumCullPipeline* frustumCullPipeline{nullptr};
+    environment_pipeline::EnvironmentPipeline* environmentPipeline{nullptr};
+    deferred_mrt::DeferredMrtPipeline* deferredMrtPipeline{nullptr};
+    deferred_resolve::DeferredResolvePipeline* deferredResolvePipeline{nullptr};
+    temporal_antialiasing_pipeline::TemporalAntialiasingPipeline* temporalAntialiasingPipeline{nullptr};
+    post_process_pipeline::PostProcessPipeline* postProcessPipeline{nullptr};
+
+private: // Draw Resources
     AllocatedImage drawImage{};
     AllocatedImage depthImage{};
 
@@ -245,21 +178,32 @@ private: // Render Targets
      * 16 X and 16 Y
      */
     AllocatedImage velocityRenderTarget{};
-
     /**
-     * The results of the TAA pass will be outputted into this buffer
-     */
+    * The results of the TAA pass will be outputted into this buffer
+    */
     AllocatedImage taaResolveTarget{};
 
     /**
      * A copy of the previous TAA Resolve Buffer
      */
     AllocatedImage historyBuffer{};
-
     AllocatedImage postProcessOutputBuffer{};
 
-public: // Default Data
-    static VkDescriptorSetLayout emptyDescriptorSetLayout;
+private: // Swapchain
+    VkSwapchainKHR swapchain{};
+    VkFormat swapchainImageFormat{};
+    std::vector<VkImage> swapchainImages;
+    std::vector<VkImageView> swapchainImageViews;
+    VkExtent2D swapchainExtent{};
+
+    void createSwapchain(uint32_t width, uint32_t height);
+
+    void resizeSwapchain();
+
+public:
+    friend void ImguiWrapper::imguiInterface(Engine* engine);
 };
+}
+
 
 #endif //ENGINE_H

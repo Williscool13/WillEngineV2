@@ -8,6 +8,8 @@
 #include "camera_types.h"
 #include "../transform.h"
 
+namespace will_engine
+{
 /**
  * The base class that defines a camera.
  * \n Subclasses should individually define how pitch, yaw, and position are updated.
@@ -82,6 +84,7 @@ protected:
     glm::mat4 cachedProjMatrix{};
     glm::mat4 cachedViewProjMatrix{};
 };
+}
 
 
 #endif //CAMERA_H

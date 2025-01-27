@@ -3,20 +3,25 @@
 //
 
 #include "physics.h"
-#include <Jolt/RegisterTypes.h>
-#include <Jolt/Core/Factory.h>
+
 #include <thread>
 
-#include "physics_body.h"
-#include "physics_filters.h"
-#include "physics_utils.h"
+#include <Jolt/RegisterTypes.h>
+#include <Jolt/Core/Factory.h>
 #include "Jolt/Physics/Body/BodyCreationSettings.h"
 #include "Jolt/Physics/Collision/Shape/BoxShape.h"
 #include "Jolt/Physics/Collision/Shape/CapsuleShape.h"
 #include "Jolt/Physics/Collision/Shape/CylinderShape.h"
 #include "Jolt/Physics/Collision/Shape/SphereShape.h"
-#include "src/core/game_object.h"
 
+#include "physics_constants.h"
+#include "physics_filters.h"
+#include "physics_utils.h"
+#include "src/core/game_object/physics_body.h"
+
+
+namespace will_engine::physics
+{
 Physics* Physics::physics = nullptr;
 
 Physics::Physics()
@@ -93,11 +98,12 @@ Physics::~Physics()
 void Physics::cleanup()
 {
     if (physicsSystem) {
-        for (const auto& [id, body] : physicsBodies) {
-            physicsSystem->GetBodyInterface().RemoveBody(body.bodyId);
-            physicsSystem->GetBodyInterface().DestroyBody(body.bodyId);
+        for (const auto physicsObject : physicsObjects) {
+            physicsSystem->GetBodyInterface().RemoveBody(physicsObject.first);
+            physicsSystem->GetBodyInterface().DestroyBody(physicsObject.first);
         }
-        physicsBodies.clear();
+
+        physicsObjects.clear();
 
         unitCubeShape = nullptr;
         unitSphereShape = nullptr;
@@ -152,59 +158,61 @@ JPH::BodyInterface& Physics::getBodyInterface() const
     return physicsSystem->GetBodyInterface();
 }
 
-JPH::BodyID Physics::addRigidBody(GameObject* obj, const JPH::ShapeRefC& shape, const bool isDynamic)
+JPH::BodyID Physics::addRigidBody(IPhysicsBody* pb, const JPH::ShapeRefC& shape, const bool isDynamic)
 {
-    PhysicsBody body;
-    body.gameObject = obj;
+    PhysicsObject physicsObject;
+    physicsObject.physicsBody = pb;
 
     const JPH::BodyCreationSettings settings(
         shape,
-        physics_utils::ToJolt(obj->getGlobalPosition()),
-        physics_utils::ToJolt(obj->getGlobalRotation()),
+        physics_utils::ToJolt(pb->getGlobalPosition()),
+        physics_utils::ToJolt(pb->getGlobalRotation()),
         isDynamic ? JPH::EMotionType::Dynamic : JPH::EMotionType::Static,
         isDynamic ? Layers::MOVING : Layers::NON_MOVING
     );
 
-    body.bodyId = physicsSystem->GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::Activate);
-    physicsBodies[obj->getId()] = body;
+    physicsObject.bodyId = physicsSystem->GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::Activate);
+    physicsObject.shape = shape;
+    physicsObjects.insert({physicsObject.bodyId, physicsObject});
 
-    return body.bodyId;
+    return physicsObject.bodyId;
 }
 
-JPH::BodyID Physics::addRigidBody(GameObject* obj, const JPH::BodyCreationSettings& settings)
+JPH::BodyID Physics::addRigidBody(IPhysicsBody* pb, const JPH::BodyCreationSettings& settings)
 {
-    PhysicsBody body;
-    body.gameObject = obj;
-    body.bodyId = physicsSystem->GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::Activate);
-    physicsBodies[obj->getId()] = body;
+    PhysicsObject physicsObject;
+    physicsObject.physicsBody = pb;
+    physicsObject.bodyId = physicsSystem->GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::Activate);
+    physicsObject.shape = settings.GetShape();
+    physicsObjects.insert({physicsObject.bodyId, physicsObject});
 
-    return body.bodyId;
+    return physicsObject.bodyId;
 }
 
-void Physics::removeRigidBody(const GameObject* object)
+void Physics::removeRigidBody(const IPhysicsBody* pb)
 {
-    const auto it = physicsBodies.find(object->getId());
-    if (it != physicsBodies.end()) {
-        physicsSystem->GetBodyInterface().RemoveBody(it->second.bodyId);
-        physicsSystem->GetBodyInterface().DestroyBody(it->second.bodyId);
-        physicsBodies.erase(it);
-    }
+    if (!physicsObjects.contains(pb->getBodyId())) { return; }
+
+    const JPH::BodyID bodyId = physicsObjects[pb->getBodyId()].bodyId;
+    physicsSystem->GetBodyInterface().RemoveBody(bodyId);
+    physicsSystem->GetBodyInterface().DestroyBody(bodyId);
+    physicsObjects.erase(pb->getBodyId());
 }
 
-void Physics::removeRigidBodies(const std::vector<GameObject>& objects)
+void Physics::removeRigidBodies(const std::vector<IPhysicsBody*>& objects)
 {
     std::vector<JPH::BodyID> bodyIDs;
     bodyIDs.reserve(objects.size());
 
-    for (const auto& obj : objects) {
-        const auto it = physicsBodies.find(obj.getId());
-        if (it != physicsBodies.end()) {
-            bodyIDs.push_back(it->second.bodyId);
-            physicsBodies.erase(it);
+    for (const auto& pb : objects) {
+        const auto bodyId = pb->getBodyId();
+        if (physicsObjects.contains(bodyId)) {
+            bodyIDs.push_back(bodyId);
+            physicsObjects.erase(bodyId);
         }
     }
 
-    // Batch remove and destroy the bodies
+    // Batch remove and destroy the bodies (Required by Jolt)
     if (!bodyIDs.empty()) {
         auto& bodyInterface = physicsSystem->GetBodyInterface();
         bodyInterface.RemoveBodies(bodyIDs.data(), bodyIDs.size());
@@ -215,17 +223,16 @@ void Physics::removeRigidBodies(const std::vector<GameObject>& objects)
 void Physics::updateTransforms() const
 {
     const JPH::BodyInterface& bodyInterface = getBodyInterface();
-    for (auto& physicsBody : physicsBodies) {
-        physicsBody.second.updateTransform(bodyInterface);
+    for (auto physicsObject : physicsObjects) {
+        const JPH::Vec3 position = bodyInterface.GetPosition(physicsObject.first);
+        const JPH::Quat rotation = bodyInterface.GetRotation(physicsObject.first);
+        physicsObject.second.physicsBody->setGlobalTransformFromPhysics(physics_utils::ToGLM(position), physics_utils::ToGLM(rotation));
     }
 }
 
-GameObject* Physics::getGameObjectFromBody(const JPH::BodyID bodyId) const
+IPhysicsBody* Physics::getPhysicsBodyFromId(JPH::BodyID bodyId)
 {
-    for (const auto& body : physicsBodies) {
-        if (body.second.bodyId == bodyId) {
-            return body.second.gameObject;
-        }
-    }
-    return nullptr;
+    if (!physicsObjects.contains(bodyId)) { return nullptr; }
+    return physicsObjects[bodyId].physicsBody;
+}
 }

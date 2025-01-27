@@ -5,6 +5,8 @@
 #include "physics_filters.h"
 #include <Jolt/Physics/Collision/BroadPhase/BroadPhaseLayer.h>
 
+namespace will_engine::physics
+{
 BPLayerInterfaceImpl::BPLayerInterfaceImpl()
 {
     // Map each object layer to a broad phase layer
@@ -62,4 +64,5 @@ bool ObjectLayerPairFilterImpl::ShouldCollide(JPH::ObjectLayer inLayer1, JPH::Ob
     }
 
     return true;
+}
 }
