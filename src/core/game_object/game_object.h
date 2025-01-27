@@ -9,6 +9,7 @@
 
 #include <glm/glm.hpp>
 
+#include "hierarchical.h"
 #include "renderable.h"
 #include "transformable.h"
 #include "src/core/transform.h"
@@ -22,7 +23,7 @@ namespace will_engine
 {
 class RenderObject;
 
-class GameObject final : public IPhysicsBody, public IRenderable, public ITransformable
+class GameObject : public IPhysicsBody, public IRenderable, public ITransformable, public IHierarchical
 {
 public:
     GameObject();
@@ -33,40 +34,42 @@ public:
 
     virtual void update(float deltaTime) {}
 
-public: // Hierarchy
-    /**
-     * Adds a \code game_object\endcode as a child to this \code game_object\endcode while maintaining its position in WorldSpace.
-     * \n Will reparent the child if that child has a parent.
-     * @param child
-     * @param maintainWorldTransform
-     */
-    void addChild(GameObject* child, bool maintainWorldTransform = true);
-
-    /**
-     * If exists, removes a child from the children array and unparent the child.
-     */
-    void removeChild(GameObject* child, GameObject* newParent = nullptr);
-
-    /**
-     * Unparents a child while maintaining its position in WorldSpace
-     */
-    void reparent(GameObject* newParent = nullptr, bool maintainWorldTransform = true);
-
-    void setName(std::string newName);
-
-    GameObject* getParent() const;
-
-    std::vector<GameObject*>& getChildren();
-
     uint32_t getId() const { return gameObjectId; }
 
-    std::string_view getName() const { return gameObjectName; }
-
-protected: // Hierarchy
-    GameObject* parent{nullptr};
-    std::vector<GameObject*> children{};
+private:
     static uint32_t nextId;
     uint32_t gameObjectId{};
+
+public: // IHierarchical
+    bool addChild(IHierarchical* child) override;
+
+    bool removeChild(IHierarchical* child) override;
+
+    void reparent(IHierarchical* newParent) override;
+
+    void dirty() override;
+
+    void recursiveUpdate(int32_t currentFrameOverlap, int32_t previousFrameOverlap) override;
+
+    void setParent(IHierarchical* newParent) override;
+
+    IHierarchical* getParent() const override;
+
+    const std::vector<IHierarchical*>& getChildren() const override;
+
+    std::vector<IHierarchical*>& getChildren() override;
+
+    void setName(std::string newName) override;
+
+    std::string_view getName() const override { return gameObjectName; }
+
+protected: // IHierarchical
+    IHierarchical* parent{nullptr};
+    /**
+     * Cache parent's transformable interface to reduce excessive casting
+     */
+    ITransformable* transformableParent{nullptr};
+    std::vector<IHierarchical*> children{};
     std::string gameObjectName{};
 
 public: // ITransformable
@@ -117,7 +120,7 @@ public: // ITransformable
 
     void rotateAxis(float angle, const glm::vec3& axis) override;
 
-private: // Transform
+protected: // Transform
     Transform transform{};
     Transform cachedGlobalTransform{};
     bool bIsGlobalTransformDirty{true};
@@ -126,21 +129,15 @@ private: // Transform
      */
     int32_t framesToUpdate{FRAME_OVERLAP + 1};
 
-    void dirty();
-
 public: // IRenderable
-    /**
-     * Update the model transform in the RenderObject. Only applicable if this gameobject has a pRenderObject associated with it.
-     */
-    void recursiveUpdateModelMatrix(int32_t currentFrameOverlap, int32_t previousFrameOverlap);
-
     void setRenderObjectReference(IRenderReference* owner, const int32_t index) override
     {
         pRenderReference = owner;
         instanceIndex = index;
+        framesToUpdate = FRAME_OVERLAP + 1;
     }
 
-private: // IRenderable
+protected: // IRenderable
     /**
       * If true, the model matrix will never be updated from defaults.
       */
@@ -160,7 +157,7 @@ public: // Physics
 
     void setupRigidbody(const JPH::ShapeRefC& shape, const JPH::EMotionType motionType = JPH::EMotionType::Static, const JPH::ObjectLayer layer = physics::Layers::NON_MOVING);
 
-private: // Physics
+protected: // Physics
     JPH::BodyID bodyId{JPH::BodyID::cInvalidBodyID};
 
 public:

@@ -124,7 +124,7 @@ void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, Gam
     }
 
     gameObject->setLocalTransform(renderNode.transform);
-    parent->addChild(gameObject, false);
+    parent->addChild(gameObject);
 
     for (const auto& child : renderNode.children) {
         recursiveGenerateGameObject(*child, gameObject);
