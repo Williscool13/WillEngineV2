@@ -15,11 +15,6 @@ add_definitions(-DJPH_ENABLE_ASSERT_MESSAGES=1)
 # Vulkan
 find_package(Vulkan REQUIRED)
 
-if(MSVC)
-    # MSVC-specific settings
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreadedDLL")
-endif()
-
 # SDL2
 set(SDL2_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/lib/SDL2.lib")
 set(SDL2MAIN_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/lib/SDL2main.lib")
@@ -29,13 +24,14 @@ set(PHYSICS_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics")
 
 add_subdirectory(extern/glm)
 add_subdirectory(extern/fmt)
-    add_subdirectory(extern/volk)
+add_subdirectory(extern/volk)
 add_subdirectory(extern/vk-bootstrap)
 add_subdirectory(extern/fastgltf)
 add_subdirectory(extern/fastgltf/deps) # simdjson
 add_subdirectory(extern/SPIRV-Headers)
 add_subdirectory(extern/SPIRV-Tools)
 add_subdirectory(extern/glslang)
+set(SHADERC_ENABLE_SHARED_CRT ON)
 set(SHADERC_SKIP_TESTS ON)
 set(SHADERC_SKIP_EXAMPLES ON)
 set(SHADERC_SKIP_COPYRIGHT_CHECK ON)
