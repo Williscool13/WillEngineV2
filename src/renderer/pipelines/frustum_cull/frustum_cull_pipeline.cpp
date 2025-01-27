@@ -6,7 +6,6 @@
 
 #include "volk.h"
 
-#include "src/core/engine.h"
 #include "src/renderer/render_object/render_object.h"
 
 will_engine::frustum_cull_pipeline::FrustumCullPipeline::FrustumCullPipeline(ResourceManager& resourceManager)
@@ -63,7 +62,7 @@ void will_engine::frustum_cull_pipeline::FrustumCullPipeline::draw(VkCommandBuff
         bindingInfo[1] = renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
 
         VkDeviceSize sceneDataOffset = drawInfo.sceneDataOffset;
-        VkDeviceSize addressesOffset = renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferSize() * Engine::getCurrentFrameOverlap();
+        VkDeviceSize addressesOffset = renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap;
 
         vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfo);
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);

@@ -157,9 +157,9 @@ void will_engine::Scene::displayGameObject(GameObject* obj, const int32_t depth)
     ImGui::PopID();
 }
 
-void will_engine::Scene::update() const
+void will_engine::Scene::update(const int32_t currentFrameOverlap, const int32_t previousFrameOverlap) const
 {
-    sceneRoot->recursiveUpdateModelMatrix();
+    sceneRoot->recursiveUpdateModelMatrix(currentFrameOverlap, previousFrameOverlap);
 }
 
 int32_t will_engine::Scene::getIndexInVector(const GameObject* obj, const std::vector<GameObject*>& vector)

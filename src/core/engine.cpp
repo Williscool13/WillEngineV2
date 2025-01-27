@@ -36,8 +36,6 @@
 
 namespace will_engine
 {
-int32_t Engine::frameNumber = 0;
-
 void Engine::init()
 {
     fmt::print("----------------------------------------\n");
@@ -350,20 +348,24 @@ void Engine::draw(float deltaTime)
 
     const auto renderStart = std::chrono::system_clock::now();
 
-    scene->update();
+    int32_t currentFrameOverlap = getCurrentFrameOverlap();
+    int32_t previousFrameOverlap = getCurrentFrameOverlap();
+
+    scene->update(currentFrameOverlap, previousFrameOverlap);
     updateRender(deltaTime);
-    cascadedShadowMap->update(mainLight, camera);
+    cascadedShadowMap->update(mainLight, camera, currentFrameOverlap);
     std::vector renderObjects{cube, primitives, sponza}; //, checkeredFloor};
 
     frustum_cull_pipeline::FrustumCullDrawInfo csmFrustumCullDrawInfo{
+        currentFrameOverlap,
         renderObjects,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
-        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(),
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
         false
     };
     frustumCullPipeline->draw(cmd, csmFrustumCullDrawInfo);
 
-    cascadedShadowMap->draw(cmd, renderObjects);
+    cascadedShadowMap->draw(cmd, renderObjects, currentFrameOverlap);
 
     vk_helpers::clearColorImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -372,7 +374,7 @@ void Engine::draw(float deltaTime)
         drawImage.imageView,
         depthImage.imageView,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
-        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(),
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
         environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferBindingInfo(),
         environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferSize() * environmentMapIndex,
     };
@@ -384,15 +386,16 @@ void Engine::draw(float deltaTime)
     vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     frustum_cull_pipeline::FrustumCullDrawInfo deferredFrustumCullDrawInfo{
-        renderObjects,
+        currentFrameOverlap, renderObjects,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
-        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap(),
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
         true
     };
     frustumCullPipeline->draw(cmd, deferredFrustumCullDrawInfo);
 
     const deferred_mrt::DeferredMrtDrawInfo deferredMrtDrawInfo{
         true,
+        currentFrameOverlap,
         {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT},
         renderObjects,
         normalRenderTarget.imageView,
@@ -401,13 +404,14 @@ void Engine::draw(float deltaTime)
         velocityRenderTarget.imageView,
         depthImage.imageView,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
-        sceneDataDescriptorBuffer.getDescriptorBufferSize() * getCurrentFrameOverlap()
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
     };
     deferredMrtPipeline->draw(cmd, deferredMrtDrawInfo);
 
     if (bEnableDebugFrustumCullDraw) {
         const deferred_mrt::DeferredMrtDrawInfo debugDeferredMrtDrawInfo{
             false,
+            currentFrameOverlap,
             {RENDER_EXTENT_WIDTH / 3.0f, RENDER_EXTENT_HEIGHT / 3.0f},
             renderObjects,
             normalRenderTarget.imageView,
@@ -757,8 +761,9 @@ void Engine::createDrawResources()
     }
 }
 
-void Engine::hotReloadShaders()
+void Engine::hotReloadShaders() const
 {
+    vkDeviceWaitIdle(context->device);
     frustumCullPipeline->reloadShaders();
     environmentPipeline->reloadShaders();
     deferredMrtPipeline->reloadShaders();

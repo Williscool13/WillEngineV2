@@ -182,6 +182,7 @@ if (WIN32)
             src/core/scene.cpp
             src/core/scene.h
             src/renderer/lighting/shadows/shadows.cpp
+            src/core/game_object/transformable.h
 
 
     )

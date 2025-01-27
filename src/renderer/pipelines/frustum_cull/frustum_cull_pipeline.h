@@ -21,6 +21,7 @@ struct FrustumCullingPushConstants
 
 struct FrustumCullDrawInfo
 {
+    int32_t currentFrameOverlap{0};
     std::vector<RenderObject*> renderObjects;
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};

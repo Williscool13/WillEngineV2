@@ -12,6 +12,8 @@
 #include "extern/fastgltf/include/fastgltf/types.hpp"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/resource_manager.h"
+#include "src/renderer/pipelines/basic_compute/basic_compute_pipeline.h"
+#include "src/renderer/pipelines/basic_compute/basic_compute_pipeline.h"
 
 
 namespace will_engine
@@ -42,7 +44,7 @@ public:
 
     bool attachToGameObject(GameObject* gameObject, int32_t meshIndex);
 
-    void updateInstanceData(int32_t instanceIndex, const glm::mat4& newModelMatrix) override;
+    void updateInstanceData(int32_t instanceIndex, const glm::mat4& newModelMatrix, int32_t currentFrameOverlap, int32_t previousFrameOverlap) override;
 
 private: // Model Data
     bool parseGltf(const std::filesystem::path& gltfFilepath);

@@ -6,7 +6,6 @@
 #define RENDERABLE_H
 #include <cstdint>
 
-#include "glm/fwd.hpp"
 #include "src/renderer/render_object/render_reference.h"
 
 namespace will_engine

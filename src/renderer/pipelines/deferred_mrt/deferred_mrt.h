@@ -16,6 +16,7 @@ namespace will_engine::deferred_mrt
 struct DeferredMrtDrawInfo
 {
     bool bClearColor{true};
+    int32_t currentFrameOverlap{0};
     glm::vec2 viewportExtents{RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
     std::vector<RenderObject*> renderObjects{};
     VkImageView normalTarget{VK_NULL_HANDLE};
