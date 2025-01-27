@@ -47,14 +47,6 @@ VulkanContext::VulkanContext(SDL_Window* window, bool useValidationLayers)
     features12.runtimeDescriptorArray = VK_TRUE;
     features12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
 
-    // VkPhysicalDeviceFeatures supportedFeatures;
-    // vkGetPhysicalDeviceFeatures(physicalDevice, &supportedFeatures);
-    // if (!supportedFeatures.multiDrawIndirect) {
-    //     throw std::runtime_error("Multi Draw Indirect is not supported by the physical device.");
-    // }
-    // if (!supportedFeatures.samplerAnisotropy) {
-    //     throw std::runtime_error("Anisotropic filtering is not supported by the physical device.");
-    // }
     VkPhysicalDeviceFeatures otherFeatures{};
     otherFeatures.multiDrawIndirect = VK_TRUE;
     otherFeatures.samplerAnisotropy = VK_TRUE;

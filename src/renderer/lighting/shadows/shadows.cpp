@@ -5,8 +5,8 @@
 #include "shadows.h"
 
 float will_engine::shadows::CASCADE_BIAS[SHADOW_CASCADE_COUNT][2] = {
-    {3.0f, 5.0f},
-    {2.0f, 4.0f},
-    {1.0f, 3.0f},
-    {0.5f, 1.5f},
+    {10.0f, 9.0f},
+    {10.0f, 5.0f},
+    {10.0f, 3.0f},
+    {10.0f, 2.0f},
 };

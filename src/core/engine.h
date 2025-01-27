@@ -89,7 +89,7 @@ public:
 
     void updateGame(float deltaTime) const;
 
-    void updateRender(float deltaTime) const;
+    void updateRender(float deltaTime, int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
 
     void draw(float deltaTime);
 
