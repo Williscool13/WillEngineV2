@@ -165,8 +165,8 @@ JPH::BodyID Physics::addRigidBody(IPhysicsBody* pb, const JPH::ShapeRefC& shape,
 
     const JPH::BodyCreationSettings settings(
         shape,
-        physics_utils::ToJolt(pb->getPosition()),
-        physics_utils::ToJolt(pb->getRotation()),
+        physics_utils::ToJolt(pb->getGlobalPosition()),
+        physics_utils::ToJolt(pb->getGlobalRotation()),
         isDynamic ? JPH::EMotionType::Dynamic : JPH::EMotionType::Static,
         isDynamic ? Layers::MOVING : Layers::NON_MOVING
     );
@@ -226,7 +226,7 @@ void Physics::updateTransforms() const
     for (auto physicsObject : physicsObjects) {
         const JPH::Vec3 position = bodyInterface.GetPosition(physicsObject.first);
         const JPH::Quat rotation = bodyInterface.GetRotation(physicsObject.first);
-        physicsObject.second.physicsBody->setTransform(physics_utils::ToGLM(position), physics_utils::ToGLM(rotation));
+        physicsObject.second.physicsBody->setGlobalTransformFromPhysics(physics_utils::ToGLM(position), physics_utils::ToGLM(rotation));
     }
 }
 

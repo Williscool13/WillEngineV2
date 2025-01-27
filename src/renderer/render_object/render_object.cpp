@@ -11,7 +11,6 @@
 #include <extern/fmt/include/fmt/format.h>
 #include <vulkan/vulkan_core.h>
 
-#include "src/core/engine.h"
 #include "src/renderer/vk_helpers.h"
 #include "src/renderer/vulkan_context.h"
 #include "render_object_constants.h"
@@ -163,14 +162,14 @@ bool RenderObject::attachToGameObject(GameObject* gameObject, const int32_t mesh
     return true;
 }
 
-void RenderObject::updateInstanceData(const int32_t instanceIndex, const glm::mat4& newModelMatrix)
+void RenderObject::updateInstanceData(const int32_t instanceIndex, const glm::mat4& newModelMatrix, int32_t currentFrameOverlap, int32_t previousFrameOverlap)
 {
     if (instanceIndex < 0 || instanceIndex >= instanceBufferCapacity) {
         assert(false && "Instance index out of bounds");
     }
 
-    const AllocatedBuffer& previousFrameModelMatrix = modelMatrixBuffers[Engine::getPreviousFrameOverlap()];
-    const AllocatedBuffer& currentFrameModelMatrix = modelMatrixBuffers[Engine::getCurrentFrameOverlap()];
+    const AllocatedBuffer& previousFrameModelMatrix = modelMatrixBuffers[previousFrameOverlap];
+    const AllocatedBuffer& currentFrameModelMatrix = modelMatrixBuffers[currentFrameOverlap];
 
     auto prevModel = reinterpret_cast<InstanceData*>(static_cast<char*>(previousFrameModelMatrix.info.pMappedData) + instanceIndex * sizeof(InstanceData));
     auto currentModel = reinterpret_cast<InstanceData*>(static_cast<char*>(currentFrameModelMatrix.info.pMappedData) + instanceIndex * sizeof(InstanceData));

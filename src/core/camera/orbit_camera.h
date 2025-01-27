@@ -5,6 +5,7 @@
 #ifndef ORBIT_CAMERA_H
 #define ORBIT_CAMERA_H
 #include "src/core/camera/camera.h"
+#include "src/core/game_object/transformable.h"
 
 namespace will_engine
 {
@@ -20,11 +21,11 @@ public:
     void update(float deltaTime) override;
 
 public:
-    void setOrbitTarget(GameObject* gameObject);
+    void setOrbitTarget(ITransformable* gameObject);
 
 private:
-    GameObject* orbitTarget{nullptr};
-    glm::vec3 lastTargetPos;
+    ITransformable* orbitTarget{nullptr};
+    glm::vec3 lastTargetPos{0.0f};
     float followSpeed = 10.0f;
 
     float rotationSpeed{1.0f};

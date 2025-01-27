@@ -8,24 +8,21 @@
 #include <string>
 
 #include <glm/glm.hpp>
-#include <src/renderer/renderer_constants.h>
-#include <vulkan/vulkan_core.h>
 
 #include "renderable.h"
+#include "transformable.h"
 #include "src/core/transform.h"
+#include "src/renderer/renderer_constants.h"
+#include "src/renderer/render_object/render_reference.h"
 #include "src/physics/physics.h"
 #include "src/physics/physics_filters.h"
 #include "src/physics/physics_utils.h"
-#include "Jolt/Physics/Body/BodyCreationSettings.h"
-#include "src/renderer/render_object/render_reference.h"
 
-
-//using TransformChangedCallback = std::function<void(const glm::mat4&)>;
 namespace will_engine
 {
 class RenderObject;
 
-class GameObject final : public IPhysicsBody, public IRenderable
+class GameObject final : public IPhysicsBody, public IRenderable, public ITransformable
 {
 public:
     GameObject();
@@ -35,8 +32,6 @@ public:
     ~GameObject() override;
 
     virtual void update(float deltaTime) {}
-
-    void setName(std::string newName);
 
 public: // Hierarchy
     /**
@@ -57,6 +52,7 @@ public: // Hierarchy
      */
     void reparent(GameObject* newParent = nullptr, bool maintainWorldTransform = true);
 
+    void setName(std::string newName);
 
     GameObject* getParent() const;
 
@@ -73,6 +69,54 @@ protected: // Hierarchy
     uint32_t gameObjectId{};
     std::string gameObjectName{};
 
+public: // ITransformable
+    glm::mat4 getModelMatrix() override { return getGlobalTransform().getTRSMatrix(); }
+
+    const Transform& getLocalTransform() const override { return transform; }
+    glm::vec3 getLocalPosition() const override { return getLocalTransform().getPosition(); }
+    glm::quat getLocalRotation() const override { return getLocalTransform().getRotation(); }
+    glm::vec3 getLocalScale() const override { return getLocalTransform().getScale(); }
+
+    const Transform& getGlobalTransform() override;
+
+    /**
+     * Interface of both IPhysicsBody and ITransformable
+     * @return
+     */
+    glm::vec3 getGlobalPosition() override { return getGlobalTransform().getPosition(); }
+    /**
+     * Interface of both IPhysicsBody and ITransformable
+     * @return
+     */
+    glm::quat getGlobalRotation() override { return getGlobalTransform().getRotation(); }
+    glm::vec3 getGlobalScale() override { return getGlobalTransform().getScale(); }
+
+    void setLocalPosition(glm::vec3 localPosition) override;
+
+    void setLocalRotation(glm::quat localRotation) override;
+
+    void setLocalScale(glm::vec3 localScale) override;
+
+    void setLocalScale(float localScale) override;
+
+    void setLocalTransform(const Transform& newLocalTransform) override;
+
+    void setGlobalPosition(glm::vec3 globalPosition) override;
+
+    void setGlobalRotation(glm::quat globalRotation) override;
+
+    void setGlobalScale(glm::vec3 newScale) override;
+
+    void setGlobalScale(float globalScale) override;
+
+    void setGlobalTransform(const Transform& newGlobalTransform) override;
+
+    void translate(glm::vec3 translation) override;
+
+    void rotate(glm::quat rotation) override;
+
+    void rotateAxis(float angle, const glm::vec3& axis) override;
+
 private: // Transform
     Transform transform{};
     Transform cachedGlobalTransform{};
@@ -84,51 +128,11 @@ private: // Transform
 
     void dirty();
 
-public: // Transform
-    glm::mat4 getModelMatrix() { return getGlobalTransform().getTRSMatrix(); }
-
-    const Transform& getLocalTransform() const { return transform; }
-    glm::vec3 getLocalPosition() const { return getLocalTransform().getPosition(); }
-    glm::quat getLocalRotation() const { return getLocalTransform().getRotation(); }
-    glm::vec3 getLocalScale() const { return getLocalTransform().getScale(); }
-
-    const Transform& getGlobalTransform();
-
-    glm::vec3 getGlobalPosition() { return getGlobalTransform().getPosition(); }
-    glm::quat getGlobalRotation() { return getGlobalTransform().getRotation(); }
-    glm::vec3 getGlobalScale() { return getGlobalTransform().getScale(); }
-
-    void setLocalPosition(glm::vec3 localPosition, bool isPhysics = false);
-
-    void setLocalRotation(glm::quat localRotation, bool isPhysics = false);
-
-    void setLocalScale(glm::vec3 localScale, bool isPhysics = false);
-
-    void setLocalScale(float localScale, bool isPhysics = false);
-
-    void setLocalTransform(const Transform& newLocalTransform, bool isPhysics = false);
-
-    void setGlobalPosition(glm::vec3 globalPosition, bool isPhysics = false);
-
-    void setGlobalRotation(glm::quat globalRotation, bool isPhysics = false);
-
-    void setGlobalScale(glm::vec3 newScale, bool isPhysics = false);
-
-    void setGlobalScale(float globalScale, bool isPhysics = false);
-
-    void setGlobalTransform(const Transform& newGlobalTransform, bool isPhysics = false);
-
-    void translate(glm::vec3 translation, bool isPhysics = false);
-
-    void rotate(glm::quat rotation, bool isPhysics = false);
-
-    void rotateAxis(float angle, const glm::vec3& axis, bool isPhysics = false);
-
-public: // Rendering
+public: // IRenderable
     /**
      * Update the model transform in the RenderObject. Only applicable if this gameobject has a pRenderObject associated with it.
      */
-    void recursiveUpdateModelMatrix();
+    void recursiveUpdateModelMatrix(int32_t currentFrameOverlap, int32_t previousFrameOverlap);
 
     void setRenderObjectReference(IRenderReference* owner, const int32_t index) override
     {
@@ -136,7 +140,7 @@ public: // Rendering
         instanceIndex = index;
     }
 
-private: // Rendering
+private: // IRenderable
     /**
       * If true, the model matrix will never be updated from defaults.
       */
@@ -148,15 +152,7 @@ private: // Rendering
     int32_t instanceIndex{-1};
 
 public: // Physics
-    void setTransform(const glm::vec3& position, const glm::quat& rotation) override
-    {
-        setGlobalPosition(position, true);
-        setGlobalRotation(rotation, true);
-    }
-
-    glm::vec3 getPosition() override { return getGlobalPosition(); }
-
-    glm::quat getRotation() override { return getGlobalRotation(); }
+    void setGlobalTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) override;
 
     void setBodyId(const JPH::BodyID bodyId) override { this->bodyId = bodyId; }
 

@@ -5,7 +5,6 @@
 #include "orbit_camera.h"
 
 #include "src/core/input.h"
-#include "src/core/game_object/game_object.h"
 
 
 will_engine::OrbitCamera::OrbitCamera(const float fov, const float aspect, const float nearPlane, const float farPlane) : Camera(fov, aspect, nearPlane, farPlane)
@@ -65,7 +64,7 @@ void will_engine::OrbitCamera::update(const float deltaTime)
     updateViewMatrix();
 }
 
-void will_engine::OrbitCamera::setOrbitTarget(GameObject* gameObject)
+void will_engine::OrbitCamera::setOrbitTarget(ITransformable* gameObject)
 {
     orbitTarget = gameObject;
     const glm::vec3 newPosition = orbitTarget->getGlobalPosition() - transform.getRotation() * armOffset;

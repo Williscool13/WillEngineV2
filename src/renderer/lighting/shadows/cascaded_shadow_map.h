@@ -56,9 +56,9 @@ public:
 
     ~CascadedShadowMap();
 
-    void update(const DirectionalLight& mainLight, const Camera* camera);
+    void update(const DirectionalLight& mainLight, const Camera* camera, int32_t currentFrameOverlap);
 
-    void draw(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects);
+    void draw(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects, int32_t currentFrameOverlap);
 
     static glm::mat4 getLightSpaceMatrix(glm::vec3 lightDirection, const Camera* camera, float cascadeNear, float cascadeFar);
 
@@ -75,6 +75,7 @@ public: // Debug
         }
         return shadowMaps[cascadeLevel].depthShadowMap;
     }
+
 private:
     ResourceManager& resourceManager;
 

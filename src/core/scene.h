@@ -40,7 +40,7 @@ public:
 
     void displayGameObject(GameObject* obj, int32_t depth = 0);
 
-    void update() const;
+    void update(int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
 
 private:
     /**

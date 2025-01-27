@@ -14,19 +14,11 @@ class IPhysicsBody
 public:
     virtual ~IPhysicsBody() = default;
 
-    virtual void setTransform(const glm::vec3& position, const glm::quat& rotation) = 0;
+    virtual void setGlobalTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) = 0;
 
-    /**
-     * Gets global position of the physics body
-     * @return
-     */
-    virtual glm::vec3 getPosition() = 0;
+    virtual glm::vec3 getGlobalPosition() = 0;
 
-    /**
-     * Gets global rotation of the physics body
-     * @return
-     */
-    virtual glm::quat getRotation() = 0;
+    virtual glm::quat getGlobalRotation() = 0;
 
     virtual void setBodyId(JPH::BodyID bodyId) = 0;
 

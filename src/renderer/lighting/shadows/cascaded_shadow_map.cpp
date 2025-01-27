@@ -6,7 +6,6 @@
 
 #include "volk.h"
 #include "src/core/camera/camera.h"
-#include "src/core/engine.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/render_object/render_object_types.h"
 #include "src/util/render_utils.h"
@@ -72,8 +71,8 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
     samplerCreateInfo.compareEnable = VK_TRUE;
     samplerCreateInfo.compareOp = VK_COMPARE_OP_LESS;
 
-    //samplerCreateInfo.anisotropyEnable = VK_TRUE;
-    //samplerCreateInfo.maxAnisotropy = 16.0f;
+    samplerCreateInfo.anisotropyEnable = VK_TRUE;
+    samplerCreateInfo.maxAnisotropy = 16.0f;
 
     sampler = resourceManager.createSampler(samplerCreateInfo);
 
@@ -125,7 +124,6 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
     pipelineBuilder.enableDepthBias(0.0f, 0, 0.0f);
     pipelineBuilder.disableMultisampling();
     pipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
-    //pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_LESS_OR_EQUAL);
     pipelineBuilder.setupRenderer({}, DEPTH_FORMAT);
     pipelineBuilder.setupPipelineLayout(pipelineLayout);
@@ -178,13 +176,13 @@ will_engine::cascaded_shadows::CascadedShadowMap::~CascadedShadowMap()
     resourceManager.destroyPipelineLayout(pipelineLayout);
 }
 
-void will_engine::cascaded_shadows::CascadedShadowMap::update(const DirectionalLight& mainLight, const Camera* camera)
+void will_engine::cascaded_shadows::CascadedShadowMap::update(const DirectionalLight& mainLight, const Camera* camera, const int32_t currentFrameOverlap)
 {
     for (CascadeShadowMap& shadowData : shadowMaps) {
         shadowData.lightViewProj = getLightSpaceMatrix(mainLight.getDirection(), camera, shadowData.split.nearPlane, shadowData.split.farPlane);
     }
 
-    const AllocatedBuffer& currentCascadeShadowMapData = cascadedShadowMapDatas[Engine::getCurrentFrameOverlap()];
+    const AllocatedBuffer& currentCascadeShadowMapData = cascadedShadowMapDatas[currentFrameOverlap];
     if (currentCascadeShadowMapData.buffer == VK_NULL_HANDLE) { return; }
     const auto data = static_cast<CascadeShadowData*>(currentCascadeShadowMapData.info.pMappedData);
     for (size_t i = 0; i < shadows::SHADOW_CASCADE_COUNT; i++) {
@@ -194,7 +192,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::update(const DirectionalL
     data->directionalLightData = mainLight.getData();
 }
 
-void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects)
+void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects, const int32_t currentFrameOverlap)
 {
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
@@ -258,7 +256,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 
             vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
 
-            const VkDeviceSize shadowDataOffset{cascadedShadowMapDescriptorBufferUniform.getDescriptorBufferSize() * Engine::getCurrentFrameOverlap()};
+            const VkDeviceSize shadowDataOffset{cascadedShadowMapDescriptorBufferUniform.getDescriptorBufferSize() * currentFrameOverlap};
             const VkDeviceSize addressOffset{renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * 0};
             vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &shadowDataIndex, &shadowDataOffset);
             vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &addressIndex, &addressOffset);
