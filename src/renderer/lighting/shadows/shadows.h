@@ -12,7 +12,7 @@ namespace will_engine::shadows
 static constexpr float LAMBDA = 0.5f;
 static constexpr float OVERLAP = 1.005f;
 static constexpr uint32_t SHADOW_CASCADE_COUNT = 4;
-static constexpr float CASCADE_NEAR_PLANE = 1.0f;
+static constexpr float CASCADE_NEAR_PLANE = 0.1f;
 static constexpr float CASCADE_FAR_PLANE = 50.0f;
 extern float CASCADE_BIAS[SHADOW_CASCADE_COUNT][2];
 static constexpr VkExtent2D CASCADE_EXTENT{2048, 2048};

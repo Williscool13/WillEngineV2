@@ -23,7 +23,7 @@ int selectCascadeLevel(float viewSpaceDepth, CascadeSplit[4] cascadeSplits) {
         return 2;
     }
 
-    if (viewSpaceDepth < cascadeSplits[3].farPlane){
+    if (viewSpaceDepth < cascadeSplits[3].farPlane) {
         return 3;
     }
 
@@ -35,33 +35,34 @@ int getCascadeLevel(vec3 worldPos, mat4 viewMatrix, CascadeSplit cascadeSplits[4
     return selectCascadeLevel(viewDepth, cascadeSplits);
 }
 
-float getShadowFactor(vec3 worldPos, mat4 cascadeLightViewProj, sampler2DShadow shadowMap, float cascadeFarPlane) {
+float getShadowFactor(vec3 worldPos, mat4 cascadeLightViewProj, sampler2DShadow shadowMap, float cascadeNearPlane, float cascadeFarPlane) {
     vec4 lightSpacePos = cascadeLightViewProj * vec4(worldPos, 1.0);
     vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
     projCoords.xy = projCoords.xy * 0.5 + 0.5;
     float currentDepth = projCoords.z;
     if (projCoords.z > cascadeFarPlane) { return 1.0; }
-
+    if (projCoords.z < cascadeNearPlane) { return 1.0; }
     float shadow = texture(shadowMap, vec3(projCoords.xy, currentDepth));
     return shadow;
 }
 
-float getShadowFactorPCF5(vec3 worldPos, mat4 cascadeLightViewProj, sampler2DShadow shadowMap, float cascadeFarPlane) {
+float getShadowFactorPCF5(vec3 worldPos, mat4 cascadeLightViewProj, sampler2DShadow shadowMap, float cascadeNearPlane, float cascadeFarPlane) {
     vec4 lightSpacePos = cascadeLightViewProj * vec4(worldPos, 1.0);
     vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
     projCoords.xy = projCoords.xy * 0.5 + 0.5;
     float currentDepth = projCoords.z;
     if (projCoords.z > cascadeFarPlane) { return 1.0; }
+    if (projCoords.z < cascadeNearPlane) { return 1.0; }
 
     float shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(shadowMap, 0);
 
     const int halfKernel = 2;
-    for(int x = -halfKernel; x <= halfKernel; x++) {
-        for(int y = -halfKernel; y <= halfKernel; y++) {
-            vec2 offset = vec2(x,y) * texelSize;
+    for (int x = -halfKernel; x <= halfKernel; x++) {
+        for (int y = -halfKernel; y <= halfKernel; y++) {
+            vec2 offset = vec2(x, y) * texelSize;
             shadow += texture(shadowMap, vec3(projCoords.xy + offset, currentDepth));
         }
     }
-    return shadow / ((2*halfKernel+1) * (2*halfKernel+1));
+    return shadow / ((2 * halfKernel + 1) * (2 * halfKernel + 1));
 }
