@@ -72,8 +72,6 @@ public:
     CameraProperties getCameraProperties() const { return {cachedFov, cachedAspect, cachedNear, cachedFar, cachedViewMatrix, cachedProjMatrix, transform.getPosition(), getForwardWS(), getRightWS(), getUpWS()}; }
 
 protected:
-    static constexpr bool flipProjectionY{false};
-
     // projection
     float cachedFov{1.308996939}; // rad(75)
     float cachedAspect{1920.0f / 1080.0f};

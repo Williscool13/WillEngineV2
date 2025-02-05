@@ -44,7 +44,6 @@ void will_engine::Camera::updateProjMatrix(float fov, float aspect, float nearPl
 
     // depth buffer is reversed in this engine.
     cachedProjMatrix = glm::perspective(fov, aspect, nearPlane, farPlane);
-    if (flipProjectionY) { cachedProjMatrix[1][1] *= -1; }
     updateViewProjMatrix();
 }
 

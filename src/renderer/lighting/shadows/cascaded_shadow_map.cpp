@@ -257,7 +257,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
 
             const VkDeviceSize shadowDataOffset{cascadedShadowMapDescriptorBufferUniform.getDescriptorBufferSize() * currentFrameOverlap};
-            const VkDeviceSize addressOffset{renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * 0};
+            const VkDeviceSize addressOffset{renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * currentFrameOverlap};
             vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &shadowDataIndex, &shadowDataOffset);
             vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &addressIndex, &addressOffset);
 
@@ -312,7 +312,6 @@ glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(
     constexpr float zMult = 10.0f;
     minZ *= zMult;
     maxZ *= zMult;
-
     float cascadeBound = cascadeFar - cascadeNear;
     float worldUnitsPerTexel = cascadeBound / static_cast<float>(will_engine::shadows::CASCADE_EXTENT.width);
     glm::vec3 minBounds{minX, minY, minZ};

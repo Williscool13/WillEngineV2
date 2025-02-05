@@ -162,7 +162,7 @@ bool RenderObject::attachToGameObject(GameObject* gameObject, const int32_t mesh
     return true;
 }
 
-void RenderObject::updateInstanceData(const int32_t instanceIndex, const glm::mat4& newModelMatrix, int32_t currentFrameOverlap, int32_t previousFrameOverlap)
+void RenderObject::updateInstanceData(const int32_t instanceIndex, const glm::mat4& newModelMatrix, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
 {
     if (instanceIndex < 0 || instanceIndex >= instanceBufferCapacity) {
         assert(false && "Instance index out of bounds");

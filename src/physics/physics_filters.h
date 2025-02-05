@@ -80,6 +80,15 @@ public:
      */
     [[nodiscard]] bool ShouldCollide(JPH::ObjectLayer inLayer1, JPH::ObjectLayer inLayer2) const override;
 };
+
+class PlayerCollisionFilter final : public JPH::ObjectLayerFilter
+{
+public:
+    [[nodiscard]] bool ShouldCollide(const JPH::ObjectLayer inLayer) const override
+    {
+        return inLayer != Layers::PLAYER;
+    }
+};
 }
 
 #endif //PHYSICS_FILTERS_H

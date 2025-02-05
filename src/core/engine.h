@@ -138,7 +138,7 @@ private: // Scene Data
     AllocatedBuffer debugSceneDataBuffer{};
 
     FreeCamera* camera{nullptr};
-    DirectionalLight mainLight{glm::normalize(glm::vec3(1.0f, -1.0f, 1.0f)), 1.0f, glm::vec3(0.0f)};
+    DirectionalLight mainLight{glm::normalize(glm::vec3(-0.8f, -0.6f, -0.6f)), 1.0f, glm::vec3(0.0f)};
     int32_t environmentMapIndex{0};
 
     Scene* scene{nullptr};
@@ -146,6 +146,7 @@ private: // Scene Data
     RenderObject* cube{nullptr};
     RenderObject* primitives{nullptr};
     RenderObject* sponza{nullptr};
+    RenderObject* mySphere{nullptr};
     //RenderObject* checkeredFloor{nullptr};
 
     std::vector<GameObject*> gameObjects{};
