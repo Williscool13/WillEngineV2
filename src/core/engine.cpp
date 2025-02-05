@@ -162,8 +162,8 @@ void Engine::initGame()
     cube = new RenderObject{"assets/models/cube.gltf", *resourceManager};
     primitives = new RenderObject{"assets/models/primitives/primitives.gltf", *resourceManager};
     sponza = new RenderObject{"assets/models/sponza2/Sponza.gltf", *resourceManager};
+    mySphere = new RenderObject{"assets/models/mySphere.glb", *resourceManager};
     //checkeredFloor = new RenderObject("assets/models/checkered_floor.glb", *resourceManager);
-
 
 
     gameObjects.reserve(10);
@@ -175,7 +175,7 @@ void Engine::initGame()
     const auto floor = new GameObject("FLOOR");
     primitives->attachToGameObject(floor, 0);
     //checkeredFloor->attachToGameObject(floor, 0);
-    floor->setGlobalScale({20.0f, 1.0f, 20.0f});
+    floor->setGlobalScale({20.0f, 0.5f, 20.0f});
     floor->translate({0.0f, -2.0f, 0.0f});
     const auto floorShape = new JPH::BoxShape(JPH::Vec3(20.0f, 1.0f, 20.0f));
     floor->setupRigidbody(floorShape);
@@ -184,7 +184,9 @@ void Engine::initGame()
 
 
     const auto sphere = new GameObject("SPHERE");
-    primitives->attachToGameObject(sphere, 3);
+    //primitives->attachToGameObject(sphere, 3);
+    mySphere->attachToGameObject(sphere, 0);
+    sphere->setGlobalPosition({0, 5.0f, 0});
     sphere->setupRigidbody(physics->getUnitSphereShape(), JPH::EMotionType::Dynamic, physics::Layers::PLAYER);
     gameObjects.push_back(sphere);
 
@@ -257,18 +259,38 @@ void Engine::update(const float deltaTime)
     physics->update(deltaTime);
     const auto physicsEnd = std::chrono::system_clock::now();
     const float elapsedPhysics = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(physicsEnd - physicsStart).count()) / 1000.0f;
-    stats.physicsTime = stats.physicsTime * 0.99 + elapsedPhysics * 0.01f;
+    stats.physicsTime = stats.physicsTime * 0.99f + elapsedPhysics * 0.01f;
 
     const auto gameStart = std::chrono::system_clock::now();
     updateGame(deltaTime);
     const auto gameEnd = std::chrono::system_clock::now();
     const float elapsedGame = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(gameEnd - gameStart).count()) / 1000.0f;
-    stats.gameTime = stats.gameTime * 0.99 + elapsedGame * 0.01f;
+    stats.gameTime = stats.gameTime * 0.99f + elapsedGame * 0.01f;
 }
 
 void Engine::updateGame(const float deltaTime) const
 {
-    camera->update(deltaTime);
+    if (camera) { camera->update(deltaTime); }
+
+    const Input& input = Input::Get();
+    if (input.isKeyPressed(SDLK_r)) {
+        if (camera) {
+            const glm::vec3 direction = camera->transform.getForward();
+            //const physics::PlayerCollisionFilter dontHitPlayerFilter{};
+            const physics::RaycastHit result = physics::physics_utils::raycast(camera->getPosition(), direction, 100.0f, {}, {}, {});
+
+            if (result.hasHit) {
+                physics::physics_utils::addImpulseAtPosition(result.hitBodyID, normalize(direction) * 100.0f, result.hitPosition);
+            } else {
+                fmt::print("Failed to find an object with the raycast\n");
+            }
+        }
+    }
+
+    if (input.isKeyPressed(SDLK_p)) {
+        gameObjects[2]->setGlobalPosition({0.0f, 5.0f, 0.0f});
+        fmt::print("Resetting sphere to (0,5,0)");
+    }
 }
 
 void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap) const
@@ -354,7 +376,7 @@ void Engine::draw(float deltaTime)
     scene->update(currentFrameOverlap, previousFrameOverlap);
     updateRender(deltaTime, currentFrameOverlap, previousFrameOverlap);
     cascadedShadowMap->update(mainLight, camera, currentFrameOverlap);
-    std::vector renderObjects{cube, primitives, sponza}; //, checkeredFloor};
+    std::vector renderObjects{cube, primitives, sponza, mySphere}; //, checkeredFloor};
 
     frustum_cull_pipeline::FrustumCullDrawInfo csmFrustumCullDrawInfo{
         currentFrameOverlap,
@@ -531,6 +553,7 @@ void Engine::cleanup()
     delete cube;
     delete primitives;
     delete sponza;
+    delete mySphere;
 
     delete frustumCullPipeline;
     delete environmentPipeline;

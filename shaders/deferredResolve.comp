@@ -119,7 +119,8 @@ void main() {
 
     // SHADOWS
     float shadowFactor = 1.0f;
-    int cascadeLevel = getCascadeLevel(position + normal * 0.05f, sceneData.view, shadowCascadeData.cascadeSplits);
+    float normalOffsetScale = max(0.05f, dot(normal, L) * 0.05f);
+    int cascadeLevel = getCascadeLevel(position + normal * normalOffsetScale, sceneData.view, shadowCascadeData.cascadeSplits);
     if (cascadeLevel >= 0 && cascadeLevel <= 3) {
         float _tempShadowFactor;
         if (pushConstants.pcfLevel == 5) {
@@ -128,7 +129,8 @@ void main() {
             _tempShadowFactor = getShadowFactor(position, shadowCascadeData.lightViewProj[cascadeLevel], shadowMapSampler[nonuniformEXT(cascadeLevel)], shadowCascadeData.farShadowPlane);
         }
 
-        shadowFactor = clamp(smoothstep(-0.15f, 0.5f, dot(N, L)) * _tempShadowFactor, 0, 1);
+        shadowFactor = getShadowFactor(position, shadowCascadeData.lightViewProj[cascadeLevel], shadowMapSampler[nonuniformEXT(cascadeLevel)], shadowCascadeData.farShadowPlane);
+        //shadowFactor = clamp(smoothstep(-0.15f, 0.5f, dot(N, L)) * _tempShadowFactor, 0, 1);
 
     }
 
@@ -136,7 +138,7 @@ void main() {
         shadowFactor = 1.0f;
     }
 
-    float indirectAttenuation = mix(0.2, 1.0, shadowFactor);
+    float indirectAttenuation = mix(0.5, 1.0, shadowFactor);
 
     // IBL REFLECTIONS
     vec3 irradiance = DiffuseIrradiance(environmentDiffuseAndSpecular, N);
