@@ -124,13 +124,12 @@ void main() {
     if (cascadeLevel >= 0 && cascadeLevel <= 3) {
         float _tempShadowFactor;
         if (pushConstants.pcfLevel == 5) {
-            _tempShadowFactor = getShadowFactorPCF5(position, shadowCascadeData.lightViewProj[cascadeLevel], shadowMapSampler[nonuniformEXT(cascadeLevel)], shadowCascadeData.farShadowPlane);
+            _tempShadowFactor = getShadowFactorPCF5(position, shadowCascadeData.lightViewProj[cascadeLevel], shadowMapSampler[nonuniformEXT(cascadeLevel)], shadowCascadeData.nearShadowPlane, shadowCascadeData.farShadowPlane);
         } else {
-            _tempShadowFactor = getShadowFactor(position, shadowCascadeData.lightViewProj[cascadeLevel], shadowMapSampler[nonuniformEXT(cascadeLevel)], shadowCascadeData.farShadowPlane);
+            _tempShadowFactor = getShadowFactor(position, shadowCascadeData.lightViewProj[cascadeLevel], shadowMapSampler[nonuniformEXT(cascadeLevel)], shadowCascadeData.nearShadowPlane, shadowCascadeData.farShadowPlane);
         }
 
-        shadowFactor = getShadowFactor(position, shadowCascadeData.lightViewProj[cascadeLevel], shadowMapSampler[nonuniformEXT(cascadeLevel)], shadowCascadeData.farShadowPlane);
-        //shadowFactor = clamp(smoothstep(-0.15f, 0.5f, dot(N, L)) * _tempShadowFactor, 0, 1);
+        shadowFactor = clamp(smoothstep(-0.15f, 0.5f, dot(N, L)) * _tempShadowFactor, 0, 1);
 
     }
 
