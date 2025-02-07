@@ -15,7 +15,7 @@ class IRenderReference
 public:
     virtual ~IRenderReference() = default;
 
-    virtual int32_t getRenderReferenceIndex() = 0;
+    [[nodiscard]] virtual int32_t getRenderReferenceIndex() const = 0;
 
     virtual void updateInstanceData(int32_t instanceIndex, const glm::mat4& currentFrameModelMatrix, int32_t currentFrameOverlap, int32_t previousFrameOverlap) = 0;
 };

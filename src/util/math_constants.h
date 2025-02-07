@@ -5,7 +5,9 @@
 #ifndef MATH_CONSTANTS_H
 #define MATH_CONSTANTS_H
 
-namespace math_constants {
+#include <vulkan/vulkan.h>
+
+namespace will_engine {
     // Basic mathematical constants
     constexpr double PI = 3.14159265358979323846;
     constexpr double TAU = 2.0 * PI;
@@ -36,10 +38,10 @@ namespace math_constants {
     constexpr double EPSILON = 1e-6;
 
     // Maximum and minimum values for common types
-    constexpr int INT_MAX = 2147483647;
-    constexpr int INT_MIN = -2147483648;
     constexpr float FLOAT_MAX = 3.402823466e+38F;
     constexpr float FLOAT_MIN = 1.175494351e-38F;
+
+    constexpr int32_t INDEX_NONE = -1;
 }
 
 #endif //MATH_CONSTANTS_H

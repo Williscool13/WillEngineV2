@@ -156,6 +156,9 @@ public:
         scale = glm::vec3(1.0f);
         trsDirty = true;
     }
+
+public:
+    static const Transform Identity;
 };
 }
 

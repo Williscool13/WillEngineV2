@@ -137,7 +137,7 @@ void main() {
         shadowFactor = 1.0f;
     }
 
-    float indirectAttenuation = mix(0.5, 1.0, shadowFactor);
+    float indirectAttenuation = mix(0.4, 1.0, shadowFactor);
 
     // IBL REFLECTIONS
     vec3 irradiance = DiffuseIrradiance(environmentDiffuseAndSpecular, N);

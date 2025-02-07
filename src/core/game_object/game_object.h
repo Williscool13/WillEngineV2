@@ -18,6 +18,7 @@
 #include "src/physics/physics.h"
 #include "src/physics/physics_filters.h"
 #include "src/physics/physics_utils.h"
+#include "src/util/math_constants.h"
 
 namespace will_engine
 {
@@ -138,7 +139,7 @@ public: // IRenderable
         this->meshIndex = meshIndex;
     }
 
-    int32_t getRenderReferenceIndex() const override { return pRenderReference ? pRenderReference->getRenderReferenceIndex() : -1; }
+    int32_t getRenderReferenceIndex() const override { return pRenderReference ? pRenderReference->getRenderReferenceIndex() : INDEX_NONE; }
 
     int32_t getMeshIndex() const override { return meshIndex; }
 
@@ -151,8 +152,8 @@ protected: // IRenderable
      * The render object that is responsible for drawing this gameobject's model
      */
     IRenderReference* pRenderReference{nullptr};
-    int32_t instanceIndex{-1};
-    int32_t meshIndex{-1};
+    int32_t instanceIndex{INDEX_NONE};
+    int32_t meshIndex{INDEX_NONE};
 
 public: // IPhysicsBody
     void setGlobalTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) override;

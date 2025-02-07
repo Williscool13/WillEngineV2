@@ -28,7 +28,8 @@ public:
     ~RenderObject() override;
 
 private:
-    uint32_t renderObjectId{};
+    int32_t renderObjectId{};
+    std::filesystem::path gltfFilepath;
 
 public:
     GameObject* generateGameObject(const std::string& gameObjectName = "");
@@ -48,7 +49,9 @@ public:
 
     bool attachToGameObject(GameObject* gameObject, int32_t meshIndex);
 
-    int32_t getRenderReferenceIndex() override { return renderObjectId; }
+    int32_t getRenderReferenceIndex() const override { return renderObjectId; }
+
+    const std::filesystem::path& getFilePath() const { return gltfFilepath; }
 
     void updateInstanceData(int32_t instanceIndex, const glm::mat4& newModelMatrix, int32_t currentFrameOverlap, int32_t previousFrameOverlap) override;
 
