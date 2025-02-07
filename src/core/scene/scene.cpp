@@ -7,7 +7,8 @@
 #include <algorithm>
 #include <imgui.h>
 
-#include "game_object/game_object.h"
+#include "src/core/game_object/game_object.h"
+
 
 will_engine::Scene::Scene()
 {

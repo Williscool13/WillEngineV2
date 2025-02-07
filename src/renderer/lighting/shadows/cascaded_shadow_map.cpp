@@ -300,8 +300,8 @@ glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(
     float maxY = std::numeric_limits<float>::lowest();
     float minZ = std::numeric_limits<float>::max();
     float maxZ = std::numeric_limits<float>::lowest();
-    for (const auto& v : corners) {
-        const auto trf = lightView * v;
+    for (const glm::vec4& v : corners) {
+        const glm::vec4 trf = lightView * v;
         minX = std::min(minX, trf.x);
         maxX = std::max(maxX, trf.x);
         minY = std::min(minY, trf.y);
@@ -318,10 +318,10 @@ glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(
     glm::vec3 maxBounds{maxX, maxY, maxZ};
     minBounds = glm::floor(minBounds / worldUnitsPerTexel) * worldUnitsPerTexel;
     maxBounds = glm::floor(maxBounds / worldUnitsPerTexel) * worldUnitsPerTexel;
-    const glm::mat4 lightProjection = glm::ortho(minBounds.x, maxBounds.x, minBounds.y, maxBounds.y, minBounds.z, maxBounds.z);
+    const glm::mat4 lightProjection = glm::orthoRH_ZO(minBounds.x, maxBounds.x, minBounds.y, maxBounds.y, minBounds.z, maxBounds.z);
     return lightProjection * lightView;
 
 
-    //const glm::mat4 lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
-    //return lightProjection * lightView;
+    // const glm::mat4 lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+    // return lightProjection * lightView;
 }

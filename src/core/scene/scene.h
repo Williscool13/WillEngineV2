@@ -8,7 +8,8 @@
 #include <unordered_set>
 #include <vulkan/vulkan_core.h>
 
-#include "game_object/hierarchical.h"
+#include "src/core/game_object/hierarchical.h"
+
 
 namespace will_engine
 {
@@ -33,15 +34,14 @@ private: // Scene properties
     IHierarchical* sceneRoot;
     std::unordered_set<IHierarchical*> activeGameObjects;
 
-private: // Dear ImGui
-
-
 public:
     void imguiSceneGraph();
 
     void displayGameObject(IHierarchical* obj, int32_t depth = 0);
 
     void update(int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
+
+    IHierarchical* getRoot() const { return sceneRoot; }
 
 private:
     /**

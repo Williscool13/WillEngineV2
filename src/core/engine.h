@@ -9,7 +9,6 @@
 #include <glm/glm.hpp>
 
 #include "engine_types.h"
-#include "scene.h"
 #include "src/renderer/imgui_wrapper.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/vk_types.h"
@@ -23,6 +22,8 @@ class VulkanContext;
 
 namespace will_engine
 {
+class Scene;
+
 namespace post_process_pipeline
 {
     class PostProcessPipeline;

@@ -11,6 +11,8 @@
 #include "camera/free_camera.h"
 #include "game_object/game_object.h"
 #include "Jolt/Physics/Collision/Shape/BoxShape.h"
+#include "scene/scene.h"
+#include "scene/scene_serializer.h"
 #include "src/core/input.h"
 #include "src/core/time.h"
 #include "src/physics/physics.h"
@@ -159,11 +161,10 @@ void Engine::initRenderer()
 void Engine::initGame()
 {
     scene = new Scene();
-    cube = new RenderObject{"assets/models/cube.gltf", *resourceManager};
-    primitives = new RenderObject{"assets/models/primitives/primitives.gltf", *resourceManager};
-    sponza = new RenderObject{"assets/models/sponza2/Sponza.gltf", *resourceManager};
-    mySphere = new RenderObject{"assets/models/mySphere.glb", *resourceManager};
-    //checkeredFloor = new RenderObject("assets/models/checkered_floor.glb", *resourceManager);
+    cube = new RenderObject{"assets/models/cube.gltf", *resourceManager, 0};
+    primitives = new RenderObject{"assets/models/primitives/primitives.gltf", *resourceManager, 1};
+    sponza = new RenderObject{"assets/models/sponza2/Sponza.gltf", *resourceManager, 2};
+    mySphere = new RenderObject{"assets/models/mySphere.glb", *resourceManager, 3};
 
 
     gameObjects.reserve(10);
@@ -174,7 +175,6 @@ void Engine::initGame()
 
     const auto floor = new GameObject("FLOOR");
     primitives->attachToGameObject(floor, 0);
-    //checkeredFloor->attachToGameObject(floor, 0);
     floor->setGlobalScale({20.0f, 0.5f, 20.0f});
     floor->translate({0.0f, -2.0f, 0.0f});
     const auto floorShape = new JPH::BoxShape(JPH::Vec3(20.0f, 1.0f, 20.0f));
@@ -184,7 +184,6 @@ void Engine::initGame()
 
 
     const auto sphere = new GameObject("SPHERE");
-    //primitives->attachToGameObject(sphere, 3);
     mySphere->attachToGameObject(sphere, 0);
     sphere->setGlobalPosition({0, 5.0f, 0});
     sphere->setupRigidbody(physics->getUnitSphereShape(), JPH::EMotionType::Dynamic, physics::Layers::PLAYER);
@@ -290,6 +289,11 @@ void Engine::updateGame(const float deltaTime) const
     if (input.isKeyPressed(SDLK_p)) {
         gameObjects[2]->setGlobalPosition({0.0f, 5.0f, 0.0f});
         fmt::print("Resetting sphere to (0,5,0)");
+    }
+
+    if (input.isKeyPressed(SDLK_o)) {
+        std::vector renderObjects{cube, primitives, sponza, mySphere}; //, checkeredFloor};
+        SceneSerializer::SerializeScene(scene->getRoot(), physics::Physics::Get(), renderObjects, "test.json");
     }
 }
 

@@ -20,9 +20,9 @@ public:
 
     virtual glm::quat getGlobalRotation() = 0;
 
-    virtual void setBodyId(JPH::BodyID bodyId) = 0;
+    virtual void setPhysicsBodyId(JPH::BodyID bodyId) = 0;
 
-    virtual JPH::BodyID getBodyId() const = 0;
+    [[nodiscard]] virtual JPH::BodyID getPhysicsBodyId() const = 0;
 };
 }
 

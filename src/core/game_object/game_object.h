@@ -130,12 +130,17 @@ protected: // Transform
     int32_t framesToUpdate{FRAME_OVERLAP + 1};
 
 public: // IRenderable
-    void setRenderObjectReference(IRenderReference* owner, const int32_t index) override
+    void setRenderObjectReference(IRenderReference* owner, const int32_t instanceIndex, const int32_t meshIndex) override
     {
         pRenderReference = owner;
-        instanceIndex = index;
+        this->instanceIndex = instanceIndex;
         framesToUpdate = FRAME_OVERLAP + 1;
+        this->meshIndex = meshIndex;
     }
+
+    int32_t getRenderReferenceIndex() const override { return pRenderReference ? pRenderReference->getRenderReferenceIndex() : -1; }
+
+    int32_t getMeshIndex() const override { return meshIndex; }
 
 protected: // IRenderable
     /**
@@ -147,17 +152,18 @@ protected: // IRenderable
      */
     IRenderReference* pRenderReference{nullptr};
     int32_t instanceIndex{-1};
+    int32_t meshIndex{-1};
 
-public: // Physics
+public: // IPhysicsBody
     void setGlobalTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) override;
 
-    void setBodyId(const JPH::BodyID bodyId) override { this->bodyId = bodyId; }
+    void setPhysicsBodyId(const JPH::BodyID bodyId) override { this->bodyId = bodyId; }
 
-    JPH::BodyID getBodyId() const override { return bodyId; }
+    JPH::BodyID getPhysicsBodyId() const override { return bodyId; }
 
-    void setupRigidbody(const JPH::ShapeRefC& shape, const JPH::EMotionType motionType = JPH::EMotionType::Static, const JPH::ObjectLayer layer = physics::Layers::NON_MOVING);
+    void setupRigidbody(const JPH::ShapeRefC& shape, JPH::EMotionType motionType = JPH::EMotionType::Static, JPH::ObjectLayer layer = physics::Layers::NON_MOVING);
 
-protected: // Physics
+protected: // IPhysicsBody
     JPH::BodyID bodyId{JPH::BodyID::cInvalidBodyID};
 
 public:
