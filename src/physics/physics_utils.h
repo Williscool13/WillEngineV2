@@ -46,14 +46,6 @@ inline JPH::Quat ToJolt(const glm::quat& q)
     return {q.x, q.y, q.z, q.w};
 }
 
-inline IPhysicsBody* getPhysicsBodyFromId(const JPH::BodyID bodyId)
-{
-    Physics* physics = Physics::Get();
-    if (!physics) return nullptr;
-
-    return physics->getPhysicsBodyFromId(bodyId);
-}
-
 inline bool raycastBroad(const glm::vec3& start, const glm::vec3& end)
 {
     if (!Physics::Get()) return false;
@@ -185,8 +177,8 @@ inline std::vector<RaycastHit> raycastAll(const glm::vec3& start, const glm::vec
 inline void addForce(const IPhysicsBody* physicsBody, const glm::vec3& force)
 {
     if (!Physics::Get()) return;
-    if (!Physics::Get()->doesPhysicsBodyExists(physicsBody->getBodyId())) { return; }
-    Physics::Get()->getBodyInterface().AddForce(physicsBody->getBodyId(), ToJolt(force));
+    if (!Physics::Get()->doesPhysicsBodyExists(physicsBody->getPhysicsBodyId())) { return; }
+    Physics::Get()->getBodyInterface().AddForce(physicsBody->getPhysicsBodyId(), ToJolt(force));
 }
 
 inline void addForce(const JPH::BodyID bodyId, const glm::vec3& force)

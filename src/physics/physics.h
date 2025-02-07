@@ -66,9 +66,9 @@ public:
 
     void updateTransforms() const;
 
-    IPhysicsBody* getPhysicsBodyFromId(JPH::BodyID bodyId);
-
     bool doesPhysicsBodyExists(const JPH::BodyID bodyId) const { return physicsObjects.contains(bodyId); }
+
+    PhysicsObject* getPhysicsObject(JPH::BodyID bodyId);
 
 private:
     // Core systems

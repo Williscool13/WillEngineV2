@@ -22,6 +22,9 @@ set(SDL2MAIN_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/lib/SDL2main.lib")
 # Jolt Physics
 set(PHYSICS_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics")
 
+# Nlohmann JSON
+set(JSON_BuildTests OFF CACHE INTERNAL "")
+
 add_subdirectory(extern/glm)
 add_subdirectory(extern/fmt)
 add_subdirectory(extern/volk)
@@ -31,6 +34,7 @@ add_subdirectory(extern/fastgltf/deps) # simdjson
 add_subdirectory(extern/SPIRV-Headers)
 add_subdirectory(extern/SPIRV-Tools)
 add_subdirectory(extern/glslang)
+add_subdirectory(extern/json)
 set(SHADERC_ENABLE_SHARED_CRT ON)
 set(SHADERC_SKIP_TESTS ON)
 set(SHADERC_SKIP_EXAMPLES ON)
@@ -180,11 +184,13 @@ if (WIN32)
     set(WINDOWS_SOURCES
             src/resources.h
             src/resources.rc
-            src/core/scene.cpp
-            src/core/scene.h
+            src/core/scene/scene.cpp
+            src/core/scene/scene.h
             src/renderer/lighting/shadows/shadows.cpp
             src/core/game_object/transformable.h
             src/core/game_object/hierarchical.h
+            src/core/scene/scene_serializer.cpp
+            src/core/scene/scene_serializer.h
 
 
     )
@@ -227,4 +233,5 @@ target_link_libraries(WillEngine PRIVATE
         fastgltf
         Jolt
         shaderc
+        nlohmann_json::nlohmann_json
 )

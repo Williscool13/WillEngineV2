@@ -68,14 +68,6 @@ struct RenderNode
     int32_t meshIndex{-1};
 };
 
-
-struct RenderObjectLayouts
-{
-    VkDescriptorSetLayout frustumCullLayout;
-    VkDescriptorSetLayout addressesLayout;
-    VkDescriptorSetLayout texturesLayout;
-};
-
 struct InstanceData
 {
     glm::mat4 currentModelMatrix;

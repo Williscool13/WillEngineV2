@@ -23,10 +23,14 @@ class GameObject;
 class RenderObject final : public IRenderReference
 {
 public:
-    RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager);
+    RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager, int32_t renderObjectId);
 
     ~RenderObject() override;
 
+private:
+    uint32_t renderObjectId{};
+
+public:
     GameObject* generateGameObject(const std::string& gameObjectName = "");
 
     bool canDraw() const { return instanceBufferCapacity > 0; }
@@ -43,6 +47,8 @@ public:
     void recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent);
 
     bool attachToGameObject(GameObject* gameObject, int32_t meshIndex);
+
+    int32_t getRenderReferenceIndex() override { return renderObjectId; }
 
     void updateInstanceData(int32_t instanceIndex, const glm::mat4& newModelMatrix, int32_t currentFrameOverlap, int32_t previousFrameOverlap) override;
 

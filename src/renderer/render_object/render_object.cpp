@@ -19,8 +19,9 @@
 
 namespace will_engine
 {
-RenderObject::RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager) : resourceManager(resourceManager)
+RenderObject::RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager, const int32_t renderObjectId) : resourceManager(resourceManager)
 {
+    this->renderObjectId = renderObjectId;
     if (!parseGltf(gltfFilepath)) { return; }
     generateBuffers();
 }
@@ -119,7 +120,7 @@ void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, Gam
             boundingSphereIndices.push_back(primitive.boundingSphereIndex);
         }
 
-        gameObject->setRenderObjectReference(this, static_cast<int32_t>(instanceBufferSize));
+        gameObject->setRenderObjectReference(this, static_cast<int32_t>(instanceBufferSize), renderNode.meshIndex);
         instanceBufferSize++;
     }
 
@@ -155,7 +156,7 @@ bool RenderObject::attachToGameObject(GameObject* gameObject, const int32_t mesh
         boundingSphereIndices.push_back(primitive.boundingSphereIndex);
     }
 
-    gameObject->setRenderObjectReference(this, static_cast<int32_t>(instanceBufferSize));
+    gameObject->setRenderObjectReference(this, static_cast<int32_t>(instanceBufferSize), meshIndex);
     instanceBufferSize++;
 
     uploadCullingBufferData();

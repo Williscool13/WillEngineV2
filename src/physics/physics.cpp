@@ -160,9 +160,6 @@ JPH::BodyInterface& Physics::getBodyInterface() const
 
 JPH::BodyID Physics::addRigidBody(IPhysicsBody* pb, const JPH::ShapeRefC& shape, const bool isDynamic)
 {
-    PhysicsObject physicsObject;
-    physicsObject.physicsBody = pb;
-
     const JPH::BodyCreationSettings settings(
         shape,
         physics_utils::ToJolt(pb->getGlobalPosition()),
@@ -171,8 +168,11 @@ JPH::BodyID Physics::addRigidBody(IPhysicsBody* pb, const JPH::ShapeRefC& shape,
         isDynamic ? Layers::MOVING : Layers::NON_MOVING
     );
 
+    PhysicsObject physicsObject;
+    physicsObject.physicsBody = pb;
     physicsObject.bodyId = physicsSystem->GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::Activate);
     physicsObject.shape = shape;
+
     physicsObjects.insert({physicsObject.bodyId, physicsObject});
 
     return physicsObject.bodyId;
@@ -184,6 +184,7 @@ JPH::BodyID Physics::addRigidBody(IPhysicsBody* pb, const JPH::BodyCreationSetti
     physicsObject.physicsBody = pb;
     physicsObject.bodyId = physicsSystem->GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::Activate);
     physicsObject.shape = settings.GetShape();
+
     physicsObjects.insert({physicsObject.bodyId, physicsObject});
 
     return physicsObject.bodyId;
@@ -191,12 +192,12 @@ JPH::BodyID Physics::addRigidBody(IPhysicsBody* pb, const JPH::BodyCreationSetti
 
 void Physics::removeRigidBody(const IPhysicsBody* pb)
 {
-    if (!physicsObjects.contains(pb->getBodyId())) { return; }
+    if (!physicsObjects.contains(pb->getPhysicsBodyId())) { return; }
 
-    const JPH::BodyID bodyId = physicsObjects[pb->getBodyId()].bodyId;
+    const JPH::BodyID bodyId = physicsObjects[pb->getPhysicsBodyId()].bodyId;
     physicsSystem->GetBodyInterface().RemoveBody(bodyId);
     physicsSystem->GetBodyInterface().DestroyBody(bodyId);
-    physicsObjects.erase(pb->getBodyId());
+    physicsObjects.erase(pb->getPhysicsBodyId());
 }
 
 void Physics::removeRigidBodies(const std::vector<IPhysicsBody*>& objects)
@@ -205,7 +206,7 @@ void Physics::removeRigidBodies(const std::vector<IPhysicsBody*>& objects)
     bodyIDs.reserve(objects.size());
 
     for (const auto& pb : objects) {
-        const auto bodyId = pb->getBodyId();
+        const auto bodyId = pb->getPhysicsBodyId();
         if (physicsObjects.contains(bodyId)) {
             bodyIDs.push_back(bodyId);
             physicsObjects.erase(bodyId);
@@ -230,9 +231,12 @@ void Physics::updateTransforms() const
     }
 }
 
-IPhysicsBody* Physics::getPhysicsBodyFromId(JPH::BodyID bodyId)
+PhysicsObject* Physics::getPhysicsObject(const JPH::BodyID bodyId)
 {
-    if (!physicsObjects.contains(bodyId)) { return nullptr; }
-    return physicsObjects[bodyId].physicsBody;
+    if (physicsObjects.contains(bodyId)) {
+        return &physicsObjects.at(bodyId);
+    }
+
+    return nullptr;
 }
 }

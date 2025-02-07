@@ -15,6 +15,7 @@
 #include "src/core/engine.h"
 #include "src/core/input.h"
 #include "src/core/time.h"
+#include "src/core/scene/scene.h"
 #include "src/util/file.h"
 
 namespace will_engine
