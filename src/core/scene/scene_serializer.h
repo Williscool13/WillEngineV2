@@ -23,12 +23,53 @@ namespace will_engine
 {
 using ordered_json = nlohmann::ordered_json;
 
+constexpr int32_t SCENE_FORMAT_VERSION = 1;
+
+struct EngineVersion
+{
+    uint32_t major;
+    uint32_t minor;
+    uint32_t patch;
+
+    static EngineVersion Current()
+    {
+        return {ENGINE_VERSION_MAJOR, ENGINE_VERSION_MINOR, ENGINE_VERSION_PATCH};
+    }
+};
+
+struct SceneMetadata
+{
+    std::string name;
+    std::string created;
+    uint32_t formatVersion;
+
+    static SceneMetadata Create(const std::string& sceneName)
+    {
+        const auto now = std::chrono::system_clock::now();
+        const auto timeT = std::chrono::system_clock::to_time_t(now);
+        std::stringstream ss;
+        ss << std::put_time(std::localtime(&timeT), "%Y-%m-%d %H:%M:%S");
+
+        return {
+            sceneName,
+            ss.str(),
+            SCENE_FORMAT_VERSION
+        };
+    }
+};
+
 struct PhysicsProperties
 {
+    bool isActive{false};
     JPH::EMotionType motionType{};
     JPH::ObjectLayer layer{};
     std::string shapeType{};
     glm::vec3 shapeParams{}; // shape specific params, don't think it's necessary yet
+};
+
+struct RenderObjectEntry
+{
+    std::string filepath;
 };
 
 inline void to_json(ordered_json& j, const Transform& t)
@@ -84,7 +125,6 @@ inline void from_json(ordered_json& j, Transform& t)
     t = {position, rotation, scale};
 }
 
-
 inline void to_json(ordered_json& j, const PhysicsProperties& p)
 {
     j = {
@@ -113,10 +153,54 @@ inline void from_json(const ordered_json& j, PhysicsProperties& props)
     );
 }
 
+inline void to_json(ordered_json& j, const EngineVersion& version)
+{
+    j = ordered_json{
+        {"major", version.major},
+        {"minor", version.minor},
+        {"patch", version.patch}
+    };
+}
+
+inline void from_json(const ordered_json& j, EngineVersion& version)
+{
+    version.major = j["major"].get<uint32_t>();
+    version.minor = j["minor"].get<uint32_t>();
+    version.patch = j["patch"].get<uint32_t>();
+}
+
+inline void to_json(ordered_json& j, const SceneMetadata& metadata)
+{
+    j = ordered_json{
+        {"name", metadata.name},
+        {"created", metadata.created},
+        {"formatVersion", metadata.formatVersion}
+    };
+}
+
+inline void from_json(const ordered_json& j, SceneMetadata& metadata)
+{
+    metadata.name = j["name"].get<std::string>();
+    metadata.created = j["created"].get<std::string>();
+    metadata.formatVersion = j["formatVersion"].get<uint32_t>();
+}
+
+inline void to_json(ordered_json& j, const RenderObjectEntry& entry)
+{
+    j = ordered_json{
+        {"filepath", entry.filepath}
+    };
+}
+
+inline void from_json(const ordered_json& j, RenderObjectEntry& entry)
+{
+    entry.filepath = j["filepath"].get<std::string>();
+}
+
 class SceneSerializer
 {
 public:
-    static void SerializeGameObject(ordered_json& j, IHierarchical* obj, physics::Physics* physics, const std::vector<RenderObject*>& renderObjects)
+    static void SerializeGameObject(ordered_json& j, IHierarchical* obj, physics::Physics* physics, const std::vector<uint32_t>& renderObjectIds) // NOLINT(*-no-recursion)
     {
         if (auto gameObject = dynamic_cast<GameObject*>(obj)) {
             j["id"] = gameObject->getId();
@@ -129,8 +213,15 @@ public:
         }
 
         if (auto renderable = dynamic_cast<IRenderable*>(obj)) {
-            j["renderReference"] = renderable->getRenderReferenceIndex();
-            j["renderMeshIndex"] = renderable->getMeshIndex();
+            const int32_t renderRefIndex = renderable->getRenderReferenceIndex();
+            const bool hasValidReference = renderRefIndex != INDEX_NONE && std::ranges::find_if(renderObjectIds, [renderRefIndex](const uint32_t id) {
+                return id == renderRefIndex;
+            }) != renderObjectIds.end();
+
+            if (hasValidReference) {
+                j["renderReference"] = renderRefIndex;
+                j["renderMeshIndex"] = renderable->getMeshIndex();
+            }
         }
 
         if (auto physicsBody = dynamic_cast<IPhysicsBody*>(obj)) {
@@ -139,6 +230,7 @@ public:
                     const JPH::BodyInterface& bodyInterface = physics->getBodyInterface();
 
                     PhysicsProperties props;
+                    props.isActive = true;
                     props.motionType = bodyInterface.GetMotionType(physicsBody->getPhysicsBodyId());
                     props.layer = bodyInterface.GetObjectLayer(physicsBody->getPhysicsBodyId());
 
@@ -183,17 +275,19 @@ public:
             }
         }
 
-        ordered_json children = ordered_json::array();
-        for (auto* child : obj->getChildren()) {
-            ordered_json childJson;
-            if (child == nullptr) {
-                fmt::print("SerializeGameObject: null game object found in IHierarchical chain (child of {})\n", obj->getName());
-                continue;
+        if (!obj->getChildren().empty()) {
+            ordered_json children = ordered_json::array();
+            for (IHierarchical* child : obj->getChildren()) {
+                ordered_json childJson;
+                if (child == nullptr) {
+                    fmt::print("SerializeGameObject: null game object found in IHierarchical chain (child of {})\n", obj->getName());
+                    continue;
+                }
+                SerializeGameObject(childJson, child, physics, renderObjectIds);
+                children.push_back(childJson);
             }
-            SerializeGameObject(childJson, child, physics, renderObjects);
-            children.push_back(childJson);
+            j["children"] = children;
         }
-        j["children"] = children;
     }
 
     static void SerializeScene(IHierarchical* sceneRoot, physics::Physics* physics, const std::vector<RenderObject*>& renderObjects, const std::string& filepath)
@@ -202,13 +296,36 @@ public:
             fmt::print("Warning: Scene root is null\n");
             return;
         }
-        ordered_json j;
-        SerializeGameObject(j, sceneRoot, physics, renderObjects);
+
+        ordered_json rootJ;
+
+        rootJ["version"] = EngineVersion::Current();
+        rootJ["metadata"] = SceneMetadata::Create("Test Scene");
+
+        ordered_json gameObjectJ;
+        ordered_json renderObjectJ;
+        std::vector<uint32_t> renderObjectIndices;
+        renderObjectIndices.reserve(renderObjects.size());
+        std::ranges::transform(renderObjects, std::back_inserter(renderObjectIndices),
+                               [](const RenderObject* obj) { return obj->getRenderReferenceIndex(); });
+
+        SerializeGameObject(gameObjectJ, sceneRoot, physics, renderObjectIndices);
+        rootJ["gameObjects"] = gameObjectJ;
+
+        ordered_json renderObjectsJ = ordered_json::object();
+        for (const RenderObject* renderObject : renderObjects) {
+            const uint32_t id = renderObject->getRenderReferenceIndex();
+            renderObjectsJ[std::to_string(id)] = RenderObjectEntry{
+                .filepath = renderObject->getFilePath().string(),
+            };
+        }
+        rootJ["renderObjects"] = renderObjectsJ;
+
         std::ofstream file(filepath);
-        file << j.dump(4);
+        file << rootJ.dump(4);
     }
 
-    GameObject* DeserializeGameObject(const ordered_json& j, physics::Physics* physics, ResourceManager& resourceManager)
+    static GameObject* DeserializeGameObject(const ordered_json& j, physics::Physics* physics, ResourceManager& resourceManager)
     {
         // auto* obj = new GameObject(j["name"].get<std::string>());
         // obj->transform = j["transform"].get<Transform>();
@@ -259,7 +376,7 @@ public:
         return nullptr;
     }
 
-    GameObject* DeserializeScene(physics::Physics* physics, ResourceManager& resourceManager, const std::string& filepath)
+    static GameObject* DeserializeScene(physics::Physics* physics, ResourceManager& resourceManager, const std::string& filepath)
     {
         // Read JSON from file
         std::ifstream file(filepath);
@@ -267,6 +384,20 @@ public:
         file >> j;
 
         return DeserializeGameObject(j, physics, resourceManager);
+    }
+
+private:
+    static std::unordered_map<uint32_t, RenderObjectEntry> ParseRenderObjects(const ordered_json& j)
+    {
+        std::unordered_map<uint32_t, RenderObjectEntry> result;
+
+        const auto& renderObjects = j["renderObjects"];
+        for (const auto& [idStr, entry] : renderObjects.items()) {
+            uint32_t id = std::stoul(idStr);
+            result[id] = entry.get<RenderObjectEntry>();
+        }
+
+        return result;
     }
 };
 } // will_engine

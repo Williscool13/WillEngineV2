@@ -19,9 +19,9 @@
 
 namespace will_engine
 {
-RenderObject::RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager, const int32_t renderObjectId) : resourceManager(resourceManager)
+RenderObject::RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager, const int32_t renderObjectId)
+: renderObjectId(renderObjectId), gltfFilepath(gltfFilepath), resourceManager(resourceManager)
 {
-    this->renderObjectId = renderObjectId;
     if (!parseGltf(gltfFilepath)) { return; }
     generateBuffers();
 }
