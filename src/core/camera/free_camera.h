@@ -3,6 +3,7 @@
 
 #ifndef FREE_CAMERA_H
 #define FREE_CAMERA_H
+
 #include "src/core/camera/camera.h"
 #include "src/renderer/renderer_constants.h"
 

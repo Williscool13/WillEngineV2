@@ -4,8 +4,11 @@
 
 #ifndef MODEL_TYPES_H
 #define MODEL_TYPES_H
+
 #include <string>
-#include <glm/glm.hpp>
+#include <vector>
+
+#include <glm.hpp>
 #include <vulkan/vulkan_core.h>
 
 #include "src/core/transform.h"
