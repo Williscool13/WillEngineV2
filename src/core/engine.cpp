@@ -8,6 +8,12 @@
 
 #include <VkBootstrap.h>
 
+#include <Jolt/Jolt.h>
+#include <Jolt/Physics/Body/MotionType.h>
+#include <Jolt/Physics/Collision/Shape/BoxShape.h>
+
+#include "src/physics/physics_filters.h"
+
 #include "camera/free_camera.h"
 #include "game_object/game_object.h"
 #include "Jolt/Physics/Collision/Shape/BoxShape.h"
@@ -16,6 +22,8 @@
 #include "src/core/input.h"
 #include "src/core/time.h"
 #include "src/physics/physics.h"
+#include "src/physics/physics_constants.h"
+#include "src/physics/physics_utils.h"
 #include "src/renderer/immediate_submitter.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/render_object/render_object.h"
@@ -25,7 +33,7 @@
 #include "src/renderer/pipelines/deferred_mrt/deferred_mrt.h"
 #include "src/renderer/pipelines/deferred_resolve/deferred_resolve.h"
 #include "src/renderer/pipelines/environment/environment_pipeline.h"
-#include "src/renderer/pipelines/frustum_cull/frustum_cull_pipeline.h"
+#include "src/renderer/pipelines/visibility_pass/visibility_pass.h"
 #include "src/renderer/pipelines/post_process/post_process_pipeline.h"
 #include "src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h"
 #include "src/util/halton.h"
@@ -120,7 +128,7 @@ void Engine::initRenderer()
     sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = debugSceneDataBuffer, .allocSize = sizeof(SceneData)};
     sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData, FRAME_OVERLAP);
 
-    frustumCullPipeline = new frustum_cull_pipeline::FrustumCullPipeline(*resourceManager);
+    frustumCullPipeline = new visibility_pass::VisibilityPassPipeline(*resourceManager);
     environmentPipeline = new environment_pipeline::EnvironmentPipeline(*resourceManager, environmentMap->getCubemapDescriptorSetLayout());
     deferredMrtPipeline = new deferred_mrt::DeferredMrtPipeline(*resourceManager);
     deferredResolvePipeline = new deferred_resolve::DeferredResolvePipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
@@ -160,11 +168,22 @@ void Engine::initRenderer()
 
 void Engine::initGame()
 {
-    scene = new Scene();
+    GameObject* sceneRoot = new GameObject();
+    scene = new Scene(sceneRoot);
+    // renderObjects.emplace_back("assets/models/cube.gltf", *resourceManager, 0);
+    // renderObjects.emplace_back("assets/models/primitives/primitives.gltf", *resourceManager, 1);
+    // renderObjects.emplace_back("assets/models/sponza2/Sponza.gltf", *resourceManager, 2);
+    // renderObjects.emplace_back("assets/models/mySphere.glb", *resourceManager, 3);
+    // cube = renderObjects[0];
+    // primitives = renderObjects[1];
+    // sponza = renderObjects[2];
+    // mySphere = renderObjects[3];
+
     cube = new RenderObject{"assets/models/cube.gltf", *resourceManager, 0};
     primitives = new RenderObject{"assets/models/primitives/primitives.gltf", *resourceManager, 1};
     sponza = new RenderObject{"assets/models/sponza2/Sponza.gltf", *resourceManager, 2};
     mySphere = new RenderObject{"assets/models/mySphere.glb", *resourceManager, 3};
+    renderObjects = {cube, primitives, sponza, mySphere};
 
 
     gameObjects.reserve(10);
@@ -177,8 +196,8 @@ void Engine::initGame()
     primitives->attachToGameObject(floor, 0);
     floor->setGlobalScale({20.0f, 0.5f, 20.0f});
     floor->translate({0.0f, -2.0f, 0.0f});
-    const auto floorShape = new JPH::BoxShape(JPH::Vec3(20.0f, 1.0f, 20.0f));
-    floor->setupRigidbody(floorShape);
+    auto floorCollider = physics::BoxCollider({20.0f, 1.0f, 20.0f});
+    physics->setupRigidBody(floor, &floorCollider, JPH::EMotionType::Static, physics::Layers::NON_MOVING);
 
     gameObjects.push_back(floor);
 
@@ -186,7 +205,8 @@ void Engine::initGame()
     const auto sphere = new GameObject("SPHERE");
     mySphere->attachToGameObject(sphere, 0);
     sphere->setGlobalPosition({0, 5.0f, 0});
-    sphere->setupRigidbody(physics->getUnitSphereShape(), JPH::EMotionType::Dynamic, physics::Layers::PLAYER);
+    auto sphereCollider = physics::SphereCollider(physics::UNIT_SPHERE);
+    physics->setupRigidBody(sphere, &sphereCollider, JPH::EMotionType::Dynamic, physics::Layers::PLAYER);
     gameObjects.push_back(sphere);
 
     camera = new FreeCamera();
@@ -276,10 +296,10 @@ void Engine::updateGame(const float deltaTime) const
         if (camera) {
             const glm::vec3 direction = camera->transform.getForward();
             //const physics::PlayerCollisionFilter dontHitPlayerFilter{};
-            const physics::RaycastHit result = physics::physics_utils::raycast(camera->getPosition(), direction, 100.0f, {}, {}, {});
+            const physics::RaycastHit result = physics::PhysicsUtils::raycast(camera->getPosition(), direction, 100.0f, {}, {}, {});
 
             if (result.hasHit) {
-                physics::physics_utils::addImpulseAtPosition(result.hitBodyID, normalize(direction) * 100.0f, result.hitPosition);
+                physics::PhysicsUtils::addImpulseAtPosition(result.hitBodyID, normalize(direction) * 100.0f, result.hitPosition);
             } else {
                 fmt::print("Failed to find an object with the raycast\n");
             }
@@ -382,12 +402,13 @@ void Engine::draw(float deltaTime)
     cascadedShadowMap->update(mainLight, camera, currentFrameOverlap);
     std::vector renderObjects{cube, primitives, sponza, mySphere}; //, checkeredFloor};
 
-    frustum_cull_pipeline::FrustumCullDrawInfo csmFrustumCullDrawInfo{
+    visibility_pass::VisibilityPassDrawInfo csmFrustumCullDrawInfo{
         currentFrameOverlap,
         renderObjects,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
-        false
+        false,
+        true,
     };
     frustumCullPipeline->draw(cmd, csmFrustumCullDrawInfo);
 
@@ -411,11 +432,12 @@ void Engine::draw(float deltaTime)
     vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    frustum_cull_pipeline::FrustumCullDrawInfo deferredFrustumCullDrawInfo{
+    visibility_pass::VisibilityPassDrawInfo deferredFrustumCullDrawInfo{
         currentFrameOverlap, renderObjects,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
-        true
+        true,
+        false
     };
     frustumCullPipeline->draw(cmd, deferredFrustumCullDrawInfo);
 

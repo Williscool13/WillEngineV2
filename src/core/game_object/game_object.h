@@ -6,22 +6,30 @@
 #define GAME_OBJECT_H
 
 #include <string>
+#include <extern/half/half/half.hpp>
 
 #include <glm/glm.hpp>
 
+#include <Jolt/Jolt.h>
+#include <Jolt/Physics/Body/BodyID.h>
+#include <Jolt/Physics/Body/MotionType.h>
+#include <Jolt/Physics/Collision/ObjectLayer.h>
+#include <Jolt/Physics/Collision/Shape/Shape.h>
+
 #include "hierarchical.h"
+#include "../../physics/physics_body.h"
 #include "renderable.h"
 #include "transformable.h"
 #include "src/core/transform.h"
+#include "src/physics/physics_constants.h"
+#include "src/physics/physics_filters.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/render_object/render_reference.h"
-#include "src/physics/physics.h"
-#include "src/physics/physics_filters.h"
-#include "src/physics/physics_utils.h"
 #include "src/util/math_constants.h"
 
 namespace will_engine
 {
+class Engine;
 class RenderObject;
 
 class GameObject : public IPhysicsBody, public IRenderable, public ITransformable, public IHierarchical
@@ -148,6 +156,8 @@ protected: // IRenderable
       * If true, the model matrix will never be updated from defaults.
       */
     bool bIsStatic{false};
+    bool bIsVisible{true};
+    bool bCastsShadows{false};
     /**
      * The render object that is responsible for drawing this gameobject's model
      */
@@ -158,14 +168,12 @@ protected: // IRenderable
 public: // IPhysicsBody
     void setGlobalTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) override;
 
-    void setPhysicsBodyId(const JPH::BodyID bodyId) override { this->bodyId = bodyId; }
+    void setPhysicsBodyId(const uint32_t bodyId) override { this->bodyId = bodyId; }
 
-    JPH::BodyID getPhysicsBodyId() const override { return bodyId; }
-
-    void setupRigidbody(const JPH::ShapeRefC& shape, JPH::EMotionType motionType = JPH::EMotionType::Static, JPH::ObjectLayer layer = physics::Layers::NON_MOVING);
+    uint32_t getPhysicsBodyId() const override { return bodyId; }
 
 protected: // IPhysicsBody
-    JPH::BodyID bodyId{JPH::BodyID::cInvalidBodyID};
+    uint32_t bodyId{physics::BODY_ID_NONE};
 
 public:
     bool operator==(const GameObject& other) const

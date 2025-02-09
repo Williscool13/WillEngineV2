@@ -6,13 +6,13 @@
 #define MODEL_H
 
 #include <filesystem>
+#include <optional>
+#include <fastgltf/types.hpp>
 
 #include "render_object_types.h"
 #include "render_reference.h"
-#include "extern/fastgltf/include/fastgltf/types.hpp"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/resource_manager.h"
-#include "src/renderer/pipelines/basic_compute/basic_compute_pipeline.h"
 #include "src/renderer/pipelines/basic_compute/basic_compute_pipeline.h"
 
 
@@ -53,7 +53,7 @@ public:
 
     const std::filesystem::path& getFilePath() const { return gltfFilepath; }
 
-    void updateInstanceData(int32_t instanceIndex, const glm::mat4& newModelMatrix, int32_t currentFrameOverlap, int32_t previousFrameOverlap) override;
+    void updateInstanceData(int32_t instanceIndex, const CurrentInstanceData& newInstanceData, int32_t currentFrameOverlap, int32_t previousFrameOverlap) override;
 
 private: // Model Data
     bool parseGltf(const std::filesystem::path& gltfFilepath);
@@ -64,6 +64,9 @@ private: // Model Data
 
     static void loadTextureIndices(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, int& imageIndex, int& samplerIndex);
 
+    static VkFilter extractFilter(fastgltf::Filter filter);
+
+    static VkSamplerMipmapMode extractMipMapMode(fastgltf::Filter filter);
 private: // Buffer Data
     bool generateBuffers();
 

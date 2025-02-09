@@ -39,9 +39,9 @@ namespace deferred_mrt
     class DeferredMrtPipeline;
 }
 
-namespace frustum_cull_pipeline
+namespace visibility_pass
 {
-    class FrustumCullPipeline;
+    class VisibilityPassPipeline;
 }
 
 class FreeCamera;
@@ -144,6 +144,7 @@ private: // Scene Data
 
     Scene* scene{nullptr};
 
+    std::vector<RenderObject*> renderObjects{};
     RenderObject* cube{nullptr};
     RenderObject* primitives{nullptr};
     RenderObject* sponza{nullptr};
@@ -153,7 +154,7 @@ private: // Scene Data
     std::vector<GameObject*> gameObjects{};
 
 private: // Pipelines
-    frustum_cull_pipeline::FrustumCullPipeline* frustumCullPipeline{nullptr};
+    visibility_pass::VisibilityPassPipeline* frustumCullPipeline{nullptr};
     environment_pipeline::EnvironmentPipeline* environmentPipeline{nullptr};
     deferred_mrt::DeferredMrtPipeline* deferredMrtPipeline{nullptr};
     deferred_resolve::DeferredResolvePipeline* deferredResolvePipeline{nullptr};
@@ -194,8 +195,8 @@ private: // Draw Resources
 private: // Swapchain
     VkSwapchainKHR swapchain{};
     VkFormat swapchainImageFormat{};
-    std::vector<VkImage> swapchainImages;
-    std::vector<VkImageView> swapchainImageViews;
+    std::vector<VkImage> swapchainImages{};
+    std::vector<VkImageView> swapchainImageViews{};
     VkExtent2D swapchainExtent{};
 
     void createSwapchain(uint32_t width, uint32_t height);

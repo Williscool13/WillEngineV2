@@ -16,7 +16,9 @@ namespace will_engine
 class Scene
 {
 public:
-    Scene();
+    Scene() = delete;
+
+    Scene(IHierarchical* sceneRoot);
 
     ~Scene();
 
@@ -28,17 +30,13 @@ public:
 
     static void undent(IHierarchical* obj);
 
-    void moveObject(const IHierarchical* obj, int diff) const;
+    static void moveObject(const IHierarchical* obj, int diff);
 
 private: // Scene properties
     IHierarchical* sceneRoot;
     std::unordered_set<IHierarchical*> activeGameObjects;
 
 public:
-    void imguiSceneGraph();
-
-    void displayGameObject(IHierarchical* obj, int32_t depth = 0);
-
     void update(int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
 
     IHierarchical* getRoot() const { return sceneRoot; }

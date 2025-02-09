@@ -5,8 +5,6 @@
 #ifndef PHYSICS_CONSTANTS_H
 #define PHYSICS_CONSTANTS_H
 
-#include <vulkan/vulkan_core.h>
-
 namespace will_engine::physics
 {
 static constexpr uint32_t MAX_BODIES = 10240;
@@ -16,5 +14,12 @@ static constexpr uint32_t NUM_BODY_MUTEXES = 0;
 static constexpr uint32_t TEMP_ALLOCATOR_SIZE = 10 * 1024 * 1024; // 10MB
 
 static constexpr int32_t WORLD_FLOOR_HEIGHT = -20;
+
+static constexpr uint32_t BODY_ID_NONE = 0xffffffff;
+
+static constexpr auto UNIT_CUBE = glm::vec3(0.5f);
+static constexpr float UNIT_SPHERE = 0.5f;
+static constexpr auto UNIT_CAPSULE = glm::vec2(0.5f, 0.25f);
+static constexpr auto UNIT_CYLINDER = glm::vec2(0.5f,0.25f);
 }
 #endif //PHYSICS_CONSTANTS_H

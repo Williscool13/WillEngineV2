@@ -11,11 +11,6 @@
 #include "src/core/transform.h"
 #include "src/physics/physics.h"
 
-#include "Jolt/Physics/Collision/Shape/BoxShape.h"
-#include "Jolt/Physics/Collision/Shape/CapsuleShape.h"
-#include "Jolt/Physics/Collision/Shape/CylinderShape.h"
-#include "Jolt/Physics/Collision/Shape/SphereShape.h"
-
 #include "src/renderer/render_object/render_object.h"
 #include "src/core/game_object/game_object.h"
 
@@ -58,14 +53,7 @@ struct SceneMetadata
     }
 };
 
-struct PhysicsProperties
-{
-    bool isActive{false};
-    JPH::EMotionType motionType{};
-    JPH::ObjectLayer layer{};
-    std::string shapeType{};
-    glm::vec3 shapeParams{}; // shape specific params, don't think it's necessary yet
-};
+
 
 struct RenderObjectEntry
 {
@@ -125,32 +113,36 @@ inline void from_json(ordered_json& j, Transform& t)
     t = {position, rotation, scale};
 }
 
-inline void to_json(ordered_json& j, const PhysicsProperties& p)
+namespace physics
 {
-    j = {
-        {"motionType", static_cast<int>(p.motionType)},
-        {"layer", static_cast<int>(p.layer)},
-        {"shapeType", p.shapeType},
-        {
-            "shapeParams", {
-                {"x", p.shapeParams.x},
-                {"y", p.shapeParams.y},
-                {"z", p.shapeParams.z}
+    inline void to_json(ordered_json& j, const PhysicsProperties& p)
+    {
+        j = {
+            {"motionType", p.motionType},
+            {"layer", p.layer},
+            {"shapeType", p.shapeType},
+            {
+                "shapeParams", {
+                        {"x", p.shapeParams.x},
+                        {"y", p.shapeParams.y},
+                        {"z", p.shapeParams.z}
+                }
             }
-        }
-    };
-}
+        };
+    }
 
-inline void from_json(const ordered_json& j, PhysicsProperties& props)
-{
-    props.motionType = static_cast<JPH::EMotionType>(j["motionType"].get<int>());
-    props.layer = static_cast<JPH::ObjectLayer>(j["layer"].get<int>());
-    props.shapeType = j["shapeType"].get<std::string>();
-    props.shapeParams = glm::vec3(
-        j["shapeParams"]["x"].get<float>(),
-        j["shapeParams"]["y"].get<float>(),
-        j["shapeParams"]["z"].get<float>()
-    );
+    inline void from_json(const ordered_json& j, PhysicsProperties& props)
+    {
+        props.motionType = j["motionType"].get<uint8_t>();
+        props.layer = (j["layer"].get<uint16_t>());
+        props.shapeType = j["shapeType"].get<std::string>();
+        props.shapeParams = glm::vec3(
+            j["shapeParams"]["x"].get<float>(),
+            j["shapeParams"]["y"].get<float>(),
+            j["shapeParams"]["z"].get<float>()
+        );
+    }
+
 }
 
 inline void to_json(ordered_json& j, const EngineVersion& version)
@@ -208,11 +200,11 @@ public:
 
         j["name"] = obj->getName();
 
-        if (auto transformable = dynamic_cast<ITransformable*>(obj)) {
+        if (const auto transformable = dynamic_cast<ITransformable*>(obj)) {
             j["transform"] = transformable->getLocalTransform();
         }
 
-        if (auto renderable = dynamic_cast<IRenderable*>(obj)) {
+        if (const auto renderable = dynamic_cast<IRenderable*>(obj)) {
             const int32_t renderRefIndex = renderable->getRenderReferenceIndex();
             const bool hasValidReference = renderRefIndex != INDEX_NONE && std::ranges::find_if(renderObjectIds, [renderRefIndex](const uint32_t id) {
                 return id == renderRefIndex;
@@ -224,54 +216,10 @@ public:
             }
         }
 
-        if (auto physicsBody = dynamic_cast<IPhysicsBody*>(obj)) {
-            if (!physicsBody->getPhysicsBodyId().IsInvalid()) {
-                if (const physics::PhysicsObject* physicsObject = physics->getPhysicsObject(physicsBody->getPhysicsBodyId())) {
-                    const JPH::BodyInterface& bodyInterface = physics->getBodyInterface();
-
-                    PhysicsProperties props;
-                    props.isActive = true;
-                    props.motionType = bodyInterface.GetMotionType(physicsBody->getPhysicsBodyId());
-                    props.layer = bodyInterface.GetObjectLayer(physicsBody->getPhysicsBodyId());
-
-                    const JPH::Shape* shape = physicsObject->shape.GetPtr();
-                    switch (shape->GetSubType()) {
-                        case JPH::EShapeSubType::Box:
-                        {
-                            const auto box = static_cast<const JPH::BoxShape*>(shape);
-                            props.shapeType = "box";
-                            const JPH::Vec3 halfExtent = box->GetHalfExtent();
-                            props.shapeParams = glm::vec3(halfExtent.GetX(), halfExtent.GetY(), halfExtent.GetZ());
-                            break;
-                        }
-                        case JPH::EShapeSubType::Sphere:
-                        {
-                            const auto sphere = static_cast<const JPH::SphereShape*>(shape);
-                            props.shapeType = "sphere";
-                            props.shapeParams = glm::vec3(sphere->GetRadius(), 0.0f, 0.0f);
-                            break;
-                        }
-                        case JPH::EShapeSubType::Capsule:
-                        {
-                            const auto capsule = static_cast<const JPH::CapsuleShape*>(shape);
-                            props.shapeType = "capsule";
-                            props.shapeParams = glm::vec3(capsule->GetRadius(), capsule->GetHalfHeightOfCylinder(), 0.0f);
-                            break;
-                        }
-                        case JPH::EShapeSubType::Cylinder:
-                        {
-                            const auto cylinder = static_cast<const JPH::CylinderShape*>(shape);
-                            props.shapeType = "cylinder";
-                            props.shapeParams = glm::vec3(cylinder->GetRadius(), cylinder->GetHalfHeight(), 0.0f);
-                            break;
-                        }
-                        default:
-                            fmt::print("Warning: Unsupported physics shape subtype: {}\n", static_cast<int>(shape->GetSubType()));
-                            break;
-                    }
-
-                    j["physics"] = props;
-                }
+        if (const auto physicsBody = dynamic_cast<IPhysicsBody*>(obj)) {
+            physics::PhysicsProperties properties = physics->serializeProperties(physicsBody);
+            if (properties.isActive) {
+                j["physics"] = properties;
             }
         }
 
