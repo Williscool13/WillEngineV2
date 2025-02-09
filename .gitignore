@@ -7,3 +7,6 @@
 
 # Compiled shader files
 shaders/**/*.spv
+
+# Generated .reg files
+branding/*.reg
