@@ -37,6 +37,7 @@
 #include "src/renderer/pipelines/visibility_pass/visibility_pass.h"
 #include "src/renderer/pipelines/post_process/post_process_pipeline.h"
 #include "src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h"
+#include "src/util/file.h"
 #include "src/util/halton.h"
 
 #ifdef NDEBUG
@@ -167,6 +168,17 @@ void Engine::initRenderer()
         resourceManager->getDefaultSamplerLinear()
     };
     postProcessPipeline->setupDescriptorBuffer(postProcessDescriptor);
+
+    const std::vector<std::filesystem::path> willModels = file::findWillmodels(relative(std::filesystem::current_path() / "assets"));
+    newRenderObjects.reserve(willModels.size());
+    for (std::filesystem::path willModel : willModels) {
+        std::optional<RenderObjectInfo> modelMetadata = Serializer::loadWillModel(willModel);
+        if (modelMetadata.has_value()) {
+            renderObjectInfos[modelMetadata->id] = modelMetadata.value();
+        } else {
+            fmt::print("Failed to load render object, see previous error message\n");
+        }
+    }
 }
 
 void Engine::initGame()
@@ -181,6 +193,7 @@ void Engine::initGame()
     // primitives = renderObjects[1];
     // sponza = renderObjects[2];
     // mySphere = renderObjects[3];
+
 
     cube = new RenderObject{"assets/models/cube.gltf", *resourceManager};
     primitives = new RenderObject{"assets/models/primitives/primitives.gltf", *resourceManager};
@@ -316,7 +329,7 @@ void Engine::updateGame(const float deltaTime) const
 
     if (input.isKeyPressed(SDLK_o)) {
         std::vector renderObjects{cube, primitives, sponza, mySphere}; //, checkeredFloor};
-        SceneSerializer::SerializeScene(scene->getRoot(), physics::Physics::Get(), renderObjects, "test.json");
+        Serializer::SerializeScene(scene->getRoot(), physics::Physics::Get(), renderObjects, "test.json");
     }
 }
 

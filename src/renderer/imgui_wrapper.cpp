@@ -6,6 +6,7 @@
 
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
+#include <extern/ImGuiFileDialog/ImGuiFileDialog.h>
 
 #include "environment/environment.h"
 #include "lighting/shadows/cascaded_shadow_map.h"
@@ -14,6 +15,7 @@
 #include "src/core/time.h"
 #include "src/core/game_object/renderable.h"
 #include "src/core/scene/scene.h"
+#include "src/core/scene/scene_serializer.h"
 #include "src/util/file.h"
 
 namespace will_engine
@@ -308,8 +310,84 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::End();
 
 
-    if (ImGui::Begin("Game Object Creator")) {
+    if (ImGui::Begin("Game Object Creator")) {}
+    ImGui::End();
 
+    if (ImGui::Begin("Render Object Creator")) {
+        if (ImGui::CollapsingHeader("\".willmodel\" Generator")) {
+            static std::filesystem::path gltfPath;
+            static std::filesystem::path willmodelPath;
+
+            ImGui::Text("GLTF Source: %s", gltfPath.empty() ? "None selected" : gltfPath.string().c_str());
+
+            if (ImGui::Button("Select GLTF File")) {
+                IGFD::FileDialogConfig config;
+                config.path = "./assets/models";
+                IGFD::FileDialog::Instance()->OpenDialog(
+                    "ChooseGLTFDlg",
+                    "Choose GLTF File",
+                    ".gltf,.glb",
+                    config);
+            }
+
+            ImGui::Text("Output Path: %s", willmodelPath.empty() ? "None selected" : willmodelPath.string().c_str());
+
+            if (ImGui::Button("Select Output Path")) {
+                IGFD::FileDialogConfig config;
+                config.path = "./assets/willmodels";
+                IGFD::FileDialog::Instance()->OpenDialog(
+                    "SaveWillmodelDlg",
+                    "Save Willmodel",
+                    ".willmodel",
+                    config);
+            }
+
+            if (IGFD::FileDialog::Instance()->Display("ChooseGLTFDlg")) {
+                if (IGFD::FileDialog::Instance()->IsOk()) {
+                    gltfPath = IGFD::FileDialog::Instance()->GetFilePathName();
+                    gltfPath = file::getRelativePath(gltfPath);
+
+                    willmodelPath = std::filesystem::current_path() / "assets" / "willmodels" / gltfPath.filename().string();
+                    willmodelPath = file::getRelativePath(willmodelPath);
+                    willmodelPath.replace_extension(".willmodel");
+                }
+                IGFD::FileDialog::Instance()->Close();
+            }
+
+            if (IGFD::FileDialog::Instance()->Display("SaveWillmodelDlg")) {
+                if (IGFD::FileDialog::Instance()->IsOk()) {
+                    willmodelPath = IGFD::FileDialog::Instance()->GetFilePathName();
+                    willmodelPath = file::getRelativePath(willmodelPath);
+                }
+                IGFD::FileDialog::Instance()->Close();
+            }
+
+            if (!gltfPath.empty() && !willmodelPath.empty()) {
+                if (ImGui::Button("Compile Model")) {
+                    if (Serializer::generateWillModel(gltfPath, willmodelPath)) {
+                        ImGui::OpenPopup("Success");
+                    } else {
+                        ImGui::OpenPopup("Error");
+                    }
+                }
+            }
+
+            if (ImGui::BeginPopupModal("Success", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::Text("Model compiled successfully!");
+                if (ImGui::Button("OK")) {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
+
+            if (ImGui::BeginPopupModal("Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::Text("Failed to compile model!");
+                if (ImGui::Button("OK")) {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
+        }
     }
     ImGui::End();
 
