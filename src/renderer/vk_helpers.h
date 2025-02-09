@@ -10,7 +10,6 @@
 #include <fmt/format.h>
 
 #include "vk_types.h"
-#include "fastgltf/types.hpp"
 
 
 class ImmediateSubmitter;
@@ -89,10 +88,6 @@ VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo();
 
 VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shaderModule,
                                                               const char* entry = "main");
-
-VkFilter extractFilter(fastgltf::Filter filter);
-
-VkSamplerMipmapMode extractMipmapMode(fastgltf::Filter filter);
 
 void saveImageRGBA32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
                       const char* savePath, bool overrideAlpha = true);

@@ -12,6 +12,7 @@ add_definitions(-DJPH_DEBUG_RENDERER)
 add_definitions(-DJPH_ENABLE_ASSERTS=1)
 add_definitions(-DJPH_ENABLE_ASSERT_MESSAGES=1)
 
+add_definitions(-DBUILD_SHARED_LIBS=ON)
 # Vulkan
 find_package(Vulkan REQUIRED)
 
@@ -25,10 +26,12 @@ set(PHYSICS_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics")
 # Nlohmann JSON
 set(JSON_BuildTests OFF CACHE INTERNAL "")
 
+
 add_subdirectory(extern/glm)
-add_subdirectory(extern/fmt)
 add_subdirectory(extern/volk)
 add_subdirectory(extern/vk-bootstrap)
+
+add_subdirectory(extern/fmt)
 add_subdirectory(extern/fastgltf)
 add_subdirectory(extern/fastgltf/deps) # simdjson
 add_subdirectory(extern/SPIRV-Headers)
@@ -41,6 +44,8 @@ set(SHADERC_SKIP_EXAMPLES ON)
 set(SHADERC_SKIP_COPYRIGHT_CHECK ON)
 add_subdirectory(extern/shaderc)
 
+set(BUILD_SHARED_LIBS ON)
+add_definitions(-DJPH_SHARED_LIBRARY)
 include(extern/JoltPhysics/Jolt/Jolt.cmake)
 set(CMAKE_CXX_STANDARD 20) # Jolt sets it to 17
 
@@ -70,9 +75,15 @@ set(HALF_SOURCES
         ${HALF_DIR}/half/half.hpp
 )
 
-set(CORE_SOURCES
+set(ENGINE_SOURCES
         src/core/engine.cpp
         src/core/engine.h
+        src/renderer/imgui_wrapper.h
+        src/renderer/imgui_wrapper.cpp
+        src/core/scene/scene_serializer.cpp
+        src/core/scene/scene_serializer.h
+)
+set(CORE_SOURCES
         src/core/input.cpp
         src/core/input.h
         src/core/time.cpp
@@ -81,9 +92,13 @@ set(CORE_SOURCES
         src/core/engine_types.h
         src/core/transform.h
         src/core/transform.cpp
+        src/core/scene/scene.cpp
+        src/core/scene/scene.h
         src/core/game_object/game_object.h
         src/core/game_object/game_object.cpp
-        src/core/game_object/physics_body.h
+        src/core/game_object/transformable.h
+        src/core/game_object/hierarchical.h
+        src/core/game_object/renderable.h
         src/core/camera/camera.cpp
         src/core/camera/camera.h
         src/core/camera/camera_types.h
@@ -101,9 +116,11 @@ set(PHYSICS_SOURCES
         src/physics/physics_filters.h
         src/physics/physics_types.h
         src/physics/physics_utils.h
+        src/physics/physics_utils.cpp
         src/physics/physics_constants.h
         src/physics/debug/debug_renderer.cpp
         src/physics/debug/debug_renderer.h
+        src/physics/physics_body.h
 )
 
 set(RENDERER_SOURCES
@@ -113,8 +130,6 @@ set(RENDERER_SOURCES
         src/renderer/resource_manager.cpp
         src/renderer/immediate_submitter.h
         src/renderer/immediate_submitter.cpp
-        src/renderer/imgui_wrapper.h
-        src/renderer/imgui_wrapper.cpp
         src/renderer/vk_descriptors.cpp
         src/renderer/vk_descriptors.h
         src/renderer/vk_helpers.h
@@ -141,8 +156,8 @@ set(RENDERER_SOURCES
         src/renderer/pipelines/environment/environment_pipeline.h
         src/renderer/pipelines/post_process/post_process_pipeline.cpp
         src/renderer/pipelines/post_process/post_process_pipeline.h
-        src/renderer/pipelines/frustum_cull/frustum_cull_pipeline.cpp
-        src/renderer/pipelines/frustum_cull/frustum_cull_pipeline.h
+        src/renderer/pipelines/visibility_pass/visibility_pass.cpp
+        src/renderer/pipelines/visibility_pass/visibility_pass.h
         src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.cpp
         src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h
         src/renderer/pipelines/basic_compute/basic_compute_pipeline.cpp
@@ -153,6 +168,7 @@ set(RENDERER_SOURCES
         src/renderer/lighting/directional_light.cpp
         src/renderer/lighting/shadows/cascaded_shadow_map.cpp
         src/renderer/lighting/shadows/cascaded_shadow_map.h
+        src/renderer/lighting/shadows/shadows.cpp
         src/renderer/lighting/shadows/shadows.h
         src/renderer/lighting/shadows/shadow_types.h
         src/renderer/descriptor_buffer/descriptor_buffer.cpp
@@ -167,9 +183,7 @@ set(RENDERER_SOURCES
         src/renderer/post_process/post_process_types.h
 )
 
-set(GAME_SOURCES
-        src/core/game_object/renderable.h
-)
+
 
 set(UTIL_SOURCES
         src/util/math_constants.h
@@ -184,30 +198,85 @@ if (WIN32)
     set(WINDOWS_SOURCES
             src/resources.h
             src/resources.rc
-            src/core/scene/scene.cpp
-            src/core/scene/scene.h
-            src/renderer/lighting/shadows/shadows.cpp
-            src/core/game_object/transformable.h
-            src/core/game_object/hierarchical.h
-            src/core/scene/scene_serializer.cpp
-            src/core/scene/scene_serializer.h
-
-
     )
 endif ()
+
+#add_library(WillRenderer SHARED
+#)
+#
+#target_include_directories(WillRenderer PRIVATE
+#        ${Vulkan_INCLUDE_DIRS}
+#        ${CMAKE_CURRENT_SOURCE_DIR}/extern/VulkanMemoryAllocator/include
+#        ${CMAKE_CURRENT_SOURCE_DIR}/extern/volk
+#        ${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/include
+#        ${CMAKE_CURRENT_SOURCE_DIR}/extern/stb
+#        ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/include
+#        ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/deps/simdjson
+#        ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
+#)
+#
+#target_link_libraries(WillRenderer PRIVATE
+#        ${SDL2MAIN_LIBRARY}
+#        ${SDL2_LIBRARY}
+#        volk
+#        vk-bootstrap::vk-bootstrap
+#        shaderc
+#        fmt::fmt
+#        glm::glm
+#        fastgltf
+#        Jolt
+#)
+
+add_library(WillPhysics SHARED
+        ${PHYSICS_SOURCES}
+)
+
+
+target_include_directories(WillPhysics PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
+)
+
+
+target_link_libraries(WillPhysics PRIVATE
+        Jolt
+        glm::glm
+        fmt::fmt
+)
+
+#add_library(WillCore SHARED
+#)
+#
+#target_include_directories(WillCore PRIVATE
+#        ${Vulkan_INCLUDE_DIRS}
+#        ${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/include
+#        ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
+#        ${CMAKE_CURRENT_SOURCE_DIR}/extern/VulkanMemoryAllocator/include    # VMA
+#)
+#
+#target_link_libraries(WillCore
+#        PRIVATE
+#        ${SDL2MAIN_LIBRARY}
+#        ${SDL2_LIBRARY}
+#        WillPhysics
+#        glm::glm
+#        fmt::fmt
+#        volk
+#        vk-bootstrap::vk-bootstrap
+#        nlohmann_json::nlohmann_json
+#        Jolt
+#)
+
 
 add_executable(WillEngine main.cpp
         ${IMGUI_SOURCES}
         ${FASTGLTF_SOURCES}
         ${HALF_SOURCES}
-        ${CORE_SOURCES}
-        ${PHYSICS_SOURCES}
+        ${ENGINE_SOURCES}
         ${RENDERER_SOURCES}
-        ${GAME_SOURCES}
+        ${CORE_SOURCES}
         ${UTIL_SOURCES}
         ${WINDOWS_SOURCES}
 )
-
 
 target_include_directories(WillEngine PRIVATE
         ${Vulkan_INCLUDE_DIRS}                                              # Vulkan
@@ -223,15 +292,17 @@ target_include_directories(WillEngine PRIVATE
 )
 
 target_link_libraries(WillEngine PRIVATE
-        ${SDL2MAIN_LIBRARY} # Needs to happen before SDL2_LIBRARY
+        ${SDL2MAIN_LIBRARY}
         ${SDL2_LIBRARY}
-        #${Vulkan_LIBRARIES} Replaced by VOLK
+        #WillGame
+        #WillRenderer
+        WillPhysics
+        #WillCore
         glm::glm
         fmt::fmt
         volk
         vk-bootstrap::vk-bootstrap
         fastgltf
-        Jolt
         shaderc
         nlohmann_json::nlohmann_json
 )

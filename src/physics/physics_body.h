@@ -5,7 +5,7 @@
 #ifndef PHYSICS_BODY_H
 #define PHYSICS_BODY_H
 
-#include <glm/glm.hpp>
+#include <../../extern/glm/glm/glm.hpp>
 
 namespace will_engine
 {
@@ -20,9 +20,9 @@ public:
 
     virtual glm::quat getGlobalRotation() = 0;
 
-    virtual void setPhysicsBodyId(JPH::BodyID bodyId) = 0;
+    virtual void setPhysicsBodyId(uint32_t bodyId) = 0;
 
-    [[nodiscard]] virtual JPH::BodyID getPhysicsBodyId() const = 0;
+    [[nodiscard]] virtual uint32_t getPhysicsBodyId() const = 0;
 };
 }
 

@@ -8,15 +8,18 @@
 #include <glm/glm.hpp>
 #include <Jolt/Jolt.h>
 #include <Jolt/Physics/Body/BodyID.h>
+#include <Jolt/Physics/Body/MotionType.h>
+#include <Jolt/Physics/Collision/ObjectLayer.h>
 
 #include "Jolt/Physics/Collision/Shape/Shape.h"
 #include "Jolt/Physics/Collision/Shape/SubShapeID.h"
-#include "src/core/game_object/physics_body.h"
+#include "physics_body.h"
 
 
 namespace will_engine::physics
 {
-struct RaycastHit {
+struct RaycastHit
+{
     bool hasHit = false;
     float fraction = 0.0f;
     float distance = 0.0f;
@@ -32,8 +35,53 @@ struct PhysicsObject
     JPH::BodyID bodyId;
     JPH::ShapeRefC shape = nullptr;
 };
-}
 
+struct PhysicsProperties
+{
+    bool isActive{false};
+    uint8_t motionType{};
+    uint16_t layer{};
+    std::string shapeType{};
+    glm::vec3 shapeParams{}; // shape specific params, don't think it's necessary yet
+};
+
+enum class ColliderType
+{
+    Box = 0,
+    Sphere = 1,
+    Capsule = 2,
+    Cylinder = 3,
+};
+
+struct Collider
+{
+    ColliderType type;
+
+    explicit Collider(ColliderType type) : type(type) {}
+
+    virtual ~Collider() = default;
+};
+
+struct BoxCollider : Collider
+{
+    glm::vec3 halfExtents{};
+
+    explicit BoxCollider(const glm::vec3 halfExtents) : Collider(ColliderType::Box), halfExtents(halfExtents) {}
+
+    ~BoxCollider() override = default;
+};
+
+struct SphereCollider : Collider
+{
+    float radius{};
+
+    explicit SphereCollider() : Collider(ColliderType::Sphere), radius(1.0f) {}
+    explicit SphereCollider(const int32_t radius) : Collider(ColliderType::Sphere), radius(radius) {}
+    explicit SphereCollider(const float radius) : Collider(ColliderType::Sphere), radius(radius) {}
+
+    ~SphereCollider() override = default;
+};
+}
 
 
 #endif //PHYSICS_TYPES_H

@@ -2,13 +2,13 @@
 // Created by William on 2025-01-26.
 //
 
-#include "frustum_cull_pipeline.h"
+#include "visibility_pass.h"
 
 #include "volk.h"
 
 #include "src/renderer/render_object/render_object.h"
 
-will_engine::frustum_cull_pipeline::FrustumCullPipeline::FrustumCullPipeline(ResourceManager& resourceManager)
+will_engine::visibility_pass::VisibilityPassPipeline::VisibilityPassPipeline(ResourceManager& resourceManager)
     : resourceManager(resourceManager)
 {
     VkDescriptorSetLayout layouts[2];
@@ -16,7 +16,7 @@ will_engine::frustum_cull_pipeline::FrustumCullPipeline::FrustumCullPipeline(Res
     layouts[1] = resourceManager.getFrustumCullLayout();
 
     VkPushConstantRange pushConstantRange;
-    pushConstantRange.size = sizeof(FrustumCullingPushConstants);
+    pushConstantRange.size = sizeof(VisibilityPassPushConstants);
     pushConstantRange.offset = 0;
     pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
@@ -32,13 +32,13 @@ will_engine::frustum_cull_pipeline::FrustumCullPipeline::FrustumCullPipeline(Res
     createPipeline();
 }
 
-will_engine::frustum_cull_pipeline::FrustumCullPipeline::~FrustumCullPipeline()
+will_engine::visibility_pass::VisibilityPassPipeline::~VisibilityPassPipeline()
 {
     resourceManager.destroyPipeline(pipeline);
     resourceManager.destroyPipelineLayout(pipelineLayout);
 }
 
-void will_engine::frustum_cull_pipeline::FrustumCullPipeline::draw(VkCommandBuffer cmd, const FrustumCullDrawInfo& drawInfo) const
+void will_engine::visibility_pass::VisibilityPassPipeline::draw(VkCommandBuffer cmd, const VisibilityPassDrawInfo& drawInfo) const
 {
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
@@ -48,9 +48,11 @@ void will_engine::frustum_cull_pipeline::FrustumCullPipeline::draw(VkCommandBuff
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
 
 
-    FrustumCullingPushConstants pushConstants = {};
-    pushConstants.enable = drawInfo.enableFrustumCulling;
-    vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(FrustumCullingPushConstants), &pushConstants);
+    VisibilityPassPushConstants pushConstants = {};
+    pushConstants.enable = drawInfo.bEnableFrustumCulling;
+    pushConstants.shadowPass = drawInfo.bIsShadowPass;
+
+    vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VisibilityPassPushConstants), &pushConstants);
 
 
     constexpr uint32_t sceneDataIndex{0};
@@ -74,10 +76,10 @@ void will_engine::frustum_cull_pipeline::FrustumCullPipeline::draw(VkCommandBuff
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }
 
-void will_engine::frustum_cull_pipeline::FrustumCullPipeline::createPipeline()
+void will_engine::visibility_pass::VisibilityPassPipeline::createPipeline()
 {
     resourceManager.destroyPipeline(pipeline);
-    VkShaderModule computeShader = resourceManager.createShaderModule("shaders/frustumCull.comp");
+    VkShaderModule computeShader = resourceManager.createShaderModule("shaders/visibility_pass.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
     stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;

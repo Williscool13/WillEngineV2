@@ -7,14 +7,12 @@
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
 
-#include "vk_helpers.h"
-#include "volk.h"
 #include "environment/environment.h"
 #include "lighting/shadows/cascaded_shadow_map.h"
 #include "lighting/shadows/shadows.h"
 #include "src/core/engine.h"
-#include "src/core/input.h"
 #include "src/core/time.h"
+#include "src/core/game_object/renderable.h"
 #include "src/core/scene/scene.h"
 #include "src/util/file.h"
 
@@ -309,11 +307,98 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     }
     ImGui::End();
 
-    if (engine->scene) {
-        engine->scene->imguiSceneGraph();
+
+    if (ImGui::Begin("Game Object Creator")) {
+
+    }
+    ImGui::End();
+
+    if (engine->scene != nullptr) {
+        drawSceneGraph(engine->scene);
     }
 
+
     ImGui::Render();
+}
+
+void ImguiWrapper::drawSceneGraph(const Scene* scene)
+{
+    const auto sceneRoot = scene->getRoot();
+    if (ImGui::Begin("Scene Graph")) {
+        if (sceneRoot != nullptr && !sceneRoot->getChildren().empty()) {
+            for (IHierarchical* child : sceneRoot->getChildren()) {
+                displayGameObject(scene, child, 0);
+            }
+        } else {
+            ImGui::Text("Scene is empty");
+        }
+    }
+    ImGui::End();
+}
+
+void ImguiWrapper::displayGameObject(const Scene* scene, IHierarchical* obj, const int32_t depth) // NOLINT(*-no-recursion)
+{
+    constexpr int32_t indentLength = 10.0f;
+    constexpr float treeNodeWidth = 200.0f;
+    constexpr float spacing = 5.0f;
+
+    ImGui::PushID(obj);
+    ImGui::Indent(static_cast<float>(depth * indentLength));
+
+    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_DefaultOpen;;
+    if (obj->getChildren().empty()) { flags |= ImGuiTreeNodeFlags_Leaf; }
+
+    ImGui::SetNextItemWidth(treeNodeWidth);
+    const bool isOpen = ImGui::TreeNodeEx("##TreeNode", flags, "%s", obj->getName().data());
+
+    ImGui::SameLine(treeNodeWidth + spacing);
+    ImGui::BeginGroup();
+
+    if (auto* renderable = dynamic_cast<IRenderable*>(obj)) {
+        // get visibility and change text accordingly
+        // const char* text = renderable-;
+        // if (ImGui::Checkbox("")) {
+        //
+        // }
+    }
+
+
+    if (const IHierarchical* parent = obj->getParent()) {
+        constexpr float arrowWidth = 20.0f;
+        constexpr float buttonWidth = 75.0f;
+        const std::vector<IHierarchical*>& parentChildren = obj->getParent()->getChildren();
+
+        if (parent != scene->getRoot()) {
+            if (ImGui::Button("Undent", ImVec2(buttonWidth, 0))) { Scene::undent(obj); }
+        } else { ImGui::Dummy(ImVec2(buttonWidth, 0)); }
+
+        ImGui::SameLine(0, spacing);
+        if (parentChildren[0] != obj) {
+            if (ImGui::Button("Indent", ImVec2(buttonWidth, 0))) { Scene::indent(obj); }
+        } else { ImGui::Dummy(ImVec2(buttonWidth, 0)); }
+
+        ImGui::SameLine(0, spacing);
+        if (parentChildren[0] != obj) {
+            if (ImGui::ArrowButton("##Up", ImGuiDir_Up)) { Scene::moveObject(obj, -1); }
+        } else { ImGui::Dummy(ImVec2(arrowWidth, 0)); }
+
+        ImGui::SameLine(0, spacing);
+        if (parentChildren[parentChildren.size() - 1] != obj) {
+            if (ImGui::ArrowButton("##Down", ImGuiDir_Down)) { Scene::moveObject(obj, 1); }
+        } else { ImGui::Dummy(ImVec2(arrowWidth, 0)); }
+    }
+
+    ImGui::EndGroup();
+
+    if (isOpen) {
+        for (IHierarchical* child : obj->getChildren()) {
+            displayGameObject(scene, child, depth + 1);
+        }
+        ImGui::TreePop();
+    }
+
+    ImGui::Unindent(static_cast<float>(depth * indentLength));
+    ImGui::PopID();
 }
 
 void ImguiWrapper::drawImgui(VkCommandBuffer cmd, const VkImageView targetImageView, const VkExtent2D swapchainExtent)

@@ -11,7 +11,6 @@
 #include <extern/fmt/include/fmt/format.h>
 #include <vulkan/vulkan_core.h>
 
-#include "src/renderer/vk_helpers.h"
 #include "src/renderer/vulkan_context.h"
 #include "render_object_constants.h"
 #include "src/core/game_object/game_object.h"
@@ -141,6 +140,7 @@ bool RenderObject::attachToGameObject(GameObject* gameObject, const int32_t mesh
     expandInstanceBuffer(1);
 
     const std::vector<Primitive>& meshPrimitives = meshes[meshIndex].primitives;
+    // todo: make this get from an instance slot function and the slot function will expand by more than meshPrimitives.size(), maybe by total primitive count x 10? Reduce reallocs
     drawCommands.reserve(drawCommands.size() + meshPrimitives.size());
     boundingSphereIndices.reserve(boundingSphereIndices.size() + meshPrimitives.size());
 
@@ -163,7 +163,7 @@ bool RenderObject::attachToGameObject(GameObject* gameObject, const int32_t mesh
     return true;
 }
 
-void RenderObject::updateInstanceData(const int32_t instanceIndex, const glm::mat4& newModelMatrix, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
+void RenderObject::updateInstanceData(const int32_t instanceIndex, const CurrentInstanceData& newInstanceData, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
 {
     if (instanceIndex < 0 || instanceIndex >= instanceBufferCapacity) {
         assert(false && "Instance index out of bounds");
@@ -179,7 +179,8 @@ void RenderObject::updateInstanceData(const int32_t instanceIndex, const glm::ma
     assert(reinterpret_cast<uintptr_t>(currentModel) % alignof(InstanceData) == 0 && "Misaligned instance data access");
 
     currentModel->previousModelMatrix = prevModel->currentModelMatrix;
-    currentModel->currentModelMatrix = newModelMatrix;
+    currentModel->currentModelMatrix = newInstanceData.currentModelMatrix;
+    currentModel->flags[1] = newInstanceData.bIsVisible;
 }
 
 bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
@@ -210,10 +211,11 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
         samplerInfo.maxLod = VK_LOD_CLAMP_NONE;
         samplerInfo.minLod = 0;
 
-        samplerInfo.magFilter = vk_helpers::extractFilter(gltfSampler.magFilter.value_or(fastgltf::Filter::Nearest));
-        samplerInfo.minFilter = vk_helpers::extractFilter(gltfSampler.minFilter.value_or(fastgltf::Filter::Nearest));
+        samplerInfo.magFilter = extractFilter(gltfSampler.magFilter.value_or(fastgltf::Filter::Nearest));
+        samplerInfo.minFilter = extractFilter(gltfSampler.minFilter.value_or(fastgltf::Filter::Nearest));
 
-        samplerInfo.mipmapMode = vk_helpers::extractMipmapMode(gltfSampler.minFilter.value_or(fastgltf::Filter::Linear));
+
+        samplerInfo.mipmapMode = extractMipMapMode(gltfSampler.minFilter.value_or(fastgltf::Filter::Linear));
         samplers.emplace_back(this->resourceManager.createSampler(samplerInfo));
     }
 
@@ -583,6 +585,39 @@ void RenderObject::loadTextureIndices(const fastgltf::Optional<fastgltf::Texture
         samplerIndex = gltf.textures[textureIndex].samplerIndex.value() + samplerOffset;
     }
 }
+
+VkFilter RenderObject::extractFilter(const fastgltf::Filter filter)
+{
+    switch (filter) {
+        // nearest samplers
+        case fastgltf::Filter::Nearest:
+        case fastgltf::Filter::NearestMipMapNearest:
+        case fastgltf::Filter::NearestMipMapLinear:
+            return VK_FILTER_NEAREST;
+
+        // linear samplers
+        case fastgltf::Filter::Linear:
+        case fastgltf::Filter::LinearMipMapNearest:
+        case fastgltf::Filter::LinearMipMapLinear:
+        default:
+            return VK_FILTER_LINEAR;
+    }
+}
+
+VkSamplerMipmapMode RenderObject::extractMipMapMode(const fastgltf::Filter filter)
+{
+    switch (filter) {
+        case fastgltf::Filter::NearestMipMapNearest:
+        case fastgltf::Filter::LinearMipMapNearest:
+            return VK_SAMPLER_MIPMAP_MODE_NEAREST;
+
+        case fastgltf::Filter::NearestMipMapLinear:
+        case fastgltf::Filter::LinearMipMapLinear:
+        default:
+            return VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    }
+}
+
 
 bool RenderObject::generateBuffers()
 {

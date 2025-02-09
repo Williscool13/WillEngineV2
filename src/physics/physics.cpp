@@ -5,6 +5,7 @@
 #include "physics.h"
 
 #include <thread>
+#include <fmt/format.h>
 
 #include <Jolt/RegisterTypes.h>
 #include <Jolt/Core/Factory.h>
@@ -17,7 +18,7 @@
 #include "physics_constants.h"
 #include "physics_filters.h"
 #include "physics_utils.h"
-#include "src/core/game_object/physics_body.h"
+#include "physics_body.h"
 
 
 namespace will_engine::physics
@@ -84,10 +85,10 @@ Physics::Physics()
     bodyInterface.CreateAndAddBody(groundSettings, JPH::EActivation::DontActivate);
 
     // Some basic shapes
-    unitCubeShape = new JPH::BoxShape(JPH::Vec3(0.5f, 0.5f, 0.5f));
-    unitSphereShape = new JPH::SphereShape(0.5f);
-    unitCapsuleShape = new JPH::CapsuleShape(0.5f, 0.25f);
-    unitCylinderShape = new JPH::CylinderShape(0.5f, 0.25f);
+    unitCubeShape = new JPH::BoxShape(PhysicsUtils::toJolt(UNIT_CUBE));
+    unitSphereShape = new JPH::SphereShape(UNIT_SPHERE);
+    unitCapsuleShape = new JPH::CapsuleShape(UNIT_CAPSULE.x, UNIT_CAPSULE.y);
+    unitCylinderShape = new JPH::CylinderShape(UNIT_CYLINDER.x, UNIT_CYLINDER.y);
 }
 
 Physics::~Physics()
@@ -158,46 +159,14 @@ JPH::BodyInterface& Physics::getBodyInterface() const
     return physicsSystem->GetBodyInterface();
 }
 
-JPH::BodyID Physics::addRigidBody(IPhysicsBody* pb, const JPH::ShapeRefC& shape, const bool isDynamic)
-{
-    const JPH::BodyCreationSettings settings(
-        shape,
-        physics_utils::ToJolt(pb->getGlobalPosition()),
-        physics_utils::ToJolt(pb->getGlobalRotation()),
-        isDynamic ? JPH::EMotionType::Dynamic : JPH::EMotionType::Static,
-        isDynamic ? Layers::MOVING : Layers::NON_MOVING
-    );
-
-    PhysicsObject physicsObject;
-    physicsObject.physicsBody = pb;
-    physicsObject.bodyId = physicsSystem->GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::Activate);
-    physicsObject.shape = shape;
-
-    physicsObjects.insert({physicsObject.bodyId, physicsObject});
-
-    return physicsObject.bodyId;
-}
-
-JPH::BodyID Physics::addRigidBody(IPhysicsBody* pb, const JPH::BodyCreationSettings& settings)
-{
-    PhysicsObject physicsObject;
-    physicsObject.physicsBody = pb;
-    physicsObject.bodyId = physicsSystem->GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::Activate);
-    physicsObject.shape = settings.GetShape();
-
-    physicsObjects.insert({physicsObject.bodyId, physicsObject});
-
-    return physicsObject.bodyId;
-}
-
 void Physics::removeRigidBody(const IPhysicsBody* pb)
 {
-    if (!physicsObjects.contains(pb->getPhysicsBodyId())) { return; }
+    const auto bodyId = JPH::BodyID(pb->getPhysicsBodyId());
+    if (!physicsObjects.contains(bodyId)) { return; }
 
-    const JPH::BodyID bodyId = physicsObjects[pb->getPhysicsBodyId()].bodyId;
     physicsSystem->GetBodyInterface().RemoveBody(bodyId);
     physicsSystem->GetBodyInterface().DestroyBody(bodyId);
-    physicsObjects.erase(pb->getPhysicsBodyId());
+    physicsObjects.erase(bodyId);
 }
 
 void Physics::removeRigidBodies(const std::vector<IPhysicsBody*>& objects)
@@ -206,7 +175,8 @@ void Physics::removeRigidBodies(const std::vector<IPhysicsBody*>& objects)
     bodyIDs.reserve(objects.size());
 
     for (const auto& pb : objects) {
-        const auto bodyId = pb->getPhysicsBodyId();
+        const auto _bodyId = pb->getPhysicsBodyId();
+        auto bodyId = JPH::BodyID(_bodyId);
         if (physicsObjects.contains(bodyId)) {
             bodyIDs.push_back(bodyId);
             physicsObjects.erase(bodyId);
@@ -227,7 +197,7 @@ void Physics::updateTransforms() const
     for (auto physicsObject : physicsObjects) {
         const JPH::Vec3 position = bodyInterface.GetPosition(physicsObject.first);
         const JPH::Quat rotation = bodyInterface.GetRotation(physicsObject.first);
-        physicsObject.second.physicsBody->setGlobalTransformFromPhysics(physics_utils::ToGLM(position), physics_utils::ToGLM(rotation));
+        physicsObject.second.physicsBody->setGlobalTransformFromPhysics(PhysicsUtils::toGLM(position), PhysicsUtils::toGLM(rotation));
     }
 }
 
@@ -238,5 +208,222 @@ PhysicsObject* Physics::getPhysicsObject(const JPH::BodyID bodyId)
     }
 
     return nullptr;
+}
+
+uint32_t Physics::setupRigidBody(IPhysicsBody* physicsBody, Collider* collider, const JPH::EMotionType motion, const JPH::ObjectLayer layer)
+{
+    if (physicsBody == nullptr) { return BODY_ID_NONE; }
+
+    if (physicsBody->getPhysicsBodyId() != BODY_ID_NONE) {
+        fmt::print("IPhysicsBody already has a rigidbody, failed to setup a new one");
+        return physicsBody->getPhysicsBodyId();
+    }
+
+    JPH::ShapeRefC shape;
+    switch (collider->type) {
+        case ColliderType::Box:
+            if (const auto boxCollider = dynamic_cast<BoxCollider*>(collider)) {
+                if (isIdentity(boxCollider)) {
+                    shape = getUnitCubeShape();
+                    break;
+                }
+                shape = new JPH::BoxShape(PhysicsUtils::toJolt(boxCollider->halfExtents));
+                break;
+            }
+            fmt::print("Failed to cast collider into the collider subclass");
+            return BODY_ID_NONE;
+        case ColliderType::Sphere:
+            if (const auto sphereCollider = dynamic_cast<SphereCollider*>(collider)) {
+                if (isIdentity(sphereCollider)) {
+                    shape = getUnitSphereShape();
+                    break;
+                }
+                shape = new JPH::SphereShape(sphereCollider->radius);
+                break;
+            }
+            fmt::print("Failed to cast collider into the collider subclass");
+            return BODY_ID_NONE;
+        case ColliderType::Capsule:
+        case ColliderType::Cylinder:
+        default:
+            fmt::print("Collider type not yet supported");
+            return BODY_ID_NONE;
+    }
+
+    const JPH::BodyCreationSettings settings{
+        shape,
+        PhysicsUtils::toJolt(physicsBody->getGlobalPosition()),
+        PhysicsUtils::toJolt(physicsBody->getGlobalRotation()),
+        motion,
+        layer
+    };
+
+    PhysicsObject physicsObject;
+    physicsObject.physicsBody = physicsBody;
+    physicsObject.bodyId = physicsSystem->GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::Activate);
+    physicsObject.shape = shape;
+
+    physicsObjects.insert({physicsObject.bodyId, physicsObject});
+
+    physicsBody->setPhysicsBodyId(physicsObject.bodyId.GetIndexAndSequenceNumber());
+
+    return physicsObject.bodyId.GetIndex();
+}
+
+PhysicsProperties Physics::serializeProperties(const IPhysicsBody* physicsBody) const
+{
+    if (physicsBody == nullptr || physicsBody->getPhysicsBodyId() == BODY_ID_NONE) {
+        return {false};
+    }
+    const auto bodyId = JPH::BodyID(physicsBody->getPhysicsBodyId());
+    const PhysicsObject* physicsObject = physics->getPhysicsObject(bodyId);
+    if (physicsObject == nullptr) {
+        return {false};
+    }
+    PhysicsProperties properties{true};
+    properties.motionType = static_cast<uint8_t>(physicsSystem->GetBodyInterface().GetMotionType(bodyId));
+    properties.layer = physicsSystem->GetBodyInterface().GetObjectLayer(bodyId);
+
+    const JPH::Shape* shape = physicsObject->shape.GetPtr();
+    switch (shape->GetSubType()) {
+        case JPH::EShapeSubType::Box:
+        {
+            const auto box = static_cast<const JPH::BoxShape*>(shape);
+            properties.shapeType = "box";
+            const JPH::Vec3 halfExtent = box->GetHalfExtent();
+            properties.shapeParams = glm::vec3(halfExtent.GetX(), halfExtent.GetY(), halfExtent.GetZ());
+            break;
+        }
+        case JPH::EShapeSubType::Sphere:
+        {
+            const auto sphere = static_cast<const JPH::SphereShape*>(shape);
+            properties.shapeType = "sphere";
+            properties.shapeParams = glm::vec3(sphere->GetRadius(), 0.0f, 0.0f);
+            break;
+        }
+        case JPH::EShapeSubType::Capsule:
+        {
+            const auto capsule = static_cast<const JPH::CapsuleShape*>(shape);
+            properties.shapeType = "capsule";
+            properties.shapeParams = glm::vec3(capsule->GetRadius(), capsule->GetHalfHeightOfCylinder(), 0.0f);
+            break;
+        }
+        case JPH::EShapeSubType::Cylinder:
+        {
+            const auto cylinder = static_cast<const JPH::CylinderShape*>(shape);
+            properties.shapeType = "cylinder";
+            properties.shapeParams = glm::vec3(cylinder->GetRadius(), cylinder->GetHalfHeight(), 0.0f);
+            break;
+        }
+        default:
+            fmt::print("Warning: Unsupported physics shape subtype: {}\n", static_cast<int>(shape->GetSubType()));
+            break;
+    }
+
+    return properties;
+}
+
+
+void Physics::setPositionAndRotation(const JPH::BodyID bodyId, const glm::vec3 position, const glm::quat rotation, const bool activate) const
+{
+    if (!physicsObjects.contains(bodyId)) {
+        fmt::print("Failed to set physics position and rotation (body ID not found)\n");
+        return;
+    }
+
+    physicsSystem->GetBodyInterface().SetPosition(bodyId, PhysicsUtils::toJolt(position), activate ? JPH::EActivation::Activate : JPH::EActivation::DontActivate);
+    physicsSystem->GetBodyInterface().SetRotation(bodyId, PhysicsUtils::toJolt(rotation), activate ? JPH::EActivation::Activate : JPH::EActivation::DontActivate);
+}
+
+void Physics::setPosition(const JPH::BodyID bodyId, const glm::vec3 position, const bool activate) const
+{
+    if (!physicsObjects.contains(bodyId)) {
+        fmt::print("Failed to set physics position (body ID not found)\n");
+        return;
+    }
+
+    physicsSystem->GetBodyInterface().SetPosition(bodyId, PhysicsUtils::toJolt(position), activate ? JPH::EActivation::Activate : JPH::EActivation::DontActivate);
+}
+
+void Physics::setRotation(const JPH::BodyID bodyId, const glm::quat rotation, const bool activate) const
+{
+    if (!physicsObjects.contains(bodyId)) {
+        fmt::print("Failed to set physics rotation (body ID not found)\n");
+        return;
+    }
+
+    physicsSystem->GetBodyInterface().SetRotation(bodyId, PhysicsUtils::toJolt(rotation), activate ? JPH::EActivation::Activate : JPH::EActivation::DontActivate);
+}
+
+void Physics::setPositionAndRotation(const JPH::BodyID bodyId, const JPH::Vec3 position, const JPH::Quat rotation, const bool activate) const
+{
+    if (!physicsObjects.contains(bodyId)) { return; }
+
+    physicsSystem->GetBodyInterface().SetPosition(bodyId, position, activate ? JPH::EActivation::Activate : JPH::EActivation::DontActivate);
+    physicsSystem->GetBodyInterface().SetRotation(bodyId, rotation, activate ? JPH::EActivation::Activate : JPH::EActivation::DontActivate);
+}
+
+void Physics::setPosition(const JPH::BodyID bodyId, const JPH::Vec3 position, const bool activate) const
+{
+    if (!physicsObjects.contains(bodyId)) { return; }
+
+    physicsSystem->GetBodyInterface().SetPosition(bodyId, position, activate ? JPH::EActivation::Activate : JPH::EActivation::DontActivate);
+}
+
+void Physics::setRotation(const JPH::BodyID bodyId, const JPH::Quat rotation, const bool activate) const
+{
+    if (!physicsObjects.contains(bodyId)) { return; }
+
+    physicsSystem->GetBodyInterface().SetRotation(bodyId, rotation, activate ? JPH::EActivation::Activate : JPH::EActivation::DontActivate);
+}
+
+void Physics::setPositionAndRotation(const uint32_t bodyId, const glm::vec3 position, const glm::quat rotation, const bool activate) const
+{
+    setPositionAndRotation(JPH::BodyID(bodyId), position, rotation, activate);
+}
+
+void Physics::setPosition(const uint32_t bodyId, const glm::vec3 position, const bool activate) const
+{
+    setPosition(JPH::BodyID(bodyId), position, activate);
+}
+
+void Physics::setRotation(const uint32_t bodyId, const glm::quat rotation, const bool activate) const
+{
+    setRotation(JPH::BodyID(bodyId), rotation, activate);
+}
+
+void Physics::setPositionAndRotation(const uint32_t bodyId, const JPH::Vec3 position, const JPH::Quat rotation, const bool activate) const
+{
+    setPositionAndRotation(JPH::BodyID(bodyId), position, rotation, activate);
+}
+
+void Physics::setPosition(const uint32_t bodyId, const JPH::Vec3 position, const bool activate) const
+{
+    setPosition(JPH::BodyID(bodyId), position, activate);
+}
+
+void Physics::setRotation(const uint32_t bodyId, const JPH::Quat rotation, const bool activate) const
+{
+    setRotation(JPH::BodyID(bodyId), rotation, activate);
+}
+
+JPH::EMotionType Physics::getMotionType(const IPhysicsBody* body) const
+{
+    return physicsSystem->GetBodyInterface().GetMotionType(JPH::BodyID(body->getPhysicsBodyId()));
+}
+
+JPH::ObjectLayer Physics::getLayer(const IPhysicsBody* body) const
+{
+    return physicsSystem->GetBodyInterface().GetObjectLayer(JPH::BodyID(body->getPhysicsBodyId()));
+}
+
+bool Physics::isIdentity(const BoxCollider* collider)
+{
+    return collider->halfExtents == UNIT_CUBE;
+}
+
+bool Physics::isIdentity(const SphereCollider* collider)
+{
+    return collider->radius == UNIT_SPHERE;
 }
 }
