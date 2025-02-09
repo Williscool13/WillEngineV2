@@ -53,6 +53,12 @@ struct SceneMetadata
     }
 };
 
+struct RenderObjectInfo
+{
+    std::string gltfPath;
+    std::string name;
+    uint32_t id;
+};
 
 
 struct RenderObjectEntry
@@ -123,9 +129,9 @@ namespace physics
             {"shapeType", p.shapeType},
             {
                 "shapeParams", {
-                        {"x", p.shapeParams.x},
-                        {"y", p.shapeParams.y},
-                        {"z", p.shapeParams.z}
+                    {"x", p.shapeParams.x},
+                    {"y", p.shapeParams.y},
+                    {"z", p.shapeParams.z}
                 }
             }
         };
@@ -142,7 +148,6 @@ namespace physics
             j["shapeParams"]["z"].get<float>()
         );
     }
-
 }
 
 inline void to_json(ordered_json& j, const EngineVersion& version)
@@ -189,9 +194,9 @@ inline void from_json(const ordered_json& j, RenderObjectEntry& entry)
     entry.filepath = j["filepath"].get<std::string>();
 }
 
-class SceneSerializer
+class Serializer
 {
-public:
+public: // GameObjects
     static void SerializeGameObject(ordered_json& j, IHierarchical* obj, physics::Physics* physics, const std::vector<uint64_t>& renderObjectIds) // NOLINT(*-no-recursion)
     {
         if (auto gameObject = dynamic_cast<GameObject*>(obj)) {
@@ -334,7 +339,7 @@ public:
         return DeserializeGameObject(j, physics, resourceManager);
     }
 
-private:
+private: // GameObjects
     static std::unordered_map<uint32_t, RenderObjectEntry> ParseRenderObjects(const ordered_json& j)
     {
         std::unordered_map<uint32_t, RenderObjectEntry> result;
@@ -346,6 +351,81 @@ private:
         }
 
         return result;
+    }
+
+public: // Render Objects
+    static bool generateWillModel(const std::filesystem::path& gltfPath, const std::filesystem::path& outputPath)
+    {
+        RenderObjectInfo info;
+        info.gltfPath = gltfPath.string();
+        info.name = gltfPath.stem().string();
+        info.id = computePathHash(gltfPath);
+
+        nlohmann::json j;
+        j["version"] = 1;
+        j["renderObject"] = {
+            {"gltfPath", info.gltfPath},
+            {"name", info.name},
+            {"id", info.id}
+        };
+
+        try {
+            std::ofstream o(outputPath);
+            o << std::setw(4) << j << std::endl; // Pretty print with 4 space indent
+            return true;
+        } catch (const std::exception& e) {
+            fmt::print("Failed to write willmodel file: {}\n", e.what());
+            return false;
+        }
+    }
+
+    static std::optional<RenderObjectInfo> loadWillModel(const std::filesystem::path& willmodelPath)
+    {
+        try {
+            std::ifstream i(willmodelPath);
+            if (!i.is_open()) {
+                fmt::print("Failed to open willmodel file: {}\n", willmodelPath.string());
+                return std::nullopt;
+            }
+
+            nlohmann::json j;
+            i >> j;
+
+            // todo: .willmodel version conversion code
+            if (!j.contains("version") || j["version"] != 1) {
+                fmt::print("Invalid or unsupported willmodel version in: {}\n", willmodelPath.string());
+                return std::nullopt;
+            }
+
+            if (!j.contains("renderObject")) {
+                fmt::print("No renderObject data found in: {}\n", willmodelPath.string());
+                return std::nullopt;
+            }
+
+            const auto& renderObject = j["renderObject"];
+
+            RenderObjectInfo info;
+            info.gltfPath = renderObject["gltfPath"].get<std::string>();
+            info.name = renderObject["name"].get<std::string>();
+            info.id = renderObject["id"].get<uint32_t>();
+
+            uint32_t computedId = computePathHash(info.gltfPath);
+            if (computedId != info.id) {
+                fmt::print("Warning: ID mismatch in {}, expected: {}, found: {}\n",
+                           willmodelPath.string(), computedId, info.id);
+            }
+
+            return info;
+        } catch (const std::exception& e) {
+            fmt::print("Error loading willmodel file {}: {}\n", willmodelPath.string(), e.what());
+            return std::nullopt;
+        }
+    }
+
+    static uint32_t computePathHash(const std::filesystem::path& path)
+    {
+        const std::string normalizedPath = path.lexically_normal().string();
+        return std::hash<std::string>{}(normalizedPath);
     }
 };
 } // will_engine

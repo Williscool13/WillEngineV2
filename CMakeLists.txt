@@ -75,11 +75,11 @@ set(JSON_BuildTests OFF CACHE INTERNAL "")
 
 
 add_subdirectory(extern/vk-bootstrap)
-
 add_subdirectory(extern/fmt)
 add_subdirectory(extern/fastgltf)
 add_subdirectory(extern/fastgltf/deps) # simdjson
 add_subdirectory(extern/json)
+add_subdirectory(extern/ImGuiFileDialog)
 
 set(BUILD_SHARED_LIBS ON)
 add_definitions(-DJPH_SHARED_LIBRARY)
@@ -97,6 +97,7 @@ set(IMGUI_SOURCES
         ${IMGUI_DIR}/imgui_widgets.cpp
         ${IMGUI_DIR}/backends/imgui_impl_sdl2.cpp
         ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/ImGuiFileDialog/ImGuiFileDialog.cpp
 )
 set(FASTGLTF_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf)
 
@@ -258,6 +259,7 @@ target_include_directories(WillEngine PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/stb                              # STBI
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/include                 # fastgltf
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/deps/simdjson           # simdjson
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/ImGuiFileDialog                  # ImGuiFileDialog
         ${IMGUI_DIR}                                                        # ImGui
         ${IMGUI_DIR}/backends                                               # ImGui backends
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics

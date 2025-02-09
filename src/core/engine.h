@@ -5,10 +5,12 @@
 #ifndef ENGINE_H
 #define ENGINE_H
 #include <SDL_video.h>
+#include <unordered_map>
 #include <vulkan/vulkan_core.h>
 #include <glm/glm.hpp>
 
 #include "engine_types.h"
+#include "scene/scene_serializer.h"
 #include "src/renderer/imgui_wrapper.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/vk_types.h"
@@ -150,6 +152,8 @@ private: // Scene Data
 
     Scene* scene{nullptr};
 
+    std::unordered_map<uint32_t, RenderObject*> newRenderObjects;
+    std::unordered_map<uint32_t, RenderObjectInfo> renderObjectInfos;
     std::vector<RenderObject*> renderObjects{};
     RenderObject* cube{nullptr};
     RenderObject* primitives{nullptr};
