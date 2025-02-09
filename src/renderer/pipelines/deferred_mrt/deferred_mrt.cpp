@@ -4,6 +4,8 @@
 
 #include "deferred_mrt.h"
 
+#include <ranges>
+
 #include "volk.h"
 
 #include "src/renderer/renderer_constants.h"
@@ -90,7 +92,8 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
 
     constexpr VkDeviceSize zeroOffset{0};
 
-    for (const RenderObject* renderObject : drawInfo.renderObjects) {
+    for (RenderObject* val : drawInfo.renderObjects | std::views::values) {
+        const RenderObject* renderObject = val;
         if (!renderObject->canDraw()) { continue; }
 
         constexpr uint32_t sceneDataIndex{0};

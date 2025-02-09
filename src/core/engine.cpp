@@ -168,60 +168,51 @@ void Engine::initRenderer()
         resourceManager->getDefaultSamplerLinear()
     };
     postProcessPipeline->setupDescriptorBuffer(postProcessDescriptor);
-
-
-    //scanForModels();
 }
 
 void Engine::initGame()
 {
-    GameObject* sceneRoot = new GameObject();
+    const auto sceneRoot = new GameObject();
     scene = new Scene(sceneRoot);
-    // renderObjects.emplace_back("assets/models/cube.gltf", *resourceManager, 0);
-    // renderObjects.emplace_back("assets/models/primitives/primitives.gltf", *resourceManager, 1);
-    // renderObjects.emplace_back("assets/models/sponza2/Sponza.gltf", *resourceManager, 2);
-    // renderObjects.emplace_back("assets/models/mySphere.glb", *resourceManager, 3);
-    // cube = renderObjects[0];
-    // primitives = renderObjects[1];
-    // sponza = renderObjects[2];
-    // mySphere = renderObjects[3];
 
 
-    cube = new RenderObject{"assets/models/cube.gltf", *resourceManager};
-    primitives = new RenderObject{"assets/models/primitives/primitives.gltf", *resourceManager};
-    sponza = new RenderObject{"assets/models/sponza2/Sponza.gltf", *resourceManager};
-    mySphere = new RenderObject{"assets/models/mySphere.glb", *resourceManager};
-    renderObjects = {cube, primitives, sponza, mySphere};
+    file::scanForModels(renderObjectInfoMap);
 
+    constexpr uint32_t cubeModelId{3653645572};
+    constexpr uint32_t primitivesModelId{786709467};
+    constexpr uint32_t sphereModelId{2720080846};
 
-    gameObjects.reserve(10);
+    if (renderObjectInfoMap.contains(primitivesModelId)) {
+        if (!renderObjectMap.contains(primitivesModelId)) {
+            renderObjectMap[primitivesModelId] = new RenderObject(renderObjectInfoMap[primitivesModelId].gltfPath, *resourceManager);
+        }
 
-    GameObject* sponzaObject = sponza->generateGameObject("SPONZA");
-    sponzaObject->translate({30.0f, 0, -30.0f});
-    gameObjects.push_back(sponzaObject);
+        RenderObject* cube = renderObjectMap[primitivesModelId];
+        const auto floor = new GameObject("FLOOR");
+        cube->attachToGameObject(floor, 0);
+        floor->setGlobalScale({20.0f, 0.5f, 20.0f});
+        floor->translate({0.0f, -2.0f, 0.0f});
+        auto floorCollider = physics::BoxCollider({20.0f, 1.0f, 20.0f});
+        physics->setupRigidBody(floor, &floorCollider, JPH::EMotionType::Static, physics::Layers::NON_MOVING);
 
-    const auto floor = new GameObject("FLOOR");
-    primitives->attachToGameObject(floor, 0);
-    floor->setGlobalScale({20.0f, 0.5f, 20.0f});
-    floor->translate({0.0f, -2.0f, 0.0f});
-    auto floorCollider = physics::BoxCollider({20.0f, 1.0f, 20.0f});
-    physics->setupRigidBody(floor, &floorCollider, JPH::EMotionType::Static, physics::Layers::NON_MOVING);
+        scene->addGameObject(floor);
+    }
+    if (renderObjectInfoMap.contains(sphereModelId)) {
+        if (!renderObjectMap.contains(sphereModelId)) {
+            renderObjectMap[sphereModelId] = new RenderObject(renderObjectInfoMap[sphereModelId].gltfPath, *resourceManager);
+        }
 
-    gameObjects.push_back(floor);
+        RenderObject* sphere = renderObjectMap[sphereModelId];
+        const auto sphereGameObject = new GameObject("SPHERE");
+        sphere->attachToGameObject(sphereGameObject, 0);
+        sphereGameObject->setGlobalPosition({0, 5.0f, 0});
+        auto sphereCollider = physics::SphereCollider(physics::UNIT_SPHERE);
+        physics->setupRigidBody(sphereGameObject, &sphereCollider, JPH::EMotionType::Dynamic, physics::Layers::PLAYER);
 
-
-    const auto sphere = new GameObject("SPHERE");
-    mySphere->attachToGameObject(sphere, 0);
-    sphere->setGlobalPosition({0, 5.0f, 0});
-    auto sphereCollider = physics::SphereCollider(physics::UNIT_SPHERE);
-    physics->setupRigidBody(sphere, &sphereCollider, JPH::EMotionType::Dynamic, physics::Layers::PLAYER);
-    gameObjects.push_back(sphere);
+        scene->addGameObject(sphereGameObject);
+    }
 
     camera = new FreeCamera();
-
-    for (const auto gameObject : gameObjects) {
-        scene->addGameObject(gameObject);
-    }
 }
 
 void Engine::run()
@@ -313,11 +304,6 @@ void Engine::updateGame(const float deltaTime) const
             }
         }
     }
-
-    if (input.isKeyPressed(SDLK_p)) {
-        gameObjects[2]->setGlobalPosition({0.0f, 5.0f, 0.0f});
-        fmt::print("Resetting sphere to (0,5,0)");
-    }
 }
 
 void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap) const
@@ -403,11 +389,10 @@ void Engine::draw(float deltaTime)
     scene->update(currentFrameOverlap, previousFrameOverlap);
     updateRender(deltaTime, currentFrameOverlap, previousFrameOverlap);
     cascadedShadowMap->update(mainLight, camera, currentFrameOverlap);
-    std::vector renderObjects{cube, primitives, sponza, mySphere}; //, checkeredFloor};
 
     visibility_pass::VisibilityPassDrawInfo csmFrustumCullDrawInfo{
         currentFrameOverlap,
-        renderObjects,
+        renderObjectMap,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
         false,
@@ -415,7 +400,7 @@ void Engine::draw(float deltaTime)
     };
     frustumCullPipeline->draw(cmd, csmFrustumCullDrawInfo);
 
-    cascadedShadowMap->draw(cmd, renderObjects, currentFrameOverlap);
+    cascadedShadowMap->draw(cmd, renderObjectMap, currentFrameOverlap);
 
     vk_helpers::clearColorImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -436,7 +421,8 @@ void Engine::draw(float deltaTime)
     vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     visibility_pass::VisibilityPassDrawInfo deferredFrustumCullDrawInfo{
-        currentFrameOverlap, renderObjects,
+        currentFrameOverlap,
+        renderObjectMap,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
         true,
@@ -448,7 +434,7 @@ void Engine::draw(float deltaTime)
         true,
         currentFrameOverlap,
         {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT},
-        renderObjects,
+        renderObjectMap,
         normalRenderTarget.imageView,
         albedoRenderTarget.imageView,
         pbrRenderTarget.imageView,
@@ -464,7 +450,7 @@ void Engine::draw(float deltaTime)
             false,
             currentFrameOverlap,
             {RENDER_EXTENT_WIDTH / 3.0f, RENDER_EXTENT_HEIGHT / 3.0f},
-            renderObjects,
+            renderObjectMap,
             normalRenderTarget.imageView,
             albedoRenderTarget.imageView,
             pbrRenderTarget.imageView,
@@ -579,14 +565,10 @@ void Engine::cleanup()
 
     vkDeviceWaitIdle(context->device);
 
-    delete cube;
-    delete primitives;
-    delete sponza;
-    delete mySphere;
-    for (const std::pair<uint32_t, RenderObject*> renderObject : newRenderObjects) {
+    for (const std::pair<uint32_t, RenderObject*> renderObject : renderObjectMap) {
         delete renderObject.second;
     }
-    newRenderObjects.clear();
+    renderObjectMap.clear();
 
     delete frustumCullPipeline;
     delete environmentPipeline;

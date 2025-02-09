@@ -4,6 +4,8 @@
 
 #include "visibility_pass.h"
 
+#include <ranges>
+
 #include "volk.h"
 
 #include "src/renderer/render_object/render_object.h"
@@ -58,7 +60,8 @@ void will_engine::visibility_pass::VisibilityPassPipeline::draw(VkCommandBuffer 
     constexpr uint32_t sceneDataIndex{0};
     constexpr uint32_t addressesIndex{1};
 
-    for (RenderObject* renderObject : drawInfo.renderObjects) {
+    for (const auto val : drawInfo.renderObjects | std::views::values) {
+        RenderObject* renderObject = val;
         VkDescriptorBufferBindingInfoEXT bindingInfo[2];
         bindingInfo[0] = drawInfo.sceneDataBinding;
         bindingInfo[1] = renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
