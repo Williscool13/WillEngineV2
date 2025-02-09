@@ -23,7 +23,7 @@ struct VisibilityPassPushConstants
 struct VisibilityPassDrawInfo
 {
     int32_t currentFrameOverlap{0};
-    std::vector<RenderObject*> renderObjects{};
+    const std::unordered_map<uint32_t, RenderObject*>& renderObjects{};
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};
     bool bEnableFrustumCulling{};

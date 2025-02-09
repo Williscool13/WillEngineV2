@@ -152,16 +152,8 @@ private: // Scene Data
 
     Scene* scene{nullptr};
 
-    std::unordered_map<uint32_t, RenderObject*> newRenderObjects;
-    std::unordered_map<uint32_t, RenderObjectInfo> renderObjectInfos;
-    std::vector<RenderObject*> renderObjects{};
-    RenderObject* cube{nullptr};
-    RenderObject* primitives{nullptr};
-    RenderObject* sponza{nullptr};
-    RenderObject* mySphere{nullptr};
-    //RenderObject* checkeredFloor{nullptr};
-
-    std::vector<GameObject*> gameObjects{};
+    std::unordered_map<uint32_t, RenderObject*> renderObjectMap;
+    std::unordered_map<uint32_t, RenderObjectInfo> renderObjectInfoMap;
 
 private: // Pipelines
     visibility_pass::VisibilityPassPipeline* frustumCullPipeline{nullptr};

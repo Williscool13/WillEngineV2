@@ -388,18 +388,18 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             if (ImGui::BeginTabItem("Render Objects")) {
                 const float width = ImGui::GetContentRegionAvail().x;
                 if (ImGui::Button("Scan for .willmodel", ImVec2(width, 0))) {
-                    file::scanForModels(engine->renderObjectInfos);
+                    file::scanForModels(engine->renderObjectInfoMap);
                 }
 
                 static uint32_t selectedObjectId = 0;
-                for (const auto& [id, info] : engine->renderObjectInfos) {
+                for (const auto& [id, info] : engine->renderObjectInfoMap) {
                     ImGui::PushID(id);
 
-                    bool isLoaded = engine->newRenderObjects.contains(id) && engine->newRenderObjects[id] != nullptr;
+                    bool isLoaded = engine->renderObjectMap.contains(id) && engine->renderObjectMap[id] != nullptr;
                     bool checked = isLoaded;
                     ImGui::Checkbox("##loaded", &checked);
                     if (checked != isLoaded) {
-                        engine->newRenderObjects[id] = new RenderObject(info.gltfPath, *engine->resourceManager);
+                        engine->renderObjectMap[id] = new RenderObject(info.gltfPath, *engine->resourceManager);
                     }
 
                     ImGui::SameLine();
@@ -418,26 +418,44 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                         ImGui::Text("ID: %u", info.id);
                         ImGui::Separator();
 
-                        if (ImGui::Button("Generate Full Object")) {
 
-                            fmt::print("Added whole gltf model to the scene\n");
-                        }
-
-                        ImGui::Separator();
-                        ImGui::Text("Individual Meshes:");
-
-                        if (auto it = engine->newRenderObjects.find(selectedObjectId);
-                            it != engine->newRenderObjects.end() && it->second != nullptr) {
-                            RenderObject* renderObj = it->second;
-                            for (size_t i = 0; i < renderObj->getMeshCount(); i++) {
-                                ImGui::PushID(static_cast<int>(i));
-                                if (ImGui::Button("Add to Scene")) {
-                                    fmt::print("Added single mesh to scene\n");
+                        if (auto it = engine->renderObjectMap.find(selectedObjectId); it != engine->renderObjectMap.end() && it->second != nullptr) {
+                            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.75f, 0.75f, 0.75f, 1.0f));
+                            static char objectName[256] = "";
+                            ImGui::InputText("Object Name", objectName, sizeof(objectName));
+                            ImGui::PopStyleColor();
+                            if (ImGui::BeginTabBar("GameObject Generation")) {
+                                if (ImGui::BeginTabItem("Full Model")) {
+                                    if (ImGui::Button("Generate Full Object")) {
+                                        GameObject* gob = it->second->generateGameObject(std::string(objectName));
+                                        engine->scene->addGameObject(gob);
+                                        fmt::print("Added whole gltf model to the scene\n");
+                                    }
+                                    ImGui::EndTabItem();
                                 }
-                                ImGui::SameLine();
-                                ImGui::Text("Mesh %zu", i);
-                                ImGui::PopID();
+
+                                if (ImGui::BeginTabItem("Single Mesh")) {
+                                    RenderObject* renderObj = it->second;
+                                    for (size_t i = 0; i < renderObj->getMeshCount(); i++) {
+                                        ImGui::PushID(static_cast<int>(i));
+                                        if (ImGui::Button("Add to Scene")) {
+                                            auto gob = new GameObject(std::string(objectName));
+                                            renderObj->attachToGameObject(gob, i);
+                                            engine->scene->addGameObject(gob);
+                                            fmt::print("Added single mesh to scene\n");
+                                        }
+                                        ImGui::SameLine();
+                                        ImGui::Text("Mesh %zu", i);
+                                        ImGui::PopID();
+                                    }
+                                    ImGui::EndTabItem();
+                                }
+
+                                ImGui::EndTabBar();
                             }
+
+
+
                         } else {
                             ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "Load render object to see available meshes");
                         }
@@ -454,7 +472,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             if (ImGui::BeginTabItem("Serialization")) {
                 const float width = ImGui::GetContentRegionAvail().x;
                 if (ImGui::Button("Serialize Scene", ImVec2(width, 40))) {
-                    if (Serializer::SerializeScene(engine->scene->getRoot(), physics::Physics::Get(), engine->newRenderObjects, "test.json")) {
+                    if (Serializer::SerializeScene(engine->scene->getRoot(), physics::Physics::Get(), engine->renderObjectMap, "test.json")) {
                         ImGui::OpenPopup("SerializeSuccess");
                     } else {
                         ImGui::OpenPopup("SerializeError");

@@ -4,6 +4,8 @@
 
 #include "cascaded_shadow_map.h"
 
+#include <ranges>
+
 #include "volk.h"
 #include "src/core/camera/camera.h"
 #include "src/renderer/renderer_constants.h"
@@ -192,7 +194,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::update(const DirectionalL
     data->directionalLightData = mainLight.getData();
 }
 
-void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects, const int32_t currentFrameOverlap)
+void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd, const std::unordered_map<uint32_t, RenderObject*>& renderObjects, const int32_t currentFrameOverlap)
 {
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
@@ -245,7 +247,8 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 
         constexpr VkDeviceSize zeroOffset{0};
 
-        for (const RenderObject* renderObject : renderObjects) {
+        for (const auto val : renderObjects | std::views::values) {
+            const RenderObject* renderObject = val;
             if (!renderObject->canDraw()) { continue; }
 
             VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];
