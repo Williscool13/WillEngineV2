@@ -12,9 +12,22 @@ add_definitions(-DJPH_DEBUG_RENDERER)
 add_definitions(-DJPH_ENABLE_ASSERTS=1)
 add_definitions(-DJPH_ENABLE_ASSERT_MESSAGES=1)
 
-add_definitions(-DBUILD_SHARED_LIBS=ON)
 # Vulkan
 find_package(Vulkan REQUIRED)
+
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    find_library(SHADERC_LIB
+            NAMES shaderc_combinedd
+            PATHS $ENV{VULKAN_SDK}/Lib
+            REQUIRED
+    )
+else ()
+    find_library(SHADERC_LIB
+            NAMES shaderc_combined
+            PATHS $ENV{VULKAN_SDK}/Lib
+            REQUIRED
+    )
+endif ()
 
 # SDL2
 set(SDL2_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/lib/SDL2.lib")
@@ -34,15 +47,7 @@ add_subdirectory(extern/vk-bootstrap)
 add_subdirectory(extern/fmt)
 add_subdirectory(extern/fastgltf)
 add_subdirectory(extern/fastgltf/deps) # simdjson
-add_subdirectory(extern/SPIRV-Headers)
-add_subdirectory(extern/SPIRV-Tools)
-add_subdirectory(extern/glslang)
 add_subdirectory(extern/json)
-set(SHADERC_ENABLE_SHARED_CRT ON)
-set(SHADERC_SKIP_TESTS ON)
-set(SHADERC_SKIP_EXAMPLES ON)
-set(SHADERC_SKIP_COPYRIGHT_CHECK ON)
-add_subdirectory(extern/shaderc)
 
 set(BUILD_SHARED_LIBS ON)
 add_definitions(-DJPH_SHARED_LIBRARY)
@@ -184,7 +189,6 @@ set(RENDERER_SOURCES
 )
 
 
-
 set(UTIL_SOURCES
         src/util/math_constants.h
         src/util/file.h
@@ -201,77 +205,12 @@ if (WIN32)
     )
 endif ()
 
-#add_library(WillRenderer SHARED
-#)
-#
-#target_include_directories(WillRenderer PRIVATE
-#        ${Vulkan_INCLUDE_DIRS}
-#        ${CMAKE_CURRENT_SOURCE_DIR}/extern/VulkanMemoryAllocator/include
-#        ${CMAKE_CURRENT_SOURCE_DIR}/extern/volk
-#        ${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/include
-#        ${CMAKE_CURRENT_SOURCE_DIR}/extern/stb
-#        ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/include
-#        ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/deps/simdjson
-#        ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
-#)
-#
-#target_link_libraries(WillRenderer PRIVATE
-#        ${SDL2MAIN_LIBRARY}
-#        ${SDL2_LIBRARY}
-#        volk
-#        vk-bootstrap::vk-bootstrap
-#        shaderc
-#        fmt::fmt
-#        glm::glm
-#        fastgltf
-#        Jolt
-#)
-
-add_library(WillPhysics SHARED
-        ${PHYSICS_SOURCES}
-)
-
-
-target_include_directories(WillPhysics PRIVATE
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
-)
-
-
-target_link_libraries(WillPhysics PRIVATE
-        Jolt
-        glm::glm
-        fmt::fmt
-)
-
-#add_library(WillCore SHARED
-#)
-#
-#target_include_directories(WillCore PRIVATE
-#        ${Vulkan_INCLUDE_DIRS}
-#        ${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/include
-#        ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
-#        ${CMAKE_CURRENT_SOURCE_DIR}/extern/VulkanMemoryAllocator/include    # VMA
-#)
-#
-#target_link_libraries(WillCore
-#        PRIVATE
-#        ${SDL2MAIN_LIBRARY}
-#        ${SDL2_LIBRARY}
-#        WillPhysics
-#        glm::glm
-#        fmt::fmt
-#        volk
-#        vk-bootstrap::vk-bootstrap
-#        nlohmann_json::nlohmann_json
-#        Jolt
-#)
-
-
 add_executable(WillEngine main.cpp
         ${IMGUI_SOURCES}
         ${FASTGLTF_SOURCES}
         ${HALF_SOURCES}
         ${ENGINE_SOURCES}
+        ${PHYSICS_SOURCES}
         ${RENDERER_SOURCES}
         ${CORE_SOURCES}
         ${UTIL_SOURCES}
@@ -289,20 +228,18 @@ target_include_directories(WillEngine PRIVATE
         ${IMGUI_DIR}                                                        # ImGui
         ${IMGUI_DIR}/backends                                               # ImGui backends
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
+        $ENV{VULKAN_SDK}/Include/shaderc                                    # ShaderC
 )
 
 target_link_libraries(WillEngine PRIVATE
         ${SDL2MAIN_LIBRARY}
         ${SDL2_LIBRARY}
-        #WillGame
-        #WillRenderer
-        WillPhysics
-        #WillCore
+        ${SHADERC_LIB}
         glm::glm
         fmt::fmt
         volk
         vk-bootstrap::vk-bootstrap
         fastgltf
-        shaderc
         nlohmann_json::nlohmann_json
+        Jolt
 )

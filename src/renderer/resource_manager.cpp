@@ -4,6 +4,7 @@
 
 #include "resource_manager.h"
 
+#include <array>
 #include <fstream>
 
 #include "glm/glm.hpp"
@@ -16,7 +17,6 @@
 #include "vulkan_context.h"
 #include "render_object/render_object_constants.h"
 #include "descriptor_buffer/descriptor_buffer_uniform.h"
-#include "extern/shaderc/libshaderc_util/include/libshaderc_util/file_finder.h"
 #include "shaderc/shaderc.hpp"
 
 
@@ -400,9 +400,11 @@ void ResourceManager::destroyDescriptorBuffer(DescriptorBuffer& descriptorBuffer
 VkShaderModule ResourceManager::createShaderModule(const std::filesystem::path& path) const
 {
     auto start = std::chrono::system_clock::now();
+    std::filesystem::path projectRoot = std::filesystem::current_path();
     // Pre-Compiled
     if (path.extension() == ".spv") {
-        const std::filesystem::path shaderPath(path.string().c_str());
+
+        const std::filesystem::path shaderPath((projectRoot / path).string().c_str());
         std::ifstream file(shaderPath, std::ios::ate | std::ios::binary);
         if (!file.is_open()) {
             throw std::runtime_error(fmt::format("Failed to read file {}", shaderPath.string()));
@@ -450,6 +452,8 @@ VkShaderModule ResourceManager::createShaderModule(const std::filesystem::path& 
     auto result = compiler.CompileGlslToSpv(source, kind, "shader", options);
 
     if (result.GetCompilationStatus() != shaderc_compilation_status_success) {
+        fmt::print("Shader source:\n{}\n", source);
+        fmt::print("Compilation error:\n{}\n", result.GetErrorMessage());
         throw std::runtime_error(result.GetErrorMessage());
     }
 
