@@ -8,6 +8,8 @@
 #include <vulkan/vulkan_core.h>
 #include <glm/glm.hpp>
 
+#include "src/core/identifier/identifiable.h"
+
 namespace will_engine
 {
 struct CurrentInstanceData
@@ -17,12 +19,16 @@ struct CurrentInstanceData
     bool bCastsShadows{true};
 };
 
-class IRenderReference
+class IRenderReference : public IIdentifiable
 {
 public:
-    virtual ~IRenderReference() = default;
+    ~IRenderReference() override = default;
 
-    [[nodiscard]] virtual int32_t getRenderReferenceIndex() const = 0;
+    void setId(uint64_t identifier) override = 0;
+
+    [[nodiscard]] uint64_t getId() const override = 0;
+
+    [[nodiscard]] virtual uint64_t getRenderReferenceIndex() const = 0;
 
     virtual void updateInstanceData(int32_t instanceIndex, const CurrentInstanceData& newInstanceData, int32_t currentFrameOverlap, int32_t previousFrameOverlap) = 0;
 };

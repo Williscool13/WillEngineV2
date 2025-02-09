@@ -22,6 +22,11 @@ class VulkanContext;
 
 namespace will_engine
 {
+namespace identifier
+{
+    class IdentifierManager;
+}
+
 class Scene;
 
 namespace post_process_pipeline
@@ -107,6 +112,7 @@ private:
     VulkanContext* context{nullptr};
     ImmediateSubmitter* immediate = nullptr;
     ResourceManager* resourceManager = nullptr;
+    identifier::IdentifierManager* identifierManager = nullptr;
     physics::Physics* physics = nullptr;
     environment::Environment* environmentMap{nullptr};
     cascaded_shadows::CascadedShadowMap* cascadedShadowMap{nullptr};

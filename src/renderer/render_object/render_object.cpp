@@ -13,14 +13,16 @@
 
 #include "src/renderer/vulkan_context.h"
 #include "render_object_constants.h"
+#include "../../core/identifier/identifier_manager.h"
 #include "src/core/game_object/game_object.h"
 #include "src/util/file.h"
 
 namespace will_engine
 {
-RenderObject::RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager, const int32_t renderObjectId)
-: renderObjectId(renderObjectId), gltfFilepath(gltfFilepath), resourceManager(resourceManager)
+RenderObject::RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager, const int64_t renderObjectId)
+    : gltfFilepath(gltfFilepath), resourceManager(resourceManager)
 {
+    RenderObject::setId(identifier::IdentifierManager::Get()->registerIdentifier(renderObjectId));
     if (!parseGltf(gltfFilepath)) { return; }
     generateBuffers();
 }
@@ -709,7 +711,8 @@ void RenderObject::expandInstanceBuffer(const uint32_t countToAdd, const bool co
         // Create new buffer for model matrix with new size
         // Host because it can be modified any time by gameobjects
         // Random because updating of the model matrix is anticipated to be sporadic/random
-        const AllocatedBuffer tempInstanceBuffer = resourceManager.createHostRandomBuffer(instanceBufferCapacity * sizeof(InstanceData), VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+        const AllocatedBuffer tempInstanceBuffer = resourceManager.createHostRandomBuffer(instanceBufferCapacity * sizeof(InstanceData),
+                                                                                          VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 
         // Copy contents of old buffer into new buffer and destroy old buffer
         if (copyPrevious && oldBufferSize > 0) {

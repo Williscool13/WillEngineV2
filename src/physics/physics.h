@@ -6,6 +6,10 @@
 #define PHYSICS_H
 
 #include <Jolt/Jolt.h>
+#include <Jolt/Core/HashCombine.h>
+#include <Jolt/Core/StaticArray.h>
+#include <Jolt/Core/Atomics.h>
+#include <Jolt/Core/Reference.h>
 #include <Jolt/Core/TempAllocator.h>
 // PhysicsSystem can only be included once, be careful
 #include <Jolt/Physics/PhysicsSystem.h>
@@ -52,7 +56,7 @@ public:
 
     [[nodiscard]] JPH::PhysicsSystem& getPhysicsSystem() const { return *physicsSystem; }
 
-    JPH::BodyInterface& getBodyInterface() const;
+    [[nodiscard]] JPH::BodyInterface& getBodyInterface() const;
 
     void removeRigidBody(const IPhysicsBody* pb);
 
@@ -66,28 +70,41 @@ public:
 
 public:
     uint32_t setupRigidBody(IPhysicsBody* physicsBody, Collider* collider, JPH::EMotionType motion, JPH::ObjectLayer layer);
+
     PhysicsProperties serializeProperties(const IPhysicsBody* physicsBody) const;
 
     void setPositionAndRotation(JPH::BodyID bodyId, glm::vec3 position, glm::quat rotation, bool activate = true) const;
+
     void setPosition(JPH::BodyID bodyId, glm::vec3 position, bool activate = true) const;
+
     void setRotation(JPH::BodyID bodyId, glm::quat rotation, bool activate = true) const;
+
     void setPositionAndRotation(JPH::BodyID bodyId, JPH::Vec3 position, JPH::Quat rotation, bool activate = true) const;
+
     void setPosition(JPH::BodyID bodyId, JPH::Vec3 position, bool activate = true) const;
+
     void setRotation(JPH::BodyID bodyId, JPH::Quat rotation, bool activate = true) const;
+
     void setPositionAndRotation(uint32_t bodyId, glm::vec3 position, glm::quat rotation, bool activate = true) const;
+
     void setPosition(uint32_t bodyId, glm::vec3 position, bool activate = true) const;
+
     void setRotation(uint32_t bodyId, glm::quat rotation, bool activate = true) const;
+
     void setPositionAndRotation(uint32_t bodyId, JPH::Vec3 position, JPH::Quat rotation, bool activate = true) const;
+
     void setPosition(uint32_t bodyId, JPH::Vec3 position, bool activate = true) const;
+
     void setRotation(uint32_t bodyId, JPH::Quat rotation, bool activate = true) const;
 
     JPH::EMotionType getMotionType(const IPhysicsBody* body) const;
+
     JPH::ObjectLayer getLayer(const IPhysicsBody* body) const;
 
 private:
     static bool isIdentity(const BoxCollider* collider);
-    static bool isIdentity(const SphereCollider* collider);
 
+    static bool isIdentity(const SphereCollider* collider);
 
 private:
     // Core systems

@@ -192,7 +192,7 @@ inline void from_json(const ordered_json& j, RenderObjectEntry& entry)
 class SceneSerializer
 {
 public:
-    static void SerializeGameObject(ordered_json& j, IHierarchical* obj, physics::Physics* physics, const std::vector<uint32_t>& renderObjectIds) // NOLINT(*-no-recursion)
+    static void SerializeGameObject(ordered_json& j, IHierarchical* obj, physics::Physics* physics, const std::vector<uint64_t>& renderObjectIds) // NOLINT(*-no-recursion)
     {
         if (auto gameObject = dynamic_cast<GameObject*>(obj)) {
             j["id"] = gameObject->getId();
@@ -206,7 +206,7 @@ public:
 
         if (const auto renderable = dynamic_cast<IRenderable*>(obj)) {
             const int32_t renderRefIndex = renderable->getRenderReferenceIndex();
-            const bool hasValidReference = renderRefIndex != INDEX_NONE && std::ranges::find_if(renderObjectIds, [renderRefIndex](const uint32_t id) {
+            const bool hasValidReference = renderRefIndex != INDEX_NONE && std::ranges::find_if(renderObjectIds, [renderRefIndex](const uint64_t id) {
                 return id == renderRefIndex;
             }) != renderObjectIds.end();
 
@@ -252,17 +252,17 @@ public:
 
         ordered_json gameObjectJ;
         ordered_json renderObjectJ;
-        std::vector<uint32_t> renderObjectIndices;
+        std::vector<uint64_t> renderObjectIndices;
         renderObjectIndices.reserve(renderObjects.size());
         std::ranges::transform(renderObjects, std::back_inserter(renderObjectIndices),
-                               [](const RenderObject* obj) { return obj->getRenderReferenceIndex(); });
+                               [](const RenderObject* obj) { return obj->getId(); });
 
         SerializeGameObject(gameObjectJ, sceneRoot, physics, renderObjectIndices);
         rootJ["gameObjects"] = gameObjectJ;
 
         ordered_json renderObjectsJ = ordered_json::object();
         for (const RenderObject* renderObject : renderObjects) {
-            const uint32_t id = renderObject->getRenderReferenceIndex();
+            const uint64_t id = renderObject->getId();
             renderObjectsJ[std::to_string(id)] = RenderObjectEntry{
                 .filepath = renderObject->getFilePath().string(),
             };

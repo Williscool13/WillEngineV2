@@ -99,11 +99,14 @@ set(CORE_SOURCES
         src/core/transform.cpp
         src/core/scene/scene.cpp
         src/core/scene/scene.h
+        src/core/identifier/identifier_manager.cpp
+        src/core/identifier/identifier_manager.h
         src/core/game_object/game_object.h
         src/core/game_object/game_object.cpp
         src/core/game_object/transformable.h
         src/core/game_object/hierarchical.h
         src/core/game_object/renderable.h
+        src/core/identifier/identifiable.h
         src/core/camera/camera.cpp
         src/core/camera/camera.h
         src/core/camera/camera_types.h
@@ -111,6 +114,7 @@ set(CORE_SOURCES
         src/core/camera/free_camera.h
         src/core/camera/orbit_camera.cpp
         src/core/camera/orbit_camera.h
+
 )
 
 

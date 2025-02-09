@@ -12,6 +12,7 @@
 #include <Jolt/Physics/Body/MotionType.h>
 #include <Jolt/Physics/Collision/Shape/BoxShape.h>
 
+#include "identifier/identifier_manager.h"
 #include "src/physics/physics_filters.h"
 
 #include "camera/free_camera.h"
@@ -94,6 +95,8 @@ void Engine::init()
 
     immediate = new ImmediateSubmitter(*context);
     resourceManager = new ResourceManager(*context, *immediate);
+    identifierManager = new identifier::IdentifierManager();
+    identifier::IdentifierManager::Set(identifierManager);
     physics = new physics::Physics();
     physics::Physics::Set(physics);
     environmentMap = new environment::Environment(*resourceManager, *immediate);
@@ -179,10 +182,10 @@ void Engine::initGame()
     // sponza = renderObjects[2];
     // mySphere = renderObjects[3];
 
-    cube = new RenderObject{"assets/models/cube.gltf", *resourceManager, 0};
-    primitives = new RenderObject{"assets/models/primitives/primitives.gltf", *resourceManager, 1};
-    sponza = new RenderObject{"assets/models/sponza2/Sponza.gltf", *resourceManager, 2};
-    mySphere = new RenderObject{"assets/models/mySphere.glb", *resourceManager, 3};
+    cube = new RenderObject{"assets/models/cube.gltf", *resourceManager};
+    primitives = new RenderObject{"assets/models/primitives/primitives.gltf", *resourceManager};
+    sponza = new RenderObject{"assets/models/sponza2/Sponza.gltf", *resourceManager};
+    mySphere = new RenderObject{"assets/models/mySphere.glb", *resourceManager};
     renderObjects = {cube, primitives, sponza, mySphere};
 
 
@@ -622,6 +625,7 @@ void Engine::cleanup()
     delete physics;
     delete immediate;
     delete resourceManager;
+    delete identifierManager;
 
     vkDestroySwapchainKHR(context->device, swapchain, nullptr);
     for (VkImageView swapchainImageView : swapchainImageViews) {

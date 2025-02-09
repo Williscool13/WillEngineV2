@@ -42,6 +42,7 @@ namespace will_engine {
     constexpr float FLOAT_MIN = 1.175494351e-38F;
 
     constexpr int32_t INDEX_NONE = -1;
+    constexpr uint64_t INDEX64_NONE = INT64_MAX;
 }
 
 #endif //MATH_CONSTANTS_H
