@@ -309,87 +309,353 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     }
     ImGui::End();
 
+    if (ImGui::Begin("Scene")) {
+        if (ImGui::BeginTabBar("SceneTabs")) {
+            if (ImGui::BeginTabItem("Model Generator")) {
+                static std::filesystem::path gltfPath;
+                static std::filesystem::path willmodelPath;
 
-    if (ImGui::Begin("Game Object Creator")) {}
-    ImGui::End();
+                ImGui::Text("GLTF Source: %s", gltfPath.empty() ? "None selected" : gltfPath.string().c_str());
 
-    if (ImGui::Begin("Render Object Creator")) {
-        if (ImGui::CollapsingHeader("\".willmodel\" Generator")) {
-            static std::filesystem::path gltfPath;
-            static std::filesystem::path willmodelPath;
-
-            ImGui::Text("GLTF Source: %s", gltfPath.empty() ? "None selected" : gltfPath.string().c_str());
-
-            if (ImGui::Button("Select GLTF File")) {
-                IGFD::FileDialogConfig config;
-                config.path = "./assets/models";
-                IGFD::FileDialog::Instance()->OpenDialog(
-                    "ChooseGLTFDlg",
-                    "Choose GLTF File",
-                    ".gltf,.glb",
-                    config);
-            }
-
-            ImGui::Text("Output Path: %s", willmodelPath.empty() ? "None selected" : willmodelPath.string().c_str());
-
-            if (ImGui::Button("Select Output Path")) {
-                IGFD::FileDialogConfig config;
-                config.path = "./assets/willmodels";
-                IGFD::FileDialog::Instance()->OpenDialog(
-                    "SaveWillmodelDlg",
-                    "Save Willmodel",
-                    ".willmodel",
-                    config);
-            }
-
-            if (IGFD::FileDialog::Instance()->Display("ChooseGLTFDlg")) {
-                if (IGFD::FileDialog::Instance()->IsOk()) {
-                    gltfPath = IGFD::FileDialog::Instance()->GetFilePathName();
-                    gltfPath = file::getRelativePath(gltfPath);
-
-                    willmodelPath = std::filesystem::current_path() / "assets" / "willmodels" / gltfPath.filename().string();
-                    willmodelPath = file::getRelativePath(willmodelPath);
-                    willmodelPath.replace_extension(".willmodel");
+                if (ImGui::Button("Select GLTF File")) {
+                    IGFD::FileDialogConfig config;
+                    config.path = "./assets/models";
+                    IGFD::FileDialog::Instance()->OpenDialog(
+                        "ChooseGLTFDlg",
+                        "Choose GLTF File",
+                        ".gltf,.glb",
+                        config);
                 }
-                IGFD::FileDialog::Instance()->Close();
-            }
 
-            if (IGFD::FileDialog::Instance()->Display("SaveWillmodelDlg")) {
-                if (IGFD::FileDialog::Instance()->IsOk()) {
-                    willmodelPath = IGFD::FileDialog::Instance()->GetFilePathName();
-                    willmodelPath = file::getRelativePath(willmodelPath);
+                ImGui::Text("Output Path: %s", willmodelPath.empty() ? "None selected" : willmodelPath.string().c_str());
+
+                if (ImGui::Button("Select Output Path")) {
+                    IGFD::FileDialogConfig config;
+                    config.path = "./assets/willmodels";
+                    config.fileName = willmodelPath.filename().string();
+                    IGFD::FileDialog::Instance()->OpenDialog(
+                        "SaveWillmodelDlg",
+                        "Save Willmodel",
+                        ".willmodel",
+                        config);
                 }
-                IGFD::FileDialog::Instance()->Close();
-            }
 
-            if (!gltfPath.empty() && !willmodelPath.empty()) {
-                if (ImGui::Button("Compile Model")) {
-                    if (Serializer::generateWillModel(gltfPath, willmodelPath)) {
-                        ImGui::OpenPopup("Success");
-                    } else {
-                        ImGui::OpenPopup("Error");
+                if (IGFD::FileDialog::Instance()->Display("ChooseGLTFDlg")) {
+                    if (IGFD::FileDialog::Instance()->IsOk()) {
+                        gltfPath = IGFD::FileDialog::Instance()->GetFilePathName();
+                        gltfPath = file::getRelativePath(gltfPath);
+
+                        willmodelPath = std::filesystem::current_path() / "assets" / "willmodels" / gltfPath.filename().string();
+                        willmodelPath = file::getRelativePath(willmodelPath);
+                        willmodelPath.replace_extension(".willmodel");
+                    }
+                    IGFD::FileDialog::Instance()->Close();
+                }
+
+                if (IGFD::FileDialog::Instance()->Display("SaveWillmodelDlg")) {
+                    if (IGFD::FileDialog::Instance()->IsOk()) {
+                        willmodelPath = IGFD::FileDialog::Instance()->GetFilePathName();
+                        willmodelPath = file::getRelativePath(willmodelPath);
+                    }
+                    IGFD::FileDialog::Instance()->Close();
+                }
+
+                if (!gltfPath.empty() && !willmodelPath.empty()) {
+                    if (ImGui::Button("Compile Model")) {
+                        if (Serializer::generateWillModel(gltfPath, willmodelPath)) {
+                            ImGui::OpenPopup("Success");
+                        } else {
+                            ImGui::OpenPopup("Error");
+                        }
                     }
                 }
+
+                // Success/Error popups
+                if (ImGui::BeginPopupModal("Success", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                    ImGui::Text("Model compiled successfully!");
+                    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+                    ImGui::EndPopup();
+                }
+                if (ImGui::BeginPopupModal("Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                    ImGui::Text("Failed to compile model!");
+                    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+                    ImGui::EndPopup();
+                }
+
+                ImGui::EndTabItem();
             }
 
-            if (ImGui::BeginPopupModal("Success", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                ImGui::Text("Model compiled successfully!");
-                if (ImGui::Button("OK")) {
-                    ImGui::CloseCurrentPopup();
+            if (ImGui::BeginTabItem("Render Objects")) {
+                const float width = ImGui::GetContentRegionAvail().x;
+                if (ImGui::Button("Scan for .willmodel", ImVec2(width, 0))) {
+                    file::scanForModels(engine->renderObjectInfos);
                 }
-                ImGui::EndPopup();
+
+                static uint32_t selectedObjectId = 0;
+                for (const auto& [id, info] : engine->renderObjectInfos) {
+                    ImGui::PushID(id);
+
+                    bool isLoaded = engine->newRenderObjects.contains(id) && engine->newRenderObjects[id] != nullptr;
+                    bool checked = isLoaded;
+                    ImGui::Checkbox("##loaded", &checked);
+                    if (checked != isLoaded) {
+                        engine->newRenderObjects[id] = new RenderObject(info.gltfPath, *engine->resourceManager);
+                    }
+
+                    ImGui::SameLine();
+                    ImGui::Text("%s", info.name.c_str());
+
+                    ImGui::SameLine();
+                    if (ImGui::Button("Details##btn")) {
+                        selectedObjectId = info.id;
+                        ImGui::OpenPopup("Render Object Detail");
+                    }
+
+                    // Detail popup modal
+                    if (ImGui::BeginPopupModal("Render Object Detail", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                        ImGui::Text("Name: %s", info.name.c_str());
+                        ImGui::Text("Path: %s", file::getRelativePath(info.gltfPath).string().c_str());
+                        ImGui::Text("ID: %u", info.id);
+                        ImGui::Separator();
+
+                        if (ImGui::Button("Generate Full Object")) {
+
+                            fmt::print("Added whole gltf model to the scene\n");
+                        }
+
+                        ImGui::Separator();
+                        ImGui::Text("Individual Meshes:");
+
+                        if (auto it = engine->newRenderObjects.find(selectedObjectId);
+                            it != engine->newRenderObjects.end() && it->second != nullptr) {
+                            RenderObject* renderObj = it->second;
+                            for (size_t i = 0; i < renderObj->getMeshCount(); i++) {
+                                ImGui::PushID(static_cast<int>(i));
+                                if (ImGui::Button("Add to Scene")) {
+                                    fmt::print("Added single mesh to scene\n");
+                                }
+                                ImGui::SameLine();
+                                ImGui::Text("Mesh %zu", i);
+                                ImGui::PopID();
+                            }
+                        } else {
+                            ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "Load render object to see available meshes");
+                        }
+
+                        if (ImGui::Button("Close")) ImGui::CloseCurrentPopup();
+                        ImGui::EndPopup();
+                    }
+
+                    ImGui::PopID();
+                }
+                ImGui::EndTabItem();
             }
 
-            if (ImGui::BeginPopupModal("Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                ImGui::Text("Failed to compile model!");
-                if (ImGui::Button("OK")) {
-                    ImGui::CloseCurrentPopup();
+            if (ImGui::BeginTabItem("Serialization")) {
+                const float width = ImGui::GetContentRegionAvail().x;
+                if (ImGui::Button("Serialize Scene", ImVec2(width, 40))) {
+                    if (Serializer::SerializeScene(engine->scene->getRoot(), physics::Physics::Get(), engine->newRenderObjects, "test.json")) {
+                        ImGui::OpenPopup("SerializeSuccess");
+                    } else {
+                        ImGui::OpenPopup("SerializeError");
+                    }
                 }
-                ImGui::EndPopup();
+
+                // Success/Error popups
+                if (ImGui::BeginPopupModal("SerializeSuccess", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                    ImGui::Text("Scene Serialization Success!");
+                    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+                    ImGui::EndPopup();
+                }
+                if (ImGui::BeginPopupModal("SerializeError", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                    ImGui::Text("Scene Serialization Failed!");
+                    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+                    ImGui::EndPopup();
+                }
+
+                ImGui::EndTabItem();
             }
+
+            ImGui::EndTabBar();
         }
+        ImGui::End();
     }
-    ImGui::End();
+    // if (ImGui::Begin("Scene")) {
+    //     if (ImGui::CollapsingHeader("\".willmodel\" Generator")) {
+    //         static std::filesystem::path gltfPath;
+    //         static std::filesystem::path willmodelPath;
+    //
+    //         ImGui::Text("GLTF Source: %s", gltfPath.empty() ? "None selected" : gltfPath.string().c_str());
+    //
+    //         if (ImGui::Button("Select GLTF File")) {
+    //             IGFD::FileDialogConfig config;
+    //             config.path = "./assets/models";
+    //             IGFD::FileDialog::Instance()->OpenDialog(
+    //                 "ChooseGLTFDlg",
+    //                 "Choose GLTF File",
+    //                 ".gltf,.glb",
+    //                 config);
+    //         }
+    //
+    //         ImGui::Text("Output Path: %s", willmodelPath.empty() ? "None selected" : willmodelPath.string().c_str());
+    //
+    //         if (ImGui::Button("Select Output Path")) {
+    //             IGFD::FileDialogConfig config;
+    //             config.path = "./assets/willmodels";
+    //             config.fileName = willmodelPath.filename().string();
+    //             IGFD::FileDialog::Instance()->OpenDialog(
+    //                 "SaveWillmodelDlg",
+    //                 "Save Willmodel",
+    //                 ".willmodel",
+    //                 config);
+    //         }
+    //
+    //         if (IGFD::FileDialog::Instance()->Display("ChooseGLTFDlg")) {
+    //             if (IGFD::FileDialog::Instance()->IsOk()) {
+    //                 gltfPath = IGFD::FileDialog::Instance()->GetFilePathName();
+    //                 gltfPath = file::getRelativePath(gltfPath);
+    //
+    //                 willmodelPath = std::filesystem::current_path() / "assets" / "willmodels" / gltfPath.filename().string();
+    //                 willmodelPath = file::getRelativePath(willmodelPath);
+    //                 willmodelPath.replace_extension(".willmodel");
+    //             }
+    //             IGFD::FileDialog::Instance()->Close();
+    //         }
+    //
+    //         if (IGFD::FileDialog::Instance()->Display("SaveWillmodelDlg")) {
+    //             if (IGFD::FileDialog::Instance()->IsOk()) {
+    //                 willmodelPath = IGFD::FileDialog::Instance()->GetFilePathName();
+    //                 willmodelPath = file::getRelativePath(willmodelPath);
+    //             }
+    //             IGFD::FileDialog::Instance()->Close();
+    //         }
+    //
+    //         if (!gltfPath.empty() && !willmodelPath.empty()) {
+    //             if (ImGui::Button("Compile Model")) {
+    //                 if (Serializer::generateWillModel(gltfPath, willmodelPath)) {
+    //                     ImGui::OpenPopup("Success");
+    //                 } else {
+    //                     ImGui::OpenPopup("Error");
+    //                 }
+    //             }
+    //         }
+    //
+    //         if (ImGui::BeginPopupModal("Success", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    //             ImGui::Text("Model compiled successfully!");
+    //             if (ImGui::Button("OK")) {
+    //                 ImGui::CloseCurrentPopup();
+    //             }
+    //             ImGui::EndPopup();
+    //         }
+    //
+    //         if (ImGui::BeginPopupModal("Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    //             ImGui::Text("Failed to compile model!");
+    //             if (ImGui::Button("OK")) {
+    //                 ImGui::CloseCurrentPopup();
+    //             }
+    //             ImGui::EndPopup();
+    //         }
+    //     }
+    //     ImGui::Separator();
+    //
+    //     if (ImGui::CollapsingHeader("Render Objects")) {
+    //         const float width = ImGui::GetContentRegionAvail().x;
+    //         if (ImGui::Button("Scan for .willmodel", ImVec2(width, 0))) {
+    //             engine->scanForModels();
+    //         }
+    //         static uint32_t selectedObjectId = 0;
+    //         for (const auto& [id, info] : engine->renderObjectInfos) {
+    //             ImGui::PushID(id);
+    //
+    //             bool isLoaded = engine->newRenderObjects.contains(id) && engine->newRenderObjects[id] != nullptr;
+    //             bool checked = isLoaded;
+    //             ImGui::Checkbox("##loaded", &checked);
+    //             if (checked != isLoaded) {
+    //                 engine->newRenderObjects[id] = new RenderObject(info.gltfPath, *engine->resourceManager);
+    //             }
+    //
+    //             ImGui::SameLine();
+    //
+    //             ImGui::Text("%s", info.name.c_str());
+    //
+    //             ImGui::SameLine();
+    //             if (ImGui::Button("Details##btn")) {
+    //                 selectedObjectId = info.id;
+    //                 ImGui::OpenPopup("Render Object Detail");
+    //             }
+    //
+    //             if (ImGui::BeginPopupModal("Render Object Detail", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    //                 ImGui::Text("Name: %s", info.name.c_str());
+    //                 ImGui::Text("Path: %s", file::getRelativePath(info.gltfPath).string().c_str());
+    //                 ImGui::Text("ID: %u", info.id);
+    //                 ImGui::Separator();
+    //
+    //                 if (ImGui::Button("Generate Full Object")) {
+    //                     fmt::print("Added whole gltf model to the scene\n");
+    //                 }
+    //
+    //                 ImGui::Separator();
+    //                 ImGui::Text("Individual Meshes:");
+    //
+    //                 if (auto it = engine->newRenderObjects.find(selectedObjectId);
+    //                     it != engine->newRenderObjects.end() && it->second != nullptr) {
+    //                     RenderObject* renderObj = it->second;
+    //                     for (size_t i = 0; i < renderObj->getMeshCount(); i++) {
+    //                         ImGui::PushID(static_cast<int>(i));
+    //
+    //                         if (ImGui::Button("Add to Scene")) {
+    //                             fmt::print("Added single mesh to scene\n");
+    //                         }
+    //                         ImGui::SameLine();
+    //                         ImGui::Text("Mesh %zu", i);
+    //
+    //                         ImGui::PopID();
+    //                     }
+    //                 } else {
+    //                     ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "Load render object to see available meshes");
+    //                 }
+    //
+    //                 if (ImGui::Button("Close")) {
+    //                     ImGui::CloseCurrentPopup();
+    //                 }
+    //
+    //                 ImGui::EndPopup();
+    //             }
+    //
+    //             ImGui::PopID();
+    //         }
+    //     }
+    //     ImGui::Separator();
+    //
+    //     if (ImGui::CollapsingHeader("Serialization")) {
+    //         const float width = ImGui::GetContentRegionAvail().x;
+    //         if (ImGui::Button("Serialize Scene", ImVec2(width, 40))) {
+    //             if (Serializer::SerializeScene(engine->scene->getRoot(), physics::Physics::Get(), engine->newRenderObjects, "test.json")) {
+    //                 ImGui::OpenPopup("SerializeSuccess");
+    //             } else {
+    //                 ImGui::OpenPopup("SerializeError");
+    //             }
+    //         }
+    //
+    //         if (ImGui::BeginPopupModal("SerializeSuccess", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    //             ImGui::Text("Scene Serialization Success!");
+    //             if (ImGui::Button("OK")) {
+    //                 ImGui::CloseCurrentPopup();
+    //             }
+    //             ImGui::EndPopup();
+    //         }
+    //
+    //         if (ImGui::BeginPopupModal("SerializeError", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+    //             ImGui::Text("Scene Serialization Failed!");
+    //             if (ImGui::Button("OK")) {
+    //                 ImGui::CloseCurrentPopup();
+    //             }
+    //             ImGui::EndPopup();
+    //         }
+    //     }
+    //     ImGui::Separator();
+    // }
+    // ImGui::End();
 
     if (engine->scene != nullptr) {
         drawSceneGraph(engine->scene);

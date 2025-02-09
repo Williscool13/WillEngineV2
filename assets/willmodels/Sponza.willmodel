@@ -1,7 +1,7 @@
 {
     "renderObject": {
-        "gltfPath": "C:\\Users\\William\\source\\repos\\WillEngine\\cmake-build-debug-visual-studio\\assets\\models\\sponza2\\Sponza.gltf",
-        "id": 1595037699,
+        "gltfPath": "..\\assets\\models\\sponza2\\Sponza.gltf",
+        "id": 1234101097,
         "name": "Sponza"
     },
     "version": 1

@@ -41,6 +41,7 @@ private: // IIdentifiable
 public:
     GameObject* generateGameObject(const std::string& gameObjectName = "");
 
+    int32_t getMeshCount() const { return meshes.size(); }
     bool canDraw() const { return instanceBufferCapacity > 0; }
     const DescriptorBufferUniform& getAddressesDescriptorBuffer() const { return addressesDescriptorBuffer; }
     const DescriptorBufferSampler& getTextureDescriptorBuffer() const { return textureDescriptorBuffer; }
@@ -74,6 +75,7 @@ private: // Model Data
     static VkFilter extractFilter(fastgltf::Filter filter);
 
     static VkSamplerMipmapMode extractMipMapMode(fastgltf::Filter filter);
+
 private: // Buffer Data
     bool generateBuffers();
 

@@ -169,16 +169,8 @@ void Engine::initRenderer()
     };
     postProcessPipeline->setupDescriptorBuffer(postProcessDescriptor);
 
-    const std::vector<std::filesystem::path> willModels = file::findWillmodels(relative(std::filesystem::current_path() / "assets"));
-    newRenderObjects.reserve(willModels.size());
-    for (std::filesystem::path willModel : willModels) {
-        std::optional<RenderObjectInfo> modelMetadata = Serializer::loadWillModel(willModel);
-        if (modelMetadata.has_value()) {
-            renderObjectInfos[modelMetadata->id] = modelMetadata.value();
-        } else {
-            fmt::print("Failed to load render object, see previous error message\n");
-        }
-    }
+
+    //scanForModels();
 }
 
 void Engine::initGame()
@@ -325,11 +317,6 @@ void Engine::updateGame(const float deltaTime) const
     if (input.isKeyPressed(SDLK_p)) {
         gameObjects[2]->setGlobalPosition({0.0f, 5.0f, 0.0f});
         fmt::print("Resetting sphere to (0,5,0)");
-    }
-
-    if (input.isKeyPressed(SDLK_o)) {
-        std::vector renderObjects{cube, primitives, sponza, mySphere}; //, checkeredFloor};
-        Serializer::SerializeScene(scene->getRoot(), physics::Physics::Get(), renderObjects, "test.json");
     }
 }
 
@@ -596,6 +583,10 @@ void Engine::cleanup()
     delete primitives;
     delete sponza;
     delete mySphere;
+    for (const std::pair<uint32_t, RenderObject*> renderObject : newRenderObjects) {
+        delete renderObject.second;
+    }
+    newRenderObjects.clear();
 
     delete frustumCullPipeline;
     delete environmentPipeline;

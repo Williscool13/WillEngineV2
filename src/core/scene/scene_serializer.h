@@ -197,9 +197,9 @@ inline void from_json(const ordered_json& j, RenderObjectEntry& entry)
 class Serializer
 {
 public: // GameObjects
-    static void SerializeGameObject(ordered_json& j, IHierarchical* obj, physics::Physics* physics, const std::vector<uint64_t>& renderObjectIds) // NOLINT(*-no-recursion)
+    static void SerializeGameObject(ordered_json& j, IHierarchical* obj, physics::Physics* physics, const std::unordered_map<uint32_t, RenderObject*>& renderObjects) // NOLINT(*-no-recursion)
     {
-        if (auto gameObject = dynamic_cast<GameObject*>(obj)) {
+        if (const auto gameObject = dynamic_cast<GameObject*>(obj)) {
             j["id"] = gameObject->getId();
         }
 
@@ -211,11 +211,7 @@ public: // GameObjects
 
         if (const auto renderable = dynamic_cast<IRenderable*>(obj)) {
             const int32_t renderRefIndex = renderable->getRenderReferenceIndex();
-            const bool hasValidReference = renderRefIndex != INDEX_NONE && std::ranges::find_if(renderObjectIds, [renderRefIndex](const uint64_t id) {
-                return id == renderRefIndex;
-            }) != renderObjectIds.end();
-
-            if (hasValidReference) {
+            if (renderRefIndex != INDEX_NONE && renderObjects.contains(renderRefIndex)) {
                 j["renderReference"] = renderRefIndex;
                 j["renderMeshIndex"] = renderable->getMeshIndex();
             }
@@ -236,18 +232,18 @@ public: // GameObjects
                     fmt::print("SerializeGameObject: null game object found in IHierarchical chain (child of {})\n", obj->getName());
                     continue;
                 }
-                SerializeGameObject(childJson, child, physics, renderObjectIds);
+                SerializeGameObject(childJson, child, physics, renderObjects);
                 children.push_back(childJson);
             }
             j["children"] = children;
         }
     }
 
-    static void SerializeScene(IHierarchical* sceneRoot, physics::Physics* physics, const std::vector<RenderObject*>& renderObjects, const std::string& filepath)
+    static bool SerializeScene(IHierarchical* sceneRoot, physics::Physics* physics, const std::unordered_map<uint32_t, RenderObject*>& renderObjects, const std::string& filepath)
     {
         if (sceneRoot == nullptr) {
             fmt::print("Warning: Scene root is null\n");
-            return;
+            return false;
         }
 
         ordered_json rootJ;
@@ -257,25 +253,23 @@ public: // GameObjects
 
         ordered_json gameObjectJ;
         ordered_json renderObjectJ;
-        std::vector<uint64_t> renderObjectIndices;
-        renderObjectIndices.reserve(renderObjects.size());
-        std::ranges::transform(renderObjects, std::back_inserter(renderObjectIndices),
-                               [](const RenderObject* obj) { return obj->getId(); });
 
-        SerializeGameObject(gameObjectJ, sceneRoot, physics, renderObjectIndices);
+        SerializeGameObject(gameObjectJ, sceneRoot, physics, renderObjects);
         rootJ["gameObjects"] = gameObjectJ;
 
         ordered_json renderObjectsJ = ordered_json::object();
-        for (const RenderObject* renderObject : renderObjects) {
-            const uint64_t id = renderObject->getId();
+        for (const std::pair renderObject : renderObjects) {
+            const uint64_t id = renderObject.first;
             renderObjectsJ[std::to_string(id)] = RenderObjectEntry{
-                .filepath = renderObject->getFilePath().string(),
+                .filepath = renderObject.second->getFilePath().string(),
             };
         }
         rootJ["renderObjects"] = renderObjectsJ;
 
         std::ofstream file(filepath);
         file << rootJ.dump(4);
+
+        return true;
     }
 
     static GameObject* DeserializeGameObject(const ordered_json& j, physics::Physics* physics, ResourceManager& resourceManager)
@@ -371,7 +365,7 @@ public: // Render Objects
 
         try {
             std::ofstream o(outputPath);
-            o << std::setw(4) << j << std::endl; // Pretty print with 4 space indent
+            o << std::setw(4) << j << std::endl;
             return true;
         } catch (const std::exception& e) {
             fmt::print("Failed to write willmodel file: {}\n", e.what());
