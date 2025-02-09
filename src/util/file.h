@@ -7,6 +7,8 @@
 
 #include <filesystem>
 
+#include "src/core/scene/scene_serializer.h"
+
 namespace will_engine::file
 {
 static const std::filesystem::path imagesSavePath = std::filesystem::current_path() / "images";
@@ -50,14 +52,30 @@ static std::filesystem::path getRelativePath(const std::filesystem::path& fullPa
     return relPath;
 }
 
-static std::vector<std::filesystem::path> findWillmodels(const std::filesystem::path& dir) {
+static std::vector<std::filesystem::path> findWillmodels(const std::filesystem::path& dir)
+{
     std::vector<std::filesystem::path> models;
-    for(const auto& entry : std::filesystem::recursive_directory_iterator(dir)) {
-        if(entry.path().extension() == ".willmodel") {
+    for (const auto& entry : std::filesystem::recursive_directory_iterator(dir)) {
+        if (entry.path().extension() == ".willmodel") {
             models.push_back(entry.path());
         }
     }
     return models;
+}
+
+static void scanForModels(std::unordered_map<uint32_t, RenderObjectInfo>& renderObjectInfoMap)
+{
+    renderObjectInfoMap.clear();
+    const std::vector<std::filesystem::path> willModels = findWillmodels(relative(std::filesystem::current_path() / "assets"));
+    renderObjectInfoMap.reserve(willModels.size());
+    for (std::filesystem::path willModel : willModels) {
+        std::optional<RenderObjectInfo> modelMetadata = Serializer::loadWillModel(willModel);
+        if (modelMetadata.has_value()) {
+            renderObjectInfoMap[modelMetadata->id] = modelMetadata.value();
+        } else {
+            fmt::print("Failed to load render object, see previous error message\n");
+        }
+    }
 }
 }
 
