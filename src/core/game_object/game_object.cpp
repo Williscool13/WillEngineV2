@@ -4,25 +4,18 @@
 
 #include "game_object.h"
 
-#include <Jolt/Physics/Body/BodyCreationSettings.h>
-
 #include "glm/gtc/quaternion.hpp"
+#include "src/core/identifier/identifier_manager.h"
 #include "src/physics/physics.h"
 #include "src/physics/physics_utils.h"
 
 namespace will_engine
 {
-uint32_t GameObject::nextId = 0;
-
-GameObject::GameObject() : gameObjectId(nextId++)
+GameObject::GameObject(std::string gameObjectName, const uint64_t gameObjectId)
 {
-    gameObjectName = "GameObject_" + std::to_string(gameObjectId);
-}
-
-GameObject::GameObject(std::string gameObjectName) : gameObjectId(nextId++)
-{
-    if (gameObjectName == "") {
-        this->gameObjectName = "GameObject_" + std::to_string(gameObjectId);
+    GameObject::setId(identifier::IdentifierManager::Get()->registerIdentifier(gameObjectId));
+    if (gameObjectName.empty()) {
+        this->gameObjectName = "GameObject_" + std::to_string(GameObject::getId());
     } else {
         this->gameObjectName = std::move(gameObjectName);
     }
@@ -106,7 +99,7 @@ void GameObject::dirty()
 void GameObject::recursiveUpdate(const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
 {
     if (pRenderReference && framesToUpdate > 0) {
-        pRenderReference->updateInstanceData(instanceIndex,{getModelMatrix(), bIsVisible, bCastsShadows}, currentFrameOverlap, previousFrameOverlap);
+        pRenderReference->updateInstanceData(instanceIndex, {getModelMatrix(), bIsVisible, bCastsShadows}, currentFrameOverlap, previousFrameOverlap);
         framesToUpdate--;
         return;
     }

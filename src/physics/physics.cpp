@@ -193,7 +193,7 @@ void Physics::removeRigidBodies(const std::vector<IPhysicsBody*>& objects)
 
 void Physics::updateTransforms() const
 {
-    const JPH::BodyInterface& bodyInterface = getBodyInterface();
+    const JPH::BodyInterface& bodyInterface = physicsSystem->GetBodyInterface();
     for (auto physicsObject : physicsObjects) {
         const JPH::Vec3 position = bodyInterface.GetPosition(physicsObject.first);
         const JPH::Quat rotation = bodyInterface.GetRotation(physicsObject.first);

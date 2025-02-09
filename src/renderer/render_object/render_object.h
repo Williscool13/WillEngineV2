@@ -14,6 +14,7 @@
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/pipelines/basic_compute/basic_compute_pipeline.h"
+#include "src/util/math_constants.h"
 
 
 namespace will_engine
@@ -23,12 +24,18 @@ class GameObject;
 class RenderObject final : public IRenderReference
 {
 public:
-    RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager, int32_t renderObjectId);
+    RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager, int64_t renderObjectId = INDEX64_NONE);
 
     ~RenderObject() override;
 
-private:
-    int32_t renderObjectId{};
+public: // IRenderReference
+    void setId(const uint64_t identifier) override { renderObjectId = identifier; }
+
+    [[nodiscard]] uint64_t getId() const override { return renderObjectId; }
+
+private: // IIdentifiable
+    uint64_t renderObjectId{};
+
     std::filesystem::path gltfFilepath;
 
 public:
@@ -49,9 +56,9 @@ public:
 
     bool attachToGameObject(GameObject* gameObject, int32_t meshIndex);
 
-    int32_t getRenderReferenceIndex() const override { return renderObjectId; }
+    [[nodiscard]] uint64_t getRenderReferenceIndex() const override { return renderObjectId; }
 
-    const std::filesystem::path& getFilePath() const { return gltfFilepath; }
+    [[nodiscard]] const std::filesystem::path& getFilePath() const { return gltfFilepath; }
 
     void updateInstanceData(int32_t instanceIndex, const CurrentInstanceData& newInstanceData, int32_t currentFrameOverlap, int32_t previousFrameOverlap) override;
 

@@ -10,19 +10,12 @@
 
 #include <glm/glm.hpp>
 
-#include <Jolt/Jolt.h>
-#include <Jolt/Physics/Body/BodyID.h>
-#include <Jolt/Physics/Body/MotionType.h>
-#include <Jolt/Physics/Collision/ObjectLayer.h>
-#include <Jolt/Physics/Collision/Shape/Shape.h>
-
 #include "hierarchical.h"
-#include "../../physics/physics_body.h"
 #include "renderable.h"
 #include "transformable.h"
 #include "src/core/transform.h"
+#include "src/physics/physics_body.h"
 #include "src/physics/physics_constants.h"
-#include "src/physics/physics_filters.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/render_object/render_reference.h"
 #include "src/util/math_constants.h"
@@ -32,22 +25,22 @@ namespace will_engine
 class Engine;
 class RenderObject;
 
-class GameObject : public IPhysicsBody, public IRenderable, public ITransformable, public IHierarchical
+class GameObject : public IPhysicsBody, public IRenderable, public ITransformable, public IHierarchical, public IIdentifiable
 {
 public:
-    GameObject();
-
-    explicit GameObject(std::string gameObjectName);
+    explicit GameObject(std::string gameObjectName = "", uint64_t gameObjectId = INDEX64_NONE);
 
     ~GameObject() override;
 
     virtual void update(float deltaTime) {}
 
-    uint32_t getId() const { return gameObjectId; }
+public: // IIdentifiable
+    void setId(uint64_t identifier) override { gameObjectId = identifier; }
 
-private:
-    static uint32_t nextId;
-    uint32_t gameObjectId{};
+    uint64_t getId() const override { return gameObjectId; }
+
+private: // IIdentifiable
+    uint64_t gameObjectId{};
 
 public: // IHierarchical
     bool addChild(IHierarchical* child) override;
@@ -147,7 +140,7 @@ public: // IRenderable
         this->meshIndex = meshIndex;
     }
 
-    int32_t getRenderReferenceIndex() const override { return pRenderReference ? pRenderReference->getRenderReferenceIndex() : INDEX_NONE; }
+    int32_t getRenderReferenceIndex() const override { return pRenderReference ? pRenderReference->getId() : INDEX_NONE; }
 
     int32_t getMeshIndex() const override { return meshIndex; }
 
