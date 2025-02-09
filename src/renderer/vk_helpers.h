@@ -4,10 +4,13 @@
 
 #ifndef VKHELPERS_H
 #define VKHELPERS_H
+#include <functional>
+
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vk_enum_string_helper.h>
-#include <glm/glm.hpp>
+
 #include <fmt/format.h>
+#include <glm/glm.hpp>
 
 #include "vk_types.h"
 

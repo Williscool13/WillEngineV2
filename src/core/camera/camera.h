@@ -3,10 +3,9 @@
 
 #ifndef CAMERA_H
 #define CAMERA_H
-#include <glm/glm.hpp>
 
 #include "camera_types.h"
-#include "../transform.h"
+#include "src/core/transform.h"
 
 namespace will_engine
 {

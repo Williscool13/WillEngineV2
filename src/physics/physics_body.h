@@ -5,7 +5,7 @@
 #ifndef PHYSICS_BODY_H
 #define PHYSICS_BODY_H
 
-#include <../../extern/glm/glm/glm.hpp>
+#include <glm.hpp>
 
 namespace will_engine
 {

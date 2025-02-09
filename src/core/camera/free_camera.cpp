@@ -4,7 +4,6 @@
 
 #include "free_camera.h"
 
-#include "glm/common.hpp"
 #include "src/core/input.h"
 #include "src/core/time.h"
 

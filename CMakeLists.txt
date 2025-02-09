@@ -15,9 +15,29 @@ add_definitions(-DJPH_ENABLE_ASSERT_MESSAGES=1)
 # Vulkan
 find_package(Vulkan REQUIRED)
 
+set(VULKAN_PATH $ENV{VULKAN_SDK})
+
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     find_library(SHADERC_LIB
             NAMES shaderc_combinedd
+            PATHS $ENV{VULKAN_SDK}/Lib
+            REQUIRED
+    )
+
+    find_library(SDL2MAIN_LIB
+            NAMES SDL2maind
+            PATHS $ENV{VULKAN_SDK}/Lib
+            REQUIRED
+    )
+
+    find_library(SDL2_LIB
+            NAMES SDL2d
+            PATHS $ENV{VULKAN_SDK}/Lib
+            REQUIRED
+    )
+
+    find_library(VOLK_LIB
+            NAMES volkd
             PATHS $ENV{VULKAN_SDK}/Lib
             REQUIRED
     )
@@ -27,11 +47,24 @@ else ()
             PATHS $ENV{VULKAN_SDK}/Lib
             REQUIRED
     )
-endif ()
 
-# SDL2
-set(SDL2_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/lib/SDL2.lib")
-set(SDL2MAIN_LIBRARY "${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/lib/SDL2main.lib")
+    find_library(SDL2MAIN_LIB
+            NAMES SDL2main
+            PATHS $ENV{VULKAN_SDK}/Lib
+            REQUIRED
+    )
+
+    find_library(SDL2_LIB
+            NAMES SDL2
+            PATHS $ENV{VULKAN_SDK}/Lib
+            REQUIRED
+    )
+    find_library(VOLK_LIB
+            NAMES volk
+            PATHS $ENV{VULKAN_SDK}/Lib
+            REQUIRED
+    )
+endif ()
 
 # Jolt Physics
 set(PHYSICS_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics")
@@ -40,8 +73,7 @@ set(PHYSICS_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics")
 set(JSON_BuildTests OFF CACHE INTERNAL "")
 
 
-add_subdirectory(extern/glm)
-add_subdirectory(extern/volk)
+
 add_subdirectory(extern/vk-bootstrap)
 
 add_subdirectory(extern/fmt)
@@ -223,25 +255,25 @@ add_executable(WillEngine main.cpp
 
 target_include_directories(WillEngine PRIVATE
         ${Vulkan_INCLUDE_DIRS}                                              # Vulkan
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2/include                     # SDL
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/VulkanMemoryAllocator/include    # VMA
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/stb                              # STBI
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/volk                             # volk
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/include                 # fastgltf
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/deps/simdjson           # simdjson
         ${IMGUI_DIR}                                                        # ImGui
         ${IMGUI_DIR}/backends                                               # ImGui backends
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
-        $ENV{VULKAN_SDK}/Include/shaderc                                    # ShaderC
+        ${VULKAN_PATH}/Include/shaderc                                    # ShaderC
+        ${VULKAN_PATH}/Include/SDL2                                       # SDL2
+        ${VULKAN_PATH}/Include/vma                                        # VMA
+        ${VULKAN_PATH}/Include/Volk                                       # volk
+        ${VULKAN_PATH}/Include/glm                                        # glm
 )
 
 target_link_libraries(WillEngine PRIVATE
-        ${SDL2MAIN_LIBRARY}
-        ${SDL2_LIBRARY}
+        ${SDL2MAIN_LIB}
+        ${SDL2_LIB}
         ${SHADERC_LIB}
-        glm::glm
+        ${VOLK_LIB}
         fmt::fmt
-        volk
         vk-bootstrap::vk-bootstrap
         fastgltf
         nlohmann_json::nlohmann_json
