@@ -1,0 +1,108 @@
+{
+    "version": {
+        "major": 0,
+        "minor": 1,
+        "patch": 0
+    },
+    "metadata": {
+        "name": "Test Scene",
+        "created": "2025-02-10 18:26:18",
+        "formatVersion": 1
+    },
+    "gameObjects": {
+        "id": 0,
+        "name": "GameObject_0",
+        "transform": {
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        "children": [
+            {
+                "id": 2,
+                "name": "FLOOR",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": -2.0,
+                        "z": 0.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 20.0,
+                        "y": 0.5,
+                        "z": 20.0
+                    }
+                },
+                "physics": {
+                    "motionType": 0,
+                    "layer": 0,
+                    "shapeType": "box",
+                    "shapeParams": {
+                        "x": 20.0,
+                        "y": 1.0,
+                        "z": 20.0
+                    }
+                }
+            },
+            {
+                "id": 4,
+                "name": "SPHERE",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": -0.5,
+                        "z": 0.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "physics": {
+                    "motionType": 2,
+                    "layer": 2,
+                    "shapeType": "sphere",
+                    "shapeParams": {
+                        "x": 0.5,
+                        "y": 0.0,
+                        "z": 0.0
+                    }
+                }
+            }
+        ]
+    },
+    "renderObjects": {
+        "786709467": {
+            "filepath": "..\\assets\\models\\primitives\\primitives.gltf"
+        },
+        "2720080846": {
+            "filepath": "..\\assets\\models\\mySphere.glb"
+        }
+    }
+}

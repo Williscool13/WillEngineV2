@@ -27,8 +27,17 @@ GameObject::~GameObject()
         delete child;
     }
 
-    parent = nullptr;
+    if (parent) {
+        parent->removeChild(this);
+        parent = nullptr;
+    }
+
     children.clear();
+
+    if (pRenderReference) {
+        pRenderReference->releaseInstanceIndex(instanceIndex);
+        pRenderReference = nullptr;
+    }
 
     if (bodyId != physics::BODY_ID_NONE) {
         if (physics::Physics* physics = physics::Physics::Get()) {

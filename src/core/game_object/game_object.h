@@ -144,6 +144,10 @@ public: // IRenderable
 
     int32_t getMeshIndex() const override { return meshIndex; }
 
+    [[nodiscard]] bool& isVisible() override { return bIsVisible; }
+
+    [[nodiscard]] bool &isCastingShadows() override { return bCastsShadows; }
+
 protected: // IRenderable
     /**
       * If true, the model matrix will never be updated from defaults.
