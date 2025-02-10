@@ -28,6 +28,18 @@ public:
 
     ~RenderObject() override;
 
+    void update(int32_t currentFrameOverlap, int32_t previousFrameOverlap);
+
+    void dirty() { framesToUpdate = FRAME_OVERLAP; }
+
+    int32_t framesToUpdate{FRAME_OVERLAP};
+
+private:
+    int32_t getFreeInstanceIndex();
+
+    std::unordered_set<uint32_t> freeInstanceIndices{};
+    int32_t currentInstanceCount{0};
+
 public: // IRenderReference
     void setId(const uint64_t identifier) override { renderObjectId = identifier; }
 
@@ -42,26 +54,31 @@ public:
     GameObject* generateGameObject(const std::string& gameObjectName = "");
 
     int32_t getMeshCount() const { return meshes.size(); }
-    bool canDraw() const { return instanceBufferCapacity > 0; }
+    bool canDraw() const { return currentInstanceCount > 0; }
     const DescriptorBufferUniform& getAddressesDescriptorBuffer() const { return addressesDescriptorBuffer; }
     const DescriptorBufferSampler& getTextureDescriptorBuffer() const { return textureDescriptorBuffer; }
     const DescriptorBufferUniform& getFrustumCullingAddressesDescriptorBuffer() { return frustumCullingDescriptorBuffer; }
     [[nodiscard]] const AllocatedBuffer& getVertexBuffer() const { return vertexBuffer; }
     [[nodiscard]] const AllocatedBuffer& getIndexBuffer() const { return indexBuffer; }
-    [[nodiscard]] const AllocatedBuffer& getIndirectBuffer() const { return drawIndirectBuffer; }
+    [[nodiscard]] const AllocatedBuffer& getIndirectBuffer(const int32_t currentFrameOverlap) const { return drawIndirectBuffers[currentFrameOverlap]; }
     [[nodiscard]] size_t getDrawIndirectCommandCount() const { return drawCommands.size(); }
-
-    GameObject* generateGameObject(int32_t meshIndex, const Transform& startingTransform);
 
     void recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent);
 
-    bool attachToGameObject(GameObject* gameObject, int32_t meshIndex);
+    /**
+     * @param gameObject to assign mesh references.
+     * @param meshIndex in the RenderObject to generate. \code 0 < n <= meshes.size()\endcode
+     * @return true if successfully generated mesh and assigned to gameobject.
+     */
+    bool generateMesh(GameObject* gameObject, int32_t meshIndex);
 
     [[nodiscard]] uint64_t getRenderReferenceIndex() const override { return renderObjectId; }
 
     [[nodiscard]] const std::filesystem::path& getFilePath() const { return gltfFilepath; }
 
     void updateInstanceData(int32_t instanceIndex, const CurrentInstanceData& newInstanceData, int32_t currentFrameOverlap, int32_t previousFrameOverlap) override;
+
+    bool releaseInstanceIndex(uint32_t instanceIndex) override;
 
 private: // Model Data
     bool parseGltf(const std::filesystem::path& gltfFilepath);
@@ -79,15 +96,9 @@ private: // Model Data
 private: // Buffer Data
     bool generateBuffers();
 
-    /**
-     * Expand all model matrix buffers and copy contents of previous model matrix buffers into the new one.
-     * \n Also update the addresses buffer to point to the new model matrix buffers
-     * @param countToAdd
-     * @param copyPrevious
-     */
-    void expandInstanceBuffer(uint32_t countToAdd, bool copyPrevious = true);
-
     void uploadCullingBufferData();
+
+    bool releaseBuffers();
 
 private: // Model Data
     ResourceManager& resourceManager;
@@ -106,21 +117,12 @@ private: // Model Data
     static constexpr int32_t imageOffset{1};
 
 private: // Buffer Data
-    /**
-     * The current number of active instance in the instance buffer
-     */
-    uint32_t instanceBufferSize{0};
-    /**
-     * The number of instances the instance buffer can contain
-     */
-    uint32_t instanceBufferCapacity{0};
-
     std::vector<VkDrawIndexedIndirectCommand> drawCommands{};
     std::vector<uint32_t> boundingSphereIndices;
 
     AllocatedBuffer vertexBuffer{};
     AllocatedBuffer indexBuffer{};
-    AllocatedBuffer drawIndirectBuffer{};
+    AllocatedBuffer drawIndirectBuffers[FRAME_OVERLAP]{};
 
     // addresses
     AllocatedBuffer addressBuffers[FRAME_OVERLAP]{};
@@ -133,7 +135,7 @@ private: // Buffer Data
 
     AllocatedBuffer meshBoundsBuffer{};
     AllocatedBuffer cullingAddressBuffers[FRAME_OVERLAP]{};
-    AllocatedBuffer boundingSphereIndicesBuffer{};
+    AllocatedBuffer boundingSphereIndicesBuffers[FRAME_OVERLAP]{};
     DescriptorBufferUniform frustumCullingDescriptorBuffer;
 };
 }

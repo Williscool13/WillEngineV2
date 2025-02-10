@@ -155,6 +155,8 @@ private: // Scene Data
     std::unordered_map<uint32_t, RenderObject*> renderObjectMap;
     std::unordered_map<uint32_t, RenderObjectInfo> renderObjectInfoMap;
 
+    std::vector<IHierarchical*> hierarchicalDeletionQueue{};
+
 private: // Pipelines
     visibility_pass::VisibilityPassPipeline* frustumCullPipeline{nullptr};
     environment_pipeline::EnvironmentPipeline* environmentPipeline{nullptr};
@@ -207,6 +209,7 @@ private: // Swapchain
 
 public:
     friend void ImguiWrapper::imguiInterface(Engine* engine);
+    friend class ImguiWrapper;
 };
 }
 

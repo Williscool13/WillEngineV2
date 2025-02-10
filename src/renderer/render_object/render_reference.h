@@ -31,6 +31,8 @@ public:
     [[nodiscard]] virtual uint64_t getRenderReferenceIndex() const = 0;
 
     virtual void updateInstanceData(int32_t instanceIndex, const CurrentInstanceData& newInstanceData, int32_t currentFrameOverlap, int32_t previousFrameOverlap) = 0;
+
+    virtual bool releaseInstanceIndex(uint32_t instanceIndex) = 0;
 };
 }
 

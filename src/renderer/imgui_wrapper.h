@@ -36,9 +36,9 @@ public:
 
     void imguiInterface(Engine* engine);
 
-    static void drawSceneGraph(const Scene* scene);
+    static void drawSceneGraph(Engine* engine, const Scene* scene);
 
-    static void displayGameObject(const Scene* scene, IHierarchical* obj, int32_t depth);
+    static void displayGameObject(Engine* engine, const Scene* scene, IHierarchical* obj, int32_t depth);
 
     void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView, VkExtent2D swapchainExtent);
 

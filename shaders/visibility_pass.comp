@@ -50,7 +50,7 @@ layout(set = 1, binding = 0) uniform bufferData
 } buffers;
 
 layout (push_constant) uniform PushConstants {
-    bool enabled;
+    bool enabledFrustumCull;
     bool shadowPass;
 } push;
 
@@ -86,10 +86,7 @@ void main()
     uint invocationId = gl_GlobalInvocationID.x;
     if (invocationId >= buffers.commandBufferCount) { return; }
 
-    if (!push.enabled){
-        buffers.commandBuffer.commands[invocationId].instanceCount = 1;
-        return;
-    }
+
 
     uint modelMatrixId = buffers.commandBuffer.commands[invocationId].firstInstance;
     Model models = buffers.modelMatrixBuffer.models[modelMatrixId];
@@ -99,9 +96,21 @@ void main()
 
         }
     }
+    if (models.flags.x == 0){
+        // isActive = false
+        buffers.commandBuffer.commands[invocationId].instanceCount = 0;
+        return;
+    }
     if (models.flags.y == 0){
-        // visibility = false
+        // isVisible = false
+        buffers.commandBuffer.commands[invocationId].instanceCount = 0;
+        return;
+    }
+
+
+    if (!push.enabledFrustumCull){
         buffers.commandBuffer.commands[invocationId].instanceCount = 1;
+        return;
     }
 
     int meshBoundIndex = buffers.meshIndices.indices[invocationId];

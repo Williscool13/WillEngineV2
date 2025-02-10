@@ -189,7 +189,7 @@ void Engine::initGame()
 
         RenderObject* cube = renderObjectMap[primitivesModelId];
         const auto floor = new GameObject("FLOOR");
-        cube->attachToGameObject(floor, 0);
+        cube->generateMesh(floor, 0);
         floor->setGlobalScale({20.0f, 0.5f, 20.0f});
         floor->translate({0.0f, -2.0f, 0.0f});
         auto floorCollider = physics::BoxCollider({20.0f, 1.0f, 20.0f});
@@ -204,7 +204,7 @@ void Engine::initGame()
 
         RenderObject* sphere = renderObjectMap[sphereModelId];
         const auto sphereGameObject = new GameObject("SPHERE");
-        sphere->attachToGameObject(sphereGameObject, 0);
+        sphere->generateMesh(sphereGameObject, 0);
         sphereGameObject->setGlobalPosition({0, 5.0f, 0});
         auto sphereCollider = physics::SphereCollider(physics::UNIT_SPHERE);
         physics->setupRigidBody(sphereGameObject, &sphereCollider, JPH::EMotionType::Dynamic, physics::Layers::PLAYER);
@@ -386,8 +386,19 @@ void Engine::draw(float deltaTime)
     int32_t currentFrameOverlap = getCurrentFrameOverlap();
     int32_t previousFrameOverlap = getPreviousFrameOverlap();
 
+    // delete all gameobjects queued up for deletion by imgui/scene graph
+    for (IHierarchical* hierarchical : hierarchicalDeletionQueue) { delete hierarchical; }
+    hierarchicalDeletionQueue.clear();
+
+    // Update Render Object references
+    for (RenderObject* val : renderObjectMap | std::views::values) {
+        val->update(currentFrameOverlap, previousFrameOverlap);
+    }
+    // Updates scene objects (Model Matrices/Visibility Switches)
     scene->update(currentFrameOverlap, previousFrameOverlap);
+    // Updates Scene Data buffer
     updateRender(deltaTime, currentFrameOverlap, previousFrameOverlap);
+    // Updates Cascaded Shadow Map Properties
     cascadedShadowMap->update(mainLight, camera, currentFrameOverlap);
 
     visibility_pass::VisibilityPassDrawInfo csmFrustumCullDrawInfo{
@@ -565,11 +576,6 @@ void Engine::cleanup()
 
     vkDeviceWaitIdle(context->device);
 
-    for (const std::pair<uint32_t, RenderObject*> renderObject : renderObjectMap) {
-        delete renderObject.second;
-    }
-    renderObjectMap.clear();
-
     delete frustumCullPipeline;
     delete environmentPipeline;
     delete deferredMrtPipeline;
@@ -606,6 +612,12 @@ void Engine::cleanup()
     resourceManager->destroyImage(postProcessOutputBuffer);
 
     delete scene;
+
+    for (const std::pair<uint32_t, RenderObject*> renderObject : renderObjectMap) {
+        delete renderObject.second;
+    }
+    renderObjectMap.clear();
+
     delete cascadedShadowMap;
     delete environmentMap;
     delete physics;
