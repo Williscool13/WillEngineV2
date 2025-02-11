@@ -124,13 +124,6 @@ std::vector<will_engine::physics::RaycastHit> will_engine::physics::PhysicsUtils
     return results;
 }
 
-void will_engine::physics::PhysicsUtils::addForce(const IPhysicsBody* physicsBody, const glm::vec3& force) {
-    if (!Physics::Get()) return;
-    const auto id = JPH::BodyID(physicsBody->getPhysicsBodyId());
-    if (!Physics::Get()->doesPhysicsBodyExists(id)) { return; }
-    Physics::Get()->getBodyInterface().AddForce(id, toJolt(force));
-}
-
 void will_engine::physics::PhysicsUtils::addForce(const JPH::BodyID bodyId, const glm::vec3& force) {
     if (!Physics::Get()) return;
     if (!Physics::Get()->doesPhysicsBodyExists(bodyId)) { return; }
@@ -183,4 +176,10 @@ glm::vec3 will_engine::physics::PhysicsUtils::getAngularVelocity(const JPH::Body
     if (!Physics::Get()) return glm::vec3(0.0f);
     const JPH::Vec3 velocity = Physics::Get()->getBodyInterface().GetAngularVelocity(bodyId);
     return {velocity.GetX(), velocity.GetY(), velocity.GetZ()};
+}
+
+void will_engine::physics::PhysicsUtils::setMotionType(const JPH::BodyID bodyId, const JPH::EMotionType motionType, const JPH::EActivation activation)
+{
+    if (!Physics::Get()) return;
+    Physics::Get()->getBodyInterface().SetMotionType(bodyId, motionType, activation);
 }

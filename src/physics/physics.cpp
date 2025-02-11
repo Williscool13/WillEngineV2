@@ -161,7 +161,7 @@ JPH::BodyInterface& Physics::getBodyInterface() const
 
 void Physics::removeRigidBody(const IPhysicsBody* pb)
 {
-    const auto bodyId = JPH::BodyID(pb->getPhysicsBodyId());
+    const auto bodyId = pb->getPhysicsBodyId();
     if (!physicsObjects.contains(bodyId)) { return; }
 
     physicsSystem->GetBodyInterface().RemoveBody(bodyId);
@@ -210,11 +210,11 @@ PhysicsObject* Physics::getPhysicsObject(const JPH::BodyID bodyId)
     return nullptr;
 }
 
-uint32_t Physics::setupRigidBody(IPhysicsBody* physicsBody, Collider* collider, const JPH::EMotionType motion, const JPH::ObjectLayer layer)
+JPH::BodyID Physics::setupRigidBody(IPhysicsBody* physicsBody, Collider* collider,  const JPH::EMotionType motion, const JPH::ObjectLayer layer)
 {
-    if (physicsBody == nullptr) { return BODY_ID_NONE; }
+    if (physicsBody == nullptr) { return JPH::BodyID(JPH::BodyID::cInvalidBodyID); }
 
-    if (physicsBody->getPhysicsBodyId() != BODY_ID_NONE) {
+    if (physicsBody->getPhysicsBodyId().GetIndex() == JPH::BodyID::cInvalidBodyID) {
         fmt::print("IPhysicsBody already has a rigidbody, failed to setup a new one");
         return physicsBody->getPhysicsBodyId();
     }
@@ -231,7 +231,7 @@ uint32_t Physics::setupRigidBody(IPhysicsBody* physicsBody, Collider* collider, 
                 break;
             }
             fmt::print("Failed to cast collider into the collider subclass");
-            return BODY_ID_NONE;
+            return JPH::BodyID(JPH::BodyID::cInvalidBodyID);
         case ColliderType::Sphere:
             if (const auto sphereCollider = dynamic_cast<SphereCollider*>(collider)) {
                 if (isIdentity(sphereCollider)) {
@@ -242,12 +242,12 @@ uint32_t Physics::setupRigidBody(IPhysicsBody* physicsBody, Collider* collider, 
                 break;
             }
             fmt::print("Failed to cast collider into the collider subclass");
-            return BODY_ID_NONE;
+            return JPH::BodyID(JPH::BodyID::cInvalidBodyID);
         case ColliderType::Capsule:
         case ColliderType::Cylinder:
         default:
             fmt::print("Collider type not yet supported");
-            return BODY_ID_NONE;
+            return JPH::BodyID(JPH::BodyID::cInvalidBodyID);
     }
 
     const JPH::BodyCreationSettings settings{
@@ -265,14 +265,13 @@ uint32_t Physics::setupRigidBody(IPhysicsBody* physicsBody, Collider* collider, 
 
     physicsObjects.insert({physicsObject.bodyId, physicsObject});
 
-    physicsBody->setPhysicsBodyId(physicsObject.bodyId.GetIndexAndSequenceNumber());
-
-    return physicsObject.bodyId.GetIndex();
+    physicsBody->setPhysicsBodyId(physicsObject.bodyId);
+    return physicsObject.bodyId;
 }
 
 PhysicsProperties Physics::serializeProperties(const IPhysicsBody* physicsBody) const
 {
-    if (physicsBody == nullptr || physicsBody->getPhysicsBodyId() == BODY_ID_NONE) {
+    if (physicsBody == nullptr || physicsBody->getPhysicsBodyId().GetIndex() == JPH::BodyID::cInvalidBodyID) {
         return {false};
     }
     const auto bodyId = JPH::BodyID(physicsBody->getPhysicsBodyId());
@@ -377,44 +376,20 @@ void Physics::setRotation(const JPH::BodyID bodyId, const JPH::Quat rotation, co
     physicsSystem->GetBodyInterface().SetRotation(bodyId, rotation, activate ? JPH::EActivation::Activate : JPH::EActivation::DontActivate);
 }
 
-void Physics::setPositionAndRotation(const uint32_t bodyId, const glm::vec3 position, const glm::quat rotation, const bool activate) const
-{
-    setPositionAndRotation(JPH::BodyID(bodyId), position, rotation, activate);
-}
-
-void Physics::setPosition(const uint32_t bodyId, const glm::vec3 position, const bool activate) const
-{
-    setPosition(JPH::BodyID(bodyId), position, activate);
-}
-
-void Physics::setRotation(const uint32_t bodyId, const glm::quat rotation, const bool activate) const
-{
-    setRotation(JPH::BodyID(bodyId), rotation, activate);
-}
-
-void Physics::setPositionAndRotation(const uint32_t bodyId, const JPH::Vec3 position, const JPH::Quat rotation, const bool activate) const
-{
-    setPositionAndRotation(JPH::BodyID(bodyId), position, rotation, activate);
-}
-
-void Physics::setPosition(const uint32_t bodyId, const JPH::Vec3 position, const bool activate) const
-{
-    setPosition(JPH::BodyID(bodyId), position, activate);
-}
-
-void Physics::setRotation(const uint32_t bodyId, const JPH::Quat rotation, const bool activate) const
-{
-    setRotation(JPH::BodyID(bodyId), rotation, activate);
-}
-
 JPH::EMotionType Physics::getMotionType(const IPhysicsBody* body) const
 {
-    return physicsSystem->GetBodyInterface().GetMotionType(JPH::BodyID(body->getPhysicsBodyId()));
+    return physicsSystem->GetBodyInterface().GetMotionType(body->getPhysicsBodyId());
 }
 
 JPH::ObjectLayer Physics::getLayer(const IPhysicsBody* body) const
 {
-    return physicsSystem->GetBodyInterface().GetObjectLayer(JPH::BodyID(body->getPhysicsBodyId()));
+    return physicsSystem->GetBodyInterface().GetObjectLayer(body->getPhysicsBodyId());
+}
+
+void Physics::setMotionType(const IPhysicsBody* body, const JPH::EMotionType motionType, const JPH::EActivation activation) const
+{
+    physicsSystem->GetBodyInterface().SetMotionType(body->getPhysicsBodyId(), motionType, activation);
+
 }
 
 bool Physics::isIdentity(const BoxCollider* collider)

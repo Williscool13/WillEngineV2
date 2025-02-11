@@ -16,6 +16,7 @@
 #include "src/core/transform.h"
 #include "src/physics/physics_body.h"
 #include "src/physics/physics_constants.h"
+#include "src/physics/physics_utils.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/render_object/render_reference.h"
 #include "src/util/math_constants.h"
@@ -35,7 +36,7 @@ public:
     virtual void update(float deltaTime) {}
 
 public: // IIdentifiable
-    void setId(uint64_t identifier) override { gameObjectId = identifier; }
+    void setId(const uint64_t identifier) override { gameObjectId = identifier; }
 
     uint64_t getId() const override { return gameObjectId; }
 
@@ -146,7 +147,7 @@ public: // IRenderable
 
     [[nodiscard]] bool& isVisible() override { return bIsVisible; }
 
-    [[nodiscard]] bool &isCastingShadows() override { return bCastsShadows; }
+    [[nodiscard]] bool& isCastingShadows() override { return bCastsShadows; }
 
 protected: // IRenderable
     /**
@@ -165,12 +166,12 @@ protected: // IRenderable
 public: // IPhysicsBody
     void setGlobalTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) override;
 
-    void setPhysicsBodyId(const uint32_t bodyId) override { this->bodyId = bodyId; }
+    void setPhysicsBodyId(const JPH::BodyID bodyId) override { this->bodyId = bodyId; }
 
-    uint32_t getPhysicsBodyId() const override { return bodyId; }
+    JPH::BodyID getPhysicsBodyId() const override { return bodyId; }
 
 protected: // IPhysicsBody
-    uint32_t bodyId{physics::BODY_ID_NONE};
+    JPH::BodyID bodyId{JPH::BodyID::cInvalidBodyID};
 
 public:
     bool operator==(const GameObject& other) const

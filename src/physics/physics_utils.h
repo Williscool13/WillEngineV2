@@ -72,8 +72,7 @@ public:
     static std::vector<RaycastHit> raycastAll(const glm::vec3& start, const glm::vec3& end, int maxHits = 16, const JPH::BroadPhaseLayerFilter& broadLayerFilter = {},
                                               const JPH::ObjectLayerFilter& objectLayerFilter = {}, const JPH::BodyFilter& bodyFilter = {}, const JPH::RayCastSettings& raycastSettings = {});
 
-    static void addForce(const IPhysicsBody* physicsBody, const glm::vec3& force);
-
+    static void addForce(const uint32_t bodyId, const glm::vec3& force) { addForce(JPH::BodyID(bodyId), force); }
     static void addForce(JPH::BodyID bodyId, const glm::vec3& force);
 
     static void addForceAtPosition(JPH::BodyID bodyId, const glm::vec3& force, const glm::vec3& position);
@@ -93,6 +92,8 @@ public:
     static glm::vec3 getLinearVelocity(JPH::BodyID bodyId);
 
     static glm::vec3 getAngularVelocity(JPH::BodyID bodyId);
+
+    static void setMotionType(JPH::BodyID bodyId, JPH::EMotionType motionType, JPH::EActivation activation);
 
     //inline RaycastHit sphereCast(const glm::vec3& start, const glm::vec3& end, float radius);
     //inline RaycastHit boxCast(const glm::vec3& start, const glm::vec3& end, const glm::vec3& halfExtents);

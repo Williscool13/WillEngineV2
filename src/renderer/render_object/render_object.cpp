@@ -25,7 +25,6 @@ RenderObject::RenderObject(const std::filesystem::path& gltfFilepath, ResourceMa
     freeInstanceIndices.reserve(10);
     for (int32_t i = 0; i < 10; ++i) { freeInstanceIndices.insert(i); }
     currentInstanceCount = freeInstanceIndices.size();
-    dirty();
 
     if (!parseGltf(gltfFilepath)) { return; }
     generateBuffers();
