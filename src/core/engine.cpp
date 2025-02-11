@@ -192,7 +192,7 @@ void Engine::initGame()
         floor->setGlobalScale({20.0f, 0.5f, 20.0f});
         floor->translate({0.0f, -2.0f, 0.0f});
         auto floorCollider = physics::BoxCollider({20.0f, 1.0f, 20.0f});
-        physics->setupRigidBody(floor, &floorCollider, JPH::EMotionType::Static, physics::Layers::NON_MOVING);
+        physics->setupRigidBody(floor, &floorCollider, JPH::EMotionType::Kinematic, physics::Layers::NON_MOVING);
 
         scene->addGameObject(floor);
     }

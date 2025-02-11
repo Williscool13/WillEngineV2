@@ -575,6 +575,34 @@ void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierar
             obj->dirty();
         }
     } else {
+        ImGui::Text("  ");
+    }
+
+    if (auto* physBody = dynamic_cast<IPhysicsBody*>(obj)) {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 1.0f, 1.0f));
+        if (ImGui::Button("P")) {
+            ImGui::OpenPopup("MotionTypePopup");
+        }
+        ImGui::PopStyleColor(2);
+
+        if (ImGui::BeginPopup("MotionTypePopup")) {
+            auto physics = physics::Physics::Get();
+            JPH::EMotionType currentType = physics->getMotionType(physBody);
+
+            if (ImGui::MenuItem("Static", nullptr, currentType == JPH::EMotionType::Static)) {
+                physics->setMotionType(physBody, JPH::EMotionType::Static, JPH::EActivation::DontActivate);
+            }
+            if (ImGui::MenuItem("Kinematic", nullptr, currentType == JPH::EMotionType::Kinematic)) {
+                physics->setMotionType(physBody, JPH::EMotionType::Kinematic, JPH::EActivation::DontActivate);
+            }
+            if (ImGui::MenuItem("Dynamic", nullptr, currentType == JPH::EMotionType::Dynamic)) {
+                physics->setMotionType(physBody, JPH::EMotionType::Dynamic, JPH::EActivation::Activate);
+            }
+
+            ImGui::EndPopup();
+        }
+    } else {
         ImGui::Text(" ");
     }
 

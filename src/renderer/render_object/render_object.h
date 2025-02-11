@@ -32,7 +32,7 @@ public:
 
     void dirty() { framesToUpdate = FRAME_OVERLAP; }
 
-    int32_t framesToUpdate{FRAME_OVERLAP};
+    int32_t framesToUpdate{0};
 
 private:
     int32_t getFreeInstanceIndex();
@@ -55,8 +55,8 @@ private: // IIdentifiable
 public:
     GameObject* generateGameObject(const std::string& gameObjectName = "");
 
-    int32_t getMeshCount() const { return meshes.size(); }
-    bool canDraw() const { return currentInstanceCount > 0; }
+    [[nodiscard]] size_t getMeshCount() const { return meshes.size(); }
+    bool canDraw() const { return currentInstanceCount != freeInstanceIndices.size(); }
     const DescriptorBufferUniform& getAddressesDescriptorBuffer() const { return addressesDescriptorBuffer; }
     const DescriptorBufferSampler& getTextureDescriptorBuffer() const { return textureDescriptorBuffer; }
     const DescriptorBufferUniform& getFrustumCullingAddressesDescriptorBuffer() { return frustumCullingDescriptorBuffer; }

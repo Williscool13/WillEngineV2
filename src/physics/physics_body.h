@@ -7,6 +7,10 @@
 
 #include <glm.hpp>
 
+#include <Jolt/Jolt.h>
+#include <Jolt/Physics/Body/BodyID.h>
+#include <Jolt/Physics/Body/MotionType.h>
+
 namespace will_engine
 {
 class IPhysicsBody
@@ -20,9 +24,9 @@ public:
 
     virtual glm::quat getGlobalRotation() = 0;
 
-    virtual void setPhysicsBodyId(uint32_t bodyId) = 0;
+    virtual void setPhysicsBodyId(JPH::BodyID bodyId) = 0;
 
-    [[nodiscard]] virtual uint32_t getPhysicsBodyId() const = 0;
+    [[nodiscard]] virtual JPH::BodyID getPhysicsBodyId() const = 0;
 };
 }
 

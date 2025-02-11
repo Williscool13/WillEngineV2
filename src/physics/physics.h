@@ -69,7 +69,7 @@ public:
     PhysicsObject* getPhysicsObject(JPH::BodyID bodyId);
 
 public:
-    uint32_t setupRigidBody(IPhysicsBody* physicsBody, Collider* collider, JPH::EMotionType motion, JPH::ObjectLayer layer);
+    JPH::BodyID setupRigidBody(IPhysicsBody* physicsBody, Collider* collider, JPH::EMotionType motion, JPH::ObjectLayer layer);
 
     PhysicsProperties serializeProperties(const IPhysicsBody* physicsBody) const;
 
@@ -85,21 +85,12 @@ public:
 
     void setRotation(JPH::BodyID bodyId, JPH::Quat rotation, bool activate = true) const;
 
-    void setPositionAndRotation(uint32_t bodyId, glm::vec3 position, glm::quat rotation, bool activate = true) const;
-
-    void setPosition(uint32_t bodyId, glm::vec3 position, bool activate = true) const;
-
-    void setRotation(uint32_t bodyId, glm::quat rotation, bool activate = true) const;
-
-    void setPositionAndRotation(uint32_t bodyId, JPH::Vec3 position, JPH::Quat rotation, bool activate = true) const;
-
-    void setPosition(uint32_t bodyId, JPH::Vec3 position, bool activate = true) const;
-
-    void setRotation(uint32_t bodyId, JPH::Quat rotation, bool activate = true) const;
-
     JPH::EMotionType getMotionType(const IPhysicsBody* body) const;
 
     JPH::ObjectLayer getLayer(const IPhysicsBody* body) const;
+
+    void setMotionType(const IPhysicsBody* body, JPH::EMotionType motionType, JPH::EActivation activation) const;
+
 
 private:
     static bool isIdentity(const BoxCollider* collider);
