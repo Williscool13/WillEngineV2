@@ -22,8 +22,6 @@ namespace will_engine
 RenderObject::RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager, const int64_t renderObjectId)
     : gltfFilepath(gltfFilepath), resourceManager(resourceManager)
 {
-    RenderObject::setId(identifier::IdentifierManager::Get()->registerIdentifier(renderObjectId));
-
     freeInstanceIndices.reserve(10);
     for (int32_t i = 0; i < 10; ++i) { freeInstanceIndices.insert(i); }
     currentInstanceCount = freeInstanceIndices.size();
@@ -98,7 +96,7 @@ void RenderObject::update(const int32_t currentFrameOverlap, const int32_t previ
     }
 
     // instance records could be stale,  need to ensure that it cleared/invalidated on GPU
-    for (const int32_t freeIndex : freeInstanceIndices) {
+    for (const uint32_t freeIndex : freeInstanceIndices) {
         auto targetModel = reinterpret_cast<InstanceData*>(static_cast<char*>(currentInstanceBuffer.info.pMappedData) + freeIndex * sizeof(InstanceData));
 
         assert(reinterpret_cast<uintptr_t>(targetModel) % alignof(InstanceData) == 0 && "Misaligned instance data access");
@@ -261,15 +259,15 @@ bool RenderObject::releaseInstanceIndex(const uint32_t instanceIndex)
     }
 
     freeInstanceIndices.insert(instanceIndex);
+    for (int32_t i = static_cast<int32_t>(drawCommands.size()) - 1; i >= 0; --i) {
+        if (drawCommands[i].firstInstance == instanceIndex) {
+            drawCommands.erase(drawCommands.begin() + i);
+            boundingSphereIndices.erase(boundingSphereIndices.begin() + i);
+        }
+    }
 
-    // remove entry in instance buffer
-    // for (primitive w/ this instance index){
-    //   remove entry in bounding sphere indices buffer
-    //   remove entry in draw indirect buffer
-    //}
-
-    //
     dirty();
+    return true;
 }
 
 bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)

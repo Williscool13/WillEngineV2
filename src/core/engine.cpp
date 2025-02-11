@@ -175,7 +175,6 @@ void Engine::initGame()
     const auto sceneRoot = new GameObject();
     scene = new Scene(sceneRoot);
 
-
     file::scanForModels(renderObjectInfoMap);
 
     constexpr uint32_t cubeModelId{3653645572};
@@ -184,7 +183,7 @@ void Engine::initGame()
 
     if (renderObjectInfoMap.contains(primitivesModelId)) {
         if (!renderObjectMap.contains(primitivesModelId)) {
-            renderObjectMap[primitivesModelId] = new RenderObject(renderObjectInfoMap[primitivesModelId].gltfPath, *resourceManager);
+            renderObjectMap[primitivesModelId] = new RenderObject(renderObjectInfoMap[primitivesModelId].gltfPath, *resourceManager, primitivesModelId);
         }
 
         RenderObject* cube = renderObjectMap[primitivesModelId];
@@ -199,7 +198,7 @@ void Engine::initGame()
     }
     if (renderObjectInfoMap.contains(sphereModelId)) {
         if (!renderObjectMap.contains(sphereModelId)) {
-            renderObjectMap[sphereModelId] = new RenderObject(renderObjectInfoMap[sphereModelId].gltfPath, *resourceManager);
+            renderObjectMap[sphereModelId] = new RenderObject(renderObjectInfoMap[sphereModelId].gltfPath, *resourceManager, sphereModelId);
         }
 
         RenderObject* sphere = renderObjectMap[sphereModelId];

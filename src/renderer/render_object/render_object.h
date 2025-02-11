@@ -24,7 +24,7 @@ class GameObject;
 class RenderObject final : public IRenderReference
 {
 public:
-    RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager, int64_t renderObjectId = INDEX64_NONE);
+    RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager, int64_t renderObjectId);
 
     ~RenderObject() override;
 
@@ -46,8 +46,10 @@ public: // IRenderReference
     [[nodiscard]] uint64_t getId() const override { return renderObjectId; }
 
 private: // IIdentifiable
-    uint64_t renderObjectId{};
-
+    /**
+     * Hash of the file path
+     */
+    uint32_t renderObjectId{};
     std::filesystem::path gltfFilepath;
 
 public:
