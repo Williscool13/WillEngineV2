@@ -207,7 +207,6 @@ bool RenderObject::generateMesh(GameObject* gameObject, const int32_t meshIndex)
     const int32_t instanceIndex = getFreeInstanceIndex();
 
     const std::vector<Primitive>& meshPrimitives = meshes[meshIndex].primitives;
-    // todo: make this get from an instance slot function and the slot function will expand by more than meshPrimitives.size(), maybe by total primitive count x 10? Reduce reallocs
     drawCommands.reserve(drawCommands.size() + meshPrimitives.size());
     boundingSphereIndices.reserve(boundingSphereIndices.size() + meshPrimitives.size());
 
@@ -225,7 +224,6 @@ bool RenderObject::generateMesh(GameObject* gameObject, const int32_t meshIndex)
 
     gameObject->setRenderObjectReference(this, instanceIndex, meshIndex);
 
-    //uploadCullingBufferData();
     dirty();
     return true;
 }
@@ -708,7 +706,7 @@ VkSamplerMipmapMode RenderObject::extractMipMapMode(const fastgltf::Filter filte
 bool RenderObject::generateBuffers()
 {
     std::vector<DescriptorImageData> textureDescriptors;
-    for (VkSampler sampler : samplers) {
+    for (const VkSampler sampler : samplers) {
         textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, {.sampler = sampler}, false});
     }
 
@@ -784,44 +782,6 @@ bool RenderObject::generateBuffers()
     resourceManager.destroyBuffer(meshBoundsStaging);
 
     return true;
-}
-
-void RenderObject::uploadCullingBufferData()
-{
-    // if (currentInstanceCount == 0) { return; }
-    //
-    // resourceManager.destroyBuffer(drawIndirectBuffer);
-    // resourceManager.destroyBuffer(boundingSphereIndicesBuffers);
-    //
-    // AllocatedBuffer stagingBoundingSphereIndicesBuffer = resourceManager.createStagingBuffer(boundingSphereIndices.size() * sizeof(uint32_t));
-    // memcpy(stagingBoundingSphereIndicesBuffer.info.pMappedData, boundingSphereIndices.data(), boundingSphereIndices.size() * sizeof(uint32_t));
-    // boundingSphereIndicesBuffers = resourceManager.createDeviceBuffer(boundingSphereIndices.size() * sizeof(uint32_t));
-    // resourceManager.copyBuffer(stagingBoundingSphereIndicesBuffer, boundingSphereIndicesBuffers, boundingSphereIndices.size() * sizeof(uint32_t));
-    // resourceManager.destroyBuffer(stagingBoundingSphereIndicesBuffer);
-    //
-    // AllocatedBuffer indirectStaging = resourceManager.createStagingBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-    // memcpy(indirectStaging.info.pMappedData, drawCommands.data(), drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-    // drawIndirectBuffer = resourceManager.createDeviceBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand), VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
-    //
-    // resourceManager.copyBuffer(indirectStaging, drawIndirectBuffer, drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-    // resourceManager.destroyBuffer(indirectStaging);
-    //
-    //
-    // for (int i = 0; i < FRAME_OVERLAP; ++i) {
-    //     const FrustumCullingBuffers cullingAddresses{
-    //         .meshBoundsBuffer = resourceManager.getBufferAddress(meshBoundsBuffer),
-    //         .commandBuffer = resourceManager.getBufferAddress(drawIndirectBuffer),
-    //         .commandBufferCount = static_cast<uint32_t>(drawCommands.size()),
-    //         .modelMatrixBuffer = resourceManager.getBufferAddress(modelMatrixBuffers[i]),
-    //         .meshIndicesBuffer = resourceManager.getBufferAddress(boundingSphereIndicesBuffers[i]),
-    //         .padding = {},
-    //     };
-    //
-    //     AllocatedBuffer stagingCullingAddressesBuffer = resourceManager.createStagingBuffer(sizeof(FrustumCullingBuffers));
-    //     memcpy(stagingCullingAddressesBuffer.info.pMappedData, &cullingAddresses, sizeof(FrustumCullingBuffers));
-    //     resourceManager.copyBuffer(stagingCullingAddressesBuffer, cullingAddressBuffers[i], sizeof(FrustumCullingBuffers));
-    //     resourceManager.destroyBuffer(stagingCullingAddressesBuffer);
-    // }
 }
 
 bool RenderObject::releaseBuffers()
