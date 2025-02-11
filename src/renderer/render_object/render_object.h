@@ -98,8 +98,6 @@ private: // Model Data
 private: // Buffer Data
     bool generateBuffers();
 
-    void uploadCullingBufferData();
-
     bool releaseBuffers();
 
 private: // Model Data
