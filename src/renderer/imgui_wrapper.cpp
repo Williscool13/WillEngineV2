@@ -399,7 +399,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     bool checked = isLoaded;
                     ImGui::Checkbox("##loaded", &checked);
                     if (checked != isLoaded) {
-                        engine->renderObjectMap[id] = new RenderObject(info.gltfPath, *engine->resourceManager);
+                        engine->renderObjectMap[id] = new RenderObject(info.gltfPath, *engine->resourceManager, id);
                     }
 
                     ImGui::SameLine();
@@ -560,12 +560,14 @@ void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierar
 
     ImGui::SetNextItemWidth(treeNodeWidth);
     if (auto* renderable = dynamic_cast<IRenderable*>(obj)) {
-        ImGui::PushStyleColor(ImGuiCol_Text, renderable->isVisible() ? ImVec4(0, 1, 0, 1) : ImVec4(1, 0, 0, 1));
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f)); // Dark gray background
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
         if (ImGui::Button("X")) {
             engine->hierarchicalDeletionQueue.push_back(obj);
         }
+        ImGui::PopStyleColor(1);
         ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Text, renderable->isVisible() ? ImVec4(0, 1, 0, 1) : ImVec4(1, 0, 0, 1));
         ImGui::Button("V");
         ImGui::PopStyleColor(2);
         if (ImGui::IsItemClicked()) {

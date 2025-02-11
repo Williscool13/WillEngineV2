@@ -6,7 +6,7 @@
     },
     "metadata": {
         "name": "Test Scene",
-        "created": "2025-02-10 18:26:18",
+        "created": "2025-02-10 21:30:33",
         "formatVersion": 1
     },
     "gameObjects": {
@@ -32,7 +32,7 @@
         },
         "children": [
             {
-                "id": 2,
+                "id": 1,
                 "name": "FLOOR",
                 "transform": {
                     "position": {
@@ -64,7 +64,7 @@
                 }
             },
             {
-                "id": 4,
+                "id": 2,
                 "name": "SPHERE",
                 "transform": {
                     "position": {
