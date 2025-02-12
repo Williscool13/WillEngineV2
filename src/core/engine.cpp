@@ -132,7 +132,7 @@ void Engine::initRenderer()
     sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = debugSceneDataBuffer, .allocSize = sizeof(SceneData)};
     sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData, FRAME_OVERLAP);
 
-    frustumCullPipeline = new visibility_pass::VisibilityPassPipeline(*resourceManager);
+    visibilityPassPipeline = new visibility_pass::VisibilityPassPipeline(*resourceManager);
     environmentPipeline = new environment_pipeline::EnvironmentPipeline(*resourceManager, environmentMap->getCubemapDescriptorSetLayout());
     deferredMrtPipeline = new deferred_mrt::DeferredMrtPipeline(*resourceManager);
     deferredResolvePipeline = new deferred_resolve::DeferredResolvePipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
@@ -406,7 +406,7 @@ void Engine::draw(float deltaTime)
         false,
         true,
     };
-    frustumCullPipeline->draw(cmd, csmFrustumCullDrawInfo);
+    visibilityPassPipeline->draw(cmd, csmFrustumCullDrawInfo);
 
     cascadedShadowMap->draw(cmd, renderObjectMap, currentFrameOverlap);
 
@@ -436,7 +436,7 @@ void Engine::draw(float deltaTime)
         true,
         false
     };
-    frustumCullPipeline->draw(cmd, deferredFrustumCullDrawInfo);
+    visibilityPassPipeline->draw(cmd, deferredFrustumCullDrawInfo);
 
     const deferred_mrt::DeferredMrtDrawInfo deferredMrtDrawInfo{
         true,
@@ -573,7 +573,7 @@ void Engine::cleanup()
 
     vkDeviceWaitIdle(context->device);
 
-    delete frustumCullPipeline;
+    delete visibilityPassPipeline;
     delete environmentPipeline;
     delete deferredMrtPipeline;
     delete deferredResolvePipeline;
@@ -812,7 +812,7 @@ void Engine::createDrawResources()
 void Engine::hotReloadShaders() const
 {
     vkDeviceWaitIdle(context->device);
-    frustumCullPipeline->reloadShaders();
+    visibilityPassPipeline->reloadShaders();
     environmentPipeline->reloadShaders();
     deferredMrtPipeline->reloadShaders();
     deferredResolvePipeline->reloadShaders();
