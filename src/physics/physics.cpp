@@ -19,6 +19,8 @@
 #include "physics_filters.h"
 #include "physics_utils.h"
 #include "physics_body.h"
+#include "src/renderer/pipelines/basic_compute/basic_compute_pipeline.h"
+#include "src/renderer/pipelines/basic_compute/basic_compute_pipeline.h"
 
 
 namespace will_engine::physics
@@ -86,7 +88,7 @@ Physics::Physics()
 
     // Some basic shapes
     unitCubeShape = new JPH::BoxShape(PhysicsUtils::toJolt(UNIT_CUBE));
-    unitSphereShape = new JPH::SphereShape(UNIT_SPHERE);
+    unitSphereShape = new JPH::SphereShape(UNIT_SPHERE.x);
     unitCapsuleShape = new JPH::CapsuleShape(UNIT_CAPSULE.x, UNIT_CAPSULE.y);
     unitCylinderShape = new JPH::CylinderShape(UNIT_CYLINDER.x, UNIT_CYLINDER.y);
 }
@@ -210,44 +212,50 @@ PhysicsObject* Physics::getPhysicsObject(const JPH::BodyID bodyId)
     return nullptr;
 }
 
-JPH::BodyID Physics::setupRigidBody(IPhysicsBody* physicsBody, Collider* collider,  const JPH::EMotionType motion, const JPH::ObjectLayer layer)
+JPH::BodyID Physics::setupRigidBody(IPhysicsBody* physicsBody, const JPH::EShapeSubType shapeType, const glm::vec3 shapeParams, const JPH::EMotionType motion, const JPH::ObjectLayer layer)
 {
-    if (physicsBody == nullptr) { return JPH::BodyID(JPH::BodyID::cInvalidBodyID); }
+    if (physicsBody == nullptr) { return JPH::BodyID(JPH::BodyID::cMaxBodyIndex); }
 
-    if (physicsBody->getPhysicsBodyId().GetIndex() == JPH::BodyID::cInvalidBodyID) {
-        fmt::print("IPhysicsBody already has a rigidbody, failed to setup a new one");
+    auto index = physicsBody->getPhysicsBodyId().GetIndex();
+    if (index != JPH::BodyID::cMaxBodyIndex) {
+        fmt::print("IPhysicsBody already has a rigidbody, failed to setup a new one\n");
         return physicsBody->getPhysicsBodyId();
     }
 
     JPH::ShapeRefC shape;
-    switch (collider->type) {
-        case ColliderType::Box:
-            if (const auto boxCollider = dynamic_cast<BoxCollider*>(collider)) {
-                if (isIdentity(boxCollider)) {
-                    shape = getUnitCubeShape();
-                    break;
-                }
-                shape = new JPH::BoxShape(PhysicsUtils::toJolt(boxCollider->halfExtents));
+    switch (shapeType) {
+        case JPH::EShapeSubType::Box:
+            if (shapeParams == UNIT_CUBE) {
+                shape = getUnitCubeShape();
                 break;
             }
-            fmt::print("Failed to cast collider into the collider subclass");
-            return JPH::BodyID(JPH::BodyID::cInvalidBodyID);
-        case ColliderType::Sphere:
-            if (const auto sphereCollider = dynamic_cast<SphereCollider*>(collider)) {
-                if (isIdentity(sphereCollider)) {
-                    shape = getUnitSphereShape();
-                    break;
-                }
-                shape = new JPH::SphereShape(sphereCollider->radius);
+            shape = new JPH::BoxShape(PhysicsUtils::toJolt(shapeParams));
+            break;
+        case JPH::EShapeSubType::Sphere:
+            if (shapeParams == UNIT_SPHERE) {
+                shape = getUnitSphereShape();
                 break;
             }
-            fmt::print("Failed to cast collider into the collider subclass");
-            return JPH::BodyID(JPH::BodyID::cInvalidBodyID);
-        case ColliderType::Capsule:
-        case ColliderType::Cylinder:
+
+            shape = new JPH::SphereShape(shapeParams.x);
+            break;
+        case JPH::EShapeSubType::Capsule:
+            if (shapeParams == UNIT_CAPSULE) {
+                shape = getUnitCapsuleShape();
+                break;
+            }
+            shape = new JPH::CapsuleShape(shapeParams.y, shapeParams.z);
+            break;
+        case JPH::EShapeSubType::Cylinder:
+            if (shapeParams == UNIT_CYLINDER) {
+                shape = getUnitCylinderShape();
+                break;
+            }
+            shape = new JPH::CylinderShape(shapeParams.x, shapeParams.y, shapeParams.z);
+            break;
         default:
             fmt::print("Collider type not yet supported");
-            return JPH::BodyID(JPH::BodyID::cInvalidBodyID);
+            return JPH::BodyID(JPH::BodyID::cMaxBodyIndex);
     }
 
     const JPH::BodyCreationSettings settings{
@@ -271,7 +279,7 @@ JPH::BodyID Physics::setupRigidBody(IPhysicsBody* physicsBody, Collider* collide
 
 PhysicsProperties Physics::serializeProperties(const IPhysicsBody* physicsBody) const
 {
-    if (physicsBody == nullptr || physicsBody->getPhysicsBodyId().GetIndex() == JPH::BodyID::cInvalidBodyID) {
+    if (physicsBody == nullptr || physicsBody->getPhysicsBodyId().GetIndex() == JPH::BodyID::cMaxBodyIndex) {
         return {false};
     }
     const auto bodyId = JPH::BodyID(physicsBody->getPhysicsBodyId());
@@ -283,12 +291,14 @@ PhysicsProperties Physics::serializeProperties(const IPhysicsBody* physicsBody) 
     properties.motionType = static_cast<uint8_t>(physicsSystem->GetBodyInterface().GetMotionType(bodyId));
     properties.layer = physicsSystem->GetBodyInterface().GetObjectLayer(bodyId);
 
+
     const JPH::Shape* shape = physicsObject->shape.GetPtr();
+    properties.shapeType = shape->GetSubType();
+
     switch (shape->GetSubType()) {
         case JPH::EShapeSubType::Box:
         {
             const auto box = static_cast<const JPH::BoxShape*>(shape);
-            properties.shapeType = "box";
             const JPH::Vec3 halfExtent = box->GetHalfExtent();
             properties.shapeParams = glm::vec3(halfExtent.GetX(), halfExtent.GetY(), halfExtent.GetZ());
             break;
@@ -296,21 +306,18 @@ PhysicsProperties Physics::serializeProperties(const IPhysicsBody* physicsBody) 
         case JPH::EShapeSubType::Sphere:
         {
             const auto sphere = static_cast<const JPH::SphereShape*>(shape);
-            properties.shapeType = "sphere";
             properties.shapeParams = glm::vec3(sphere->GetRadius(), 0.0f, 0.0f);
             break;
         }
         case JPH::EShapeSubType::Capsule:
         {
             const auto capsule = static_cast<const JPH::CapsuleShape*>(shape);
-            properties.shapeType = "capsule";
             properties.shapeParams = glm::vec3(capsule->GetRadius(), capsule->GetHalfHeightOfCylinder(), 0.0f);
             break;
         }
         case JPH::EShapeSubType::Cylinder:
         {
             const auto cylinder = static_cast<const JPH::CylinderShape*>(shape);
-            properties.shapeType = "cylinder";
             properties.shapeParams = glm::vec3(cylinder->GetRadius(), cylinder->GetHalfHeight(), 0.0f);
             break;
         }
@@ -320,6 +327,16 @@ PhysicsProperties Physics::serializeProperties(const IPhysicsBody* physicsBody) 
     }
 
     return properties;
+}
+
+bool Physics::deserializeProperties(IPhysicsBody* physicsBody, const PhysicsProperties& properties)
+{
+    if (!properties.isActive || physicsBody == nullptr) {
+        return false;
+    }
+
+    auto bodyId = setupRigidBody(physicsBody, properties.shapeType, properties.shapeParams, static_cast<JPH::EMotionType>(properties.motionType), properties.layer);
+    return bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex;
 }
 
 
@@ -389,16 +406,5 @@ JPH::ObjectLayer Physics::getLayer(const IPhysicsBody* body) const
 void Physics::setMotionType(const IPhysicsBody* body, const JPH::EMotionType motionType, const JPH::EActivation activation) const
 {
     physicsSystem->GetBodyInterface().SetMotionType(body->getPhysicsBodyId(), motionType, activation);
-
-}
-
-bool Physics::isIdentity(const BoxCollider* collider)
-{
-    return collider->halfExtents == UNIT_CUBE;
-}
-
-bool Physics::isIdentity(const SphereCollider* collider)
-{
-    return collider->radius == UNIT_SPHERE;
 }
 }

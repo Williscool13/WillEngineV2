@@ -41,45 +41,8 @@ struct PhysicsProperties
     bool isActive{false};
     uint8_t motionType{};
     uint16_t layer{};
-    std::string shapeType{};
+    JPH::EShapeSubType shapeType;
     glm::vec3 shapeParams{}; // shape specific params, don't think it's necessary yet
-};
-
-enum class ColliderType
-{
-    Box = 0,
-    Sphere = 1,
-    Capsule = 2,
-    Cylinder = 3,
-};
-
-struct Collider
-{
-    ColliderType type;
-
-    explicit Collider(ColliderType type) : type(type) {}
-
-    virtual ~Collider() = default;
-};
-
-struct BoxCollider : Collider
-{
-    glm::vec3 halfExtents{};
-
-    explicit BoxCollider(const glm::vec3 halfExtents) : Collider(ColliderType::Box), halfExtents(halfExtents) {}
-
-    ~BoxCollider() override = default;
-};
-
-struct SphereCollider : Collider
-{
-    float radius{};
-
-    explicit SphereCollider() : Collider(ColliderType::Sphere), radius(1.0f) {}
-    explicit SphereCollider(const int32_t radius) : Collider(ColliderType::Sphere), radius(radius) {}
-    explicit SphereCollider(const float radius) : Collider(ColliderType::Sphere), radius(radius) {}
-
-    ~SphereCollider() override = default;
 };
 }
 

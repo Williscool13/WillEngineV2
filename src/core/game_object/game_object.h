@@ -141,7 +141,7 @@ public: // IRenderable
         this->meshIndex = meshIndex;
     }
 
-    int32_t getRenderReferenceIndex() const override { return pRenderReference ? pRenderReference->getId() : INDEX_NONE; }
+    uint32_t getRenderReferenceIndex() const override { return pRenderReference ? pRenderReference->getId() : INDEX_NONE; }
 
     int32_t getMeshIndex() const override { return meshIndex; }
 
@@ -171,7 +171,7 @@ public: // IPhysicsBody
     JPH::BodyID getPhysicsBodyId() const override { return bodyId; }
 
 protected: // IPhysicsBody
-    JPH::BodyID bodyId{JPH::BodyID::cInvalidBodyID};
+    JPH::BodyID bodyId{JPH::BodyID::cMaxBodyIndex};
 
 public:
     bool operator==(const GameObject& other) const

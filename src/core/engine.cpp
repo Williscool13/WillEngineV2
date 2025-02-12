@@ -183,30 +183,28 @@ void Engine::initGame()
 
     if (renderObjectInfoMap.contains(primitivesModelId)) {
         if (!renderObjectMap.contains(primitivesModelId)) {
-            renderObjectMap[primitivesModelId] = new RenderObject(renderObjectInfoMap[primitivesModelId].gltfPath, *resourceManager);
+            renderObjectMap[primitivesModelId] = new RenderObject(renderObjectInfoMap[primitivesModelId].gltfPath, *resourceManager, primitivesModelId);
         }
 
         RenderObject* cube = renderObjectMap[primitivesModelId];
         const auto floor = new GameObject("FLOOR");
         cube->generateMesh(floor, 0);
-        floor->setGlobalScale({20.0f, 0.5f, 20.0f});
+        floor->setGlobalScale({20.0f, 1.0f, 20.0f});
         floor->translate({0.0f, -2.0f, 0.0f});
-        auto floorCollider = physics::BoxCollider({20.0f, 1.0f, 20.0f});
-        physics->setupRigidBody(floor, &floorCollider, JPH::EMotionType::Kinematic, physics::Layers::NON_MOVING);
+        physics->setupRigidBody(floor, JPH::EShapeSubType::Box, {20.0f, 1.0f, 20.0f}, JPH::EMotionType::Kinematic, physics::Layers::NON_MOVING);
 
         scene->addGameObject(floor);
     }
     if (renderObjectInfoMap.contains(sphereModelId)) {
         if (!renderObjectMap.contains(sphereModelId)) {
-            renderObjectMap[sphereModelId] = new RenderObject(renderObjectInfoMap[sphereModelId].gltfPath, *resourceManager);
+            renderObjectMap[sphereModelId] = new RenderObject(renderObjectInfoMap[sphereModelId].gltfPath, *resourceManager, sphereModelId);
         }
 
         RenderObject* sphere = renderObjectMap[sphereModelId];
         const auto sphereGameObject = new GameObject("SPHERE");
         sphere->generateMesh(sphereGameObject, 0);
         sphereGameObject->setGlobalPosition({0, 5.0f, 0});
-        auto sphereCollider = physics::SphereCollider(physics::UNIT_SPHERE);
-        physics->setupRigidBody(sphereGameObject, &sphereCollider, JPH::EMotionType::Dynamic, physics::Layers::PLAYER);
+        physics->setupRigidBody(sphereGameObject, JPH::EShapeSubType::Sphere , physics::UNIT_SPHERE, JPH::EMotionType::Dynamic, physics::Layers::PLAYER);
 
         scene->addGameObject(sphereGameObject);
     }

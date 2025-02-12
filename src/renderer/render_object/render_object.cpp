@@ -19,8 +19,8 @@
 
 namespace will_engine
 {
-RenderObject::RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager)
-    : gltfFilepath(gltfFilepath), resourceManager(resourceManager)
+RenderObject::RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager, uint32_t renderObjectId)
+    : gltfFilepath(gltfFilepath), resourceManager(resourceManager), renderObjectId(renderObjectId)
 {
     freeInstanceIndices.reserve(10);
     for (int32_t i = 0; i < 10; ++i) { freeInstanceIndices.insert(i); }
@@ -106,7 +106,11 @@ void RenderObject::update(const int32_t currentFrameOverlap, const int32_t previ
     }
 
     AllocatedBuffer& currentDrawIndirectBuffer = drawIndirectBuffers[currentFrameOverlap];
-    if (currentDrawIndirectBuffer.info.size != drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand)) {
+    AllocatedBuffer& currentBoundingSphereIndicesBuffer = boundingSphereIndicesBuffers[currentFrameOverlap];
+    if (drawCommands.empty()) {
+        resourceManager.destroyBuffer(currentDrawIndirectBuffer);
+        resourceManager.destroyBuffer(currentBoundingSphereIndicesBuffer);
+    } else if (currentDrawIndirectBuffer.buffer == VK_NULL_HANDLE || currentDrawIndirectBuffer.info.size != drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand)) {
         resourceManager.destroyBuffer(currentDrawIndirectBuffer);
         AllocatedBuffer indirectStaging = resourceManager.createStagingBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
         memcpy(indirectStaging.info.pMappedData, drawCommands.data(), drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
@@ -114,31 +118,29 @@ void RenderObject::update(const int32_t currentFrameOverlap, const int32_t previ
 
         resourceManager.copyBuffer(indirectStaging, currentDrawIndirectBuffer, drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
         resourceManager.destroyBuffer(indirectStaging);
+
+        resourceManager.destroyBuffer(currentBoundingSphereIndicesBuffer);
+        AllocatedBuffer stagingBoundingSphereIndicesBuffer = resourceManager.createStagingBuffer(boundingSphereIndices.size() * sizeof(uint32_t));
+        memcpy(stagingBoundingSphereIndicesBuffer.info.pMappedData, boundingSphereIndices.data(), boundingSphereIndices.size() * sizeof(uint32_t));
+        currentBoundingSphereIndicesBuffer = resourceManager.createDeviceBuffer(boundingSphereIndices.size() * sizeof(uint32_t));
+        resourceManager.copyBuffer(stagingBoundingSphereIndicesBuffer, currentBoundingSphereIndicesBuffer, boundingSphereIndices.size() * sizeof(uint32_t));
+        resourceManager.destroyBuffer(stagingBoundingSphereIndicesBuffer);
+
+        const FrustumCullingBuffers cullingAddresses{
+            .meshBoundsBuffer = resourceManager.getBufferAddress(meshBoundsBuffer),
+            .commandBuffer = resourceManager.getBufferAddress(currentDrawIndirectBuffer),
+            .commandBufferCount = static_cast<uint32_t>(drawCommands.size()),
+            .modelMatrixBuffer = resourceManager.getBufferAddress(currentInstanceBuffer),
+            .meshIndicesBuffer = resourceManager.getBufferAddress(currentBoundingSphereIndicesBuffer),
+            .padding = {},
+        };
+
+        const auto currentCullingAddressBuffers = cullingAddressBuffers[currentFrameOverlap];
+        AllocatedBuffer stagingCullingAddressesBuffer = resourceManager.createStagingBuffer(sizeof(FrustumCullingBuffers));
+        memcpy(stagingCullingAddressesBuffer.info.pMappedData, &cullingAddresses, sizeof(FrustumCullingBuffers));
+        resourceManager.copyBuffer(stagingCullingAddressesBuffer, currentCullingAddressBuffers, sizeof(FrustumCullingBuffers));
+        resourceManager.destroyBuffer(stagingCullingAddressesBuffer);
     }
-
-    AllocatedBuffer& currentBoundingSphereIndicesBuffer = boundingSphereIndicesBuffers[currentFrameOverlap];
-    resourceManager.destroyBuffer(currentBoundingSphereIndicesBuffer);
-    AllocatedBuffer stagingBoundingSphereIndicesBuffer = resourceManager.createStagingBuffer(boundingSphereIndices.size() * sizeof(uint32_t));
-    memcpy(stagingBoundingSphereIndicesBuffer.info.pMappedData, boundingSphereIndices.data(), boundingSphereIndices.size() * sizeof(uint32_t));
-    currentBoundingSphereIndicesBuffer = resourceManager.createDeviceBuffer(boundingSphereIndices.size() * sizeof(uint32_t));
-    resourceManager.copyBuffer(stagingBoundingSphereIndicesBuffer, currentBoundingSphereIndicesBuffer, boundingSphereIndices.size() * sizeof(uint32_t));
-    resourceManager.destroyBuffer(stagingBoundingSphereIndicesBuffer);
-
-
-    const FrustumCullingBuffers cullingAddresses{
-        .meshBoundsBuffer = resourceManager.getBufferAddress(meshBoundsBuffer),
-        .commandBuffer = resourceManager.getBufferAddress(currentDrawIndirectBuffer),
-        .commandBufferCount = static_cast<uint32_t>(drawCommands.size()),
-        .modelMatrixBuffer = resourceManager.getBufferAddress(currentInstanceBuffer),
-        .meshIndicesBuffer = resourceManager.getBufferAddress(currentBoundingSphereIndicesBuffer),
-        .padding = {},
-    };
-
-    const auto currentCullingAddressBuffers = cullingAddressBuffers[currentFrameOverlap];
-    AllocatedBuffer stagingCullingAddressesBuffer = resourceManager.createStagingBuffer(sizeof(FrustumCullingBuffers));
-    memcpy(stagingCullingAddressesBuffer.info.pMappedData, &cullingAddresses, sizeof(FrustumCullingBuffers));
-    resourceManager.copyBuffer(stagingCullingAddressesBuffer, currentCullingAddressBuffers, sizeof(FrustumCullingBuffers));
-    resourceManager.destroyBuffer(stagingCullingAddressesBuffer);
 
     framesToUpdate--;
 }
