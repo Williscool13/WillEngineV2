@@ -807,11 +807,11 @@ bool RenderObject::releaseBuffers()
 int32_t RenderObject::getFreeInstanceIndex()
 {
     if (freeInstanceIndices.empty()) {
-        const size_t oldSize = freeInstanceIndices.size();
-        const size_t newSize = freeInstanceIndices.size() + 10;
+        const size_t oldSize = currentInstanceCount;
+        const size_t newSize = currentInstanceCount + 10;
         freeInstanceIndices.reserve(newSize);
         for (int32_t i = oldSize; i < newSize; ++i) { freeInstanceIndices.insert(i); }
-        currentInstanceCount = freeInstanceIndices.size();
+        currentInstanceCount = newSize;
         dirty();
     }
 
