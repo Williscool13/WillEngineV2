@@ -158,7 +158,7 @@ private: // Scene Data
     std::vector<IHierarchical*> hierarchicalDeletionQueue{};
 
 private: // Pipelines
-    visibility_pass::VisibilityPassPipeline* frustumCullPipeline{nullptr};
+    visibility_pass::VisibilityPassPipeline* visibilityPassPipeline{nullptr};
     environment_pipeline::EnvironmentPipeline* environmentPipeline{nullptr};
     deferred_mrt::DeferredMrtPipeline* deferredMrtPipeline{nullptr};
     deferred_resolve::DeferredResolvePipeline* deferredResolvePipeline{nullptr};
