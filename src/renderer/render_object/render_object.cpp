@@ -19,7 +19,7 @@
 
 namespace will_engine
 {
-RenderObject::RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager, const int64_t renderObjectId)
+RenderObject::RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager)
     : gltfFilepath(gltfFilepath), resourceManager(resourceManager)
 {
     freeInstanceIndices.reserve(10);
