@@ -6,7 +6,7 @@
     },
     "metadata": {
         "name": "Test Scene",
-        "created": "2025-02-10 21:30:33",
+        "created": "2025-02-12 23:23:05",
         "formatVersion": 1
     },
     "gameObjects": {
@@ -48,14 +48,17 @@
                     },
                     "scale": {
                         "x": 20.0,
-                        "y": 0.5,
+                        "y": 1.0,
                         "z": 20.0
                     }
                 },
+                "renderReference": 786709467,
+                "renderMeshIndex": 0,
                 "physics": {
-                    "motionType": 0,
+                    "isActive": true,
+                    "motionType": 1,
                     "layer": 0,
-                    "shapeType": "box",
+                    "shapeType": 1,
                     "shapeParams": {
                         "x": 20.0,
                         "y": 1.0,
@@ -68,15 +71,15 @@
                 "name": "SPHERE",
                 "transform": {
                     "position": {
-                        "x": 0.0,
-                        "y": -0.5,
-                        "z": 0.0
+                        "x": -0.07301046699285507,
+                        "y": -0.0007735285325907171,
+                        "z": -1.6432209014892578
                     },
                     "rotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
+                        "x": -0.7328242659568787,
+                        "y": 0.17486408352851868,
+                        "z": 0.09962744265794754,
+                        "w": 0.6499735116958618
                     },
                     "scale": {
                         "x": 1.0,
@@ -84,12 +87,15 @@
                         "z": 1.0
                     }
                 },
+                "renderReference": -1574886450,
+                "renderMeshIndex": 0,
                 "physics": {
+                    "isActive": true,
                     "motionType": 2,
                     "layer": 2,
-                    "shapeType": "sphere",
+                    "shapeType": 0,
                     "shapeParams": {
-                        "x": 0.5,
+                        "x": 1.0,
                         "y": 0.0,
                         "z": 0.0
                     }
@@ -98,11 +104,7 @@
         ]
     },
     "renderObjects": {
-        "786709467": {
-            "filepath": "..\\assets\\models\\primitives\\primitives.gltf"
-        },
-        "2720080846": {
-            "filepath": "..\\assets\\models\\mySphere.glb"
-        }
+        "786709467": {},
+        "2720080846": {}
     }
 }

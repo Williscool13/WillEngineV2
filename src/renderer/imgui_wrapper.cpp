@@ -397,9 +397,26 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                     bool isLoaded = engine->renderObjectMap.contains(id) && engine->renderObjectMap[id] != nullptr;
                     bool checked = isLoaded;
+                    bool disabled = false;
+                    if (isLoaded && engine->renderObjectMap[id]->canDraw()) {
+                        disabled = true;
+                        ImGui::BeginDisabled(true);
+                    }
+
                     ImGui::Checkbox("##loaded", &checked);
-                    if (checked != isLoaded) {
-                        engine->renderObjectMap[id] = new RenderObject(info.gltfPath, *engine->resourceManager);
+                    if (checked && !isLoaded) {
+                        engine->renderObjectMap[id] = new RenderObject(info.gltfPath, *engine->resourceManager, id);
+                    }
+
+                    if (!checked && isLoaded)
+                    {
+                        assert(!engine->renderObjectMap[id]->canDraw());
+                        assert(engine->renderObjectMap.contains(id));
+                        delete engine->renderObjectMap[id];
+                        engine->renderObjectMap.erase(id);
+                    }
+                    if (disabled) {
+                        ImGui::EndDisabled();
                     }
 
                     ImGui::SameLine();
@@ -490,7 +507,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     IGFD::FileDialog::Instance()->Close();
                 }
                 if (ImGui::Button("Serialize Scene", ImVec2(width, 40))) {
-                    if (Serializer::SerializeScene(engine->scene->getRoot(), engine->renderObjectMap, serializationPath.string())) {
+                    if (Serializer::serializeScene(engine->scene->getRoot(), engine->renderObjectMap, serializationPath.string())) {
                         ImGui::OpenPopup("SerializeSuccess");
                     } else {
                         ImGui::OpenPopup("SerializeError");
@@ -499,7 +516,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                 if (ImGui::Button("Deserialize Scene", ImVec2(width, 40))) {
                     file::scanForModels(engine->renderObjectInfoMap);
-                    if (Serializer::DeserializeScene(engine->scene->getRoot(), *engine->resourceManager, engine->renderObjectMap, engine->renderObjectInfoMap, serializationPath.string())) {
+                    if (Serializer::deserializeScene(engine->scene->getRoot(), *engine->resourceManager, engine->renderObjectMap, engine->renderObjectInfoMap, serializationPath.string())) {
                         ImGui::OpenPopup("SerializeSuccess");
                     } else {
                         ImGui::OpenPopup("SerializeError");

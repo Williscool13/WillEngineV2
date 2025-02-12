@@ -17,7 +17,7 @@ public:
 
     virtual void setRenderObjectReference(IRenderReference* owner, int32_t instanceIndex, int32_t meshIndex) = 0;
 
-    [[nodiscard]] virtual int32_t getRenderReferenceIndex() const = 0;
+    [[nodiscard]] virtual uint32_t getRenderReferenceIndex() const = 0;
 
     [[nodiscard]] virtual int32_t getMeshIndex() const = 0;
 

@@ -26,7 +26,7 @@ struct EngineVersion
     uint32_t minor;
     uint32_t patch;
 
-    static EngineVersion Current()
+    static EngineVersion current()
     {
         return {ENGINE_VERSION_MAJOR, ENGINE_VERSION_MINOR, ENGINE_VERSION_PATCH};
     }
@@ -60,12 +60,14 @@ struct SceneMetadata
     std::string created;
     uint32_t formatVersion;
 
-    static SceneMetadata Create(const std::string& sceneName)
+    static SceneMetadata create(const std::string& sceneName)
     {
         const auto now = std::chrono::system_clock::now();
         const auto timeT = std::chrono::system_clock::to_time_t(now);
         std::stringstream ss;
-        ss << std::put_time(std::localtime(&timeT), "%Y-%m-%d %H:%M:%S");
+        tm timeInfo;
+        localtime_s(&timeInfo, &timeT);
+        ss << std::put_time(&timeInfo, "%Y-%m-%d %H:%M:%S");
 
         return {
             sceneName,
@@ -111,7 +113,7 @@ inline void to_json(ordered_json& j, const Transform& t)
     };
 }
 
-inline void from_json(ordered_json& j, Transform& t)
+inline void from_json(const ordered_json& j, Transform& t)
 {
     glm::vec3 position{
         j["position"]["x"].get<float>(),
@@ -140,6 +142,7 @@ namespace physics
     inline void to_json(ordered_json& j, const PhysicsProperties& p)
     {
         j = {
+            {"isActive", p.isActive},
             {"motionType", p.motionType},
             {"layer", p.layer},
             {"shapeType", p.shapeType},
@@ -155,9 +158,10 @@ namespace physics
 
     inline void from_json(const ordered_json& j, PhysicsProperties& props)
     {
+        props.isActive = j["isActive"].get<bool>();
         props.motionType = j["motionType"].get<uint8_t>();
         props.layer = (j["layer"].get<uint16_t>());
-        props.shapeType = j["shapeType"].get<std::string>();
+        props.shapeType = j["shapeType"].get<JPH::EShapeSubType>();
         props.shapeParams = glm::vec3(
             j["shapeParams"]["x"].get<float>(),
             j["shapeParams"]["y"].get<float>(),
@@ -201,7 +205,7 @@ inline void from_json(const ordered_json& j, SceneMetadata& metadata)
 class Serializer
 {
 public: // GameObjects
-    static void SerializeGameObject(ordered_json& j, IHierarchical* obj, physics::Physics* physics, const std::unordered_map<uint32_t, RenderObject*>& renderObjects) // NOLINT(*-no-recursion)
+    static void serializeGameObject(ordered_json& j, IHierarchical* obj, physics::Physics* physics, const std::unordered_map<uint32_t, RenderObject*>& renderObjects) // NOLINT(*-no-recursion)
     {
         if (const auto gameObject = dynamic_cast<GameObject*>(obj)) {
             j["id"] = gameObject->getId();
@@ -236,14 +240,14 @@ public: // GameObjects
                     fmt::print("SerializeGameObject: null game object found in IHierarchical chain (child of {})\n", obj->getName());
                     continue;
                 }
-                SerializeGameObject(childJson, child, physics, renderObjects);
+                serializeGameObject(childJson, child, physics, renderObjects);
                 children.push_back(childJson);
             }
             j["children"] = children;
         }
     }
 
-    static bool SerializeScene(IHierarchical* sceneRoot, const std::unordered_map<uint32_t, RenderObject*>& renderObjects, const std::string& filepath)
+    static bool serializeScene(IHierarchical* sceneRoot, const std::unordered_map<uint32_t, RenderObject*>& renderObjects, const std::string& filepath)
     {
         if (sceneRoot == nullptr) {
             fmt::print("Warning: Scene root is null\n");
@@ -252,14 +256,14 @@ public: // GameObjects
 
         ordered_json rootJ;
 
-        rootJ["version"] = EngineVersion::Current();
-        rootJ["metadata"] = SceneMetadata::Create("Test Scene");
+        rootJ["version"] = EngineVersion::current();
+        rootJ["metadata"] = SceneMetadata::create("Test Scene");
 
         ordered_json gameObjectJ;
         ordered_json renderObjectJ;
 
-        auto physics = physics::Physics::Get();
-        SerializeGameObject(gameObjectJ, sceneRoot, physics, renderObjects);
+        const auto physics = physics::Physics::Get();
+        serializeGameObject(gameObjectJ, sceneRoot, physics, renderObjects);
         rootJ["gameObjects"] = gameObjectJ;
 
         ordered_json renderObjectsJ = ordered_json::object();
@@ -275,58 +279,64 @@ public: // GameObjects
         return true;
     }
 
-    static GameObject* DeserializeGameObject(const ordered_json& j, physics::Physics* physics, ResourceManager& resourceManager)
+    static GameObject* deserializeGameObject(const ordered_json& j, IHierarchical* parent, std::unordered_map<uint32_t, RenderObject*> renderObjectMap)
     {
-        // auto* obj = new GameObject(j["name"].get<std::string>());
-        // obj->transform = j["transform"].get<Transform>();
-        //
-        // // Create render object if needed
-        // if (j.contains("renderObject")) {
-        //     std::string path = j["renderObject"].get<std::string>();
-        //     auto* renderObj = new RenderObject(context, resourceManager, path, layouts);
-        //     renderObj->generateGameObject(obj);
-        // }
-        //
-        // // Deserialize physics properties if present
-        // if (j.contains("physics")) {
-        //     PhysicsProperties props = j["physics"].get<PhysicsProperties>();
-        //
-        //     // Create physics shape based on type
-        //     JPH::ShapeRefC shape;
-        //     if (props.shapeType == "box") {
-        //         shape = new JPH::BoxShape(JPH::Vec3(
-        //             props.shapeParams.x,
-        //             props.shapeParams.y,
-        //             props.shapeParams.z
-        //         ));
-        //     }
-        //     // Add other shape types as needed
-        //
-        //     if (shape != nullptr) {
-        //         JPH::BodyCreationSettings settings(
-        //             shape,
-        //             physics_utils::ToJolt(obj->transform.getPosition()),
-        //             physics_utils::ToJolt(obj->transform.getRotation()),
-        //             props.motionType,
-        //             props.layer
-        //         );
-        //         physics->addRigidBody(obj, settings);
-        //     }
-        // }
-        //
-        // // Deserialize children recursively
-        // if (j.contains("children")) {
-        //     for (const auto& childJson : j["children"]) {
-        //         GameObject* child = DeserializeGameObject(childJson, physics, context, resourceManager, layouts);
-        //         obj->addChild(child);
-        //     }
-        // }
-        //
-        // return obj;
-        return nullptr;
+        const auto gameObject = new GameObject();
+
+        if (j.contains("id")) {
+            gameObject->setId(j["id"].get<uint32_t>());
+        }
+
+        if (j.contains("name")) {
+            gameObject->setName(j["name"].get<std::string>());
+        }
+
+        if (j.contains("transform")) {
+            if (const auto transformable = dynamic_cast<ITransformable*>(gameObject)) {
+                transformable->setLocalTransform(j["transform"].get<Transform>());
+            }
+        }
+
+        if (j.contains("renderReference") && j.contains("renderMeshIndex")) {
+            if (dynamic_cast<IRenderable*>(gameObject)) {
+                const uint32_t renderRefIndex = j["renderReference"].get<uint32_t>();
+                const int32_t meshIndex = j["renderMeshIndex"].get<int32_t>();
+
+                if (renderObjectMap.contains(renderRefIndex)) {
+                    renderObjectMap[renderRefIndex]->generateMesh(gameObject, meshIndex);
+                } else {
+                    fmt::print("Warning: Gameobject failed to find render reference\n");
+                }
+            }
+        }
+
+        if (j.contains("physics")) {
+            if (const auto physicsBody = dynamic_cast<IPhysicsBody*>(gameObject)) {
+                const physics::PhysicsProperties properties = j["physics"].get<physics::PhysicsProperties>();
+                if (!physics::Physics::Get()->deserializeProperties(physicsBody, properties)) {
+                    fmt::print("Warning: Gameobject failed to deserialize physics\n");
+                }
+            }
+        }
+
+        if (j.contains("children")) {
+            const auto& children = j["children"];
+            for (const auto& childJson : children) {
+                IHierarchical* child = deserializeGameObject(childJson, gameObject, renderObjectMap);
+                if (child != nullptr) {
+                    gameObject->addChild(child);
+                }
+            }
+        }
+
+        if (parent != nullptr) {
+            parent->addChild(gameObject);
+        }
+
+        return gameObject;
     }
 
-    static bool DeserializeScene(IHierarchical* root, ResourceManager& resourceManager, std::unordered_map<uint32_t, RenderObject*> renderObjectMap,
+    static bool deserializeScene(IHierarchical* root, ResourceManager& resourceManager, std::unordered_map<uint32_t, RenderObject*>& renderObjectMap,
                                  std::unordered_map<uint32_t, RenderObjectInfo> renderObjectInfoMap, const std::string& filepath)
     {
         std::ifstream file(filepath);
@@ -349,8 +359,8 @@ public: // GameObjects
         }
 
         const auto fileVersion = rootJ["version"].get<EngineVersion>();
-        if (fileVersion > EngineVersion::Current()) {
-            fmt::print("Scene file version {} is newer than current engine version {}\n", fileVersion.toString(), EngineVersion::Current().toString());
+        if (fileVersion > EngineVersion::current()) {
+            fmt::print("Scene file version {} is newer than current engine version {}\n", fileVersion.toString(), EngineVersion::current().toString());
             return false;
         }
 
@@ -374,11 +384,15 @@ public: // GameObjects
                 }
 
                 RenderObjectInfo& renderObjectData = renderObjectInfoMap[index];
+                auto renderObject = new RenderObject(renderObjectData.gltfPath, resourceManager, index);
+                renderObjectMap[index] = renderObject;
+            }
+        }
 
-
-                if (auto renderObject = new RenderObject(renderObjectData.gltfPath, resourceManager)) {
-                    renderObjectMap[index] = renderObject;
-                }
+        if (rootJ.contains("gameObjects")) {
+            for (auto child : rootJ["gameObjects"]["children"]) {
+                IHierarchical* childObject = deserializeGameObject(child, root, renderObjectMap);
+                root->addChild(childObject);
             }
         }
 

@@ -23,8 +23,8 @@ GameObject::GameObject(std::string gameObjectName, const uint64_t gameObjectId)
 
 GameObject::~GameObject()
 {
-    for (const IHierarchical* child : children) {
-        delete child;
+    for (int32_t i = children.size() - 1; i >= 0; --i) {
+        delete children[i];
     }
 
     if (parent) {
@@ -39,10 +39,10 @@ GameObject::~GameObject()
         pRenderReference = nullptr;
     }
 
-    if (bodyId.GetIndex() != JPH::BodyID::cInvalidBodyID) {
+    if (bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
         if (physics::Physics* physics = physics::Physics::Get()) {
             physics->removeRigidBody(this);
-            bodyId = JPH::BodyID(JPH::BodyID::cInvalidBodyID);
+            bodyId = JPH::BodyID(JPH::BodyID::cMaxBodyIndex);
         }
     }
 }
@@ -160,7 +160,7 @@ void GameObject::setLocalPosition(const glm::vec3 localPosition)
 {
     transform.setPosition(localPosition);
     dirty();
-    if (bodyId.GetIndex() != JPH::BodyID::cInvalidBodyID) {
+    if (bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
         physics::Physics::Get()->setPositionAndRotation(bodyId, getGlobalPosition(), getGlobalRotation());
     }
 }
@@ -169,7 +169,7 @@ void GameObject::setLocalRotation(const glm::quat localRotation)
 {
     transform.setRotation(localRotation);
     dirty();
-    if (bodyId.GetIndex() != JPH::BodyID::cInvalidBodyID) {
+    if (bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
         physics::Physics::Get()->setPositionAndRotation(bodyId, getGlobalPosition(), getGlobalRotation());
     }
 }
@@ -178,7 +178,7 @@ void GameObject::setLocalScale(const glm::vec3 localScale)
 {
     transform.setScale(localScale);
     dirty();
-    if (bodyId.GetIndex() != JPH::BodyID::cInvalidBodyID) {
+    if (bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
         physics::Physics::Get()->setPositionAndRotation(bodyId, getGlobalPosition(), getGlobalRotation());
     }
 }
@@ -192,7 +192,7 @@ void GameObject::setLocalTransform(const Transform& newLocalTransform)
 {
     transform = newLocalTransform;
     dirty();
-    if (bodyId.GetIndex() != JPH::BodyID::cInvalidBodyID) {
+    if (bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
         physics::Physics::Get()->setPositionAndRotation(bodyId, getGlobalPosition(), getGlobalRotation());
     }
 }
@@ -256,7 +256,7 @@ void GameObject::setGlobalTransform(const Transform& newGlobalTransform)
     }
 
     dirty();
-    if (bodyId.GetIndex() != JPH::BodyID::cInvalidBodyID) {
+    if (bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
         physics::Physics::Get()->setPositionAndRotation(bodyId, getGlobalPosition(), getGlobalRotation());
     }
 }
@@ -265,7 +265,7 @@ void GameObject::translate(const glm::vec3 translation)
 {
     transform.translate(translation);
     dirty();
-    if (bodyId.GetIndex() != JPH::BodyID::cInvalidBodyID) {
+    if (bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
         physics::Physics::Get()->setPositionAndRotation(bodyId, getGlobalPosition(), getGlobalRotation());
     }
 }
@@ -274,7 +274,7 @@ void GameObject::rotate(const glm::quat rotation)
 {
     transform.rotate(rotation);
     dirty();
-    if (bodyId.GetIndex() != JPH::BodyID::cInvalidBodyID) {
+    if (bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
         physics::Physics::Get()->setPositionAndRotation(bodyId, getGlobalPosition(), getGlobalRotation());
     }
 }
@@ -283,7 +283,7 @@ void GameObject::rotateAxis(const float angle, const glm::vec3& axis)
 {
     transform.rotateAxis(angle, axis);
     dirty();
-    if (bodyId.GetIndex() != JPH::BodyID::cInvalidBodyID) {
+    if (bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
         physics::Physics::Get()->setPositionAndRotation(bodyId, getGlobalPosition(), getGlobalRotation());
     }
 }

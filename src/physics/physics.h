@@ -69,9 +69,11 @@ public:
     PhysicsObject* getPhysicsObject(JPH::BodyID bodyId);
 
 public:
-    JPH::BodyID setupRigidBody(IPhysicsBody* physicsBody, Collider* collider, JPH::EMotionType motion, JPH::ObjectLayer layer);
+    JPH::BodyID setupRigidBody(IPhysicsBody* physicsBody, JPH::EShapeSubType shapeType, glm::vec3 shapeParams, JPH::EMotionType motion, JPH::ObjectLayer layer);
 
     PhysicsProperties serializeProperties(const IPhysicsBody* physicsBody) const;
+
+    bool deserializeProperties(IPhysicsBody* physicsBody, const PhysicsProperties& properties);
 
     void setPositionAndRotation(JPH::BodyID bodyId, glm::vec3 position, glm::quat rotation, bool activate = true) const;
 
@@ -90,12 +92,6 @@ public:
     JPH::ObjectLayer getLayer(const IPhysicsBody* body) const;
 
     void setMotionType(const IPhysicsBody* body, JPH::EMotionType motionType, JPH::EActivation activation) const;
-
-
-private:
-    static bool isIdentity(const BoxCollider* collider);
-
-    static bool isIdentity(const SphereCollider* collider);
 
 private:
     // Core systems

@@ -19,14 +19,12 @@ struct CurrentInstanceData
     bool bCastsShadows{true};
 };
 
-class IRenderReference : public IIdentifiable
+class IRenderReference
 {
 public:
-    ~IRenderReference() override = default;
+    virtual ~IRenderReference() = default;
 
-    void setId(uint64_t identifier) override = 0;
-
-    [[nodiscard]] uint64_t getId() const override = 0;
+    [[nodiscard]] virtual uint32_t getId() const = 0;
 
     [[nodiscard]] virtual uint64_t getRenderReferenceIndex() const = 0;
 
