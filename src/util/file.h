@@ -65,6 +65,7 @@ static std::vector<std::filesystem::path> findWillmodels(const std::filesystem::
 
 static void scanForModels(std::unordered_map<uint32_t, RenderObjectInfo>& renderObjectInfoMap)
 {
+    fmt::print("Scanning for .willmodel files\n");
     renderObjectInfoMap.clear();
     const std::vector<std::filesystem::path> willModels = findWillmodels(relative(std::filesystem::current_path() / "assets"));
     renderObjectInfoMap.reserve(willModels.size());

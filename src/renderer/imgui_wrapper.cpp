@@ -399,7 +399,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     bool checked = isLoaded;
                     ImGui::Checkbox("##loaded", &checked);
                     if (checked != isLoaded) {
-                        engine->renderObjectMap[id] = new RenderObject(info.gltfPath, *engine->resourceManager, id);
+                        engine->renderObjectMap[id] = new RenderObject(info.gltfPath, *engine->resourceManager);
                     }
 
                     ImGui::SameLine();
@@ -466,37 +466,45 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             }
 
             if (ImGui::BeginTabItem("Serialization")) {
-                static std::filesystem::path serializationOutputPath = {"../assets/scenes/sampleScene.willmap"};
+                static std::filesystem::path serializationPath = {"../assets/scenes/sampleScene.willmap"};
 
                 const float width = ImGui::GetContentRegionAvail().x;
-                ImGui::Text("Output Path: %s", serializationOutputPath.empty() ? "None selected" : serializationOutputPath.string().c_str());
+                ImGui::Text("Output Path: %s", serializationPath.empty() ? "None selected" : serializationPath.string().c_str());
                 if (ImGui::Button("Select Output Path")) {
                     IGFD::FileDialogConfig config;
                     config.path = "./assets/scenes/";
-                    config.fileName = serializationOutputPath.filename().string();
+                    config.fileName = serializationPath.filename().string();
                     IGFD::FileDialog::Instance()->OpenDialog(
-                        "SaveWillmapDlg",
+                        "WillmapDlg",
                         "Save Willmap",
                         ".willmap",
                         config);
                 }
 
-                if (IGFD::FileDialog::Instance()->Display("SaveWillmapDlg")) {
+                if (IGFD::FileDialog::Instance()->Display("WillmapDlg")) {
                     if (IGFD::FileDialog::Instance()->IsOk()) {
-                        serializationOutputPath = IGFD::FileDialog::Instance()->GetFilePathName();
-                        serializationOutputPath = file::getRelativePath(serializationOutputPath);
+                        serializationPath = IGFD::FileDialog::Instance()->GetFilePathName();
+                        serializationPath = file::getRelativePath(serializationPath);
                     }
 
                     IGFD::FileDialog::Instance()->Close();
                 }
                 if (ImGui::Button("Serialize Scene", ImVec2(width, 40))) {
-                    if (Serializer::SerializeScene(engine->scene->getRoot(), physics::Physics::Get(), engine->renderObjectMap, serializationOutputPath.string())) {
+                    if (Serializer::SerializeScene(engine->scene->getRoot(), engine->renderObjectMap, serializationPath.string())) {
                         ImGui::OpenPopup("SerializeSuccess");
                     } else {
                         ImGui::OpenPopup("SerializeError");
                     }
                 }
 
+                if (ImGui::Button("Deserialize Scene", ImVec2(width, 40))) {
+                    file::scanForModels(engine->renderObjectInfoMap);
+                    if (Serializer::DeserializeScene(engine->scene->getRoot(), *engine->resourceManager, engine->renderObjectMap, engine->renderObjectInfoMap, serializationPath.string())) {
+                        ImGui::OpenPopup("SerializeSuccess");
+                    } else {
+                        ImGui::OpenPopup("SerializeError");
+                    }
+                }
 
                 // Success/Error popups
                 if (ImGui::BeginPopupModal("SerializeSuccess", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
@@ -546,11 +554,10 @@ void ImguiWrapper::drawSceneGraph(Engine* engine, const Scene* scene)
     ImGui::End();
 }
 
-void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierarchical* obj, int32_t depth) // NOLINT(*-no-recursion)
+void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierarchical* obj, const int32_t depth) // NOLINT(*-no-recursion)
 {
-    constexpr int32_t indentLength = 10.0f;
+    const int32_t indentLength = ImGui::GetFontSize();
     constexpr float treeNodeWidth = 150.0f;
-    constexpr float spacing = 5.0f;
 
     ImGui::PushID(obj);
     ImGui::Indent(static_cast<float>(depth * indentLength));
@@ -578,7 +585,8 @@ void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierar
         ImGui::Text("  ");
     }
 
-    if (auto* physBody = dynamic_cast<IPhysicsBody*>(obj)) {
+    ImGui::SameLine();
+    if (const auto* physBody = dynamic_cast<IPhysicsBody*>(obj)) {
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 1.0f, 1.0f));
         if (ImGui::Button("P")) {
@@ -608,34 +616,55 @@ void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierar
 
 
     ImGui::SameLine();
-    const bool isOpen = ImGui::TreeNodeEx("##TreeNode", flags, "%s", obj->getName().data());
+    const std::string_view name = obj->getName();
+    const float availableWidth = ImGui::GetContentRegionAvail().x;
+    const int maxNameLength = static_cast<int>(availableWidth / ImGui::GetFontSize());
+    const int indentedLength = maxNameLength - depth * indentLength / ImGui::GetFontSize();
 
-    ImGui::SameLine(treeNodeWidth + spacing);
+
+    const std::string formattedName = indentedLength < 0
+                                          ? ""
+                                          : name.length() > indentedLength
+                                                ? fmt::format("{:.{}s}...", name, std::max(0, indentedLength - 3))
+                                                : fmt::format("{:<{}}", name, indentedLength);
+    const bool isOpen = ImGui::TreeNodeEx("##TreeNode", flags, "%s", formattedName.c_str());
+
+    ImGui::SameLine();
     ImGui::BeginGroup();
 
     if (const IHierarchical* parent = obj->getParent()) {
+        constexpr float spacing = 5.0f;
         constexpr float arrowWidth = 20.0f;
-        constexpr float buttonWidth = 75.0f;
+        constexpr float buttonWidth = 60.0f;
+        constexpr float totalWidth = spacing + buttonWidth + spacing + buttonWidth + spacing + arrowWidth + spacing + arrowWidth;
         const std::vector<IHierarchical*>& parentChildren = obj->getParent()->getChildren();
 
-        if (parent != scene->getRoot()) {
-            if (ImGui::Button("Undent", ImVec2(buttonWidth, 0))) { Scene::undent(obj); }
-        } else { ImGui::Dummy(ImVec2(buttonWidth, 0)); }
+        ImGui::BeginDisabled(parent == scene->getRoot());
+        if (ImGui::Button("Undent", ImVec2(buttonWidth, 0))) {
+            Scene::undent(obj);
+        }
+        ImGui::EndDisabled();
 
         ImGui::SameLine(0, spacing);
-        if (parentChildren[0] != obj) {
-            if (ImGui::Button("Indent", ImVec2(buttonWidth, 0))) { Scene::indent(obj); }
-        } else { ImGui::Dummy(ImVec2(buttonWidth, 0)); }
+        ImGui::BeginDisabled(parent != obj->getParent() || parentChildren[0] == obj);
+        if (ImGui::Button("Indent", ImVec2(buttonWidth, 0))) {
+            Scene::indent(obj);
+        }
+        ImGui::EndDisabled();
 
         ImGui::SameLine(0, spacing);
-        if (parentChildren[0] != obj) {
-            if (ImGui::ArrowButton("##Up", ImGuiDir_Up)) { Scene::moveObject(obj, -1); }
-        } else { ImGui::Dummy(ImVec2(arrowWidth, 0)); }
+        ImGui::BeginDisabled(parent != obj->getParent() || parentChildren[0] == obj);
+        if (ImGui::ArrowButton("##Up", ImGuiDir_Up)) {
+            Scene::moveObject(obj, -1);
+        }
+        ImGui::EndDisabled();
 
         ImGui::SameLine(0, spacing);
-        if (parentChildren[parentChildren.size() - 1] != obj) {
-            if (ImGui::ArrowButton("##Down", ImGuiDir_Down)) { Scene::moveObject(obj, 1); }
-        } else { ImGui::Dummy(ImVec2(arrowWidth, 0)); }
+        ImGui::BeginDisabled(parent != obj->getParent() || parentChildren[parentChildren.size() - 1] == obj);
+        if (ImGui::ArrowButton("##Down", ImGuiDir_Down)) {
+            Scene::moveObject(obj, 1);
+        }
+        ImGui::EndDisabled();
     }
 
     ImGui::EndGroup();

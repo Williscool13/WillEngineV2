@@ -24,7 +24,7 @@ class GameObject;
 class RenderObject final : public IRenderReference
 {
 public:
-    RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager, int64_t renderObjectId);
+    RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager);
 
     ~RenderObject() override;
 

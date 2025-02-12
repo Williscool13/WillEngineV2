@@ -30,6 +30,28 @@ struct EngineVersion
     {
         return {ENGINE_VERSION_MAJOR, ENGINE_VERSION_MINOR, ENGINE_VERSION_PATCH};
     }
+
+    bool operator==(const EngineVersion& other) const
+    {
+        return major == other.major && minor == other.minor && patch == other.patch;
+    }
+
+    bool operator<(const EngineVersion& other) const
+    {
+        if (major != other.major) return major < other.major;
+        if (minor != other.minor) return minor < other.minor;
+        return patch < other.patch;
+    }
+
+    bool operator>(const EngineVersion& other) const
+    {
+        return other < *this;
+    }
+
+    std::string toString() const
+    {
+        return fmt::format("{}.{}.{}", major, minor, patch);
+    }
 };
 
 struct SceneMetadata
@@ -58,12 +80,6 @@ struct RenderObjectInfo
     std::string gltfPath;
     std::string name;
     uint32_t id;
-};
-
-
-struct RenderObjectEntry
-{
-    std::string filepath;
 };
 
 inline void to_json(ordered_json& j, const Transform& t)
@@ -182,18 +198,6 @@ inline void from_json(const ordered_json& j, SceneMetadata& metadata)
     metadata.formatVersion = j["formatVersion"].get<uint32_t>();
 }
 
-inline void to_json(ordered_json& j, const RenderObjectEntry& entry)
-{
-    j = ordered_json{
-        {"filepath", entry.filepath}
-    };
-}
-
-inline void from_json(const ordered_json& j, RenderObjectEntry& entry)
-{
-    entry.filepath = j["filepath"].get<std::string>();
-}
-
 class Serializer
 {
 public: // GameObjects
@@ -239,7 +243,7 @@ public: // GameObjects
         }
     }
 
-    static bool SerializeScene(IHierarchical* sceneRoot, physics::Physics* physics, const std::unordered_map<uint32_t, RenderObject*>& renderObjects, const std::string& filepath)
+    static bool SerializeScene(IHierarchical* sceneRoot, const std::unordered_map<uint32_t, RenderObject*>& renderObjects, const std::string& filepath)
     {
         if (sceneRoot == nullptr) {
             fmt::print("Warning: Scene root is null\n");
@@ -254,15 +258,14 @@ public: // GameObjects
         ordered_json gameObjectJ;
         ordered_json renderObjectJ;
 
+        auto physics = physics::Physics::Get();
         SerializeGameObject(gameObjectJ, sceneRoot, physics, renderObjects);
         rootJ["gameObjects"] = gameObjectJ;
 
         ordered_json renderObjectsJ = ordered_json::object();
-        for (const std::pair renderObject : renderObjects) {
-            const uint64_t id = renderObject.first;
-            renderObjectsJ[std::to_string(id)] = RenderObjectEntry{
-                .filepath = renderObject.second->getFilePath().string(),
-            };
+        for (const auto key : renderObjects | std::views::keys) {
+            const uint32_t id = key;
+            renderObjectsJ[std::to_string(id)] = ordered_json::object();
         }
         rootJ["renderObjects"] = renderObjectsJ;
 
@@ -323,28 +326,63 @@ public: // GameObjects
         return nullptr;
     }
 
-    static GameObject* DeserializeScene(physics::Physics* physics, ResourceManager& resourceManager, const std::string& filepath)
+    static bool DeserializeScene(IHierarchical* root, ResourceManager& resourceManager, std::unordered_map<uint32_t, RenderObject*> renderObjectMap,
+                                 std::unordered_map<uint32_t, RenderObjectInfo> renderObjectInfoMap, const std::string& filepath)
     {
-        // Read JSON from file
         std::ifstream file(filepath);
-        ordered_json j;
-        file >> j;
-
-        return DeserializeGameObject(j, physics, resourceManager);
-    }
-
-private: // GameObjects
-    static std::unordered_map<uint32_t, RenderObjectEntry> ParseRenderObjects(const ordered_json& j)
-    {
-        std::unordered_map<uint32_t, RenderObjectEntry> result;
-
-        const auto& renderObjects = j["renderObjects"];
-        for (const auto& [idStr, entry] : renderObjects.items()) {
-            uint32_t id = std::stoul(idStr);
-            result[id] = entry.get<RenderObjectEntry>();
+        if (!file.is_open()) {
+            fmt::print("Failed to open scene file: {}\n", filepath);
+            return false;
         }
 
-        return result;
+        ordered_json rootJ;
+        try {
+            file >> rootJ;
+        } catch (const std::exception& e) {
+            fmt::print("Failed to parse scene file: {}\n", e.what());
+            return false;
+        }
+
+        if (!rootJ.contains("version")) {
+            fmt::print("Scene file missing version information\n");
+            return false;
+        }
+
+        const auto fileVersion = rootJ["version"].get<EngineVersion>();
+        if (fileVersion > EngineVersion::Current()) {
+            fmt::print("Scene file version {} is newer than current engine version {}\n", fileVersion.toString(), EngineVersion::Current().toString());
+            return false;
+        }
+
+        if (rootJ.contains("renderObjects")) {
+            const auto& renderObjectsJ = rootJ["renderObjects"];
+            for (const auto& [id, entry] : renderObjectsJ.items()) {
+                unsigned long long value = std::stoull(id);
+                if (value > std::numeric_limits<uint32_t>::max()) {
+                    fmt::print("ID {} is too large for uint32_t\n", id);
+                    continue;
+                }
+                uint32_t index = static_cast<uint32_t>(value);
+
+                if (renderObjectMap.contains(index)) {
+                    continue;
+                }
+
+                if (!renderObjectInfoMap.contains(index)) {
+                    fmt::print("WARNING: Attempted to deserialize render object but failed to find .willmodel file\n");
+                    continue;
+                }
+
+                RenderObjectInfo& renderObjectData = renderObjectInfoMap[index];
+
+
+                if (auto renderObject = new RenderObject(renderObjectData.gltfPath, resourceManager)) {
+                    renderObjectMap[index] = renderObject;
+                }
+            }
+        }
+
+        return true;
     }
 
 public: // Render Objects

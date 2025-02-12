@@ -183,7 +183,7 @@ void Engine::initGame()
 
     if (renderObjectInfoMap.contains(primitivesModelId)) {
         if (!renderObjectMap.contains(primitivesModelId)) {
-            renderObjectMap[primitivesModelId] = new RenderObject(renderObjectInfoMap[primitivesModelId].gltfPath, *resourceManager, primitivesModelId);
+            renderObjectMap[primitivesModelId] = new RenderObject(renderObjectInfoMap[primitivesModelId].gltfPath, *resourceManager);
         }
 
         RenderObject* cube = renderObjectMap[primitivesModelId];
@@ -198,7 +198,7 @@ void Engine::initGame()
     }
     if (renderObjectInfoMap.contains(sphereModelId)) {
         if (!renderObjectMap.contains(sphereModelId)) {
-            renderObjectMap[sphereModelId] = new RenderObject(renderObjectInfoMap[sphereModelId].gltfPath, *resourceManager, sphereModelId);
+            renderObjectMap[sphereModelId] = new RenderObject(renderObjectInfoMap[sphereModelId].gltfPath, *resourceManager);
         }
 
         RenderObject* sphere = renderObjectMap[sphereModelId];
