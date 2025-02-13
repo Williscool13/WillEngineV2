@@ -5,7 +5,6 @@
 #ifndef RENDER_REFERENCE_H
 #define RENDER_REFERENCE_H
 
-#include <vulkan/vulkan_core.h>
 #include <glm/glm.hpp>
 
 #include "src/core/identifier/identifiable.h"

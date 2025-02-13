@@ -8,7 +8,7 @@
 #include <string>
 #include <vector>
 
-#include <glm.hpp>
+#include <glm/glm.hpp>
 #include <vulkan/vulkan_core.h>
 
 #include "src/core/transform.h"

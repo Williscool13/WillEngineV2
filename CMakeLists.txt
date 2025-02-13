@@ -243,9 +243,7 @@ target_include_directories(WillEngine PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/shaderc                          # ShaderC
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2                             # SDL2
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/vma                              # VMA
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/Volk                             # volk
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/glm                              # glm
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/                              # VMA
 )
 
 target_link_libraries(WillEngine PRIVATE
@@ -258,4 +256,14 @@ target_link_libraries(WillEngine PRIVATE
         fastgltf
         nlohmann_json::nlohmann_json
         Jolt
+)
+
+set(SDL_DLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/SDL2.dll")
+set(SDLD_DLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/SDL2d.dll")
+
+add_custom_command(TARGET WillEngine POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${SDL_DLL_PATH} $<TARGET_FILE_DIR:WillEngine>
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${SDLD_DLL_PATH} $<TARGET_FILE_DIR:WillEngine>
 )

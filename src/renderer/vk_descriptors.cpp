@@ -4,7 +4,7 @@
 
 #include "vk_descriptors.h"
 
-#include <volk.h>
+#include <volk/volk.h>
 
 
 #include "vk_helpers.h"

@@ -4,10 +4,9 @@
 
 #include "deferred_resolve.h"
 
-#include "volk.h"
+#include "volk/volk.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/resource_manager.h"
-#include "src/renderer/vk_descriptors.h"
 
 will_engine::deferred_resolve::DeferredResolvePipeline::DeferredResolvePipeline(ResourceManager& resourceManager, VkDescriptorSetLayout environmentIBLLayout,
                                                                                 VkDescriptorSetLayout cascadeUniformLayout, VkDescriptorSetLayout cascadeSamplerlayout) : resourceManager(

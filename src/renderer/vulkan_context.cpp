@@ -7,7 +7,7 @@
 #include <SDL_vulkan.h>
 
 #include "VkBootstrap.h"
-#include "volk.h"
+#include "volk/volk.h"
 
 VulkanContext::VulkanContext(SDL_Window* window, bool useValidationLayers)
 {

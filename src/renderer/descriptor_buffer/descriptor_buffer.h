@@ -7,11 +7,9 @@
 #define VKDESCRIPTORBUFFER_H
 
 #include <unordered_set>
-#include <vector>
 
-#include <vk_mem_alloc.h>
+#include <vma/vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
-#include <fmt/format.h>
 
 #include "src/renderer/vk_types.h"
 
