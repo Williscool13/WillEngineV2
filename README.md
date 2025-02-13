@@ -79,14 +79,14 @@ You can verify this by checking what extensions your GPU supports at https://vul
 
 Unfortunately there isn't much that can be done if you get this error. 
 
-## mklink "You do not have sufficient privilege to perform this operation"
+### mklink "You do not have sufficient privilege to perform this operation"
 
 If `mklink` fails, ensure that:
 
 - You are running Command Prompt as an **Administrator**.
 - Your user account has the necessary permissions to create symlinks.
 
-## shaderc link errors
+### shaderc link errors
 
 - Use `git lfs pull` after cloning to ensure large files are correctly downloaded. Specifically shaderc_combinedd.lib and shaderc_combined.lib
 
