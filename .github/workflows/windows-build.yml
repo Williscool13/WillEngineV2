@@ -14,9 +14,17 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
           submodules: 'recursive'
+          lfs: true
+
+      - name: Install Git LFS
+        run: git lfs install
+
+      - name: Pull LFS files
+        run: git lfs pull
 
       - name: Set up Visual Studio shell
         uses: microsoft/setup-msbuild@v1.1
