@@ -8,7 +8,6 @@ on:
 
 env:
   BUILD_TYPE: Release
-  VULKAN_SDK_VERSION: 1.3.275.0  # Specify the exact version you want to use
 
 jobs:
   build:
@@ -23,27 +22,10 @@ jobs:
         uses: microsoft/setup-msbuild@v1.1
 
       - name: Install Vulkan SDK
-        shell: pwsh
-        run: |
-          $vulkanSdkVersion = "1.3.275.0"
-          $vulkanInstaller = "VulkanSDK-$vulkanSdkVersion-Installer.exe"
-          $installerUrl = "https://sdk.lunarg.com/sdk/download/$vulkanSdkVersion/windows/$vulkanInstaller"
-
-          Invoke-WebRequest -Uri $installerUrl -OutFile $vulkanInstaller
-
-          Start-Process -FilePath ".\$vulkanInstaller" -ArgumentList "--accept-licenses --default-answer --confirm-command install" -Wait
-
-          echo "VULKAN_SDK=C:\VulkanSDK\$vulkanSdkVersion" >> $env:GITHUB_ENV
-          echo "C:\VulkanSDK\$vulkanSdkVersion\Bin" >> $env:GITHUB_PATH
-
-          Remove-Item $vulkanInstaller
-
-      - name: Add Vulkan SDK to Path
-        shell: powershell
-        run: |
-          echo "VULKAN_SDK=$env:VULKAN_SDK" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo "$env:VULKAN_SDK\Lib" | Out-File -FilePath $env:GITHUB_PATH -Append
-          echo "$env:VULKAN_SDK\Bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+        uses: humbletim/install-vulkan-sdk@v1.1.1
+        with:
+          version: latest
+          cache: true
 
       - name: Configure CMake
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
