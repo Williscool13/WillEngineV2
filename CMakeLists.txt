@@ -15,37 +15,37 @@ add_definitions(-DJPH_ENABLE_ASSERT_MESSAGES=1)
 # Vulkan
 find_package(Vulkan REQUIRED)
 
-if (DEFINED ENV{CI})
-    message(STATUS "Building in CI environment - using vcpkg")
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(LIB_SUFFIX "d")
+else()
+    set(LIB_SUFFIX "")
+endif()
 
-    # Core dependencies
+if(DEFINED ENV{CI})
+    message(STATUS "Building in CI environment - using vcpkg for selected dependencies")
+
+    # Use vcpkg only for these libraries
     find_package(SDL2 CONFIG REQUIRED)
     find_package(glm CONFIG REQUIRED)
     find_package(volk CONFIG REQUIRED)
 
-    # SPIR-V and shader compilation dependencies
-    find_package(glslang CONFIG REQUIRED)
-    find_package(shaderc CONFIG REQUIRED)
-    find_package(SPIRV-Tools CONFIG REQUIRED)
-    find_package(SPIRV-Headers CONFIG REQUIRED)
-
-    # Store the libraries for linking later
+    # Store vcpkg libraries
     set(SDL2_LIBRARIES SDL2::SDL2 SDL2::SDL2main)
     set(GLM_LIBRARIES glm::glm)
     set(VOLK_LIBRARIES volk::volk)
-    set(SHADERC_LIBRARIES shaderc::shaderc)
-    set(SPIRV_LIBRARIES SPIRV-Tools-static)
 
-else ()
+    # Use Vulkan SDK for shader compilation libraries
+    find_library(SHADERC_LIB
+            NAMES shaderc_combined${LIB_SUFFIX}
+            PATHS $ENV{VULKAN_SDK}/Lib
+            REQUIRED
+    )
+    set(SHADERC_LIBRARIES ${SHADERC_LIB})
+
+else()
     message(STATUS "Building in local environment - using Vulkan SDK paths")
 
     set(VULKAN_PATH $ENV{VULKAN_SDK})
-
-    if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-        set(LIB_SUFFIX "d")
-    else ()
-        set(LIB_SUFFIX "")
-    endif ()
 
     # Find precompiled libraries from Vulkan SDK
     find_library(SDL2MAIN_LIB
@@ -76,8 +76,7 @@ else ()
     set(SDL2_LIBRARIES ${SDL2MAIN_LIB} ${SDL2_LIB})
     set(SHADERC_LIBRARIES ${SHADERC_LIB})
     set(VOLK_LIBRARIES ${VOLK_LIB})
-    # GLM is header-only, no library needed
-endif ()
+endif()
 
 # Jolt Physics
 set(PHYSICS_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics")
