@@ -8,7 +8,7 @@ on:
 
 env:
   BUILD_TYPE: Release
-  VULKAN_SDK_VERSION: 1.3.275.0  # Specify the exact version you want to use
+  CI: true
 
 jobs:
   build:
@@ -25,18 +25,30 @@ jobs:
       - name: Install Vulkan SDK
         uses: humbletim/install-vulkan-sdk@v1.1.1
         with:
-          version: ${{env.VULKAN_SDK_VERSION}}
+          version: latest
           cache: true
 
-      - name: Add Vulkan SDK to Path
-        shell: powershell
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitCommitId: 8eb57355a4ffb410a2e94c07b4dca2dffbee8e50
+
+      - name: Install dependencies
         run: |
-          echo "VULKAN_SDK=$env:VULKAN_SDK" | Out-File -FilePath $env:GITHUB_ENV -Append
-          echo "$env:VULKAN_SDK\Lib" | Out-File -FilePath $env:GITHUB_PATH -Append
-          echo "$env:VULKAN_SDK\Bin" | Out-File -FilePath $env:GITHUB_PATH -Append
+          vcpkg install sdl2:x64-windows
+          vcpkg install glm:x64-windows
+          vcpkg install volk:x64-windows
+          vcpkg install glslang:x64-windows
+          vcpkg install shaderc:x64-windows
+          vcpkg install spirv-tools:x64-windows
+          vcpkg install spirv-headers:x64-windows
+
+      - name: Verify installations
+        run: |
+          vcpkg list
 
       - name: Configure CMake
-        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
+        run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_TOOLCHAIN_FILE=${{github.workspace}}/vcpkg/scripts/buildsystems/vcpkg.cmake
 
       - name: Build
         run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
