@@ -15,74 +15,63 @@ add_definitions(-DJPH_ENABLE_ASSERT_MESSAGES=1)
 # Vulkan
 find_package(Vulkan REQUIRED)
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-    set(LIB_SUFFIX "d")
-else()
-    set(LIB_SUFFIX "")
-endif()
+set(VULKAN_PATH $ENV{VULKAN_SDK})
 
-if(DEFINED ENV{CI})
-    message(STATUS "Building in CI environment - using vcpkg for selected dependencies")
-
-    # Use vcpkg only for these libraries
-    find_package(SDL2 CONFIG REQUIRED)
-    find_package(glm CONFIG REQUIRED)
-    find_package(volk CONFIG REQUIRED)
-
-    # Store vcpkg libraries
-    set(SDL2_LIBRARIES SDL2::SDL2 SDL2::SDL2main)
-    set(GLM_LIBRARIES glm::glm)
-    set(VOLK_LIBRARIES volk::volk)
-
-    # Use Vulkan SDK for shader compilation libraries
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     find_library(SHADERC_LIB
-            NAMES shaderc_combined${LIB_SUFFIX}
+            NAMES shaderc_combinedd
             PATHS $ENV{VULKAN_SDK}/Lib
             REQUIRED
     )
-    set(SHADERC_LIBRARIES ${SHADERC_LIB})
 
-else()
-    message(STATUS "Building in local environment - using Vulkan SDK paths")
-
-    set(VULKAN_PATH $ENV{VULKAN_SDK})
-
-    # Find precompiled libraries from Vulkan SDK
     find_library(SDL2MAIN_LIB
-            NAMES SDL2main${LIB_SUFFIX}
-            PATHS ${VULKAN_PATH}/Lib
+            NAMES SDL2maind
+            PATHS $ENV{VULKAN_SDK}/Lib
             REQUIRED
     )
 
     find_library(SDL2_LIB
-            NAMES SDL2${LIB_SUFFIX}
-            PATHS ${VULKAN_PATH}/Lib
+            NAMES SDL2d
+            PATHS $ENV{VULKAN_SDK}/Lib
             REQUIRED
     )
 
     find_library(VOLK_LIB
-            NAMES volk${LIB_SUFFIX}
-            PATHS ${VULKAN_PATH}/Lib
+            NAMES volkd
+            PATHS $ENV{VULKAN_SDK}/Lib
             REQUIRED
     )
-
+else ()
     find_library(SHADERC_LIB
-            NAMES shaderc_combined${LIB_SUFFIX}
-            PATHS ${VULKAN_PATH}/Lib
+            NAMES shaderc_combined
+            PATHS $ENV{VULKAN_SDK}/Lib
             REQUIRED
     )
 
-    # Store the libraries for linking later
-    set(SDL2_LIBRARIES ${SDL2MAIN_LIB} ${SDL2_LIB})
-    set(SHADERC_LIBRARIES ${SHADERC_LIB})
-    set(VOLK_LIBRARIES ${VOLK_LIB})
-endif()
+    find_library(SDL2MAIN_LIB
+            NAMES SDL2main
+            PATHS $ENV{VULKAN_SDK}/Lib
+            REQUIRED
+    )
+
+    find_library(SDL2_LIB
+            NAMES SDL2
+            PATHS $ENV{VULKAN_SDK}/Lib
+            REQUIRED
+    )
+    find_library(VOLK_LIB
+            NAMES volk
+            PATHS $ENV{VULKAN_SDK}/Lib
+            REQUIRED
+    )
+endif ()
 
 # Jolt Physics
 set(PHYSICS_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics")
 
 # Nlohmann JSON
 set(JSON_BuildTests OFF CACHE INTERNAL "")
+
 
 
 add_subdirectory(extern/vk-bootstrap)
@@ -265,40 +254,27 @@ add_executable(WillEngine main.cpp
         ${WINDOWS_SOURCES}
 )
 
-# Include directories based on environment
-if (DEFINED ENV{CI})
-    target_include_directories(WillEngine PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}/extern/stb
-            ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/include
-            ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/deps/simdjson
-            ${CMAKE_CURRENT_SOURCE_DIR}/extern/ImGuiFileDialog
-            ${IMGUI_DIR}
-            ${IMGUI_DIR}/backends
-            ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
-    )
-else ()
-    target_include_directories(WillEngine PRIVATE
-            ${CMAKE_CURRENT_SOURCE_DIR}/extern/stb
-            ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/include
-            ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/deps/simdjson
-            ${CMAKE_CURRENT_SOURCE_DIR}/extern/ImGuiFileDialog
-            ${IMGUI_DIR}
-            ${IMGUI_DIR}/backends
-            ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
-            ${VULKAN_PATH}/Include/shaderc
-            ${VULKAN_PATH}/Include/SDL2
-            ${VULKAN_PATH}/Include/vma
-            ${VULKAN_PATH}/Include/Volk
-            ${VULKAN_PATH}/Include/glm
-    )
-endif ()
+target_include_directories(WillEngine PRIVATE
+        ${Vulkan_INCLUDE_DIRS}                                              # Vulkan
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/stb                              # STBI
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/include                 # fastgltf
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/deps/simdjson           # simdjson
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/ImGuiFileDialog                  # ImGuiFileDialog
+        ${IMGUI_DIR}                                                        # ImGui
+        ${IMGUI_DIR}/backends                                               # ImGui backends
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
+        ${VULKAN_PATH}/Include/shaderc                                    # ShaderC
+        ${VULKAN_PATH}/Include/SDL2                                       # SDL2
+        ${VULKAN_PATH}/Include/vma                                        # VMA
+        ${VULKAN_PATH}/Include/Volk                                       # volk
+        ${VULKAN_PATH}/Include/glm                                        # glm
+)
 
 target_link_libraries(WillEngine PRIVATE
-        ${SDL2_LIBRARIES}
-        ${SHADERC_LIBRARIES}
-        ${VOLK_LIBRARIES}
-        ${GLM_LIBRARIES}
-        ${SPIRV_LIBRARIES}
+        ${SDL2MAIN_LIB}
+        ${SDL2_LIB}
+        ${SHADERC_LIB}
+        ${VOLK_LIB}
         fmt::fmt
         vk-bootstrap::vk-bootstrap
         fastgltf
