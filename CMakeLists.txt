@@ -15,63 +15,41 @@ add_definitions(-DJPH_ENABLE_ASSERT_MESSAGES=1)
 # Vulkan
 find_package(Vulkan REQUIRED)
 
-set(VULKAN_PATH $ENV{VULKAN_SDK})
-
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
-    find_library(SHADERC_LIB
-            NAMES shaderc_combinedd
-            PATHS $ENV{VULKAN_SDK}/Lib
-            REQUIRED
-    )
-
-    find_library(SDL2MAIN_LIB
-            NAMES SDL2maind
-            PATHS $ENV{VULKAN_SDK}/Lib
-            REQUIRED
-    )
-
-    find_library(SDL2_LIB
-            NAMES SDL2d
-            PATHS $ENV{VULKAN_SDK}/Lib
-            REQUIRED
-    )
-
-    find_library(VOLK_LIB
-            NAMES volkd
-            PATHS $ENV{VULKAN_SDK}/Lib
-            REQUIRED
-    )
+    set(LIB_SUFFIX "d")
 else ()
-    find_library(SHADERC_LIB
-            NAMES shaderc_combined
-            PATHS $ENV{VULKAN_SDK}/Lib
-            REQUIRED
-    )
-
-    find_library(SDL2MAIN_LIB
-            NAMES SDL2main
-            PATHS $ENV{VULKAN_SDK}/Lib
-            REQUIRED
-    )
-
-    find_library(SDL2_LIB
-            NAMES SDL2
-            PATHS $ENV{VULKAN_SDK}/Lib
-            REQUIRED
-    )
-    find_library(VOLK_LIB
-            NAMES volk
-            PATHS $ENV{VULKAN_SDK}/Lib
-            REQUIRED
-    )
+    set(LIB_SUFFIX "")
 endif ()
+
+find_library(SHADERC_LIBRARIES
+        NAMES shaderc_combined${LIB_SUFFIX}
+        PATHS ${CMAKE_CURRENT_SOURCE_DIR}/lib
+        REQUIRED
+)
+
+find_library(SDL2MAIN_LIBRARIES
+        NAMES SDL2main${LIB_SUFFIX}
+        PATHS ${CMAKE_CURRENT_SOURCE_DIR}/lib
+        REQUIRED
+)
+
+find_library(SDL2_LIBRARIES
+        NAMES SDL2${LIB_SUFFIX}
+        PATHS ${CMAKE_CURRENT_SOURCE_DIR}/lib
+        REQUIRED
+)
+
+find_library(VOLK_LIBRARIES
+        NAMES volk${LIB_SUFFIX}
+        PATHS ${CMAKE_CURRENT_SOURCE_DIR}/lib
+        REQUIRED
+)
 
 # Jolt Physics
 set(PHYSICS_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics")
 
 # Nlohmann JSON
 set(JSON_BuildTests OFF CACHE INTERNAL "")
-
 
 
 add_subdirectory(extern/vk-bootstrap)
@@ -263,18 +241,18 @@ target_include_directories(WillEngine PRIVATE
         ${IMGUI_DIR}                                                        # ImGui
         ${IMGUI_DIR}/backends                                               # ImGui backends
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
-        ${VULKAN_PATH}/Include/shaderc                                    # ShaderC
-        ${VULKAN_PATH}/Include/SDL2                                       # SDL2
-        ${VULKAN_PATH}/Include/vma                                        # VMA
-        ${VULKAN_PATH}/Include/Volk                                       # volk
-        ${VULKAN_PATH}/Include/glm                                        # glm
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/shaderc                          # ShaderC
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2                             # SDL2
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/vma                              # VMA
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/Volk                             # volk
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/glm                              # glm
 )
 
 target_link_libraries(WillEngine PRIVATE
-        ${SDL2MAIN_LIB}
-        ${SDL2_LIB}
-        ${SHADERC_LIB}
-        ${VOLK_LIB}
+        ${SDL2MAIN_LIBRARIES}
+        ${SDL2_LIBRARIES}
+        ${VOLK_LIBRARIES}
+        ${SHADERC_LIBRARIES}
         fmt::fmt
         vk-bootstrap::vk-bootstrap
         fastgltf
