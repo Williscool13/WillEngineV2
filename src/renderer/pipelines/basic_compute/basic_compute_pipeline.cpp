@@ -4,7 +4,7 @@
 
 #include "basic_compute_pipeline.h"
 
-#include <volk.h>
+#include <volk/volk.h>
 
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/vk_descriptors.h"

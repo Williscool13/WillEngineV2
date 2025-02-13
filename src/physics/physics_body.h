@@ -5,7 +5,7 @@
 #ifndef PHYSICS_BODY_H
 #define PHYSICS_BODY_H
 
-#include <glm.hpp>
+#include <glm/glm.hpp>
 
 #include <Jolt/Jolt.h>
 #include <Jolt/Physics/Body/BodyID.h>

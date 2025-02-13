@@ -4,7 +4,7 @@
 
 #include "temporal_antialiasing_pipeline.h"
 
-#include "volk.h"
+#include "volk/volk.h"
 #include "src/renderer/renderer_constants.h"
 
 will_engine::temporal_antialiasing_pipeline::TemporalAntialiasingPipeline::TemporalAntialiasingPipeline(ResourceManager& resourceManager)

@@ -5,10 +5,10 @@
 #ifndef TRANSFORM_H
 #define TRANSFORM_H
 
-#include <glm.hpp>
-#include <detail/type_quat.hpp>
-#include <gtc/quaternion.hpp>
-#include <gtx/quaternion.hpp>
+#include <glm/glm.hpp>
+#include <glm/detail/type_quat.hpp>
+#include <glm/gtc/quaternion.hpp>
+#include <glm/gtx/quaternion.hpp>
 
 namespace will_engine
 {

@@ -4,7 +4,7 @@
 
 #include "descriptor_buffer_sampler.h"
 
-#include "volk.h"
+#include "volk/volk.h"
 #include "src/renderer/vk_helpers.h"
 #include "src/renderer/vulkan_context.h"
 
