@@ -6,7 +6,8 @@
 
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
-#include <extern/ImGuiFileDialog/ImGuiFileDialog.h>
+#define IMGUI_INCLUDE "imgui/imgui.h"
+#include <ImGuiFileDialog/ImGuiFileDialog.h>
 
 #include "environment/environment.h"
 #include "lighting/shadows/cascaded_shadow_map.h"
