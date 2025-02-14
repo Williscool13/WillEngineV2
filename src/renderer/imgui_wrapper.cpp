@@ -6,7 +6,6 @@
 
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
-#define IMGUI_INCLUDE "imgui/imgui.h"
 #include <ImGuiFileDialog/ImGuiFileDialog.h>
 
 #include "environment/environment.h"
@@ -51,7 +50,7 @@ ImguiWrapper::ImguiWrapper(const VulkanContext& context, const ImguiWrapperInfo&
 
     VkInstance instance = context.instance;
     // Need to LoadFunction when using VOLK/using VK_NO_PROTOTYPES
-    ImGui_ImplVulkan_LoadFunctions([](const char* function_name, void* vulkan_instance) {
+    ImGui_ImplVulkan_LoadFunctions(VK_API_VERSION_1_3, [](const char* function_name, void* vulkan_instance) {
         return vkGetInstanceProcAddr(*(static_cast<VkInstance*>(vulkan_instance)), function_name);
     }, &instance);
 
