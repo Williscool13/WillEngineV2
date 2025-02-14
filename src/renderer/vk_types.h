@@ -5,7 +5,8 @@
 #ifndef VKTYPES_H
 #define VKTYPES_H
 
-#include <vk_mem_alloc.h>
+#include <vector>
+#include <vma/vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
 #include <glm/glm.hpp>
 

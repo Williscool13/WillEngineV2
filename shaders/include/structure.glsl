@@ -4,6 +4,7 @@ struct Model
 {
     mat4 currentModelMatrix;
     mat4 previousModelMatrix;
+    vec4 flags; // x: enabled, xyz: reserved for future use
 };
 
 struct Material

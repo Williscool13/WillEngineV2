@@ -18,7 +18,7 @@ struct DeferredMrtDrawInfo
     bool bClearColor{true};
     int32_t currentFrameOverlap{0};
     glm::vec2 viewportExtents{RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
-    std::vector<RenderObject*> renderObjects{};
+    const std::unordered_map<uint32_t, RenderObject*>& renderObjects{};
     VkImageView normalTarget{VK_NULL_HANDLE};
     VkImageView albedoTarget{VK_NULL_HANDLE};
     VkImageView pbrTarget{VK_NULL_HANDLE};

@@ -15,7 +15,15 @@ class IRenderable
 public:
     virtual ~IRenderable() = default;
 
-    virtual void setRenderObjectReference(IRenderReference* owner, int32_t index) = 0;
+    virtual void setRenderObjectReference(IRenderReference* owner, int32_t instanceIndex, int32_t meshIndex) = 0;
+
+    [[nodiscard]] virtual uint32_t getRenderReferenceIndex() const = 0;
+
+    [[nodiscard]] virtual int32_t getMeshIndex() const = 0;
+
+    [[nodiscard]] virtual bool& isVisible() = 0;
+
+    [[nodiscard]] virtual bool& isCastingShadows() = 0;
 };
 }
 #endif //RENDERABLE_H

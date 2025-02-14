@@ -4,13 +4,15 @@
 
 #ifndef VKHELPERS_H
 #define VKHELPERS_H
+#include <functional>
+
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vk_enum_string_helper.h>
-#include <glm/glm.hpp>
+
 #include <fmt/format.h>
+#include <glm/glm.hpp>
 
 #include "vk_types.h"
-#include "fastgltf/types.hpp"
 
 
 class ImmediateSubmitter;
@@ -89,10 +91,6 @@ VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo();
 
 VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shaderModule,
                                                               const char* entry = "main");
-
-VkFilter extractFilter(fastgltf::Filter filter);
-
-VkSamplerMipmapMode extractMipmapMode(fastgltf::Filter filter);
 
 void saveImageRGBA32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
                       const char* savePath, bool overrideAlpha = true);

@@ -6,14 +6,25 @@
 
 #include <thread>
 
-#include <VkBootstrap.h>
+#include <vk-bootstrap/VkBootstrap.h>
+
+#include <Jolt/Jolt.h>
+#include <Jolt/Physics/Body/MotionType.h>
+#include <Jolt/Physics/Collision/Shape/BoxShape.h>
+
+#include "identifier/identifier_manager.h"
+#include "src/physics/physics_filters.h"
 
 #include "camera/free_camera.h"
 #include "game_object/game_object.h"
 #include "Jolt/Physics/Collision/Shape/BoxShape.h"
+#include "scene/scene.h"
+#include "scene/scene_serializer.h"
 #include "src/core/input.h"
 #include "src/core/time.h"
 #include "src/physics/physics.h"
+#include "src/physics/physics_constants.h"
+#include "src/physics/physics_utils.h"
 #include "src/renderer/immediate_submitter.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/render_object/render_object.h"
@@ -23,9 +34,10 @@
 #include "src/renderer/pipelines/deferred_mrt/deferred_mrt.h"
 #include "src/renderer/pipelines/deferred_resolve/deferred_resolve.h"
 #include "src/renderer/pipelines/environment/environment_pipeline.h"
-#include "src/renderer/pipelines/frustum_cull/frustum_cull_pipeline.h"
+#include "src/renderer/pipelines/visibility_pass/visibility_pass.h"
 #include "src/renderer/pipelines/post_process/post_process_pipeline.h"
 #include "src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h"
+#include "src/util/file.h"
 #include "src/util/halton.h"
 
 #ifdef NDEBUG
@@ -84,6 +96,8 @@ void Engine::init()
 
     immediate = new ImmediateSubmitter(*context);
     resourceManager = new ResourceManager(*context, *immediate);
+    identifierManager = new identifier::IdentifierManager();
+    identifier::IdentifierManager::Set(identifierManager);
     physics = new physics::Physics();
     physics::Physics::Set(physics);
     environmentMap = new environment::Environment(*resourceManager, *immediate);
@@ -118,7 +132,7 @@ void Engine::initRenderer()
     sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = debugSceneDataBuffer, .allocSize = sizeof(SceneData)};
     sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData, FRAME_OVERLAP);
 
-    frustumCullPipeline = new frustum_cull_pipeline::FrustumCullPipeline(*resourceManager);
+    visibilityPassPipeline = new visibility_pass::VisibilityPassPipeline(*resourceManager);
     environmentPipeline = new environment_pipeline::EnvironmentPipeline(*resourceManager, environmentMap->getCubemapDescriptorSetLayout());
     deferredMrtPipeline = new deferred_mrt::DeferredMrtPipeline(*resourceManager);
     deferredResolvePipeline = new deferred_resolve::DeferredResolvePipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
@@ -158,43 +172,44 @@ void Engine::initRenderer()
 
 void Engine::initGame()
 {
-    scene = new Scene();
-    cube = new RenderObject{"assets/models/cube.gltf", *resourceManager};
-    primitives = new RenderObject{"assets/models/primitives/primitives.gltf", *resourceManager};
-    sponza = new RenderObject{"assets/models/sponza2/Sponza.gltf", *resourceManager};
-    mySphere = new RenderObject{"assets/models/mySphere.glb", *resourceManager};
-    //checkeredFloor = new RenderObject("assets/models/checkered_floor.glb", *resourceManager);
+    const auto sceneRoot = new GameObject();
+    scene = new Scene(sceneRoot);
 
+    file::scanForModels(renderObjectInfoMap);
 
-    gameObjects.reserve(10);
+    constexpr uint32_t cubeModelId{3653645572};
+    constexpr uint32_t primitivesModelId{786709467};
+    constexpr uint32_t sphereModelId{2720080846};
 
-    GameObject* sponzaObject = sponza->generateGameObject("SPONZA");
-    sponzaObject->translate({30.0f, 0, -30.0f});
-    gameObjects.push_back(sponzaObject);
+    if (renderObjectInfoMap.contains(primitivesModelId)) {
+        if (!renderObjectMap.contains(primitivesModelId)) {
+            renderObjectMap[primitivesModelId] = new RenderObject(renderObjectInfoMap[primitivesModelId].gltfPath, *resourceManager, primitivesModelId);
+        }
 
-    const auto floor = new GameObject("FLOOR");
-    primitives->attachToGameObject(floor, 0);
-    //checkeredFloor->attachToGameObject(floor, 0);
-    floor->setGlobalScale({20.0f, 0.5f, 20.0f});
-    floor->translate({0.0f, -2.0f, 0.0f});
-    const auto floorShape = new JPH::BoxShape(JPH::Vec3(20.0f, 1.0f, 20.0f));
-    floor->setupRigidbody(floorShape);
+        RenderObject* cube = renderObjectMap[primitivesModelId];
+        const auto floor = new GameObject("FLOOR");
+        cube->generateMesh(floor, 0);
+        floor->setGlobalScale({20.0f, 1.0f, 20.0f});
+        floor->translate({0.0f, -2.0f, 0.0f});
+        physics->setupRigidBody(floor, JPH::EShapeSubType::Box, {20.0f, 1.0f, 20.0f}, JPH::EMotionType::Kinematic, physics::Layers::NON_MOVING);
 
-    gameObjects.push_back(floor);
+        scene->addGameObject(floor);
+    }
+    if (renderObjectInfoMap.contains(sphereModelId)) {
+        if (!renderObjectMap.contains(sphereModelId)) {
+            renderObjectMap[sphereModelId] = new RenderObject(renderObjectInfoMap[sphereModelId].gltfPath, *resourceManager, sphereModelId);
+        }
 
+        RenderObject* sphere = renderObjectMap[sphereModelId];
+        const auto sphereGameObject = new GameObject("SPHERE");
+        sphere->generateMesh(sphereGameObject, 0);
+        sphereGameObject->setGlobalPosition({0, 5.0f, 0});
+        physics->setupRigidBody(sphereGameObject, JPH::EShapeSubType::Sphere , physics::UNIT_SPHERE, JPH::EMotionType::Dynamic, physics::Layers::PLAYER);
 
-    const auto sphere = new GameObject("SPHERE");
-    //primitives->attachToGameObject(sphere, 3);
-    mySphere->attachToGameObject(sphere, 0);
-    sphere->setGlobalPosition({0, 5.0f, 0});
-    sphere->setupRigidbody(physics->getUnitSphereShape(), JPH::EMotionType::Dynamic, physics::Layers::PLAYER);
-    gameObjects.push_back(sphere);
+        scene->addGameObject(sphereGameObject);
+    }
 
     camera = new FreeCamera();
-
-    for (const auto gameObject : gameObjects) {
-        scene->addGameObject(gameObject);
-    }
 }
 
 void Engine::run()
@@ -277,19 +292,14 @@ void Engine::updateGame(const float deltaTime) const
         if (camera) {
             const glm::vec3 direction = camera->transform.getForward();
             //const physics::PlayerCollisionFilter dontHitPlayerFilter{};
-            const physics::RaycastHit result = physics::physics_utils::raycast(camera->getPosition(), direction, 100.0f, {}, {}, {});
+            const physics::RaycastHit result = physics::PhysicsUtils::raycast(camera->getPosition(), direction, 100.0f, {}, {}, {});
 
             if (result.hasHit) {
-                physics::physics_utils::addImpulseAtPosition(result.hitBodyID, normalize(direction) * 100.0f, result.hitPosition);
+                physics::PhysicsUtils::addImpulseAtPosition(result.hitBodyID, normalize(direction) * 100.0f, result.hitPosition);
             } else {
                 fmt::print("Failed to find an object with the raycast\n");
             }
         }
-    }
-
-    if (input.isKeyPressed(SDLK_p)) {
-        gameObjects[2]->setGlobalPosition({0.0f, 5.0f, 0.0f});
-        fmt::print("Resetting sphere to (0,5,0)");
     }
 }
 
@@ -373,21 +383,32 @@ void Engine::draw(float deltaTime)
     int32_t currentFrameOverlap = getCurrentFrameOverlap();
     int32_t previousFrameOverlap = getPreviousFrameOverlap();
 
-    scene->update(currentFrameOverlap, previousFrameOverlap);
-    updateRender(deltaTime, currentFrameOverlap, previousFrameOverlap);
-    cascadedShadowMap->update(mainLight, camera, currentFrameOverlap);
-    std::vector renderObjects{cube, primitives, sponza, mySphere}; //, checkeredFloor};
+    // delete all gameobjects queued up for deletion by imgui/scene graph
+    for (IHierarchical* hierarchical : hierarchicalDeletionQueue) { delete hierarchical; }
+    hierarchicalDeletionQueue.clear();
 
-    frustum_cull_pipeline::FrustumCullDrawInfo csmFrustumCullDrawInfo{
+    // Update Render Object references
+    for (RenderObject* val : renderObjectMap | std::views::values) {
+        val->update(currentFrameOverlap, previousFrameOverlap);
+    }
+    // Updates scene objects (Model Matrices/Visibility Switches)
+    scene->update(currentFrameOverlap, previousFrameOverlap);
+    // Updates Scene Data buffer
+    updateRender(deltaTime, currentFrameOverlap, previousFrameOverlap);
+    // Updates Cascaded Shadow Map Properties
+    cascadedShadowMap->update(mainLight, camera, currentFrameOverlap);
+
+    visibility_pass::VisibilityPassDrawInfo csmFrustumCullDrawInfo{
         currentFrameOverlap,
-        renderObjects,
+        renderObjectMap,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
-        false
+        false,
+        true,
     };
-    frustumCullPipeline->draw(cmd, csmFrustumCullDrawInfo);
+    visibilityPassPipeline->draw(cmd, csmFrustumCullDrawInfo);
 
-    cascadedShadowMap->draw(cmd, renderObjects, currentFrameOverlap);
+    cascadedShadowMap->draw(cmd, renderObjectMap, currentFrameOverlap);
 
     vk_helpers::clearColorImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -407,19 +428,21 @@ void Engine::draw(float deltaTime)
     vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    frustum_cull_pipeline::FrustumCullDrawInfo deferredFrustumCullDrawInfo{
-        currentFrameOverlap, renderObjects,
+    visibility_pass::VisibilityPassDrawInfo deferredFrustumCullDrawInfo{
+        currentFrameOverlap,
+        renderObjectMap,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
-        true
+        true,
+        false
     };
-    frustumCullPipeline->draw(cmd, deferredFrustumCullDrawInfo);
+    visibilityPassPipeline->draw(cmd, deferredFrustumCullDrawInfo);
 
     const deferred_mrt::DeferredMrtDrawInfo deferredMrtDrawInfo{
         true,
         currentFrameOverlap,
         {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT},
-        renderObjects,
+        renderObjectMap,
         normalRenderTarget.imageView,
         albedoRenderTarget.imageView,
         pbrRenderTarget.imageView,
@@ -435,7 +458,7 @@ void Engine::draw(float deltaTime)
             false,
             currentFrameOverlap,
             {RENDER_EXTENT_WIDTH / 3.0f, RENDER_EXTENT_HEIGHT / 3.0f},
-            renderObjects,
+            renderObjectMap,
             normalRenderTarget.imageView,
             albedoRenderTarget.imageView,
             pbrRenderTarget.imageView,
@@ -550,12 +573,7 @@ void Engine::cleanup()
 
     vkDeviceWaitIdle(context->device);
 
-    delete cube;
-    delete primitives;
-    delete sponza;
-    delete mySphere;
-
-    delete frustumCullPipeline;
+    delete visibilityPassPipeline;
     delete environmentPipeline;
     delete deferredMrtPipeline;
     delete deferredResolvePipeline;
@@ -591,11 +609,18 @@ void Engine::cleanup()
     resourceManager->destroyImage(postProcessOutputBuffer);
 
     delete scene;
+
+    for (const std::pair<uint32_t, RenderObject*> renderObject : renderObjectMap) {
+        delete renderObject.second;
+    }
+    renderObjectMap.clear();
+
     delete cascadedShadowMap;
     delete environmentMap;
     delete physics;
     delete immediate;
     delete resourceManager;
+    delete identifierManager;
 
     vkDestroySwapchainKHR(context->device, swapchain, nullptr);
     for (VkImageView swapchainImageView : swapchainImageViews) {
@@ -787,7 +812,7 @@ void Engine::createDrawResources()
 void Engine::hotReloadShaders() const
 {
     vkDeviceWaitIdle(context->device);
-    frustumCullPipeline->reloadShaders();
+    visibilityPassPipeline->reloadShaders();
     environmentPipeline->reloadShaders();
     deferredMrtPipeline->reloadShaders();
     deferredResolvePipeline->reloadShaders();

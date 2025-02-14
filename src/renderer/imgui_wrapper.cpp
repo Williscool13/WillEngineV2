@@ -6,15 +6,16 @@
 
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_vulkan.h>
+#include <ImGuiFileDialog/ImGuiFileDialog.h>
 
-#include "vk_helpers.h"
-#include "volk.h"
 #include "environment/environment.h"
 #include "lighting/shadows/cascaded_shadow_map.h"
 #include "lighting/shadows/shadows.h"
 #include "src/core/engine.h"
-#include "src/core/input.h"
 #include "src/core/time.h"
+#include "src/core/game_object/renderable.h"
+#include "src/core/scene/scene.h"
+#include "src/core/scene/scene_serializer.h"
 #include "src/util/file.h"
 
 namespace will_engine
@@ -49,7 +50,7 @@ ImguiWrapper::ImguiWrapper(const VulkanContext& context, const ImguiWrapperInfo&
 
     VkInstance instance = context.instance;
     // Need to LoadFunction when using VOLK/using VK_NO_PROTOTYPES
-    ImGui_ImplVulkan_LoadFunctions([](const char* function_name, void* vulkan_instance) {
+    ImGui_ImplVulkan_LoadFunctions(VK_API_VERSION_1_3, [](const char* function_name, void* vulkan_instance) {
         return vkGetInstanceProcAddr(*(static_cast<VkInstance*>(vulkan_instance)), function_name);
     }, &instance);
 
@@ -308,11 +309,392 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     }
     ImGui::End();
 
-    if (engine->scene) {
-        engine->scene->imguiSceneGraph();
+    if (ImGui::Begin("Scene")) {
+        if (ImGui::BeginTabBar("SceneTabs")) {
+            if (ImGui::BeginTabItem("Model Generator")) {
+                static std::filesystem::path gltfPath;
+                static std::filesystem::path willmodelPath;
+
+                ImGui::Text("GLTF Source: %s", gltfPath.empty() ? "None selected" : gltfPath.string().c_str());
+
+                if (ImGui::Button("Select GLTF File")) {
+                    IGFD::FileDialogConfig config;
+                    config.path = "./assets/models";
+                    IGFD::FileDialog::Instance()->OpenDialog(
+                        "ChooseGLTFDlg",
+                        "Choose GLTF File",
+                        ".gltf,.glb",
+                        config);
+                }
+
+                ImGui::Text("Output Path: %s", willmodelPath.empty() ? "None selected" : willmodelPath.string().c_str());
+
+                if (ImGui::Button("Select Output Path")) {
+                    IGFD::FileDialogConfig config;
+                    config.path = "./assets/willmodels";
+                    config.fileName = willmodelPath.filename().string();
+                    IGFD::FileDialog::Instance()->OpenDialog(
+                        "SaveWillmodelDlg",
+                        "Save Willmodel",
+                        ".willmodel",
+                        config);
+                }
+
+                if (IGFD::FileDialog::Instance()->Display("ChooseGLTFDlg")) {
+                    if (IGFD::FileDialog::Instance()->IsOk()) {
+                        gltfPath = IGFD::FileDialog::Instance()->GetFilePathName();
+                        gltfPath = file::getRelativePath(gltfPath);
+
+                        willmodelPath = std::filesystem::current_path() / "assets" / "willmodels" / gltfPath.filename().string();
+                        willmodelPath = file::getRelativePath(willmodelPath);
+                        willmodelPath.replace_extension(".willmodel");
+                    }
+                    IGFD::FileDialog::Instance()->Close();
+                }
+
+                if (IGFD::FileDialog::Instance()->Display("SaveWillmodelDlg")) {
+                    if (IGFD::FileDialog::Instance()->IsOk()) {
+                        willmodelPath = IGFD::FileDialog::Instance()->GetFilePathName();
+                        willmodelPath = file::getRelativePath(willmodelPath);
+                    }
+                    IGFD::FileDialog::Instance()->Close();
+                }
+
+                if (!gltfPath.empty() && !willmodelPath.empty()) {
+                    if (ImGui::Button("Compile Model")) {
+                        if (Serializer::generateWillModel(gltfPath, willmodelPath)) {
+                            ImGui::OpenPopup("Success");
+                        } else {
+                            ImGui::OpenPopup("Error");
+                        }
+                    }
+                }
+
+                // Success/Error popups
+                if (ImGui::BeginPopupModal("Success", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                    ImGui::Text("Model compiled successfully!");
+                    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+                    ImGui::EndPopup();
+                }
+                if (ImGui::BeginPopupModal("Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                    ImGui::Text("Failed to compile model!");
+                    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+                    ImGui::EndPopup();
+                }
+
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem("Render Objects")) {
+                const float width = ImGui::GetContentRegionAvail().x;
+                if (ImGui::Button("Scan for .willmodel", ImVec2(width, 0))) {
+                    file::scanForModels(engine->renderObjectInfoMap);
+                }
+
+                static uint32_t selectedObjectId = 0;
+                for (const auto& [id, info] : engine->renderObjectInfoMap) {
+                    ImGui::PushID(id);
+
+                    bool isLoaded = engine->renderObjectMap.contains(id) && engine->renderObjectMap[id] != nullptr;
+                    bool checked = isLoaded;
+                    bool disabled = false;
+                    if (isLoaded && engine->renderObjectMap[id]->canDraw()) {
+                        disabled = true;
+                        ImGui::BeginDisabled(true);
+                    }
+
+                    ImGui::Checkbox("##loaded", &checked);
+                    if (checked && !isLoaded) {
+                        engine->renderObjectMap[id] = new RenderObject(info.gltfPath, *engine->resourceManager, id);
+                    }
+
+                    if (!checked && isLoaded)
+                    {
+                        assert(!engine->renderObjectMap[id]->canDraw());
+                        assert(engine->renderObjectMap.contains(id));
+                        delete engine->renderObjectMap[id];
+                        engine->renderObjectMap.erase(id);
+                    }
+                    if (disabled) {
+                        ImGui::EndDisabled();
+                    }
+
+                    ImGui::SameLine();
+                    ImGui::Text("%s", info.name.c_str());
+
+                    ImGui::SameLine();
+                    if (ImGui::Button("Details##btn")) {
+                        selectedObjectId = info.id;
+                        ImGui::OpenPopup("Render Object Detail");
+                    }
+
+                    if (ImGui::BeginPopupModal("Render Object Detail", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                        ImGui::Text("Name: %s", info.name.c_str());
+                        ImGui::Text("Path: %s", file::getRelativePath(info.gltfPath).string().c_str());
+                        ImGui::Text("ID: %u", info.id);
+                        ImGui::Separator();
+
+
+                        if (auto it = engine->renderObjectMap.find(selectedObjectId); it != engine->renderObjectMap.end() && it->second != nullptr) {
+                            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.75f, 0.75f, 0.75f, 1.0f));
+                            static char objectName[256] = "";
+                            ImGui::InputText("Object Name", objectName, sizeof(objectName));
+                            ImGui::PopStyleColor();
+                            if (ImGui::BeginTabBar("GameObject Generation")) {
+                                if (ImGui::BeginTabItem("Full Model")) {
+                                    if (ImGui::Button("Generate Full Object")) {
+                                        GameObject* gob = it->second->generateGameObject(std::string(objectName));
+                                        engine->scene->addGameObject(gob);
+                                        fmt::print("Added whole gltf model to the scene\n");
+                                    }
+                                    ImGui::EndTabItem();
+                                }
+
+                                if (ImGui::BeginTabItem("Single Mesh")) {
+                                    RenderObject* renderObj = it->second;
+                                    for (size_t i = 0; i < renderObj->getMeshCount(); i++) {
+                                        ImGui::PushID(static_cast<int>(i));
+                                        if (ImGui::Button("Add to Scene")) {
+                                            auto gob = new GameObject(std::string(objectName));
+                                            renderObj->generateMesh(gob, i);
+                                            engine->scene->addGameObject(gob);
+                                            fmt::print("Added single mesh to scene\n");
+                                        }
+                                        ImGui::SameLine();
+                                        ImGui::Text("Mesh %zu", i);
+                                        ImGui::PopID();
+                                    }
+                                    ImGui::EndTabItem();
+                                }
+
+                                ImGui::EndTabBar();
+                            }
+                        } else {
+                            ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "Load render object to see available meshes");
+                        }
+
+                        if (ImGui::Button("Close")) ImGui::CloseCurrentPopup();
+                        ImGui::EndPopup();
+                    }
+
+                    ImGui::PopID();
+                }
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem("Serialization")) {
+                static std::filesystem::path serializationPath = {"../assets/scenes/sampleScene.willmap"};
+
+                const float width = ImGui::GetContentRegionAvail().x;
+                ImGui::Text("Output Path: %s", serializationPath.empty() ? "None selected" : serializationPath.string().c_str());
+                if (ImGui::Button("Select Output Path")) {
+                    IGFD::FileDialogConfig config;
+                    config.path = "./assets/scenes/";
+                    config.fileName = serializationPath.filename().string();
+                    IGFD::FileDialog::Instance()->OpenDialog(
+                        "WillmapDlg",
+                        "Save Willmap",
+                        ".willmap",
+                        config);
+                }
+
+                if (IGFD::FileDialog::Instance()->Display("WillmapDlg")) {
+                    if (IGFD::FileDialog::Instance()->IsOk()) {
+                        serializationPath = IGFD::FileDialog::Instance()->GetFilePathName();
+                        serializationPath = file::getRelativePath(serializationPath);
+                    }
+
+                    IGFD::FileDialog::Instance()->Close();
+                }
+                if (ImGui::Button("Serialize Scene", ImVec2(width, 40))) {
+                    if (Serializer::serializeScene(engine->scene->getRoot(), engine->renderObjectMap, serializationPath.string())) {
+                        ImGui::OpenPopup("SerializeSuccess");
+                    } else {
+                        ImGui::OpenPopup("SerializeError");
+                    }
+                }
+
+                if (ImGui::Button("Deserialize Scene", ImVec2(width, 40))) {
+                    file::scanForModels(engine->renderObjectInfoMap);
+                    if (Serializer::deserializeScene(engine->scene->getRoot(), *engine->resourceManager, engine->renderObjectMap, engine->renderObjectInfoMap, serializationPath.string())) {
+                        ImGui::OpenPopup("SerializeSuccess");
+                    } else {
+                        ImGui::OpenPopup("SerializeError");
+                    }
+                }
+
+                // Success/Error popups
+                if (ImGui::BeginPopupModal("SerializeSuccess", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                    ImGui::Text("Scene Serialization Success!");
+                    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+                    ImGui::EndPopup();
+                }
+                if (ImGui::BeginPopupModal("SerializeError", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                    ImGui::Text("Scene Serialization Failed!");
+                    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+                    ImGui::EndPopup();
+                }
+
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem("Physics")) {
+                ImGui::EndTabItem();
+            }
+
+
+            ImGui::EndTabBar();
+        }
+    }
+    ImGui::End();
+
+    if (engine->scene != nullptr) {
+        drawSceneGraph(engine, engine->scene);
     }
 
+
     ImGui::Render();
+}
+
+void ImguiWrapper::drawSceneGraph(Engine* engine, const Scene* scene)
+{
+    const auto sceneRoot = scene->getRoot();
+    if (ImGui::Begin("Scene Graph")) {
+        if (sceneRoot != nullptr && !sceneRoot->getChildren().empty()) {
+            for (IHierarchical* child : sceneRoot->getChildren()) {
+                displayGameObject(engine, scene, child, 0);
+            }
+        } else {
+            ImGui::Text("Scene is empty");
+        }
+    }
+    ImGui::End();
+}
+
+void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierarchical* obj, const int32_t depth) // NOLINT(*-no-recursion)
+{
+    const int32_t indentLength = ImGui::GetFontSize();
+    constexpr float treeNodeWidth = 150.0f;
+
+    ImGui::PushID(obj);
+    ImGui::Indent(static_cast<float>(depth * indentLength));
+
+    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_DefaultOpen;;
+    if (obj->getChildren().empty()) { flags |= ImGuiTreeNodeFlags_Leaf; }
+
+    ImGui::SetNextItemWidth(treeNodeWidth);
+    if (auto* renderable = dynamic_cast<IRenderable*>(obj)) {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
+        if (ImGui::Button("X")) {
+            engine->hierarchicalDeletionQueue.push_back(obj);
+        }
+        ImGui::PopStyleColor(1);
+        ImGui::SameLine();
+        ImGui::PushStyleColor(ImGuiCol_Text, renderable->isVisible() ? ImVec4(0, 1, 0, 1) : ImVec4(1, 0, 0, 1));
+        ImGui::Button("V");
+        ImGui::PopStyleColor(2);
+        if (ImGui::IsItemClicked()) {
+            renderable->isVisible() = !renderable->isVisible();
+            obj->dirty();
+        }
+    } else {
+        ImGui::Text("  ");
+    }
+
+    ImGui::SameLine();
+    if (const auto* physBody = dynamic_cast<IPhysicsBody*>(obj)) {
+        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 1.0f, 1.0f));
+        if (ImGui::Button("P")) {
+            ImGui::OpenPopup("MotionTypePopup");
+        }
+        ImGui::PopStyleColor(2);
+
+        if (ImGui::BeginPopup("MotionTypePopup")) {
+            auto physics = physics::Physics::Get();
+            JPH::EMotionType currentType = physics->getMotionType(physBody);
+
+            if (ImGui::MenuItem("Static", nullptr, currentType == JPH::EMotionType::Static)) {
+                physics->setMotionType(physBody, JPH::EMotionType::Static, JPH::EActivation::DontActivate);
+            }
+            if (ImGui::MenuItem("Kinematic", nullptr, currentType == JPH::EMotionType::Kinematic)) {
+                physics->setMotionType(physBody, JPH::EMotionType::Kinematic, JPH::EActivation::DontActivate);
+            }
+            if (ImGui::MenuItem("Dynamic", nullptr, currentType == JPH::EMotionType::Dynamic)) {
+                physics->setMotionType(physBody, JPH::EMotionType::Dynamic, JPH::EActivation::Activate);
+            }
+
+            ImGui::EndPopup();
+        }
+    } else {
+        ImGui::Text(" ");
+    }
+
+
+    ImGui::SameLine();
+    const std::string_view name = obj->getName();
+    const float availableWidth = ImGui::GetContentRegionAvail().x;
+    const int maxNameLength = static_cast<int>(availableWidth / ImGui::GetFontSize());
+    const int indentedLength = maxNameLength - depth * indentLength / ImGui::GetFontSize();
+
+
+    const std::string formattedName = indentedLength < 0
+                                          ? ""
+                                          : name.length() > indentedLength
+                                                ? fmt::format("{:.{}s}...", name, std::max(0, indentedLength - 3))
+                                                : fmt::format("{:<{}}", name, indentedLength);
+    const bool isOpen = ImGui::TreeNodeEx("##TreeNode", flags, "%s", formattedName.c_str());
+
+    ImGui::SameLine();
+    ImGui::BeginGroup();
+
+    if (const IHierarchical* parent = obj->getParent()) {
+        constexpr float spacing = 5.0f;
+        constexpr float arrowWidth = 20.0f;
+        constexpr float buttonWidth = 60.0f;
+        constexpr float totalWidth = spacing + buttonWidth + spacing + buttonWidth + spacing + arrowWidth + spacing + arrowWidth;
+        const std::vector<IHierarchical*>& parentChildren = obj->getParent()->getChildren();
+
+        ImGui::BeginDisabled(parent == scene->getRoot());
+        if (ImGui::Button("Undent", ImVec2(buttonWidth, 0))) {
+            Scene::undent(obj);
+        }
+        ImGui::EndDisabled();
+
+        ImGui::SameLine(0, spacing);
+        ImGui::BeginDisabled(parent != obj->getParent() || parentChildren[0] == obj);
+        if (ImGui::Button("Indent", ImVec2(buttonWidth, 0))) {
+            Scene::indent(obj);
+        }
+        ImGui::EndDisabled();
+
+        ImGui::SameLine(0, spacing);
+        ImGui::BeginDisabled(parent != obj->getParent() || parentChildren[0] == obj);
+        if (ImGui::ArrowButton("##Up", ImGuiDir_Up)) {
+            Scene::moveObject(obj, -1);
+        }
+        ImGui::EndDisabled();
+
+        ImGui::SameLine(0, spacing);
+        ImGui::BeginDisabled(parent != obj->getParent() || parentChildren[parentChildren.size() - 1] == obj);
+        if (ImGui::ArrowButton("##Down", ImGuiDir_Down)) {
+            Scene::moveObject(obj, 1);
+        }
+        ImGui::EndDisabled();
+    }
+
+    ImGui::EndGroup();
+
+    if (isOpen) {
+        for (IHierarchical* child : obj->getChildren()) {
+            displayGameObject(engine, scene, child, depth + 1);
+        }
+        ImGui::TreePop();
+    }
+
+    ImGui::Unindent(static_cast<float>(depth * indentLength));
+    ImGui::PopID();
 }
 
 void ImguiWrapper::drawImgui(VkCommandBuffer cmd, const VkImageView targetImageView, const VkExtent2D swapchainExtent)

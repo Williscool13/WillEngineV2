@@ -1,3 +1,4 @@
 #include "resources.h"
 
-IDI_ICON1 ICON "assets/icons/WillEngine.ico"
+IDI_ICON1     ICON "assets/icons/WillEngine.ico"
+IDI_WILLMODEL ICON "assets/icons/WillModel.ico"

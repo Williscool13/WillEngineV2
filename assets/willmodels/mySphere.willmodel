@@ -1,0 +1,8 @@
+{
+    "renderObject": {
+        "gltfPath": "..\\assets\\models\\mySphere.glb",
+        "id": 2720080846,
+        "name": "mySphere"
+    },
+    "version": 1
+}

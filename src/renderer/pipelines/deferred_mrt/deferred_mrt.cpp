@@ -4,7 +4,9 @@
 
 #include "deferred_mrt.h"
 
-#include "volk.h"
+#include <ranges>
+
+#include "volk/volk.h"
 
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/resource_manager.h"
@@ -90,7 +92,8 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
 
     constexpr VkDeviceSize zeroOffset{0};
 
-    for (const RenderObject* renderObject : drawInfo.renderObjects) {
+    for (RenderObject* val : drawInfo.renderObjects | std::views::values) {
+        const RenderObject* renderObject = val;
         if (!renderObject->canDraw()) { continue; }
 
         constexpr uint32_t sceneDataIndex{0};
@@ -112,7 +115,7 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
 
         vkCmdBindVertexBuffers(cmd, 0, 1, &renderObject->getVertexBuffer().buffer, &zeroOffset);
         vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexedIndirect(cmd, renderObject->getIndirectBuffer().buffer, 0, renderObject->getDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
+        vkCmdDrawIndexedIndirect(cmd, renderObject->getIndirectBuffer(drawInfo.currentFrameOverlap).buffer, 0, renderObject->getDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
     }
 
     vkCmdEndRendering(cmd);

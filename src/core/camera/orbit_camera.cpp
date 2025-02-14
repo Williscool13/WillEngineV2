@@ -4,6 +4,8 @@
 
 #include "orbit_camera.h"
 
+#include <glm/glm.hpp>
+
 #include "src/core/input.h"
 
 
