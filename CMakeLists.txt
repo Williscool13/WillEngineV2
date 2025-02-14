@@ -39,27 +39,12 @@ find_library(SDL2_LIBRARIES
         REQUIRED
 )
 
-find_library(VOLK_LIBRARIES
-        NAMES volk${LIB_SUFFIX}
-        PATHS ${CMAKE_CURRENT_SOURCE_DIR}/lib
-        REQUIRED
-)
-
-# Jolt Physics
-set(PHYSICS_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics")
-
-# Nlohmann JSON
-set(JSON_BuildTests OFF CACHE INTERNAL "")
-
-
-add_subdirectory(extern/vk-bootstrap)
 add_subdirectory(extern/fmt)
 add_subdirectory(extern/fastgltf)
 add_subdirectory(extern/fastgltf/deps) # simdjson
-add_subdirectory(extern/json)
 
-set(BUILD_SHARED_LIBS ON)
-add_definitions(-DJPH_SHARED_LIBRARY)
+# Jolt Physics
+set(PHYSICS_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics")
 include(extern/JoltPhysics/Jolt/Jolt.cmake)
 set(CMAKE_CXX_STANDARD 20) # Jolt sets it to 17
 
@@ -68,7 +53,6 @@ include_directories(${CMAKE_SOURCE_DIR})
 set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/imgui)
 set(IMGUI_SOURCES
         ${IMGUI_DIR}/imgui.cpp
-        #${IMGUI_DIR}/imgui_demo.cpp
         ${IMGUI_DIR}/imgui_draw.cpp
         ${IMGUI_DIR}/imgui_tables.cpp
         ${IMGUI_DIR}/imgui_widgets.cpp
@@ -89,6 +73,15 @@ set(HALF_SOURCES
         ${HALF_DIR}/half/dummy.cpp
         ${HALF_DIR}/half/half.hpp
 )
+
+set(VK_BOOTSTRAP_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/vk-bootstrap/VkBootstrap.cpp
+)
+
+set(VOLK_SOURCES
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/volk/volk.c
+)
+
 
 set(ENGINE_SOURCES
         src/core/engine.cpp
@@ -223,6 +216,8 @@ add_executable(WillEngine main.cpp
         ${IMGUI_SOURCES}
         ${FASTGLTF_SOURCES}
         ${HALF_SOURCES}
+        ${VK_BOOTSTRAP_SOURCES}
+        ${VOLK_SOURCES}
         ${ENGINE_SOURCES}
         ${PHYSICS_SOURCES}
         ${RENDERER_SOURCES}
@@ -235,12 +230,10 @@ target_include_directories(WillEngine PRIVATE
         ${Vulkan_INCLUDE_DIRS}                                              # Vulkan
         ${IMGUI_DIR}                                                        # ImGui
         ${IMGUI_DIR}/backends                                               # ImGui backends
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/ImGuiFileDialog                  # ImGuiFileDialog
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/shaderc                          # ShaderC
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2                             # SDL2
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/stb                              # STBI
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/include                 # fastgltf
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/deps/simdjson           # simdjson
 
@@ -252,9 +245,7 @@ target_link_libraries(WillEngine PRIVATE
         ${VOLK_LIBRARIES}
         ${SHADERC_LIBRARIES}
         fmt::fmt
-        vk-bootstrap::vk-bootstrap
         fastgltf
-        nlohmann_json::nlohmann_json
         Jolt
 )
 
