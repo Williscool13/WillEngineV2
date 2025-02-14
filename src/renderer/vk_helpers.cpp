@@ -6,8 +6,8 @@
 
 #include <filesystem>
 #include <fstream>
-#include <stb_image.h>
-#include <stb_image_write.h>
+#include <stb/stb_image.h>
+#include <stb/stb_image_write.h>
 #include "volk/volk.h"
 #include "extern/half/half/half.hpp"
 

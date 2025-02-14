@@ -5,7 +5,7 @@
 #ifndef SCENE_SERIALIZER_H
 #define SCENE_SERIALIZER_H
 
-#include <nlohmann/json.hpp>
+#include <json/json.hpp>
 
 
 #include "src/core/transform.h"
