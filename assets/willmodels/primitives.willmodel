@@ -1,0 +1,8 @@
+{
+    "renderObject": {
+        "gltfPath": "..\\assets\\models\\primitives\\primitives.gltf",
+        "id": 786709467,
+        "name": "primitives"
+    },
+    "version": 1
+}

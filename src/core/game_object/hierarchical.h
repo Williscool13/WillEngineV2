@@ -26,7 +26,7 @@ public:
      */
     virtual void dirty() = 0;
 
-    virtual void recursiveUpdate(const int32_t currentFrameOverlap, const int32_t previousFrameOverlap) = 0;
+    virtual void recursiveUpdate(int32_t currentFrameOverlap, int32_t previousFrameOverlap) = 0;
 
     virtual void setParent(IHierarchical* newParent) = 0;
 

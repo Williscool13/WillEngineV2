@@ -4,12 +4,13 @@
 
 #ifndef ENGINE_H
 #define ENGINE_H
-#include <SDL_video.h>
+#include <SDL2/SDL_video.h>
+#include <unordered_map>
 #include <vulkan/vulkan_core.h>
 #include <glm/glm.hpp>
 
 #include "engine_types.h"
-#include "scene.h"
+#include "scene/scene_serializer.h"
 #include "src/renderer/imgui_wrapper.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/vk_types.h"
@@ -23,6 +24,13 @@ class VulkanContext;
 
 namespace will_engine
 {
+namespace identifier
+{
+    class IdentifierManager;
+}
+
+class Scene;
+
 namespace post_process_pipeline
 {
     class PostProcessPipeline;
@@ -38,9 +46,9 @@ namespace deferred_mrt
     class DeferredMrtPipeline;
 }
 
-namespace frustum_cull_pipeline
+namespace visibility_pass
 {
-    class FrustumCullPipeline;
+    class VisibilityPassPipeline;
 }
 
 class FreeCamera;
@@ -106,6 +114,7 @@ private:
     VulkanContext* context{nullptr};
     ImmediateSubmitter* immediate = nullptr;
     ResourceManager* resourceManager = nullptr;
+    identifier::IdentifierManager* identifierManager = nullptr;
     physics::Physics* physics = nullptr;
     environment::Environment* environmentMap{nullptr};
     cascaded_shadows::CascadedShadowMap* cascadedShadowMap{nullptr};
@@ -143,16 +152,13 @@ private: // Scene Data
 
     Scene* scene{nullptr};
 
-    RenderObject* cube{nullptr};
-    RenderObject* primitives{nullptr};
-    RenderObject* sponza{nullptr};
-    RenderObject* mySphere{nullptr};
-    //RenderObject* checkeredFloor{nullptr};
+    std::unordered_map<uint32_t, RenderObject*> renderObjectMap;
+    std::unordered_map<uint32_t, RenderObjectInfo> renderObjectInfoMap;
 
-    std::vector<GameObject*> gameObjects{};
+    std::vector<IHierarchical*> hierarchicalDeletionQueue{};
 
 private: // Pipelines
-    frustum_cull_pipeline::FrustumCullPipeline* frustumCullPipeline{nullptr};
+    visibility_pass::VisibilityPassPipeline* visibilityPassPipeline{nullptr};
     environment_pipeline::EnvironmentPipeline* environmentPipeline{nullptr};
     deferred_mrt::DeferredMrtPipeline* deferredMrtPipeline{nullptr};
     deferred_resolve::DeferredResolvePipeline* deferredResolvePipeline{nullptr};
@@ -193,8 +199,8 @@ private: // Draw Resources
 private: // Swapchain
     VkSwapchainKHR swapchain{};
     VkFormat swapchainImageFormat{};
-    std::vector<VkImage> swapchainImages;
-    std::vector<VkImageView> swapchainImageViews;
+    std::vector<VkImage> swapchainImages{};
+    std::vector<VkImageView> swapchainImageViews{};
     VkExtent2D swapchainExtent{};
 
     void createSwapchain(uint32_t width, uint32_t height);
@@ -203,6 +209,7 @@ private: // Swapchain
 
 public:
     friend void ImguiWrapper::imguiInterface(Engine* engine);
+    friend class ImguiWrapper;
 };
 }
 

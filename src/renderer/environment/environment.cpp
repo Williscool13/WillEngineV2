@@ -4,7 +4,7 @@
 
 #include "environment.h"
 
-#include <stb_image.h>
+#include <stb/stb_image.h>
 #include <vulkan/vulkan_core.h>
 
 #include "environment_constants.h"

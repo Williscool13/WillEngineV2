@@ -4,24 +4,18 @@
 
 #include "game_object.h"
 
-#include <Jolt/Physics/Body/BodyCreationSettings.h>
-
 #include "glm/gtc/quaternion.hpp"
-#include "src/renderer/render_object/render_object.h"
+#include "src/core/identifier/identifier_manager.h"
+#include "src/physics/physics.h"
+#include "src/physics/physics_utils.h"
 
 namespace will_engine
 {
-uint32_t GameObject::nextId = 0;
-
-GameObject::GameObject() : gameObjectId(nextId++)
+GameObject::GameObject(std::string gameObjectName, const uint64_t gameObjectId)
 {
-    gameObjectName = "GameObject_" + std::to_string(gameObjectId);
-}
-
-GameObject::GameObject(std::string gameObjectName) : gameObjectId(nextId++)
-{
-    if (gameObjectName == "") {
-        this->gameObjectName = "GameObject_" + std::to_string(gameObjectId);
+    GameObject::setId(identifier::IdentifierManager::Get()->registerIdentifier(gameObjectId));
+    if (gameObjectName.empty()) {
+        this->gameObjectName = "GameObject_" + std::to_string(GameObject::getId());
     } else {
         this->gameObjectName = std::move(gameObjectName);
     }
@@ -29,17 +23,26 @@ GameObject::GameObject(std::string gameObjectName) : gameObjectId(nextId++)
 
 GameObject::~GameObject()
 {
-    for (const IHierarchical* child : children) {
-        delete child;
+    for (int32_t i = children.size() - 1; i >= 0; --i) {
+        delete children[i];
     }
 
-    parent = nullptr;
+    if (parent) {
+        parent->removeChild(this);
+        parent = nullptr;
+    }
+
     children.clear();
 
-    if (!bodyId.IsInvalid()) {
+    if (pRenderReference) {
+        pRenderReference->releaseInstanceIndex(instanceIndex);
+        pRenderReference = nullptr;
+    }
+
+    if (bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
         if (physics::Physics* physics = physics::Physics::Get()) {
             physics->removeRigidBody(this);
-            bodyId = JPH::BodyID(JPH::BodyID::cInvalidBodyID);
+            bodyId = JPH::BodyID(JPH::BodyID::cMaxBodyIndex);
         }
     }
 }
@@ -105,7 +108,7 @@ void GameObject::dirty()
 void GameObject::recursiveUpdate(const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
 {
     if (pRenderReference && framesToUpdate > 0) {
-        pRenderReference->updateInstanceData(instanceIndex, getModelMatrix(), currentFrameOverlap, previousFrameOverlap);
+        pRenderReference->updateInstanceData(instanceIndex, {getModelMatrix(), bIsVisible, bCastsShadows}, currentFrameOverlap, previousFrameOverlap);
         framesToUpdate--;
         return;
     }
@@ -157,9 +160,8 @@ void GameObject::setLocalPosition(const glm::vec3 localPosition)
 {
     transform.setPosition(localPosition);
     dirty();
-    if (!bodyId.IsInvalid()) {
-        physics::Physics::Get()->getBodyInterface().SetPosition(bodyId, physics::physics_utils::ToJolt(getGlobalPosition()), JPH::EActivation::Activate);
-        physics::Physics::Get()->getBodyInterface().SetRotation(bodyId, physics::physics_utils::ToJolt(getGlobalRotation()), JPH::EActivation::Activate);
+    if (bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
+        physics::Physics::Get()->setPositionAndRotation(bodyId, getGlobalPosition(), getGlobalRotation());
     }
 }
 
@@ -167,9 +169,8 @@ void GameObject::setLocalRotation(const glm::quat localRotation)
 {
     transform.setRotation(localRotation);
     dirty();
-    if (!bodyId.IsInvalid()) {
-        physics::Physics::Get()->getBodyInterface().SetPosition(bodyId, physics::physics_utils::ToJolt(getGlobalPosition()), JPH::EActivation::Activate);
-        physics::Physics::Get()->getBodyInterface().SetRotation(bodyId, physics::physics_utils::ToJolt(getGlobalRotation()), JPH::EActivation::Activate);
+    if (bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
+        physics::Physics::Get()->setPositionAndRotation(bodyId, getGlobalPosition(), getGlobalRotation());
     }
 }
 
@@ -177,9 +178,8 @@ void GameObject::setLocalScale(const glm::vec3 localScale)
 {
     transform.setScale(localScale);
     dirty();
-    if (!bodyId.IsInvalid()) {
-        physics::Physics::Get()->getBodyInterface().SetPosition(bodyId, physics::physics_utils::ToJolt(getGlobalPosition()), JPH::EActivation::Activate);
-        physics::Physics::Get()->getBodyInterface().SetRotation(bodyId, physics::physics_utils::ToJolt(getGlobalRotation()), JPH::EActivation::Activate);
+    if (bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
+        physics::Physics::Get()->setPositionAndRotation(bodyId, getGlobalPosition(), getGlobalRotation());
     }
 }
 
@@ -192,9 +192,8 @@ void GameObject::setLocalTransform(const Transform& newLocalTransform)
 {
     transform = newLocalTransform;
     dirty();
-    if (!bodyId.IsInvalid()) {
-        physics::Physics::Get()->getBodyInterface().SetPosition(bodyId, physics::physics_utils::ToJolt(getGlobalPosition()), JPH::EActivation::Activate);
-        physics::Physics::Get()->getBodyInterface().SetRotation(bodyId, physics::physics_utils::ToJolt(getGlobalRotation()), JPH::EActivation::Activate);
+    if (bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
+        physics::Physics::Get()->setPositionAndRotation(bodyId, getGlobalPosition(), getGlobalRotation());
     }
 }
 
@@ -257,9 +256,8 @@ void GameObject::setGlobalTransform(const Transform& newGlobalTransform)
     }
 
     dirty();
-    if (!bodyId.IsInvalid()) {
-        physics::Physics::Get()->getBodyInterface().SetPosition(bodyId, physics::physics_utils::ToJolt(getGlobalPosition()), JPH::EActivation::Activate);
-        physics::Physics::Get()->getBodyInterface().SetRotation(bodyId, physics::physics_utils::ToJolt(getGlobalRotation()), JPH::EActivation::Activate);
+    if (bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
+        physics::Physics::Get()->setPositionAndRotation(bodyId, getGlobalPosition(), getGlobalRotation());
     }
 }
 
@@ -267,9 +265,8 @@ void GameObject::translate(const glm::vec3 translation)
 {
     transform.translate(translation);
     dirty();
-    if (!bodyId.IsInvalid()) {
-        physics::Physics::Get()->getBodyInterface().SetPosition(bodyId, physics::physics_utils::ToJolt(getGlobalPosition()), JPH::EActivation::Activate);
-        physics::Physics::Get()->getBodyInterface().SetRotation(bodyId, physics::physics_utils::ToJolt(getGlobalRotation()), JPH::EActivation::Activate);
+    if (bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
+        physics::Physics::Get()->setPositionAndRotation(bodyId, getGlobalPosition(), getGlobalRotation());
     }
 }
 
@@ -277,9 +274,8 @@ void GameObject::rotate(const glm::quat rotation)
 {
     transform.rotate(rotation);
     dirty();
-    if (!bodyId.IsInvalid()) {
-        physics::Physics::Get()->getBodyInterface().SetPosition(bodyId, physics::physics_utils::ToJolt(getGlobalPosition()), JPH::EActivation::Activate);
-        physics::Physics::Get()->getBodyInterface().SetRotation(bodyId, physics::physics_utils::ToJolt(getGlobalRotation()), JPH::EActivation::Activate);
+    if (bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
+        physics::Physics::Get()->setPositionAndRotation(bodyId, getGlobalPosition(), getGlobalRotation());
     }
 }
 
@@ -287,9 +283,8 @@ void GameObject::rotateAxis(const float angle, const glm::vec3& axis)
 {
     transform.rotateAxis(angle, axis);
     dirty();
-    if (!bodyId.IsInvalid()) {
-        physics::Physics::Get()->getBodyInterface().SetPosition(bodyId, physics::physics_utils::ToJolt(getGlobalPosition()), JPH::EActivation::Activate);
-        physics::Physics::Get()->getBodyInterface().SetRotation(bodyId, physics::physics_utils::ToJolt(getGlobalRotation()), JPH::EActivation::Activate);
+    if (bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
+        physics::Physics::Get()->setPositionAndRotation(bodyId, getGlobalPosition(), getGlobalRotation());
     }
 }
 
@@ -305,18 +300,5 @@ void GameObject::setGlobalTransformFromPhysics(const glm::vec3& position, const 
         transform.setRotation(rotation);
     }
     dirty();
-}
-
-void GameObject::setupRigidbody(const JPH::ShapeRefC& shape, const JPH::EMotionType motionType, const JPH::ObjectLayer layer)
-{
-    const JPH::BodyCreationSettings settings{
-        shape,
-        physics::physics_utils::ToJolt(getGlobalPosition()),
-        physics::physics_utils::ToJolt(getGlobalRotation()),
-        motionType,
-        layer
-    };
-    const auto physics = physics::Physics::Get();
-    bodyId = physics->addRigidBody(this, settings);
 }
 }

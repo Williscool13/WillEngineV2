@@ -6,6 +6,7 @@
 #define GAME_OBJECT_H
 
 #include <string>
+#include <extern/half/half/half.hpp>
 
 #include <glm/glm.hpp>
 
@@ -13,32 +14,34 @@
 #include "renderable.h"
 #include "transformable.h"
 #include "src/core/transform.h"
+#include "src/physics/physics_body.h"
+#include "src/physics/physics_constants.h"
+#include "src/physics/physics_utils.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/render_object/render_reference.h"
-#include "src/physics/physics.h"
-#include "src/physics/physics_filters.h"
-#include "src/physics/physics_utils.h"
+#include "src/util/math_constants.h"
 
 namespace will_engine
 {
+class Engine;
 class RenderObject;
 
-class GameObject : public IPhysicsBody, public IRenderable, public ITransformable, public IHierarchical
+class GameObject : public IPhysicsBody, public IRenderable, public ITransformable, public IHierarchical, public IIdentifiable
 {
 public:
-    GameObject();
-
-    explicit GameObject(std::string gameObjectName);
+    explicit GameObject(std::string gameObjectName = "", uint64_t gameObjectId = INDEX64_NONE);
 
     ~GameObject() override;
 
     virtual void update(float deltaTime) {}
 
-    uint32_t getId() const { return gameObjectId; }
+public: // IIdentifiable
+    void setId(const uint64_t identifier) override { gameObjectId = identifier; }
 
-private:
-    static uint32_t nextId;
-    uint32_t gameObjectId{};
+    uint64_t getId() const override { return gameObjectId; }
+
+private: // IIdentifiable
+    uint64_t gameObjectId{};
 
 public: // IHierarchical
     bool addChild(IHierarchical* child) override;
@@ -130,35 +133,45 @@ protected: // Transform
     int32_t framesToUpdate{FRAME_OVERLAP + 1};
 
 public: // IRenderable
-    void setRenderObjectReference(IRenderReference* owner, const int32_t index) override
+    void setRenderObjectReference(IRenderReference* owner, const int32_t instanceIndex, const int32_t meshIndex) override
     {
         pRenderReference = owner;
-        instanceIndex = index;
+        this->instanceIndex = instanceIndex;
         framesToUpdate = FRAME_OVERLAP + 1;
+        this->meshIndex = meshIndex;
     }
+
+    uint32_t getRenderReferenceIndex() const override { return pRenderReference ? pRenderReference->getId() : INDEX_NONE; }
+
+    int32_t getMeshIndex() const override { return meshIndex; }
+
+    [[nodiscard]] bool& isVisible() override { return bIsVisible; }
+
+    [[nodiscard]] bool& isCastingShadows() override { return bCastsShadows; }
 
 protected: // IRenderable
     /**
       * If true, the model matrix will never be updated from defaults.
       */
     bool bIsStatic{false};
+    bool bIsVisible{true};
+    bool bCastsShadows{false};
     /**
      * The render object that is responsible for drawing this gameobject's model
      */
     IRenderReference* pRenderReference{nullptr};
-    int32_t instanceIndex{-1};
+    int32_t instanceIndex{INDEX_NONE};
+    int32_t meshIndex{INDEX_NONE};
 
-public: // Physics
+public: // IPhysicsBody
     void setGlobalTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) override;
 
-    void setBodyId(const JPH::BodyID bodyId) override { this->bodyId = bodyId; }
+    void setPhysicsBodyId(const JPH::BodyID bodyId) override { this->bodyId = bodyId; }
 
-    JPH::BodyID getBodyId() const override { return bodyId; }
+    JPH::BodyID getPhysicsBodyId() const override { return bodyId; }
 
-    void setupRigidbody(const JPH::ShapeRefC& shape, const JPH::EMotionType motionType = JPH::EMotionType::Static, const JPH::ObjectLayer layer = physics::Layers::NON_MOVING);
-
-protected: // Physics
-    JPH::BodyID bodyId{JPH::BodyID::cInvalidBodyID};
+protected: // IPhysicsBody
+    JPH::BodyID bodyId{JPH::BodyID::cMaxBodyIndex};
 
 public:
     bool operator==(const GameObject& other) const

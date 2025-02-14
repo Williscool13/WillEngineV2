@@ -4,7 +4,9 @@
 
 #include "cascaded_shadow_map.h"
 
-#include "volk.h"
+#include <ranges>
+
+#include "volk/volk.h"
 #include "src/core/camera/camera.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/render_object/render_object_types.h"
@@ -192,7 +194,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::update(const DirectionalL
     data->directionalLightData = mainLight.getData();
 }
 
-void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects, const int32_t currentFrameOverlap)
+void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd, const std::unordered_map<uint32_t, RenderObject*>& renderObjects, const int32_t currentFrameOverlap)
 {
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
@@ -245,7 +247,8 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 
         constexpr VkDeviceSize zeroOffset{0};
 
-        for (const RenderObject* renderObject : renderObjects) {
+        for (const auto val : renderObjects | std::views::values) {
+            const RenderObject* renderObject = val;
             if (!renderObject->canDraw()) { continue; }
 
             VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];
@@ -264,7 +267,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 
             vkCmdBindVertexBuffers(cmd, 0, 1, &renderObject->getVertexBuffer().buffer, &zeroOffset);
             vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-            vkCmdDrawIndexedIndirect(cmd, renderObject->getIndirectBuffer().buffer, 0, renderObject->getDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
+            vkCmdDrawIndexedIndirect(cmd, renderObject->getIndirectBuffer(currentFrameOverlap).buffer, 0, renderObject->getDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
         }
 
         vkCmdEndRendering(cmd);
@@ -300,8 +303,8 @@ glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(
     float maxY = std::numeric_limits<float>::lowest();
     float minZ = std::numeric_limits<float>::max();
     float maxZ = std::numeric_limits<float>::lowest();
-    for (const auto& v : corners) {
-        const auto trf = lightView * v;
+    for (const glm::vec4& v : corners) {
+        const glm::vec4 trf = lightView * v;
         minX = std::min(minX, trf.x);
         maxX = std::max(maxX, trf.x);
         minY = std::min(minY, trf.y);
@@ -318,10 +321,10 @@ glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(
     glm::vec3 maxBounds{maxX, maxY, maxZ};
     minBounds = glm::floor(minBounds / worldUnitsPerTexel) * worldUnitsPerTexel;
     maxBounds = glm::floor(maxBounds / worldUnitsPerTexel) * worldUnitsPerTexel;
-    const glm::mat4 lightProjection = glm::ortho(minBounds.x, maxBounds.x, minBounds.y, maxBounds.y, minBounds.z, maxBounds.z);
+    const glm::mat4 lightProjection = glm::orthoRH_ZO(minBounds.x, maxBounds.x, minBounds.y, maxBounds.y, minBounds.z, maxBounds.z);
     return lightProjection * lightView;
 
 
-    //const glm::mat4 lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
-    //return lightProjection * lightView;
+    // const glm::mat4 lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
+    // return lightProjection * lightView;
 }

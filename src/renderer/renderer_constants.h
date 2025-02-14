@@ -8,6 +8,9 @@
 
 constexpr int32_t FRAME_OVERLAP = 2;
 constexpr char ENGINE_NAME[] = "Will Engine";
+constexpr uint32_t ENGINE_VERSION_MAJOR = 0;
+constexpr uint32_t ENGINE_VERSION_MINOR = 1;
+constexpr uint32_t ENGINE_VERSION_PATCH = 0;
 constexpr bool USING_REVERSED_DEPTH_BUFFER = true;
 constexpr VkDeviceSize ZERO_DEVICE_SIZE = 0;
 constexpr VkExtent2D RENDER_EXTENTS{1920, 1080};

@@ -14,11 +14,11 @@ This is my second attempt at my own 3d game engine.
 ## Prerequisites
 
 - Git
+- Git LFS (Large File Storage)
 - CMake (3.x or later)
-- A C++ compiler (e.g., GCC, Clang, MSVC)
-- VulkanSDK (1.3.x)
-- SDL2 
-  - SDL2.dll is available in this repository
+- Visual Studio 2022 (or newer) with MSVC Compiler
+    - Required because precompiled libraries were built with MSVC
+- VulkanSDK (1.3.296)
 
 ## Getting Started
 
@@ -38,6 +38,13 @@ This engine only supports Windows at the moment and all instructions and setup w
    ```sh
    git submodule init
    git submodule update
+   ```
+
+4. Ensure Git LFS is set up properly:
+
+   ```sh
+   git lfs install
+   git lfs pull
    ```
 
 ## Build Instructions
@@ -65,10 +72,6 @@ mklink /D assets ..\assets
 
 ## Troubleshooting
 
-### SDL2.dll Not Found
-
-If you're prompted for an SDL2.dll, copy the SDL2.dll from this repository into the working directory of your built project.
-
 ### assert(m_init) failed in `VulkanBootstrap.h in Line 132`
 
 This error is often caused by vkb failing to find a suitable GPU to use. It could be that your GPUs do not support Vulkan 1.3 or the use of some vulkan extensions (in this case Descriptor Buffers).
@@ -76,10 +79,16 @@ You can verify this by checking what extensions your GPU supports at https://vul
 
 Unfortunately there isn't much that can be done if you get this error. 
 
+### mklink "You do not have sufficient privilege to perform this operation"
 
-## Additional Notes
+If `mklink` fails, ensure that:
 
-- Make sure you have the necessary permissions to create symlinks on your system.
+- You are running Command Prompt as an **Administrator**.
+- Your user account has the necessary permissions to create symlinks.
+
+### shaderc link errors
+
+- Use `git lfs pull` after cloning to ensure large files are correctly downloaded. Specifically shaderc_combinedd.lib and shaderc_combined.lib
 
 ## Contact Me
 

@@ -4,7 +4,7 @@
 
 #include "post_process_pipeline.h"
 
-#include "volk.h"
+#include "volk/volk.h"
 #include "src/renderer/renderer_constants.h"
 
 will_engine::post_process_pipeline::PostProcessPipeline::PostProcessPipeline(ResourceManager& resourceManager)

@@ -8,15 +8,18 @@
 #include <glm/glm.hpp>
 #include <Jolt/Jolt.h>
 #include <Jolt/Physics/Body/BodyID.h>
+#include <Jolt/Physics/Body/MotionType.h>
+#include <Jolt/Physics/Collision/ObjectLayer.h>
 
 #include "Jolt/Physics/Collision/Shape/Shape.h"
 #include "Jolt/Physics/Collision/Shape/SubShapeID.h"
-#include "src/core/game_object/physics_body.h"
+#include "physics_body.h"
 
 
 namespace will_engine::physics
 {
-struct RaycastHit {
+struct RaycastHit
+{
     bool hasHit = false;
     float fraction = 0.0f;
     float distance = 0.0f;
@@ -32,8 +35,16 @@ struct PhysicsObject
     JPH::BodyID bodyId;
     JPH::ShapeRefC shape = nullptr;
 };
-}
 
+struct PhysicsProperties
+{
+    bool isActive{false};
+    uint8_t motionType{};
+    uint16_t layer{};
+    JPH::EShapeSubType shapeType;
+    glm::vec3 shapeParams{}; // shape specific params, don't think it's necessary yet
+};
+}
 
 
 #endif //PHYSICS_TYPES_H

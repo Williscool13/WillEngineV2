@@ -7,6 +7,9 @@
 
 #include <src/renderer/vulkan_context.h>
 
+#include "src/core/game_object/hierarchical.h"
+#include "src/core/scene/scene.h"
+
 namespace will_engine
 {
 class Engine;
@@ -32,6 +35,10 @@ public:
     void handleInput(const SDL_Event& e);
 
     void imguiInterface(Engine* engine);
+
+    static void drawSceneGraph(Engine* engine, const Scene* scene);
+
+    static void displayGameObject(Engine* engine, const Scene* scene, IHierarchical* obj, int32_t depth);
 
     void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView, VkExtent2D swapchainExtent);
 
