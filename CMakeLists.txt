@@ -57,7 +57,6 @@ add_subdirectory(extern/fmt)
 add_subdirectory(extern/fastgltf)
 add_subdirectory(extern/fastgltf/deps) # simdjson
 add_subdirectory(extern/json)
-add_subdirectory(extern/ImGuiFileDialog)
 
 set(BUILD_SHARED_LIBS ON)
 add_definitions(-DJPH_SHARED_LIBRARY)
@@ -69,7 +68,7 @@ include_directories(${CMAKE_SOURCE_DIR})
 set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/imgui)
 set(IMGUI_SOURCES
         ${IMGUI_DIR}/imgui.cpp
-        ${IMGUI_DIR}/imgui_demo.cpp
+        #${IMGUI_DIR}/imgui_demo.cpp
         ${IMGUI_DIR}/imgui_draw.cpp
         ${IMGUI_DIR}/imgui_tables.cpp
         ${IMGUI_DIR}/imgui_widgets.cpp
@@ -234,16 +233,17 @@ add_executable(WillEngine main.cpp
 
 target_include_directories(WillEngine PRIVATE
         ${Vulkan_INCLUDE_DIRS}                                              # Vulkan
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/stb                              # STBI
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/include                 # fastgltf
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/deps/simdjson           # simdjson
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/ImGuiFileDialog                  # ImGuiFileDialog
         ${IMGUI_DIR}                                                        # ImGui
         ${IMGUI_DIR}/backends                                               # ImGui backends
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/ImGuiFileDialog                  # ImGuiFileDialog
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/shaderc                          # ShaderC
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2                             # SDL2
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/                              # VMA
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/stb                              # STBI
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/include                 # fastgltf
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/deps/simdjson           # simdjson
+
 )
 
 target_link_libraries(WillEngine PRIVATE

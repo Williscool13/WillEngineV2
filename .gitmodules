@@ -4,9 +4,6 @@
 [submodule "extern/stb"]
 	path = extern/stb
 	url = https://github.com/nothings/stb.git
-[submodule "extern/imgui"]
-	path = extern/imgui
-	url = https://github.com/ocornut/imgui.git
 [submodule "extern/vk-bootstrap"]
 	path = extern/vk-bootstrap
 	url = https://github.com/charles-lunarg/vk-bootstrap.git
@@ -22,6 +19,3 @@
 [submodule "extern/json"]
 	path = extern/json
 	url = https://github.com/nlohmann/json.git
-[submodule "extern/ImGuiFileDialog"]
-	path = extern/ImGuiFileDialog
-	url = https://github.com/aiekick/ImGuiFileDialog.git
