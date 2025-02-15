@@ -209,6 +209,7 @@ if (WIN32)
     set(WINDOWS_SOURCES
             src/resources.h
             src/resources.rc
+            src/core/game_object/imgui_renderable.h
     )
 endif ()
 

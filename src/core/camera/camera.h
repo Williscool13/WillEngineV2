@@ -6,6 +6,7 @@
 
 #include "camera_types.h"
 #include "src/core/transform.h"
+#include "src/renderer/renderer_constants.h"
 
 namespace will_engine
 {
@@ -17,9 +18,7 @@ namespace will_engine
 class Camera
 {
 public:
-    Camera() = default;
-
-    Camera(float fov, float aspect, float nearPlane, float farPlane);
+    explicit Camera(float fov = 1.308996939f, float aspect = RENDER_EXTENT_WIDTH / RENDER_EXTENT_HEIGHT, float nearPlane = 1000.0f, float farPlane = 0.1f);
 
     virtual ~Camera() = default;
 

@@ -246,8 +246,8 @@ void RenderObject::updateInstanceData(const int32_t instanceIndex, const Current
 
     currentModel->previousModelMatrix = prevModel->currentModelMatrix;
     currentModel->currentModelMatrix = newInstanceData.currentModelMatrix;
-    currentModel->flags[0] = true; // if updateInstanceData is being called, then isActive is true.
-    currentModel->flags[1] = newInstanceData.bIsVisible;
+    currentModel->flags[0] = newInstanceData.bIsVisible;
+    currentModel->flags[1] = newInstanceData.bCastsShadows;
 }
 
 bool RenderObject::releaseInstanceIndex(const uint32_t instanceIndex)

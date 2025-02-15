@@ -6,7 +6,7 @@
     },
     "metadata": {
         "name": "Test Scene",
-        "created": "2025-02-12 23:54:48",
+        "created": "2025-02-16 00:27:09",
         "formatVersion": 1
     },
     "gameObjects": {
@@ -33,11 +33,11 @@
         "children": [
             {
                 "id": 1,
-                "name": "FLOOR",
+                "name": "Floor",
                 "transform": {
                     "position": {
                         "x": 0.0,
-                        "y": -2.0,
+                        "y": 0.0,
                         "z": 0.0
                     },
                     "rotation": {
@@ -47,109 +47,41 @@
                         "w": 1.0
                     },
                     "scale": {
-                        "x": 20.0,
+                        "x": 5.0,
                         "y": 1.0,
-                        "z": 20.0
+                        "z": 5.0
                     }
                 },
                 "renderReference": 786709467,
                 "renderMeshIndex": 0,
+                "renderIsVisible": true,
+                "renderIsShadowCaster": true,
                 "physics": {
                     "isActive": true,
                     "motionType": 1,
-                    "layer": 0,
+                    "layer": 3,
                     "shapeType": 1,
                     "shapeParams": {
-                        "x": 20.0,
+                        "x": 5.0,
                         "y": 1.0,
-                        "z": 20.0
+                        "z": 5.0
                     }
                 }
             },
             {
                 "id": 2,
-                "name": "SPHERE",
+                "name": "Sphere",
                 "transform": {
                     "position": {
-                        "x": 0.20311012864112854,
-                        "y": -0.0009591016569174826,
-                        "z": 4.310033321380615
-                    },
-                    "rotation": {
-                        "x": 0.6906943917274475,
-                        "y": 0.003326626028865576,
-                        "z": -0.020490584895014763,
-                        "w": 0.7228488326072693
-                    },
-                    "scale": {
-                        "x": 1.0,
-                        "y": 1.0,
-                        "z": 1.0
-                    }
-                },
-                "renderReference": -1574886450,
-                "renderMeshIndex": 0,
-                "physics": {
-                    "isActive": true,
-                    "motionType": 2,
-                    "layer": 2,
-                    "shapeType": 0,
-                    "shapeParams": {
-                        "x": 1.0,
-                        "y": 0.0,
+                        "x": 0.0,
+                        "y": 2.0,
                         "z": 0.0
-                    }
-                }
-            },
-            {
-                "id": 2,
-                "name": "SPHERE",
-                "transform": {
-                    "position": {
-                        "x": -0.16441071033477783,
-                        "y": -0.002646408975124359,
-                        "z": -5.947565078735352
                     },
                     "rotation": {
-                        "x": -0.9770007133483887,
-                        "y": 0.19259478151798248,
-                        "z": -0.05425526574254036,
-                        "w": -0.07371068745851517
-                    },
-                    "scale": {
-                        "x": 1.0,
-                        "y": 1.0,
-                        "z": 1.0
-                    }
-                },
-                "renderReference": -1574886450,
-                "renderMeshIndex": 0,
-                "physics": {
-                    "isActive": true,
-                    "motionType": 2,
-                    "layer": 2,
-                    "shapeType": 0,
-                    "shapeParams": {
-                        "x": 1.0,
+                        "x": 0.0,
                         "y": 0.0,
-                        "z": 0.0
-                    }
-                }
-            },
-            {
-                "id": 2,
-                "name": "SPHERE",
-                "transform": {
-                    "position": {
-                        "x": 1.1292332410812378,
-                        "y": -0.0005410937592387199,
-                        "z": 0.7019346952438354
-                    },
-                    "rotation": {
-                        "x": 0.48506659269332886,
-                        "y": -0.006479422561824322,
-                        "z": -0.05202433466911316,
-                        "w": 0.8729043006896973
+                        "z": 0.0,
+                        "w": 1.0
                     },
                     "scale": {
                         "x": 1.0,
@@ -159,181 +91,8 @@
                 },
                 "renderReference": -1574886450,
                 "renderMeshIndex": 0,
-                "physics": {
-                    "isActive": true,
-                    "motionType": 2,
-                    "layer": 2,
-                    "shapeType": 0,
-                    "shapeParams": {
-                        "x": 1.0,
-                        "y": 0.0,
-                        "z": 0.0
-                    }
-                }
-            },
-            {
-                "id": 2,
-                "name": "SPHERE",
-                "transform": {
-                    "position": {
-                        "x": -1.217629313468933,
-                        "y": -0.0014717048034071922,
-                        "z": -2.2293365001678467
-                    },
-                    "rotation": {
-                        "x": -0.9424049854278564,
-                        "y": 0.16539601981639862,
-                        "z": 0.026576874777674675,
-                        "w": 0.2895006239414215
-                    },
-                    "scale": {
-                        "x": 1.0,
-                        "y": 1.0,
-                        "z": 1.0
-                    }
-                },
-                "renderReference": -1574886450,
-                "renderMeshIndex": 0,
-                "physics": {
-                    "isActive": true,
-                    "motionType": 2,
-                    "layer": 2,
-                    "shapeType": 0,
-                    "shapeParams": {
-                        "x": 1.0,
-                        "y": 0.0,
-                        "z": 0.0
-                    }
-                }
-            },
-            {
-                "id": 2,
-                "name": "SPHERE",
-                "transform": {
-                    "position": {
-                        "x": -0.18537425994873047,
-                        "y": -0.0011878627119585872,
-                        "z": 2.1910297870635986
-                    },
-                    "rotation": {
-                        "x": 0.5968511700630188,
-                        "y": -0.0033111663069576025,
-                        "z": -0.012264016084372997,
-                        "w": 0.8022514581680298
-                    },
-                    "scale": {
-                        "x": 1.0,
-                        "y": 1.0,
-                        "z": 1.0
-                    }
-                },
-                "renderReference": -1574886450,
-                "renderMeshIndex": 0,
-                "physics": {
-                    "isActive": true,
-                    "motionType": 2,
-                    "layer": 2,
-                    "shapeType": 0,
-                    "shapeParams": {
-                        "x": 1.0,
-                        "y": 0.0,
-                        "z": 0.0
-                    }
-                }
-            },
-            {
-                "id": 2,
-                "name": "SPHERE",
-                "transform": {
-                    "position": {
-                        "x": 0.1488569974899292,
-                        "y": -0.0014423042302951217,
-                        "z": -3.7156171798706055
-                    },
-                    "rotation": {
-                        "x": -0.9743197560310364,
-                        "y": 0.19739587604999542,
-                        "z": -0.035459503531455994,
-                        "w": 0.10236481577157974
-                    },
-                    "scale": {
-                        "x": 1.0,
-                        "y": 1.0,
-                        "z": 1.0
-                    }
-                },
-                "renderReference": -1574886450,
-                "renderMeshIndex": 0,
-                "physics": {
-                    "isActive": true,
-                    "motionType": 2,
-                    "layer": 2,
-                    "shapeType": 0,
-                    "shapeParams": {
-                        "x": 1.0,
-                        "y": 0.0,
-                        "z": 0.0
-                    }
-                }
-            },
-            {
-                "id": 2,
-                "name": "SPHERE",
-                "transform": {
-                    "position": {
-                        "x": -1.0004554986953735,
-                        "y": -6.0978134570177644e-05,
-                        "z": -0.12346429377794266
-                    },
-                    "rotation": {
-                        "x": 0.3295755982398987,
-                        "y": 0.035830989480018616,
-                        "z": 0.05198662728071213,
-                        "w": 0.9420156478881836
-                    },
-                    "scale": {
-                        "x": 1.0,
-                        "y": 1.0,
-                        "z": 1.0
-                    }
-                },
-                "renderReference": -1574886450,
-                "renderMeshIndex": 0,
-                "physics": {
-                    "isActive": true,
-                    "motionType": 2,
-                    "layer": 2,
-                    "shapeType": 0,
-                    "shapeParams": {
-                        "x": 1.0,
-                        "y": 0.0,
-                        "z": 0.0
-                    }
-                }
-            },
-            {
-                "id": 2,
-                "name": "SPHERE",
-                "transform": {
-                    "position": {
-                        "x": 0.9510777592658997,
-                        "y": -0.00037285120924934745,
-                        "z": -1.6009176969528198
-                    },
-                    "rotation": {
-                        "x": -0.878670871257782,
-                        "y": 0.2765456736087799,
-                        "z": 0.013956597074866295,
-                        "w": 0.3889283537864685
-                    },
-                    "scale": {
-                        "x": 1.0,
-                        "y": 1.0,
-                        "z": 1.0
-                    }
-                },
-                "renderReference": -1574886450,
-                "renderMeshIndex": 0,
+                "renderIsVisible": true,
+                "renderIsShadowCaster": true,
                 "physics": {
                     "isActive": true,
                     "motionType": 2,

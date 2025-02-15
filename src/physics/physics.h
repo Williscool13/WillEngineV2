@@ -69,11 +69,9 @@ public:
     PhysicsObject* getPhysicsObject(JPH::BodyID bodyId);
 
 public:
-    JPH::BodyID setupRigidBody(IPhysicsBody* physicsBody, JPH::EShapeSubType shapeType, glm::vec3 shapeParams, JPH::EMotionType motion, JPH::ObjectLayer layer);
+    JPH::BodyID setupRigidbody(IPhysicsBody* physicsBody, JPH::EShapeSubType shapeType, glm::vec3 shapeParams, JPH::EMotionType motion, JPH::ObjectLayer layer);
 
-    PhysicsProperties serializeProperties(const IPhysicsBody* physicsBody) const;
-
-    bool deserializeProperties(IPhysicsBody* physicsBody, const PhysicsProperties& properties);
+    void releaseRigidbody(IPhysicsBody* physicsBody);
 
     void setPositionAndRotation(JPH::BodyID bodyId, glm::vec3 position, glm::quat rotation, bool activate = true) const;
 
@@ -93,6 +91,10 @@ public:
 
     void setMotionType(const IPhysicsBody* body, JPH::EMotionType motionType, JPH::EActivation activation) const;
 
+public: // Serialization
+    PhysicsProperties serializeProperties(const IPhysicsBody* physicsBody) const;
+
+    bool deserializeProperties(IPhysicsBody* physicsBody, const PhysicsProperties& properties);
 private:
     // Core systems
     JPH::PhysicsSystem* physicsSystem = nullptr;

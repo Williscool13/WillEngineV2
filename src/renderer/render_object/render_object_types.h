@@ -75,7 +75,7 @@ struct InstanceData
 {
     glm::mat4 currentModelMatrix;
     glm::mat4 previousModelMatrix;
-    glm::vec4 flags; // x: enabled, y: visible, z: casts shadows, w: reserved for future use
+    glm::vec4 flags; // x: visible, y: casts shadows, z,w: reserved for future use
 };
 
 struct FrustumCullingBuffers

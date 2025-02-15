@@ -11,11 +11,13 @@ glm::vec3 will_engine::physics::PhysicsUtils::toGLM(const JPH::Vec3& vec)
     return {vec.GetX(), vec.GetY(), vec.GetZ()};
 }
 
-glm::quat will_engine::physics::PhysicsUtils::toGLM(const JPH::Quat& quat) {
+glm::quat will_engine::physics::PhysicsUtils::toGLM(const JPH::Quat& quat)
+{
     return {quat.GetW(), quat.GetX(), quat.GetY(), quat.GetZ()};
 }
 
-glm::mat4 will_engine::physics::PhysicsUtils::toGLM(const JPH::Mat44& mat) {
+glm::mat4 will_engine::physics::PhysicsUtils::toGLM(const JPH::Mat44& mat)
+{
     return {
         mat.GetColumn4(0).GetX(), mat.GetColumn4(0).GetY(), mat.GetColumn4(0).GetZ(), mat.GetColumn4(0).GetW(),
         mat.GetColumn4(1).GetX(), mat.GetColumn4(1).GetY(), mat.GetColumn4(1).GetZ(), mat.GetColumn4(1).GetW(),
@@ -29,11 +31,13 @@ JPH::Vec3 will_engine::physics::PhysicsUtils::toJolt(const glm::vec3& v)
     return {v.x, v.y, v.z};
 }
 
-JPH::Quat will_engine::physics::PhysicsUtils::toJolt(const glm::quat& q) {
+JPH::Quat will_engine::physics::PhysicsUtils::toJolt(const glm::quat& q)
+{
     return {q.x, q.y, q.z, q.w};
 }
 
-bool will_engine::physics::PhysicsUtils::raycastBroad(const glm::vec3& start, const glm::vec3& end) {
+bool will_engine::physics::PhysicsUtils::raycastBroad(const glm::vec3& start, const glm::vec3& end)
+{
     if (!Physics::Get()) return false;
 
     const JPH::RVec3 rayStart = toJolt(start);
@@ -47,7 +51,8 @@ bool will_engine::physics::PhysicsUtils::raycastBroad(const glm::vec3& start, co
 }
 
 will_engine::physics::RaycastHit will_engine::physics::PhysicsUtils::raycast(const glm::vec3& start, const glm::vec3& end, const JPH::BroadPhaseLayerFilter& broadLayerFilter,
-    const JPH::ObjectLayerFilter& objectLayerFilter, const JPH::BodyFilter& bodyFilter) {
+                                                                             const JPH::ObjectLayerFilter& objectLayerFilter, const JPH::BodyFilter& bodyFilter)
+{
     RaycastHit result;
     if (!Physics::Get()) return result;
 
@@ -77,14 +82,18 @@ will_engine::physics::RaycastHit will_engine::physics::PhysicsUtils::raycast(con
 }
 
 will_engine::physics::RaycastHit will_engine::physics::PhysicsUtils::raycast(const glm::vec3& start, const glm::vec3& direction, const float distance,
-    const JPH::BroadPhaseLayerFilter& broadLayerFilter, const JPH::ObjectLayerFilter& objectLayerFilter, const JPH::BodyFilter& bodyFilter) {
+                                                                             const JPH::BroadPhaseLayerFilter& broadLayerFilter, const JPH::ObjectLayerFilter& objectLayerFilter,
+                                                                             const JPH::BodyFilter& bodyFilter)
+{
     const glm::vec3 normalizedDir = glm::normalize(direction);
     const glm::vec3 end = start + normalizedDir * distance;
     return raycast(start, end, broadLayerFilter, objectLayerFilter, bodyFilter);
 }
 
 std::vector<will_engine::physics::RaycastHit> will_engine::physics::PhysicsUtils::raycastAll(const glm::vec3& start, const glm::vec3& end, const int maxHits,
-    const JPH::BroadPhaseLayerFilter& broadLayerFilter, const JPH::ObjectLayerFilter& objectLayerFilter, const JPH::BodyFilter& bodyFilter, const JPH::RayCastSettings& raycastSettings) {
+                                                                                             const JPH::BroadPhaseLayerFilter& broadLayerFilter, const JPH::ObjectLayerFilter& objectLayerFilter,
+                                                                                             const JPH::BodyFilter& bodyFilter, const JPH::RayCastSettings& raycastSettings)
+{
     std::vector<RaycastHit> results;
     if (!Physics::Get()) return results;
 
@@ -124,62 +133,93 @@ std::vector<will_engine::physics::RaycastHit> will_engine::physics::PhysicsUtils
     return results;
 }
 
-void will_engine::physics::PhysicsUtils::addForce(const JPH::BodyID bodyId, const glm::vec3& force) {
+void will_engine::physics::PhysicsUtils::addForce(const JPH::BodyID bodyId, const glm::vec3& force)
+{
     if (!Physics::Get()) return;
     if (!Physics::Get()->doesPhysicsBodyExists(bodyId)) { return; }
 
     Physics::Get()->getBodyInterface().AddForce(bodyId, toJolt(force));
 }
 
-void will_engine::physics::PhysicsUtils::addForceAtPosition(const JPH::BodyID bodyId, const glm::vec3& force, const glm::vec3& position) {
+void will_engine::physics::PhysicsUtils::addForceAtPosition(const JPH::BodyID bodyId, const glm::vec3& force, const glm::vec3& position)
+{
     if (!Physics::Get()) return;
     Physics::Get()->getBodyInterface().AddForce(bodyId, toJolt(force), toJolt(position));
 }
 
-void will_engine::physics::PhysicsUtils::addTorque(const JPH::BodyID bodyId, const glm::vec3& torque) {
+void will_engine::physics::PhysicsUtils::addTorque(const JPH::BodyID bodyId, const glm::vec3& torque)
+{
     if (!Physics::Get()) return;
     Physics::Get()->getBodyInterface().AddTorque(bodyId, toJolt(torque));
 }
 
-void will_engine::physics::PhysicsUtils::addImpulse(const JPH::BodyID bodyId, const glm::vec3& impulse) {
+void will_engine::physics::PhysicsUtils::addImpulse(const JPH::BodyID bodyId, const glm::vec3& impulse)
+{
     if (!Physics::Get()) return;
     Physics::Get()->getBodyInterface().AddImpulse(bodyId, toJolt(impulse));
 }
 
-void will_engine::physics::PhysicsUtils::addImpulseAtPosition(const JPH::BodyID bodyId, const glm::vec3& impulse, const glm::vec3& position) {
+void will_engine::physics::PhysicsUtils::addImpulseAtPosition(const JPH::BodyID bodyId, const glm::vec3& impulse, const glm::vec3& position)
+{
     if (!Physics::Get()) return;
     Physics::Get()->getBodyInterface().AddImpulse(bodyId, toJolt(impulse), toJolt(position));
 }
 
-void will_engine::physics::PhysicsUtils::addAngularImpulse(const JPH::BodyID bodyId, const glm::vec3& angularImpulse) {
+void will_engine::physics::PhysicsUtils::addAngularImpulse(const JPH::BodyID bodyId, const glm::vec3& angularImpulse)
+{
     if (!Physics::Get()) return;
     Physics::Get()->getBodyInterface().AddAngularImpulse(bodyId, toJolt(angularImpulse));
 }
 
-void will_engine::physics::PhysicsUtils::setLinearVelocity(const JPH::BodyID bodyId, const glm::vec3& velocity) {
+void will_engine::physics::PhysicsUtils::setLinearVelocity(const JPH::BodyID bodyId, const glm::vec3& velocity)
+{
     if (!Physics::Get()) return;
     Physics::Get()->getBodyInterface().SetLinearVelocity(bodyId, toJolt(velocity));
 }
 
-void will_engine::physics::PhysicsUtils::setAngularVelocity(const JPH::BodyID bodyId, const glm::vec3& angularVelocity) {
+void will_engine::physics::PhysicsUtils::setAngularVelocity(const JPH::BodyID bodyId, const glm::vec3& angularVelocity)
+{
     if (!Physics::Get()) return;
     Physics::Get()->getBodyInterface().SetAngularVelocity(bodyId, toJolt(angularVelocity));
 }
 
-glm::vec3 will_engine::physics::PhysicsUtils::getLinearVelocity(const JPH::BodyID bodyId) {
+glm::vec3 will_engine::physics::PhysicsUtils::getLinearVelocity(const JPH::BodyID bodyId)
+{
     if (!Physics::Get()) return glm::vec3(0.0f);
     const JPH::Vec3 velocity = Physics::Get()->getBodyInterface().GetLinearVelocity(bodyId);
     return {velocity.GetX(), velocity.GetY(), velocity.GetZ()};
 }
 
-glm::vec3 will_engine::physics::PhysicsUtils::getAngularVelocity(const JPH::BodyID bodyId) {
+glm::vec3 will_engine::physics::PhysicsUtils::getAngularVelocity(const JPH::BodyID bodyId)
+{
     if (!Physics::Get()) return glm::vec3(0.0f);
     const JPH::Vec3 velocity = Physics::Get()->getBodyInterface().GetAngularVelocity(bodyId);
     return {velocity.GetX(), velocity.GetY(), velocity.GetZ()};
+}
+
+void will_engine::physics::PhysicsUtils::resetVelocity(JPH::BodyID bodyId)
+{
+    setAngularVelocity(bodyId, glm::vec3(0.0f));
+    setLinearVelocity(bodyId, glm::vec3(0.0f));
 }
 
 void will_engine::physics::PhysicsUtils::setMotionType(const JPH::BodyID bodyId, const JPH::EMotionType motionType, const JPH::EActivation activation)
 {
     if (!Physics::Get()) return;
     Physics::Get()->getBodyInterface().SetMotionType(bodyId, motionType, activation);
+}
+
+JPH::ObjectLayer will_engine::physics::PhysicsUtils::getObjectLayer(const JPH::BodyID bodyId)
+{
+    if (!Physics::Get()) return 0;
+    return Physics::Get()->getBodyInterface().GetObjectLayer(bodyId);
+}
+
+
+
+JPH::EShapeSubType will_engine::physics::PhysicsUtils::getObjectShapeSubtype(JPH::BodyID bodyId)
+{
+    if (!Physics::Get()) return JPH::EShapeSubType::Empty;
+    const JPH::RefConst<JPH::Shape> shape = Physics::Get()->getBodyInterface().GetShape(bodyId);
+    return shape->GetSubType();
 }

@@ -15,7 +15,9 @@ namespace will_engine
  */
 class FreeCamera final : public Camera {
 public:
-    explicit FreeCamera(float fov = 1.308996939f, float aspect = RENDER_EXTENT_WIDTH / RENDER_EXTENT_HEIGHT, float nearPlane = 5000.0f, float farPlane = 0.1f);
+    FreeCamera() = default;
+
+    FreeCamera(float fov, float aspect, float nearPlane, float farPlane);
 
     ~FreeCamera() override = default;
 
