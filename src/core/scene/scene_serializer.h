@@ -457,7 +457,7 @@ public: // Render Objects
 
             uint32_t computedId = computePathHash(info.gltfPath);
             if (computedId != info.id) {
-                fmt::print("Warning: ID mismatch in {}, expected: {}, found: {}\n",
+                fmt::print("Warning: ID mismatch in {}, expected: {}, found: {} (not necessarily a problem).\n",
                            willmodelPath.string(), computedId, info.id);
             }
 

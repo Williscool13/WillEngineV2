@@ -328,7 +328,7 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
     // Equirectangular -> Cubemap - recreate in case resolution changed
     newEnvMapData.cubemapImage = resourceManager.createCubemap(CUBEMAP_EXTENTS, VK_FORMAT_R32G32B32A32_SFLOAT,
                                                                VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
-                                                               VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT);
+                                                               VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, true);
 
     // add new cubemap image to descriptor buffer
     VkDescriptorImageInfo equiImageDescriptorInfo{};
@@ -371,8 +371,11 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
 
         vkCmdDispatch(cmd, CUBEMAP_EXTENTS.width / 16, CUBEMAP_EXTENTS.height / 16, 6);
 
-        vk_helpers::transitionImage(cmd, newEnvMapData.cubemapImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::transitionImage(cmd, newEnvMapData.cubemapImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+
+        vk_helpers::generateMipmapsCubemap(cmd, newEnvMapData.cubemapImage.image, {CUBEMAP_EXTENTS.width, CUBEMAP_EXTENTS.height}, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     });
+
 
     // can safely destroy the cubemap image view in the storage buffer
     resourceManager.destroyImage(equiImage);
