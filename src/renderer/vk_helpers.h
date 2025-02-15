@@ -86,6 +86,8 @@ void copyDepthToDepth(VkCommandBuffer cmd, VkImage source, VkImage destination, 
 
 void generateMipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize);
 
+void generateMipmapsCubemap(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize, VkImageLayout inputLayout, VkImageLayout ouputLayout);
+
 
 VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo();
 
