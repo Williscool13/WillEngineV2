@@ -222,6 +222,8 @@ public: // GameObjects
             if (renderRefIndex != INDEX_NONE && renderObjects.contains(renderRefIndex)) {
                 j["renderReference"] = renderRefIndex;
                 j["renderMeshIndex"] = renderable->getMeshIndex();
+                j["renderIsVisible"] = renderable->isVisible();
+                j["renderIsShadowCaster"] = renderable->isShadowCaster();
             }
         }
 
@@ -304,6 +306,8 @@ public: // GameObjects
 
                 if (renderObjectMap.contains(renderRefIndex)) {
                     renderObjectMap[renderRefIndex]->generateMesh(gameObject, meshIndex);
+                    gameObject->setVisibility(j["renderIsVisible"]);
+                    gameObject->setIsShadowCaster(j["renderIsShadowCaster"]);
                 } else {
                     fmt::print("Warning: Gameobject failed to find render reference\n");
                 }

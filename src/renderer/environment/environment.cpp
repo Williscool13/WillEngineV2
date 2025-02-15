@@ -371,8 +371,6 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
 
         vkCmdDispatch(cmd, CUBEMAP_EXTENTS.width / 16, CUBEMAP_EXTENTS.height / 16, 6);
 
-        vk_helpers::transitionImage(cmd, newEnvMapData.cubemapImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-
         vk_helpers::generateMipmapsCubemap(cmd, newEnvMapData.cubemapImage.image, {CUBEMAP_EXTENTS.width, CUBEMAP_EXTENTS.height}, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     });
 

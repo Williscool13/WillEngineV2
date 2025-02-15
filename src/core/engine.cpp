@@ -174,41 +174,8 @@ void Engine::initGame()
 {
     const auto sceneRoot = new GameObject();
     scene = new Scene(sceneRoot);
-
     file::scanForModels(renderObjectInfoMap);
-
-    constexpr uint32_t cubeModelId{3653645572};
-    constexpr uint32_t primitivesModelId{786709467};
-    constexpr uint32_t sphereModelId{2720080846};
-
-    if (renderObjectInfoMap.contains(primitivesModelId)) {
-        if (!renderObjectMap.contains(primitivesModelId)) {
-            renderObjectMap[primitivesModelId] = new RenderObject(renderObjectInfoMap[primitivesModelId].gltfPath, *resourceManager, primitivesModelId);
-        }
-
-        RenderObject* cube = renderObjectMap[primitivesModelId];
-        const auto floor = new GameObject("FLOOR");
-        cube->generateMesh(floor, 0);
-        floor->setGlobalScale({20.0f, 1.0f, 20.0f});
-        floor->translate({0.0f, -2.0f, 0.0f});
-        physics->setupRigidBody(floor, JPH::EShapeSubType::Box, {20.0f, 1.0f, 20.0f}, JPH::EMotionType::Kinematic, physics::Layers::NON_MOVING);
-
-        scene->addGameObject(floor);
-    }
-    if (renderObjectInfoMap.contains(sphereModelId)) {
-        if (!renderObjectMap.contains(sphereModelId)) {
-            renderObjectMap[sphereModelId] = new RenderObject(renderObjectInfoMap[sphereModelId].gltfPath, *resourceManager, sphereModelId);
-        }
-
-        RenderObject* sphere = renderObjectMap[sphereModelId];
-        const auto sphereGameObject = new GameObject("SPHERE");
-        sphere->generateMesh(sphereGameObject, 0);
-        sphereGameObject->setGlobalPosition({0, 5.0f, 0});
-        physics->setupRigidBody(sphereGameObject, JPH::EShapeSubType::Sphere , physics::UNIT_SPHERE, JPH::EMotionType::Dynamic, physics::Layers::PLAYER);
-
-        scene->addGameObject(sphereGameObject);
-    }
-
+    Serializer::deserializeScene(scene->getRoot(), *resourceManager, renderObjectMap, renderObjectInfoMap, file::getSampleScene().string());
     camera = new FreeCamera();
 }
 
@@ -485,6 +452,8 @@ void Engine::draw(float deltaTime)
         cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferBindingInfo(),
         cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferSize() * currentFrameOverlap,
         cascadedShadowMap->getCascadedShadowMapSamplerBuffer().getDescriptorBufferBindingInfo(),
+        camera->getNearPlane(),
+        camera->getFarPlane(),
     };
     deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);
 

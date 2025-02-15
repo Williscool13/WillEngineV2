@@ -11,6 +11,7 @@
 #include <glm/glm.hpp>
 
 #include "hierarchical.h"
+#include "imgui_renderable.h"
 #include "renderable.h"
 #include "transformable.h"
 #include "src/core/transform.h"
@@ -26,14 +27,23 @@ namespace will_engine
 class Engine;
 class RenderObject;
 
-class GameObject : public IPhysicsBody, public IRenderable, public ITransformable, public IHierarchical, public IIdentifiable
+class GameObject : public IPhysicsBody,
+                   public IRenderable,
+                   public ITransformable,
+                   public IHierarchical,
+                   public IIdentifiable,
+                   public IImguiRenderable
 {
 public:
     explicit GameObject(std::string gameObjectName = "", uint64_t gameObjectId = INDEX64_NONE);
 
     ~GameObject() override;
 
+    virtual void beginPlay() {};
     virtual void update(float deltaTime) {}
+
+protected:
+    bool bHasBegunPlay{false};
 
 public: // IIdentifiable
     void setId(const uint64_t identifier) override { gameObjectId = identifier; }
@@ -147,7 +157,11 @@ public: // IRenderable
 
     [[nodiscard]] bool& isVisible() override { return bIsVisible; }
 
-    [[nodiscard]] bool& isCastingShadows() override { return bCastsShadows; }
+    void setVisibility(const bool isVisible) override { bIsVisible = isVisible; }
+
+    [[nodiscard]] bool& isShadowCaster() override { return bIsShadowCaster; }
+
+    void setIsShadowCaster(const bool isShadowCaster) override { bIsShadowCaster = isShadowCaster; }
 
 protected: // IRenderable
     /**
@@ -155,7 +169,7 @@ protected: // IRenderable
       */
     bool bIsStatic{false};
     bool bIsVisible{true};
-    bool bCastsShadows{false};
+    bool bIsShadowCaster{true};
     /**
      * The render object that is responsible for drawing this gameobject's model
      */
@@ -178,6 +192,11 @@ public:
     {
         return this->gameObjectId == other.gameObjectId;
     }
+
+public: // IImguiRenderable
+    void renderImgui() override {}
+
+    void selectedRenderImgui() override;
 };
 }
 

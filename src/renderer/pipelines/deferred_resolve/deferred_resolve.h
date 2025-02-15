@@ -32,6 +32,8 @@ struct DeferredResolvePushConstants
     int32_t deferredDebug{0};
     int32_t disableShadows{0};
     int32_t pcfLevel{5};
+    float nearPlane{1000.0f};
+    float farPlane{0.1f};
 };
 
 struct DeferredResolveDrawInfo
@@ -44,6 +46,8 @@ struct DeferredResolveDrawInfo
     VkDescriptorBufferBindingInfoEXT cascadeUniformBinding{};
     VkDeviceSize cascadeUniformOffset{0};
     VkDescriptorBufferBindingInfoEXT cascadeSamplerBinding{};
+    float nearPlane{1000.0f};
+    float farPlane{0.1f};
 };
 
 class DeferredResolvePipeline

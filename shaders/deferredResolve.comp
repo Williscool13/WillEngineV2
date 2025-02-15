@@ -46,6 +46,8 @@ layout (push_constant) uniform PushConstants {
     int debug;
     int disableShadows;
     int pcfLevel;
+    float nearPlane;
+    float farPlane;
 } pushConstants;
 
 vec3 reconstructPosition(ivec2 texCoord, float depth) {
@@ -61,14 +63,6 @@ vec3 reconstructPosition(ivec2 texCoord, float depth) {
     vec4 positionWS = sceneData.invView * positionVS;
 
     return positionWS.xyz;
-}
-
-float LinearizeDepth(float depth)
-{
-    float near = 1000.0;
-    float far = 0.01;
-    float z = depth * 2.0 - 1.0; // Convert to NDC
-    return (2.0 * near * far) / (far + near - z * (far - near));
 }
 
 void main() {
@@ -156,10 +150,11 @@ void main() {
 
     switch (pushConstants.debug) {
         case 1:
-            float linearDepth = LinearizeDepth(depth);
-            float normalizedLinearDepth = linearDepth / 5000.0;
-            vec4 fragColor = vec4(vec3(normalizedLinearDepth), 1.0);
-            imageStore(outputImage, screenPos, vec4(vec3(normalizedLinearDepth), 1.0f));
+            float zNear =  pushConstants.farPlane;
+            float zFar  = pushConstants.nearPlane / 10.0;
+            float d = 1 - depth;
+            float ld = (2.0 * zNear) / (zFar + zNear - d * (zFar - zNear));
+            imageStore(outputImage, screenPos, vec4(vec3(ld), 1.0f));
             break;
         case 2:
             vec2 velocity = texture(velocityBuffer, uv).rg * 10.0;

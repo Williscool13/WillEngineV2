@@ -92,20 +92,23 @@ void main()
     Model models = buffers.modelMatrixBuffer.models[modelMatrixId];
 
     if (push.shadowPass){
-        if (models.flags.z == 0){
+        if (models.flags.y == 0){
+            buffers.commandBuffer.commands[invocationId].instanceCount = 0;
+            return;
+        }
 
+        // don't use frustum cull for shadow pass for now. Not 100% certain its working.
+        buffers.commandBuffer.commands[invocationId].instanceCount = 1;
+        return;
+    } else {
+        if (models.flags.x == 0){
+            // isVisible = false
+            buffers.commandBuffer.commands[invocationId].instanceCount = 0;
+            return;
         }
     }
-    if (models.flags.x == 0){
-        // isActive = false
-        buffers.commandBuffer.commands[invocationId].instanceCount = 0;
-        return;
-    }
-    if (models.flags.y == 0){
-        // isVisible = false
-        buffers.commandBuffer.commands[invocationId].instanceCount = 0;
-        return;
-    }
+
+
 
 
     if (!push.enabledFrustumCull){

@@ -23,7 +23,11 @@ public:
 
     [[nodiscard]] virtual bool& isVisible() = 0;
 
-    [[nodiscard]] virtual bool& isCastingShadows() = 0;
+    virtual void setVisibility(bool isVisible) = 0;
+
+    [[nodiscard]] virtual bool& isShadowCaster() = 0;
+
+    virtual void setIsShadowCaster(bool isShadowCaster) = 0;
 };
 }
 #endif //RENDERABLE_H

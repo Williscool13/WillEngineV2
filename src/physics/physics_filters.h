@@ -18,6 +18,8 @@ namespace Layers
     static constexpr JPH::ObjectLayer PLAYER{2};
     static constexpr JPH::ObjectLayer TERRAIN{3};
     static constexpr JPH::ObjectLayer NUM_LAYERS{4};
+
+    inline const char* layerNames[] = {"Non-Moving", "Moving", "Player", "Terrain"};
 }
 
 namespace BroadPhaseLayers

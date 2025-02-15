@@ -78,6 +78,23 @@ static void scanForModels(std::unordered_map<uint32_t, RenderObjectInfo>& render
         }
     }
 }
+
+static std::filesystem::path getSampleScene()
+{
+    const std::filesystem::path devSampleScenePath = "../assets/scenes/sampleScene.willmap";
+    const std::filesystem::path releaseSampleScenePath = "assets/scenes/sampleScene.willmap";
+
+    if (exists(devSampleScenePath)) {
+        return devSampleScenePath;
+    }
+
+    if (exists(releaseSampleScenePath)) {
+        return releaseSampleScenePath;
+    }
+
+    fmt::print("Failed to find sample scene, perhaps assets folder wasn't copied?\n");
+    throw std::runtime_error("Failed to find sample scene, perhaps assets folder wasn't copied?");
+}
 }
 
 #endif //FILE_UTILS_H

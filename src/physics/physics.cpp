@@ -212,7 +212,7 @@ PhysicsObject* Physics::getPhysicsObject(const JPH::BodyID bodyId)
     return nullptr;
 }
 
-JPH::BodyID Physics::setupRigidBody(IPhysicsBody* physicsBody, const JPH::EShapeSubType shapeType, const glm::vec3 shapeParams, const JPH::EMotionType motion, const JPH::ObjectLayer layer)
+JPH::BodyID Physics::setupRigidbody(IPhysicsBody* physicsBody, const JPH::EShapeSubType shapeType, const glm::vec3 shapeParams, const JPH::EMotionType motion, const JPH::ObjectLayer layer)
 {
     if (physicsBody == nullptr) { return JPH::BodyID(JPH::BodyID::cMaxBodyIndex); }
 
@@ -277,68 +277,17 @@ JPH::BodyID Physics::setupRigidBody(IPhysicsBody* physicsBody, const JPH::EShape
     return physicsObject.bodyId;
 }
 
-PhysicsProperties Physics::serializeProperties(const IPhysicsBody* physicsBody) const
+void Physics::releaseRigidbody(IPhysicsBody* physicsBody)
 {
-    if (physicsBody == nullptr || physicsBody->getPhysicsBodyId().GetIndex() == JPH::BodyID::cMaxBodyIndex) {
-        return {false};
-    }
-    const auto bodyId = JPH::BodyID(physicsBody->getPhysicsBodyId());
-    const PhysicsObject* physicsObject = physics->getPhysicsObject(bodyId);
-    if (physicsObject == nullptr) {
-        return {false};
-    }
-    PhysicsProperties properties{true};
-    properties.motionType = static_cast<uint8_t>(physicsSystem->GetBodyInterface().GetMotionType(bodyId));
-    properties.layer = physicsSystem->GetBodyInterface().GetObjectLayer(bodyId);
+    const auto bodyId = physicsBody->getPhysicsBodyId();
+    if (bodyId.GetIndex() == JPH::BodyID::cMaxBodyIndex) { return; }
+    if (!physicsObjects.contains(bodyId)) { return; }
 
-
-    const JPH::Shape* shape = physicsObject->shape.GetPtr();
-    properties.shapeType = shape->GetSubType();
-
-    switch (shape->GetSubType()) {
-        case JPH::EShapeSubType::Box:
-        {
-            const auto box = static_cast<const JPH::BoxShape*>(shape);
-            const JPH::Vec3 halfExtent = box->GetHalfExtent();
-            properties.shapeParams = glm::vec3(halfExtent.GetX(), halfExtent.GetY(), halfExtent.GetZ());
-            break;
-        }
-        case JPH::EShapeSubType::Sphere:
-        {
-            const auto sphere = static_cast<const JPH::SphereShape*>(shape);
-            properties.shapeParams = glm::vec3(sphere->GetRadius(), 0.0f, 0.0f);
-            break;
-        }
-        case JPH::EShapeSubType::Capsule:
-        {
-            const auto capsule = static_cast<const JPH::CapsuleShape*>(shape);
-            properties.shapeParams = glm::vec3(capsule->GetRadius(), capsule->GetHalfHeightOfCylinder(), 0.0f);
-            break;
-        }
-        case JPH::EShapeSubType::Cylinder:
-        {
-            const auto cylinder = static_cast<const JPH::CylinderShape*>(shape);
-            properties.shapeParams = glm::vec3(cylinder->GetRadius(), cylinder->GetHalfHeight(), 0.0f);
-            break;
-        }
-        default:
-            fmt::print("Warning: Unsupported physics shape subtype: {}\n", static_cast<int>(shape->GetSubType()));
-            break;
-    }
-
-    return properties;
+    physicsSystem->GetBodyInterface().RemoveBody(bodyId);
+    physicsSystem->GetBodyInterface().DestroyBody(bodyId);
+    physicsObjects.erase(bodyId);
+    physicsBody->setPhysicsBodyId(JPH::BodyID(JPH::BodyID::cMaxBodyIndex));
 }
-
-bool Physics::deserializeProperties(IPhysicsBody* physicsBody, const PhysicsProperties& properties)
-{
-    if (!properties.isActive || physicsBody == nullptr) {
-        return false;
-    }
-
-    auto bodyId = setupRigidBody(physicsBody, properties.shapeType, properties.shapeParams, static_cast<JPH::EMotionType>(properties.motionType), properties.layer);
-    return bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex;
-}
-
 
 void Physics::setPositionAndRotation(const JPH::BodyID bodyId, const glm::vec3 position, const glm::quat rotation, const bool activate) const
 {
@@ -406,5 +355,67 @@ JPH::ObjectLayer Physics::getLayer(const IPhysicsBody* body) const
 void Physics::setMotionType(const IPhysicsBody* body, const JPH::EMotionType motionType, const JPH::EActivation activation) const
 {
     physicsSystem->GetBodyInterface().SetMotionType(body->getPhysicsBodyId(), motionType, activation);
+}
+
+PhysicsProperties Physics::serializeProperties(const IPhysicsBody* physicsBody) const
+{
+    if (physicsBody == nullptr || physicsBody->getPhysicsBodyId().GetIndex() == JPH::BodyID::cMaxBodyIndex) {
+        return {false};
+    }
+    const auto bodyId = JPH::BodyID(physicsBody->getPhysicsBodyId());
+    const PhysicsObject* physicsObject = physics->getPhysicsObject(bodyId);
+    if (physicsObject == nullptr) {
+        return {false};
+    }
+    PhysicsProperties properties{true};
+    properties.motionType = static_cast<uint8_t>(physicsSystem->GetBodyInterface().GetMotionType(bodyId));
+    properties.layer = physicsSystem->GetBodyInterface().GetObjectLayer(bodyId);
+
+
+    const JPH::ShapeRefC shape = physicsObject->shape;
+    properties.shapeType = shape->GetSubType();
+
+    switch (shape->GetSubType()) {
+        case JPH::EShapeSubType::Box:
+        {
+            const auto box = static_cast<const JPH::BoxShape*>(shape.GetPtr());
+            const JPH::Vec3 halfExtent = box->GetHalfExtent();
+            properties.shapeParams = glm::vec3(halfExtent.GetX(), halfExtent.GetY(), halfExtent.GetZ());
+            break;
+        }
+        case JPH::EShapeSubType::Sphere:
+        {
+            const auto sphere = static_cast<const JPH::SphereShape*>(shape.GetPtr());
+            properties.shapeParams = glm::vec3(sphere->GetRadius(), 0.0f, 0.0f);
+            break;
+        }
+        case JPH::EShapeSubType::Capsule:
+        {
+            const auto capsule = static_cast<const JPH::CapsuleShape*>(shape.GetPtr());
+            properties.shapeParams = glm::vec3(capsule->GetRadius(), capsule->GetHalfHeightOfCylinder(), 0.0f);
+            break;
+        }
+        case JPH::EShapeSubType::Cylinder:
+        {
+            const auto cylinder = static_cast<const JPH::CylinderShape*>(shape.GetPtr());
+            properties.shapeParams = glm::vec3(cylinder->GetRadius(), cylinder->GetHalfHeight(), 0.0f);
+            break;
+        }
+        default:
+            fmt::print("Warning: Unsupported physics shape subtype: {}\n", static_cast<int>(shape->GetSubType()));
+            break;
+    }
+
+    return properties;
+}
+
+bool Physics::deserializeProperties(IPhysicsBody* physicsBody, const PhysicsProperties& properties)
+{
+    if (!properties.isActive || physicsBody == nullptr) {
+        return false;
+    }
+
+    auto bodyId = setupRigidbody(physicsBody, properties.shapeType, properties.shapeParams, static_cast<JPH::EMotionType>(properties.motionType), properties.layer);
+    return bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex;
 }
 }

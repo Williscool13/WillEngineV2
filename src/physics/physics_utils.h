@@ -93,7 +93,13 @@ public:
 
     static glm::vec3 getAngularVelocity(JPH::BodyID bodyId);
 
+    static void resetVelocity(JPH::BodyID bodyId);
+
     static void setMotionType(JPH::BodyID bodyId, JPH::EMotionType motionType, JPH::EActivation activation);
+
+    static JPH::ObjectLayer getObjectLayer(JPH::BodyID bodyId);
+
+    static JPH::EShapeSubType getObjectShapeSubtype(JPH::BodyID bodyId);
 
     //inline RaycastHit sphereCast(const glm::vec3& start, const glm::vec3& end, float radius);
     //inline RaycastHit boxCast(const glm::vec3& start, const glm::vec3& end, const glm::vec3& halfExtents);

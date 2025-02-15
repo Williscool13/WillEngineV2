@@ -110,6 +110,8 @@ void will_engine::deferred_resolve::DeferredResolvePipeline::draw(VkCommandBuffe
     pushConstants.deferredDebug = drawInfo.deferredDebug;
     pushConstants.disableShadows = 0;
     pushConstants.pcfLevel = 0;
+    pushConstants.nearPlane = drawInfo.nearPlane;
+    pushConstants.farPlane = drawInfo.farPlane;
 
     vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(DeferredResolvePushConstants), &pushConstants);
 

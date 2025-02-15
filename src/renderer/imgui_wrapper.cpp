@@ -8,14 +8,22 @@
 #include <imgui_impl_vulkan.h>
 #include <ImGuiFileDialog/ImGuiFileDialog.h>
 
+#include <Jolt/Jolt.h>
+#include "Jolt/Physics/Collision/Shape/BoxShape.h"
+#include "Jolt/Physics/Collision/Shape/CapsuleShape.h"
+#include "Jolt/Physics/Collision/Shape/CylinderShape.h"
+#include "Jolt/Physics/Collision/Shape/SphereShape.h"
+
 #include "environment/environment.h"
 #include "lighting/shadows/cascaded_shadow_map.h"
 #include "lighting/shadows/shadows.h"
 #include "src/core/engine.h"
 #include "src/core/time.h"
+#include "src/core/camera/free_camera.h"
 #include "src/core/game_object/renderable.h"
 #include "src/core/scene/scene.h"
 #include "src/core/scene/scene_serializer.h"
+#include "src/physics/physics_filters.h"
 #include "src/util/file.h"
 
 namespace will_engine
@@ -108,209 +116,351 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::End();
 
     if (ImGui::Begin("Renderer")) {
-        if (ImGui::BeginChild("Shaders", ImVec2(0, 50))) {
-            ImGui::Text("Shaders");
-            ImGui::SetNextItemWidth(75.0f);
-            if (ImGui::Button("Hot-Reload Shaders")) {
-                engine->hotReloadShaders();
+        if (ImGui::BeginTabBar("RendererTabs")) {
+            if (ImGui::BeginTabItem("Shaders")) {
+                ImGui::Text("Shaders");
+                ImGui::SetNextItemWidth(75.0f);
+                if (ImGui::Button("Hot-Reload Shaders")) {
+                    engine->hotReloadShaders();
+                }
+                ImGui::EndTabItem();
             }
-            ImGui::Separator();
-        }
-        ImGui::EndChild();
 
-        if (ImGui::BeginChild("Pipelines", ImVec2(0, 80))) {
-            ImGui::Text("Deferred Debug");
-            const char* deferredDebugOptions[]{"None", "Depth", "Velocity", "Albedo", "Normal", "PBR", "Shadows", "Cascade Level", "nDotL"};
-            ImGui::Combo("Deferred Debug", &engine->deferredDebug, deferredDebugOptions, IM_ARRAYSIZE(deferredDebugOptions));
-            ImGui::Text("Temporal Anti-Aliasing");
-            ImGui::Checkbox("Enable TAA", &engine->bEnableTaa);
-            ImGui::Separator();
-        }
-        ImGui::EndChild();
-
-        if (ImGui::BeginChild("Frustum Cull Debug Draw", ImVec2(0, 50))) {
-            ImGui::Text("Frustum Cull Debug Draw");
-            ImGui::Checkbox("Enable Frustum Cull Debug Draw", &engine->bEnableDebugFrustumCullDraw);
-            ImGui::Separator();
-        }
-        ImGui::EndChild();
-
-        if (ImGui::BeginChild("Environment Map", ImVec2(0, 50))) {
-            ImGui::Text("Environment Map");
-            const auto& activeEnvironmentMapNames = engine->environmentMap->getActiveEnvironmentMapNames();
-
-            std::vector<std::pair<int32_t, std::string> > indexNamePairs;
-            for (const auto& [index, name] : activeEnvironmentMapNames) {
-                indexNamePairs.emplace_back(index, name);
+            if (ImGui::BeginTabItem("Pipelines")) {
+                ImGui::Text("Deferred Debug");
+                const char* deferredDebugOptions[]{"None", "Depth", "Velocity", "Albedo", "Normal", "PBR", "Shadows", "Cascade Level", "nDotL"};
+                ImGui::Combo("Deferred Debug", &engine->deferredDebug, deferredDebugOptions, IM_ARRAYSIZE(deferredDebugOptions));
+                ImGui::Text("Temporal Anti-Aliasing");
+                ImGui::Checkbox("Enable TAA", &engine->bEnableTaa);
+                ImGui::EndTabItem();
             }
-            std::sort(indexNamePairs.begin(), indexNamePairs.end());
 
-            auto it = std::ranges::find_if(indexNamePairs, [this, engine](const auto& pair) {
-                return pair.first == engine->environmentMapIndex;
-            });
-            int currentIndex = (it != indexNamePairs.end()) ? static_cast<int>(std::distance(indexNamePairs.begin(), it)) : 0;
-
-            struct ComboData
-            {
-                const std::vector<std::pair<int32_t, std::string> >* pairs;
-            };
-
-            auto getLabel = [](void* data, int idx, const char** out_text) -> bool {
-                static std::string label;
-                const auto& pairs = *static_cast<const ComboData*>(data)->pairs;
-                label = pairs[idx].second;
-                *out_text = label.c_str();
-                return true;
-            };
-
-            ComboData data{&indexNamePairs};
-            ImGui::SetNextItemWidth(250);
-            if (ImGui::Combo("Environment", &currentIndex, getLabel, &data, static_cast<int>(indexNamePairs.size()))) {
-                engine->environmentMapIndex = indexNamePairs[currentIndex].first;
+            if (ImGui::BeginTabItem("Debug View")) {
+                ImGui::Text("Frustum Cull Debug Draw");
+                ImGui::Checkbox("Enable Frustum Cull Debug Draw", &engine->bEnableDebugFrustumCullDraw);
+                ImGui::EndTabItem();
             }
-            ImGui::Separator();
-        }
-        ImGui::EndChild();
 
-        if (ImGui::BeginChild("Cascaded Shadow Map", ImVec2(0, 160))) {
-            ImGui::Text("Cascaded Shadow Map");
-            ImGui::InputFloat3("Main Light Direction", engine->mainLight.direction);
-            ImGui::InputFloat2("Cascade 1 Bias", shadows::CASCADE_BIAS[0]);
-            ImGui::InputFloat2("Cascade 2 Bias", shadows::CASCADE_BIAS[1]);
-            ImGui::InputFloat2("Cascade 3 Bias", shadows::CASCADE_BIAS[2]);
-            ImGui::InputFloat2("Cascade 4 Bias", shadows::CASCADE_BIAS[3]);
-            ImGui::SetNextItemWidth(100);
-            static int32_t shadowMapDebug{0};
-            ImGui::SliderInt("Shadow Map Level", &shadowMapDebug, 0, shadows::SHADOW_CASCADE_COUNT - 1);
-            ImGui::SameLine();
-            if (ImGui::Button(fmt::format("Save Shadow Map", shadowMapDebug).c_str())) {
-                if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                    std::filesystem::path path = file::imagesSavePath / fmt::format("shadowMap{}.png", shadowMapDebug);
+            if (ImGui::BeginTabItem("Environment")) {
+                ImGui::Text("Environment Map");
+                const auto& activeEnvironmentMapNames = engine->environmentMap->getActiveEnvironmentMapNames();
 
-                    auto depthNormalize = [](const float depth) {
-                        return logf(1.0f + depth * 15.0f) / logf(16.0f);
-                    };
+                std::vector<std::pair<int32_t, std::string> > indexNamePairs;
+                for (const auto& [index, name] : activeEnvironmentMapNames) {
+                    indexNamePairs.emplace_back(index, name);
+                }
+                std::sort(indexNamePairs.begin(), indexNamePairs.end());
 
-                    AllocatedImage shadowMap = engine->cascadedShadowMap->getShadowMap(shadowMapDebug);
-                    if (shadowMap.image != VK_NULL_HANDLE) {
-                        vk_helpers::saveImageR32F(
-                            *engine->resourceManager,
-                            *engine->immediate,
-                            shadowMap,
-                            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                            VK_IMAGE_ASPECT_DEPTH_BIT,
-                            path.string().c_str(),
-                            depthNormalize
-                        );
+                auto it = std::ranges::find_if(indexNamePairs, [this, engine](const auto& pair) {
+                    return pair.first == engine->environmentMapIndex;
+                });
+                int currentIndex = (it != indexNamePairs.end()) ? static_cast<int>(std::distance(indexNamePairs.begin(), it)) : 0;
+
+                struct ComboData
+                {
+                    const std::vector<std::pair<int32_t, std::string> >* pairs;
+                };
+
+                auto getLabel = [](void* data, int idx, const char** out_text) -> bool {
+                    static std::string label;
+                    const auto& pairs = *static_cast<const ComboData*>(data)->pairs;
+                    label = pairs[idx].second;
+                    *out_text = label.c_str();
+                    return true;
+                };
+
+                ComboData data{&indexNamePairs};
+                ImGui::SetNextItemWidth(250);
+                if (ImGui::Combo("Environment", &currentIndex, getLabel, &data, static_cast<int>(indexNamePairs.size()))) {
+                    engine->environmentMapIndex = indexNamePairs[currentIndex].first;
+                }
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem("Shadows")) {
+                ImGui::Text("Cascaded Shadow Map");
+                ImGui::InputFloat3("Main Light Direction", engine->mainLight.direction);
+                ImGui::InputFloat2("Cascade 1 Bias", shadows::CASCADE_BIAS[0]);
+                ImGui::InputFloat2("Cascade 2 Bias", shadows::CASCADE_BIAS[1]);
+                ImGui::InputFloat2("Cascade 3 Bias", shadows::CASCADE_BIAS[2]);
+                ImGui::InputFloat2("Cascade 4 Bias", shadows::CASCADE_BIAS[3]);
+                ImGui::SetNextItemWidth(100);
+                static int32_t shadowMapDebug{0};
+                ImGui::SliderInt("Shadow Map Level", &shadowMapDebug, 0, shadows::SHADOW_CASCADE_COUNT - 1);
+                ImGui::SameLine();
+                if (ImGui::Button(fmt::format("Save Shadow Map", shadowMapDebug).c_str())) {
+                    if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                        std::filesystem::path path = file::imagesSavePath / fmt::format("shadowMap{}.png", shadowMapDebug);
+
+                        auto depthNormalize = [](const float depth) {
+                            return logf(1.0f + depth * 15.0f) / logf(16.0f);
+                        };
+
+                        AllocatedImage shadowMap = engine->cascadedShadowMap->getShadowMap(shadowMapDebug);
+                        if (shadowMap.image != VK_NULL_HANDLE) {
+                            vk_helpers::saveImageR32F(
+                                *engine->resourceManager,
+                                *engine->immediate,
+                                shadowMap,
+                                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                VK_IMAGE_ASPECT_DEPTH_BIT,
+                                path.string().c_str(),
+                                depthNormalize
+                            );
+                        }
+                    } else {
+                        fmt::print(" Failed to save depth map image");
                     }
-                } else {
-                    fmt::print(" Failed to save depth map image");
                 }
+                ImGui::EndTabItem();
             }
 
-            ImGui::Separator();
+            if (ImGui::BeginTabItem("Save Images")) {
+                if (ImGui::Button("Save Draw Image")) {
+                    if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                        const std::filesystem::path path = file::imagesSavePath / "drawImage.png";
+                        vk_helpers::saveImageRGBA16SFLOAT(*engine->resourceManager, *engine->immediate, engine->drawImage,
+                                                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str());
+                    } else {
+                        fmt::print(" Failed to find/create image save path directory");
+                    }
+                }
+
+                if (ImGui::Button("Save Depth Image")) {
+                    if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                        const std::filesystem::path path = file::imagesSavePath / "depthImage.png";
+                        auto depthNormalize = [&engine](const float depth) {
+                            const float zNear =  engine->camera->getFarPlane();
+                            const float zFar  = engine->camera->getNearPlane() / 10.0;
+                            float d = 1 - depth;
+                            return (2.0 * zNear) / (zFar + zNear - d * (zFar - zNear));
+                        };
+
+                        vk_helpers::saveImageR32F(*engine->resourceManager, *engine->immediate, engine->depthImage,
+                                                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT, path.string().c_str(), depthNormalize);
+                    } else {
+                        fmt::print(" Failed to find/create image save path directory");
+                    }
+                }
+
+                if (ImGui::Button("Save Normals")) {
+                    if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                        const std::filesystem::path path = file::imagesSavePath / "normalRT.png";
+                        auto unpackFunc = [](const uint32_t packedColor) {
+                            glm::vec4 pixel = glm::unpackSnorm4x8(packedColor);
+                            pixel.r = pixel.r * 0.5f + 0.5f;
+                            pixel.g = pixel.g * 0.5f + 0.5f;
+                            pixel.b = pixel.b * 0.5f + 0.5f;
+                            pixel.a = 1.0f;
+                            return pixel;
+                        };
+                        vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->normalRenderTarget,
+                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
+                    } else {
+                        fmt::print(" Failed to save normal render target");
+                    }
+                }
+
+                if (ImGui::Button("Save Albedo Render Target")) {
+                    if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                        const std::filesystem::path path = file::imagesSavePath / "albedoRT.png";
+                        auto unpackFunc = [](const uint32_t packedColor) {
+                            glm::vec4 pixel = glm::unpackUnorm4x8(packedColor);
+                            pixel.a = 1.0f;
+                            return pixel;
+                        };
+                        vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->albedoRenderTarget,
+                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
+                    } else {
+                        fmt::print(" Failed to save albedo render target");
+                    }
+                }
+
+                if (ImGui::Button("Save PBR Render Target")) {
+                    if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                        std::filesystem::path path = file::imagesSavePath / "pbrRT.png";
+                        auto unpackFunc = [](const uint32_t packedColor) {
+                            glm::vec4 pixel = glm::unpackUnorm4x8(packedColor);
+                            pixel.a = 1.0f;
+                            return pixel;
+                        };
+                        vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->pbrRenderTarget,
+                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
+                    } else {
+                        fmt::print(" Failed to save pbr render target");
+                    }
+                }
+
+                if (ImGui::Button("Save Post Process Resolve Target")) {
+                    if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                        std::filesystem::path path = file::imagesSavePath / "postProcesResolve.png";
+                        vk_helpers::saveImageRGBA16SFLOAT(*engine->resourceManager, *engine->immediate, engine->postProcessOutputBuffer,
+                                                          VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str());
+                    } else {
+                        fmt::print(" Failed to find/create image save path directory");
+                    }
+                }
+                ImGui::EndTabItem();
+            }
+            ImGui::EndTabBar();
         }
-        ImGui::EndChild();
-
-        if (ImGui::BeginChild("Save Images", ImVec2(0, 160))) {
-            ImGui::SetNextItemWidth(75);
-            ImGui::Text("Save Images");
-            if (ImGui::Button("Save Draw Image")) {
-                if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                    const std::filesystem::path path = file::imagesSavePath / "drawImage.png";
-                    vk_helpers::saveImageRGBA16SFLOAT(*engine->resourceManager, *engine->immediate, engine->drawImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
-                                                      path.string().c_str());
-                } else {
-                    fmt::print(" Failed to find/create image save path directory");
-                }
-            }
-
-            ImGui::SetNextItemWidth(75);
-            if (ImGui::Button("Save Depth Image")) {
-                if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                    const std::filesystem::path path = file::imagesSavePath / "depthImage.png";
-                    auto depthNormalize = [](const float depth) {
-                        return logf(1.0f + depth * 15.0f) / logf(16.0f);
-                    };
-                    vk_helpers::saveImageR32F(*engine->resourceManager, *engine->immediate, engine->depthImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT,
-                                              path.string().c_str(), depthNormalize);
-                } else {
-                    fmt::print(" Failed to find/create image save path directory");
-                }
-            }
-
-            ImGui::SetNextItemWidth(75);
-            if (ImGui::Button("Save Normals")) {
-                if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                    const std::filesystem::path path = file::imagesSavePath / "normalRT.png";
-                    auto unpackFunc = [](const uint32_t packedColor) {
-                        glm::vec4 pixel = glm::unpackSnorm4x8(packedColor);
-                        pixel.r = pixel.r * 0.5f + 0.5f;
-                        pixel.g = pixel.g * 0.5f + 0.5f;
-                        pixel.b = pixel.b * 0.5f + 0.5f;
-                        pixel.a = 1.0f;
-                        return pixel;
-                    };
-
-                    vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->normalRenderTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT,
-                                                path.string().c_str(), unpackFunc);
-                } else {
-                    fmt::print(" Failed to save normal render target");
-                }
-            }
-
-            ImGui::SetNextItemWidth(75);
-            if (ImGui::Button("Save Albedo Render Target")) {
-                if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                    const std::filesystem::path path = file::imagesSavePath / "albedoRT.png";
-                    auto unpackFunc = [](const uint32_t packedColor) {
-                        glm::vec4 pixel = glm::unpackUnorm4x8(packedColor);
-                        pixel.a = 1.0f;
-                        return pixel;
-                    };
-
-                    vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->albedoRenderTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                                VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
-                } else {
-                    fmt::print(" Failed to save albedo render target");
-                }
-            }
-
-            ImGui::SetNextItemWidth(75);
-            if (ImGui::Button("Save PBR Render Target")) {
-                if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                    std::filesystem::path path = file::imagesSavePath / "pbrRT.png";
-                    auto unpackFunc = [](const uint32_t packedColor) {
-                        glm::vec4 pixel = glm::unpackUnorm4x8(packedColor);
-                        pixel.a = 1.0f;
-                        return pixel;
-                    };
-                    vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->pbrRenderTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                                VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
-                } else {
-                    fmt::print(" Failed to save pbr render target");
-                }
-            }
-
-            ImGui::SetNextItemWidth(75);
-            if (ImGui::Button("Save Post Process Resolve Target")) {
-                if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                    std::filesystem::path path = file::imagesSavePath / "postProcesResolve.png";
-                    vk_helpers::saveImageRGBA16SFLOAT(*engine->resourceManager, *engine->immediate, engine->postProcessOutputBuffer, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                                                      VK_IMAGE_ASPECT_COLOR_BIT,
-                                                      path.string().c_str());
-                } else {
-                    fmt::print(" Failed to find/create image save path directory");
-                }
-            }
-            ImGui::Separator();
-        }
-        ImGui::EndChild();
+        ImGui::End();
     }
-    ImGui::End();
 
     if (ImGui::Begin("Scene")) {
         if (ImGui::BeginTabBar("SceneTabs")) {
+            if (ImGui::BeginTabItem("Serialization")) {
+                static std::filesystem::path serializationPath = {"../assets/scenes/sampleScene.willmap"};
+
+                const float width = ImGui::GetContentRegionAvail().x;
+                ImGui::Text("Output Path: %s", serializationPath.empty() ? "None selected" : serializationPath.string().c_str());
+                if (ImGui::Button("Select Output Path")) {
+                    IGFD::FileDialogConfig config;
+                    config.path = "./assets/scenes/";
+                    config.fileName = serializationPath.filename().string();
+                    IGFD::FileDialog::Instance()->OpenDialog(
+                        "WillmapDlg",
+                        "Save Willmap",
+                        ".willmap",
+                        config);
+                }
+
+                if (IGFD::FileDialog::Instance()->Display("WillmapDlg")) {
+                    if (IGFD::FileDialog::Instance()->IsOk()) {
+                        serializationPath = IGFD::FileDialog::Instance()->GetFilePathName();
+                        serializationPath = file::getRelativePath(serializationPath);
+                    }
+
+                    IGFD::FileDialog::Instance()->Close();
+                }
+                if (ImGui::Button("Serialize Scene", ImVec2(width, 40))) {
+                    if (Serializer::serializeScene(engine->scene->getRoot(), engine->renderObjectMap, serializationPath.string())) {
+                        ImGui::OpenPopup("SerializeSuccess");
+                    } else {
+                        ImGui::OpenPopup("SerializeError");
+                    }
+                }
+
+                if (ImGui::Button("Deserialize Scene", ImVec2(width, 40))) {
+                    file::scanForModels(engine->renderObjectInfoMap);
+                    if (Serializer::deserializeScene(engine->scene->getRoot(), *engine->resourceManager, engine->renderObjectMap, engine->renderObjectInfoMap, serializationPath.string())) {
+                        ImGui::OpenPopup("SerializeSuccess");
+                    } else {
+                        ImGui::OpenPopup("SerializeError");
+                    }
+                }
+
+                // Success/Error popups
+                if (ImGui::BeginPopupModal("SerializeSuccess", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                    ImGui::Text("Scene Serialization Success!");
+                    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+                    ImGui::EndPopup();
+                }
+                if (ImGui::BeginPopupModal("SerializeError", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                    ImGui::Text("Scene Serialization Failed!");
+                    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+                    ImGui::EndPopup();
+                }
+
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem("Render Objects")) {
+                const float width = ImGui::GetContentRegionAvail().x;
+                if (ImGui::Button("Scan for .willmodel", ImVec2(width, 0))) {
+                    file::scanForModels(engine->renderObjectInfoMap);
+                }
+
+                static uint32_t selectedObjectId = 0;
+                for (const auto& [id, info] : engine->renderObjectInfoMap) {
+                    ImGui::PushID(id);
+
+                    bool isLoaded = engine->renderObjectMap.contains(id) && engine->renderObjectMap[id] != nullptr;
+                    bool checked = isLoaded;
+                    bool disabled = false;
+                    if (isLoaded && engine->renderObjectMap[id]->canDraw()) {
+                        disabled = true;
+                        ImGui::BeginDisabled(true);
+                    }
+
+                    ImGui::Checkbox("##loaded", &checked);
+                    if (checked && !isLoaded) {
+                        engine->renderObjectMap[id] = new RenderObject(info.gltfPath, *engine->resourceManager, id);
+                    }
+
+                    if (!checked && isLoaded) {
+                        assert(!engine->renderObjectMap[id]->canDraw());
+                        assert(engine->renderObjectMap.contains(id));
+                        delete engine->renderObjectMap[id];
+                        engine->renderObjectMap.erase(id);
+                    }
+                    if (disabled) {
+                        ImGui::EndDisabled();
+                    }
+
+                    ImGui::SameLine();
+                    ImGui::Text("%s", info.name.c_str());
+
+                    ImGui::SameLine();
+                    if (ImGui::Button("Details##btn")) {
+                        selectedObjectId = info.id;
+                        ImGui::OpenPopup("Render Object Detail");
+                    }
+
+                    if (ImGui::BeginPopupModal("Render Object Detail", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                        ImGui::Text("Name: %s", info.name.c_str());
+                        ImGui::Text("Path: %s", file::getRelativePath(info.gltfPath).string().c_str());
+                        ImGui::Text("ID: %u", info.id);
+                        ImGui::Separator();
+
+
+                        if (auto it = engine->renderObjectMap.find(selectedObjectId); it != engine->renderObjectMap.end() && it->second != nullptr) {
+                            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.75f, 0.75f, 0.75f, 1.0f));
+                            static char objectName[256] = "";
+                            ImGui::InputText("Object Name", objectName, sizeof(objectName));
+                            ImGui::PopStyleColor();
+                            if (ImGui::BeginTabBar("GameObject Generation")) {
+                                if (ImGui::BeginTabItem("Full Model")) {
+                                    if (ImGui::Button("Generate Full Object")) {
+                                        GameObject* gob = it->second->generateGameObject(std::string(objectName));
+                                        engine->scene->addGameObject(gob);
+                                        fmt::print("Added whole gltf model to the scene\n");
+                                    }
+                                    ImGui::EndTabItem();
+                                }
+
+                                if (ImGui::BeginTabItem("Single Mesh")) {
+                                    RenderObject* renderObj = it->second;
+                                    for (size_t i = 0; i < renderObj->getMeshCount(); i++) {
+                                        ImGui::PushID(static_cast<int>(i));
+                                        if (ImGui::Button("Add to Scene")) {
+                                            auto gob = new GameObject(std::string(objectName));
+                                            renderObj->generateMesh(gob, i);
+                                            engine->scene->addGameObject(gob);
+                                            fmt::print("Added single mesh to scene\n");
+                                        }
+                                        ImGui::SameLine();
+                                        ImGui::Text("Mesh %zu", i);
+                                        ImGui::PopID();
+                                    }
+                                    ImGui::EndTabItem();
+                                }
+
+                                ImGui::EndTabBar();
+                            }
+                        } else {
+                            ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "Load render object to see available meshes");
+                        }
+
+                        if (ImGui::Button("Close")) ImGui::CloseCurrentPopup();
+                        ImGui::EndPopup();
+                    }
+
+                    ImGui::PopID();
+                }
+                ImGui::EndTabItem();
+            }
+
             if (ImGui::BeginTabItem("Model Generator")) {
                 static std::filesystem::path gltfPath;
                 static std::filesystem::path willmodelPath;
@@ -385,173 +535,21 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 ImGui::EndTabItem();
             }
 
-            if (ImGui::BeginTabItem("Render Objects")) {
-                const float width = ImGui::GetContentRegionAvail().x;
-                if (ImGui::Button("Scan for .willmodel", ImVec2(width, 0))) {
-                    file::scanForModels(engine->renderObjectInfoMap);
-                }
-
-                static uint32_t selectedObjectId = 0;
-                for (const auto& [id, info] : engine->renderObjectInfoMap) {
-                    ImGui::PushID(id);
-
-                    bool isLoaded = engine->renderObjectMap.contains(id) && engine->renderObjectMap[id] != nullptr;
-                    bool checked = isLoaded;
-                    bool disabled = false;
-                    if (isLoaded && engine->renderObjectMap[id]->canDraw()) {
-                        disabled = true;
-                        ImGui::BeginDisabled(true);
-                    }
-
-                    ImGui::Checkbox("##loaded", &checked);
-                    if (checked && !isLoaded) {
-                        engine->renderObjectMap[id] = new RenderObject(info.gltfPath, *engine->resourceManager, id);
-                    }
-
-                    if (!checked && isLoaded)
-                    {
-                        assert(!engine->renderObjectMap[id]->canDraw());
-                        assert(engine->renderObjectMap.contains(id));
-                        delete engine->renderObjectMap[id];
-                        engine->renderObjectMap.erase(id);
-                    }
-                    if (disabled) {
-                        ImGui::EndDisabled();
-                    }
-
-                    ImGui::SameLine();
-                    ImGui::Text("%s", info.name.c_str());
-
-                    ImGui::SameLine();
-                    if (ImGui::Button("Details##btn")) {
-                        selectedObjectId = info.id;
-                        ImGui::OpenPopup("Render Object Detail");
-                    }
-
-                    if (ImGui::BeginPopupModal("Render Object Detail", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                        ImGui::Text("Name: %s", info.name.c_str());
-                        ImGui::Text("Path: %s", file::getRelativePath(info.gltfPath).string().c_str());
-                        ImGui::Text("ID: %u", info.id);
-                        ImGui::Separator();
-
-
-                        if (auto it = engine->renderObjectMap.find(selectedObjectId); it != engine->renderObjectMap.end() && it->second != nullptr) {
-                            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.75f, 0.75f, 0.75f, 1.0f));
-                            static char objectName[256] = "";
-                            ImGui::InputText("Object Name", objectName, sizeof(objectName));
-                            ImGui::PopStyleColor();
-                            if (ImGui::BeginTabBar("GameObject Generation")) {
-                                if (ImGui::BeginTabItem("Full Model")) {
-                                    if (ImGui::Button("Generate Full Object")) {
-                                        GameObject* gob = it->second->generateGameObject(std::string(objectName));
-                                        engine->scene->addGameObject(gob);
-                                        fmt::print("Added whole gltf model to the scene\n");
-                                    }
-                                    ImGui::EndTabItem();
-                                }
-
-                                if (ImGui::BeginTabItem("Single Mesh")) {
-                                    RenderObject* renderObj = it->second;
-                                    for (size_t i = 0; i < renderObj->getMeshCount(); i++) {
-                                        ImGui::PushID(static_cast<int>(i));
-                                        if (ImGui::Button("Add to Scene")) {
-                                            auto gob = new GameObject(std::string(objectName));
-                                            renderObj->generateMesh(gob, i);
-                                            engine->scene->addGameObject(gob);
-                                            fmt::print("Added single mesh to scene\n");
-                                        }
-                                        ImGui::SameLine();
-                                        ImGui::Text("Mesh %zu", i);
-                                        ImGui::PopID();
-                                    }
-                                    ImGui::EndTabItem();
-                                }
-
-                                ImGui::EndTabBar();
-                            }
-                        } else {
-                            ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "Load render object to see available meshes");
-                        }
-
-                        if (ImGui::Button("Close")) ImGui::CloseCurrentPopup();
-                        ImGui::EndPopup();
-                    }
-
-                    ImGui::PopID();
-                }
-                ImGui::EndTabItem();
-            }
-
-            if (ImGui::BeginTabItem("Serialization")) {
-                static std::filesystem::path serializationPath = {"../assets/scenes/sampleScene.willmap"};
-
-                const float width = ImGui::GetContentRegionAvail().x;
-                ImGui::Text("Output Path: %s", serializationPath.empty() ? "None selected" : serializationPath.string().c_str());
-                if (ImGui::Button("Select Output Path")) {
-                    IGFD::FileDialogConfig config;
-                    config.path = "./assets/scenes/";
-                    config.fileName = serializationPath.filename().string();
-                    IGFD::FileDialog::Instance()->OpenDialog(
-                        "WillmapDlg",
-                        "Save Willmap",
-                        ".willmap",
-                        config);
-                }
-
-                if (IGFD::FileDialog::Instance()->Display("WillmapDlg")) {
-                    if (IGFD::FileDialog::Instance()->IsOk()) {
-                        serializationPath = IGFD::FileDialog::Instance()->GetFilePathName();
-                        serializationPath = file::getRelativePath(serializationPath);
-                    }
-
-                    IGFD::FileDialog::Instance()->Close();
-                }
-                if (ImGui::Button("Serialize Scene", ImVec2(width, 40))) {
-                    if (Serializer::serializeScene(engine->scene->getRoot(), engine->renderObjectMap, serializationPath.string())) {
-                        ImGui::OpenPopup("SerializeSuccess");
-                    } else {
-                        ImGui::OpenPopup("SerializeError");
-                    }
-                }
-
-                if (ImGui::Button("Deserialize Scene", ImVec2(width, 40))) {
-                    file::scanForModels(engine->renderObjectInfoMap);
-                    if (Serializer::deserializeScene(engine->scene->getRoot(), *engine->resourceManager, engine->renderObjectMap, engine->renderObjectInfoMap, serializationPath.string())) {
-                        ImGui::OpenPopup("SerializeSuccess");
-                    } else {
-                        ImGui::OpenPopup("SerializeError");
-                    }
-                }
-
-                // Success/Error popups
-                if (ImGui::BeginPopupModal("SerializeSuccess", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                    ImGui::Text("Scene Serialization Success!");
-                    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
-                    ImGui::EndPopup();
-                }
-                if (ImGui::BeginPopupModal("SerializeError", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                    ImGui::Text("Scene Serialization Failed!");
-                    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
-                    ImGui::EndPopup();
-                }
-
-                ImGui::EndTabItem();
-            }
-
-            if (ImGui::BeginTabItem("Physics")) {
-                ImGui::EndTabItem();
-            }
-
-
             ImGui::EndTabBar();
         }
     }
     ImGui::End();
 
+
     if (engine->scene != nullptr) {
         drawSceneGraph(engine, engine->scene);
     }
 
+    if (selectedItem) {
+        if (IImguiRenderable* imguiRenderable = dynamic_cast<IImguiRenderable*>(selectedItem)) {
+            imguiRenderable->selectedRenderImgui();
+        }
+    }
 
     ImGui::Render();
 }
@@ -648,7 +646,13 @@ void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierar
 
     ImGui::SameLine();
     ImGui::BeginGroup();
-
+    if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
+        if (obj == selectedItem) {
+            selectedItem = nullptr;
+        } else {
+            selectedItem = obj;
+        }
+    }
     if (const IHierarchical* parent = obj->getParent()) {
         constexpr float spacing = 5.0f;
         constexpr float arrowWidth = 20.0f;
@@ -685,6 +689,10 @@ void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierar
     }
 
     ImGui::EndGroup();
+
+    if (const auto imguiRenderable = dynamic_cast<IImguiRenderable*>(obj)) {
+        imguiRenderable->renderImgui();
+    }
 
     if (isOpen) {
         for (IHierarchical* child : obj->getChildren()) {
