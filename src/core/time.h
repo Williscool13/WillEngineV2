@@ -4,7 +4,7 @@
 
 #ifndef TIME_UTILS_H
 #define TIME_UTILS_H
-#include <SDL2/SDL.h>
+#include <cstdint>
 
 
 namespace will_engine

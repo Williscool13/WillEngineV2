@@ -4,6 +4,8 @@
 
 #include "time.h"
 
+#include <SDL_timer.h>
+
 namespace will_engine
 {
 Time::Time()

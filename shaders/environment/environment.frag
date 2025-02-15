@@ -9,7 +9,7 @@ void main()
 {
 	vec3 direction = normalize(fragPosition);
 	direction.y = -direction.y;
-	vec3 envColor = texture(environmentMap, direction).rgb;
+	vec3 envColor = textureLod(environmentMap, direction, 0).rgb;
 
     outColor = vec4(envColor, 1.0);
 }
