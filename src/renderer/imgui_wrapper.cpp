@@ -107,11 +107,59 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::NewFrame();
 
     if (ImGui::Begin("Main")) {
-        ImGui::Text("Physics Time: %.2f ms", engine->stats.physicsTime);
-        ImGui::Text("Game Time: %.2f ms", engine->stats.gameTime);
-        ImGui::Text("Render Time: %.2f ms", engine->stats.renderTime);
-        ImGui::Text("Frame Time: %.2f ms", engine->stats.totalTime);
-        ImGui::Text("Delta Time: %.2f ms", time.getDeltaTime() * 1000.0f);
+        if (ImGui::BeginTabBar("Profiler")) {
+            if (ImGui::BeginTabItem("Runtime")) {
+                ImGui::Columns(2, "StartupTimers");
+
+                ImGui::Text("Operation");
+                ImGui::NextColumn();
+                ImGui::Text("Time (ms)");
+                ImGui::NextColumn();
+                ImGui::Separator();
+
+                for (const auto& [name, timer] : engine->profiler.getTimers()) {
+                    std::string_view nameView = name;
+                    if (!nameView.empty()) {
+                        nameView.remove_prefix(1);
+                    }
+
+                    ImGui::Text("%s", nameView.data());
+                    ImGui::NextColumn();
+                    ImGui::Text("%.2f", timer.getAverageTime());
+                    ImGui::NextColumn();
+                }
+
+                ImGui::Columns(1);
+                ImGui::EndTabItem();
+            }
+
+
+            if (ImGui::BeginTabItem("Startup")) {
+                ImGui::Columns(2, "StartupTimers");
+
+                ImGui::Text("Operation");
+                ImGui::NextColumn();
+                ImGui::Text("Time (ms)");
+                ImGui::NextColumn();
+                ImGui::Separator();
+
+                for (const auto& [name, timer] : engine->startupProfiler.getTimers()) {
+                    std::string_view nameView = name;
+                    if (!nameView.empty()) {
+                        nameView.remove_prefix(1);
+                    }
+
+                    ImGui::Text("%s", nameView.data());
+                    ImGui::NextColumn();
+                    ImGui::Text("%.2f", timer.getAverageTime());
+                    ImGui::NextColumn();
+                }
+
+                ImGui::Columns(1);
+                ImGui::EndTabItem();
+            }
+        }
+        ImGui::EndTabBar();
     }
     ImGui::End();
 
@@ -230,10 +278,10 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "depthImage.png";
                         auto depthNormalize = [&engine](const float depth) {
-                            const float zNear =  engine->camera->getFarPlane();
-                            const float zFar  = engine->camera->getNearPlane() / 10.0;
+                            const float zNear = engine->camera->getFarPlane();
+                            const float zFar = engine->camera->getNearPlane() / 10.0;
                             float d = 1 - depth;
-                            return (2.0 * zNear) / (zFar + zNear - d * (zFar - zNear));
+                            return (2.0f * zNear) / (zFar + zNear - d * (zFar - zNear));
                         };
 
                         vk_helpers::saveImageR32F(*engine->resourceManager, *engine->immediate, engine->depthImage,

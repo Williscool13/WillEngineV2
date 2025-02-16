@@ -11,11 +11,13 @@
 
 #include "engine_types.h"
 #include "scene/scene_serializer.h"
+#include "src/profiler/profiler.h"
 #include "src/renderer/imgui_wrapper.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/vk_types.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/lighting/directional_light.h"
+#include "src/util/profiling_utils.h"
 
 
 class ResourceManager;
@@ -93,8 +95,6 @@ public:
 
     void run();
 
-    void update(float deltaTime);
-
     void updateGame(float deltaTime) const;
 
     void updateRender(float deltaTime, int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
@@ -120,12 +120,13 @@ private:
     cascaded_shadows::CascadedShadowMap* cascadedShadowMap{nullptr};
     ImguiWrapper* imguiWrapper = nullptr;
 
-    EngineStats stats{};
+    Profiler startupProfiler{};
+    Profiler profiler{};
 
 private: // Rendering
     int32_t frameNumber{0};
-    int32_t getPreviousFrameOverlap() const { return glm::max(frameNumber - 1, 0) % FRAME_OVERLAP; }
-    int32_t getCurrentFrameOverlap() const { return frameNumber % FRAME_OVERLAP; }
+    [[nodiscard]] int32_t getPreviousFrameOverlap() const { return glm::max(frameNumber - 1, 0) % FRAME_OVERLAP; }
+    [[nodiscard]] int32_t getCurrentFrameOverlap() const { return frameNumber % FRAME_OVERLAP; }
     FrameData frames[FRAME_OVERLAP]{};
     FrameData& getCurrentFrame() { return frames[getCurrentFrameOverlap()]; }
 
