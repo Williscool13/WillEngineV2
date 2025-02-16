@@ -8,14 +8,6 @@
 
 namespace will_engine
 {
-struct EngineStats
-{
-    float physicsTime{};
-    float gameTime{};
-    float renderTime{};
-    float totalTime{};
-};
-
 struct FrameData
 {
     VkCommandPool _commandPool;

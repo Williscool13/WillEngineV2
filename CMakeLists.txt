@@ -210,6 +210,9 @@ if (WIN32)
             src/resources.h
             src/resources.rc
             src/core/game_object/imgui_renderable.h
+            src/util/profiling_utils.h
+            src/profiler/profiler.cpp
+            src/profiler/profiler.h
     )
 endif ()
 
