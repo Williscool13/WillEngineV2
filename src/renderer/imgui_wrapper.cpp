@@ -352,8 +352,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             }
             ImGui::EndTabBar();
         }
-        ImGui::End();
     }
+    ImGui::End();
 
     if (ImGui::Begin("Scene")) {
         if (ImGui::BeginTabBar("SceneTabs")) {
