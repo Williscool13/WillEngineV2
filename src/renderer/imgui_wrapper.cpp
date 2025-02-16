@@ -107,10 +107,32 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::NewFrame();
 
     if (ImGui::Begin("Main")) {
-        for (const auto& [name, timer] : engine->profiler.getTimers()) {
-            ImGui::Text("%s Time: %.2f ms", name.data(), timer.getAverageTime());
+        if (ImGui::BeginTabBar("Profiler")) {
+            if (ImGui::BeginTabItem("Runtime")) {
+                for (const auto& [name, timer] : engine->profiler.getTimers()) {
+                    std::string_view nameView = name;
+                    if (!nameView.empty()) {
+                        nameView.remove_prefix(1);
+                    }
+                    ImGui::Text("%s Time: %.2f ms", nameView.data(), timer.getAverageTime());
+                }
+                ImGui::Text("Delta Time: %.2f ms", time.getDeltaTime() * 1000.0f);
+                ImGui::EndTabItem();
+            }
+
+
+            if (ImGui::BeginTabItem("Startup")) {
+                for (const auto& [name, timer] : engine->startupProfiler.getTimers()) {
+                    std::string_view nameView = name;
+                    if (!nameView.empty()) {
+                        nameView.remove_prefix(1);
+                    }
+                    ImGui::Text("%s: %.2f ms", nameView.data(), timer.getAverageTime());
+                }
+                ImGui::EndTabItem();
+            }
         }
-        ImGui::Text("Delta Time: %.2f ms", time.getDeltaTime() * 1000.0f);
+        ImGui::EndTabBar();
     }
     ImGui::End();
 
@@ -229,8 +251,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "depthImage.png";
                         auto depthNormalize = [&engine](const float depth) {
-                            const float zNear =  engine->camera->getFarPlane();
-                            const float zFar  = engine->camera->getNearPlane() / 10.0;
+                            const float zNear = engine->camera->getFarPlane();
+                            const float zFar = engine->camera->getNearPlane() / 10.0;
                             float d = 1 - depth;
                             return (2.0f * zNear) / (zFar + zNear - d * (zFar - zNear));
                         };

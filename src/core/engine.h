@@ -120,6 +120,7 @@ private:
     cascaded_shadows::CascadedShadowMap* cascadedShadowMap{nullptr};
     ImguiWrapper* imguiWrapper = nullptr;
 
+    Profiler startupProfiler{};
     Profiler profiler{};
 
 private: // Rendering

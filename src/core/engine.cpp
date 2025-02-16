@@ -71,7 +71,20 @@ void Engine::init()
         window_flags);
 
 
+    startupProfiler.addTimer("0Context");
+    startupProfiler.addTimer("1Immediate");
+    startupProfiler.addTimer("2ResourceManager");
+    startupProfiler.addTimer("3Physics");
+    startupProfiler.addTimer("4Environment");
+    startupProfiler.addTimer("5Load Environment 0");
+    startupProfiler.addTimer("6Load Environment 1");
+    startupProfiler.addTimer("7Load CSM");
+    startupProfiler.addTimer("8Init Renderer");
+    startupProfiler.addTimer("9Init Game");
+
+    startupProfiler.beginTimer("0Context");
     context = new VulkanContext(window, USE_VALIDATION_LAYERS);
+    startupProfiler.endTimer("0Context");
 
     createSwapchain(windowExtent.width, windowExtent.height);
     createDrawResources();
@@ -94,28 +107,58 @@ void Engine::init()
         VK_CHECK(vkCreateSemaphore(context->device, &semaphoreCreateInfo, nullptr, &frame._renderSemaphore));
     }
 
+
+
+    startupProfiler.beginTimer("1Immediate");
     immediate = new ImmediateSubmitter(*context);
+    startupProfiler.endTimer("1Immediate");
+
+    startupProfiler.beginTimer("2ResourceManager");
     resourceManager = new ResourceManager(*context, *immediate);
+    startupProfiler.endTimer("2ResourceManager");
+
     identifierManager = new identifier::IdentifierManager();
     identifier::IdentifierManager::Set(identifierManager);
+
+    startupProfiler.beginTimer("3Physics");
     physics = new physics::Physics();
     physics::Physics::Set(physics);
+    startupProfiler.endTimer("3Physics");
+
+    startupProfiler.beginTimer("4Environment");
     environmentMap = new environment::Environment(*resourceManager, *immediate);
+    startupProfiler.endTimer("4Environment");
+
+
     const std::filesystem::path envMapSource = "assets/environments";
+
+    startupProfiler.beginTimer("5Load Environment 0");
     environmentMap->loadEnvironment("Overcast Sky", (envMapSource / "kloofendal_overcast_puresky_4k.hdr").string().c_str(), 0);
+    startupProfiler.endTimer("5Load Environment 0");
+
+    startupProfiler.beginTimer("6Load Environment 1");
     environmentMap->loadEnvironment("Wasteland", (envMapSource / "wasteland_clouds_puresky_4k.hdr").string().c_str(), 1);
+    startupProfiler.endTimer("6Load Environment 1");
+
+    startupProfiler.beginTimer("7Load CSM");
     cascadedShadowMap = new cascaded_shadows::CascadedShadowMap(*resourceManager);
+    startupProfiler.endTimer("7Load CSM");
+
     imguiWrapper = new ImguiWrapper(*context, {window, swapchainImageFormat});
 
 
+    startupProfiler.beginTimer("8Init Renderer");
     initRenderer();
+    startupProfiler.endTimer("8Init Renderer");
+
+    startupProfiler.beginTimer("9Init Game");
     initGame();
+    startupProfiler.endTimer("9Init Game");
 
-
-    profiler.addTimer("Physics");
-    profiler.addTimer("Render");
-    profiler.addTimer("Game");
-    profiler.addTimer("Total");
+    profiler.addTimer("0Physics");
+    profiler.addTimer("1Game");
+    profiler.addTimer("2Render");
+    profiler.addTimer("3Total");
 
 
 
@@ -237,18 +280,18 @@ void Engine::run()
         imguiWrapper->imguiInterface(this);
 
         const float deltaTime = Time::Get().getDeltaTime();
-        profiler.beginTimer("Total");
+        profiler.beginTimer("3Total");
 
-        profiler.beginTimer("Physics");
+        profiler.beginTimer("0Physics");
         physics->update(deltaTime);
-        profiler.endTimer("Physics");
+        profiler.endTimer("0Physics");
 
-        profiler.beginTimer("Game");
+        profiler.beginTimer("1Game");
         updateGame(deltaTime);
-        profiler.endTimer("Game");
+        profiler.endTimer("1Game");
 
         draw(deltaTime);
-        profiler.endTimer("Total");
+        profiler.endTimer("3Total");
     }
 }
 
@@ -345,7 +388,7 @@ void Engine::draw(float deltaTime)
     const VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
-    profiler.beginTimer("Render");
+    profiler.beginTimer("2Render");
 
     int32_t currentFrameOverlap = getCurrentFrameOverlap();
     int32_t previousFrameOverlap = getPreviousFrameOverlap();
@@ -491,7 +534,7 @@ void Engine::draw(float deltaTime)
     // End Command Buffer Recording
     VK_CHECK(vkEndCommandBuffer(cmd));
 
-    profiler.endTimer("Render");
+    profiler.endTimer("2Render");
 
     // Submission
     const VkCommandBufferSubmitInfo cmdSubmitInfo = vk_helpers::commandBufferSubmitInfo(cmd);
