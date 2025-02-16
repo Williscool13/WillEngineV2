@@ -109,26 +109,53 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     if (ImGui::Begin("Main")) {
         if (ImGui::BeginTabBar("Profiler")) {
             if (ImGui::BeginTabItem("Runtime")) {
+                ImGui::Columns(2, "StartupTimers");
+
+                ImGui::Text("Operation");
+                ImGui::NextColumn();
+                ImGui::Text("Time (ms)");
+                ImGui::NextColumn();
+                ImGui::Separator();
+
                 for (const auto& [name, timer] : engine->profiler.getTimers()) {
                     std::string_view nameView = name;
                     if (!nameView.empty()) {
                         nameView.remove_prefix(1);
                     }
-                    ImGui::Text("%s Time: %.2f ms", nameView.data(), timer.getAverageTime());
+
+                    ImGui::Text("%s", nameView.data());
+                    ImGui::NextColumn();
+                    ImGui::Text("%.2f", timer.getAverageTime());
+                    ImGui::NextColumn();
                 }
-                ImGui::Text("Delta Time: %.2f ms", time.getDeltaTime() * 1000.0f);
+
+                ImGui::Columns(1);
                 ImGui::EndTabItem();
             }
 
 
             if (ImGui::BeginTabItem("Startup")) {
+                ImGui::Columns(2, "StartupTimers");
+
+                ImGui::Text("Operation");
+                ImGui::NextColumn();
+                ImGui::Text("Time (ms)");
+                ImGui::NextColumn();
+                ImGui::Separator();
+
                 for (const auto& [name, timer] : engine->startupProfiler.getTimers()) {
                     std::string_view nameView = name;
                     if (!nameView.empty()) {
                         nameView.remove_prefix(1);
                     }
-                    ImGui::Text("%s: %.2f ms", nameView.data(), timer.getAverageTime());
+
+                    ImGui::Text("%s", nameView.data());
+                    ImGui::NextColumn();
+                    ImGui::Text("%.2f", timer.getAverageTime());
+                    ImGui::NextColumn();
                 }
+
+                ImGui::Columns(1);
                 ImGui::EndTabItem();
             }
         }
