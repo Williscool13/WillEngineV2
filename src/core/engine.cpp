@@ -112,6 +112,13 @@ void Engine::init()
     initGame();
 
 
+    profiler.addTimer("Physics");
+    profiler.addTimer("Render");
+    profiler.addTimer("Game");
+    profiler.addTimer("Total");
+
+
+
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     fmt::print("Finished Initialization in {} seconds\n", static_cast<float>(elapsed.count()) / 1000000.0f);
@@ -230,24 +237,19 @@ void Engine::run()
         imguiWrapper->imguiInterface(this);
 
         const float deltaTime = Time::Get().getDeltaTime();
-        update(deltaTime);
+        profiler.beginTimer("Total");
+
+        profiler.beginTimer("Physics");
+        physics->update(deltaTime);
+        profiler.endTimer("Physics");
+
+        profiler.beginTimer("Game");
+        updateGame(deltaTime);
+        profiler.endTimer("Game");
+
         draw(deltaTime);
+        profiler.endTimer("Total");
     }
-}
-
-void Engine::update(const float deltaTime)
-{
-    const auto physicsStart = std::chrono::system_clock::now();
-    physics->update(deltaTime);
-    const auto physicsEnd = std::chrono::system_clock::now();
-    const float elapsedPhysics = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(physicsEnd - physicsStart).count()) / 1000.0f;
-    stats.physicsTime = stats.physicsTime * 0.99f + elapsedPhysics * 0.01f;
-
-    const auto gameStart = std::chrono::system_clock::now();
-    updateGame(deltaTime);
-    const auto gameEnd = std::chrono::system_clock::now();
-    const float elapsedGame = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(gameEnd - gameStart).count()) / 1000.0f;
-    stats.gameTime = stats.gameTime * 0.99f + elapsedGame * 0.01f;
 }
 
 void Engine::updateGame(const float deltaTime) const
@@ -325,8 +327,6 @@ void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverl
 
 void Engine::draw(float deltaTime)
 {
-    const auto start = std::chrono::system_clock::now();
-
     // GPU -> VPU sync (fence)
     VK_CHECK(vkWaitForFences(context->device, 1, &getCurrentFrame()._renderFence, true, 1000000000));
     VK_CHECK(vkResetFences(context->device, 1, &getCurrentFrame()._renderFence));
@@ -345,7 +345,7 @@ void Engine::draw(float deltaTime)
     const VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
-    const auto renderStart = std::chrono::system_clock::now();
+    profiler.beginTimer("Render");
 
     int32_t currentFrameOverlap = getCurrentFrameOverlap();
     int32_t previousFrameOverlap = getPreviousFrameOverlap();
@@ -491,9 +491,7 @@ void Engine::draw(float deltaTime)
     // End Command Buffer Recording
     VK_CHECK(vkEndCommandBuffer(cmd));
 
-    const auto renderEnd = std::chrono::system_clock::now();
-    const float elapsedRenderMs = static_cast<float>(std::chrono::duration_cast<std::chrono::microseconds>(renderEnd - renderStart).count()) / 1000.0f;
-    stats.renderTime = stats.renderTime * 0.99 + elapsedRenderMs * 0.01f;
+    profiler.endTimer("Render");
 
     // Submission
     const VkCommandBufferSubmitInfo cmdSubmitInfo = vk_helpers::commandBufferSubmitInfo(cmd);
@@ -527,12 +525,6 @@ void Engine::draw(float deltaTime)
         bResizeRequested = true;
         fmt::print("Swapchain out of date or suboptimal, resize requested (At Present)\n");
     }
-
-    const auto end = std::chrono::system_clock::now();
-    const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    const float elapsedMs = static_cast<float>(elapsed.count()) / 1000.0f;
-
-    stats.totalTime = stats.totalTime * 0.99f + elapsedMs * 0.01f;
 }
 
 void Engine::cleanup()

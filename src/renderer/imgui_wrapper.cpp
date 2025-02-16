@@ -107,10 +107,9 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::NewFrame();
 
     if (ImGui::Begin("Main")) {
-        ImGui::Text("Physics Time: %.2f ms", engine->stats.physicsTime);
-        ImGui::Text("Game Time: %.2f ms", engine->stats.gameTime);
-        ImGui::Text("Render Time: %.2f ms", engine->stats.renderTime);
-        ImGui::Text("Frame Time: %.2f ms", engine->stats.totalTime);
+        for (const auto& [name, timer] : engine->profiler.getTimers()) {
+            ImGui::Text("%s Time: %.2f ms", name.data(), timer.getAverageTime());
+        }
         ImGui::Text("Delta Time: %.2f ms", time.getDeltaTime() * 1000.0f);
     }
     ImGui::End();
@@ -233,7 +232,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             const float zNear =  engine->camera->getFarPlane();
                             const float zFar  = engine->camera->getNearPlane() / 10.0;
                             float d = 1 - depth;
-                            return (2.0 * zNear) / (zFar + zNear - d * (zFar - zNear));
+                            return (2.0f * zNear) / (zFar + zNear - d * (zFar - zNear));
                         };
 
                         vk_helpers::saveImageR32F(*engine->resourceManager, *engine->immediate, engine->depthImage,
