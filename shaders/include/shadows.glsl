@@ -13,13 +13,14 @@ float getViewSpaceDepth(vec3 worldPos, mat4 viewMatrix) {
 }
 
 int selectCascadeLevel(float viewSpaceDepth, CascadeSplit[4] cascadeSplits) {
-    for (int i = 0; i < 4; i++) {
-        if (viewSpaceDepth >= cascadeSplits[i].nearPlane && viewSpaceDepth <= cascadeSplits[i].farPlane) {
-            return i;
-        }
-    }
+    vec4 comparisons = vec4(
+    viewSpaceDepth <= cascadeSplits[0].farPlane,
+    viewSpaceDepth <= cascadeSplits[1].farPlane,
+    viewSpaceDepth <= cascadeSplits[2].farPlane,
+    viewSpaceDepth <= cascadeSplits[3].farPlane
+    );
 
-    return 4;
+    return 4 - int(dot(comparisons, vec4(1.0)));
 }
 
 int getCascadeLevel(vec3 worldPos, mat4 viewMatrix, CascadeSplit cascadeSplits[4]) {
@@ -52,12 +53,14 @@ float getShadowFactorBlend(int pcfLevel, vec3 worldPos, mat4 sceneViewMatrix, Ca
     }
 
     int cascadeLevel = -1;
-    for (int i = 0; i < 4; i++) {
-        if (viewSpaceDepth >= splits[i].nearPlane && viewSpaceDepth <= splits[i].farPlane) {
-            cascadeLevel = i;
-            break;
-        }
-    }
+    vec4 comparisons = vec4(
+    viewSpaceDepth <= splits[0].farPlane,
+    viewSpaceDepth <= splits[1].farPlane,
+    viewSpaceDepth <= splits[2].farPlane,
+    viewSpaceDepth <= splits[3].farPlane
+    );
+
+    cascadeLevel = 4 - int(dot(comparisons, vec4(1.0)));
 
     if (cascadeLevel == -1) {
         // Shouldn't be legal
