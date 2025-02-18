@@ -48,12 +48,12 @@ inline glm::mat4 createOrthographicMatrix(const float width, const float height,
 }
 
 inline void getPerspectiveFrustumCornersWorldSpace(const float nearPlane, const float farPlane, const float fov, const float aspect, const glm::vec3& position, const glm::vec3& viewDir,
-                                                   glm::vec4 corners[8])
+                                                   glm::vec3 corners[8])
 {
     constexpr glm::vec3 up{0.0f, 1.0f, 0.0f};
 
-    const glm::vec3 right = glm::normalize(glm::cross(viewDir, up));
-    const glm::vec3 up_corrected = glm::normalize(glm::cross(right, viewDir));
+    const glm::vec3 right = normalize(cross(viewDir, up));
+    const glm::vec3 up_corrected = normalize(cross(right, viewDir));
 
     const float near_height = glm::tan(fov * 0.5f) * nearPlane;
     const float near_width = near_height * aspect;
@@ -61,17 +61,55 @@ inline void getPerspectiveFrustumCornersWorldSpace(const float nearPlane, const 
     const float far_width = far_height * aspect;
 
     const glm::vec3 near_center = position + viewDir * nearPlane;
-    corners[0] = glm::vec4(near_center - up_corrected * near_height - right * near_width, 1.0f); // bottom-left
-    corners[1] = glm::vec4(near_center + up_corrected * near_height - right * near_width, 1.0f); // top-left
-    corners[2] = glm::vec4(near_center + up_corrected * near_height + right * near_width, 1.0f); // top-right
-    corners[3] = glm::vec4(near_center - up_corrected * near_height + right * near_width, 1.0f); // bottom-right
+    corners[0] = glm::vec3(near_center - up_corrected * near_height - right * near_width); // bottom-left
+    corners[1] = glm::vec3(near_center + up_corrected * near_height - right * near_width); // top-left
+    corners[2] = glm::vec3(near_center + up_corrected * near_height + right * near_width); // top-right
+    corners[3] = glm::vec3(near_center - up_corrected * near_height + right * near_width); // bottom-right
 
     // Far face corners
     const glm::vec3 far_center = position + viewDir * farPlane;
-    corners[4] = glm::vec4(far_center - up_corrected * far_height - right * far_width, 1.0f); // bottom-left
-    corners[5] = glm::vec4(far_center + up_corrected * far_height - right * far_width, 1.0f); // top-left
-    corners[6] = glm::vec4(far_center + up_corrected * far_height + right * far_width, 1.0f); // top-right
-    corners[7] = glm::vec4(far_center - up_corrected * far_height + right * far_width, 1.0f); // bottom-right
+    corners[4] = glm::vec3(far_center - up_corrected * far_height - right * far_width); // bottom-left
+    corners[5] = glm::vec3(far_center + up_corrected * far_height - right * far_width); // top-left
+    corners[6] = glm::vec3(far_center + up_corrected * far_height + right * far_width); // top-right
+    corners[7] = glm::vec3(far_center - up_corrected * far_height + right * far_width); // bottom-right
+}
+
+/**
+ * Strictly slower than the other version. However, requires less information.
+ * @param viewProj
+ * @param corners
+ */
+inline void getPerspectiveFrustumCornersWorldSpace(const glm::mat4& viewProj, glm::vec3 corners[8])
+{
+    auto transposeInverse = inverse(transpose(viewProj));
+
+    constexpr glm::vec3 corners2[8]{
+        {-1.0f, -1.0f, 0.0f},  // near bottom-left
+        {-1.0f,  1.0f, 0.0f},  // near top-left
+        { 1.0f,  1.0f, 0.0f},  // near top-right
+        { 1.0f, -1.0f, 0.0f},  // near bottom-right
+        {-1.0f, -1.0f, 1.0f},  // far bottom-left
+        {-1.0f,  1.0f, 1.0f},  // far top-left
+        { 1.0f,  1.0f, 1.0f},  // far top-right
+        { 1.0f, -1.0f, 1.0f},  // far bottom-right
+    };
+
+    for (int32_t i = 0; i < 8; ++i) {
+        glm::vec3 result;
+        const glm::vec4 temp{corners2[i].x, corners2[i].y, corners2[i].z, 1.0f};
+        glm::vec4 temp2;
+
+        temp2.x = temp.x * transposeInverse[0][0] + temp.y * transposeInverse[0][1] + temp.z * transposeInverse[0][2] + temp.w * transposeInverse[0][3];
+        temp2.y = temp.x * transposeInverse[1][0] + temp.y * transposeInverse[1][1] + temp.z * transposeInverse[1][2] + temp.w * transposeInverse[1][3];
+        temp2.z = temp.x * transposeInverse[2][0] + temp.y * transposeInverse[2][1] + temp.z * transposeInverse[2][2] + temp.w * transposeInverse[2][3];
+        temp2.w = temp.x * transposeInverse[3][0] + temp.y * transposeInverse[3][1] + temp.z * transposeInverse[3][2] + temp.w * transposeInverse[3][3];
+
+        result.x = temp2.x / temp2.w;
+        result.y = temp2.y / temp2.w;
+        result.z = temp2.z / temp2.w;
+
+        corners[i] = result;
+    }
 }
 
 inline void getOrthoFrustumCornersWorldSpace(const float left, const float right, const float bottom, const float top, const float zNear, const float zFar, glm::vec4 corners[8])
