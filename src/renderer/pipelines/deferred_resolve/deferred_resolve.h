@@ -39,6 +39,7 @@ struct DeferredResolvePushConstants
 struct DeferredResolveDrawInfo
 {
     int32_t deferredDebug{0};
+    int32_t csmPcf{0};
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};
     VkDescriptorBufferBindingInfoEXT environmentIBLBinding{};
