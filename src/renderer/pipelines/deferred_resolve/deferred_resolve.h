@@ -31,7 +31,7 @@ struct DeferredResolvePushConstants
     int32_t height{900};
     int32_t deferredDebug{0};
     int32_t disableShadows{0};
-    int32_t pcfLevel{5};
+    int32_t pcfLevel{1};
     float nearPlane{1000.0f};
     float farPlane{0.1f};
 };

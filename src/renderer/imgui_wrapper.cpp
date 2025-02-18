@@ -228,7 +228,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             if (ImGui::BeginTabItem("Shadows")) {
                 ImGui::Text("Cascaded Shadow Map");
                 ImGui::DragInt("CSM PCF Level", &engine->csmPcf, 2, 1, 7);
-                ImGui::InputFloat3("Main Light Direction", engine->mainLight.direction);
+                ImGui::DragFloat3("Main Light Direction", engine->mainLight.direction, 0.1);
                 ImGui::InputFloat2("Cascade 1 Bias", shadows::CASCADE_BIAS[0]);
                 ImGui::InputFloat2("Cascade 2 Bias", shadows::CASCADE_BIAS[1]);
                 ImGui::InputFloat2("Cascade 3 Bias", shadows::CASCADE_BIAS[2]);
