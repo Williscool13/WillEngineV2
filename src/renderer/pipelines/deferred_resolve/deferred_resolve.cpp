@@ -109,7 +109,7 @@ void will_engine::deferred_resolve::DeferredResolvePipeline::draw(VkCommandBuffe
     pushConstants.height = RENDER_EXTENT_HEIGHT;
     pushConstants.deferredDebug = drawInfo.deferredDebug;
     pushConstants.disableShadows = 0;
-    pushConstants.pcfLevel = 5;
+    pushConstants.pcfLevel = drawInfo.csmPcf;
     pushConstants.nearPlane = drawInfo.nearPlane;
     pushConstants.farPlane = drawInfo.farPlane;
 
