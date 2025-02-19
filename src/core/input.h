@@ -37,6 +37,8 @@ public:
 
     Input();
 
+    void init(SDL_Window* window);
+
     void processEvent(const SDL_Event& event);
 
     void updateFocus(Uint32 sdlWindowFlags);
@@ -80,6 +82,8 @@ private:
 
     bool windowInputFocus{false};
     bool inFocus{false};
+
+    SDL_Window* window{nullptr};
 
     static void UpdateInputState(InputStateData& inputButton, bool isPressed);
 };

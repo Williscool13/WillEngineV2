@@ -99,7 +99,7 @@ void BasicRenderPipeline::draw(VkCommandBuffer cmd, const RenderDrawInfo& drawIn
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &imageBufferIndex, &ZERO_DEVICE_SIZE);
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &sceneDataIndex, &sceneDataOffset);
 
-    const float time = static_cast<float>(SDL_GetTicks64()) / 1000.0f;
+    const float time = static_cast<float>(SDL_GetTicks()) / 1000.0f;
     RenderPushConstant push{};
     push.currentFrame = drawInfo.currentFrame;
     vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(RenderPushConstant), &push);

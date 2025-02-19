@@ -30,7 +30,7 @@ VulkanContext::VulkanContext(SDL_Window* window, bool useValidationLayers)
     volkLoadInstance(instance);
     debugMessenger = vkb_inst.debug_messenger;
 
-    SDL_Vulkan_CreateSurface(window, instance, &surface);
+    SDL_Vulkan_CreateSurface(window, instance, nullptr,  &surface);
 
     // vk 1.3
     VkPhysicalDeviceVulkan13Features features{};
