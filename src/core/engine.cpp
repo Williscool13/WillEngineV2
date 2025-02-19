@@ -488,6 +488,7 @@ void Engine::draw(float deltaTime)
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     const deferred_resolve::DeferredResolveDrawInfo deferredResolveDrawInfo{
         deferredDebug,
+        csmPcf,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
         environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo(),

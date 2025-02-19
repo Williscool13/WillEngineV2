@@ -283,48 +283,42 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 lightDirection, const Camera* camera, float cascadeNear, float cascadeFar)
 {
     constexpr int32_t numberOfCorners = 8;
-    glm::vec4 corners[numberOfCorners];
+    glm::vec3 corners[numberOfCorners];
     render_utils::getPerspectiveFrustumCornersWorldSpace(cascadeNear, cascadeFar, camera->getFov(), camera->getAspectRatio(), camera->getPosition(), camera->getForwardWS(), corners);
 
-    glm::vec3 center{0.0f};
-    for (const auto& v : corners) {
-        center += glm::vec3(v);
+    // Alternative more expensive way to calculate corners
+    // auto viewMatrix = camera->getViewMatrix();
+    // auto projMatrix = glm::perspective(camera->getFov(), camera->getAspectRatio(), cascadeNear, cascadeFar);
+    // auto viewProj = projMatrix * viewMatrix;
+    // glm::vec3 corners2[numberOfCorners];
+    // render_utils::getPerspectiveFrustumCornersWorldSpace(viewProj, corners2);
+
+    // https://alextardif.com/shadowmapping.html
+    auto frustumCenter = glm::vec3(0.0f);
+    for (const glm::vec3& corner : corners) {
+        frustumCenter += corner;
     }
-    center /= numberOfCorners;
+    frustumCenter = frustumCenter * (1.0f / numberOfCorners);
 
-    const auto lightView = glm::lookAt(
-        center - lightDirection,
-        center,
-        glm::vec3(0.0f, 1.0f, 0.0f)
-    );
-    float minX = std::numeric_limits<float>::max();
-    float maxX = std::numeric_limits<float>::lowest();
-    float minY = std::numeric_limits<float>::max();
-    float maxY = std::numeric_limits<float>::lowest();
-    float minZ = std::numeric_limits<float>::max();
-    float maxZ = std::numeric_limits<float>::lowest();
-    for (const glm::vec4& v : corners) {
-        const glm::vec4 trf = lightView * v;
-        minX = std::min(minX, trf.x);
-        maxX = std::max(maxX, trf.x);
-        minY = std::min(minY, trf.y);
-        maxY = std::max(maxY, trf.y);
-        minZ = std::min(minZ, trf.z);
-        maxZ = std::max(maxZ, trf.z);
-    }
-    constexpr float zMult = 10.0f;
-    minZ *= zMult;
-    maxZ *= zMult;
-    float cascadeBound = cascadeFar - cascadeNear;
-    float worldUnitsPerTexel = cascadeBound / static_cast<float>(will_engine::shadows::CASCADE_EXTENT.width);
-    glm::vec3 minBounds{minX, minY, minZ};
-    glm::vec3 maxBounds{maxX, maxY, maxZ};
-    minBounds = glm::floor(minBounds / worldUnitsPerTexel) * worldUnitsPerTexel;
-    maxBounds = glm::floor(maxBounds / worldUnitsPerTexel) * worldUnitsPerTexel;
-    const glm::mat4 lightProjection = glm::orthoRH_ZO(minBounds.x, maxBounds.x, minBounds.y, maxBounds.y, minBounds.z, maxBounds.z);
-    return lightProjection * lightView;
+    float radius = length(corners[0] - corners[6]) / 2.0f;
+    float texelsPerUnit = shadows::CASCADE_EXTENT.width / glm::max(radius * 2.0f, 1.0f);
 
+    const glm::mat4 scaleMatrix = scale(glm::mat4(1.0f), glm::vec3(texelsPerUnit));
+    glm::mat4 view = glm::lookAt(-lightDirection, glm::vec3(0.0f), GLOBAL_UP);
+    view = scaleMatrix * view;
+    glm::mat4 invView = glm::inverse(view);
 
-    // const glm::mat4 lightProjection = glm::ortho(minX, maxX, minY, maxY, minZ, maxZ);
-    // return lightProjection * lightView;
+    glm::vec4 tempFrustumCenter = glm::vec4(frustumCenter, 1.0f);
+    tempFrustumCenter = view * tempFrustumCenter;
+    tempFrustumCenter.x = glm::floor(tempFrustumCenter.x);
+    tempFrustumCenter.y = glm::floor(tempFrustumCenter.y);
+    frustumCenter = glm::vec3(invView * tempFrustumCenter);
+
+    glm::vec3 eye = frustumCenter - (lightDirection * radius * 2.0f);
+
+    glm::mat4 lightView = lookAt(eye, frustumCenter, GLOBAL_UP);
+    constexpr float zMult = 6.0f;
+    glm::mat4 lightProj = glm::ortho(-radius, radius, -radius, radius, -radius * zMult, radius * zMult);
+
+    return lightProj * lightView;
 }
