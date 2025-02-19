@@ -10,13 +10,13 @@ namespace will_engine
 {
 Time::Time()
 {
-    lastTime = SDL_GetTicks64();
+    lastTime = SDL_GetTicks();
 }
 
 
 void Time::update()
 {
-    const uint64_t last = SDL_GetTicks64();
+    const uint64_t last = SDL_GetTicks();
     deltaTime = last - lastTime;
     // Breakpoint resume case
     if (deltaTime > 1000) { deltaTime = 333; }

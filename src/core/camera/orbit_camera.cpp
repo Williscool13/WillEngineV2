@@ -18,10 +18,10 @@ void will_engine::OrbitCamera::update(const float deltaTime)
 
     const Input& input = Input::Get();
     if (input.isInFocus()) {
-        if (input.isKeyDown(SDLK_e)) {
+        if (input.isKeyDown(SDLK_E)) {
             armOffset.z -= 2 * deltaTime;
         }
-        if (input.isKeyDown(SDLK_q)) {
+        if (input.isKeyDown(SDLK_Q)) {
             armOffset.z += 2 * deltaTime;
         }
 

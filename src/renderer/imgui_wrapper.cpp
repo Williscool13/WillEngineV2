@@ -4,15 +4,12 @@
 
 #include "imgui_wrapper.h"
 
-#include <imgui_impl_sdl2.h>
+#include <imgui_impl_sdl3.h>
 #include <imgui_impl_vulkan.h>
 #include <ImGuiFileDialog/ImGuiFileDialog.h>
 
 #include <Jolt/Jolt.h>
-#include "Jolt/Physics/Collision/Shape/BoxShape.h"
-#include "Jolt/Physics/Collision/Shape/CapsuleShape.h"
-#include "Jolt/Physics/Collision/Shape/CylinderShape.h"
-#include "Jolt/Physics/Collision/Shape/SphereShape.h"
+
 
 #include "environment/environment.h"
 #include "lighting/shadows/cascaded_shadow_map.h"
@@ -23,7 +20,6 @@
 #include "src/core/game_object/renderable.h"
 #include "src/core/scene/scene.h"
 #include "src/core/scene/scene_serializer.h"
-#include "src/physics/physics_filters.h"
 #include "src/util/file.h"
 
 namespace will_engine
@@ -63,7 +59,7 @@ ImguiWrapper::ImguiWrapper(const VulkanContext& context, const ImguiWrapperInfo&
     }, &instance);
 
     // Setup Platform/Renderer backends
-    ImGui_ImplSDL2_InitForVulkan(imguiWrapperInfo.window);
+    ImGui_ImplSDL3_InitForVulkan(imguiWrapperInfo.window);
     ImGui_ImplVulkan_InitInfo init_info = {};
     init_info.Instance = context.instance;
     init_info.PhysicalDevice = context.physicalDevice;
@@ -95,15 +91,13 @@ ImguiWrapper::~ImguiWrapper()
 
 void ImguiWrapper::handleInput(const SDL_Event& e)
 {
-    ImGui_ImplSDL2_ProcessEvent(&e);
+    ImGui_ImplSDL3_ProcessEvent(&e);
 }
 
 void ImguiWrapper::imguiInterface(Engine* engine)
 {
-    const Time& time = Time::Get();
-
     ImGui_ImplVulkan_NewFrame();
-    ImGui_ImplSDL2_NewFrame();
+    ImGui_ImplSDL3_NewFrame();
     ImGui::NewFrame();
 
     if (ImGui::Begin("Main")) {
@@ -680,7 +674,6 @@ void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierar
         constexpr float spacing = 5.0f;
         constexpr float arrowWidth = 20.0f;
         constexpr float buttonWidth = 60.0f;
-        constexpr float totalWidth = spacing + buttonWidth + spacing + buttonWidth + spacing + arrowWidth + spacing + arrowWidth;
         const std::vector<IHierarchical*>& parentChildren = obj->getParent()->getChildren();
 
         ImGui::BeginDisabled(parent == scene->getRoot());
