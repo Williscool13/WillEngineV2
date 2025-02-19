@@ -5,6 +5,7 @@
 #ifndef MATH_CONSTANTS_H
 #define MATH_CONSTANTS_H
 
+#include <glm/vec3.hpp>
 #include <vulkan/vulkan.h>
 
 namespace will_engine {
@@ -43,6 +44,8 @@ namespace will_engine {
 
     constexpr int32_t INDEX_NONE = -1;
     constexpr uint64_t INDEX64_NONE = INT64_MAX;
+
+    constexpr auto GLOBAL_UP = glm::vec3(0.0f, 1.0f, 0.0f);
 }
 
 #endif //MATH_CONSTANTS_H

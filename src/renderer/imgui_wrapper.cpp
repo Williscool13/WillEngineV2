@@ -227,7 +227,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
             if (ImGui::BeginTabItem("Shadows")) {
                 ImGui::Text("Cascaded Shadow Map");
-                ImGui::InputFloat3("Main Light Direction", engine->mainLight.direction);
+                ImGui::DragInt("CSM PCF Level", &engine->csmPcf, 2, 1, 7);
+                ImGui::DragFloat3("Main Light Direction", engine->mainLight.direction, 0.1);
                 ImGui::InputFloat2("Cascade 1 Bias", shadows::CASCADE_BIAS[0]);
                 ImGui::InputFloat2("Cascade 2 Bias", shadows::CASCADE_BIAS[1]);
                 ImGui::InputFloat2("Cascade 3 Bias", shadows::CASCADE_BIAS[2]);
@@ -633,6 +634,9 @@ void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierar
         ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
         if (ImGui::Button("X")) {
+            if (selectedItem == obj) {
+                selectedItem = nullptr;
+            }
             engine->hierarchicalDeletionQueue.push_back(obj);
         }
         ImGui::PopStyleColor(1);
@@ -646,35 +650,6 @@ void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierar
         }
     } else {
         ImGui::Text("  ");
-    }
-
-    ImGui::SameLine();
-    if (const auto* physBody = dynamic_cast<IPhysicsBody*>(obj)) {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.7f, 0.7f, 1.0f, 1.0f));
-        if (ImGui::Button("P")) {
-            ImGui::OpenPopup("MotionTypePopup");
-        }
-        ImGui::PopStyleColor(2);
-
-        if (ImGui::BeginPopup("MotionTypePopup")) {
-            auto physics = physics::Physics::Get();
-            JPH::EMotionType currentType = physics->getMotionType(physBody);
-
-            if (ImGui::MenuItem("Static", nullptr, currentType == JPH::EMotionType::Static)) {
-                physics->setMotionType(physBody, JPH::EMotionType::Static, JPH::EActivation::DontActivate);
-            }
-            if (ImGui::MenuItem("Kinematic", nullptr, currentType == JPH::EMotionType::Kinematic)) {
-                physics->setMotionType(physBody, JPH::EMotionType::Kinematic, JPH::EActivation::DontActivate);
-            }
-            if (ImGui::MenuItem("Dynamic", nullptr, currentType == JPH::EMotionType::Dynamic)) {
-                physics->setMotionType(physBody, JPH::EMotionType::Dynamic, JPH::EActivation::Activate);
-            }
-
-            ImGui::EndPopup();
-        }
-    } else {
-        ImGui::Text(" ");
     }
 
 
