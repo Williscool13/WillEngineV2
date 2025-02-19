@@ -52,23 +52,23 @@ void Engine::init()
 {
     fmt::print("----------------------------------------\n");
     fmt::print("Initializing {}\n", ENGINE_NAME);
-    auto start = std::chrono::system_clock::now();
+    const auto start = std::chrono::system_clock::now();
 
 
     // We initialize SDL and create a window with it.
     SDL_Init(SDL_INIT_VIDEO);
-    constexpr auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE);
+    constexpr auto window_flags = SDL_WINDOW_VULKAN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE;
     windowExtent = {1920, 1080};
 
     //auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
     window = SDL_CreateWindow(
         ENGINE_NAME,
-        SDL_WINDOWPOS_UNDEFINED,
-        SDL_WINDOWPOS_UNDEFINED,
         static_cast<int>(windowExtent.width),
         static_cast<int>(windowExtent.height),
         window_flags);
+
+    Input::Get().init(window);
 
 
     startupProfiler.addTimer("0Context");
@@ -244,20 +244,15 @@ void Engine::run()
         input.frameReset();
 
         while (SDL_PollEvent(&e) != 0) {
-            if (e.type == SDL_QUIT) { bQuit = true; }
-            if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) { bQuit = true; }
+            if (e.type == SDL_EVENT_QUIT) { bQuit = true; }
+            if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE) { bQuit = true; }
 
-            if (e.type == SDL_WINDOWEVENT) {
-                if (e.window.event == SDL_WINDOWEVENT_MINIMIZED) { bStopRendering = true; }
-                if (e.window.event == SDL_WINDOWEVENT_RESTORED) { bStopRendering = false; }
-                if (e.type == SDL_WINDOWEVENT) {
-                    if (!bResizeRequested) {
-                        if (e.window.event == SDL_WINDOWEVENT_RESIZED || e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED) {
-                            bResizeRequested = true;
-                            fmt::print("Window resized, resize requested\n");
-                        }
-                    }
-                }
+
+            if (e.type == SDL_EVENT_WINDOW_MINIMIZED) {  bStopRendering = true;}
+            if (e.type == SDL_EVENT_WINDOW_RESTORED) {  bStopRendering = true;}
+            if (e.type == SDL_EVENT_WINDOW_RESIZED || e.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) {
+                bResizeRequested = true;
+                fmt::print("Window resized, resize requested\n");
             }
 
             imguiWrapper->handleInput(e);
@@ -300,7 +295,7 @@ void Engine::updateGame(const float deltaTime) const
     if (camera) { camera->update(deltaTime); }
 
     const Input& input = Input::Get();
-    if (input.isKeyPressed(SDLK_r)) {
+    if (input.isKeyPressed(SDLK_R)) {
         if (camera) {
             const glm::vec3 direction = camera->transform.getForward();
             //const physics::PlayerCollisionFilter dontHitPlayerFilter{};
