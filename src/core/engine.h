@@ -4,7 +4,7 @@
 
 #ifndef ENGINE_H
 #define ENGINE_H
-#include <SDL2/SDL_video.h>
+
 #include <unordered_map>
 #include <vulkan/vulkan_core.h>
 #include <glm/glm.hpp>

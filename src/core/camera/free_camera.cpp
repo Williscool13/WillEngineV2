@@ -19,10 +19,10 @@ void will_engine::FreeCamera::update(const float deltaTime)
 
     glm::vec3 velocity{0.f};
 
-    if (input.isKeyDown(SDLK_d)) {
+    if (input.isKeyDown(SDLK_D)) {
         velocity.x += 1.0f;
     }
-    if (input.isKeyDown(SDLK_a)) {
+    if (input.isKeyDown(SDLK_A)) {
         velocity.x -= 1.0f;
     }
     if (input.isKeyDown(SDLK_LCTRL)) {
@@ -32,10 +32,10 @@ void will_engine::FreeCamera::update(const float deltaTime)
         velocity.y += 1.0f;
     }
     // I guess vulkan is negative Z forward?!
-    if (input.isKeyDown(SDLK_w)) {
+    if (input.isKeyDown(SDLK_W)) {
         velocity.z -= 1.0f;
     }
-    if (input.isKeyDown(SDLK_s)) {
+    if (input.isKeyDown(SDLK_S)) {
         velocity.z += 1.0f;
     }
 

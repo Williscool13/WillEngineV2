@@ -27,14 +27,8 @@ find_library(SHADERC_LIBRARIES
         REQUIRED
 )
 
-find_library(SDL2MAIN_LIBRARIES
-        NAMES SDL2main${LIB_SUFFIX}
-        PATHS ${CMAKE_CURRENT_SOURCE_DIR}/lib
-        REQUIRED
-)
-
-find_library(SDL2_LIBRARIES
-        NAMES SDL2${LIB_SUFFIX}
+find_library(SDL3_LIBRARIES
+        NAMES SDL3${LIB_SUFFIX}
         PATHS ${CMAKE_CURRENT_SOURCE_DIR}/lib
         REQUIRED
 )
@@ -56,7 +50,7 @@ set(IMGUI_SOURCES
         ${IMGUI_DIR}/imgui_draw.cpp
         ${IMGUI_DIR}/imgui_tables.cpp
         ${IMGUI_DIR}/imgui_widgets.cpp
-        ${IMGUI_DIR}/backends/imgui_impl_sdl2.cpp
+        ${IMGUI_DIR}/backends/imgui_impl_sdl3.cpp
         ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/ImGuiFileDialog/ImGuiFileDialog.cpp
 )
@@ -237,15 +231,14 @@ target_include_directories(WillEngine PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/shaderc                          # ShaderC
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL2                             # SDL2
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL3                             # SDL2
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/include                 # fastgltf
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/deps/simdjson           # simdjson
 
 )
 
 target_link_libraries(WillEngine PRIVATE
-        ${SDL2MAIN_LIBRARIES}
-        ${SDL2_LIBRARIES}
+        ${SDL3_LIBRARIES}
         ${VOLK_LIBRARIES}
         ${SHADERC_LIBRARIES}
         fmt::fmt
@@ -253,8 +246,8 @@ target_link_libraries(WillEngine PRIVATE
         Jolt
 )
 
-set(SDL_DLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/SDL2.dll")
-set(SDLD_DLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/SDL2d.dll")
+set(SDL_DLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lib/SDL3.dll")
+set(SDLD_DLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lib/SDL3d.dll")
 
 add_custom_command(TARGET WillEngine POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different

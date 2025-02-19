@@ -32,7 +32,7 @@ public:
 
     ~ImguiWrapper();
 
-    void handleInput(const SDL_Event& e);
+    static void handleInput(const SDL_Event& e);
 
     void imguiInterface(Engine* engine);
 

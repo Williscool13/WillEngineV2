@@ -4,6 +4,8 @@
 
 #include "input.h"
 
+#include <fmt/format.h>
+
 namespace will_engine
 {
 Input::Input()
@@ -13,32 +15,32 @@ Input::Input()
     keyStateData[SDLK_LSHIFT] = {};
     keyStateData[SDLK_LCTRL] = {};
     keyStateData[SDLK_RETURN] = {};
-    keyStateData[SDLK_q] = {};
-    keyStateData[SDLK_w] = {};
-    keyStateData[SDLK_e] = {};
-    keyStateData[SDLK_r] = {};
-    keyStateData[SDLK_t] = {};
-    keyStateData[SDLK_y] = {};
-    keyStateData[SDLK_u] = {};
-    keyStateData[SDLK_i] = {};
-    keyStateData[SDLK_o] = {};
-    keyStateData[SDLK_p] = {};
-    keyStateData[SDLK_a] = {};
-    keyStateData[SDLK_s] = {};
-    keyStateData[SDLK_d] = {};
-    keyStateData[SDLK_f] = {};
-    keyStateData[SDLK_g] = {};
-    keyStateData[SDLK_h] = {};
-    keyStateData[SDLK_j] = {};
-    keyStateData[SDLK_k] = {};
-    keyStateData[SDLK_l] = {};
-    keyStateData[SDLK_z] = {};
-    keyStateData[SDLK_x] = {};
-    keyStateData[SDLK_c] = {};
-    keyStateData[SDLK_v] = {};
-    keyStateData[SDLK_b] = {};
-    keyStateData[SDLK_n] = {};
-    keyStateData[SDLK_m] = {};
+    keyStateData[SDLK_Q] = {};
+    keyStateData[SDLK_W] = {};
+    keyStateData[SDLK_E] = {};
+    keyStateData[SDLK_R] = {};
+    keyStateData[SDLK_T] = {};
+    keyStateData[SDLK_Y] = {};
+    keyStateData[SDLK_U] = {};
+    keyStateData[SDLK_I] = {};
+    keyStateData[SDLK_O] = {};
+    keyStateData[SDLK_P] = {};
+    keyStateData[SDLK_A] = {};
+    keyStateData[SDLK_S] = {};
+    keyStateData[SDLK_D] = {};
+    keyStateData[SDLK_F] = {};
+    keyStateData[SDLK_G] = {};
+    keyStateData[SDLK_H] = {};
+    keyStateData[SDLK_J] = {};
+    keyStateData[SDLK_K] = {};
+    keyStateData[SDLK_L] = {};
+    keyStateData[SDLK_Z] = {};
+    keyStateData[SDLK_X] = {};
+    keyStateData[SDLK_C] = {};
+    keyStateData[SDLK_V] = {};
+    keyStateData[SDLK_B] = {};
+    keyStateData[SDLK_N] = {};
+    keyStateData[SDLK_M] = {};
     keyStateData[SDLK_COMMA] = {};
     keyStateData[SDLK_PERIOD] = {};
     keyStateData[SDLK_1] = {};
@@ -55,32 +57,37 @@ Input::Input()
     mouseStateData[SDL_BUTTON_LEFT - 1] = {};
     mouseStateData[SDL_BUTTON_RIGHT - 1] = {};
     mouseStateData[SDL_BUTTON_MIDDLE - 1] = {};
-    mouseStateData[SDL_BUTTON(4) - 1] = {};
-    mouseStateData[SDL_BUTTON(5) - 1] = {};
+    mouseStateData[SDL_BUTTON_X1] = {};
+    mouseStateData[SDL_BUTTON_X2] = {};
+}
+
+void Input::init(SDL_Window* window)
+{
+    this->window = window;
 }
 
 void Input::processEvent(const SDL_Event& event)
 {
     switch (event.type) {
-        case SDL_KEYDOWN:
-        case SDL_KEYUP:
+        case SDL_EVENT_KEY_DOWN:
+        case SDL_EVENT_KEY_UP:
         {
-            const auto it = keyStateData.find(event.key.keysym.sym);
+            const auto it = keyStateData.find(event.key.key);
             if (it != keyStateData.end()) {
-                UpdateInputState(it->second, event.type == SDL_KEYDOWN);
+                UpdateInputState(it->second, event.key.down);
             }
             break;
         }
-        case SDL_MOUSEBUTTONDOWN:
-        case SDL_MOUSEBUTTONUP:
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        case SDL_EVENT_MOUSE_BUTTON_UP:
         {
             const auto it = mouseStateData.find(event.button.button - 1);
             if (it != mouseStateData.end()) {
-                UpdateInputState(it->second, event.type == SDL_MOUSEBUTTONDOWN);
+                UpdateInputState(it->second, event.button.down);
             }
             break;
         }
-        case SDL_MOUSEMOTION:
+        case SDL_EVENT_MOUSE_MOTION:
         {
             mouseXDelta += static_cast<float>(event.motion.xrel);
             mouseYDelta += static_cast<float>(event.motion.yrel);
@@ -88,9 +95,9 @@ void Input::processEvent(const SDL_Event& event)
             mouseY = static_cast<float>(event.motion.y);
             break;
         }
-        case SDL_MOUSEWHEEL:
+        case SDL_EVENT_MOUSE_WHEEL:
         {
-            mouseWheelDelta += event.wheel.preciseY;
+            mouseWheelDelta += event.wheel.mouse_y;
             break;
         }
         default:
@@ -100,16 +107,20 @@ void Input::processEvent(const SDL_Event& event)
 
 void Input::updateFocus(const Uint32 sdlWindowFlags)
 {
-    if (windowInputFocus && isKeyPressed(SDLK_f)) {
-        SDL_SetRelativeMouseMode(SDL_GetRelativeMouseMode() == SDL_TRUE ? SDL_FALSE : SDL_TRUE);
-    }
     windowInputFocus = (sdlWindowFlags & SDL_WINDOW_INPUT_FOCUS) != 0;
-    inFocus = SDL_GetRelativeMouseMode() == SDL_TRUE;
+    if (windowInputFocus && isKeyPressed(SDLK_F)) {
+        inFocus = !inFocus;
+        if (!window) {
+            fmt::print("Input: Attempted to update focus but window is not defined, perhaps init was not called?\n");
+            return;
+        }
+        SDL_SetWindowRelativeMouseMode(window, inFocus ? true : false);
+    }
 }
 
 void Input::frameReset()
 {
-    for (std::pair<const int, InputStateData>& key : keyStateData) {
+    for (std::pair<const unsigned, InputStateData>& key : keyStateData) {
         key.second.pressed = false;
         key.second.released = false;
     }
