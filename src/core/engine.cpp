@@ -9,21 +9,18 @@
 #include <vk-bootstrap/VkBootstrap.h>
 
 #include <Jolt/Jolt.h>
-#include <Jolt/Physics/Body/MotionType.h>
-#include <Jolt/Physics/Collision/Shape/BoxShape.h>
 
 #include "identifier/identifier_manager.h"
 #include "src/physics/physics_filters.h"
 
 #include "camera/free_camera.h"
 #include "game_object/game_object.h"
-#include "Jolt/Physics/Collision/Shape/BoxShape.h"
+#include "game_object/components/name_printing_component.h"
 #include "scene/scene.h"
 #include "scene/scene_serializer.h"
 #include "src/core/input.h"
 #include "src/core/time.h"
 #include "src/physics/physics.h"
-#include "src/physics/physics_constants.h"
 #include "src/physics/physics_utils.h"
 #include "src/renderer/immediate_submitter.h"
 #include "src/renderer/resource_manager.h"
@@ -232,6 +229,12 @@ void Engine::initGame()
     scene = new Scene(sceneRoot);
     file::scanForModels(renderObjectInfoMap);
     Serializer::deserializeScene(scene->getRoot(), *resourceManager, renderObjectMap, renderObjectInfoMap, file::getSampleScene().string());
+
+    auto gameobject = new GameObject("Test Components");
+    scene->addGameObject(gameobject);
+    const auto nameThing = new NamePrintingComponent("");
+    gameobject->addComponent(nameThing);
+
     camera = new FreeCamera();
 }
 
