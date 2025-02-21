@@ -12,7 +12,25 @@ namespace will_engine
 class NamePrintingComponent final : public Component
 {
 public:
+    NamePrintingComponent() = delete;
+
+    explicit NamePrintingComponent(const std::string& name)
+        : Component(name) {}
+
+    std::string_view getComponentType() override { return componentType; }
+
     void update(float deltaTime) override;
+
+    void serialize(ordered_json& j) override;
+
+    void deserialize(ordered_json& j) override;
+
+    void selectedRenderImgui() override;
+
+protected:
+    int32_t testProperty{};
+
+    std::string componentType{"NamePrintingComponent"};
 };
 }
 

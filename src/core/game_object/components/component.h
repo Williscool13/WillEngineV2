@@ -4,6 +4,8 @@
 
 #ifndef BASE_COMPONENT_H
 #define BASE_COMPONENT_H
+
+#include <string_view>
 #include <json/json.hpp>
 
 #include "src/core/game_object/component_container.h"
@@ -16,7 +18,14 @@ using ordered_json = nlohmann::ordered_json;
 class Component
 {
 public: // Virtuals
+    Component() = delete;
+
+    explicit Component(const std::string name = "")
+        : componentName(std::move(name)) {}
+
     virtual ~Component() = default;
+
+    virtual std::string_view getComponentType() = 0;
 
     virtual void beginPlay(IComponentContainer* owner);
 
@@ -32,9 +41,14 @@ public: // Virtuals
 
     virtual bool isComponentDestroyed() { return bIsDestroyed; }
 
-    virtual void serialize(ordered_json& j) const
+public: // Serialization / Editor Tools
+    virtual void serialize(ordered_json& j)
     {
-        j["componentName"] = componentName;
+        if (componentName.empty()) {
+            j["componentName"] = getComponentType();
+        } else {
+            j["componentName"] = componentName;
+        }
     }
 
     virtual void deserialize(ordered_json& j)
@@ -44,6 +58,15 @@ public: // Virtuals
         }
     }
 
+    virtual void selectedRenderImgui() {}
+
+    std::string_view getComponentName()
+    {
+        if (componentName.empty()) {
+            return getComponentType();
+        }
+        return componentName;
+    }
 
 public: // Defined Behaviors
     void EnableComponent()

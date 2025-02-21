@@ -234,6 +234,21 @@ public: // GameObjects
             }
         }
 
+        if (const auto componentContainer = dynamic_cast<IComponentContainer*>(obj)) {
+            auto components = componentContainer->getAllComponents();
+            if (components.size() > 0) {
+                ordered_json componentsJson;
+                for (Component* component : componentContainer->getAllComponents()) {
+                    ordered_json componentData;
+                    component->serialize(componentData);
+                    componentsJson[component->getComponentType()] = componentData;
+                }
+
+                j["components"] = componentsJson;
+            }
+
+        }
+
         if (!obj->getChildren().empty()) {
             ordered_json children = ordered_json::array();
             for (IHierarchical* child : obj->getChildren()) {

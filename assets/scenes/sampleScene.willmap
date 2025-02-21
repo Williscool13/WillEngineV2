@@ -6,7 +6,7 @@
     },
     "metadata": {
         "name": "Test Scene",
-        "created": "2025-02-18 23:49:45",
+        "created": "2025-02-21 21:35:54",
         "formatVersion": 1
     },
     "gameObjects": {
@@ -75,7 +75,7 @@
                     "position": {
                         "x": -0.0439082570374012,
                         "y": 1.9999991655349731,
-                        "z": -0.48458972573280334
+                        "z": -0.4845729172229767
                     },
                     "rotation": {
                         "x": -0.5344635844230652,
@@ -130,6 +130,34 @@
                 "renderMeshIndex": 1,
                 "renderIsVisible": true,
                 "renderIsShadowCaster": true
+            },
+            {
+                "id": 4,
+                "name": "Test Components",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": 1.7000000476837158,
+                        "z": 0.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "components": {
+                    "NamePrintingComponent": {
+                        "componentName": "Name Printing Component",
+                        "testProperty": 0
+                    }
+                }
             }
         ]
     },
