@@ -631,7 +631,7 @@ void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierar
             if (selectedItem == obj) {
                 selectedItem = nullptr;
             }
-            engine->hierarchicalDeletionQueue.push_back(obj);
+            obj->destroy();
         }
         ImGui::PopStyleColor(1);
         ImGui::SameLine();

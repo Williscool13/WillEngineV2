@@ -87,6 +87,11 @@ namespace physics
 class Engine
 {
 public:
+    static Engine* instance;
+
+    static Engine* get() { return instance; }
+
+public:
     void init();
 
     void initRenderer();
@@ -106,6 +111,9 @@ public:
      * \n Resources -> Command Pool (implicit destroy C. Buffers) -> Swapchain -> Surface -> Device -> Instance -> Window
      */
     void cleanup();
+
+public:
+    void addGameObjectToDeletionQueue(GameObject* obj);
 
 private:
     VkExtent2D windowExtent{1700, 900};
@@ -138,7 +146,7 @@ private: // Rendering
 private: // Debug
     bool bEnableTaa{true};
     bool bEnableDebugFrustumCullDraw{false};
-    int32_t csmPcf{1};
+    int32_t csmPcf{5};
     int32_t deferredDebug{0};
 
     void hotReloadShaders() const;

@@ -11,6 +11,8 @@
 #include <Jolt/Physics/Collision/Shape/SphereShape.h>
 
 #include "glm/gtc/quaternion.hpp"
+#include "components/component.h"
+#include "src/core/engine.h"
 #include "src/core/identifier/identifier_manager.h"
 #include "src/physics/physics.h"
 #include "src/physics/physics_filters.h"
@@ -54,6 +56,26 @@ GameObject::~GameObject()
     }
 }
 
+void GameObject::destroy()
+{
+    for (IHierarchical* child : children) {
+        child->removeParent();
+    }
+
+    if (parent) {
+        for (IHierarchical* child : children) {
+            child->reparent(parent);
+        }
+        parent->removeChild(this);
+    }
+
+    children.clear();
+
+    if (Engine* engine = Engine::get()) {
+        engine->addGameObjectToDeletionQueue(this);
+    }
+}
+
 void GameObject::setName(std::string newName)
 {
     if (newName == "") { return; }
@@ -83,18 +105,30 @@ bool GameObject::removeChild(IHierarchical* child)
     return true;
 }
 
+bool GameObject::removeParent()
+{
+    if (parent == nullptr) { return false; }
+    const Transform previousGlobalTransform = getGlobalTransform();
+    setParent(nullptr);
+    setGlobalTransform(previousGlobalTransform);
+    return true;
+}
+
 void GameObject::reparent(IHierarchical* newParent)
 {
     if (this == newParent) { return; }
     const Transform previousGlobalTransform = getGlobalTransform();
     if (parent) {
-        parent->removeChild(this);
+        if (!parent->removeChild(this)) {
+            setParent(nullptr);
+        }
     }
-    parent = nullptr;
+
     if (newParent) {
         newParent->addChild(this);
+    } else {
+        setParent(newParent);
     }
-    parent = newParent;
     setGlobalTransform(previousGlobalTransform);
 }
 
@@ -308,6 +342,19 @@ void GameObject::setGlobalTransformFromPhysics(const glm::vec3& position, const 
     }
     dirty();
 }
+
+void GameObject::addComponent(Component* component)
+{
+    if (!component) { return; }
+    components.push_back(component);
+
+    if (bHasBegunPlay) {
+        component->beginPlay(this);
+    }
+}
+
+void GameObject::destroyComponent()
+{}
 
 void GameObject::selectedRenderImgui()
 {
