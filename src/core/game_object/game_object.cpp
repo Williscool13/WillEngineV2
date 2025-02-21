@@ -343,13 +343,20 @@ void GameObject::setGlobalTransformFromPhysics(const glm::vec3& position, const 
     dirty();
 }
 
-void GameObject::addComponent(Component* component)
+void GameObject::addComponent(std::unique_ptr<components::Component> component)
 {
     if (!component) { return; }
-    components.push_back(component);
+
+    for (const auto& _component : components) {
+        if (component->getComponentType() == _component->getComponentType()) {
+            fmt::print("Attempted to add a component of the same type to a gameobject. This is not supported at this time.");
+            return;
+        }
+    }
+    components.push_back(std::move(component));
 
     if (bHasBegunPlay) {
-        component->beginPlay(this);
+        components.back()->beginPlay(this);
     }
 }
 
@@ -655,8 +662,8 @@ void GameObject::selectedRenderImgui()
                 ImGui::EndTabItem();
             }
             if (ImGui::BeginTabItem("Components")) {
-                for (Component* component : components) {
-                    std::string headerName = std::string(component->getComponentName());
+                for (auto& component : components) {
+                    auto headerName = std::string(component->getComponentName());
                     if (ImGui::CollapsingHeader(headerName.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
                         component->selectedRenderImgui();
                     }

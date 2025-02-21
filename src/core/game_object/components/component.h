@@ -11,7 +11,7 @@
 #include "src/core/game_object/component_container.h"
 
 
-namespace will_engine
+namespace will_engine::components
 {
 using ordered_json = nlohmann::ordered_json;
 
@@ -42,21 +42,9 @@ public: // Virtuals
     virtual bool isComponentDestroyed() { return bIsDestroyed; }
 
 public: // Serialization / Editor Tools
-    virtual void serialize(ordered_json& j)
-    {
-        if (componentName.empty()) {
-            j["componentName"] = getComponentType();
-        } else {
-            j["componentName"] = componentName;
-        }
-    }
+    virtual void serialize(ordered_json& j) {}
 
-    virtual void deserialize(ordered_json& j)
-    {
-        if (j.contains("componentName")) {
-            componentName = j["componentName"].get<std::string>();
-        }
-    }
+    virtual void deserialize(ordered_json& j) {}
 
     virtual void selectedRenderImgui() {}
 

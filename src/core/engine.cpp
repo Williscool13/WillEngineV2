@@ -132,6 +132,7 @@ void Engine::init()
     environmentMap = new environment::Environment(*resourceManager, *immediate);
     startupProfiler.endTimer("4Environment");
 
+    initComponents();
 
     const std::filesystem::path envMapSource = "assets/environments";
 
@@ -168,6 +169,12 @@ void Engine::init()
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     fmt::print("Finished Initialization in {} seconds\n", static_cast<float>(elapsed.count()) / 1000000.0f);
+}
+
+void Engine::initComponents()
+{
+    auto& factory = components::ComponentFactory::getInstance();
+    factory.registerComponent<components::NamePrintingComponent>();
 }
 
 void Engine::initRenderer()
@@ -229,12 +236,6 @@ void Engine::initGame()
     scene = new Scene(sceneRoot);
     file::scanForModels(renderObjectInfoMap);
     Serializer::deserializeScene(scene->getRoot(), *resourceManager, renderObjectMap, renderObjectInfoMap, file::getSampleScene().string());
-
-    auto gameobject = new GameObject("Test Components");
-    scene->addGameObject(gameobject);
-    const auto nameThing = new NamePrintingComponent("");
-    gameobject->addComponent(nameThing);
-
     camera = new FreeCamera();
 }
 
@@ -632,7 +633,7 @@ void Engine::cleanup()
     delete identifierManager;
 
     vkDestroySwapchainKHR(context->device, swapchain, nullptr);
-    for (VkImageView swapchainImageView : swapchainImageViews) {
+    for (const VkImageView swapchainImageView : swapchainImageViews) {
         vkDestroyImageView(context->device, swapchainImageView, nullptr);
     }
 
@@ -646,7 +647,7 @@ void Engine::addGameObjectToDeletionQueue(GameObject* obj)
     hierarchicalDeletionQueue.push_back(obj);
 }
 
-void Engine::createSwapchain(uint32_t width, uint32_t height)
+void Engine::createSwapchain(const uint32_t width, const uint32_t height)
 {
     vkb::SwapchainBuilder swapchainBuilder{context->physicalDevice, context->device, context->surface};
 

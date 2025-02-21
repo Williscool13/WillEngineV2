@@ -10,27 +10,32 @@
 
 namespace will_engine
 {
-class Component;
+namespace components
+{
+    class Component;
+}
 
 class IComponentContainer
 {
 public:
     virtual ~IComponentContainer() = default;
 
-    virtual Component* GetComponentByType(const std::type_info& type) = 0;
+    virtual components::Component* GetComponentByType(const std::type_info& type) = 0;
 
-    virtual std::vector<Component*> GetComponentsByType(const std::type_info& type) = 0;
+    virtual std::vector<components::Component*> GetComponentsByType(const std::type_info& type) = 0;
 
     template<typename T>
     T* GetComponent()
     {
+        static_assert(std::is_base_of_v<components::Component, T>, "T must inherit from Component");
         return static_cast<T*>(GetComponentByType(typeid(T)));
     }
 
     template<typename T>
     std::vector<T*> GetComponents()
     {
-        std::vector<Component*> baseComponents = GetComponentsByType(typeid(T));
+        static_assert(std::is_base_of_v<components::Component, T>, "T must inherit from Component");
+        std::vector<components::Component*> baseComponents = GetComponentsByType(typeid(T));
         std::vector<T*> typed;
         typed.reserve(baseComponents.size());
         for (auto* comp : baseComponents) {
@@ -39,9 +44,9 @@ public:
         return typed;
     }
 
-    virtual std::vector<Component*> getAllComponents() = 0;
+    virtual std::vector<components::Component*> getAllComponents() = 0;
 
-    virtual void addComponent(Component* component) = 0;
+    virtual void addComponent(std::unique_ptr<components::Component> component) = 0;
 
     virtual void destroyComponent() = 0;
 

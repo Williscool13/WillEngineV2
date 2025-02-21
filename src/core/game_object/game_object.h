@@ -44,8 +44,8 @@ public:
 
     virtual void beginPlay() {}
     virtual void update(float deltaTime) {}
-    void destroy() override;
 
+    void destroy() override;
 
 protected:
     bool bHasBegunPlay{false};
@@ -200,37 +200,47 @@ protected: // IPhysicsBody
     JPH::BodyID bodyId{JPH::BodyID::cMaxBodyIndex};
 
 public: // IComponentContainer
-    Component* GetComponentByType(const std::type_info& type) override {
-        for (Component*& component : components) {
+    components::Component* GetComponentByType(const std::type_info& type) override
+    {
+        for (const auto& component : components) {
             if (typeid(*component) == type) {
-                return component;
+                return component.get();
             }
         }
         return nullptr;
     }
 
-    std::vector<Component*> GetComponentsByType(const std::type_info& type) override
+    std::vector<components::Component*> GetComponentsByType(const std::type_info& type) override
     {
-        std::vector<Component*> outComponents;
+        std::vector<components::Component*> outComponents;
         outComponents.reserve(components.size());
-        for (Component*& component : components) {
+        for (const auto& component : components) {
             if (typeid(*component) == type) {
-                outComponents.push_back(component);
+                outComponents.push_back(component.get());
             }
         }
 
         return outComponents;
     }
 
-    std::vector<Component*> getAllComponents() override { return components; }
+    std::vector<components::Component*> getAllComponents() override
+    {
+        std::vector<components::Component*> _components;
+        _components.reserve(components.size());
+        for (auto& comp : components) {
+            _components.push_back(comp.get());
+        }
+
+        return _components;
+    }
 
 
-    void addComponent(Component* component) override;
+    void addComponent(std::unique_ptr<components::Component> component) override;
 
     void destroyComponent() override;
 
 protected: // IComponentContainer
-    std::vector<Component*> components{};
+    std::vector<std::unique_ptr<components::Component>> components{};
 
 public:
     bool operator==(const GameObject& other) const

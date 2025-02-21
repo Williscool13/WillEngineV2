@@ -7,7 +7,7 @@
 
 #include "component.h"
 
-namespace will_engine
+namespace will_engine::components
 {
 class NamePrintingComponent final : public Component
 {
@@ -17,7 +17,14 @@ public:
     explicit NamePrintingComponent(const std::string& name)
         : Component(name) {}
 
-    std::string_view getComponentType() override { return componentType; }
+    static constexpr auto TYPE = "NamePrintingComponent";
+
+    static std::string_view getStaticType()
+    {
+        return TYPE;
+    }
+
+    std::string_view getComponentType() override { return TYPE; }
 
     void update(float deltaTime) override;
 
@@ -29,8 +36,6 @@ public:
 
 protected:
     int32_t testProperty{};
-
-    std::string componentType{"NamePrintingComponent"};
 };
 }
 

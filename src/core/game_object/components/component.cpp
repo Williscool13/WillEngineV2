@@ -4,18 +4,18 @@
 
 #include "component.h"
 
-void will_engine::Component::beginPlay(IComponentContainer* owner)
+void will_engine::components::Component::beginPlay(IComponentContainer* owner)
 {
     bHasBegunPlay = true;
 }
 
-void will_engine::Component::update(float deltaTime) {}
+void will_engine::components::Component::update(float deltaTime) {}
 
-void will_engine::Component::beginDestroy()
+void will_engine::components::Component::beginDestroy()
 {
     bIsDestroyed = true;
     owner = nullptr;
 }
 
-void will_engine::Component::onEnable() {}
-void will_engine::Component::onDisable() {}
+void will_engine::components::Component::onEnable() {}
+void will_engine::components::Component::onDisable() {}
