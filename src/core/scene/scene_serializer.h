@@ -9,10 +9,12 @@
 
 
 #include "src/core/transform.h"
-#include "src/physics/physics.h"
-
-#include "src/renderer/render_object/render_object.h"
 #include "src/core/game_object/game_object.h"
+#include "src/core/game_object/components/component.h"
+#include "src/core/game_object/components/component_factory.h"
+#include "src/physics/physics.h"
+#include "src/renderer/render_object/render_object.h"
+
 
 namespace will_engine
 {
@@ -235,18 +237,17 @@ public: // GameObjects
         }
 
         if (const auto componentContainer = dynamic_cast<IComponentContainer*>(obj)) {
-            auto components = componentContainer->getAllComponents();
+            const std::vector<components::Component*> components = componentContainer->getAllComponents();
             if (components.size() > 0) {
                 ordered_json componentsJson;
-                for (Component* component : componentContainer->getAllComponents()) {
+                for (const auto& component : components) {
                     ordered_json componentData;
                     component->serialize(componentData);
                     componentsJson[component->getComponentType()] = componentData;
+                    componentsJson[component->getComponentType()]["componentName"] = component->getComponentName();
                 }
-
                 j["components"] = componentsJson;
             }
-
         }
 
         if (!obj->getChildren().empty()) {
@@ -334,6 +335,29 @@ public: // GameObjects
                 const physics::PhysicsProperties properties = j["physics"].get<physics::PhysicsProperties>();
                 if (!physics::Physics::Get()->deserializeProperties(physicsBody, properties)) {
                     fmt::print("Warning: Gameobject failed to deserialize physics\n");
+                }
+            }
+        }
+
+        if (j.contains("components")) {
+            if (const auto componentContainer = dynamic_cast<IComponentContainer*>(gameObject)) {
+                const auto& components = j["components"];
+                for (const auto& [componentType, componentData] : components.items()) {
+                    std::string componentName;
+                    if (componentData.contains("componentName")) {
+                        componentName = componentData["componentName"].get<std::string>();
+                    } else {
+                        componentName = componentType;
+                    }
+
+                    auto& factory = components::ComponentFactory::getInstance();
+                    std::unique_ptr<components::Component> newComponent = factory.createComponent(componentType, componentName);
+
+                    if (newComponent) {
+                        ordered_json orderedComponentData = ordered_json(componentData);
+                        newComponent->deserialize(orderedComponentData);
+                        componentContainer->addComponent(std::move(newComponent));
+                    }
                 }
             }
         }

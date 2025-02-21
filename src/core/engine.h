@@ -94,6 +94,8 @@ public:
 public:
     void init();
 
+    static void initComponents();
+
     void initRenderer();
 
     void initGame();
