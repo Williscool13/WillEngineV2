@@ -48,8 +48,14 @@
 
 namespace will_engine
 {
+Engine* Engine::instance = nullptr;
+
 void Engine::init()
 {
+    if (instance != nullptr) {
+        throw std::runtime_error("More than 1 engine instance created, this is not allowed.");
+    }
+    instance = this;
     fmt::print("----------------------------------------\n");
     fmt::print("Initializing {}\n", ENGINE_NAME);
     const auto start = std::chrono::system_clock::now();
@@ -630,6 +636,11 @@ void Engine::cleanup()
     delete context;
 
     SDL_DestroyWindow(window);
+}
+
+void Engine::addGameObjectToDeletionQueue(GameObject* obj)
+{
+    hierarchicalDeletionQueue.push_back(obj);
 }
 
 void Engine::createSwapchain(uint32_t width, uint32_t height)

@@ -10,6 +10,7 @@
 
 #include <glm/glm.hpp>
 
+#include "component_container.h"
 #include "hierarchical.h"
 #include "imgui_renderable.h"
 #include "renderable.h"
@@ -18,6 +19,7 @@
 #include "src/physics/physics_body.h"
 #include "src/physics/physics_constants.h"
 #include "src/physics/physics_utils.h"
+#include "src/core/game_object/components/component.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/render_object/render_reference.h"
 #include "src/util/math_constants.h"
@@ -32,15 +34,18 @@ class GameObject : public IPhysicsBody,
                    public ITransformable,
                    public IHierarchical,
                    public IIdentifiable,
-                   public IImguiRenderable
+                   public IImguiRenderable,
+                   public IComponentContainer
 {
 public:
     explicit GameObject(std::string gameObjectName = "", uint64_t gameObjectId = INDEX64_NONE);
 
     ~GameObject() override;
 
-    virtual void beginPlay() {};
+    virtual void beginPlay() {}
     virtual void update(float deltaTime) {}
+    void destroy() override;
+
 
 protected:
     bool bHasBegunPlay{false};
@@ -57,6 +62,13 @@ public: // IHierarchical
     bool addChild(IHierarchical* child) override;
 
     bool removeChild(IHierarchical* child) override;
+
+    /**
+     * Removes the parent while maintaining world position. Does not attempt to update the parent's state.
+     * \n WARNING: Doing this without re-parenting will result in an orphaned gameobject, beware.
+     * @return
+     */
+    bool removeParent() override;
 
     void reparent(IHierarchical* newParent) override;
 
@@ -186,6 +198,39 @@ public: // IPhysicsBody
 
 protected: // IPhysicsBody
     JPH::BodyID bodyId{JPH::BodyID::cMaxBodyIndex};
+
+public: // IComponentContainer
+    Component* GetComponentByType(const std::type_info& type) override {
+        for (Component*& component : components) {
+            if (typeid(*component) == type) {
+                return component;
+            }
+        }
+        return nullptr;
+    }
+
+    std::vector<Component*> GetComponentsByType(const std::type_info& type) override
+    {
+        std::vector<Component*> outComponents;
+        outComponents.reserve(components.size());
+        for (Component*& component : components) {
+            if (typeid(*component) == type) {
+                outComponents.push_back(component);
+            }
+        }
+
+        return outComponents;
+    }
+
+    std::vector<Component*> getAllComponents() override { return components; }
+
+
+    void addComponent(Component* component) override;
+
+    void destroyComponent() override;
+
+protected: // IComponentContainer
+    std::vector<Component*> components{};
 
 public:
     bool operator==(const GameObject& other) const
