@@ -48,7 +48,7 @@ public:
 
     virtual void addComponent(std::unique_ptr<components::Component> component) = 0;
 
-    virtual void destroyComponent() = 0;
+    virtual void destroyComponent(components::Component* component) = 0;
 
     [[nodiscard]] virtual std::string_view getName() const = 0;
 };

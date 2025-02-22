@@ -4,6 +4,13 @@
 
 #include "component.h"
 
+#include <fmt/format.h>
+
+will_engine::components::Component::~Component()
+{
+    fmt::print("Destroying Component\n");
+}
+
 void will_engine::components::Component::beginPlay(IComponentContainer* owner)
 {
     bHasBegunPlay = true;
@@ -14,6 +21,10 @@ void will_engine::components::Component::update(float deltaTime) {}
 
 void will_engine::components::Component::beginDestroy()
 {
+    if (bIsDestroyed) {
+        return;
+    }
+
     bIsDestroyed = true;
     owner = nullptr;
 }

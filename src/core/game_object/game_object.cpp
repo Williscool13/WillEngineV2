@@ -99,7 +99,9 @@ void GameObject::update(const float deltaTime)
 {
     if (!bHasBegunPlay) { return; }
     for (const auto& component : components) {
-        component->update(deltaTime);
+        if (component->isEnabled()) {
+            component->update(deltaTime);
+        }
     }
 }
 
@@ -371,7 +373,7 @@ void GameObject::addComponent(std::unique_ptr<components::Component> component)
 
     for (const auto& _component : components) {
         if (component->getComponentType() == _component->getComponentType()) {
-            fmt::print("Attempted to add a component of the same type to a gameobject. This is not supported at this time.");
+            fmt::print("Attempted to add a component of the same type to a gameobject. This is not supported at this time.\n");
             return;
         }
     }
@@ -382,8 +384,22 @@ void GameObject::addComponent(std::unique_ptr<components::Component> component)
     }
 }
 
-void GameObject::destroyComponent()
-{}
+void GameObject::destroyComponent(components::Component* component)
+{
+    if (!component) { return; }
+
+    const auto it = std::ranges::find_if(components, [component](const std::unique_ptr<components::Component>& comp) {
+        return comp.get() == component;
+    });
+
+    if (it != components.end()) {
+        component->beginDestroy();
+        components.erase(it);
+    }
+    else {
+        fmt::print("Attempted to remove a component that does not belong to this gameobject.\n");
+    }
+}
 
 void GameObject::selectedRenderImgui()
 {
@@ -687,32 +703,88 @@ void GameObject::selectedRenderImgui()
 
                 ImGui::EndTabItem();
             }
+
             if (ImGui::BeginTabItem("Components")) {
+                if (ImGui::Button("Add Component")) {
+                    ImGui::OpenPopup("AddComponentPopup");
+                }
+
+                if (ImGui::BeginPopup("AddComponentPopup")) {
+                    ImGui::Text("Available Components:");
+                    ImGui::Separator();
+
+                    const auto& creators = components::ComponentFactory::getInstance().getComponentCreators();
+                    for (const auto& type : creators | std::views::keys) {
+                        if (ImGui::Selectable(type.data())) {
+                            auto newComponent = components::ComponentFactory::getInstance().createComponent(type, "New " + std::string(type));
+                            if (newComponent) {
+                                addComponent(std::move(newComponent));
+                            }
+                            ImGui::CloseCurrentPopup();
+                        }
+                    }
+                    ImGui::EndPopup();
+                }
+
+                ImGui::Separator();
+
+                components::Component* componentToDestroy{nullptr};
                 for (auto& component : components) {
                     auto componentName = std::string(component->getComponentName());
                     if (componentName.empty()) {
                         componentName = "<unnamed>";
                     }
 
-                    if (ImGui::Button(componentName.c_str())) {
-                        // Open this component in a popup
-                        component->openRenderImgui();
-                        ImGui::OpenPopup(("Component_" + componentName).c_str());
+                    ImGui::PushID(component.get());
+
+                    ImGui::Text("%s:", component->getComponentType().data());
+                    ImGui::SameLine();
+
+                    if (ImGui::Button("X", ImVec2(24, 0))) {
+                        componentToDestroy = component.get();
+                        ImGui::PopID();
+                        continue;
                     }
 
-                    // Create the popup window for this component
-                    if (ImGui::BeginPopupModal(("Component_" + componentName).c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                        // Update the component's ImGui content
+                    ImGui::SameLine();
+                    if (ImGui::Button(componentName.c_str(), ImVec2(-1, 0))) {
+                        component->openRenderImgui();
+                        ImGui::OpenPopup("Component Editor");
+                    }
+
+                    if (ImGui::BeginPopupModal("Component Editor", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                        ImGui::Text("Editing %s Component", component->getComponentType().data());
+                        ImGui::Separator();
+
                         component->updateRenderImgui();
 
-                        // Add a close button at the bottom
-                        if (ImGui::Button("Close")) {
+                        ImGui::Separator();
+
+                        constexpr float buttonWidth = 120.0f;
+                        constexpr float deleteButtonWidth = 80.0f;
+
+                        if (ImGui::Button("Close", ImVec2(buttonWidth, 0))) {
                             component->closeRenderImgui();
+                            ImGui::CloseCurrentPopup();
+                        }
+
+                        float windowWidth = ImGui::GetContentRegionAvail().x;
+                        ImGui::SameLine(windowWidth - deleteButtonWidth);
+
+                        if (ImGui::Button("Delete", ImVec2(deleteButtonWidth, 0))) {
+                            componentToDestroy = component.get();
                             ImGui::CloseCurrentPopup();
                         }
 
                         ImGui::EndPopup();
                     }
+
+                    ImGui::PopID();
+                }
+
+                if (componentToDestroy) {
+                    componentToDestroy->closeRenderImgui();
+                    destroyComponent(componentToDestroy);
                 }
                 ImGui::EndTabItem();
             }

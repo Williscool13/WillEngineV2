@@ -23,7 +23,7 @@ public: // Virtuals
     explicit Component(const std::string name = "")
         : componentName(std::move(name)) {}
 
-    virtual ~Component() = default;
+    virtual ~Component();
 
     virtual std::string_view getComponentType() = 0;
 
