@@ -27,6 +27,8 @@ public:
         return instance;
     }
 
+    const std::unordered_map<std::string_view, ComponentCreator>& getComponentCreators() { return creators; }
+
 
     template<typename T>
     void registerComponent() requires HasGetStaticType<T>

@@ -672,7 +672,8 @@ void Engine::createSwapchain(const uint32_t width, const uint32_t height)
 
     vkb::Swapchain vkbSwapchain = swapchainBuilder
             .set_desired_format(VkSurfaceFormatKHR{.format = swapchainImageFormat, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
-            .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR) //use vsync present mode
+            //.set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR) //use vsync present mode
+            .set_desired_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR) // uncapped fps
             .set_desired_extent(width, height)
             .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
             .build()

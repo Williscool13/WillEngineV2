@@ -235,7 +235,7 @@ public: // IComponentContainer
 
     void addComponent(std::unique_ptr<components::Component> component) override;
 
-    void destroyComponent() override;
+    void destroyComponent(components::Component* component) override;
 
 protected: // IComponentContainer
     std::vector<std::unique_ptr<components::Component> > components{};
