@@ -11,6 +11,8 @@
 
 namespace will_engine
 {
+class IRenderable;
+
 struct CurrentInstanceData
 {
     glm::mat4 currentModelMatrix{};
@@ -25,11 +27,7 @@ public:
 
     [[nodiscard]] virtual uint32_t getId() const = 0;
 
-    [[nodiscard]] virtual uint64_t getRenderReferenceIndex() const = 0;
-
-    virtual void updateInstanceData(int32_t instanceIndex, const CurrentInstanceData& newInstanceData, int32_t currentFrameOverlap, int32_t previousFrameOverlap) = 0;
-
-    virtual bool releaseInstanceIndex(uint32_t instanceIndex) = 0;
+    virtual bool releaseInstanceIndex(IRenderable* renderable) = 0;
 };
 }
 

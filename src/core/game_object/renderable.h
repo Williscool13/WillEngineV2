@@ -15,9 +15,9 @@ class IRenderable
 public:
     virtual ~IRenderable() = default;
 
-    virtual void setRenderObjectReference(IRenderReference* owner, int32_t instanceIndex, int32_t meshIndex) = 0;
+    virtual void setRenderObjectReference(IRenderReference* owner, int32_t meshIndex) = 0;
 
-    [[nodiscard]] virtual uint32_t getRenderReferenceIndex() const = 0;
+    [[nodiscard]] virtual uint32_t getRenderReferenceId() const = 0;
 
     [[nodiscard]] virtual int32_t getMeshIndex() const = 0;
 
@@ -28,6 +28,15 @@ public:
     [[nodiscard]] virtual bool& isShadowCaster() = 0;
 
     virtual void setIsShadowCaster(bool isShadowCaster) = 0;
+
+
+    virtual glm::mat4 getModelMatrix() = 0;
+
+    virtual int32_t getRenderFramesToUpdate() = 0;
+
+    virtual void setRenderFramesToUpdate(int32_t value) = 0;
+
+
 };
 }
 #endif //RENDERABLE_H

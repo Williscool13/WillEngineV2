@@ -111,7 +111,6 @@ void Engine::init()
     }
 
 
-
     startupProfiler.beginTimer("1Immediate");
     immediate = new ImmediateSubmitter(*context);
     startupProfiler.endTimer("1Immediate");
@@ -163,7 +162,6 @@ void Engine::init()
     profiler.addTimer("1Game");
     profiler.addTimer("2Render");
     profiler.addTimer("3Total");
-
 
 
     const auto end = std::chrono::system_clock::now();
@@ -232,7 +230,7 @@ void Engine::initRenderer()
 
 void Engine::initGame()
 {
-    const auto sceneRoot = new GameObject();
+    const auto sceneRoot = new GameObject("Scene Root");
     scene = new Scene(sceneRoot);
     file::scanForModels(renderObjectInfoMap);
     Serializer::deserializeScene(scene->getRoot(), *resourceManager, renderObjectMap, renderObjectInfoMap, file::getSampleScene().string());
@@ -258,8 +256,8 @@ void Engine::run()
             if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE) { bQuit = true; }
 
 
-            if (e.type == SDL_EVENT_WINDOW_MINIMIZED) {  bStopRendering = true;}
-            if (e.type == SDL_EVENT_WINDOW_RESTORED) {  bStopRendering = true;}
+            if (e.type == SDL_EVENT_WINDOW_MINIMIZED) { bStopRendering = true; }
+            if (e.type == SDL_EVENT_WINDOW_RESTORED) { bStopRendering = true; }
             if (e.type == SDL_EVENT_WINDOW_RESIZED || e.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) {
                 bResizeRequested = true;
                 fmt::print("Window resized, resize requested\n");
@@ -300,7 +298,7 @@ void Engine::run()
     }
 }
 
-void Engine::updateGame(const float deltaTime) const
+void Engine::updateGame(const float deltaTime)
 {
     if (camera) { camera->update(deltaTime); }
 
@@ -313,11 +311,26 @@ void Engine::updateGame(const float deltaTime) const
 
             if (result.hasHit) {
                 physics::PhysicsUtils::addImpulseAtPosition(result.hitBodyID, normalize(direction) * 100.0f, result.hitPosition);
-            } else {
+            }
+            else {
                 fmt::print("Failed to find an object with the raycast\n");
             }
         }
     }
+
+    for (IHierarchical* hierarchal : hierarchalBeginQueue) {
+        hierarchal->beginPlay();
+    }
+    hierarchalBeginQueue.clear();
+
+
+    for (IHierarchical* hierarchical : hierarchicalDeletionQueue) {
+        hierarchical->beginDestroy();
+        delete hierarchical;
+    }
+    hierarchicalDeletionQueue.clear();
+
+    scene->update(deltaTime);
 }
 
 void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap) const
@@ -398,18 +411,14 @@ void Engine::draw(float deltaTime)
     int32_t currentFrameOverlap = getCurrentFrameOverlap();
     int32_t previousFrameOverlap = getPreviousFrameOverlap();
 
-    // delete all gameobjects queued up for deletion by imgui/scene graph
-    for (IHierarchical* hierarchical : hierarchicalDeletionQueue) { delete hierarchical; }
-    hierarchicalDeletionQueue.clear();
-
-    // Update Render Object references
+    // Update Render Object Buffers and Model Matrices
     for (RenderObject* val : renderObjectMap | std::views::values) {
         val->update(currentFrameOverlap, previousFrameOverlap);
     }
-    // Updates scene objects (Model Matrices/Visibility Switches)
-    scene->update(currentFrameOverlap, previousFrameOverlap);
+
     // Updates Scene Data buffer
     updateRender(deltaTime, currentFrameOverlap, previousFrameOverlap);
+
     // Updates Cascaded Shadow Map Properties
     cascadedShadowMap->update(mainLight, camera, currentFrameOverlap);
 
@@ -642,7 +651,12 @@ void Engine::cleanup()
     SDL_DestroyWindow(window);
 }
 
-void Engine::addGameObjectToDeletionQueue(GameObject* obj)
+void Engine::addToBeginQueue(IHierarchical* obj)
+{
+    hierarchalBeginQueue.push_back(obj);
+}
+
+void Engine::addToDeletionQueue(IHierarchical* obj)
 {
     hierarchicalDeletionQueue.push_back(obj);
 }

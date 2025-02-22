@@ -220,7 +220,7 @@ public: // GameObjects
         }
 
         if (const auto renderable = dynamic_cast<IRenderable*>(obj)) {
-            const int32_t renderRefIndex = renderable->getRenderReferenceIndex();
+            const int32_t renderRefIndex = renderable->getRenderReferenceId();
             if (renderRefIndex != INDEX_NONE && renderObjects.contains(renderRefIndex)) {
                 j["renderReference"] = renderRefIndex;
                 j["renderMeshIndex"] = renderable->getMeshIndex();

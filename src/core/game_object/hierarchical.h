@@ -15,6 +15,10 @@ class IHierarchical
 public:
     virtual ~IHierarchical() = default;
 
+    virtual void beginPlay() = 0;
+    virtual void beginDestroy() = 0;
+    virtual void update(float deltaTime) = 0;
+
     /**
      * The preferred way to set a parent/child hierarchy relationship. Only works if the child's parent is \code nullptr\endcode.
      * \n Adds \code child\endcode to \code children\endcode and sets the child's \code parent\endcode to \code this\endcode.
@@ -40,8 +44,6 @@ public:
      * Should be called whenever the hierarchy is modified (be it the hierarchy itself or some property change that requires propagation to children)
      */
     virtual void dirty() = 0;
-
-    virtual void recursiveUpdate(int32_t currentFrameOverlap, int32_t previousFrameOverlap) = 0;
 
     virtual void setParent(IHierarchical* newParent) = 0;
 
