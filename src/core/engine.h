@@ -11,7 +11,7 @@
 
 #include "engine_types.h"
 #include "scene/scene_serializer.h"
-#include "src/profiler/profiler.h"
+#include "src/core/profiler/profiler.h"
 #include "src/renderer/imgui_wrapper.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/vk_types.h"

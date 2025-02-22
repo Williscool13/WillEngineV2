@@ -30,6 +30,8 @@ public:
 
     void update(float deltaTime) override;
 
+public: // Serialization
+
     void serialize(ordered_json& j) override;
 
     void deserialize(ordered_json& j) override;
