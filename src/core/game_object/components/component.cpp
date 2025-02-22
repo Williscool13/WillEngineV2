@@ -7,6 +7,7 @@
 void will_engine::components::Component::beginPlay(IComponentContainer* owner)
 {
     bHasBegunPlay = true;
+    this->owner = owner;;
 }
 
 void will_engine::components::Component::update(float deltaTime) {}

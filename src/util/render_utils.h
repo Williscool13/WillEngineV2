@@ -4,6 +4,7 @@
 
 #ifndef RENDER_UTILS_H
 #define RENDER_UTILS_H
+#include <array>
 #include <glm/glm.hpp>
 #include "glm/ext/matrix_clip_space.hpp"
 

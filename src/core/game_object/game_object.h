@@ -42,9 +42,6 @@ public:
 
     ~GameObject() override;
 
-    virtual void beginPlay() {}
-    virtual void update(float deltaTime) {}
-
     void destroy() override;
 
 protected:
@@ -59,6 +56,10 @@ private: // IIdentifiable
     uint64_t gameObjectId{};
 
 public: // IHierarchical
+    void beginPlay() override;
+    void update(float deltaTime) override;
+    void beginDestroy() override;
+
     bool addChild(IHierarchical* child) override;
 
     bool removeChild(IHierarchical* child) override;
@@ -73,8 +74,6 @@ public: // IHierarchical
     void reparent(IHierarchical* newParent) override;
 
     void dirty() override;
-
-    void recursiveUpdate(int32_t currentFrameOverlap, int32_t previousFrameOverlap) override;
 
     void setParent(IHierarchical* newParent) override;
 
@@ -149,21 +148,19 @@ protected: // Transform
     Transform transform{};
     Transform cachedGlobalTransform{};
     bool bIsGlobalTransformDirty{true};
-    /**
-     * Will update the model matrix on GPU if this number is greater than 0
-     */
-    int32_t framesToUpdate{FRAME_OVERLAP + 1};
 
 public: // IRenderable
-    void setRenderObjectReference(IRenderReference* owner, const int32_t instanceIndex, const int32_t meshIndex) override
+    int32_t getRenderFramesToUpdate() override { return renderFramesToUpdate; }
+
+    void setRenderFramesToUpdate(const int32_t value) override { renderFramesToUpdate = value; }
+
+    void setRenderObjectReference(IRenderReference* owner, const int32_t meshIndex) override
     {
         pRenderReference = owner;
-        this->instanceIndex = instanceIndex;
-        framesToUpdate = FRAME_OVERLAP + 1;
         this->meshIndex = meshIndex;
     }
 
-    uint32_t getRenderReferenceIndex() const override { return pRenderReference ? pRenderReference->getId() : INDEX_NONE; }
+    uint32_t getRenderReferenceId() const override { return pRenderReference ? pRenderReference->getId() : INDEX_NONE; }
 
     int32_t getMeshIndex() const override { return meshIndex; }
 
@@ -186,8 +183,9 @@ protected: // IRenderable
      * The render object that is responsible for drawing this gameobject's model
      */
     IRenderReference* pRenderReference{nullptr};
-    int32_t instanceIndex{INDEX_NONE};
     int32_t meshIndex{INDEX_NONE};
+
+    int32_t renderFramesToUpdate{FRAME_OVERLAP + 1};
 
 public: // IPhysicsBody
     void setGlobalTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) override;
@@ -240,7 +238,7 @@ public: // IComponentContainer
     void destroyComponent() override;
 
 protected: // IComponentContainer
-    std::vector<std::unique_ptr<components::Component>> components{};
+    std::vector<std::unique_ptr<components::Component> > components{};
 
 public:
     bool operator==(const GameObject& other) const

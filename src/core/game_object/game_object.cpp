@@ -25,8 +25,13 @@ GameObject::GameObject(std::string gameObjectName, const uint64_t gameObjectId)
     GameObject::setId(identifier::IdentifierManager::Get()->registerIdentifier(gameObjectId));
     if (gameObjectName.empty()) {
         this->gameObjectName = "GameObject_" + std::to_string(GameObject::getId());
-    } else {
+    }
+    else {
         this->gameObjectName = std::move(gameObjectName);
+    }
+
+    if (Engine* engine = Engine::get()) {
+        engine->addToBeginQueue(this);
     }
 }
 
@@ -44,7 +49,7 @@ GameObject::~GameObject()
     children.clear();
 
     if (pRenderReference) {
-        pRenderReference->releaseInstanceIndex(instanceIndex);
+        pRenderReference->releaseInstanceIndex(this);
         pRenderReference = nullptr;
     }
 
@@ -72,7 +77,7 @@ void GameObject::destroy()
     children.clear();
 
     if (Engine* engine = Engine::get()) {
-        engine->addGameObjectToDeletionQueue(this);
+        engine->addToDeletionQueue(this);
     }
 }
 
@@ -80,6 +85,30 @@ void GameObject::setName(std::string newName)
 {
     if (newName == "") { return; }
     gameObjectName = std::move(newName);
+}
+
+void GameObject::beginPlay()
+{
+    for (const auto& component : components) {
+        component->beginPlay(this);
+    }
+    bHasBegunPlay = true;
+}
+
+void GameObject::update(float deltaTime)
+{
+    if (!bHasBegunPlay) { return; }
+    for (const auto& component : components) {
+        component->update(deltaTime);
+    }
+}
+
+void GameObject::beginDestroy()
+{
+    if (!bHasBegunPlay) { return; }
+    for (const auto& component : components) {
+        component->beginDestroy();
+    }
 }
 
 bool GameObject::addChild(IHierarchical* child)
@@ -126,7 +155,8 @@ void GameObject::reparent(IHierarchical* newParent)
 
     if (newParent) {
         newParent->addChild(this);
-    } else {
+    }
+    else {
         setParent(newParent);
     }
     setGlobalTransform(previousGlobalTransform);
@@ -136,26 +166,13 @@ void GameObject::dirty()
 {
     if (!bIsStatic) {
         bIsGlobalTransformDirty = true;
-        framesToUpdate = FRAME_OVERLAP + 1;
+        renderFramesToUpdate = FRAME_OVERLAP + 1;
 
         transform.setDirty();
     }
 
     for (const auto& child : children) {
         child->dirty();
-    }
-}
-
-void GameObject::recursiveUpdate(const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
-{
-    if (pRenderReference && framesToUpdate > 0) {
-        pRenderReference->updateInstanceData(instanceIndex, {getModelMatrix(), bIsVisible, bIsShadowCaster}, currentFrameOverlap, previousFrameOverlap);
-        framesToUpdate--;
-        return;
-    }
-
-    for (IHierarchical* child : children) {
-        child->recursiveUpdate(currentFrameOverlap, previousFrameOverlap);
     }
 }
 
@@ -188,7 +205,8 @@ const Transform& GameObject::getGlobalTransform()
             cachedGlobalTransform.setPosition(parentGlobal.getPositionMatrix() * glm::vec4(transform.getPosition(), 1.0f));
             cachedGlobalTransform.setRotation(parentGlobal.getRotation() * transform.getRotation());
             cachedGlobalTransform.setScale(parentGlobal.getScale() * transform.getScale());
-        } else {
+        }
+        else {
             cachedGlobalTransform = transform;
         }
         bIsGlobalTransformDirty = false;
@@ -247,7 +265,8 @@ void GameObject::setGlobalPosition(const glm::vec3 globalPosition)
         const glm::mat4 inverseParentTransform = glm::inverse(parentTransform);
         const auto localPosition = glm::vec3(inverseParentTransform * glm::vec4(globalPosition, 1.0f));
         setLocalPosition(localPosition);
-    } else {
+    }
+    else {
         setLocalPosition(globalPosition);
     }
 }
@@ -258,7 +277,8 @@ void GameObject::setGlobalRotation(const glm::quat globalRotation)
         const Transform& parentGlobal = transformableParent->getGlobalTransform();
         const glm::quat localRotation = glm::inverse(parentGlobal.getRotation()) * globalRotation;
         setLocalRotation(localRotation);
-    } else {
+    }
+    else {
         setLocalRotation(globalRotation);
     }
 }
@@ -269,7 +289,8 @@ void GameObject::setGlobalScale(const glm::vec3 globalScale)
         const Transform& parentGlobal = transformableParent->getGlobalTransform();
         const glm::vec3 localScale = globalScale / parentGlobal.getScale();
         setLocalScale(localScale);
-    } else {
+    }
+    else {
         setLocalScale(globalScale);
     }
 }
@@ -292,7 +313,8 @@ void GameObject::setGlobalTransform(const Transform& newGlobalTransform)
         const glm::vec3 localScale = newGlobalTransform.getScale() / transformableParent->getGlobalScale();
 
         transform.setTransform(localPosition, localRotation, localScale);
-    } else {
+    }
+    else {
         transform = newGlobalTransform;
     }
 
@@ -336,7 +358,8 @@ void GameObject::setGlobalTransformFromPhysics(const glm::vec3& position, const 
         const glm::mat4 parentTransform = glm::translate(glm::mat4(1.0f), parentGlobal.getPosition()) * glm::mat4_cast(parentGlobal.getRotation());
         transform.setPosition(glm::vec3(glm::inverse(parentTransform) * glm::vec4(position, 1.0f)));
         transform.setRotation(glm::inverse(parentGlobal.getRotation()) * rotation);
-    } else {
+    }
+    else {
         transform.setPosition(position);
         transform.setRotation(rotation);
     }
@@ -461,7 +484,8 @@ void GameObject::selectedRenderImgui()
                                         shapeParams = glm::vec3(1.0f);
                                         break;
                                 }
-                            } else {
+                            }
+                            else {
                                 switch (selectedShape) {
                                     case 0:
                                         shapeParams = physics::UNIT_CUBE;
@@ -523,7 +547,8 @@ void GameObject::selectedRenderImgui()
                                 layer
                             );
                         }
-                    } else {
+                    }
+                    else {
                         ImGui::Text("Body Id: %u", bodyId);
 
                         ImGui::Separator();
@@ -534,7 +559,8 @@ void GameObject::selectedRenderImgui()
                             if (layer < physics::Layers::NUM_LAYERS) {
                                 auto layerName = physics::Layers::layerNames[layer];
                                 ImGui::Text("Layer: %s", layerName);
-                            } else {
+                            }
+                            else {
                                 ImGui::Text("Layer: Invalid Layer Found greater than NUM_LAYERS");
                             }
                         }
@@ -616,7 +642,8 @@ void GameObject::selectedRenderImgui()
                             JPH::EMotionType currentMotionType = physics::Physics::Get()->getMotionType(this);
                             if (currentMotionType == JPH::EMotionType::Static) {
                                 ImGui::Text("Motion Type: Static (Unable to change)");
-                            } else {
+                            }
+                            else {
                                 const char* motionTypes[] = {"Kinematic", "Dynamic"};
                                 int currentType = static_cast<int>(currentMotionType) - 1;
 

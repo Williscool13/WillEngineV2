@@ -12,7 +12,7 @@
 
 void will_engine::components::NamePrintingComponent::update(float deltaTime)
 {
-    fmt::print("Component Owner's name is: {}", owner->getName());
+    fmt::print("Component Owner's name is: {}\n", owner->getName());
 }
 
 void will_engine::components::NamePrintingComponent::serialize(ordered_json& j)

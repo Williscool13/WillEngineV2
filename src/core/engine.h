@@ -102,7 +102,7 @@ public:
 
     void run();
 
-    void updateGame(float deltaTime) const;
+    void updateGame(float deltaTime);
 
     void updateRender(float deltaTime, int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
 
@@ -115,7 +115,8 @@ public:
     void cleanup();
 
 public:
-    void addGameObjectToDeletionQueue(GameObject* obj);
+    void addToBeginQueue(IHierarchical* obj);
+    void addToDeletionQueue(IHierarchical* obj);
 
 private:
     VkExtent2D windowExtent{1700, 900};
@@ -167,6 +168,7 @@ private: // Scene Data
     std::unordered_map<uint32_t, RenderObject*> renderObjectMap;
     std::unordered_map<uint32_t, RenderObjectInfo> renderObjectInfoMap;
 
+    std::vector<IHierarchical*> hierarchalBeginQueue{};
     std::vector<IHierarchical*> hierarchicalDeletionQueue{};
 
 private: // Pipelines

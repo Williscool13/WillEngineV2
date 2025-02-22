@@ -83,9 +83,18 @@ void will_engine::Scene::moveObject(const IHierarchical* obj, const int32_t diff
     }
 }
 
-void will_engine::Scene::update(const int32_t currentFrameOverlap, const int32_t previousFrameOverlap) const
+void will_engine::Scene::update(const float deltaTime)
 {
-    sceneRoot->recursiveUpdate(currentFrameOverlap, previousFrameOverlap);
+    recursiveUpdate(sceneRoot, deltaTime);
+}
+
+void will_engine::Scene::recursiveUpdate(IHierarchical* object, const float deltaTime)
+{
+    object->update(deltaTime);
+
+    for (IHierarchical* child : object->getChildren()) {
+        recursiveUpdate(child, deltaTime);
+    }
 }
 
 int32_t will_engine::Scene::getIndexInVector(const IHierarchical* obj, const std::vector<IHierarchical*>& vector)

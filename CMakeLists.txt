@@ -217,6 +217,8 @@ set(TEMP_SOURCES
         src/core/game_object/components/component.cpp
         src/core/game_object/components/component.h
         src/core/game_object/components/component_factory.h
+        src/util/model_utils.h
+        src/util/model_utils.cpp
 )
 
 add_executable(WillEngine main.cpp
