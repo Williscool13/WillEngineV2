@@ -95,7 +95,7 @@ void GameObject::beginPlay()
     bHasBegunPlay = true;
 }
 
-void GameObject::update(float deltaTime)
+void GameObject::update(const float deltaTime)
 {
     if (!bHasBegunPlay) { return; }
     for (const auto& component : components) {
@@ -105,7 +105,6 @@ void GameObject::update(float deltaTime)
 
 void GameObject::beginDestroy()
 {
-    if (!bHasBegunPlay) { return; }
     for (const auto& component : components) {
         component->beginDestroy();
     }
@@ -690,9 +689,29 @@ void GameObject::selectedRenderImgui()
             }
             if (ImGui::BeginTabItem("Components")) {
                 for (auto& component : components) {
-                    auto headerName = std::string(component->getComponentName());
-                    if (ImGui::CollapsingHeader(headerName.c_str(), ImGuiTreeNodeFlags_DefaultOpen)) {
-                        component->selectedRenderImgui();
+                    auto componentName = std::string(component->getComponentName());
+                    if (componentName.empty()) {
+                        componentName = "<unnamed>";
+                    }
+
+                    if (ImGui::Button(componentName.c_str())) {
+                        // Open this component in a popup
+                        component->openRenderImgui();
+                        ImGui::OpenPopup(("Component_" + componentName).c_str());
+                    }
+
+                    // Create the popup window for this component
+                    if (ImGui::BeginPopupModal(("Component_" + componentName).c_str(), nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                        // Update the component's ImGui content
+                        component->updateRenderImgui();
+
+                        // Add a close button at the bottom
+                        if (ImGui::Button("Close")) {
+                            component->closeRenderImgui();
+                            ImGui::CloseCurrentPopup();
+                        }
+
+                        ImGui::EndPopup();
                     }
                 }
                 ImGui::EndTabItem();

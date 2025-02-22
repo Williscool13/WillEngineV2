@@ -46,8 +46,11 @@ public: // Serialization / Editor Tools
 
     virtual void deserialize(ordered_json& j) {}
 
-    virtual void selectedRenderImgui() {}
+    virtual void openRenderImgui() {}
+    virtual void updateRenderImgui() {}
+    virtual void closeRenderImgui() {}
 
+public: // Defined Behaviors
     std::string_view getComponentName()
     {
         if (componentName.empty()) {
@@ -56,7 +59,6 @@ public: // Serialization / Editor Tools
         return componentName;
     }
 
-public: // Defined Behaviors
     void EnableComponent()
     {
         if (!bIsEnabled) {

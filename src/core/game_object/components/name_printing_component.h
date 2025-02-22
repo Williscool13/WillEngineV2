@@ -26,13 +26,22 @@ public:
 
     std::string_view getComponentType() override { return TYPE; }
 
+    void beginPlay(IComponentContainer* owner) override;
+
     void update(float deltaTime) override;
 
     void serialize(ordered_json& j) override;
 
     void deserialize(ordered_json& j) override;
 
-    void selectedRenderImgui() override;
+
+public: // ImGui
+    static char objectName[256];
+    void openRenderImgui() override;
+
+    void updateRenderImgui() override;
+
+    void closeRenderImgui() override;
 
 protected:
     int32_t testProperty{};
