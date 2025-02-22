@@ -55,8 +55,8 @@ void will_engine::FreeCamera::update(const float deltaTime)
 
     velocity *= deltaTime * currentSpeed;
 
-    const float yaw = glm::radians(-input.getMouseXDelta());
-    const float pitch = glm::radians(-input.getMouseYDelta());
+    const float yaw = glm::radians(-input.getMouseXDelta() / 10.0f);
+    const float pitch = glm::radians(-input.getMouseYDelta() / 10.0f);
 
     const glm::quat currentRotation = transform.getRotation();
     const glm::vec3 forward = currentRotation * glm::vec3(0.0f, 0.0f, -1.0f);
