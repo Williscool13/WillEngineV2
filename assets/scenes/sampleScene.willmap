@@ -6,12 +6,12 @@
     },
     "metadata": {
         "name": "Test Scene",
-        "created": "2025-02-21 21:35:54",
+        "created": "2025-02-22 21:09:08",
         "formatVersion": 1
     },
     "gameObjects": {
         "id": 0,
-        "name": "GameObject_0",
+        "name": "Scene Root",
         "transform": {
             "position": {
                 "x": 0.0,
@@ -73,15 +73,15 @@
                 "name": "Sphere",
                 "transform": {
                     "position": {
-                        "x": -0.0439082570374012,
+                        "x": -0.04135049879550934,
                         "y": 1.9999991655349731,
-                        "z": -0.4845729172229767
+                        "z": -0.4843326508998871
                     },
                     "rotation": {
-                        "x": -0.5344635844230652,
-                        "y": 0.006479519419372082,
-                        "z": 0.01267132069915533,
-                        "w": 0.8450716733932495
+                        "x": -0.5343941450119019,
+                        "y": 0.007018977776169777,
+                        "z": 0.011817130260169506,
+                        "w": 0.8451236486434937
                     },
                     "scale": {
                         "x": 1.0,
@@ -154,8 +154,8 @@
                 },
                 "components": {
                     "NamePrintingComponent": {
-                        "componentName": "Name Printing Component",
-                        "testProperty": 0
+                        "testProperty": 12,
+                        "componentName": "Name Printing Component"
                     }
                 }
             }

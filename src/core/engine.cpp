@@ -323,14 +323,13 @@ void Engine::updateGame(const float deltaTime)
     }
     hierarchalBeginQueue.clear();
 
+    scene->update(deltaTime);
 
     for (IHierarchical* hierarchical : hierarchicalDeletionQueue) {
         hierarchical->beginDestroy();
         delete hierarchical;
     }
     hierarchicalDeletionQueue.clear();
-
-    scene->update(deltaTime);
 }
 
 void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap) const
@@ -658,6 +657,10 @@ void Engine::addToBeginQueue(IHierarchical* obj)
 
 void Engine::addToDeletionQueue(IHierarchical* obj)
 {
+    const auto found = std::ranges::find(hierarchalBeginQueue, obj);
+    if (found != hierarchalBeginQueue.end()) {
+        hierarchalBeginQueue.erase(found);
+    }
     hierarchicalDeletionQueue.push_back(obj);
 }
 
