@@ -40,17 +40,9 @@ private:
     JPH::BodyID bodyId{JPH::BodyID::cMaxBodyIndex};
 
 public:
-    void beginPlay() override;
-
-    void update(float deltaTime) override;
-
     void releaseRigidBody();
 
     void beginDestroy() override;
-
-    void onEnable() override;
-
-    void onDisable() override;
 
     void setOwner(IComponentContainer* owner) override;
 

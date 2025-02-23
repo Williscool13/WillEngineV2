@@ -384,7 +384,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     IGFD::FileDialog::Instance()->Close();
                 }
                 if (ImGui::Button("Serialize Scene", ImVec2(width, 40))) {
-                    if (Serializer::serializeScene(engine->scene->getRoot(), engine->renderObjectMap, serializationPath.string())) {
+                    if (Serializer::serializeScene(engine->scene->getRoot(), engine->camera, serializationPath.string())) {
                         ImGui::OpenPopup("SerializeSuccess");
                     }
                     else {
@@ -394,7 +394,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                 if (ImGui::Button("Deserialize Scene", ImVec2(width, 40))) {
                     file::scanForModels(engine->renderObjectInfoMap);
-                    if (Serializer::deserializeScene(engine->scene->getRoot(), *engine->resourceManager, engine->renderObjectMap, engine->renderObjectInfoMap, serializationPath.string())) {
+                    if (Serializer::deserializeScene(engine->scene->getRoot(), engine->camera, serializationPath.string())) {
                         ImGui::OpenPopup("SerializeSuccess");
                     }
                     else {

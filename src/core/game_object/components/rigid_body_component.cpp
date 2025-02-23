@@ -71,33 +71,11 @@ void RigidBodyComponent::releaseRigidBody()
     }
 }
 
-void RigidBodyComponent::beginPlay()
-{
-    Component::beginPlay();
-}
-
-void RigidBodyComponent::update(const float deltaTime)
-{
-    Component::update(deltaTime);
-}
-
 void RigidBodyComponent::beginDestroy()
 {
     Component::beginDestroy();
 
     releaseRigidBody();
-}
-
-void RigidBodyComponent::onEnable()
-{
-    Component::onEnable();
-    // Add enable logic here
-}
-
-void RigidBodyComponent::onDisable()
-{
-    Component::onDisable();
-    // Add disable logic here
 }
 
 void RigidBodyComponent::setOwner(IComponentContainer* owner)
