@@ -227,7 +227,7 @@ void Engine::initGame()
     const auto sceneRoot = new GameObject("Scene Root");
     scene = new Scene(sceneRoot);
     file::scanForModels(renderObjectInfoMap);
-    Serializer::deserializeScene(scene->getRoot(), *resourceManager, renderObjectMap, renderObjectInfoMap, file::getSampleScene().string());
+    Serializer::deserializeScene(scene->getRoot(), camera, file::getSampleScene().string());
     camera = new FreeCamera();
 }
 
@@ -299,7 +299,7 @@ void Engine::updateGame(const float deltaTime)
     const Input& input = Input::Get();
     if (input.isKeyPressed(SDLK_R)) {
         if (camera) {
-            const glm::vec3 direction = camera->transform.getForward();
+            const glm::vec3 direction = camera->getForwardWS();
             //const physics::PlayerCollisionFilter dontHitPlayerFilter{};
             const physics::RaycastHit result = physics::PhysicsUtils::raycast(camera->getPosition(), direction, 100.0f, {}, {}, {});
 
