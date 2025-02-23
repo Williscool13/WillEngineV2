@@ -220,6 +220,8 @@ if (WIN32)
 endif ()
 
 set(TEMP_SOURCES
+        src/core/game_object/components/mesh_renderer_component.h
+        src/core/game_object/components/mesh_renderer_component.cpp
 
 )
 

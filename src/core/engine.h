@@ -93,8 +93,6 @@ public:
 public:
     void init();
 
-    static void initComponents();
-
     void initRenderer();
 
     void initGame();
@@ -114,8 +112,11 @@ public:
     void cleanup();
 
 public:
+    IHierarchical* createGameObject(const std::string& name) const;
     void addToBeginQueue(IHierarchical* obj);
     void addToDeletionQueue(IHierarchical* obj);
+
+    RenderObject* getRenderObject(uint32_t renderRefIndex);
 
 private:
     VkExtent2D windowExtent{1700, 900};

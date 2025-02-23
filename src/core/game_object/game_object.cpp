@@ -5,10 +5,6 @@
 #include "game_object.h"
 
 #include <imgui.h>
-#include <Jolt/Physics/Collision/Shape/BoxShape.h>
-#include <Jolt/Physics/Collision/Shape/CapsuleShape.h>
-#include <Jolt/Physics/Collision/Shape/CylinderShape.h>
-#include <Jolt/Physics/Collision/Shape/SphereShape.h>
 
 #include "glm/gtc/quaternion.hpp"
 #include "components/component.h"
@@ -16,9 +12,6 @@
 #include "src/core/engine.h"
 #include "src/core/time.h"
 #include "src/core/identifier/identifier_manager.h"
-#include "src/physics/physics.h"
-#include "src/physics/physics_filters.h"
-#include "src/physics/physics_utils.h"
 
 namespace will_engine
 {
@@ -49,11 +42,6 @@ GameObject::~GameObject()
     }
 
     children.clear();
-
-    if (pRenderReference) {
-        pRenderReference->releaseInstanceIndex(this);
-        pRenderReference = nullptr;
-    }
 }
 
 void GameObject::destroy()
@@ -160,12 +148,12 @@ void GameObject::reparent(IHierarchical* newParent)
 
 void GameObject::dirty()
 {
-    if (!bIsStatic) {
-        bIsGlobalTransformDirty = true;
-        renderFramesToUpdate = FRAME_OVERLAP + 1;
-
-        transform.setDirty();
+    if (meshRendererComponent) {
+        meshRendererComponent->dirty();
     }
+
+    bIsGlobalTransformDirty = true;
+    transform.setDirty();
 
     for (const auto& child : children) {
         child->dirty();
@@ -375,25 +363,27 @@ bool GameObject::canAddComponent(const std::string_view componentType)
     return true;
 }
 
-void GameObject::addComponent(std::unique_ptr<components::Component> component)
+components::Component* GameObject::addComponent(std::unique_ptr<components::Component> component)
 {
-    if (!component) { return; }
+    if (!component) { return nullptr; }
 
     for (const auto& _component : components) {
         if (component->getComponentType() == _component->getComponentType()) {
             fmt::print("Attempted to add a component of the same type to a gameobject. This is not supported at this time.\n");
-            return;
+            return nullptr;
         }
     }
     component->setOwner(this);
     components.push_back(std::move(component));
 
-
-    cacheRigidbody();
+    rigidbodyComponent = getComponent<components::RigidBodyComponent>();
+    meshRendererComponent = getComponent<components::MeshRendererComponent>();
 
     if (bHasBegunPlay) {
         components.back()->beginPlay();
     }
+
+    return components.back().get();
 }
 
 void GameObject::destroyComponent(components::Component* component)
@@ -406,7 +396,9 @@ void GameObject::destroyComponent(components::Component* component)
 
     if (component == rigidbodyComponent) {
         rigidbodyComponent = nullptr;
-        cacheRigidbody();
+        meshRendererComponent= nullptr;
+        rigidbodyComponent = getComponent<components::RigidBodyComponent>();
+        meshRendererComponent = getComponent<components::MeshRendererComponent>();
     }
 
     if (it != components.end()) {
@@ -415,16 +407,6 @@ void GameObject::destroyComponent(components::Component* component)
     }
     else {
         fmt::print("Attempted to remove a component that does not belong to this gameobject.\n");
-    }
-}
-
-void GameObject::cacheRigidbody()
-{
-    for (const auto& comp : components) {
-        if (const auto rb = dynamic_cast<components::RigidBodyComponent*>(comp.get())) {
-            rigidbodyComponent = rb;
-            break;
-        }
     }
 }
 
@@ -454,20 +436,6 @@ void GameObject::selectedRenderImgui()
                         setLocalScale(scale);
                     }
                 }
-
-                // IRenderable
-                if (ImGui::CollapsingHeader("Rendering", ImGuiTreeNodeFlags_DefaultOpen)) {
-                    bool _isVisible = isVisible();
-                    if (ImGui::Checkbox("Visible", &_isVisible)) {
-                        setVisibility(_isVisible);
-                    }
-
-                    bool castsShadows = isShadowCaster();
-                    if (ImGui::Checkbox("Cast Shadows", &castsShadows)) {
-                        setIsShadowCaster(castsShadows);
-                    }
-                }
-
 
                 ImGui::EndTabItem();
             }
@@ -544,11 +512,8 @@ void GameObject::selectedRenderImgui()
                     }
 
 
-
-
                     ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0.75f, 0.75f, 0.75f, 1.0f)); // Dark gray
                     if (ImGui::BeginPopupModal(componentType, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-
                         if (ImGui::InputText("Component Name", objectName, sizeof(objectName))) {
                             // ReSharper disable once CppDFAUnusedValue
                             componentName = objectName;

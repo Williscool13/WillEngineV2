@@ -34,6 +34,8 @@ public:
 
     virtual int32_t getRenderFramesToUpdate() = 0;
 
+    virtual void dirty() = 0;
+
     virtual void setRenderFramesToUpdate(int32_t value) = 0;
 
 

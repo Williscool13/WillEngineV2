@@ -6,26 +6,21 @@
 #define GAME_OBJECT_H
 
 #include <string>
-#include <extern/half/half/half.hpp>
 
 #include <glm/glm.hpp>
 
 #include "component_container.h"
 #include "hierarchical.h"
 #include "imgui_renderable.h"
-#include "renderable.h"
 #include "transformable.h"
 #include "src/core/transform.h"
-#include "src/physics/physics_body.h"
-#include "src/physics/physics_constants.h"
-#include "src/physics/physics_utils.h"
 #include "src/core/game_object/components/component.h"
-#include "src/renderer/renderer_constants.h"
-#include "src/renderer/render_object/render_reference.h"
+#include "src/core/identifier/identifiable.h"
 #include "src/util/math_constants.h"
 
 namespace will_engine::components
 {
+class MeshRendererComponent;
 class RigidBodyComponent;
 }
 
@@ -34,8 +29,7 @@ namespace will_engine
 class Engine;
 class RenderObject;
 
-class GameObject : public IRenderable,
-                   public ITransformable,
+class GameObject : public ITransformable,
                    public IHierarchical,
                    public IIdentifiable,
                    public IImguiRenderable,
@@ -61,7 +55,9 @@ private: // IIdentifiable
 
 public: // IHierarchical
     void beginPlay() override;
+
     void update(float deltaTime) override;
+
     void beginDestroy() override;
 
     bool addChild(IHierarchical* child) override;
@@ -150,54 +146,13 @@ public: // ITransformable
 
     void rotateAxis(float angle, const glm::vec3& axis) override;
 
-protected: // Transform
+protected: // ITransformable
     Transform transform{};
     Transform cachedGlobalTransform{};
     bool bIsGlobalTransformDirty{true};
 
-public: // IRenderable
-    int32_t getRenderFramesToUpdate() override { return renderFramesToUpdate; }
-
-    void setRenderFramesToUpdate(const int32_t value) override { renderFramesToUpdate = value; }
-
-    void setRenderObjectReference(IRenderReference* owner, const int32_t meshIndex) override
-    {
-        pRenderReference = owner;
-        this->meshIndex = meshIndex;
-    }
-
-    uint32_t getRenderReferenceId() const override { return pRenderReference ? pRenderReference->getId() : INDEX_NONE; }
-
-    int32_t getMeshIndex() const override { return meshIndex; }
-
-    [[nodiscard]] bool& isVisible() override { return bIsVisible; }
-
-    void setVisibility(const bool isVisible) override { bIsVisible = isVisible; }
-
-    [[nodiscard]] bool& isShadowCaster() override { return bIsShadowCaster; }
-
-    void setIsShadowCaster(const bool isShadowCaster) override { bIsShadowCaster = isShadowCaster; }
-
-protected: // IRenderable
-    /**
-      * If true, the model matrix will never be updated from defaults.
-      */
-    bool bIsStatic{false};
-    bool bIsVisible{true};
-    bool bIsShadowCaster{true};
-    /**
-     * The render object that is responsible for drawing this gameobject's model
-     */
-    IRenderReference* pRenderReference{nullptr};
-    int32_t meshIndex{INDEX_NONE};
-
-    int32_t renderFramesToUpdate{FRAME_OVERLAP + 1};
-
-public: // IPhysicsBody
-
-
 public: // IComponentContainer
-    components::Component* GetComponentByType(const std::type_info& type) override
+    components::Component* getComponentByType(const std::type_info& type) override
     {
         for (const auto& component : components) {
             if (typeid(*component) == type) {
@@ -207,7 +162,7 @@ public: // IComponentContainer
         return nullptr;
     }
 
-    std::vector<components::Component*> GetComponentsByType(const std::type_info& type) override
+    std::vector<components::Component*> getComponentsByType(const std::type_info& type) override
     {
         std::vector<components::Component*> outComponents;
         outComponents.reserve(components.size());
@@ -233,17 +188,20 @@ public: // IComponentContainer
 
     bool canAddComponent(std::string_view componentType) override;
 
-    void addComponent(std::unique_ptr<components::Component> component) override;
+    components::Component* addComponent(std::unique_ptr<components::Component> component) override;
 
     void destroyComponent(components::Component* component) override;
 
-    void cacheRigidbody();
+    components::RigidBodyComponent* getRigidbody() const override { return rigidbodyComponent; }
+
+    components::MeshRendererComponent* getMeshRenderer() const override { return meshRendererComponent; }
 
 protected: // IComponentContainer
     std::vector<std::unique_ptr<components::Component> > components{};
 
 protected:
-    components::RigidBodyComponent* rigidbodyComponent{};
+    components::RigidBodyComponent* rigidbodyComponent{nullptr};
+    components::MeshRendererComponent* meshRendererComponent{nullptr};
 
 public:
     bool operator==(const GameObject& other) const

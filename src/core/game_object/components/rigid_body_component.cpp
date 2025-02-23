@@ -61,13 +61,19 @@ RigidBodyComponent::RigidBodyComponent(const std::string& name)
 
 RigidBodyComponent::~RigidBodyComponent() = default;
 
+void RigidBodyComponent::releaseRigidBody()
+{
+    if (bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
+        if (physics::Physics* physics = physics::Physics::Get()) {
+            physics->removeRigidBody(this);
+            bodyId = JPH::BodyID(JPH::BodyID::cMaxBodyIndex);
+        }
+    }
+}
+
 void RigidBodyComponent::beginPlay()
 {
     Component::beginPlay();
-
-    if (!physics::Physics::Get()->deserializeProperties(this, deserializedPhysicsProperties)) {
-        fmt::print("Warning: Gameobject failed to deserialize physics\n");
-    }
 }
 
 void RigidBodyComponent::update(const float deltaTime)
@@ -79,12 +85,7 @@ void RigidBodyComponent::beginDestroy()
 {
     Component::beginDestroy();
 
-    if (bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
-        if (physics::Physics* physics = physics::Physics::Get()) {
-            physics->removeRigidBody(this);
-            bodyId = JPH::BodyID(JPH::BodyID::cMaxBodyIndex);
-        }
-    }
+    releaseRigidBody();
 }
 
 void RigidBodyComponent::onEnable()
@@ -103,15 +104,15 @@ void RigidBodyComponent::setOwner(IComponentContainer* owner)
 {
     Component::setOwner(owner);
 
-    parent = dynamic_cast<ITransformable*>(owner);
-    if (!parent) {
+    transformableOwner = dynamic_cast<ITransformable*>(owner);
+    if (!transformableOwner) {
         fmt::print("Attempted to attach a rigidbody to an IComponentContainer that does not implement ITransformable. This component will not have an effect.\n");
     }
 }
 
 void RigidBodyComponent::setGameTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation)
 {
-    parent->setGlobalTransformFromPhysics(position, rotation);
+    transformableOwner->setGlobalTransformFromPhysics(position, rotation);
 }
 
 void RigidBodyComponent::setPhysicsTransformFromGame(const glm::vec3& position, const glm::quat& rotation)
@@ -122,12 +123,12 @@ void RigidBodyComponent::setPhysicsTransformFromGame(const glm::vec3& position, 
 
 glm::vec3 RigidBodyComponent::getGlobalPosition()
 {
-    return parent->getGlobalPosition();
+    return transformableOwner->getGlobalPosition();
 }
 
 glm::quat RigidBodyComponent::getGlobalRotation()
 {
-    return parent->getGlobalRotation();
+    return transformableOwner->getGlobalRotation();
 }
 
 void RigidBodyComponent::serialize(ordered_json& j)
@@ -146,6 +147,10 @@ void RigidBodyComponent::deserialize(ordered_json& j)
 
     if (j.contains("properties")) {
         deserializedPhysicsProperties = j["properties"].get<physics::PhysicsProperties>();
+    }
+
+    if (!physics::Physics::Get()->deserializeProperties(this, deserializedPhysicsProperties)) {
+        fmt::print("Warning: Gameobject failed to deserialize physics\n");
     }
 }
 

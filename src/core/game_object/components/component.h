@@ -23,20 +23,17 @@ public: // Virtuals
     explicit Component(std::string name = "")
         : componentName(std::move(name)) {}
 
-    virtual ~Component();
-
-    virtual std::string_view getComponentType() = 0;
+    virtual ~Component() = default;
 
     virtual void beginPlay();
 
-    virtual void update(float deltaTime);
+    virtual void update(float deltaTime) {}
 
     virtual void beginDestroy();
 
-    virtual void onEnable();
+    virtual void onEnable() {}
 
-    virtual void onDisable();
-
+    virtual void onDisable() {}
 
     bool isComponentDestroyed() const { return bIsDestroyed; }
 
@@ -94,6 +91,9 @@ protected:
     bool bIsDestroyed{false};
 
     IComponentContainer* owner{};
+
+public:
+    virtual std::string_view getComponentType() = 0;
 };
 }
 

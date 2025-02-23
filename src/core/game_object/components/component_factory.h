@@ -5,6 +5,9 @@
 #ifndef COMPONENT_FACTORY_H
 #define COMPONENT_FACTORY_H
 
+#include "mesh_renderer_component.h"
+#include "name_printing_component.h"
+#include "rigid_body_component.h"
 #include "src/core/game_object/components/component.h"
 
 namespace will_engine::components
@@ -19,6 +22,13 @@ concept HasGetStaticType = requires(T)
 class ComponentFactory
 {
 public:
+    void registerComponents()
+    {
+        registerComponent<NamePrintingComponent>();
+        registerComponent<RigidBodyComponent>();
+        registerComponent<MeshRendererComponent>();
+    }
+
     using ComponentCreator = std::function<std::unique_ptr<Component>(const std::string& name)>;
 
     static ComponentFactory& getInstance()

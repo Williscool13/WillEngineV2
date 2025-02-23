@@ -251,7 +251,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                 depthNormalize
                             );
                         }
-                    } else {
+                    }
+                    else {
                         fmt::print(" Failed to save depth map image");
                     }
                 }
@@ -264,7 +265,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                         const std::filesystem::path path = file::imagesSavePath / "drawImage.png";
                         vk_helpers::saveImageRGBA16SFLOAT(*engine->resourceManager, *engine->immediate, engine->drawImage,
                                                           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str());
-                    } else {
+                    }
+                    else {
                         fmt::print(" Failed to find/create image save path directory");
                     }
                 }
@@ -281,7 +283,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                         vk_helpers::saveImageR32F(*engine->resourceManager, *engine->immediate, engine->depthImage,
                                                   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT, path.string().c_str(), depthNormalize);
-                    } else {
+                    }
+                    else {
                         fmt::print(" Failed to find/create image save path directory");
                     }
                 }
@@ -299,7 +302,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                         };
                         vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->normalRenderTarget,
                                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
-                    } else {
+                    }
+                    else {
                         fmt::print(" Failed to save normal render target");
                     }
                 }
@@ -314,7 +318,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                         };
                         vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->albedoRenderTarget,
                                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
-                    } else {
+                    }
+                    else {
                         fmt::print(" Failed to save albedo render target");
                     }
                 }
@@ -329,7 +334,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                         };
                         vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->pbrRenderTarget,
                                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
-                    } else {
+                    }
+                    else {
                         fmt::print(" Failed to save pbr render target");
                     }
                 }
@@ -339,7 +345,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                         std::filesystem::path path = file::imagesSavePath / "postProcesResolve.png";
                         vk_helpers::saveImageRGBA16SFLOAT(*engine->resourceManager, *engine->immediate, engine->postProcessOutputBuffer,
                                                           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str());
-                    } else {
+                    }
+                    else {
                         fmt::print(" Failed to find/create image save path directory");
                     }
                 }
@@ -379,7 +386,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Serialize Scene", ImVec2(width, 40))) {
                     if (Serializer::serializeScene(engine->scene->getRoot(), engine->renderObjectMap, serializationPath.string())) {
                         ImGui::OpenPopup("SerializeSuccess");
-                    } else {
+                    }
+                    else {
                         ImGui::OpenPopup("SerializeError");
                     }
                 }
@@ -388,7 +396,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     file::scanForModels(engine->renderObjectInfoMap);
                     if (Serializer::deserializeScene(engine->scene->getRoot(), *engine->resourceManager, engine->renderObjectMap, engine->renderObjectInfoMap, serializationPath.string())) {
                         ImGui::OpenPopup("SerializeSuccess");
-                    } else {
+                    }
+                    else {
                         ImGui::OpenPopup("SerializeError");
                     }
                 }
@@ -476,13 +485,39 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                     RenderObject* renderObj = it->second;
                                     for (size_t i = 0; i < renderObj->getMeshCount(); i++) {
                                         ImGui::PushID(static_cast<int>(i));
-                                        if (ImGui::Button("Add to Scene")) {
-                                            auto gob = new GameObject(std::string(objectName));
-                                            renderObj->generateMesh(gob, i);
-                                            engine->scene->addGameObject(gob);
-                                            fmt::print("Added single mesh to scene\n");
+
+
+                                        if (auto container = dynamic_cast<IComponentContainer*>(selectedItem)){
+                                            if (ImGui::Button("Attach to selected item")) {
+                                                if (!container->getMeshRenderer()) {
+                                                    auto newComponent = components::ComponentFactory::getInstance().createComponent(components::MeshRendererComponent::getStaticType(), "");
+                                                    container->addComponent(std::move(newComponent));
+                                                }
+                                                if (auto meshRenderer = container->getMeshRenderer()) {
+                                                    if (meshRenderer->hasMesh()) {
+                                                        meshRenderer->releaseMesh();
+                                                    }
+
+                                                    renderObj->generateMesh(meshRenderer, i);
+                                                }
+                                            }
+                                        }
+                                        else {
+                                            if (ImGui::Button("Add to Scene")) {
+                                                IHierarchical* gob = engine->createGameObject(objectName);
+
+                                                if (auto _container = dynamic_cast<IComponentContainer*>(gob)) {
+                                                    auto newComponent = components::ComponentFactory::getInstance().createComponent(components::MeshRendererComponent::getStaticType(), "");
+                                                    _container->addComponent(std::move(newComponent));
+                                                    if (components::MeshRendererComponent* meshRenderer = _container->getMeshRenderer()) {
+                                                        renderObj->generateMesh(meshRenderer, i);
+                                                    }
+                                                    fmt::print("Added single mesh to scene\n");
+                                                }
+                                            }
                                         }
                                         ImGui::SameLine();
+
                                         ImGui::Text("Mesh %zu", i);
                                         ImGui::PopID();
                                     }
@@ -491,7 +526,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                                 ImGui::EndTabBar();
                             }
-                        } else {
+                        }
+                        else {
                             ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "Load render object to see available meshes");
                         }
 
@@ -557,7 +593,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     if (ImGui::Button("Compile Model")) {
                         if (Serializer::generateWillModel(gltfPath, willmodelPath)) {
                             ImGui::OpenPopup("Success");
-                        } else {
+                        }
+                        else {
                             ImGui::OpenPopup("Error");
                         }
                     }
@@ -605,7 +642,8 @@ void ImguiWrapper::drawSceneGraph(Engine* engine, const Scene* scene)
             for (IHierarchical* child : sceneRoot->getChildren()) {
                 displayGameObject(engine, scene, child, 0);
             }
-        } else {
+        }
+        else {
             ImGui::Text("Scene is empty");
         }
     }
@@ -624,28 +662,16 @@ void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierar
     if (obj->getChildren().empty()) { flags |= ImGuiTreeNodeFlags_Leaf; }
 
     ImGui::SetNextItemWidth(treeNodeWidth);
-    if (auto* renderable = dynamic_cast<IRenderable*>(obj)) {
-        ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
-        if (ImGui::Button("X")) {
-            if (selectedItem == obj) {
-                selectedItem = nullptr;
-            }
-            obj->destroy();
-        }
-        ImGui::PopStyleColor(1);
-        ImGui::SameLine();
-        ImGui::PushStyleColor(ImGuiCol_Text, renderable->isVisible() ? ImVec4(0, 1, 0, 1) : ImVec4(1, 0, 0, 1));
-        ImGui::Button("V");
-        ImGui::PopStyleColor(2);
-        if (ImGui::IsItemClicked()) {
-            renderable->isVisible() = !renderable->isVisible();
-            obj->dirty();
-        }
-    } else {
-        ImGui::Text("  ");
-    }
 
+    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
+    if (ImGui::Button("X")) {
+        if (selectedItem == obj) {
+            selectedItem = nullptr;
+        }
+        obj->destroy();
+    }
+    ImGui::PopStyleColor(2);
 
     ImGui::SameLine();
     const std::string_view name = obj->getName();
@@ -659,14 +685,27 @@ void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierar
                                           : name.length() > indentedLength
                                                 ? fmt::format("{:.{}s}...", name, std::max(0, indentedLength - 3))
                                                 : fmt::format("{:<{}}", name, indentedLength);
+
+    if (obj == selectedItem) {
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 1.0f, 0.0f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.0f, 0.6f, 0.0f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.0f, 0.7f, 0.0f, 1.0f));
+    }
+
     const bool isOpen = ImGui::TreeNodeEx("##TreeNode", flags, "%s", formattedName.c_str());
+
+
+    if (obj == selectedItem) {
+        ImGui::PopStyleColor(3);
+    }
 
     ImGui::SameLine();
     ImGui::BeginGroup();
     if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
         if (obj == selectedItem) {
             selectedItem = nullptr;
-        } else {
+        }
+        else {
             selectedItem = obj;
         }
     }

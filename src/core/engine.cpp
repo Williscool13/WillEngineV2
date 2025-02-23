@@ -15,8 +15,6 @@
 
 #include "camera/free_camera.h"
 #include "game_object/game_object.h"
-#include "game_object/components/name_printing_component.h"
-#include "game_object/components/rigid_body_component.h"
 #include "scene/scene.h"
 #include "scene/scene_serializer.h"
 #include "src/core/input.h"
@@ -132,7 +130,8 @@ void Engine::init()
     environmentMap = new environment::Environment(*resourceManager, *immediate);
     startupProfiler.endTimer("4Environment");
 
-    initComponents();
+    auto& factory = components::ComponentFactory::getInstance();
+    factory.registerComponents();
 
     const std::filesystem::path envMapSource = "assets/environments";
 
@@ -168,13 +167,6 @@ void Engine::init()
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     fmt::print("Finished Initialization in {} seconds\n", static_cast<float>(elapsed.count()) / 1000000.0f);
-}
-
-void Engine::initComponents()
-{
-    auto& factory = components::ComponentFactory::getInstance();
-    factory.registerComponent<components::NamePrintingComponent>();
-    factory.registerComponent<components::RigidBodyComponent>();
 }
 
 void Engine::initRenderer()
@@ -652,6 +644,13 @@ void Engine::cleanup()
     SDL_DestroyWindow(window);
 }
 
+IHierarchical* Engine::createGameObject(const std::string& name) const
+{
+    const auto newGameObject = new GameObject(name);
+    scene->addGameObject(newGameObject);
+    return newGameObject;
+}
+
 void Engine::addToBeginQueue(IHierarchical* obj)
 {
     hierarchalBeginQueue.push_back(obj);
@@ -664,6 +663,17 @@ void Engine::addToDeletionQueue(IHierarchical* obj)
         hierarchalBeginQueue.erase(found);
     }
     hierarchicalDeletionQueue.push_back(obj);
+}
+
+RenderObject* Engine::getRenderObject(const uint32_t renderRefIndex)
+{
+    const bool isLoaded = renderObjectMap.contains(renderRefIndex) && renderObjectMap[renderRefIndex] != nullptr;
+    const auto renderObjectProperties = renderObjectInfoMap.find(renderRefIndex);
+    if (!isLoaded) {
+        renderObjectMap[renderRefIndex] = new RenderObject(renderObjectProperties->second.gltfPath, *resourceManager, renderRefIndex);
+    }
+
+    return renderObjectMap[renderRefIndex];
 }
 
 void Engine::createSwapchain(const uint32_t width, const uint32_t height)
