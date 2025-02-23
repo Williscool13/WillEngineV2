@@ -46,6 +46,8 @@ public:
 
     virtual std::vector<components::Component*> getAllComponents() = 0;
 
+    virtual bool canAddComponent(std::string_view componentType) = 0;
+
     virtual void addComponent(std::unique_ptr<components::Component> component) = 0;
 
     virtual void destroyComponent(components::Component* component) = 0;

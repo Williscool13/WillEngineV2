@@ -12,9 +12,9 @@
 
 char will_engine::components::NamePrintingComponent::objectName[256] = "";
 
-void will_engine::components::NamePrintingComponent::beginPlay(IComponentContainer* owner)
+void will_engine::components::NamePrintingComponent::beginPlay()
 {
-    Component::beginPlay(owner);
+    Component::beginPlay();
 
     fmt::print("Hello World! (Component)\n");
 }
@@ -46,19 +46,7 @@ void will_engine::components::NamePrintingComponent::updateRenderImgui()
 {
     Component::updateRenderImgui();
 
-    ImGui::Text(fmt::format("Class: {}", TYPE).c_str());
-    if (ImGui::InputText("Component Name", objectName, sizeof(objectName))) {
-        componentName = objectName;
-    }
-
     ImGui::InputInt("Test Property", &testProperty);
-
-
-    ImGui::Separator();
-
-    ImGui::TextDisabled("Current Values:");
-    ImGui::Text("Name: %s", componentName.empty() ? "<empty>" : componentName.c_str());
-    ImGui::Text("Test Property: %d", testProperty);
 }
 
 void will_engine::components::NamePrintingComponent::closeRenderImgui()

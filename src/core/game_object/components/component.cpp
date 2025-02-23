@@ -11,10 +11,9 @@ will_engine::components::Component::~Component()
     fmt::print("Destroying Component\n");
 }
 
-void will_engine::components::Component::beginPlay(IComponentContainer* owner)
+void will_engine::components::Component::beginPlay()
 {
     bHasBegunPlay = true;
-    this->owner = owner;;
 }
 
 void will_engine::components::Component::update(float deltaTime) {}

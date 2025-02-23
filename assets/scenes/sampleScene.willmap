@@ -6,7 +6,7 @@
     },
     "metadata": {
         "name": "Test Scene",
-        "created": "2025-02-22 21:09:08",
+        "created": "2025-02-23 13:16:12",
         "formatVersion": 1
     },
     "gameObjects": {
@@ -56,15 +56,20 @@
                 "renderMeshIndex": 0,
                 "renderIsVisible": true,
                 "renderIsShadowCaster": true,
-                "physics": {
-                    "isActive": true,
-                    "motionType": 1,
-                    "layer": 3,
-                    "shapeType": 1,
-                    "shapeParams": {
-                        "x": 5.0,
-                        "y": 1.0,
-                        "z": 5.0
+                "components": {
+                    "RigidBodyComponent": {
+                        "properties": {
+                            "isActive": true,
+                            "motionType": 0,
+                            "layer": 3,
+                            "shapeType": 1,
+                            "shapeParams": {
+                                "x": 5.0,
+                                "y": 1.0,
+                                "z": 5.0
+                            }
+                        },
+                        "componentName": "RigidBodyComponent"
                     }
                 }
             },
@@ -73,15 +78,15 @@
                 "name": "Sphere",
                 "transform": {
                     "position": {
-                        "x": -0.04135049879550934,
-                        "y": 1.9999991655349731,
-                        "z": -0.4843326508998871
+                        "x": 2.4990105628967285,
+                        "y": 1.9999370574951172,
+                        "z": -1.025006651878357
                     },
                     "rotation": {
-                        "x": -0.5343941450119019,
-                        "y": 0.007018977776169777,
-                        "z": 0.011817130260169506,
-                        "w": 0.8451236486434937
+                        "x": -0.12546566128730774,
+                        "y": 0.6845734715461731,
+                        "z": -0.6900069117546082,
+                        "w": 0.19876627624034882
                     },
                     "scale": {
                         "x": 1.0,
@@ -93,15 +98,20 @@
                 "renderMeshIndex": 0,
                 "renderIsVisible": true,
                 "renderIsShadowCaster": true,
-                "physics": {
-                    "isActive": true,
-                    "motionType": 2,
-                    "layer": 2,
-                    "shapeType": 0,
-                    "shapeParams": {
-                        "x": 1.0,
-                        "y": 0.0,
-                        "z": 0.0
+                "components": {
+                    "RigidBodyComponent": {
+                        "properties": {
+                            "isActive": true,
+                            "motionType": 2,
+                            "layer": 1,
+                            "shapeType": 0,
+                            "shapeParams": {
+                                "x": 1.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            }
+                        },
+                        "componentName": "Box Collider"
                     }
                 }
             },
@@ -110,9 +120,9 @@
                 "name": "GameObject_3",
                 "transform": {
                     "position": {
-                        "x": 2.299999952316284,
-                        "y": 2.0,
-                        "z": 3.0999999046325684
+                        "x": 2.2999989986419678,
+                        "y": 1.9999998807907104,
+                        "z": 3.100005626678467
                     },
                     "rotation": {
                         "x": 0.0,
@@ -129,7 +139,23 @@
                 "renderReference": 786709467,
                 "renderMeshIndex": 1,
                 "renderIsVisible": true,
-                "renderIsShadowCaster": true
+                "renderIsShadowCaster": true,
+                "components": {
+                    "RigidBodyComponent": {
+                        "properties": {
+                            "isActive": true,
+                            "motionType": 2,
+                            "layer": 1,
+                            "shapeType": 1,
+                            "shapeParams": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentName": "Box Collider"
+                    }
+                }
             },
             {
                 "id": 4,

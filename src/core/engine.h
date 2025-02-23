@@ -17,7 +17,6 @@
 #include "src/renderer/vk_types.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/lighting/directional_light.h"
-#include "src/util/profiling_utils.h"
 
 
 class ResourceManager;
