@@ -31,15 +31,15 @@ public:
 
     ~RigidBodyComponent() override;
 
-    static constexpr auto TYPE = "RigidBodyComponent";
+public:
+    bool hasRigidBody() const { return bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex; }
 
-    static std::string_view getStaticType()
-    {
-        return TYPE;
-    }
+private:
+    ITransformable* transformableOwner{nullptr};
 
-    std::string_view getComponentType() override { return TYPE; }
+    JPH::BodyID bodyId{JPH::BodyID::cMaxBodyIndex};
 
+public:
     void beginPlay() override;
 
     void update(float deltaTime) override;
@@ -54,7 +54,7 @@ public:
 
     void setOwner(IComponentContainer* owner) override;
 
-    // IPhysicsBody
+public: // IPhysicsBody
     void setGameTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) override;
 
     void setPhysicsTransformFromGame(const glm::vec3& position, const glm::quat& rotation) override;
@@ -72,16 +72,18 @@ public: // Serialization
 
     void deserialize(ordered_json& j) override;
 
-    physics::PhysicsProperties deserializedPhysicsProperties{};
-
 public: // Editor Tools
     void updateRenderImgui() override;
 
-private:
-    ITransformable* transformableOwner{nullptr};
+public:
+    static constexpr auto TYPE = "RigidBodyComponent";
 
-    JPH::BodyID bodyId{JPH::BodyID::cMaxBodyIndex};
+    static std::string_view getStaticType()
+    {
+        return TYPE;
+    }
 
+    std::string_view getComponentType() override { return TYPE; }
 };
 } // namespace will_engine::components
 
