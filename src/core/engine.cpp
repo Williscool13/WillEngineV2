@@ -227,8 +227,9 @@ void Engine::initGame()
     const auto sceneRoot = new GameObject("Scene Root");
     scene = new Scene(sceneRoot);
     file::scanForModels(renderObjectInfoMap);
-    Serializer::deserializeScene(scene->getRoot(), camera, file::getSampleScene().string());
     camera = new FreeCamera();
+    Serializer::deserializeScene(scene->getRoot(), camera, file::getSampleScene().string());
+
 }
 
 void Engine::run()
