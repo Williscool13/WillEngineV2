@@ -126,7 +126,6 @@ private:
     ImmediateSubmitter* immediate = nullptr;
     ResourceManager* resourceManager = nullptr;
     identifier::IdentifierManager* identifierManager = nullptr;
-    physics::Physics* physics = nullptr;
     environment::Environment* environmentMap{nullptr};
     cascaded_shadows::CascadedShadowMap* cascadedShadowMap{nullptr};
     ImguiWrapper* imguiWrapper = nullptr;

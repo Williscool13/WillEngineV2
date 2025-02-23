@@ -42,6 +42,14 @@
 #define USE_VALIDATION_LAYERS true
 #endif
 
+#ifdef NDEBUG
+// uncapped FPS
+#define PRESENT_MODE VK_PRESENT_MODE_IMMEDIATE_KHR
+#else
+// vsync
+#define PRESENT_MODE VK_PRESENT_MODE_FIFO_KHR
+#endif
+
 namespace will_engine
 {
 Engine* Engine::instance = nullptr;
@@ -122,8 +130,7 @@ void Engine::init()
     identifier::IdentifierManager::Set(identifierManager);
 
     startupProfiler.beginTimer("3Physics");
-    physics = new physics::Physics();
-    physics::Physics::Set(physics);
+    physics::Physics::set(new physics::Physics());
     startupProfiler.endTimer("3Physics");
 
     startupProfiler.beginTimer("4Environment");
@@ -281,7 +288,7 @@ void Engine::run()
         profiler.beginTimer("3Total");
 
         profiler.beginTimer("0Physics");
-        physics->update(deltaTime);
+        physics::Physics::get()->update(deltaTime);
         profiler.endTimer("0Physics");
 
         profiler.beginTimer("1Game");
@@ -630,7 +637,7 @@ void Engine::cleanup()
 
     delete cascadedShadowMap;
     delete environmentMap;
-    delete physics;
+    delete physics::Physics::get();
     delete immediate;
     delete resourceManager;
     delete identifierManager;
@@ -685,8 +692,7 @@ void Engine::createSwapchain(const uint32_t width, const uint32_t height)
 
     vkb::Swapchain vkbSwapchain = swapchainBuilder
             .set_desired_format(VkSurfaceFormatKHR{.format = swapchainImageFormat, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
-            .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR) //use vsync present mode
-            //.set_desired_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR) // uncapped fps
+            .set_desired_present_mode(PRESENT_MODE)
             .set_desired_extent(width, height)
             .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
             .build()

@@ -12,6 +12,7 @@
 #include "src/core/engine.h"
 #include "src/core/time.h"
 #include "src/core/identifier/identifier_manager.h"
+#include "src/util/math_utils.h"
 
 namespace will_engine
 {
@@ -132,17 +133,14 @@ void GameObject::reparent(IHierarchical* newParent)
     if (this == newParent) { return; }
     const Transform previousGlobalTransform = getGlobalTransform();
     if (parent) {
-        if (!parent->removeChild(this)) {
-            setParent(nullptr);
-        }
+        parent->removeChild(this);
+        setParent(nullptr);
     }
 
     if (newParent) {
         newParent->addChild(this);
     }
-    else {
-        setParent(newParent);
-    }
+
     setGlobalTransform(previousGlobalTransform);
 }
 
@@ -289,7 +287,7 @@ void GameObject::setGlobalTransform(const Transform& newGlobalTransform)
     if (transformableParent) {
         const glm::vec3 parentPos = transformableParent->getGlobalPosition();
         const glm::quat parentRot = transformableParent->getGlobalRotation();
-        const glm::mat4 parentTransform = glm::translate(glm::mat4(1.0f), parentPos) * glm::mat4_cast(parentRot);
+        const glm::mat4 parentTransform = glm::mat4_cast(parentRot) * glm::translate(glm::mat4(1.0f), parentPos);
         const glm::mat4 inverseParentTransform = glm::inverse(parentTransform);
         const auto localPosition = glm::vec3(inverseParentTransform * glm::vec4(newGlobalTransform.getPosition(), 1.0f));
 
@@ -311,10 +309,17 @@ void GameObject::setGlobalTransform(const Transform& newGlobalTransform)
 void GameObject::setGlobalTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation)
 {
     if (transformableParent) {
-        const Transform& parentGlobal = transformableParent->getGlobalTransform();
-        const glm::mat4 parentTransform = glm::translate(glm::mat4(1.0f), parentGlobal.getPosition()) * glm::mat4_cast(parentGlobal.getRotation());
-        transform.setPosition(glm::vec3(glm::inverse(parentTransform) * glm::vec4(position, 1.0f)));
-        transform.setRotation(glm::inverse(parentGlobal.getRotation()) * rotation);
+        const glm::vec3 parentPos = transformableParent->getGlobalPosition();
+        const glm::quat parentRot = transformableParent->getGlobalRotation();
+        const glm::mat4 parentTransform = glm::mat4_cast(parentRot) * glm::translate(glm::mat4(1.0f), parentPos);
+        const glm::mat4 inverseParentTransform = glm::inverse(parentTransform);
+        const auto localPosition = glm::vec3(inverseParentTransform * glm::vec4(position, 1.0f));
+
+        const glm::quat localRotation = glm::inverse(parentRot) * rotation;
+        // Keep existing scale instead of computing new one
+        const glm::vec3 currentScale = transform.getScale();
+
+        transform.setTransform(localPosition, localRotation, currentScale);
     }
     else {
         transform.setPosition(position);
@@ -394,13 +399,6 @@ void GameObject::destroyComponent(components::Component* component)
         return comp.get() == component;
     });
 
-    if (component == rigidbodyComponent) {
-        rigidbodyComponent = nullptr;
-        meshRendererComponent= nullptr;
-        rigidbodyComponent = getComponent<components::RigidBodyComponent>();
-        meshRendererComponent = getComponent<components::MeshRendererComponent>();
-    }
-
     if (it != components.end()) {
         component->beginDestroy();
         components.erase(it);
@@ -408,6 +406,11 @@ void GameObject::destroyComponent(components::Component* component)
     else {
         fmt::print("Attempted to remove a component that does not belong to this gameobject.\n");
     }
+
+    rigidbodyComponent = nullptr;
+    meshRendererComponent = nullptr;
+    rigidbodyComponent = getComponent<components::RigidBodyComponent>();
+    meshRendererComponent = getComponent<components::MeshRendererComponent>();
 }
 
 void GameObject::selectedRenderImgui()

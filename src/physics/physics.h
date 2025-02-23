@@ -38,8 +38,8 @@ namespace will_engine::physics
 class Physics
 {
 public:
-    static Physics* Get() { return physics; }
-    static void Set(Physics* _physics) { physics = _physics; }
+    static Physics* get() { return physics; }
+    static void set(Physics* _physics) { physics = _physics; }
 
     /**
      * Application-wide physics context. Exists for the application's lifetime
