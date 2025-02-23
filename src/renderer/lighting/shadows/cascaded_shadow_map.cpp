@@ -10,6 +10,7 @@
 #include "src/core/camera/camera.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/render_object/render_object_types.h"
+#include "src/util/math_constants.h"
 #include "src/util/render_utils.h"
 
 

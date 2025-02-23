@@ -103,6 +103,15 @@ set(CORE_SOURCES
         src/core/game_object/transformable.h
         src/core/game_object/hierarchical.h
         src/core/game_object/renderable.h
+        src/core/game_object/imgui_renderable.h
+        src/core/game_object/component_container.h
+        src/core/game_object/components/component.cpp
+        src/core/game_object/components/component.h
+        src/core/game_object/components/name_printing_component.cpp
+        src/core/game_object/components/name_printing_component.h
+        src/core/game_object/components/component_factory.h
+        src/core/game_object/components/rigid_body_component.h
+        src/core/game_object/components/rigid_body_component.cpp
         src/core/identifier/identifiable.h
         src/core/camera/camera.cpp
         src/core/camera/camera.h
@@ -111,7 +120,8 @@ set(CORE_SOURCES
         src/core/camera/free_camera.h
         src/core/camera/orbit_camera.cpp
         src/core/camera/orbit_camera.h
-
+        src/core/profiler/profiler.cpp
+        src/core/profiler/profiler.h
 )
 
 
@@ -195,6 +205,9 @@ set(UTIL_SOURCES
         src/util/file.h
         src/util/halton.h
         src/util/render_utils.h
+        src/util/profiling_utils.h
+        src/util/model_utils.h
+        src/util/model_utils.cpp
 )
 
 
@@ -203,12 +216,14 @@ if (WIN32)
     set(WINDOWS_SOURCES
             src/resources.h
             src/resources.rc
-            src/core/game_object/imgui_renderable.h
-            src/util/profiling_utils.h
-            src/profiler/profiler.cpp
-            src/profiler/profiler.h
     )
 endif ()
+
+set(TEMP_SOURCES
+        src/core/game_object/components/mesh_renderer_component.h
+        src/core/game_object/components/mesh_renderer_component.cpp
+
+)
 
 add_executable(WillEngine main.cpp
         ${IMGUI_SOURCES}
@@ -222,6 +237,7 @@ add_executable(WillEngine main.cpp
         ${CORE_SOURCES}
         ${UTIL_SOURCES}
         ${WINDOWS_SOURCES}
+        ${TEMP_SOURCES}
 )
 
 target_include_directories(WillEngine PRIVATE

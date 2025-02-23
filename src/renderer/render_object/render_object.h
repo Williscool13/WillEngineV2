@@ -6,20 +6,24 @@
 #define MODEL_H
 
 #include <filesystem>
-#include <optional>
-#include <fastgltf/types.hpp>
 
 #include "render_object_types.h"
 #include "render_reference.h"
+#include "src/core/game_object/renderable.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/pipelines/basic_compute/basic_compute_pipeline.h"
-#include "src/util/math_constants.h"
 
 
 namespace will_engine
 {
 class GameObject;
+
+
+struct RenderableProperties
+{
+    int32_t instanceIndex;
+};
 
 class RenderObject final : public IRenderReference
 {
@@ -30,9 +34,11 @@ public:
 
     void update(int32_t currentFrameOverlap, int32_t previousFrameOverlap);
 
-    void dirty() { framesToUpdate = FRAME_OVERLAP; }
+    bool updateBuffers(int32_t currentFrameOverlap, int32_t previousFrameOverlap);
 
-    int32_t framesToUpdate{0};
+    void dirty() { bufferFramesToUpdate = FRAME_OVERLAP; }
+
+    int32_t bufferFramesToUpdate{0};
 
 private:
     int32_t getFreeInstanceIndex();
@@ -40,17 +46,25 @@ private:
     std::unordered_set<uint32_t> freeInstanceIndices{};
     int32_t currentInstanceCount{0};
 
+
+    /**
+     * IRenderable : updateCount map.
+     */
+    std::unordered_map<IRenderable*, RenderableProperties> renderableMap;
+
 public: // IRenderReference
     [[nodiscard]] uint32_t getId() const override { return renderObjectId; }
 
-private: // IIdentifiable
+    bool releaseInstanceIndex(IRenderable* renderable) override;
+
+
+private: // IRenderReference
     /**
      * Hash of the file path
      */
     uint32_t renderObjectId{};
-    std::filesystem::path gltfFilepath;
 
-public:
+public: // Model Rendering API
     GameObject* generateGameObject(const std::string& gameObjectName = "");
 
     [[nodiscard]] size_t getMeshCount() const { return meshes.size(); }
@@ -66,37 +80,14 @@ public:
     void recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent);
 
     /**
-     * @param gameObject to assign mesh references.
+     * @param renderable to assign mesh references.
      * @param meshIndex in the RenderObject to generate. \code 0 < n <= meshes.size()\endcode
      * @return true if successfully generated mesh and assigned to gameobject.
      */
-    bool generateMesh(GameObject* gameObject, int32_t meshIndex);
+    bool generateMesh(IRenderable* renderable, int32_t meshIndex);
 
-    [[nodiscard]] uint64_t getRenderReferenceIndex() const override { return renderObjectId; }
-
-    [[nodiscard]] const std::filesystem::path& getFilePath() const { return gltfFilepath; }
-
-    void updateInstanceData(int32_t instanceIndex, const CurrentInstanceData& newInstanceData, int32_t currentFrameOverlap, int32_t previousFrameOverlap) override;
-
-    bool releaseInstanceIndex(uint32_t instanceIndex) override;
-
-private: // Model Data
+private: // Model Parsing
     bool parseGltf(const std::filesystem::path& gltfFilepath);
-
-    std::optional<AllocatedImage> loadImage(const fastgltf::Asset& asset, const fastgltf::Image& image, const std::filesystem::path& parentFolder) const;
-
-    static Material extractMaterial(fastgltf::Asset& gltf, const fastgltf::Material& gltfMaterial);
-
-    static void loadTextureIndices(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, int& imageIndex, int& samplerIndex);
-
-    static VkFilter extractFilter(fastgltf::Filter filter);
-
-    static VkSamplerMipmapMode extractMipMapMode(fastgltf::Filter filter);
-
-private: // Buffer Data
-    bool generateBuffers();
-
-    bool releaseBuffers();
 
 private: // Model Data
     ResourceManager& resourceManager;
@@ -110,9 +101,6 @@ private: // Model Data
     std::vector<BoundingSphere> boundingSpheres{};
     std::vector<RenderNode> renderNodes{};
     std::vector<int32_t> topNodes;
-
-    static constexpr int32_t samplerOffset{1};
-    static constexpr int32_t imageOffset{1};
 
 private: // Buffer Data
     std::vector<VkDrawIndexedIndirectCommand> drawCommands{};

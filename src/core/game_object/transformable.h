@@ -54,6 +54,8 @@ public:
 
     virtual void setGlobalTransform(const Transform& newGlobalTransform) = 0;
 
+    virtual void setGlobalTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) = 0;
+
     virtual void translate(glm::vec3 translation) = 0;
 
     virtual void rotate(glm::quat rotation) = 0;

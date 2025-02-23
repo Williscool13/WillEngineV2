@@ -11,13 +11,12 @@
 
 #include "engine_types.h"
 #include "scene/scene_serializer.h"
-#include "src/profiler/profiler.h"
+#include "src/core/profiler/profiler.h"
 #include "src/renderer/imgui_wrapper.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/vk_types.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/lighting/directional_light.h"
-#include "src/util/profiling_utils.h"
 
 
 class ResourceManager;
@@ -87,6 +86,11 @@ namespace physics
 class Engine
 {
 public:
+    static Engine* instance;
+
+    static Engine* get() { return instance; }
+
+public:
     void init();
 
     void initRenderer();
@@ -95,7 +99,7 @@ public:
 
     void run();
 
-    void updateGame(float deltaTime) const;
+    void updateGame(float deltaTime);
 
     void updateRender(float deltaTime, int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
 
@@ -106,6 +110,13 @@ public:
      * \n Resources -> Command Pool (implicit destroy C. Buffers) -> Swapchain -> Surface -> Device -> Instance -> Window
      */
     void cleanup();
+
+public:
+    IHierarchical* createGameObject(const std::string& name) const;
+    void addToBeginQueue(IHierarchical* obj);
+    void addToDeletionQueue(IHierarchical* obj);
+
+    RenderObject* getRenderObject(uint32_t renderRefIndex);
 
 private:
     VkExtent2D windowExtent{1700, 900};
@@ -138,7 +149,7 @@ private: // Rendering
 private: // Debug
     bool bEnableTaa{true};
     bool bEnableDebugFrustumCullDraw{false};
-    int32_t csmPcf{1};
+    int32_t csmPcf{5};
     int32_t deferredDebug{0};
 
     void hotReloadShaders() const;
@@ -157,6 +168,7 @@ private: // Scene Data
     std::unordered_map<uint32_t, RenderObject*> renderObjectMap;
     std::unordered_map<uint32_t, RenderObjectInfo> renderObjectInfoMap;
 
+    std::vector<IHierarchical*> hierarchalBeginQueue{};
     std::vector<IHierarchical*> hierarchicalDeletionQueue{};
 
 private: // Pipelines

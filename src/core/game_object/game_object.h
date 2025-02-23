@@ -6,41 +6,41 @@
 #define GAME_OBJECT_H
 
 #include <string>
-#include <extern/half/half/half.hpp>
 
 #include <glm/glm.hpp>
 
+#include "component_container.h"
 #include "hierarchical.h"
 #include "imgui_renderable.h"
-#include "renderable.h"
 #include "transformable.h"
 #include "src/core/transform.h"
-#include "src/physics/physics_body.h"
-#include "src/physics/physics_constants.h"
-#include "src/physics/physics_utils.h"
-#include "src/renderer/renderer_constants.h"
-#include "src/renderer/render_object/render_reference.h"
+#include "src/core/game_object/components/component.h"
+#include "src/core/identifier/identifiable.h"
 #include "src/util/math_constants.h"
+
+namespace will_engine::components
+{
+class MeshRendererComponent;
+class RigidBodyComponent;
+}
 
 namespace will_engine
 {
 class Engine;
 class RenderObject;
 
-class GameObject : public IPhysicsBody,
-                   public IRenderable,
-                   public ITransformable,
+class GameObject : public ITransformable,
                    public IHierarchical,
                    public IIdentifiable,
-                   public IImguiRenderable
+                   public IImguiRenderable,
+                   public IComponentContainer
 {
 public:
     explicit GameObject(std::string gameObjectName = "", uint64_t gameObjectId = INDEX64_NONE);
 
     ~GameObject() override;
 
-    virtual void beginPlay() {};
-    virtual void update(float deltaTime) {}
+    void destroy() override;
 
 protected:
     bool bHasBegunPlay{false};
@@ -54,15 +54,26 @@ private: // IIdentifiable
     uint64_t gameObjectId{};
 
 public: // IHierarchical
+    void beginPlay() override;
+
+    void update(float deltaTime) override;
+
+    void beginDestroy() override;
+
     bool addChild(IHierarchical* child) override;
 
     bool removeChild(IHierarchical* child) override;
 
+    /**
+     * Removes the parent while maintaining world position. Does not attempt to update the parent's state.
+     * \n WARNING: Doing this without re-parenting will result in an orphaned gameobject, beware.
+     * @return
+     */
+    bool removeParent() override;
+
     void reparent(IHierarchical* newParent) override;
 
     void dirty() override;
-
-    void recursiveUpdate(int32_t currentFrameOverlap, int32_t previousFrameOverlap) override;
 
     void setParent(IHierarchical* newParent) override;
 
@@ -127,65 +138,70 @@ public: // ITransformable
 
     void setGlobalTransform(const Transform& newGlobalTransform) override;
 
+    void setGlobalTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) override;
+
     void translate(glm::vec3 translation) override;
 
     void rotate(glm::quat rotation) override;
 
     void rotateAxis(float angle, const glm::vec3& axis) override;
 
-protected: // Transform
+protected: // ITransformable
     Transform transform{};
     Transform cachedGlobalTransform{};
     bool bIsGlobalTransformDirty{true};
-    /**
-     * Will update the model matrix on GPU if this number is greater than 0
-     */
-    int32_t framesToUpdate{FRAME_OVERLAP + 1};
 
-public: // IRenderable
-    void setRenderObjectReference(IRenderReference* owner, const int32_t instanceIndex, const int32_t meshIndex) override
+public: // IComponentContainer
+    components::Component* getComponentByType(const std::type_info& type) override
     {
-        pRenderReference = owner;
-        this->instanceIndex = instanceIndex;
-        framesToUpdate = FRAME_OVERLAP + 1;
-        this->meshIndex = meshIndex;
+        for (const auto& component : components) {
+            if (typeid(*component) == type) {
+                return component.get();
+            }
+        }
+        return nullptr;
     }
 
-    uint32_t getRenderReferenceIndex() const override { return pRenderReference ? pRenderReference->getId() : INDEX_NONE; }
+    std::vector<components::Component*> getComponentsByType(const std::type_info& type) override
+    {
+        std::vector<components::Component*> outComponents;
+        outComponents.reserve(components.size());
+        for (const auto& component : components) {
+            if (typeid(*component) == type) {
+                outComponents.push_back(component.get());
+            }
+        }
 
-    int32_t getMeshIndex() const override { return meshIndex; }
+        return outComponents;
+    }
 
-    [[nodiscard]] bool& isVisible() override { return bIsVisible; }
+    std::vector<components::Component*> getAllComponents() override
+    {
+        std::vector<components::Component*> _components;
+        _components.reserve(components.size());
+        for (auto& comp : components) {
+            _components.push_back(comp.get());
+        }
 
-    void setVisibility(const bool isVisible) override { bIsVisible = isVisible; }
+        return _components;
+    }
 
-    [[nodiscard]] bool& isShadowCaster() override { return bIsShadowCaster; }
+    bool canAddComponent(std::string_view componentType) override;
 
-    void setIsShadowCaster(const bool isShadowCaster) override { bIsShadowCaster = isShadowCaster; }
+    components::Component* addComponent(std::unique_ptr<components::Component> component) override;
 
-protected: // IRenderable
-    /**
-      * If true, the model matrix will never be updated from defaults.
-      */
-    bool bIsStatic{false};
-    bool bIsVisible{true};
-    bool bIsShadowCaster{true};
-    /**
-     * The render object that is responsible for drawing this gameobject's model
-     */
-    IRenderReference* pRenderReference{nullptr};
-    int32_t instanceIndex{INDEX_NONE};
-    int32_t meshIndex{INDEX_NONE};
+    void destroyComponent(components::Component* component) override;
 
-public: // IPhysicsBody
-    void setGlobalTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) override;
+    components::RigidBodyComponent* getRigidbody() const override { return rigidbodyComponent; }
 
-    void setPhysicsBodyId(const JPH::BodyID bodyId) override { this->bodyId = bodyId; }
+    components::MeshRendererComponent* getMeshRenderer() const override { return meshRendererComponent; }
 
-    JPH::BodyID getPhysicsBodyId() const override { return bodyId; }
+protected: // IComponentContainer
+    std::vector<std::unique_ptr<components::Component> > components{};
 
-protected: // IPhysicsBody
-    JPH::BodyID bodyId{JPH::BodyID::cMaxBodyIndex};
+protected:
+    components::RigidBodyComponent* rigidbodyComponent{nullptr};
+    components::MeshRendererComponent* meshRendererComponent{nullptr};
 
 public:
     bool operator==(const GameObject& other) const

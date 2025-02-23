@@ -37,7 +37,9 @@ private: // Scene properties
     std::unordered_set<IHierarchical*> activeGameObjects;
 
 public:
-    void update(int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
+    void update(float deltaTime);
+
+    static void recursiveUpdate(IHierarchical* object, float deltaTime);
 
     IHierarchical* getRoot() const { return sceneRoot; }
 

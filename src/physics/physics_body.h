@@ -18,7 +18,9 @@ class IPhysicsBody
 public:
     virtual ~IPhysicsBody() = default;
 
-    virtual void setGlobalTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) = 0;
+    virtual void setGameTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) = 0;
+
+    virtual void setPhysicsTransformFromGame(const glm::vec3& position, const glm::quat& rotation) = 0;
 
     virtual glm::vec3 getGlobalPosition() = 0;
 

@@ -199,7 +199,7 @@ void Physics::updateTransforms() const
     for (auto physicsObject : physicsObjects) {
         const JPH::Vec3 position = bodyInterface.GetPosition(physicsObject.first);
         const JPH::Quat rotation = bodyInterface.GetRotation(physicsObject.first);
-        physicsObject.second.physicsBody->setGlobalTransformFromPhysics(PhysicsUtils::toGLM(position), PhysicsUtils::toGLM(rotation));
+        physicsObject.second.physicsBody->setGameTransformFromPhysics(PhysicsUtils::toGLM(position), PhysicsUtils::toGLM(rotation));
     }
 }
 
