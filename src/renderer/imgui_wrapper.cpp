@@ -487,7 +487,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                         ImGui::PushID(static_cast<int>(i));
 
 
-                                        if (auto container = dynamic_cast<IComponentContainer*>(selectedItem)){
+                                        if (auto container = dynamic_cast<IComponentContainer*>(selectedItem)) {
                                             if (ImGui::Button("Attach to selected item")) {
                                                 if (!container->getMeshRenderer()) {
                                                     auto newComponent = components::ComponentFactory::getInstance().createComponent(components::MeshRendererComponent::getStaticType(), "");
@@ -638,6 +638,11 @@ void ImguiWrapper::drawSceneGraph(Engine* engine, const Scene* scene)
 {
     const auto sceneRoot = scene->getRoot();
     if (ImGui::Begin("Scene Graph")) {
+        if (ImGui::Button("Create Game Object")) {
+            static int32_t incrementId{0};
+            engine->createGameObject(fmt::format("New GameObject_{}", incrementId++));
+        }
+        ImGui::Separator();
         if (sceneRoot != nullptr && !sceneRoot->getChildren().empty()) {
             for (IHierarchical* child : sceneRoot->getChildren()) {
                 displayGameObject(engine, scene, child, 0);
@@ -650,19 +655,21 @@ void ImguiWrapper::drawSceneGraph(Engine* engine, const Scene* scene)
     ImGui::End();
 }
 
-void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierarchical* obj, const int32_t depth) // NOLINT(*-no-recursion)
+void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierarchical* obj, const int32_t depth)
 {
     const int32_t indentLength = ImGui::GetFontSize();
-    constexpr float treeNodeWidth = 150.0f;
 
     ImGui::PushID(obj);
     ImGui::Indent(static_cast<float>(depth * indentLength));
 
-    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_DefaultOpen;;
+    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_DefaultOpen;
     if (obj->getChildren().empty()) { flags |= ImGuiTreeNodeFlags_Leaf; }
 
-    ImGui::SetNextItemWidth(treeNodeWidth);
+    // Begin columns
+    ImGui::Columns(3, "GameObjectColumns", false);
 
+    // Column 1: Delete button
+    ImGui::SetColumnWidth(0, 30.0f);
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
     if (ImGui::Button("X")) {
@@ -672,19 +679,19 @@ void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierar
         obj->destroy();
     }
     ImGui::PopStyleColor(2);
+    ImGui::NextColumn();
 
-    ImGui::SameLine();
+    // Column 2: Name with TreeNode
+    ImGui::SetColumnWidth(1, 300.0f);
     const std::string_view name = obj->getName();
-    const float availableWidth = ImGui::GetContentRegionAvail().x;
-    const int maxNameLength = static_cast<int>(availableWidth / ImGui::GetFontSize());
-    const int indentedLength = maxNameLength - depth * indentLength / ImGui::GetFontSize();
+    const float nameColumnWidth = ImGui::GetColumnWidth(1);
+    const int maxNameLength = static_cast<int>(nameColumnWidth / ImGui::GetFontSize()) - depth;
 
-
-    const std::string formattedName = indentedLength < 0
+    const std::string formattedName = maxNameLength < 0
                                           ? ""
-                                          : name.length() > indentedLength
-                                                ? fmt::format("{:.{}s}...", name, std::max(0, indentedLength - 3))
-                                                : fmt::format("{:<{}}", name, indentedLength);
+                                          : name.length() > maxNameLength
+                                                ? fmt::format("{:.{}s}...", name, std::max(0, maxNameLength - 3))
+                                                : fmt::format("{:<{}}", name, maxNameLength);
 
     if (obj == selectedItem) {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 1.0f, 0.0f, 1.0f));
@@ -694,26 +701,19 @@ void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierar
 
     const bool isOpen = ImGui::TreeNodeEx("##TreeNode", flags, "%s", formattedName.c_str());
 
-
     if (obj == selectedItem) {
         ImGui::PopStyleColor(3);
     }
 
-    ImGui::SameLine();
-    ImGui::BeginGroup();
     if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
-        if (obj == selectedItem) {
-            selectedItem = nullptr;
-        }
-        else {
-            selectedItem = obj;
-        }
+        selectedItem = (obj == selectedItem) ? nullptr : obj;
     }
+    ImGui::NextColumn();
+
+    // Column 3: Control buttons
     if (const IHierarchical* parent = obj->getParent()) {
         constexpr float spacing = 5.0f;
-        constexpr float arrowWidth = 20.0f;
         constexpr float buttonWidth = 60.0f;
-        const std::vector<IHierarchical*>& parentChildren = obj->getParent()->getChildren();
 
         ImGui::BeginDisabled(parent == scene->getRoot());
         if (ImGui::Button("Undent", ImVec2(buttonWidth, 0))) {
@@ -722,6 +722,7 @@ void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierar
         ImGui::EndDisabled();
 
         ImGui::SameLine(0, spacing);
+        const std::vector<IHierarchical*>& parentChildren = parent->getChildren();
         ImGui::BeginDisabled(parent != obj->getParent() || parentChildren[0] == obj);
         if (ImGui::Button("Indent", ImVec2(buttonWidth, 0))) {
             Scene::indent(obj);
@@ -742,8 +743,9 @@ void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierar
         }
         ImGui::EndDisabled();
     }
+    ImGui::NextColumn();
 
-    ImGui::EndGroup();
+    ImGui::Columns(1);
 
     if (const auto imguiRenderable = dynamic_cast<IImguiRenderable*>(obj)) {
         imguiRenderable->renderImgui();
