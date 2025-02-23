@@ -4,7 +4,6 @@
 
 #include "render_object.h"
 
-#include <extern/stb/stb_image.h>
 #include <extern/fastgltf/include/fastgltf/core.hpp>
 #include <extern/fastgltf/include/fastgltf/types.hpp>
 #include <extern/fastgltf/include/fastgltf/tools.hpp>
@@ -13,21 +12,96 @@
 
 #include "src/renderer/vulkan_context.h"
 #include "render_object_constants.h"
-#include "../../core/identifier/identifier_manager.h"
 #include "src/core/game_object/game_object.h"
 #include "src/util/file.h"
+#include "src/util/model_utils.h"
 
 namespace will_engine
 {
 RenderObject::RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager, uint32_t renderObjectId)
-    : gltfFilepath(gltfFilepath), resourceManager(resourceManager), renderObjectId(renderObjectId)
+    : renderObjectId(renderObjectId), resourceManager(resourceManager)
 {
     freeInstanceIndices.reserve(10);
     for (int32_t i = 0; i < 10; ++i) { freeInstanceIndices.insert(i); }
     currentInstanceCount = freeInstanceIndices.size();
 
     if (!parseGltf(gltfFilepath)) { return; }
-    generateBuffers();
+
+    std::vector<DescriptorImageData> textureDescriptors;
+    for (const VkSampler sampler : samplers) {
+        textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, {.sampler = sampler}, false});
+    }
+
+    const size_t remaining = render_object_constants::MAX_SAMPLER_COUNT - samplers.size();
+    for (int i = 0; i < remaining; i++) {
+        textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, {}, true});
+    }
+
+    for (const AllocatedImage& image : images) {
+        textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, {.imageView = image.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}, false});
+    }
+
+
+    textureDescriptorBuffer = resourceManager.createDescriptorBufferSampler(resourceManager.getTexturesLayout(), 1);
+    resourceManager.setupDescriptorBufferSampler(textureDescriptorBuffer, textureDescriptors, 0);
+
+
+    AllocatedBuffer materialStaging = resourceManager.createStagingBuffer(materials.size() * sizeof(Material));
+    memcpy(materialStaging.info.pMappedData, materials.data(), materials.size() * sizeof(Material));
+    materialBuffer = resourceManager.createDeviceBuffer(materials.size() * sizeof(Material));
+    resourceManager.copyBuffer(materialStaging, materialBuffer, materials.size() * sizeof(Material));
+    resourceManager.destroyBuffer(materialStaging);
+
+
+    AllocatedBuffer vertexStaging = resourceManager.createStagingBuffer(vertices.size() * sizeof(Vertex));
+    memcpy(vertexStaging.info.pMappedData, vertices.data(), vertices.size() * sizeof(Vertex));
+    vertexBuffer = resourceManager.createDeviceBuffer(vertices.size() * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    resourceManager.copyBuffer(vertexStaging, vertexBuffer, vertices.size() * sizeof(Vertex));
+    resourceManager.destroyBuffer(vertexStaging);
+
+    AllocatedBuffer indexStaging = resourceManager.createStagingBuffer(indices.size() * sizeof(uint32_t));
+    memcpy(indexStaging.info.pMappedData, indices.data(), indices.size() * sizeof(uint32_t));
+    indexBuffer = resourceManager.createDeviceBuffer(indices.size() * sizeof(uint32_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    resourceManager.copyBuffer(indexStaging, indexBuffer, indices.size() * sizeof(uint32_t));
+    resourceManager.destroyBuffer(indexStaging);
+
+    // Addresses (Texture and Uniform model data)
+    // todo: make address buffer for statics (dont need multiple)
+    addressesDescriptorBuffer = resourceManager.createDescriptorBufferUniform(resourceManager.getAddressesLayout(), FRAME_OVERLAP);
+    for (int32_t i = 0; i < FRAME_OVERLAP; i++) {
+        constexpr size_t addressesSize = sizeof(VkDeviceAddress) * 2;
+        addressBuffers[i] = resourceManager.createHostSequentialBuffer(addressesSize);
+        DescriptorUniformData addressesUniformData{
+            .uniformBuffer = addressBuffers[i],
+            .allocSize = addressesSize,
+        };
+        resourceManager.setupDescriptorBufferUniform(addressesDescriptorBuffer, {addressesUniformData}, i);
+
+        modelMatrixBuffers[i] = resourceManager.createHostRandomBuffer(currentInstanceCount * sizeof(InstanceData), VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+
+
+        const VkDeviceAddress materialBufferAddress = resourceManager.getBufferAddress(materialBuffer);
+        const VkDeviceAddress instanceBufferAddress = resourceManager.getBufferAddress(modelMatrixBuffers[i]);
+        const VkDeviceAddress addresses[2] = {materialBufferAddress, instanceBufferAddress};
+        memcpy(addressBuffers[i].info.pMappedData, addresses, sizeof(VkDeviceAddress) * 2);
+    }
+
+    frustumCullingDescriptorBuffer = resourceManager.createDescriptorBufferUniform(resourceManager.getFrustumCullLayout(), FRAME_OVERLAP);
+    for (int32_t i = 0; i < FRAME_OVERLAP; i++) {
+        cullingAddressBuffers[i] = resourceManager.createDeviceBuffer(sizeof(FrustumCullingBuffers));
+        const DescriptorUniformData cullingAddressesUniformData{
+            .uniformBuffer = cullingAddressBuffers[i],
+            .allocSize = sizeof(FrustumCullingBuffers),
+        };
+        resourceManager.setupDescriptorBufferUniform(frustumCullingDescriptorBuffer, {cullingAddressesUniformData}, i);
+    }
+
+
+    AllocatedBuffer meshBoundsStaging = resourceManager.createStagingBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
+    memcpy(meshBoundsStaging.info.pMappedData, boundingSpheres.data(), sizeof(BoundingSphere) * boundingSpheres.size());
+    meshBoundsBuffer = resourceManager.createDeviceBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
+    resourceManager.copyBuffer(meshBoundsStaging, meshBoundsBuffer, sizeof(BoundingSphere) * boundingSpheres.size());
+    resourceManager.destroyBuffer(meshBoundsStaging);
 }
 
 RenderObject::~RenderObject()
@@ -72,7 +146,41 @@ RenderObject::~RenderObject()
 
 void RenderObject::update(const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
 {
-    if (framesToUpdate <= 0) { return; }
+    updateBuffers(currentFrameOverlap, previousFrameOverlap);
+
+    for (const std::pair renderablePair : renderableMap) {
+        IRenderable* renderable = renderablePair.first;
+        if (renderable->getRenderFramesToUpdate() > 0) {
+            const int32_t instanceIndex = renderablePair.second.instanceIndex;
+
+            if (instanceIndex < 0 || instanceIndex >= currentInstanceCount) {
+                fmt::print("Instance from renderable is not a valid index");
+                continue;
+            }
+
+            const AllocatedBuffer& previousFrameModelMatrix = modelMatrixBuffers[previousFrameOverlap];
+            const AllocatedBuffer& currentFrameModelMatrix = modelMatrixBuffers[currentFrameOverlap];
+
+            auto prevModel = reinterpret_cast<InstanceData*>(static_cast<char*>(previousFrameModelMatrix.info.pMappedData) + instanceIndex * sizeof(InstanceData));
+            auto currentModel = reinterpret_cast<InstanceData*>(static_cast<char*>(currentFrameModelMatrix.info.pMappedData) + instanceIndex * sizeof(InstanceData));
+
+            assert(reinterpret_cast<uintptr_t>(prevModel) % alignof(InstanceData) == 0 && "Misaligned instance data access");
+            assert(reinterpret_cast<uintptr_t>(currentModel) % alignof(InstanceData) == 0 && "Misaligned instance data access");
+
+            currentModel->previousModelMatrix = prevModel->currentModelMatrix;
+            currentModel->currentModelMatrix = renderable->getModelMatrix();
+            currentModel->flags[0] = renderable->isVisible();
+            currentModel->flags[1] = renderable->isShadowCaster();
+
+            renderable->setRenderFramesToUpdate(renderable->getRenderFramesToUpdate() - 1);
+        }
+    }
+}
+
+bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
+{
+    if (bufferFramesToUpdate <= 0) { return true; }
+
     AllocatedBuffer& currentInstanceBuffer = modelMatrixBuffers[currentFrameOverlap];
     const AllocatedBuffer& previousInstanceBuffer = modelMatrixBuffers[previousFrameOverlap];
 
@@ -110,7 +218,8 @@ void RenderObject::update(const int32_t currentFrameOverlap, const int32_t previ
     if (drawCommands.empty()) {
         resourceManager.destroyBuffer(currentDrawIndirectBuffer);
         resourceManager.destroyBuffer(currentBoundingSphereIndicesBuffer);
-    } else if (currentDrawIndirectBuffer.buffer == VK_NULL_HANDLE || currentDrawIndirectBuffer.info.size != drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand)) {
+    }
+    else {
         resourceManager.destroyBuffer(currentDrawIndirectBuffer);
         AllocatedBuffer indirectStaging = resourceManager.createStagingBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
         memcpy(indirectStaging.info.pMappedData, drawCommands.data(), drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
@@ -142,7 +251,8 @@ void RenderObject::update(const int32_t currentFrameOverlap, const int32_t previ
         resourceManager.destroyBuffer(stagingCullingAddressesBuffer);
     }
 
-    framesToUpdate--;
+    bufferFramesToUpdate--;
+    return false;
 }
 
 GameObject* RenderObject::generateGameObject(const std::string& gameObjectName)
@@ -189,7 +299,8 @@ void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, Gam
             boundingSphereIndices.push_back(primitive.boundingSphereIndex);
         }
 
-        gameObject->setRenderObjectReference(this, instanceIndex, renderNode.meshIndex);
+        // gameObject->setRenderObjectReference(this, renderNode.meshIndex);
+        // gameObject->setRenderFramesToUpdate(FRAME_OVERLAP + 1);
     }
 
     gameObject->setLocalTransform(renderNode.transform);
@@ -200,9 +311,9 @@ void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, Gam
     }
 }
 
-bool RenderObject::generateMesh(GameObject* gameObject, const int32_t meshIndex)
+bool RenderObject::generateMesh(IRenderable* renderable, const int32_t meshIndex)
 {
-    if (gameObject == nullptr) { return false; }
+    if (renderable == nullptr) { return false; }
     if (meshIndex < 0 || meshIndex >= meshes.size()) { return false; }
 
     const int32_t instanceIndex = getFreeInstanceIndex();
@@ -223,37 +334,30 @@ bool RenderObject::generateMesh(GameObject* gameObject, const int32_t meshIndex)
         boundingSphereIndices.push_back(primitive.boundingSphereIndex);
     }
 
-    gameObject->setRenderObjectReference(this, instanceIndex, meshIndex);
+    renderable->setRenderObjectReference(this, meshIndex);
+    renderable->dirty();
+
+    RenderableProperties renderableProperties{
+        instanceIndex
+    };
+    renderableMap.insert({renderable, renderableProperties});
 
     dirty();
     return true;
 }
 
-void RenderObject::updateInstanceData(const int32_t instanceIndex, const CurrentInstanceData& newInstanceData, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
+bool RenderObject::releaseInstanceIndex(IRenderable* renderable)
 {
-    if (instanceIndex < 0 || instanceIndex >= currentInstanceCount) {
-        assert(false && "Instance index out of bounds");
+    const auto it = renderableMap.find(renderable);
+    if (it == renderableMap.end()) {
+        fmt::print("WARNING: Render object instructed to release instance index when it is already free (not found in map)");
+        return false;
     }
+    const RenderableProperties& renderableProperties = it->second;
+    const int32_t instanceIndex = renderableProperties.instanceIndex;
 
-    const AllocatedBuffer& previousFrameModelMatrix = modelMatrixBuffers[previousFrameOverlap];
-    const AllocatedBuffer& currentFrameModelMatrix = modelMatrixBuffers[currentFrameOverlap];
-
-    auto prevModel = reinterpret_cast<InstanceData*>(static_cast<char*>(previousFrameModelMatrix.info.pMappedData) + instanceIndex * sizeof(InstanceData));
-    auto currentModel = reinterpret_cast<InstanceData*>(static_cast<char*>(currentFrameModelMatrix.info.pMappedData) + instanceIndex * sizeof(InstanceData));
-
-    assert(reinterpret_cast<uintptr_t>(prevModel) % alignof(InstanceData) == 0 && "Misaligned instance data access");
-    assert(reinterpret_cast<uintptr_t>(currentModel) % alignof(InstanceData) == 0 && "Misaligned instance data access");
-
-    currentModel->previousModelMatrix = prevModel->currentModelMatrix;
-    currentModel->currentModelMatrix = newInstanceData.currentModelMatrix;
-    currentModel->flags[0] = newInstanceData.bIsVisible;
-    currentModel->flags[1] = newInstanceData.bCastsShadows;
-}
-
-bool RenderObject::releaseInstanceIndex(const uint32_t instanceIndex)
-{
     if (freeInstanceIndices.contains(instanceIndex)) {
-        fmt::print("WARNING: Render object instructed to release instance index when it is already free");
+        fmt::print("WARNING: Render object instructed to release instance index when it is already free (free indices already contains the index)");
         return false;
     }
 
@@ -265,6 +369,7 @@ bool RenderObject::releaseInstanceIndex(const uint32_t instanceIndex)
         }
     }
 
+    renderableMap.erase(renderable);
     dirty();
     return true;
 }
@@ -290,30 +395,31 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
 
     fastgltf::Asset gltf = std::move(load.get());
 
-    samplers.reserve(gltf.samplers.size() + samplerOffset);
+    samplers.reserve(gltf.samplers.size() + model_utils::samplerOffset);
     samplers.push_back(this->resourceManager.getDefaultSamplerNearest());
     for (const fastgltf::Sampler& gltfSampler : gltf.samplers) {
         VkSamplerCreateInfo samplerInfo = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO, .pNext = nullptr};
         samplerInfo.maxLod = VK_LOD_CLAMP_NONE;
         samplerInfo.minLod = 0;
 
-        samplerInfo.magFilter = extractFilter(gltfSampler.magFilter.value_or(fastgltf::Filter::Nearest));
-        samplerInfo.minFilter = extractFilter(gltfSampler.minFilter.value_or(fastgltf::Filter::Nearest));
+        samplerInfo.magFilter = model_utils::extractFilter(gltfSampler.magFilter.value_or(fastgltf::Filter::Nearest));
+        samplerInfo.minFilter = model_utils::extractFilter(gltfSampler.minFilter.value_or(fastgltf::Filter::Nearest));
 
 
-        samplerInfo.mipmapMode = extractMipMapMode(gltfSampler.minFilter.value_or(fastgltf::Filter::Linear));
+        samplerInfo.mipmapMode = model_utils::extractMipMapMode(gltfSampler.minFilter.value_or(fastgltf::Filter::Linear));
         samplers.emplace_back(this->resourceManager.createSampler(samplerInfo));
     }
 
     assert(samplers.size() <= render_object_constants::MAX_SAMPLER_COUNT);
 
-    images.reserve(gltf.images.size() + imageOffset);
+    images.reserve(gltf.images.size() + model_utils::imageOffset);
     images.push_back(this->resourceManager.getWhiteImage());
     for (const fastgltf::Image& gltfImage : gltf.images) {
-        std::optional<AllocatedImage> newImage = loadImage(gltf, gltfImage, gltfFilepath.parent_path());
+        std::optional<AllocatedImage> newImage = model_utils::loadImage(resourceManager, gltf, gltfImage, gltfFilepath.parent_path());
         if (newImage.has_value()) {
             images.push_back(*newImage);
-        } else {
+        }
+        else {
             images.push_back(this->resourceManager.getErrorCheckerboardImage());
         }
     }
@@ -332,7 +438,7 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
     };
     materials.push_back(defaultMaterial);
     for (const fastgltf::Material& gltfMaterial : gltf.materials) {
-        Material material = extractMaterial(gltf, gltfMaterial);
+        Material material = model_utils::extractMaterial(gltf, gltfMaterial);
         materials.push_back(material);
     }
 
@@ -485,322 +591,9 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     float time = static_cast<float>(elapsed.count()) / 1000000.0f;
-    fmt::print("GLTF: {} | Sampl: {} | Imag: {} | Mats: {} | Mesh: {} | Prim: {} | Inst: {} | in {}ms\n", file::getFileName(gltfFilepath.filename().string().c_str()), samplers.size() - samplerOffset,
-               images.size() - imageOffset, materials.size() - materialOffset, meshes.size(), primitiveCount, instanceCount, time);
-    return true;
-}
-
-std::optional<AllocatedImage> RenderObject::loadImage(const fastgltf::Asset& asset, const fastgltf::Image& image, const std::filesystem::path& parentFolder) const
-{
-    AllocatedImage newImage{};
-
-    int width{}, height{}, nrChannels{};
-
-    std::visit(
-        fastgltf::visitor{
-            [](auto& arg) {},
-            [&](const fastgltf::sources::URI& fileName) {
-                assert(fileName.fileByteOffset == 0); // We don't support offsets with stbi.
-                assert(fileName.uri.isLocalPath()); // We're only capable of loading
-                // local files.
-                const std::wstring widePath(fileName.uri.path().begin(), fileName.uri.path().end());
-                const std::filesystem::path fullPath = parentFolder / widePath;
-
-                //std::string extension = getFileExtension(fullpath);
-                /*if (isKTXFile(extension)) {
-                    ktxTexture* kTexture;
-                    KTX_error_code ktxresult;
-
-                    ktxresult = ktxTexture_CreateFromNamedFile(
-                        fullpath.c_str(),
-                        KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT,
-                        &kTexture);
-
-
-                    if (ktxresult == KTX_SUCCESS) {
-                        VkImageFormatProperties formatProperties;
-                        VkResult result = vkGetPhysicalDeviceImageFormatProperties(engine->_physicalDevice
-                            , ktxTexture_GetVkFormat(kTexture), VK_IMAGE_TYPE_2D
-                            , VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT, 0, &formatProperties);
-                        if (result == VK_ERROR_FORMAT_NOT_SUPPORTED) {
-                            fmt::print("Image found with format not supported\n");
-                            VkExtent3D imagesize;
-                            imagesize.width = 1;
-                            imagesize.height = 1;
-                            imagesize.depth = 1;
-                            unsigned char data[4] = { 255, 0, 255, 1 };
-                            newImage = engine->_resourceConstructor->create_image(data, 4, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
-                        }
-                        else {
-                            unsigned char* data = (unsigned char*)ktxTexture_GetData(kTexture);
-                            VkExtent3D imageExtents{};
-                            imageExtents.width = kTexture->baseWidth;
-                            imageExtents.height = kTexture->baseHeight;
-                            imageExtents.depth = 1;
-                            newImage = engine->_resourceConstructor->create_image(data, kTexture->dataSize, imageExtents, ktxTexture_GetVkFormat(kTexture), VK_IMAGE_USAGE_SAMPLED_BIT, false);
-                        }
-
-                    }
-
-                    ktxTexture_Destroy(kTexture);
-                }*/
-
-                // ReSharper disable once CppTooWideScope
-                unsigned char* data = stbi_load(fullPath.string().c_str(), &width, &height, &nrChannels, 4);
-                if (data) {
-                    VkExtent3D imagesize;
-                    imagesize.width = width;
-                    imagesize.height = height;
-                    imagesize.depth = 1;
-                    const size_t size = width * height * 4;
-                    newImage = resourceManager.createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
-
-                    stbi_image_free(data);
-                }
-            },
-            [&](const fastgltf::sources::Array& vector) {
-                // ReSharper disable once CppTooWideScope
-                unsigned char* data = stbi_load_from_memory(reinterpret_cast<const unsigned char*>(vector.bytes.data()),
-                                                            static_cast<int>(vector.bytes.size()), &width, &height, &nrChannels, 4);
-                if (data) {
-                    VkExtent3D imagesize;
-                    imagesize.width = width;
-                    imagesize.height = height;
-                    imagesize.depth = 1;
-                    const size_t size = width * height * 4;
-                    newImage = resourceManager.createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
-
-                    stbi_image_free(data);
-                }
-            },
-            [&](const fastgltf::sources::BufferView& view) {
-                const fastgltf::BufferView& bufferView = asset.bufferViews[view.bufferViewIndex];
-                const fastgltf::Buffer& buffer = asset.buffers[bufferView.bufferIndex];
-                // We only care about VectorWithMime here, because we
-                // specify LoadExternalBuffers, meaning all buffers
-                // are already loaded into a vector.
-                std::visit(fastgltf::visitor{
-                               [](auto& arg) {},
-                               [&](const fastgltf::sources::Array& vector) {
-                                   // ReSharper disable once CppTooWideScope
-                                   unsigned char* data = stbi_load_from_memory(
-                                       reinterpret_cast<const stbi_uc*>(vector.bytes.data() + bufferView.byteOffset),
-                                       static_cast<int>(bufferView.byteLength), &width, &height, &nrChannels, 4);
-                                   if (data) {
-                                       VkExtent3D imagesize;
-                                       imagesize.width = width;
-                                       imagesize.height = height;
-                                       imagesize.depth = 1;
-                                       const size_t size = width * height * 4;
-                                       newImage = resourceManager.createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
-                                       stbi_image_free(data);
-                                   }
-                               }
-                           }, buffer.data);
-            }
-        }, image.data);
-
-    // if any of the attempts to load the data failed, we haven't written the image
-    // so handle is null
-    if (newImage.image == VK_NULL_HANDLE) {
-        fmt::print("Image failed to load: {}\n", image.name.c_str());
-        return {};
-    } else {
-        return newImage;
-    }
-}
-
-Material RenderObject::extractMaterial(fastgltf::Asset& gltf, const fastgltf::Material& gltfMaterial)
-{
-    Material material = {};
-    material.colorFactor = glm::vec4(
-        gltfMaterial.pbrData.baseColorFactor[0]
-        , gltfMaterial.pbrData.baseColorFactor[1]
-        , gltfMaterial.pbrData.baseColorFactor[2]
-        , gltfMaterial.pbrData.baseColorFactor[3]);
-
-    material.metalRoughFactors.x = gltfMaterial.pbrData.metallicFactor;
-    material.metalRoughFactors.y = gltfMaterial.pbrData.roughnessFactor;
-    material.alphaCutoff.x = 0.5f;
-
-    switch (gltfMaterial.alphaMode) {
-        case fastgltf::AlphaMode::Opaque:
-            material.alphaCutoff.x = 1.0f;
-            material.alphaCutoff.y = static_cast<float>(MaterialType::OPAQUE);
-            break;
-        case fastgltf::AlphaMode::Blend:
-            material.alphaCutoff.x = 1.0f;
-            material.alphaCutoff.y = static_cast<float>(MaterialType::TRANSPARENT);
-            break;
-        case fastgltf::AlphaMode::Mask:
-            material.alphaCutoff.x = gltfMaterial.alphaCutoff;
-            material.alphaCutoff.y = static_cast<float>(MaterialType::MASK);
-            break;
-    }
-
-    loadTextureIndices(gltfMaterial.pbrData.baseColorTexture, gltf, material.textureImageIndices.x, material.textureSamplerIndices.x);
-    loadTextureIndices(gltfMaterial.pbrData.metallicRoughnessTexture, gltf, material.textureImageIndices.y, material.textureSamplerIndices.y);
-
-    // image defined but no sampler and vice versa - use defaults
-    // pretty rare/edge case
-    if (material.textureImageIndices.x == -1 && material.textureSamplerIndices.x != -1) {
-        material.textureImageIndices.x = 0;
-    }
-    if (material.textureSamplerIndices.x == -1 && material.textureImageIndices.x != -1) {
-        material.textureSamplerIndices.x = 0;
-    }
-    if (material.textureImageIndices.y == -1 && material.textureSamplerIndices.y != -1) {
-        material.textureImageIndices.y = 0;
-    }
-    if (material.textureSamplerIndices.y == -1 && material.textureImageIndices.y != -1) {
-        material.textureSamplerIndices.y = 0;
-    }
-    return material;
-}
-
-void RenderObject::loadTextureIndices(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, int& imageIndex, int& samplerIndex)
-{
-    if (!texture.has_value()) { return; }
-
-    const size_t textureIndex = texture.value().textureIndex;
-    if (gltf.textures[textureIndex].imageIndex.has_value()) {
-        imageIndex = gltf.textures[textureIndex].imageIndex.value() + imageOffset;
-    }
-
-    if (gltf.textures[textureIndex].samplerIndex.has_value()) {
-        samplerIndex = gltf.textures[textureIndex].samplerIndex.value() + samplerOffset;
-    }
-}
-
-VkFilter RenderObject::extractFilter(const fastgltf::Filter filter)
-{
-    switch (filter) {
-        // nearest samplers
-        case fastgltf::Filter::Nearest:
-        case fastgltf::Filter::NearestMipMapNearest:
-        case fastgltf::Filter::NearestMipMapLinear:
-            return VK_FILTER_NEAREST;
-
-        // linear samplers
-        case fastgltf::Filter::Linear:
-        case fastgltf::Filter::LinearMipMapNearest:
-        case fastgltf::Filter::LinearMipMapLinear:
-        default:
-            return VK_FILTER_LINEAR;
-    }
-}
-
-VkSamplerMipmapMode RenderObject::extractMipMapMode(const fastgltf::Filter filter)
-{
-    switch (filter) {
-        case fastgltf::Filter::NearestMipMapNearest:
-        case fastgltf::Filter::LinearMipMapNearest:
-            return VK_SAMPLER_MIPMAP_MODE_NEAREST;
-
-        case fastgltf::Filter::NearestMipMapLinear:
-        case fastgltf::Filter::LinearMipMapLinear:
-        default:
-            return VK_SAMPLER_MIPMAP_MODE_LINEAR;
-    }
-}
-
-bool RenderObject::generateBuffers()
-{
-    std::vector<DescriptorImageData> textureDescriptors;
-    for (const VkSampler sampler : samplers) {
-        textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, {.sampler = sampler}, false});
-    }
-
-    const size_t remaining = render_object_constants::MAX_SAMPLER_COUNT - samplers.size();
-    for (int i = 0; i < remaining; i++) {
-        textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, {}, true});
-    }
-
-    for (const AllocatedImage& image : images) {
-        textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, {.imageView = image.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}, false});
-    }
-
-
-    textureDescriptorBuffer = resourceManager.createDescriptorBufferSampler(resourceManager.getTexturesLayout(), 1);
-    resourceManager.setupDescriptorBufferSampler(textureDescriptorBuffer, textureDescriptors, 0);
-
-
-    AllocatedBuffer materialStaging = resourceManager.createStagingBuffer(materials.size() * sizeof(Material));
-    memcpy(materialStaging.info.pMappedData, materials.data(), materials.size() * sizeof(Material));
-    materialBuffer = resourceManager.createDeviceBuffer(materials.size() * sizeof(Material));
-    resourceManager.copyBuffer(materialStaging, materialBuffer, materials.size() * sizeof(Material));
-    resourceManager.destroyBuffer(materialStaging);
-
-
-    AllocatedBuffer vertexStaging = resourceManager.createStagingBuffer(vertices.size() * sizeof(Vertex));
-    memcpy(vertexStaging.info.pMappedData, vertices.data(), vertices.size() * sizeof(Vertex));
-    vertexBuffer = resourceManager.createDeviceBuffer(vertices.size() * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-    resourceManager.copyBuffer(vertexStaging, vertexBuffer, vertices.size() * sizeof(Vertex));
-    resourceManager.destroyBuffer(vertexStaging);
-
-    AllocatedBuffer indexStaging = resourceManager.createStagingBuffer(indices.size() * sizeof(uint32_t));
-    memcpy(indexStaging.info.pMappedData, indices.data(), indices.size() * sizeof(uint32_t));
-    indexBuffer = resourceManager.createDeviceBuffer(indices.size() * sizeof(uint32_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-    resourceManager.copyBuffer(indexStaging, indexBuffer, indices.size() * sizeof(uint32_t));
-    resourceManager.destroyBuffer(indexStaging);
-
-    // Addresses (Texture and Uniform model data)
-    // todo: make address buffer for statics (dont need multiple)
-    addressesDescriptorBuffer = resourceManager.createDescriptorBufferUniform(resourceManager.getAddressesLayout(), FRAME_OVERLAP);
-    for (int32_t i = 0; i < FRAME_OVERLAP; i++) {
-        constexpr size_t addressesSize = sizeof(VkDeviceAddress) * 2;
-        addressBuffers[i] = resourceManager.createHostSequentialBuffer(addressesSize);
-        DescriptorUniformData addressesUniformData{
-            .uniformBuffer = addressBuffers[i],
-            .allocSize = addressesSize,
-        };
-        resourceManager.setupDescriptorBufferUniform(addressesDescriptorBuffer, {addressesUniformData}, i);
-
-        modelMatrixBuffers[i] = resourceManager.createHostRandomBuffer(currentInstanceCount * sizeof(InstanceData), VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-
-
-        const VkDeviceAddress materialBufferAddress = resourceManager.getBufferAddress(materialBuffer);
-        const VkDeviceAddress instanceBufferAddress = resourceManager.getBufferAddress(modelMatrixBuffers[i]);
-        const VkDeviceAddress addresses[2] = {materialBufferAddress, instanceBufferAddress};
-        memcpy(addressBuffers[i].info.pMappedData, addresses, sizeof(VkDeviceAddress) * 2);
-    }
-
-    frustumCullingDescriptorBuffer = resourceManager.createDescriptorBufferUniform(resourceManager.getFrustumCullLayout(), FRAME_OVERLAP);
-    for (int32_t i = 0; i < FRAME_OVERLAP; i++) {
-        cullingAddressBuffers[i] = resourceManager.createDeviceBuffer(sizeof(FrustumCullingBuffers));
-        const DescriptorUniformData cullingAddressesUniformData{
-            .uniformBuffer = cullingAddressBuffers[i],
-            .allocSize = sizeof(FrustumCullingBuffers),
-        };
-        resourceManager.setupDescriptorBufferUniform(frustumCullingDescriptorBuffer, {cullingAddressesUniformData}, i);
-    }
-
-
-    AllocatedBuffer meshBoundsStaging = resourceManager.createStagingBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
-    memcpy(meshBoundsStaging.info.pMappedData, boundingSpheres.data(), sizeof(BoundingSphere) * boundingSpheres.size());
-    meshBoundsBuffer = resourceManager.createDeviceBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
-    resourceManager.copyBuffer(meshBoundsStaging, meshBoundsBuffer, sizeof(BoundingSphere) * boundingSpheres.size());
-    resourceManager.destroyBuffer(meshBoundsStaging);
-
-    return true;
-}
-
-bool RenderObject::releaseBuffers()
-{
-    if (currentInstanceCount != freeInstanceIndices.size()) {
-        fmt::print("WARNING: Attempting to release buffers while some GameObjects still reference this");
-        return false;
-    }
-
-    for (int32_t i = 0; i < FRAME_OVERLAP; ++i) {
-        resourceManager.destroyBuffer(drawIndirectBuffers[i]);
-        resourceManager.destroyBuffer(cullingAddressBuffers[i]);
-        resourceManager.destroyBuffer(modelMatrixBuffers[i]);
-        resourceManager.destroyBuffer(boundingSphereIndicesBuffers[i]);
-    }
-
-    freeInstanceIndices.clear();
-    currentInstanceCount = 0;
+    fmt::print("GLTF: {} | Sampl: {} | Imag: {} | Mats: {} | Mesh: {} | Prim: {} | Inst: {} | in {}ms\n", file::getFileName(gltfFilepath.filename().string().c_str()),
+               samplers.size() - model_utils::samplerOffset,
+               images.size() - model_utils::imageOffset, materials.size() - materialOffset, meshes.size(), primitiveCount, instanceCount, time);
     return true;
 }
 

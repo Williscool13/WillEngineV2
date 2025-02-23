@@ -33,7 +33,7 @@ public:
         }
     }
 
-    const auto& getTimers() const { return timers; }
+    [[nodiscard]] const auto& getTimers() const { return timers; }
 
 
 private:

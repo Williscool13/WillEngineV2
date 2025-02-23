@@ -9,21 +9,17 @@
 #include <vk-bootstrap/VkBootstrap.h>
 
 #include <Jolt/Jolt.h>
-#include <Jolt/Physics/Body/MotionType.h>
-#include <Jolt/Physics/Collision/Shape/BoxShape.h>
 
 #include "identifier/identifier_manager.h"
 #include "src/physics/physics_filters.h"
 
 #include "camera/free_camera.h"
 #include "game_object/game_object.h"
-#include "Jolt/Physics/Collision/Shape/BoxShape.h"
 #include "scene/scene.h"
 #include "scene/scene_serializer.h"
 #include "src/core/input.h"
 #include "src/core/time.h"
 #include "src/physics/physics.h"
-#include "src/physics/physics_constants.h"
 #include "src/physics/physics_utils.h"
 #include "src/renderer/immediate_submitter.h"
 #include "src/renderer/resource_manager.h"
@@ -48,8 +44,14 @@
 
 namespace will_engine
 {
+Engine* Engine::instance = nullptr;
+
 void Engine::init()
 {
+    if (instance != nullptr) {
+        throw std::runtime_error("More than 1 engine instance created, this is not allowed.");
+    }
+    instance = this;
     fmt::print("----------------------------------------\n");
     fmt::print("Initializing {}\n", ENGINE_NAME);
     const auto start = std::chrono::system_clock::now();
@@ -108,7 +110,6 @@ void Engine::init()
     }
 
 
-
     startupProfiler.beginTimer("1Immediate");
     immediate = new ImmediateSubmitter(*context);
     startupProfiler.endTimer("1Immediate");
@@ -129,6 +130,8 @@ void Engine::init()
     environmentMap = new environment::Environment(*resourceManager, *immediate);
     startupProfiler.endTimer("4Environment");
 
+    auto& factory = components::ComponentFactory::getInstance();
+    factory.registerComponents();
 
     const std::filesystem::path envMapSource = "assets/environments";
 
@@ -159,7 +162,6 @@ void Engine::init()
     profiler.addTimer("1Game");
     profiler.addTimer("2Render");
     profiler.addTimer("3Total");
-
 
 
     const auto end = std::chrono::system_clock::now();
@@ -222,10 +224,10 @@ void Engine::initRenderer()
 
 void Engine::initGame()
 {
-    const auto sceneRoot = new GameObject();
+    const auto sceneRoot = new GameObject("Scene Root");
     scene = new Scene(sceneRoot);
     file::scanForModels(renderObjectInfoMap);
-    Serializer::deserializeScene(scene->getRoot(), *resourceManager, renderObjectMap, renderObjectInfoMap, file::getSampleScene().string());
+    Serializer::deserializeScene(scene->getRoot(), camera, file::getSampleScene().string());
     camera = new FreeCamera();
 }
 
@@ -248,8 +250,8 @@ void Engine::run()
             if (e.type == SDL_EVENT_KEY_DOWN && e.key.key == SDLK_ESCAPE) { bQuit = true; }
 
 
-            if (e.type == SDL_EVENT_WINDOW_MINIMIZED) {  bStopRendering = true;}
-            if (e.type == SDL_EVENT_WINDOW_RESTORED) {  bStopRendering = true;}
+            if (e.type == SDL_EVENT_WINDOW_MINIMIZED) { bStopRendering = true; }
+            if (e.type == SDL_EVENT_WINDOW_RESTORED) { bStopRendering = true; }
             if (e.type == SDL_EVENT_WINDOW_RESIZED || e.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) {
                 bResizeRequested = true;
                 fmt::print("Window resized, resize requested\n");
@@ -290,24 +292,38 @@ void Engine::run()
     }
 }
 
-void Engine::updateGame(const float deltaTime) const
+void Engine::updateGame(const float deltaTime)
 {
     if (camera) { camera->update(deltaTime); }
 
     const Input& input = Input::Get();
     if (input.isKeyPressed(SDLK_R)) {
         if (camera) {
-            const glm::vec3 direction = camera->transform.getForward();
+            const glm::vec3 direction = camera->getForwardWS();
             //const physics::PlayerCollisionFilter dontHitPlayerFilter{};
             const physics::RaycastHit result = physics::PhysicsUtils::raycast(camera->getPosition(), direction, 100.0f, {}, {}, {});
 
             if (result.hasHit) {
                 physics::PhysicsUtils::addImpulseAtPosition(result.hitBodyID, normalize(direction) * 100.0f, result.hitPosition);
-            } else {
+            }
+            else {
                 fmt::print("Failed to find an object with the raycast\n");
             }
         }
     }
+
+    for (IHierarchical* hierarchal : hierarchalBeginQueue) {
+        hierarchal->beginPlay();
+    }
+    hierarchalBeginQueue.clear();
+
+    scene->update(deltaTime);
+
+    for (IHierarchical* hierarchical : hierarchicalDeletionQueue) {
+        hierarchical->beginDestroy();
+        delete hierarchical;
+    }
+    hierarchicalDeletionQueue.clear();
 }
 
 void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap) const
@@ -388,18 +404,14 @@ void Engine::draw(float deltaTime)
     int32_t currentFrameOverlap = getCurrentFrameOverlap();
     int32_t previousFrameOverlap = getPreviousFrameOverlap();
 
-    // delete all gameobjects queued up for deletion by imgui/scene graph
-    for (IHierarchical* hierarchical : hierarchicalDeletionQueue) { delete hierarchical; }
-    hierarchicalDeletionQueue.clear();
-
-    // Update Render Object references
+    // Update Render Object Buffers and Model Matrices
     for (RenderObject* val : renderObjectMap | std::views::values) {
         val->update(currentFrameOverlap, previousFrameOverlap);
     }
-    // Updates scene objects (Model Matrices/Visibility Switches)
-    scene->update(currentFrameOverlap, previousFrameOverlap);
+
     // Updates Scene Data buffer
     updateRender(deltaTime, currentFrameOverlap, previousFrameOverlap);
+
     // Updates Cascaded Shadow Map Properties
     cascadedShadowMap->update(mainLight, camera, currentFrameOverlap);
 
@@ -623,7 +635,7 @@ void Engine::cleanup()
     delete identifierManager;
 
     vkDestroySwapchainKHR(context->device, swapchain, nullptr);
-    for (VkImageView swapchainImageView : swapchainImageViews) {
+    for (const VkImageView swapchainImageView : swapchainImageViews) {
         vkDestroyImageView(context->device, swapchainImageView, nullptr);
     }
 
@@ -632,7 +644,39 @@ void Engine::cleanup()
     SDL_DestroyWindow(window);
 }
 
-void Engine::createSwapchain(uint32_t width, uint32_t height)
+IHierarchical* Engine::createGameObject(const std::string& name) const
+{
+    const auto newGameObject = new GameObject(name);
+    scene->addGameObject(newGameObject);
+    return newGameObject;
+}
+
+void Engine::addToBeginQueue(IHierarchical* obj)
+{
+    hierarchalBeginQueue.push_back(obj);
+}
+
+void Engine::addToDeletionQueue(IHierarchical* obj)
+{
+    const auto found = std::ranges::find(hierarchalBeginQueue, obj);
+    if (found != hierarchalBeginQueue.end()) {
+        hierarchalBeginQueue.erase(found);
+    }
+    hierarchicalDeletionQueue.push_back(obj);
+}
+
+RenderObject* Engine::getRenderObject(const uint32_t renderRefIndex)
+{
+    const bool isLoaded = renderObjectMap.contains(renderRefIndex) && renderObjectMap[renderRefIndex] != nullptr;
+    const auto renderObjectProperties = renderObjectInfoMap.find(renderRefIndex);
+    if (!isLoaded) {
+        renderObjectMap[renderRefIndex] = new RenderObject(renderObjectProperties->second.gltfPath, *resourceManager, renderRefIndex);
+    }
+
+    return renderObjectMap[renderRefIndex];
+}
+
+void Engine::createSwapchain(const uint32_t width, const uint32_t height)
 {
     vkb::SwapchainBuilder swapchainBuilder{context->physicalDevice, context->device, context->surface};
 
@@ -641,6 +685,7 @@ void Engine::createSwapchain(uint32_t width, uint32_t height)
     vkb::Swapchain vkbSwapchain = swapchainBuilder
             .set_desired_format(VkSurfaceFormatKHR{.format = swapchainImageFormat, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
             .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR) //use vsync present mode
+            //.set_desired_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR) // uncapped fps
             .set_desired_extent(width, height)
             .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
             .build()

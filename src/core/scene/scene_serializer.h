@@ -9,10 +9,12 @@
 
 
 #include "src/core/transform.h"
-#include "src/physics/physics.h"
-
-#include "src/renderer/render_object/render_object.h"
+#include "src/core/camera/camera.h"
 #include "src/core/game_object/game_object.h"
+#include "src/core/game_object/components/component.h"
+#include "src/core/game_object/components/component_factory.h"
+#include "src/renderer/render_object/render_object.h"
+
 
 namespace will_engine
 {
@@ -137,39 +139,6 @@ inline void from_json(const ordered_json& j, Transform& t)
     t = {position, rotation, scale};
 }
 
-namespace physics
-{
-    inline void to_json(ordered_json& j, const PhysicsProperties& p)
-    {
-        j = {
-            {"isActive", p.isActive},
-            {"motionType", p.motionType},
-            {"layer", p.layer},
-            {"shapeType", p.shapeType},
-            {
-                "shapeParams", {
-                    {"x", p.shapeParams.x},
-                    {"y", p.shapeParams.y},
-                    {"z", p.shapeParams.z}
-                }
-            }
-        };
-    }
-
-    inline void from_json(const ordered_json& j, PhysicsProperties& props)
-    {
-        props.isActive = j["isActive"].get<bool>();
-        props.motionType = j["motionType"].get<uint8_t>();
-        props.layer = (j["layer"].get<uint16_t>());
-        props.shapeType = j["shapeType"].get<JPH::EShapeSubType>();
-        props.shapeParams = glm::vec3(
-            j["shapeParams"]["x"].get<float>(),
-            j["shapeParams"]["y"].get<float>(),
-            j["shapeParams"]["z"].get<float>()
-        );
-    }
-}
-
 inline void to_json(ordered_json& j, const EngineVersion& version)
 {
     j = ordered_json{
@@ -205,7 +174,7 @@ inline void from_json(const ordered_json& j, SceneMetadata& metadata)
 class Serializer
 {
 public: // GameObjects
-    static void serializeGameObject(ordered_json& j, IHierarchical* obj, physics::Physics* physics, const std::unordered_map<uint32_t, RenderObject*>& renderObjects) // NOLINT(*-no-recursion)
+    static void serializeGameObject(ordered_json& j, IHierarchical* obj)
     {
         if (const auto gameObject = dynamic_cast<GameObject*>(obj)) {
             j["id"] = gameObject->getId();
@@ -217,20 +186,17 @@ public: // GameObjects
             j["transform"] = transformable->getLocalTransform();
         }
 
-        if (const auto renderable = dynamic_cast<IRenderable*>(obj)) {
-            const int32_t renderRefIndex = renderable->getRenderReferenceIndex();
-            if (renderRefIndex != INDEX_NONE && renderObjects.contains(renderRefIndex)) {
-                j["renderReference"] = renderRefIndex;
-                j["renderMeshIndex"] = renderable->getMeshIndex();
-                j["renderIsVisible"] = renderable->isVisible();
-                j["renderIsShadowCaster"] = renderable->isShadowCaster();
-            }
-        }
-
-        if (const auto physicsBody = dynamic_cast<IPhysicsBody*>(obj)) {
-            physics::PhysicsProperties properties = physics->serializeProperties(physicsBody);
-            if (properties.isActive) {
-                j["physics"] = properties;
+        if (const auto componentContainer = dynamic_cast<IComponentContainer*>(obj)) {
+            const std::vector<components::Component*> components = componentContainer->getAllComponents();
+            if (components.size() > 0) {
+                ordered_json componentsJson;
+                for (const auto& component : components) {
+                    ordered_json componentData;
+                    component->serialize(componentData);
+                    componentsJson[component->getComponentType()] = componentData;
+                    componentsJson[component->getComponentType()]["componentName"] = component->getComponentName();
+                }
+                j["components"] = componentsJson;
             }
         }
 
@@ -242,14 +208,14 @@ public: // GameObjects
                     fmt::print("SerializeGameObject: null game object found in IHierarchical chain (child of {})\n", obj->getName());
                     continue;
                 }
-                serializeGameObject(childJson, child, physics, renderObjects);
+                serializeGameObject(childJson, child);
                 children.push_back(childJson);
             }
             j["children"] = children;
         }
     }
 
-    static bool serializeScene(IHierarchical* sceneRoot, const std::unordered_map<uint32_t, RenderObject*>& renderObjects, const std::string& filepath)
+    static bool serializeScene(IHierarchical* sceneRoot, Camera* camera, const std::string& filepath)
     {
         if (sceneRoot == nullptr) {
             fmt::print("Warning: Scene root is null\n");
@@ -264,16 +230,10 @@ public: // GameObjects
         ordered_json gameObjectJ;
         ordered_json renderObjectJ;
 
-        const auto physics = physics::Physics::Get();
-        serializeGameObject(gameObjectJ, sceneRoot, physics, renderObjects);
+        serializeGameObject(gameObjectJ, sceneRoot);
         rootJ["gameObjects"] = gameObjectJ;
 
-        ordered_json renderObjectsJ = ordered_json::object();
-        for (const auto key : renderObjects | std::views::keys) {
-            const uint32_t id = key;
-            renderObjectsJ[std::to_string(id)] = ordered_json::object();
-        }
-        rootJ["renderObjects"] = renderObjectsJ;
+        rootJ["camera"] = camera->getTransform();
 
         std::ofstream file(filepath);
         file << rootJ.dump(4);
@@ -281,7 +241,7 @@ public: // GameObjects
         return true;
     }
 
-    static GameObject* deserializeGameObject(const ordered_json& j, IHierarchical* parent, std::unordered_map<uint32_t, RenderObject*> renderObjectMap)
+    static GameObject* deserializeGameObject(const ordered_json& j, IHierarchical* parent)
     {
         const auto gameObject = new GameObject();
 
@@ -299,26 +259,26 @@ public: // GameObjects
             }
         }
 
-        if (j.contains("renderReference") && j.contains("renderMeshIndex")) {
-            if (dynamic_cast<IRenderable*>(gameObject)) {
-                const uint32_t renderRefIndex = j["renderReference"].get<uint32_t>();
-                const int32_t meshIndex = j["renderMeshIndex"].get<int32_t>();
+        if (j.contains("components")) {
+            if (const auto componentContainer = dynamic_cast<IComponentContainer*>(gameObject)) {
+                const auto& components = j["components"];
+                for (const auto& [componentType, componentData] : components.items()) {
+                    std::string componentName;
+                    if (componentData.contains("componentName")) {
+                        componentName = componentData["componentName"].get<std::string>();
+                    }
+                    else {
+                        componentName = componentType;
+                    }
 
-                if (renderObjectMap.contains(renderRefIndex)) {
-                    renderObjectMap[renderRefIndex]->generateMesh(gameObject, meshIndex);
-                    gameObject->setVisibility(j["renderIsVisible"]);
-                    gameObject->setIsShadowCaster(j["renderIsShadowCaster"]);
-                } else {
-                    fmt::print("Warning: Gameobject failed to find render reference\n");
-                }
-            }
-        }
+                    auto& factory = components::ComponentFactory::getInstance();
+                    auto newComponent = factory.createComponent(componentType, componentName);
 
-        if (j.contains("physics")) {
-            if (const auto physicsBody = dynamic_cast<IPhysicsBody*>(gameObject)) {
-                const physics::PhysicsProperties properties = j["physics"].get<physics::PhysicsProperties>();
-                if (!physics::Physics::Get()->deserializeProperties(physicsBody, properties)) {
-                    fmt::print("Warning: Gameobject failed to deserialize physics\n");
+                    if (newComponent) {
+                        auto orderedComponentData = ordered_json(componentData);
+                        const auto _component = componentContainer->addComponent(std::move(newComponent));
+                        _component->deserialize(orderedComponentData);
+                    }
                 }
             }
         }
@@ -326,8 +286,7 @@ public: // GameObjects
         if (j.contains("children")) {
             const auto& children = j["children"];
             for (const auto& childJson : children) {
-                IHierarchical* child = deserializeGameObject(childJson, gameObject, renderObjectMap);
-                if (child != nullptr) {
+                if (IHierarchical* child = deserializeGameObject(childJson, gameObject)) {
                     gameObject->addChild(child);
                 }
             }
@@ -340,8 +299,7 @@ public: // GameObjects
         return gameObject;
     }
 
-    static bool deserializeScene(IHierarchical* root, ResourceManager& resourceManager, std::unordered_map<uint32_t, RenderObject*>& renderObjectMap,
-                                 std::unordered_map<uint32_t, RenderObjectInfo> renderObjectInfoMap, const std::string& filepath)
+    static bool deserializeScene(IHierarchical* root, Camera* camera, const std::string& filepath)
     {
         std::ifstream file(filepath);
         if (!file.is_open()) {
@@ -368,36 +326,16 @@ public: // GameObjects
             return false;
         }
 
-        if (rootJ.contains("renderObjects")) {
-            const auto& renderObjectsJ = rootJ["renderObjects"];
-            for (const auto& [id, entry] : renderObjectsJ.items()) {
-                unsigned long long value = std::stoull(id);
-                if (value > std::numeric_limits<uint32_t>::max()) {
-                    fmt::print("ID {} is too large for uint32_t\n", id);
-                    continue;
-                }
-                uint32_t index = static_cast<uint32_t>(value);
-
-                if (renderObjectMap.contains(index)) {
-                    continue;
-                }
-
-                if (!renderObjectInfoMap.contains(index)) {
-                    fmt::print("WARNING: Attempted to deserialize render object but failed to find .willmodel file\n");
-                    continue;
-                }
-
-                RenderObjectInfo& renderObjectData = renderObjectInfoMap[index];
-                auto renderObject = new RenderObject(renderObjectData.gltfPath, resourceManager, index);
-                renderObjectMap[index] = renderObject;
+        if (rootJ.contains("gameObjects")) {
+            for (auto child : rootJ["gameObjects"]["children"]) {
+                IHierarchical* childObject = deserializeGameObject(child, root);
+                root->addChild(childObject);
             }
         }
 
-        if (rootJ.contains("gameObjects")) {
-            for (auto child : rootJ["gameObjects"]["children"]) {
-                IHierarchical* childObject = deserializeGameObject(child, root, renderObjectMap);
-                root->addChild(childObject);
-            }
+        if (rootJ.contains("camera")) {
+            auto transform = rootJ["camera"].get<Transform>();
+            camera->setCameraTransform(transform.getPosition(), transform.getRotation());
         }
 
         return true;

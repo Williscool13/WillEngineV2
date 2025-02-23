@@ -23,8 +23,7 @@ public:
     virtual ~Camera() = default;
 
 public:
-    Transform transform;
-
+    Transform getTransform() const { return transform; }
     glm::vec4 getPosition() const { return {transform.getPosition(), 1.0f}; }
     glm::mat4 getViewMatrix() const { return cachedViewMatrix; }
     glm::mat4 getProjMatrix() const { return cachedProjMatrix; }
@@ -44,9 +43,10 @@ public:
      * @return
      */
     glm::vec3 getForwardWS() const;
-    glm::vec3 getUpWS() const;
-    glm::vec3 getRightWS() const;
 
+    glm::vec3 getUpWS() const;
+
+    glm::vec3 getRightWS() const;
 
 
     /**
@@ -67,10 +67,16 @@ public:
 
     virtual void update(float deltaTime) = 0;
 
-    CameraProperties getCameraProperties() const { return {cachedFov, cachedAspect, cachedNear, cachedFar, cachedViewMatrix, cachedProjMatrix, transform.getPosition(), getForwardWS(), getRightWS(), getUpWS()}; }
+    CameraProperties getCameraProperties() const
+    {
+        return {cachedFov, cachedAspect, cachedNear, cachedFar, cachedViewMatrix, cachedProjMatrix, transform.getPosition(), getForwardWS(), getRightWS(), getUpWS()};
+    }
+
+    void setCameraTransform(glm::vec3 position, glm::quat rotation);
 
 protected:
-    // projection
+    Transform transform;
+
     float cachedFov{1.308996939}; // rad(75)
     float cachedAspect{1920.0f / 1080.0f};
     float cachedNear{10000.0f};
