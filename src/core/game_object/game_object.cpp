@@ -533,16 +533,22 @@ void GameObject::selectedRenderImgui()
                     }
 
                     ImGui::SameLine();
+
+                    static char objectName[256] = "";
+
                     const char* componentType = component->getComponentType().data();
                     if (ImGui::Button(componentName.c_str(), ImVec2(-1, 0))) {
                         component->openRenderImgui();
+                        strncpy_s(objectName, sizeof(objectName), componentName.c_str(), _TRUNCATE);
                         ImGui::OpenPopup(componentType);
                     }
 
 
+
+
                     ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0.75f, 0.75f, 0.75f, 1.0f)); // Dark gray
                     if (ImGui::BeginPopupModal(componentType, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                        static char objectName[256] = "";
+
                         if (ImGui::InputText("Component Name", objectName, sizeof(objectName))) {
                             // ReSharper disable once CppDFAUnusedValue
                             componentName = objectName;
