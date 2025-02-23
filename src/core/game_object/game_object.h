@@ -24,13 +24,17 @@
 #include "src/renderer/render_object/render_reference.h"
 #include "src/util/math_constants.h"
 
+namespace will_engine::components
+{
+class RigidBodyComponent;
+}
+
 namespace will_engine
 {
 class Engine;
 class RenderObject;
 
-class GameObject : public IPhysicsBody,
-                   public IRenderable,
+class GameObject : public IRenderable,
                    public ITransformable,
                    public IHierarchical,
                    public IIdentifiable,
@@ -138,6 +142,8 @@ public: // ITransformable
 
     void setGlobalTransform(const Transform& newGlobalTransform) override;
 
+    void setGlobalTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) override;
+
     void translate(glm::vec3 translation) override;
 
     void rotate(glm::quat rotation) override;
@@ -188,14 +194,7 @@ protected: // IRenderable
     int32_t renderFramesToUpdate{FRAME_OVERLAP + 1};
 
 public: // IPhysicsBody
-    void setGlobalTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) override;
 
-    void setPhysicsBodyId(const JPH::BodyID bodyId) override { this->bodyId = bodyId; }
-
-    JPH::BodyID getPhysicsBodyId() const override { return bodyId; }
-
-protected: // IPhysicsBody
-    JPH::BodyID bodyId{JPH::BodyID::cMaxBodyIndex};
 
 public: // IComponentContainer
     components::Component* GetComponentByType(const std::type_info& type) override
@@ -232,13 +231,19 @@ public: // IComponentContainer
         return _components;
     }
 
+    bool canAddComponent(std::string_view componentType) override;
 
     void addComponent(std::unique_ptr<components::Component> component) override;
 
     void destroyComponent(components::Component* component) override;
 
+    void cacheRigidbody();
+
 protected: // IComponentContainer
     std::vector<std::unique_ptr<components::Component> > components{};
+
+protected:
+    components::RigidBodyComponent* rigidbodyComponent{};
 
 public:
     bool operator==(const GameObject& other) const

@@ -458,7 +458,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
 
                         if (auto it = engine->renderObjectMap.find(selectedObjectId); it != engine->renderObjectMap.end() && it->second != nullptr) {
-                            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.75f, 0.75f, 0.75f, 1.0f));
+                            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
                             static char objectName[256] = "";
                             ImGui::InputText("Object Name", objectName, sizeof(objectName));
                             ImGui::PopStyleColor();

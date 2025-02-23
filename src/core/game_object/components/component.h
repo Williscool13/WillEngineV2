@@ -20,14 +20,14 @@ class Component
 public: // Virtuals
     Component() = delete;
 
-    explicit Component(const std::string name = "")
+    explicit Component(std::string name = "")
         : componentName(std::move(name)) {}
 
     virtual ~Component();
 
     virtual std::string_view getComponentType() = 0;
 
-    virtual void beginPlay(IComponentContainer* owner);
+    virtual void beginPlay();
 
     virtual void update(float deltaTime);
 
@@ -37,9 +37,12 @@ public: // Virtuals
 
     virtual void onDisable();
 
-    virtual IComponentContainer* getOwner() { return owner; }
 
-    virtual bool isComponentDestroyed() { return bIsDestroyed; }
+    bool isComponentDestroyed() const { return bIsDestroyed; }
+
+    IComponentContainer* getOwner() const { return owner; }
+
+    virtual void setOwner(IComponentContainer* owner) { this->owner = owner; }
 
 public: // Serialization / Editor Tools
     virtual void serialize(ordered_json& j) {}
@@ -51,6 +54,11 @@ public: // Serialization / Editor Tools
     virtual void closeRenderImgui() {}
 
 public: // Defined Behaviors
+    void setComponentName(char objectName[256])
+    {
+        componentName = objectName;
+    }
+
     std::string_view getComponentName()
     {
         if (componentName.empty()) {

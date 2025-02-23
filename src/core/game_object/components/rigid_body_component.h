@@ -6,13 +6,25 @@
 #define RIGID_BODY_COMPONENT_H
 
 #include <string_view>
+
 #include <json/json.hpp>
+#include <JoltPhysics/Jolt/Jolt.h>
+#include <JoltPhysics/Jolt/Physics/Body/BodyID.h>
+
+
 #include "src/core/game_object/component_container.h"
 #include "src/core/game_object/components/component.h"
+#include "src/physics/physics_body.h"
+#include "src/physics/physics_types.h"
+
+namespace will_engine
+{
+class ITransformable;
+}
 
 namespace will_engine::components
 {
-class RigidBodyComponent : public Component
+class RigidBodyComponent : public Component, public IPhysicsBody
 {
 public:
     explicit RigidBodyComponent(const std::string& name = "");
@@ -28,7 +40,7 @@ public:
 
     std::string_view getComponentType() override { return TYPE; }
 
-    void beginPlay(IComponentContainer* owner) override;
+    void beginPlay() override;
 
     void update(float deltaTime) override;
 
@@ -38,20 +50,36 @@ public:
 
     void onDisable() override;
 
+    void setOwner(IComponentContainer* owner) override;
+
+    // IPhysicsBody
+    void setGameTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) override;
+
+    void setPhysicsTransformFromGame(const glm::vec3& position, const glm::quat& rotation) override;
+
+    glm::vec3 getGlobalPosition() override;
+
+    glm::quat getGlobalRotation() override;
+
+    void setPhysicsBodyId(const JPH::BodyID bodyId) override { this->bodyId = bodyId; }
+
+    JPH::BodyID getPhysicsBodyId() const override { return bodyId; }
+
 public: // Serialization
     void serialize(ordered_json& j) override;
 
     void deserialize(ordered_json& j) override;
 
-public: // Editor Tools
-    void openRenderImgui() override;
+    physics::PhysicsProperties deserializedPhysicsProperties{};
 
+public: // Editor Tools
     void updateRenderImgui() override;
 
-    void closeRenderImgui() override;
-
 private:
-    // Add component-specific members here
+    ITransformable* parent{nullptr};
+
+    JPH::BodyID bodyId{JPH::BodyID::cMaxBodyIndex};
+
 };
 } // namespace will_engine::components
 

@@ -26,7 +26,7 @@ public:
 
     std::string_view getComponentType() override { return TYPE; }
 
-    void beginPlay(IComponentContainer* owner) override;
+    void beginPlay() override;
 
     void update(float deltaTime) override;
 
