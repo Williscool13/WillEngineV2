@@ -6,7 +6,7 @@
     },
     "metadata": {
         "name": "Test Scene",
-        "created": "2025-02-23 13:26:41",
+        "created": "2025-02-23 15:29:33",
         "formatVersion": 1
     },
     "gameObjects": {
@@ -52,10 +52,6 @@
                         "z": 5.0
                     }
                 },
-                "renderReference": 786709467,
-                "renderMeshIndex": 0,
-                "renderIsVisible": true,
-                "renderIsShadowCaster": true,
                 "components": {
                     "RigidBodyComponent": {
                         "properties": {
@@ -70,6 +66,13 @@
                             }
                         },
                         "componentName": "RigidBodyComponent"
+                    },
+                    "MeshRendererComponent": {
+                        "renderReference": 786709467,
+                        "renderMeshIndex": 0,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "Floor Mesh"
                     }
                 }
             },
@@ -94,10 +97,6 @@
                         "z": 1.0
                     }
                 },
-                "renderReference": -1574886450,
-                "renderMeshIndex": 0,
-                "renderIsVisible": true,
-                "renderIsShadowCaster": true,
                 "components": {
                     "RigidBodyComponent": {
                         "properties": {
@@ -112,6 +111,13 @@
                             }
                         },
                         "componentName": "Sphere Collider"
+                    },
+                    "MeshRendererComponent": {
+                        "renderReference": -1574886450,
+                        "renderMeshIndex": 0,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "New MeshRendererComponent"
                     }
                 }
             },
@@ -136,10 +142,6 @@
                         "z": 1.0
                     }
                 },
-                "renderReference": 786709467,
-                "renderMeshIndex": 1,
-                "renderIsVisible": true,
-                "renderIsShadowCaster": true,
                 "components": {
                     "RigidBodyComponent": {
                         "properties": {
@@ -154,6 +156,13 @@
                             }
                         },
                         "componentName": "Box Collider"
+                    },
+                    "MeshRendererComponent": {
+                        "renderReference": 786709467,
+                        "renderMeshIndex": 1,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "New MeshRendererComponent"
                     }
                 }
             },
@@ -162,8 +171,8 @@
                 "name": "Test Components",
                 "transform": {
                     "position": {
-                        "x": 0.0,
-                        "y": 1.7000000476837158,
+                        "x": -2.5,
+                        "y": 2.0,
                         "z": 0.0
                     },
                     "rotation": {
@@ -179,9 +188,26 @@
                     }
                 },
                 "components": {
-                    "NamePrintingComponent": {
-                        "testProperty": 12,
-                        "componentName": "Name Printing Component"
+                    "RigidBodyComponent": {
+                        "properties": {
+                            "isActive": true,
+                            "motionType": 2,
+                            "layer": 1,
+                            "shapeType": 0,
+                            "shapeParams": {
+                                "x": 1.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            }
+                        },
+                        "componentName": "New RigidBodyComponent"
+                    },
+                    "MeshRendererComponent": {
+                        "renderReference": 786709467,
+                        "renderMeshIndex": 5,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "New MeshRendererComponent"
                     }
                 }
             }

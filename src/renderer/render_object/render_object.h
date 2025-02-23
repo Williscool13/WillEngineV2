@@ -80,11 +80,11 @@ public: // Model Rendering API
     void recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent);
 
     /**
-     * @param gameObject to assign mesh references.
+     * @param renderable to assign mesh references.
      * @param meshIndex in the RenderObject to generate. \code 0 < n <= meshes.size()\endcode
      * @return true if successfully generated mesh and assigned to gameobject.
      */
-    bool generateMesh(GameObject* gameObject, int32_t meshIndex);
+    bool generateMesh(IRenderable* renderable, int32_t meshIndex);
 
 private: // Model Parsing
     bool parseGltf(const std::filesystem::path& gltfFilepath);

@@ -219,7 +219,7 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
         resourceManager.destroyBuffer(currentDrawIndirectBuffer);
         resourceManager.destroyBuffer(currentBoundingSphereIndicesBuffer);
     }
-    else if (currentDrawIndirectBuffer.buffer == VK_NULL_HANDLE || currentDrawIndirectBuffer.info.size != drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand)) {
+    else {
         resourceManager.destroyBuffer(currentDrawIndirectBuffer);
         AllocatedBuffer indirectStaging = resourceManager.createStagingBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
         memcpy(indirectStaging.info.pMappedData, drawCommands.data(), drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
@@ -299,8 +299,8 @@ void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, Gam
             boundingSphereIndices.push_back(primitive.boundingSphereIndex);
         }
 
-        gameObject->setRenderObjectReference(this, renderNode.meshIndex);
-        gameObject->setRenderFramesToUpdate(FRAME_OVERLAP + 1);
+        // gameObject->setRenderObjectReference(this, renderNode.meshIndex);
+        // gameObject->setRenderFramesToUpdate(FRAME_OVERLAP + 1);
     }
 
     gameObject->setLocalTransform(renderNode.transform);
@@ -311,9 +311,9 @@ void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, Gam
     }
 }
 
-bool RenderObject::generateMesh(GameObject* gameObject, const int32_t meshIndex)
+bool RenderObject::generateMesh(IRenderable* renderable, const int32_t meshIndex)
 {
-    if (gameObject == nullptr) { return false; }
+    if (renderable == nullptr) { return false; }
     if (meshIndex < 0 || meshIndex >= meshes.size()) { return false; }
 
     const int32_t instanceIndex = getFreeInstanceIndex();
@@ -334,13 +334,13 @@ bool RenderObject::generateMesh(GameObject* gameObject, const int32_t meshIndex)
         boundingSphereIndices.push_back(primitive.boundingSphereIndex);
     }
 
-    gameObject->setRenderObjectReference(this, meshIndex);
-    gameObject->setRenderFramesToUpdate(FRAME_OVERLAP + 1);
+    renderable->setRenderObjectReference(this, meshIndex);
+    renderable->dirty();
 
     RenderableProperties renderableProperties{
         instanceIndex
     };
-    renderableMap.insert({dynamic_cast<IRenderable*>(gameObject), renderableProperties});
+    renderableMap.insert({renderable, renderableProperties});
 
     dirty();
     return true;

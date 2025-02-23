@@ -44,6 +44,8 @@ public:
 
     void update(float deltaTime) override;
 
+    void releaseRigidBody();
+
     void beginDestroy() override;
 
     void onEnable() override;
@@ -76,7 +78,7 @@ public: // Editor Tools
     void updateRenderImgui() override;
 
 private:
-    ITransformable* parent{nullptr};
+    ITransformable* transformableOwner{nullptr};
 
     JPH::BodyID bodyId{JPH::BodyID::cMaxBodyIndex};
 

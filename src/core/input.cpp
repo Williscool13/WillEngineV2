@@ -6,6 +6,8 @@
 
 #include <fmt/format.h>
 
+#include "imgui.h"
+
 namespace will_engine
 {
 Input::Input()
@@ -108,7 +110,9 @@ void Input::processEvent(const SDL_Event& event)
 void Input::updateFocus(const Uint32 sdlWindowFlags)
 {
     windowInputFocus = (sdlWindowFlags & SDL_WINDOW_INPUT_FOCUS) != 0;
-    if (windowInputFocus && isKeyPressed(SDLK_F)) {
+    const bool isTyping = ImGui::GetIO().WantTextInput;
+    const bool isPopupActive = ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopup);
+    if (windowInputFocus && !isTyping && !isPopupActive && isKeyPressed(SDLK_F)) {
         inFocus = !inFocus;
         if (!window) {
             fmt::print("Input: Attempted to update focus but window is not defined, perhaps init was not called?\n");

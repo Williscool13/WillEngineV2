@@ -185,16 +185,6 @@ public: // GameObjects
             j["transform"] = transformable->getLocalTransform();
         }
 
-        if (const auto renderable = dynamic_cast<IRenderable*>(obj)) {
-            const int32_t renderRefIndex = renderable->getRenderReferenceId();
-            if (renderRefIndex != INDEX_NONE && renderObjects.contains(renderRefIndex)) {
-                j["renderReference"] = renderRefIndex;
-                j["renderMeshIndex"] = renderable->getMeshIndex();
-                j["renderIsVisible"] = renderable->isVisible();
-                j["renderIsShadowCaster"] = renderable->isShadowCaster();
-            }
-        }
-
         if (const auto componentContainer = dynamic_cast<IComponentContainer*>(obj)) {
             const std::vector<components::Component*> components = componentContainer->getAllComponents();
             if (components.size() > 0) {
@@ -273,23 +263,6 @@ public: // GameObjects
             }
         }
 
-        if (j.contains("renderReference") && j.contains("renderMeshIndex")) {
-            if (dynamic_cast<IRenderable*>(gameObject)) {
-                const uint32_t renderRefIndex = j["renderReference"].get<uint32_t>();
-                const int32_t meshIndex = j["renderMeshIndex"].get<int32_t>();
-
-                if (renderObjectMap.contains(renderRefIndex)) {
-                    renderObjectMap[renderRefIndex]->generateMesh(gameObject, meshIndex);
-                    gameObject->setVisibility(j["renderIsVisible"]);
-                    gameObject->setIsShadowCaster(j["renderIsShadowCaster"]);
-                }
-                else {
-                    fmt::print("Warning: Gameobject failed to find render reference\n");
-                }
-            }
-        }
-
-
         if (j.contains("components")) {
             if (const auto componentContainer = dynamic_cast<IComponentContainer*>(gameObject)) {
                 const auto& components = j["components"];
@@ -303,12 +276,13 @@ public: // GameObjects
                     }
 
                     auto& factory = components::ComponentFactory::getInstance();
-                    std::unique_ptr<components::Component> newComponent = factory.createComponent(componentType, componentName);
+                    auto newComponent = factory.createComponent(componentType, componentName);
 
                     if (newComponent) {
-                        ordered_json orderedComponentData = ordered_json(componentData);
-                        newComponent->deserialize(orderedComponentData);
-                        componentContainer->addComponent(std::move(newComponent));
+                        auto orderedComponentData = ordered_json(componentData);
+                        const auto _component = componentContainer->addComponent(std::move(newComponent));
+                        _component->deserialize(orderedComponentData);
+
                     }
                 }
             }
