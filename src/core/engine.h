@@ -111,6 +111,10 @@ public:
      */
     void cleanup();
 
+public: // TEMP
+    std::vector<float> heightMapData;
+    AllocatedImage heightMap;
+
 public:
     IHierarchical* createGameObject(const std::string& name) const;
     void addToBeginQueue(IHierarchical* obj);

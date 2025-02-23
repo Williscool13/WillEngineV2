@@ -223,6 +223,11 @@ set(TEMP_SOURCES
         src/core/game_object/components/mesh_renderer_component.h
         src/core/game_object/components/mesh_renderer_component.cpp
         src/util/math_utils.h
+        src/renderer/terrain/terrain_manager.cpp
+        src/renderer/terrain/terrain_manager.h
+        src/renderer/terrain/terrain_types.h
+        src/util/heightmap_utils.h
+        src/util/noise_utils.h
 
 )
 
