@@ -260,6 +260,20 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             }
 
             if (ImGui::BeginTabItem("Save Images")) {
+                if (ImGui::Button("Save Height Map")) {
+                    if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                        const std::filesystem::path path = file::imagesSavePath / "heightMap.png";
+                        auto noiseNormalization = [](const float value) {
+                            return value * 0.5f + 0.5f;
+                        };
+                        vk_helpers::saveImageR32F(*engine->resourceManager, *engine->immediate, engine->heightMap,
+                                                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), noiseNormalization);
+                    }
+                    else {
+                        fmt::print(" Failed to find/create image save path directory");
+                    }
+                }
+
                 if (ImGui::Button("Save Draw Image")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "drawImage.png";

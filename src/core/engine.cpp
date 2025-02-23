@@ -35,6 +35,7 @@
 #include "src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h"
 #include "src/util/file.h"
 #include "src/util/halton.h"
+#include "src/util/heightmap_utils.h"
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -170,6 +171,17 @@ void Engine::init()
     profiler.addTimer("2Render");
     profiler.addTimer("3Total");
 
+    NoiseSettings settings{
+        .scale = 100.0f,        // Increase this to "zoom in"
+        .persistence = 0.5f,    // Keep this
+        .lacunarity = 2.0f,     // Keep this
+        .octaves = 6,          // Keep this
+        .offset = {0.0f, 0.0f},
+        .heightScale = 50.0f
+    };
+    //heightMapData = HeightmapUtil::generateFromNoise(512, 512, 13, settings);
+    heightMapData = HeightmapUtil::generateRawPerlinNoise(512, 512);
+    heightMap = HeightmapUtil::createHeightmapImage(*resourceManager, heightMapData, 512, 512);
 
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -600,6 +612,7 @@ void Engine::cleanup()
     delete temporalAntialiasingPipeline;
     delete postProcessPipeline;
 
+    resourceManager->destroyImage(heightMap);
 
     for (AllocatedBuffer sceneBuffer : sceneDataBuffers) {
         resourceManager->destroyBuffer(sceneBuffer);
