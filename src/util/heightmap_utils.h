@@ -6,8 +6,10 @@
 #define HEIGHTMAP_UTILS_H
 
 #include <random>
+
 #include <glm/glm.hpp>
-#include <glm/gtc/noise.hpp>
+#include <FastNoiseLite.h>
+
 #include "src/renderer/resource_manager.h"
 
 namespace will_engine
@@ -28,37 +30,28 @@ public:
     static std::vector<float> generateFromNoise(const uint32_t width, const uint32_t height, const uint32_t seed, const NoiseSettings& settings = NoiseSettings{})
     {
         std::vector<float> heightData(width * height);
-        std::vector<glm::vec2> octaveOffsets(settings.octaves);
-        std::mt19937 rng(seed);
-        std::uniform_real_distribution dist(-100000.0f, 100000.0f);
 
-        for (int i = 0; i < settings.octaves; i++) {
-            const float offsetX = dist(rng) + settings.offset.x;
-            const float offsetY = dist(rng) + settings.offset.y;
-            octaveOffsets[i] = glm::vec2(offsetX, offsetY);
-        }
+        FastNoiseLite noise;
+        noise.SetSeed(seed);
+        noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+        noise.SetFractalType(FastNoiseLite::FractalType_FBm);
+        noise.SetFractalOctaves(settings.octaves);
+        noise.SetFractalLacunarity(settings.lacunarity);
+        noise.SetFractalGain(settings.persistence);
+
+        const float halfWidth = width / 2.0f;
+        const float halfHeight = height / 2.0f;
+        const float invScale = 1.0f / settings.scale;
 
         float maxHeight = std::numeric_limits<float>::lowest();
         float minHeight = std::numeric_limits<float>::max();
 
         for (uint32_t y = 0; y < height; y++) {
             for (uint32_t x = 0; x < width; x++) {
-                float amplitude = 1.0f;
-                float frequency = 1.0f;
-                float noiseHeight = 0.0f;
+                const float sampleX = (x - halfWidth) * invScale + settings.offset.x;
+                const float sampleY = (y - halfHeight) * invScale + settings.offset.y;
 
-                // Accumulate noise from each octave
-                for (int i = 0; i < settings.octaves; i++) {
-                    const float sampleX = (x - width / 2.0f) / settings.scale * frequency + octaveOffsets[i].x;
-                    const float sampleY = (y - height / 2.0f) / settings.scale * frequency + octaveOffsets[i].y;
-
-                    const float perlinValue = perlin(glm::vec2(sampleX, sampleY)) * 2.0f - 1.0f;
-                    noiseHeight += perlinValue * amplitude;
-
-                    amplitude *= settings.persistence;
-                    frequency *= settings.lacunarity;
-                }
-
+                const float noiseHeight = noise.GetNoise(sampleX, sampleY);
                 heightData[y * width + x] = noiseHeight;
 
                 maxHeight = std::max(maxHeight, noiseHeight);
@@ -78,16 +71,36 @@ public:
     {
         std::vector<float> noiseData(width * height);
 
+        FastNoiseLite noise;
+        noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
+        noise.SetSeed(seed);
+        noise.SetFrequency(1.0f);
+
+        const float invScale = 1.0f / scale;
+
         for (uint32_t y = 0; y < height; y++) {
             for (uint32_t x = 0; x < width; x++) {
+                noiseData[y * width + x] = noise.GetNoise(x * invScale, y * invScale);
+            }
+        }
 
-                const float xPos = x * 0.01f;
-                const float yPos = y * 0.01f;
-                glm::vec2 sample = {xPos, yPos};
-                const double perlin = glm::perlin(sample);
-                const double simplex = glm::simplex(sample);
+        return noiseData;
+    }
 
-                noiseData[y * width + x] = perlin;
+    static std::vector<float> generateRawSimplexNoise(const uint32_t width, const uint32_t height, const uint32_t seed = 123456u, const float scale = 50.0f)
+    {
+        std::vector<float> noiseData(width * height);
+
+        FastNoiseLite noise;
+        noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2S);
+        noise.SetSeed(seed);
+        noise.SetFrequency(1.0f);
+
+        const float invScale = 1.0f / scale;
+
+        for (uint32_t y = 0; y < height; y++) {
+            for (uint32_t x = 0; x < width; x++) {
+                noiseData[y * width + x] = noise.GetNoise(x * invScale, y * invScale);
             }
         }
 

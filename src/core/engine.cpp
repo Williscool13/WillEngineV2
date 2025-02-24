@@ -172,15 +172,15 @@ void Engine::init()
     profiler.addTimer("3Total");
 
     NoiseSettings settings{
-        .scale = 100.0f,        // Increase this to "zoom in"
-        .persistence = 0.5f,    // Keep this
-        .lacunarity = 2.0f,     // Keep this
-        .octaves = 6,          // Keep this
+        .scale = 100.0f,
+        .persistence = 0.5f,
+        .lacunarity = 2.0f,
+        .octaves = 4,
         .offset = {0.0f, 0.0f},
-        .heightScale = 50.0f
+        .heightScale = 1.0f
     };
-    //heightMapData = HeightmapUtil::generateFromNoise(512, 512, 13, settings);
-    heightMapData = HeightmapUtil::generateRawPerlinNoise(512, 512);
+    heightMapData = HeightmapUtil::generateFromNoise(512, 512, 13, settings);
+    //heightMapData = HeightmapUtil::generateRawPerlinNoise(512, 512);
     heightMap = HeightmapUtil::createHeightmapImage(*resourceManager, heightMapData, 512, 512);
 
     const auto end = std::chrono::system_clock::now();
@@ -248,7 +248,6 @@ void Engine::initGame()
     file::scanForModels(renderObjectInfoMap);
     camera = new FreeCamera();
     Serializer::deserializeScene(scene->getRoot(), camera, file::getSampleScene().string());
-
 }
 
 void Engine::run()

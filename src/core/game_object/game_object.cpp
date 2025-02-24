@@ -418,7 +418,11 @@ void GameObject::selectedRenderImgui()
     if (ImGui::Begin("Game Object")) {
         if (ImGui::BeginTabBar("Data")) {
             if (ImGui::BeginTabItem("Properties")) {
-                ImGui::Text("Name: %s", getName().data());
+                static char gameObjectName[256] = "";
+                if (ImGui::InputText("GmaeObject Name", gameObjectName, sizeof(gameObjectName))) {
+                    // ReSharper disable once CppDFAUnusedValue
+                    this->gameObjectName = gameObjectName;
+                }
                 ImGui::Separator();
 
                 // ITransformable
