@@ -45,11 +45,11 @@ static std::filesystem::path getRelativePath(const std::filesystem::path& fullPa
     if (fullPath.empty()) return "";
 
     std::error_code ec;
-    auto relPath = relative(fullPath, std::filesystem::current_path(), ec);
+    auto relPath = relative(fullPath, std::filesystem::current_path() / "assets", ec);
 
     if (ec) return fullPath.string();
 
-    return relPath;
+    return "assets" / relPath;
 }
 
 static std::vector<std::filesystem::path> findWillmodels(const std::filesystem::path& dir)
