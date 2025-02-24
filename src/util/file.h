@@ -11,7 +11,7 @@
 
 namespace will_engine::file
 {
-static const std::filesystem::path imagesSavePath = std::filesystem::current_path() / "images";
+static const std::filesystem::path imagesSavePath = std::filesystem::current_path() / "assets" / "images";
 
 static bool getOrCreateDirectory(const std::filesystem::path& path)
 {
