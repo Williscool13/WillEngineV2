@@ -418,11 +418,7 @@ void GameObject::selectedRenderImgui()
     if (ImGui::Begin("Game Object")) {
         if (ImGui::BeginTabBar("Data")) {
             if (ImGui::BeginTabItem("Properties")) {
-                static char gameObjectName[256] = "";
-                if (ImGui::InputText("GmaeObject Name", gameObjectName, sizeof(gameObjectName))) {
-                    // ReSharper disable once CppDFAUnusedValue
-                    this->gameObjectName = gameObjectName;
-                }
+                ImGui::InputText("GameObject Name", &gameObjectName[0], gameObjectName.capacity() + 1);
                 ImGui::Separator();
 
                 // ITransformable
@@ -491,11 +487,7 @@ void GameObject::selectedRenderImgui()
 
                 components::Component* componentToDestroy{nullptr};
                 for (auto& component : components) {
-                    auto componentName = std::string(component->getComponentName());
-                    if (componentName.empty()) {
-                        componentName = "<unnamed>";
-                    }
-
+                    std::string& componentName = component->getComponentNameRef();
                     ImGui::PushID(component.get());
 
                     ImGui::Text("%s:", component->getComponentType().data());
@@ -509,23 +501,16 @@ void GameObject::selectedRenderImgui()
 
                     ImGui::SameLine();
 
-                    static char objectName[256] = "";
 
                     const char* componentType = component->getComponentType().data();
                     if (ImGui::Button(componentName.c_str(), ImVec2(-1, 0))) {
-                        component->openRenderImgui();
-                        strncpy_s(objectName, sizeof(objectName), componentName.c_str(), _TRUNCATE);
                         ImGui::OpenPopup(componentType);
                     }
 
 
                     ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0.75f, 0.75f, 0.75f, 1.0f)); // Dark gray
                     if (ImGui::BeginPopupModal(componentType, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                        if (ImGui::InputText("Component Name", objectName, sizeof(objectName))) {
-                            // ReSharper disable once CppDFAUnusedValue
-                            componentName = objectName;
-                        }
-                        component->setComponentName(objectName);
+                        ImGui::InputText("Component Name", &componentName[0], componentName.capacity() + 1);
                         ImGui::Separator();
 
                         component->updateRenderImgui();
@@ -564,6 +549,7 @@ void GameObject::selectedRenderImgui()
             ImGui::EndTabBar();
         }
     }
+
     ImGui::End();
 }
 }

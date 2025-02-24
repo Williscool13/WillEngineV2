@@ -264,7 +264,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "heightMap.png";
                         auto noiseNormalization = [](const float value) {
-                            return value / 100.0f;
+                            return value;
                         };
                         vk_helpers::saveImageR32F(*engine->resourceManager, *engine->immediate, engine->heightMap,
                                                   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), noiseNormalization);

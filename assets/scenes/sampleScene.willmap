@@ -6,7 +6,7 @@
     },
     "metadata": {
         "name": "Test Scene",
-        "created": "2025-02-24 20:13:53",
+        "created": "2025-02-24 20:21:52",
         "formatVersion": 1
     },
     "gameObjects": {
@@ -33,7 +33,7 @@
         "children": [
             {
                 "id": 5,
-                "name": "GameObject_5",
+                "name": "Floor\u0000dsat44",
                 "transform": {
                     "position": {
                         "x": 0.0,
@@ -78,11 +78,11 @@
             },
             {
                 "id": 6,
-                "name": "GameObject_6",
+                "name": "Shiny Orb\u0000_6",
                 "transform": {
                     "position": {
                         "x": 0.0,
-                        "y": -1.502246682605346e-08,
+                        "y": -1.5035187317380405e-08,
                         "z": 0.0
                     },
                     "rotation": {
@@ -123,7 +123,7 @@
             },
             {
                 "id": 7,
-                "name": "GameObject_7",
+                "name": "Floating Orb",
                 "transform": {
                     "position": {
                         "x": 0.0,
@@ -168,17 +168,17 @@
             },
             {
                 "id": 8,
-                "name": "GameObject_8",
+                "name": "Cube\u0000ing Orb",
                 "transform": {
                     "position": {
-                        "x": -4.700000286102295,
-                        "y": -7.782015387647334e-08,
-                        "z": -0.5999990701675415
+                        "x": -4.700015544891357,
+                        "y": -7.541946445144276e-08,
+                        "z": -0.5998769998550415
                     },
                     "rotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
+                        "x": -1.1127339050176488e-09,
+                        "y": -6.267994649533648e-06,
+                        "z": 3.4724470521219075e-10,
                         "w": 1.0
                     },
                     "scale": {

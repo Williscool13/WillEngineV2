@@ -600,7 +600,7 @@ void Engine::draw(float deltaTime)
 void Engine::cleanup()
 {
     fmt::print("----------------------------------------\n");
-    fmt::print("Cleaning up {}n", ENGINE_NAME);
+    fmt::print("Cleaning up {}\n", ENGINE_NAME);
 
     vkDeviceWaitIdle(context->device);
 
