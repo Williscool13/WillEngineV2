@@ -5,8 +5,10 @@
 #ifndef TERRAIN_TYPES_H
 #define TERRAIN_TYPES_H
 #include <cstdint>
+#include <glm/glm.hpp>
 
-
+namespace will_engine::terrain
+{
 struct TerrainConfig
 {
     uint32_t width = 128;
@@ -21,5 +23,12 @@ struct TerrainRenderData
     uint32_t materialId;
 };
 
+struct TerrainVertex
+{
+    glm::vec3 position;
+    glm::vec3 normal;
+    glm::vec2 uv;
+};
+}
 
 #endif //TERRAIN_TYPES_H

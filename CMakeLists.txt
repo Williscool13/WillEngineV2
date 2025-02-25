@@ -228,6 +228,10 @@ set(TEMP_SOURCES
         src/renderer/terrain/terrain_types.h
         src/util/heightmap_utils.h
         src/util/noise_utils.h
+        src/renderer/terrain/terrain_chunk.cpp
+        src/renderer/terrain/terrain_chunk.h
+        src/renderer/pipelines/terrain/terrain_pipeline.cpp
+        src/renderer/pipelines/terrain/terrain_pipeline.h
 
 )
 
