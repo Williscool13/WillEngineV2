@@ -316,9 +316,12 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
         equiImage = resourceManager.createImage(imageData, width * height * 4 * sizeof(float), VkExtent3D{static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1},
                                                 VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, true);
         stbi_image_free(imageData);
-    } else {
-        fmt::print("Failed to load Equirectangular Image ({})\n", path);
     }
+    else {
+        fmt::print("Failed to load Equirectangular Image ({})\n", path);
+        return;
+    }
+
     if (equiImage.imageExtent.width % 4 != 0 || equiImage.imageExtent.width / 4 != CUBEMAP_RESOLUTION) {
         fmt::print("Dimensions of the equirectangular image is incorrect. Failed to load environment map ({})", path);
         return;
