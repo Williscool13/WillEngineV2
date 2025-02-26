@@ -186,10 +186,10 @@ void Engine::init()
 
     //terrain::TerrainChunk test{*resourceManager, {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}, 4, 4};
 
-    for (auto v : test.getIndices()) {
-        fmt::print("{}, ", v);
-    }
-    fmt::print("\n");
+    // for (auto v : test.getIndices()) {
+    //     fmt::print("{}, ", v);
+    // }
+    // fmt::print("\n");
 
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
