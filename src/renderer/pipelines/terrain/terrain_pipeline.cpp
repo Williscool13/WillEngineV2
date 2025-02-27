@@ -7,10 +7,25 @@
 #include <volk/volk.h>
 
 #include "src/renderer/renderer_constants.h"
+#include "src/renderer/terrain/terrain_chunk.h"
 #include "src/renderer/terrain/terrain_types.h"
 
 will_engine::terrain::TerrainPipeline::TerrainPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
-{}
+{
+    VkDescriptorSetLayout descriptorLayout[1];
+    descriptorLayout[0] = resourceManager.getSceneDataLayout();
+
+    VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
+    layoutInfo.pSetLayouts = descriptorLayout;
+    layoutInfo.pNext = nullptr;
+    layoutInfo.setLayoutCount = 1;
+    layoutInfo.pPushConstantRanges = nullptr;
+    layoutInfo.pushConstantRangeCount = 0;
+
+    pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+
+    createPipeline();
+}
 
 will_engine::terrain::TerrainPipeline::~TerrainPipeline()
 {
@@ -72,32 +87,21 @@ void will_engine::terrain::TerrainPipeline::draw(VkCommandBuffer cmd, const Terr
 
     constexpr VkDeviceSize zeroOffset{0};
 
-    // for terrain chunk : chunks { draw }
-    // for (RenderObject* val : drawInfo.renderObjects | std::views::values) {
-    //     const RenderObject* renderObject = val;
-    //     if (!renderObject->canDraw()) { continue; }
-    //
-    //     constexpr uint32_t sceneDataIndex{0};
-    //     constexpr uint32_t addressIndex{1};
-    //     constexpr uint32_t texturesIndex{2};
-    //
-    //     VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[3];
-    //     descriptorBufferBindingInfo[0] = drawInfo.sceneDataBinding;
-    //     descriptorBufferBindingInfo[1] = renderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
-    //     descriptorBufferBindingInfo[2] = renderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
-    //     vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptorBufferBindingInfo);
-    //
-    //     const VkDeviceSize sceneDataOffset{drawInfo.sceneDataOffset};
-    //     const VkDeviceSize addressOffset{renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap};
-    //
-    //     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);
-    //     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &addressIndex, &addressOffset);
-    //     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &texturesIndex, &zeroOffset);
-    //
-    //     vkCmdBindVertexBuffers(cmd, 0, 1, &renderObject->getVertexBuffer().buffer, &zeroOffset);
-    //     vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-    //     vkCmdDrawIndexedIndirect(cmd, renderObject->getIndirectBuffer(drawInfo.currentFrameOverlap).buffer, 0, renderObject->getDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
-    // }
+    for (TerrainChunk* chunk : drawInfo.chunks) {
+        constexpr uint32_t sceneDataIndex{0};
+
+        VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1];
+        descriptorBufferBindingInfo[0] = drawInfo.sceneDataBinding;
+        vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
+
+        const VkDeviceSize sceneDataOffset{drawInfo.sceneDataOffset};
+
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);
+
+        vkCmdBindVertexBuffers(cmd, 0, 1, &chunk->getVertexBuffer().buffer, &zeroOffset);
+        vkCmdBindIndexBuffer(cmd, chunk->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(cmd, chunk->getIndexCount(), 1, 0, 0, 0);
+    }
 
     vkCmdEndRendering(cmd);
 
@@ -121,19 +125,19 @@ void will_engine::terrain::TerrainPipeline::createPipeline()
     vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
     vertexAttributes[0].offset = offsetof(TerrainVertex, position);
     vertexAttributes[1].binding = 0;
-    vertexAttributes[1].location = 0;
+    vertexAttributes[1].location = 1;
     vertexAttributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
     vertexAttributes[1].offset = offsetof(TerrainVertex, normal);
     vertexAttributes[2].binding = 0;
-    vertexAttributes[2].location = 0;
-    vertexAttributes[2].format = VK_FORMAT_R32G32B32_SFLOAT;
+    vertexAttributes[2].location = 2;
+    vertexAttributes[2].format = VK_FORMAT_R32G32_SFLOAT;
     vertexAttributes[2].offset = offsetof(TerrainVertex, uv);
 
-    pipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 1);
+    pipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 3);
 
     pipelineBuilder.setShaders(vertShader, fragShader);
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, true);
-    pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+    pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     pipelineBuilder.disableMultisampling();
     pipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);

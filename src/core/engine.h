@@ -25,6 +25,13 @@ class VulkanContext;
 
 namespace will_engine
 {
+namespace terrain
+{
+    class TerrainChunk;
+    class TerrainPipeline;
+    class TerrainManager;
+}
+
 namespace identifier
 {
     class IdentifierManager;
@@ -114,9 +121,10 @@ public:
 public: // TEMP
     std::vector<float> heightMapData;
     AllocatedImage heightMap;
+    terrain::TerrainChunk* mainTerrainChunk;
 
 public:
-    IHierarchical* createGameObject(const std::string& name) const;
+    [[nodiscard]] IHierarchical* createGameObject(const std::string& name) const;
     void addToBeginQueue(IHierarchical* obj);
     void addToDeletionQueue(IHierarchical* obj);
 
@@ -132,6 +140,7 @@ private:
     identifier::IdentifierManager* identifierManager = nullptr;
     environment::Environment* environmentMap{nullptr};
     cascaded_shadows::CascadedShadowMap* cascadedShadowMap{nullptr};
+    terrain::TerrainManager* terrainManager{nullptr};
     ImguiWrapper* imguiWrapper = nullptr;
 
     Profiler startupProfiler{};
@@ -177,6 +186,7 @@ private: // Scene Data
 private: // Pipelines
     visibility_pass::VisibilityPassPipeline* visibilityPassPipeline{nullptr};
     environment_pipeline::EnvironmentPipeline* environmentPipeline{nullptr};
+    terrain::TerrainPipeline* terrainPipeline{nullptr};
     deferred_mrt::DeferredMrtPipeline* deferredMrtPipeline{nullptr};
     deferred_resolve::DeferredResolvePipeline* deferredResolvePipeline{nullptr};
     temporal_antialiasing_pipeline::TemporalAntialiasingPipeline* temporalAntialiasingPipeline{nullptr};
