@@ -23,6 +23,10 @@ public:
     static glm::vec3 calculateNormal(int32_t x, int32_t z, int32_t width, int32_t height, const std::vector<float>& heightData);
 
 public:
+    [[nodiscard]] const AllocatedBuffer& getVertexBuffer() const { return vertexBuffer; }
+    [[nodiscard]] const AllocatedBuffer& getIndexBuffer() const { return indexBuffer; }
+
+    [[nodiscard]] size_t getIndexCount() const { return indices.size(); }
     const std::vector<uint32_t>& getIndices() { return indices; }
 
 private:

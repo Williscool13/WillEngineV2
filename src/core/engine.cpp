@@ -33,7 +33,9 @@
 #include "src/renderer/pipelines/visibility_pass/visibility_pass.h"
 #include "src/renderer/pipelines/post_process/post_process_pipeline.h"
 #include "src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h"
+#include "src/renderer/pipelines/terrain/terrain_pipeline.h"
 #include "src/renderer/terrain/terrain_chunk.h"
+#include "src/renderer/terrain/terrain_manager.h"
 #include "src/util/file.h"
 #include "src/util/halton.h"
 #include "src/util/heightmap_utils.h"
@@ -178,18 +180,13 @@ void Engine::init()
         .lacunarity = 2.0f,
         .octaves = 4,
         .offset = {0.0f, 0.0f},
-        .heightScale = 1.0f
+        .heightScale = 50.0f
     };
     heightMapData = HeightmapUtil::generateFromNoise(512, 512, 13, settings);
     //heightMapData = HeightmapUtil::generateRawPerlinNoise(512, 512);
     heightMap = HeightmapUtil::createHeightmapImage(*resourceManager, heightMapData, 512, 512);
 
-    //terrain::TerrainChunk test{*resourceManager, {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15}, 4, 4};
-
-    // for (auto v : test.getIndices()) {
-    //     fmt::print("{}, ", v);
-    // }
-    // fmt::print("\n");
+    mainTerrainChunk = new terrain::TerrainChunk(*resourceManager, heightMapData, 512, 512);
 
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -213,6 +210,7 @@ void Engine::initRenderer()
 
     visibilityPassPipeline = new visibility_pass::VisibilityPassPipeline(*resourceManager);
     environmentPipeline = new environment_pipeline::EnvironmentPipeline(*resourceManager, environmentMap->getCubemapDescriptorSetLayout());
+    terrainPipeline = new terrain::TerrainPipeline(*resourceManager);
     deferredMrtPipeline = new deferred_mrt::DeferredMrtPipeline(*resourceManager);
     deferredResolvePipeline = new deferred_resolve::DeferredResolvePipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
                                                                             cascadedShadowMap->getCascadedShadowMapUniformLayout(), cascadedShadowMap->getCascadedShadowMapSamplerLayout());
@@ -482,8 +480,23 @@ void Engine::draw(float deltaTime)
     };
     visibilityPassPipeline->draw(cmd, deferredFrustumCullDrawInfo);
 
-    const deferred_mrt::DeferredMrtDrawInfo deferredMrtDrawInfo{
+    terrain::TerrainDrawInfo terrainDrawInfo{
         true,
+        currentFrameOverlap,
+        {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT},
+        {mainTerrainChunk},
+        normalRenderTarget.imageView,
+        albedoRenderTarget.imageView,
+        pbrRenderTarget.imageView,
+        velocityRenderTarget.imageView,
+        depthImage.imageView,
+        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
+    };
+    terrainPipeline->draw(cmd, terrainDrawInfo);
+
+    const deferred_mrt::DeferredMrtDrawInfo deferredMrtDrawInfo{
+        false,
         currentFrameOverlap,
         {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT},
         renderObjectMap,
@@ -614,10 +627,13 @@ void Engine::cleanup()
 
     delete visibilityPassPipeline;
     delete environmentPipeline;
+    delete terrainPipeline;
     delete deferredMrtPipeline;
     delete deferredResolvePipeline;
     delete temporalAntialiasingPipeline;
     delete postProcessPipeline;
+
+    delete mainTerrainChunk;
 
     resourceManager->destroyImage(heightMap);
 
@@ -886,6 +902,7 @@ void Engine::hotReloadShaders() const
     vkDeviceWaitIdle(context->device);
     visibilityPassPipeline->reloadShaders();
     environmentPipeline->reloadShaders();
+    terrainPipeline->reloadShaders();
     deferredMrtPipeline->reloadShaders();
     deferredResolvePipeline->reloadShaders();
     temporalAntialiasingPipeline->reloadShaders();

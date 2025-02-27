@@ -15,6 +15,8 @@ class TerrainManager {
     static void Set(TerrainManager* manager) { instance = manager; }
     static TerrainManager* instance;
 
+public:
+
     explicit TerrainManager(ResourceManager& resourceManager)
         : resourceManager(resourceManager) {}
 

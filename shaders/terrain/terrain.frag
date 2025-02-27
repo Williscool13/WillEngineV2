@@ -25,7 +25,7 @@ layout (location = 3) out vec2 velocityTarget;    // 16 X, 16 Y
 void main() {
 
     normalTarget = vec4(normalize(inNormal), 0.0f);
-    albedoTarget = vec4(inColor.xyz, 1.0f);
+    albedoTarget = vec4(vec3(dot(inNormal, vec3(0,1,0))), 1.0);
     pbrTarget = vec4(0.0f, 0.5f, 0.0f, 0.0f); // 0 metallic, 0.5 roughness
 
     vec2 currNdc = inCurrMvpPosition.xy / inCurrMvpPosition.w;
