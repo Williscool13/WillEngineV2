@@ -121,6 +121,8 @@ public:
 public: // TEMP
     std::vector<float> heightMapData;
     AllocatedImage heightMap;
+    JPH::ShapeRefC terrainShape;
+    JPH::BodyID terrainBodyId{JPH::BodyID::cMaxBodyIndex};
     terrain::TerrainChunk* mainTerrainChunk;
 
 public:

@@ -654,7 +654,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine, const Scene* scene)
     if (ImGui::Begin("Scene Graph")) {
         if (ImGui::Button("Create Game Object")) {
             static int32_t incrementId{0};
-            engine->createGameObject(fmt::format("New GameObject_{}", incrementId++));
+            [[maybe_unused]] IHierarchical* gameObject = engine->createGameObject(fmt::format("New GameObject_{}", incrementId++));
         }
         ImGui::Separator();
         if (sceneRoot != nullptr && !sceneRoot->getChildren().empty()) {
