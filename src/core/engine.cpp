@@ -9,6 +9,8 @@
 #include <vk-bootstrap/VkBootstrap.h>
 
 #include <Jolt/Jolt.h>
+#include <Jolt/Physics/Body/BodyCreationSettings.h>
+#include <Jolt/Physics/Collision/Shape/HeightFieldShape.h>
 
 #include "identifier/identifier_manager.h"
 #include "src/physics/physics_filters.h"
@@ -174,19 +176,48 @@ void Engine::init()
     profiler.addTimer("2Render");
     profiler.addTimer("3Total");
 
+    constexpr float terrainScale = 100.0f;
+    constexpr float terrainHeightScale = 50.0f;
     NoiseSettings settings{
-        .scale = 100.0f,
+        .scale = terrainScale,
         .persistence = 0.5f,
         .lacunarity = 2.0f,
         .octaves = 4,
         .offset = {0.0f, 0.0f},
-        .heightScale = 50.0f
+        .heightScale = terrainHeightScale
     };
     heightMapData = HeightmapUtil::generateFromNoise(512, 512, 13, settings);
-    //heightMapData = HeightmapUtil::generateRawPerlinNoise(512, 512);
     heightMap = HeightmapUtil::createHeightmapImage(*resourceManager, heightMapData, 512, 512);
-
     mainTerrainChunk = new terrain::TerrainChunk(*resourceManager, heightMapData, 512, 512);
+
+    physics::Physics* physics = physics::Physics::get();
+    constexpr float halfWidth = static_cast<float>(512 - 1) * 0.5f;
+    constexpr float halfHeight = static_cast<float>(512 - 1) * 0.5f;
+    JPH::HeightFieldShapeSettings heightFieldSettings{
+        heightMapData.data(),
+        JPH::Vec3(-halfWidth, 0.0f, -halfHeight),
+        JPH::Vec3(1.0f, 1.0f, 1.0f),
+        512,
+        {},
+
+    };
+    JPH::ShapeSettings::ShapeResult result = heightFieldSettings.Create();
+    if (!result.IsValid()) {
+        fmt::print("Failed to create terrain collision shape: {}\n", result.GetError());
+        assert(false);
+        return;
+    }
+
+    terrainShape = result.Get();
+    JPH::BodyCreationSettings bodySettings(
+        terrainShape,
+        physics::PhysicsUtils::toJolt(glm::vec3(0.0f)),
+        physics::PhysicsUtils::toJolt(glm::quat{1.0f, 0.0f, 0.0f, 0.0f}),
+        JPH::EMotionType::Static,
+        physics::Layers::TERRAIN
+    );
+
+    terrainBodyId = physics->getBodyInterface().CreateAndAddBody(bodySettings, JPH::EActivation::DontActivate);
 
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);

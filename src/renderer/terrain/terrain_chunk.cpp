@@ -50,7 +50,7 @@ void TerrainChunk::generateMesh(const int32_t width, const int32_t height, const
     vertices.reserve(width * height);
 
     const float halfWidth = static_cast<float>(width - 1) * 0.5f;
-    const float halfHeight = static_cast<float>((height - 1)) * 0.5f;
+    const float halfHeight = static_cast<float>(height - 1) * 0.5f;
 
     for (int32_t z = 0; z < height; z++) {
         for (int32_t x = 0; x < width; x++) {

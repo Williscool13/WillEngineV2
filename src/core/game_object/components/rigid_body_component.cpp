@@ -336,16 +336,16 @@ void RigidBodyComponent::updateRenderImgui()
     static auto motionType = JPH::EMotionType::Dynamic;
     const char* motionTypes[] = {"Static", "Kinematic", "Dynamic"};
     int currentType = static_cast<int>(motionType);
-    ImGui::Combo("Motion Type", &currentType, motionTypes, 3);
+    ImGui::Combo("(New) Motion Type", &currentType, motionTypes, 3);
     motionType = static_cast<JPH::EMotionType>(currentType);
     ImGui::SameLine();
     const char* layers[] = {"Non-Moving", "Moving", "Player", "Terrain"};
     static JPH::ObjectLayer layer = physics::Layers::MOVING;
     int currentLayer = layer;
-    ImGui::Combo("Layer", &currentLayer, layers, 4);
+    ImGui::Combo("(New) Layer", &currentLayer, layers, 4);
     layer = static_cast<JPH::ObjectLayer>(currentLayer);
 
-    if (ImGui::Button("Add Rigidbody")) {
+    if (ImGui::Button("(New) Add Rigidbody")) {
         JPH::EShapeSubType shapeType;
 
         switch (selectedShape) {
