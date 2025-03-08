@@ -7,7 +7,7 @@
 
 #include <filesystem>
 
-#include "src/core/scene/scene_serializer.h"
+#include "src/core/scene/serializer.h"
 
 namespace will_engine::file
 {
@@ -73,7 +73,8 @@ static void scanForModels(std::unordered_map<uint32_t, RenderObjectInfo>& render
         std::optional<RenderObjectInfo> modelMetadata = Serializer::loadWillModel(willModel);
         if (modelMetadata.has_value()) {
             renderObjectInfoMap[modelMetadata->id] = modelMetadata.value();
-        } else {
+        }
+        else {
             fmt::print("Failed to load render object, see previous error message\n");
         }
     }
@@ -81,8 +82,8 @@ static void scanForModels(std::unordered_map<uint32_t, RenderObjectInfo>& render
 
 static std::filesystem::path getSampleScene()
 {
-    const std::filesystem::path devSampleScenePath = "../assets/scenes/sampleScene.willmap";
-    const std::filesystem::path releaseSampleScenePath = "assets/scenes/sampleScene.willmap";
+    const std::filesystem::path devSampleScenePath = "../assets/maps/sampleScene.willmap";
+    const std::filesystem::path releaseSampleScenePath = "assets/maps/sampleScene.willmap";
 
     if (exists(devSampleScenePath)) {
         return devSampleScenePath;
@@ -94,6 +95,12 @@ static std::filesystem::path getSampleScene()
 
     fmt::print("Failed to find sample scene, perhaps assets folder wasn't copied?\n");
     throw std::runtime_error("Failed to find sample scene, perhaps assets folder wasn't copied?");
+}
+
+static uint32_t computePathHash(const std::filesystem::path& path)
+{
+    const std::string normalizedPath = path.lexically_normal().string();
+    return std::hash<std::string>{}(normalizedPath);
 }
 }
 
