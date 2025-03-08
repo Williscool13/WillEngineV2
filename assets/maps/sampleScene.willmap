@@ -1,0 +1,215 @@
+{
+    "version": {
+        "major": 0,
+        "minor": 1,
+        "patch": 0
+    },
+    "metadata": {
+        "name": "Test Scene",
+        "created": "2025-03-08 18:33:36",
+        "formatVersion": 1
+    },
+    "gameObjects": {
+        "name": "sampleScene.willmap",
+        "transform": {
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        "children": [
+            {
+                "id": 5,
+                "name": "Floor\u0000dsat44",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": -2.0,
+                        "z": 0.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 20.0,
+                        "y": 1.0,
+                        "z": 20.0
+                    }
+                },
+                "components": {
+                    "MeshRendererComponent": {
+                        "renderReference": -1165598379,
+                        "renderMeshIndex": 0,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "MeshRendererComponent"
+                    },
+                    "RigidBodyComponent": {
+                        "properties": {
+                            "isActive": true,
+                            "motionType": 0,
+                            "layer": 3,
+                            "shapeType": 1,
+                            "shapeParams": {
+                                "x": 20.0,
+                                "y": 1.0,
+                                "z": 20.0
+                            }
+                        },
+                        "componentName": "New RigidBodyComponent"
+                    }
+                }
+            },
+            {
+                "id": 6,
+                "name": "Shiny Orb\u0000_6",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": -1.5044792078811042e-08,
+                        "z": 0.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "components": {
+                    "MeshRendererComponent": {
+                        "renderReference": -569695456,
+                        "renderMeshIndex": 0,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "MeshRendererComponent"
+                    },
+                    "RigidBodyComponent": {
+                        "properties": {
+                            "isActive": true,
+                            "motionType": 2,
+                            "layer": 1,
+                            "shapeType": 0,
+                            "shapeParams": {
+                                "x": 1.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            }
+                        },
+                        "componentName": "New RigidBodyComponent"
+                    }
+                }
+            },
+            {
+                "id": 7,
+                "name": "Floating Orb",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": 4.5,
+                        "z": 0.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "components": {
+                    "MeshRendererComponent": {
+                        "renderReference": -1165598379,
+                        "renderMeshIndex": 5,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "MeshRendererComponent"
+                    },
+                    "RigidBodyComponent": {
+                        "properties": {
+                            "isActive": true,
+                            "motionType": 1,
+                            "layer": 1,
+                            "shapeType": 0,
+                            "shapeParams": {
+                                "x": 1.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            }
+                        },
+                        "componentName": "New RigidBodyComponent"
+                    }
+                }
+            },
+            {
+                "id": 8,
+                "name": "Cube\u0000ing Orb",
+                "transform": {
+                    "position": {
+                        "x": -4.700015544891357,
+                        "y": -7.559442138926897e-08,
+                        "z": -0.5998769998550415
+                    },
+                    "rotation": {
+                        "x": -1.1127339050176488e-09,
+                        "y": -6.267994649533648e-06,
+                        "z": 3.4724470521219075e-10,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "components": {
+                    "MeshRendererComponent": {
+                        "renderReference": -1165598379,
+                        "renderMeshIndex": 1,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "MeshRendererComponent"
+                    },
+                    "RigidBodyComponent": {
+                        "properties": {
+                            "isActive": true,
+                            "motionType": 2,
+                            "layer": 1,
+                            "shapeType": 1,
+                            "shapeParams": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentName": "New RigidBodyComponent"
+                    }
+                }
+            }
+        ]
+    }
+}
