@@ -10,7 +10,7 @@
 #include <glm/glm.hpp>
 
 #include "engine_types.h"
-#include "scene/scene_serializer.h"
+#include "scene/serializer.h"
 #include "src/core/profiler/profiler.h"
 #include "src/renderer/imgui_wrapper.h"
 #include "src/renderer/renderer_constants.h"
@@ -126,7 +126,7 @@ public: // TEMP
     terrain::TerrainChunk* mainTerrainChunk;
 
 public:
-    [[nodiscard]] IHierarchical* createGameObject(const std::string& name) const;
+    [[nodiscard]] IHierarchical* createGameObject(Map* map, const std::string& name) const;
     void addToBeginQueue(IHierarchical* obj);
     void addToDeletionQueue(IHierarchical* obj);
 
@@ -177,7 +177,7 @@ private: // Scene Data
     DirectionalLight mainLight{glm::normalize(glm::vec3(-0.8f, -0.6f, -0.6f)), 1.0f, glm::vec3(0.0f)};
     int32_t environmentMapIndex{0};
 
-    Scene* scene{nullptr};
+    std::vector<Map*> activeMaps;
 
     std::unordered_map<uint32_t, RenderObject*> renderObjectMap;
     std::unordered_map<uint32_t, RenderObjectInfo> renderObjectInfoMap;

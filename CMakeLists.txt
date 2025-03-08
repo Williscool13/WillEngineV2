@@ -82,8 +82,8 @@ set(ENGINE_SOURCES
         src/core/engine.h
         src/renderer/imgui_wrapper.h
         src/renderer/imgui_wrapper.cpp
-        src/core/scene/scene_serializer.cpp
-        src/core/scene/scene_serializer.h
+        src/core/scene/serializer.cpp
+        src/core/scene/serializer.h
 )
 set(CORE_SOURCES
         src/core/input.cpp
@@ -94,8 +94,6 @@ set(CORE_SOURCES
         src/core/engine_types.h
         src/core/transform.h
         src/core/transform.cpp
-        src/core/scene/scene.cpp
-        src/core/scene/scene.h
         src/core/identifier/identifier_manager.cpp
         src/core/identifier/identifier_manager.h
         src/core/game_object/game_object.h
@@ -232,6 +230,8 @@ set(TEMP_SOURCES
         src/renderer/terrain/terrain_chunk.h
         src/renderer/pipelines/terrain/terrain_pipeline.cpp
         src/renderer/pipelines/terrain/terrain_pipeline.h
+        src/core/scene/map.cpp
+        src/core/scene/map.h
 
 )
 

@@ -17,8 +17,7 @@
 
 #include "camera/free_camera.h"
 #include "game_object/game_object.h"
-#include "scene/scene.h"
-#include "scene/scene_serializer.h"
+#include "scene/serializer.h"
 #include "src/core/input.h"
 #include "src/core/time.h"
 #include "src/physics/physics.h"
@@ -37,7 +36,6 @@
 #include "src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h"
 #include "src/renderer/pipelines/terrain/terrain_pipeline.h"
 #include "src/renderer/terrain/terrain_chunk.h"
-#include "src/renderer/terrain/terrain_manager.h"
 #include "src/util/file.h"
 #include "src/util/halton.h"
 #include "src/util/heightmap_utils.h"
@@ -280,11 +278,11 @@ void Engine::initRenderer()
 
 void Engine::initGame()
 {
-    const auto sceneRoot = new GameObject("Scene Root");
-    scene = new Scene(sceneRoot);
     file::scanForModels(renderObjectInfoMap);
     camera = new FreeCamera();
-    Serializer::deserializeScene(scene->getRoot(), camera, file::getSampleScene().string());
+    const auto map = new Map(file::getSampleScene());
+    map->loadMap();
+    activeMaps.push_back(map);
 }
 
 void Engine::run()
@@ -373,7 +371,9 @@ void Engine::updateGame(const float deltaTime)
     }
     hierarchalBeginQueue.clear();
 
-    scene->update(deltaTime);
+    for (Map* map : activeMaps) {
+        map->update(deltaTime);
+    }
 
     for (IHierarchical* hierarchical : hierarchicalDeletionQueue) {
         hierarchical->beginDestroy();
@@ -695,7 +695,17 @@ void Engine::cleanup()
     resourceManager->destroyImage(historyBuffer);
     resourceManager->destroyImage(postProcessOutputBuffer);
 
-    delete scene;
+    for (Map* map : activeMaps) {
+        map->destroy();
+        delete map;
+    }
+    activeMaps.clear();
+
+    for (IHierarchical* hierarchal : hierarchalBeginQueue) {
+        hierarchal->beginPlay();
+    }
+    hierarchalBeginQueue.clear();
+
 
     for (const std::pair<uint32_t, RenderObject*> renderObject : renderObjectMap) {
         delete renderObject.second;
@@ -719,10 +729,10 @@ void Engine::cleanup()
     SDL_DestroyWindow(window);
 }
 
-IHierarchical* Engine::createGameObject(const std::string& name) const
+IHierarchical* Engine::createGameObject(Map* map, const std::string& name) const
 {
     const auto newGameObject = new GameObject(name);
-    scene->addGameObject(newGameObject);
+    map->addGameObject(newGameObject);
     return newGameObject;
 }
 

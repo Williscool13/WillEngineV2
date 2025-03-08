@@ -8,6 +8,7 @@
 #include <json/json.hpp>
 
 
+#include "map.h"
 #include "src/core/transform.h"
 #include "src/core/camera/camera.h"
 #include "src/core/game_object/game_object.h"
@@ -215,10 +216,10 @@ public: // GameObjects
         }
     }
 
-    static bool serializeScene(IHierarchical* sceneRoot, Camera* camera, const std::string& filepath)
+    static bool serializeMap(Map* map, const std::filesystem::path& filepath)
     {
-        if (sceneRoot == nullptr) {
-            fmt::print("Warning: Scene root is null\n");
+        if (map == nullptr) {
+            fmt::print("Warning: map is null\n");
             return false;
         }
 
@@ -230,10 +231,8 @@ public: // GameObjects
         ordered_json gameObjectJ;
         ordered_json renderObjectJ;
 
-        serializeGameObject(gameObjectJ, sceneRoot);
+        serializeGameObject(gameObjectJ, map);
         rootJ["gameObjects"] = gameObjectJ;
-
-        rootJ["camera"] = camera->getTransform();
 
         std::ofstream file(filepath);
         file << rootJ.dump(4);
@@ -299,43 +298,13 @@ public: // GameObjects
         return gameObject;
     }
 
-    static bool deserializeScene(IHierarchical* root, Camera* camera, const std::string& filepath)
+    static bool deserializeMap(IHierarchical* root, ordered_json& rootJ)
     {
-        std::ifstream file(filepath);
-        if (!file.is_open()) {
-            fmt::print("Failed to open scene file: {}\n", filepath);
-            return false;
-        }
-
-        ordered_json rootJ;
-        try {
-            file >> rootJ;
-        } catch (const std::exception& e) {
-            fmt::print("Failed to parse scene file: {}\n", e.what());
-            return false;
-        }
-
-        if (!rootJ.contains("version")) {
-            fmt::print("Scene file missing version information\n");
-            return false;
-        }
-
-        const auto fileVersion = rootJ["version"].get<EngineVersion>();
-        if (fileVersion > EngineVersion::current()) {
-            fmt::print("Scene file version {} is newer than current engine version {}\n", fileVersion.toString(), EngineVersion::current().toString());
-            return false;
-        }
-
         if (rootJ.contains("gameObjects")) {
             for (auto child : rootJ["gameObjects"]["children"]) {
                 IHierarchical* childObject = deserializeGameObject(child, root);
                 root->addChild(childObject);
             }
-        }
-
-        if (rootJ.contains("camera")) {
-            auto transform = rootJ["camera"].get<Transform>();
-            camera->setCameraTransform(transform.getPosition(), transform.getRotation());
         }
 
         return true;

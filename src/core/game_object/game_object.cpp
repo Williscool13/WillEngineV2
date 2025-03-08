@@ -33,16 +33,13 @@ GameObject::GameObject(std::string gameObjectName, const uint64_t gameObjectId)
 
 GameObject::~GameObject()
 {
-    for (int32_t i = children.size() - 1; i >= 0; --i) {
-        delete children[i];
+    if (!children.empty()) {
+        fmt::print("Error: GameObject destroyed with children, potentially not destroyed with ::destroy. This will result in orphaned children and null references");
     }
 
     if (parent) {
-        parent->removeChild(this);
-        parent = nullptr;
+        fmt::print("Error: GameObject destroyed with a parent, potentially not destroyed with ::destroy. This will result in orphaned children and null references");
     }
-
-    children.clear();
 }
 
 void GameObject::destroy()
