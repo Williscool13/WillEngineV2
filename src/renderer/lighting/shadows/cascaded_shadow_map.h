@@ -76,7 +76,14 @@ public:
     const DescriptorBufferUniform& getCascadedShadowMapUniformBuffer() const { return cascadedShadowMapDescriptorBufferUniform; }
     const DescriptorBufferSampler& getCascadedShadowMapSamplerBuffer() const { return cascadedShadowMapDescriptorBufferSampler; }
 
+    void reloadShaders()
+    {
+        createRenderObjectPipeline();
+        createTerrainPipeline();
+    }
+
 public: // Debug
+
     AllocatedImage getShadowMap(const int32_t cascadeLevel) const
     {
         if (cascadeLevel >= shadows::SHADOW_CASCADE_COUNT || cascadeLevel < 0) {

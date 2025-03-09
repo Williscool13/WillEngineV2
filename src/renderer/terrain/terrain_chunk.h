@@ -27,6 +27,8 @@ public:
 
     static glm::vec3 calculateNormal(int32_t x, int32_t z, int32_t width, int32_t height, const std::vector<float>& heightData);
 
+    static void smoothNormals(std::vector<TerrainVertex>& vertices, int32_t width, int32_t height);
+
 public:
     [[nodiscard]] const AllocatedBuffer& getVertexBuffer() const { return vertexBuffer; }
     [[nodiscard]] const AllocatedBuffer& getIndexBuffer() const { return indexBuffer; }

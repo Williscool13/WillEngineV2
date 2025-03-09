@@ -34,6 +34,8 @@ public:
 
     static void handleInput(const SDL_Event& e);
 
+    void selectMap(Map* newMap);
+
     void imguiInterface(Engine* engine);
 
     void drawSceneGraph(Engine* engine);
@@ -64,6 +66,9 @@ private:
 
     IHierarchical* selectedItem{nullptr};
     Map* selectedMap{nullptr};
+
+    NoiseSettings terrainProperties{};
+    uint32_t terrainSeed{13};
 };
 }
 
