@@ -375,6 +375,14 @@ void Engine::updateGame(const float deltaTime)
         map->update(deltaTime);
     }
 
+    for (Map* map : mapDeletionQueue) {
+        std::erase(activeMaps, map);
+        map->beginDestroy();
+        delete map;
+    }
+
+    mapDeletionQueue.clear();
+
     for (IHierarchical* hierarchical : hierarchicalDeletionQueue) {
         hierarchical->beginDestroy();
         delete hierarchical;
@@ -748,6 +756,11 @@ void Engine::addToDeletionQueue(IHierarchical* obj)
         hierarchalBeginQueue.erase(found);
     }
     hierarchicalDeletionQueue.push_back(obj);
+}
+
+void Engine::addToDeletionQueue(Map* map)
+{
+    mapDeletionQueue.push_back(map);
 }
 
 RenderObject* Engine::getRenderObject(const uint32_t renderRefIndex)

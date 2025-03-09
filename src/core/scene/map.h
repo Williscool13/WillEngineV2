@@ -23,8 +23,6 @@ public:
 
     void destroy() override;
 
-
-
     bool loadMap();
 
     bool saveMap(const std::filesystem::path& newSavePath = {});
@@ -33,8 +31,10 @@ public:
 
     void addGameObject(IHierarchical* newChild);
 
+#pragma region Interfaces
+
 public: // IHierarchical
-    void beginPlay() override;
+    void beginPlay() override {};
 
     /**
      * Updates all gameobjects under this map
@@ -42,7 +42,7 @@ public: // IHierarchical
      */
     void update(float deltaTime) override;
 
-    void beginDestroy() override;
+    void beginDestroy() override {};
 
     bool addChild(IHierarchical* child) override;
 
@@ -132,6 +132,8 @@ private: // ITransformable
     Transform transform{};
     Transform cachedGlobalTransform{};
     bool bIsGlobalTransformDirty{true};
+
+#pragma endregion
 
 private:
     std::filesystem::path mapSource{};
