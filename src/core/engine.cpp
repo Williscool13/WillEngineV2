@@ -908,6 +908,7 @@ void Engine::createDrawResources()
 void Engine::hotReloadShaders() const
 {
     vkDeviceWaitIdle(context->device);
+    cascadedShadowMap->reloadShaders();
     visibilityPassPipeline->reloadShaders();
     environmentPipeline->reloadShaders();
     terrainPipeline->reloadShaders();

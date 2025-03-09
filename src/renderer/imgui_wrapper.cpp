@@ -93,6 +93,14 @@ void ImguiWrapper::handleInput(const SDL_Event& e)
     ImGui_ImplSDL3_ProcessEvent(&e);
 }
 
+void ImguiWrapper::selectMap(Map* newMap) {
+    selectedMap = newMap;
+    if (selectedMap) {
+        terrainProperties = selectedMap->getTerrainProperties();
+        terrainSeed = selectedMap->getSeed();
+    }
+}
+
 void ImguiWrapper::imguiInterface(Engine* engine)
 {
     ImGui_ImplVulkan_NewFrame();
@@ -379,7 +387,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
             IGFD::FileDialog::Instance()->Close();
         }
-        ImGui::SameLine();
 
         bool alreadyExistsInActiveMaps{false};
         for (Map* map : engine->activeMaps) {
@@ -388,6 +395,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 break;
             }
         }
+        ImGui::SameLine();
         ImGui::BeginDisabled(alreadyExistsInActiveMaps);
         if (ImGui::Button("Load")) {
             file::scanForModels(engine->renderObjectInfoMap);
@@ -396,41 +404,41 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 auto map = new Map(mapPath, *engine->resourceManager);
                 engine->activeMaps.push_back(map);
                 engine->activeTerrains.push_back(map);
-                selectedMap = map;
+                selectMap(map);
             }
             else {
                 auto newMap = new Map(mapPath, *engine->resourceManager);
                 engine->activeMaps.push_back(newMap);
                 engine->activeTerrains.push_back(newMap);
-                selectedMap = newMap;
+                selectMap(newMap);
             }
         }
         ImGui::EndDisabled();
 
-        ImGui::Separator();
-        if (selectedMap) {
-            const float width = ImGui::GetContentRegionAvail().x;
-            if (ImGui::Button("Save Map", ImVec2(width, 40))) {
-                if (selectedMap->saveMap(mapPath.string())) {
-                    ImGui::OpenPopup("SerializeSuccess");
-                }
-                else {
-                    ImGui::OpenPopup("SerializeError");
-                }
-            }
+        ImGui::SameLine();
 
-            // Success/Error popups
-            if (ImGui::BeginPopupModal("SerializeSuccess", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                ImGui::Text("Scene Serialization Success!");
-                if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
-                ImGui::EndPopup();
+        ImGui::BeginDisabled(selectedMap);
+        if (ImGui::Button("Save")) {
+            if (selectedMap->saveMap(mapPath.string())) {
+                ImGui::OpenPopup("SerializeSuccess");
             }
-            if (ImGui::BeginPopupModal("SerializeError", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                ImGui::Text("Scene Serialization Failed!");
-                if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
-                ImGui::EndPopup();
+            else {
+                ImGui::OpenPopup("SerializeError");
             }
         }
+
+        // Success/Error popups
+        if (ImGui::BeginPopupModal("SerializeSuccess", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("Scene Serialization Success!");
+            if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+        if (ImGui::BeginPopupModal("SerializeError", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("Scene Serialization Failed!");
+            if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+        ImGui::EndDisabled();
     }
     ImGui::End();
 
@@ -689,7 +697,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
         for (Map* map : engine->activeMaps) {
             bool isSelected = (selectedMap == map);
             if (ImGui::Selectable(map->getName().data(), isSelected)) {
-                selectedMap = map;
+                selectMap(map);
             }
 
             if (isSelected) {
@@ -701,7 +709,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
 
     if (selectedMap == nullptr) {
         if (!engine->activeMaps.empty()) {
-            selectedMap = engine->activeMaps[0];
+            selectMap(engine->activeMaps[0]);
         }
         else {
             ImGui::Text("No map currently selected");
@@ -736,33 +744,30 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
         }
 
         if (ImGui::BeginTabItem("Terrain")) {
-            static NoiseSettings terrainProperties{};
-            static uint32_t seed{13};
-
             if (ImGui::CollapsingHeader("Noise Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
-                ImGui::DragFloat("Scale", &terrainProperties.scale, 1.0f, 200.0f);
-                ImGui::DragFloat("Persistence", &terrainProperties.persistence, 0.0f, 1.0f);
-                ImGui::DragFloat("Lacunarity", &terrainProperties.lacunarity, 1.0f, 5.0f);
-                ImGui::DragInt("Octaves", &terrainProperties.octaves, 1, 10);
+                ImGui::SliderFloat("Scale", &terrainProperties.scale, 1.0f, 200.0f);
+                ImGui::SliderFloat("Persistence", &terrainProperties.persistence, 0.0f, 1.0f);
+                ImGui::SliderFloat("Lacunarity", &terrainProperties.lacunarity, 1.0f, 5.0f);
+                ImGui::SliderInt("Octaves", &terrainProperties.octaves, 1, 10);
                 ImGui::DragFloat2("Offset", &terrainProperties.offset.x, 0.1f);
-                ImGui::DragFloat("Height Scale", &terrainProperties.heightScale, 1.0f, 200.0f);
+                ImGui::SliderFloat("Height Scale", &terrainProperties.heightScale, 1.0f, 200.0f);
             }
 
             ImGui::Separator();
-            ImGui::InputScalar("Seed", ImGuiDataType_U32, &seed);
+            ImGui::InputScalar("Seed", ImGuiDataType_U32, &terrainSeed);
             ImGui::SameLine();
 
             static std::random_device rd{};
-            static std::seed_seq ss{ rd(), rd(), rd(), rd(), rd(), rd(), rd(), rd() };
+            static std::seed_seq ss{rd(), rd(), rd(), rd(), rd(), rd(), rd(), rd()};
             static std::mt19937 gen(ss);
             static std::uniform_int_distribution<uint32_t> dist;
             if (ImGui::Button("Random Seed")) {
-                seed = dist(gen);
+                terrainSeed = dist(gen);
             }
 
             ImGui::Separator();
             if (ImGui::Button("Generate Terrain", ImVec2(-1, 0))) {
-                selectedMap->generateTerrain(terrainProperties, seed);
+                selectedMap->generateTerrain(terrainProperties, terrainSeed);
             }
 
             ImGui::EndTabItem();
@@ -775,7 +780,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
 
     if (destroy) {
         selectedMap->destroy();
-        selectedMap = nullptr;
+        selectMap(nullptr);
         selectedItem = nullptr;
     }
 }

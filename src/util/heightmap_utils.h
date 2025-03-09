@@ -28,44 +28,6 @@ struct NoiseSettings
 class HeightmapUtil
 {
 public:
-    /*static std::vector<float> generateFromNoise(const uint32_t width, const uint32_t height, const uint32_t seed, const NoiseSettings& settings = NoiseSettings{})
-    {
-        std::vector<float> heightData(width * height);
-
-        FastNoiseLite noise;
-        noise.SetSeed(seed);
-        noise.SetNoiseType(FastNoiseLite::NoiseType_Perlin);
-        noise.SetFractalType(FastNoiseLite::FractalType_FBm);
-        noise.SetFractalOctaves(settings.octaves);
-        noise.SetFractalLacunarity(settings.lacunarity);
-        noise.SetFractalGain(settings.persistence);
-
-        const float halfWidth = width / 2.0f;
-        const float halfHeight = height / 2.0f;
-        const float invScale = 1.0f / settings.scale;
-
-        float maxHeight = std::numeric_limits<float>::lowest();
-        float minHeight = std::numeric_limits<float>::max();
-
-        for (uint32_t y = 0; y < height; y++) {
-            for (uint32_t x = 0; x < width; x++) {
-                const float sampleX = (x - halfWidth) * invScale + settings.offset.x;
-                const float sampleY = (y - halfHeight) * invScale + settings.offset.y;
-
-                const float noiseHeight = noise.GetNoise(sampleX, sampleY);
-                heightData[y * width + x] = noiseHeight;
-
-                maxHeight = std::max(maxHeight, noiseHeight);
-                minHeight = std::min(minHeight, noiseHeight);
-            }
-        }
-
-        for (uint32_t i = 0; i < width * height; i++) {
-            heightData[i] = ((heightData[i] - minHeight) / (maxHeight - minHeight)) * settings.heightScale;
-        }
-
-        return heightData;
-    }*/
     static std::vector<float> generateFromNoise(const uint32_t width, const uint32_t height, const uint32_t seed, const NoiseSettings& settings = NoiseSettings{})
     {
         std::vector<float> heightData(width * height);

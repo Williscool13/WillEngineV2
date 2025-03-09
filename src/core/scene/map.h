@@ -16,6 +16,7 @@
 namespace will_engine
 {
 using ordered_json = nlohmann::ordered_json;
+
 inline void to_json(ordered_json& j, const NoiseSettings& settings)
 {
     j = {
@@ -25,8 +26,8 @@ inline void to_json(ordered_json& j, const NoiseSettings& settings)
         {"octaves", settings.octaves},
         {
             "offset", {
-                    {"x", settings.offset.x},
-                    {"y", settings.offset.y}
+                {"x", settings.offset.x},
+                {"y", settings.offset.y}
             }
         },
         {"heightScale", settings.heightScale}
@@ -100,6 +101,9 @@ public: // Terrain
     size_t getIndicesCount() override;
 
     bool canDraw() override { return terrainChunk.get(); }
+
+    NoiseSettings getTerrainProperties() const { return terrainProperties; }
+    uint32_t getSeed() const { return seed; }
 
 private: // Terrain
     std::unique_ptr<terrain::TerrainChunk> terrainChunk;

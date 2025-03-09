@@ -17,6 +17,7 @@
 
 void will_engine::cascaded_shadows::CascadedShadowMap::createRenderObjectPipeline()
 {
+    resourceManager.destroyPipeline(renderObjectPipeline);
     VkDescriptorSetLayout layouts[2];
     layouts[0] = cascadedShadowMapUniformLayout;
     layouts[1] = resourceManager.getAddressesLayout();
@@ -69,6 +70,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createRenderObjectPipelin
 
 void will_engine::cascaded_shadows::CascadedShadowMap::createTerrainPipeline()
 {
+    resourceManager.destroyPipeline(terrainPipeline);
     VkDescriptorSetLayout layouts[1];
     layouts[0] = cascadedShadowMapUniformLayout;
 
@@ -187,7 +189,6 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
         cascadeShadowMapData.depthShadowMap = resourceManager.createImage({shadows::CASCADE_EXTENT.width, shadows::CASCADE_EXTENT.height, 1}, shadows::CASCADE_DEPTH_FORMAT,
                                                                           VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
     }
-
 
     createRenderObjectPipeline();
 
