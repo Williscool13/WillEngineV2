@@ -1,16 +1,28 @@
 {
+    "TerrainProperties": {
+        "scale": 158.0,
+        "persistence": 0.30000001192092896,
+        "lacunarity": 1.5,
+        "octaves": 4,
+        "offset": {
+            "x": 0.0,
+            "y": 0.0
+        },
+        "heightScale": 25.0
+    },
+    "TerrainSeed": 1695802020,
     "version": {
         "major": 0,
         "minor": 1,
         "patch": 0
     },
     "metadata": {
-        "name": "Test Scene",
-        "created": "2025-03-08 18:33:36",
+        "name": "sampleScene",
+        "created": "2025-03-09 16:24:53",
         "formatVersion": 1
     },
     "gameObjects": {
-        "name": "sampleScene.willmap",
+        "name": "sampleScene",
         "transform": {
             "position": {
                 "x": 0.0,
@@ -80,15 +92,15 @@
                 "name": "Shiny Orb\u0000_6",
                 "transform": {
                     "position": {
-                        "x": 0.0,
-                        "y": -1.5044792078811042e-08,
-                        "z": 0.0
+                        "x": -95.4189224243164,
+                        "y": 5.2970123291015625,
+                        "z": 40.403629302978516
                     },
                     "rotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
+                        "x": 0.5172531008720398,
+                        "y": 0.3612600266933441,
+                        "z": 0.5960277915000916,
+                        "w": 0.496680349111557
                     },
                     "scale": {
                         "x": 1.0,
@@ -107,7 +119,7 @@
                     "RigidBodyComponent": {
                         "properties": {
                             "isActive": true,
-                            "motionType": 2,
+                            "motionType": 1,
                             "layer": 1,
                             "shapeType": 0,
                             "shapeParams": {
@@ -171,7 +183,7 @@
                 "transform": {
                     "position": {
                         "x": -4.700015544891357,
-                        "y": -7.559442138926897e-08,
+                        "y": -7.353831676937261e-08,
                         "z": -0.5998769998550415
                     },
                     "rotation": {

@@ -5,6 +5,7 @@
 #ifndef MAP_H
 #define MAP_H
 #include <filesystem>
+#include <json/json.hpp>
 
 #include "src/core/game_object/hierarchical.h"
 #include "src/core/game_object/terrain.h"
@@ -14,6 +15,40 @@
 
 namespace will_engine
 {
+using ordered_json = nlohmann::ordered_json;
+inline void to_json(ordered_json& j, const NoiseSettings& settings)
+{
+    j = {
+        {"scale", settings.scale},
+        {"persistence", settings.persistence},
+        {"lacunarity", settings.lacunarity},
+        {"octaves", settings.octaves},
+        {
+            "offset", {
+                    {"x", settings.offset.x},
+                    {"y", settings.offset.y}
+            }
+        },
+        {"heightScale", settings.heightScale}
+    };
+}
+
+inline void from_json(const ordered_json& j, NoiseSettings& settings)
+{
+    settings.scale = j["scale"].get<float>();
+    settings.persistence = j["persistence"].get<float>();
+    settings.lacunarity = j["lacunarity"].get<float>();
+    settings.octaves = j["octaves"].get<int>();
+
+    glm::vec2 offset{
+        j["offset"]["x"].get<float>(),
+        j["offset"]["y"].get<float>()
+    };
+    settings.offset = offset;
+
+    settings.heightScale = j["heightScale"].get<float>();
+}
+
 /**
  * Maps do no have parents, they are the roots of their respctive hierarchies
  */

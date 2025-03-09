@@ -668,7 +668,10 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     }
     ImGui::End();
 
-    drawSceneGraph(engine);
+    if (ImGui::Begin("Scene Graph")) {
+        drawSceneGraph(engine);
+    }
+    ImGui::End();
 
 
     if (selectedItem) {
@@ -682,39 +685,39 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
 void ImguiWrapper::drawSceneGraph(Engine* engine)
 {
-    if (ImGui::Begin("Scene Graph")) {
-        if (ImGui::BeginCombo("Select Map", selectedMap ? selectedMap->getName().data() : "None")) {
-            for (Map* map : engine->activeMaps) {
-                bool isSelected = (selectedMap == map);
-                if (ImGui::Selectable(map->getName().data(), isSelected)) {
-                    selectedMap = map;
-                }
-
-                if (isSelected) {
-                    ImGui::SetItemDefaultFocus();
-                }
+    if (ImGui::BeginCombo("Select Map", selectedMap ? selectedMap->getName().data() : "None")) {
+        for (Map* map : engine->activeMaps) {
+            bool isSelected = (selectedMap == map);
+            if (ImGui::Selectable(map->getName().data(), isSelected)) {
+                selectedMap = map;
             }
-            ImGui::EndCombo();
+
+            if (isSelected) {
+                ImGui::SetItemDefaultFocus();
+            }
         }
+        ImGui::EndCombo();
+    }
 
-        if (selectedMap == nullptr) {
-            if (!engine->activeMaps.empty()) {
-                selectedMap = engine->activeMaps[0];
-            }
-            else {
-                ImGui::Text("No map currently selected");
-            }
+    if (selectedMap == nullptr) {
+        if (!engine->activeMaps.empty()) {
+            selectedMap = engine->activeMaps[0];
         }
         else {
-            bool destroy = false;
-            ImGui::SameLine();
-            if (ImGui::Button("Destroy Map")) {
-                destroy = true;
-            }
+            ImGui::Text("No map currently selected");
 
+            return;
+        }
+    }
+    bool destroy = false;
+    ImGui::SameLine();
+    if (ImGui::Button("Destroy Map")) {
+        destroy = true;
+    }
+    ImGui::Separator();
 
-            ImGui::Separator();
-
+    if (ImGui::BeginTabBar("Scene Tab Bar")) {
+        if (ImGui::BeginTabItem("Scene Graph")) {
             if (ImGui::Button("Create Game Object")) {
                 static int32_t incrementId{0};
                 [[maybe_unused]] IHierarchical* gameObject = engine->createGameObject(selectedMap, fmt::format("New GameObject_{}", incrementId++));
@@ -729,15 +732,52 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
                 ImGui::Text("Scene is empty");
             }
 
-            if (destroy) {
-                selectedMap->destroy();
-                selectedMap = nullptr;
-                selectedItem = nullptr;
-            }
+            ImGui::EndTabItem();
         }
+
+        if (ImGui::BeginTabItem("Terrain")) {
+            static NoiseSettings terrainProperties{};
+            static uint32_t seed{13};
+
+            if (ImGui::CollapsingHeader("Noise Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::DragFloat("Scale", &terrainProperties.scale, 1.0f, 200.0f);
+                ImGui::DragFloat("Persistence", &terrainProperties.persistence, 0.0f, 1.0f);
+                ImGui::DragFloat("Lacunarity", &terrainProperties.lacunarity, 1.0f, 5.0f);
+                ImGui::DragInt("Octaves", &terrainProperties.octaves, 1, 10);
+                ImGui::DragFloat2("Offset", &terrainProperties.offset.x, 0.1f);
+                ImGui::DragFloat("Height Scale", &terrainProperties.heightScale, 1.0f, 200.0f);
+            }
+
+            ImGui::Separator();
+            ImGui::InputScalar("Seed", ImGuiDataType_U32, &seed);
+            ImGui::SameLine();
+
+            static std::random_device rd{};
+            static std::seed_seq ss{ rd(), rd(), rd(), rd(), rd(), rd(), rd(), rd() };
+            static std::mt19937 gen(ss);
+            static std::uniform_int_distribution<uint32_t> dist;
+            if (ImGui::Button("Random Seed")) {
+                seed = dist(gen);
+            }
+
+            ImGui::Separator();
+            if (ImGui::Button("Generate Terrain", ImVec2(-1, 0))) {
+                selectedMap->generateTerrain(terrainProperties, seed);
+            }
+
+            ImGui::EndTabItem();
+        }
+
+
+        ImGui::EndTabBar();
     }
 
-    ImGui::End();
+
+    if (destroy) {
+        selectedMap->destroy();
+        selectedMap = nullptr;
+        selectedItem = nullptr;
+    }
 }
 
 void ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const int32_t depth)

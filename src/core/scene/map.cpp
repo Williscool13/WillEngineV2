@@ -10,8 +10,8 @@
 #include "src/core/engine.h"
 #include "src/util/file.h"
 
-will_engine::Map::Map(const std::filesystem::path& mapSource, ResourceManager& resourceManager, const bool initializeTerrain) : terrainChunk(nullptr), mapSource(mapSource),
-                                                                                                                                resourceManager(resourceManager)
+will_engine::Map::Map(const std::filesystem::path& mapSource, ResourceManager& resourceManager, bool initializeTerrain) : terrainChunk(nullptr), mapSource(mapSource),
+                                                                                                                          resourceManager(resourceManager)
 {
     if (!exists(mapSource)) {
         fmt::print("Map source file not found, generating an empty map\n");
@@ -62,16 +62,18 @@ will_engine::Map::Map(const std::filesystem::path& mapSource, ResourceManager& r
 
     Serializer::deserializeMap(this, rootJ);
 
-    if (rootJ.contains("Terrain")) {
-        // todo: deserialize terrain chunk
-        generateTerrain();
+    if (rootJ.contains("TerrainProperties")) {
+        terrainProperties = rootJ["TerrainProperties"];
+        initializeTerrain = true;
     }
-    else {
-        if (initializeTerrain) {
-            generateTerrain();
-        }
+    if (rootJ.contains("TerrainSeed")) {
+        seed = rootJ["TerrainSeed"];
+        initializeTerrain = true;
     }
 
+    if (initializeTerrain) {
+        generateTerrain();
+    }
 
     isLoaded = true;
 
@@ -104,10 +106,18 @@ void will_engine::Map::destroy()
 
 bool will_engine::Map::saveMap(const std::filesystem::path& newSavePath)
 {
-    if (!newSavePath.empty()) {
+    if (!newSavePath.empty() && mapSource != newSavePath) {
         mapSource = newSavePath;
     }
-    return Serializer::serializeMap(this, mapSource);
+
+    ordered_json rootJ;
+
+    if (terrainChunk.get()) {
+        rootJ["TerrainProperties"] = terrainProperties;
+        rootJ["TerrainSeed"] = seed;
+    }
+
+    return Serializer::serializeMap(this, rootJ, mapSource);
 }
 
 void will_engine::Map::addGameObject(IHierarchical* newChild)
