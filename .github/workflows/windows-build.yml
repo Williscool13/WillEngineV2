@@ -14,24 +14,12 @@ jobs:
     runs-on: windows-latest
 
     steps:
-      - name: Checkout repository (without LFS)
-        uses: actions/checkout@v4
-        with:
-          lfs: false
-
-      - name: Cache LFS objects
-        uses: actions/cache@v4
-        with:
-          path: .git/lfs
-          key: lfs-${{ runner.os }}-${{ hashFiles('.lfs-assets-id') }}
-          restore-keys: |
-            lfs-${{ runner.os }}-
-
-      - name: Pull LFS objects
-        run: git lfs pull
+      - name: Cached LFS checkout
+        uses: nschloe/action-cached-lfs-checkout@v1.2.3
 
       - name: Update submodules
-        run: git submodule update --init --recursive
+        run: |
+          git submodule update --init --recursive
 
       - name: Set up Visual Studio shell
         uses: microsoft/setup-msbuild@v2
@@ -41,7 +29,6 @@ jobs:
         with:
           version: latest
           cache: true
-          cache-key: vulkan-sdk-${{ runner.os }}
 
       - name: Configure CMake
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
