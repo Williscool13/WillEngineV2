@@ -14,6 +14,7 @@
 
 namespace will_engine
 {
+constexpr uint32_t NOISE_MAP_DIMENSIONS = 512;
 struct NoiseSettings
 {
     float scale = 50.0f;

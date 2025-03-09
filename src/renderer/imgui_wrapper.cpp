@@ -259,20 +259,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             }
 
             if (ImGui::BeginTabItem("Save Images")) {
-                if (ImGui::Button("Save Height Map")) {
-                    if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                        const std::filesystem::path path = file::imagesSavePath / "heightMap.png";
-                        auto noiseNormalization = [](const float value) {
-                            return value;
-                        };
-                        vk_helpers::saveImageR32F(*engine->resourceManager, *engine->immediate, engine->heightMap,
-                                                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), noiseNormalization);
-                    }
-                    else {
-                        fmt::print(" Failed to find/create image save path directory");
-                    }
-                }
-
                 if (ImGui::Button("Save Draw Image")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "drawImage.png";
@@ -371,366 +357,286 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::End();
 
     if (ImGui::Begin("Maps")) {
-        if (ImGui::BeginTabBar("Map Tabs")) {
-            if (ImGui::BeginTabItem("Map Loading")) {
-                static std::filesystem::path deserializationPath = {"assets/maps/sampleScene.willmap"};
+        static std::filesystem::path mapPath = {"assets/maps/sampleScene.willmap"};
 
-                const float width = ImGui::GetContentRegionAvail().x;
-                ImGui::Text("Map Source: %s", deserializationPath.empty() ? "None selected" : deserializationPath.string().c_str());
-                if (ImGui::Button("Select Source Path")) {
+        ImGui::Text("Map Source: %s", mapPath.empty() ? "None selected" : mapPath.string().c_str());
+        ImGui::SameLine();
+        if (ImGui::Button("...")) {
+            IGFD::FileDialogConfig config;
+            config.path = "./assets/maps/";
+            config.fileName = mapPath.filename().string();
+            IGFD::FileDialog::Instance()->OpenDialog(
+                "WillmapDlg",
+                "Load Willmap",
+                ".willmap",
+                config);
+        }
+        if (IGFD::FileDialog::Instance()->Display("WillmapDlg")) {
+            if (IGFD::FileDialog::Instance()->IsOk()) {
+                mapPath = IGFD::FileDialog::Instance()->GetFilePathName();
+                mapPath = file::getRelativePath(mapPath);
+            }
+
+            IGFD::FileDialog::Instance()->Close();
+        }
+        ImGui::SameLine();
+
+        bool alreadyExistsInActiveMaps{false};
+        for (Map* map : engine->activeMaps) {
+            if (map->getMapPath() == mapPath) {
+                alreadyExistsInActiveMaps = true;
+                break;
+            }
+        }
+        ImGui::BeginDisabled(alreadyExistsInActiveMaps);
+        if (ImGui::Button("Load")) {
+            file::scanForModels(engine->renderObjectInfoMap);
+
+            if (exists(mapPath)) {
+                auto map = new Map(mapPath, *engine->resourceManager);
+                engine->activeMaps.push_back(map);
+                engine->activeTerrains.push_back(map);
+                selectedMap = map;
+            }
+            else {
+                auto newMap = new Map(mapPath, *engine->resourceManager);
+                engine->activeMaps.push_back(newMap);
+                engine->activeTerrains.push_back(newMap);
+                selectedMap = newMap;
+            }
+        }
+        ImGui::EndDisabled();
+
+        ImGui::Separator();
+        if (selectedMap) {
+            const float width = ImGui::GetContentRegionAvail().x;
+            if (ImGui::Button("Save Map", ImVec2(width, 40))) {
+                if (selectedMap->saveMap(mapPath.string())) {
+                    ImGui::OpenPopup("SerializeSuccess");
+                }
+                else {
+                    ImGui::OpenPopup("SerializeError");
+                }
+            }
+
+            // Success/Error popups
+            if (ImGui::BeginPopupModal("SerializeSuccess", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::Text("Scene Serialization Success!");
+                if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+                ImGui::EndPopup();
+            }
+            if (ImGui::BeginPopupModal("SerializeError", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::Text("Scene Serialization Failed!");
+                if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+                ImGui::EndPopup();
+            }
+        }
+    }
+    ImGui::End();
+
+    if (ImGui::Begin("Render Objects")) {
+        if (ImGui::BeginTabBar("SceneTabs")) {
+            if (ImGui::BeginTabItem("Render Objects")) {
+                if (ImGui::Button("Refresh")) {
+                    file::scanForModels(engine->renderObjectInfoMap);
+                }
+
+                static uint32_t selectedObjectId = 0;
+                for (const auto& [id, info] : engine->renderObjectInfoMap) {
+                    ImGui::PushID(id);
+
+                    bool isLoaded = engine->renderObjectMap.contains(id) && engine->renderObjectMap[id] != nullptr;
+                    bool checked = isLoaded;
+                    bool disabled = false;
+                    if (isLoaded && engine->renderObjectMap[id]->canDraw()) {
+                        disabled = true;
+                        ImGui::BeginDisabled(true);
+                    }
+
+                    ImGui::Checkbox("##loaded", &checked);
+                    if (checked && !isLoaded) {
+                        engine->renderObjectMap[id] = new RenderObject(info.gltfPath, *engine->resourceManager, id);
+                    }
+
+                    if (!checked && isLoaded) {
+                        assert(!engine->renderObjectMap[id]->canDraw());
+                        assert(engine->renderObjectMap.contains(id));
+                        delete engine->renderObjectMap[id];
+                        engine->renderObjectMap.erase(id);
+                    }
+                    if (disabled) {
+                        ImGui::EndDisabled();
+                    }
+
+                    ImGui::SameLine();
+                    ImGui::Text("%s", info.name.c_str());
+
+                    ImGui::SameLine();
+                    if (ImGui::Button("Details##btn")) {
+                        selectedObjectId = info.id;
+                        ImGui::OpenPopup("Render Object Detail");
+                    }
+
+                    if (ImGui::BeginPopupModal("Render Object Detail", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                        ImGui::Text("Name: %s", info.name.c_str());
+                        ImGui::Text("Path: %s", file::getRelativePath(info.gltfPath).string().c_str());
+                        ImGui::Text("ID: %u", info.id);
+                        ImGui::Separator();
+
+
+                        if (auto it = engine->renderObjectMap.find(selectedObjectId); it != engine->renderObjectMap.end() && it->second != nullptr) {
+                            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
+                            static char objectName[256] = "";
+                            ImGui::InputText("Object Name", objectName, sizeof(objectName));
+                            ImGui::PopStyleColor();
+                            if (ImGui::BeginTabBar("GameObject Generation")) {
+                                if (ImGui::BeginTabItem("Full Model")) {
+                                    if (ImGui::Button("Generate Full Object")) {
+                                        GameObject* gob = it->second->generateGameObject(std::string(objectName));
+                                        selectedMap->addGameObject(gob);
+                                        fmt::print("Added whole gltf model to the scene\n");
+                                    }
+                                    ImGui::EndTabItem();
+                                }
+
+                                if (ImGui::BeginTabItem("Single Mesh")) {
+                                    RenderObject* renderObj = it->second;
+                                    for (size_t i = 0; i < renderObj->getMeshCount(); i++) {
+                                        ImGui::PushID(static_cast<int>(i));
+
+
+                                        if (auto container = dynamic_cast<IComponentContainer*>(selectedItem)) {
+                                            if (ImGui::Button("Attach to selected item")) {
+                                                if (!container->getMeshRenderer()) {
+                                                    auto newComponent = components::ComponentFactory::getInstance().createComponent(components::MeshRendererComponent::getStaticType(), "");
+                                                    container->addComponent(std::move(newComponent));
+                                                }
+                                                if (auto meshRenderer = container->getMeshRenderer()) {
+                                                    if (meshRenderer->hasMesh()) {
+                                                        meshRenderer->releaseMesh();
+                                                    }
+
+                                                    renderObj->generateMesh(meshRenderer, i);
+                                                }
+                                            }
+                                        }
+                                        else {
+                                            if (ImGui::Button("Add to Scene")) {
+                                                IHierarchical* gob = engine->createGameObject(selectedMap, objectName);
+
+                                                if (auto _container = dynamic_cast<IComponentContainer*>(gob)) {
+                                                    auto newComponent = components::ComponentFactory::getInstance().createComponent(components::MeshRendererComponent::getStaticType(), "");
+                                                    _container->addComponent(std::move(newComponent));
+                                                    if (components::MeshRendererComponent* meshRenderer = _container->getMeshRenderer()) {
+                                                        renderObj->generateMesh(meshRenderer, i);
+                                                    }
+                                                    fmt::print("Added single mesh to scene\n");
+                                                }
+                                            }
+                                        }
+                                        ImGui::SameLine();
+
+                                        ImGui::Text("Mesh %zu", i);
+                                        ImGui::PopID();
+                                    }
+                                    ImGui::EndTabItem();
+                                }
+
+                                ImGui::EndTabBar();
+                            }
+                        }
+                        else {
+                            ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "Load render object to see available meshes");
+                        }
+
+                        if (ImGui::Button("Close")) ImGui::CloseCurrentPopup();
+                        ImGui::EndPopup();
+                    }
+
+                    ImGui::PopID();
+                }
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem("Model Generator")) {
+                static std::filesystem::path gltfPath;
+                static std::filesystem::path willmodelPath;
+
+                ImGui::Text("GLTF Source: %s", gltfPath.empty() ? "None selected" : gltfPath.string().c_str());
+
+                if (ImGui::Button("Select GLTF File")) {
                     IGFD::FileDialogConfig config;
-                    config.path = "./assets/maps/";
-                    config.fileName = deserializationPath.filename().string();
+                    config.path = "./assets/models";
                     IGFD::FileDialog::Instance()->OpenDialog(
-                        "WillmapDlg",
-                        "Load Willmap",
-                        ".willmap",
+                        "ChooseGLTFDlg",
+                        "Choose GLTF File",
+                        ".gltf,.glb",
                         config);
                 }
 
-                if (IGFD::FileDialog::Instance()->Display("WillmapDlg")) {
-                    if (IGFD::FileDialog::Instance()->IsOk()) {
-                        deserializationPath = IGFD::FileDialog::Instance()->GetFilePathName();
-                        deserializationPath = file::getRelativePath(deserializationPath);
-                    }
+                ImGui::Text("Output Path: %s", willmodelPath.empty() ? "None selected" : willmodelPath.string().c_str());
 
+                if (ImGui::Button("Select Output Path")) {
+                    IGFD::FileDialogConfig config;
+                    config.path = "./assets/willmodels";
+                    config.fileName = willmodelPath.filename().string();
+                    IGFD::FileDialog::Instance()->OpenDialog(
+                        "SaveWillmodelDlg",
+                        "Save Willmodel",
+                        ".willmodel",
+                        config);
+                }
+
+                if (IGFD::FileDialog::Instance()->Display("ChooseGLTFDlg")) {
+                    if (IGFD::FileDialog::Instance()->IsOk()) {
+                        gltfPath = IGFD::FileDialog::Instance()->GetFilePathName();
+                        gltfPath = file::getRelativePath(gltfPath);
+
+                        willmodelPath = std::filesystem::current_path() / "assets" / "willmodels" / gltfPath.filename().string();
+                        willmodelPath = file::getRelativePath(willmodelPath);
+                        willmodelPath.replace_extension(".willmodel");
+                    }
                     IGFD::FileDialog::Instance()->Close();
                 }
 
-                if (ImGui::Button("Load Map", ImVec2(width, 40))) {
-                    file::scanForModels(engine->renderObjectInfoMap);
-
-                    const auto map = new Map(file::getSampleScene());
-                    auto newMapId = map->getMapId();
-                    auto it = std::ranges::find_if(engine->activeMaps, [newMapId](const Map* mapItem) {
-                        return mapItem->getMapId() == newMapId;
-                    });
-
-                    bool success = false;
-                    if (it != engine->activeMaps.end()) {
-                        fmt::print("Map is already loaded. Map will not be loaded again.");
+                if (IGFD::FileDialog::Instance()->Display("SaveWillmodelDlg")) {
+                    if (IGFD::FileDialog::Instance()->IsOk()) {
+                        willmodelPath = IGFD::FileDialog::Instance()->GetFilePathName();
+                        willmodelPath = file::getRelativePath(willmodelPath);
                     }
-                    else {
-                        if (map->loadMap()) {
-                            success = true;
-                            engine->activeMaps.push_back(map);
+                    IGFD::FileDialog::Instance()->Close();
+                }
+
+                if (!gltfPath.empty() && !willmodelPath.empty()) {
+                    if (ImGui::Button("Compile Model")) {
+                        if (Serializer::generateWillModel(gltfPath, willmodelPath)) {
+                            ImGui::OpenPopup("Success");
                         }
-                    }
-
-                    if (success) {
-                        ImGui::OpenPopup("DeserializeSuccess");
-                    }
-                    else {
-                        delete map;
-                        ImGui::OpenPopup("DeserializeError");
+                        else {
+                            ImGui::OpenPopup("Error");
+                        }
                     }
                 }
 
                 // Success/Error popups
-                if (ImGui::BeginPopupModal("DeserializeSuccess", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                    ImGui::Text("Scene Deserialization Success!");
-                    if (ImGui::Button("OK")) { ImGui::CloseCurrentPopup(); }
+                if (ImGui::BeginPopupModal("Success", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                    ImGui::Text("Model compiled successfully!");
+                    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
                     ImGui::EndPopup();
                 }
-                if (ImGui::BeginPopupModal("DeserializeError", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                    ImGui::Text("Scene Deserialization Failed!");
-                    if (ImGui::Button("OK")) { ImGui::CloseCurrentPopup(); }
+                if (ImGui::BeginPopupModal("Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                    ImGui::Text("Failed to compile model!");
+                    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
                     ImGui::EndPopup();
                 }
 
                 ImGui::EndTabItem();
             }
 
-            if (ImGui::BeginTabItem("Map Modifying/Saving")) {
-                if (ImGui::BeginCombo("Select Map", selectedMap ? selectedMap->getName().data() : "None")) {
-                    for (Map* map : engine->activeMaps) {
-                        bool isSelected = (selectedMap == map);
-                        if (ImGui::Selectable(map->getName().data(), isSelected)) {
-                            selectedMap = map;
-                        }
-
-                        if (isSelected) {
-                            ImGui::SetItemDefaultFocus();
-                        }
-                    }
-                    ImGui::EndCombo();
-                }
-
-                if (!selectedMap) {
-                    if (!engine->activeMaps.empty()) {
-                        selectedMap = engine->activeMaps[0];
-                    }
-                }
-
-                if (!selectedMap) {
-                    ImGui::Text("No map currently selected");
-                }
-                else {
-                    if (ImGui::Button("Destroy Map")) {
-                        selectedMap->destroy();
-                        selectedMap = nullptr;
-                    }
-
-                    if (ImGui::BeginTabBar("SceneTabs")) {
-                        if (ImGui::BeginTabItem("Serialization")) {
-                            static std::filesystem::path serializationPath = {"assets/maps/sampleScene.willmap"};
-
-                            const float width = ImGui::GetContentRegionAvail().x;
-                            ImGui::Text("Output Path: %s", serializationPath.empty() ? "None selected" : serializationPath.string().c_str());
-                            if (ImGui::Button("Select Output Path")) {
-                                IGFD::FileDialogConfig config;
-                                config.path = "./assets/maps/";
-                                config.fileName = serializationPath.filename().string();
-                                IGFD::FileDialog::Instance()->OpenDialog(
-                                    "WillmapDlg",
-                                    "Save Willmap",
-                                    ".willmap",
-                                    config);
-                            }
-
-                            if (IGFD::FileDialog::Instance()->Display("WillmapDlg")) {
-                                if (IGFD::FileDialog::Instance()->IsOk()) {
-                                    serializationPath = IGFD::FileDialog::Instance()->GetFilePathName();
-                                    serializationPath = file::getRelativePath(serializationPath);
-                                }
-
-                                IGFD::FileDialog::Instance()->Close();
-                            }
-                            if (ImGui::Button("Save Map", ImVec2(width, 40))) {
-                                if (selectedMap->saveMap(serializationPath.string())) {
-                                    ImGui::OpenPopup("SerializeSuccess");
-                                }
-                                else {
-                                    ImGui::OpenPopup("SerializeError");
-                                }
-                            }
-
-                            // Success/Error popups
-                            if (ImGui::BeginPopupModal("SerializeSuccess", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                                ImGui::Text("Scene Serialization Success!");
-                                if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
-                                ImGui::EndPopup();
-                            }
-                            if (ImGui::BeginPopupModal("SerializeError", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                                ImGui::Text("Scene Serialization Failed!");
-                                if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
-                                ImGui::EndPopup();
-                            }
-
-                            ImGui::EndTabItem();
-                        }
-
-                        if (ImGui::BeginTabItem("Render Objects")) {
-                            const float width = ImGui::GetContentRegionAvail().x;
-                            if (ImGui::Button("Scan for .willmodel", ImVec2(width, 0))) {
-                                file::scanForModels(engine->renderObjectInfoMap);
-                            }
-
-                            static uint32_t selectedObjectId = 0;
-                            for (const auto& [id, info] : engine->renderObjectInfoMap) {
-                                ImGui::PushID(id);
-
-                                bool isLoaded = engine->renderObjectMap.contains(id) && engine->renderObjectMap[id] != nullptr;
-                                bool checked = isLoaded;
-                                bool disabled = false;
-                                if (isLoaded && engine->renderObjectMap[id]->canDraw()) {
-                                    disabled = true;
-                                    ImGui::BeginDisabled(true);
-                                }
-
-                                ImGui::Checkbox("##loaded", &checked);
-                                if (checked && !isLoaded) {
-                                    engine->renderObjectMap[id] = new RenderObject(info.gltfPath, *engine->resourceManager, id);
-                                }
-
-                                if (!checked && isLoaded) {
-                                    assert(!engine->renderObjectMap[id]->canDraw());
-                                    assert(engine->renderObjectMap.contains(id));
-                                    delete engine->renderObjectMap[id];
-                                    engine->renderObjectMap.erase(id);
-                                }
-                                if (disabled) {
-                                    ImGui::EndDisabled();
-                                }
-
-                                ImGui::SameLine();
-                                ImGui::Text("%s", info.name.c_str());
-
-                                ImGui::SameLine();
-                                if (ImGui::Button("Details##btn")) {
-                                    selectedObjectId = info.id;
-                                    ImGui::OpenPopup("Render Object Detail");
-                                }
-
-                                if (ImGui::BeginPopupModal("Render Object Detail", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                                    ImGui::Text("Name: %s", info.name.c_str());
-                                    ImGui::Text("Path: %s", file::getRelativePath(info.gltfPath).string().c_str());
-                                    ImGui::Text("ID: %u", info.id);
-                                    ImGui::Separator();
-
-
-                                    if (auto it = engine->renderObjectMap.find(selectedObjectId); it != engine->renderObjectMap.end() && it->second != nullptr) {
-                                        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
-                                        static char objectName[256] = "";
-                                        ImGui::InputText("Object Name", objectName, sizeof(objectName));
-                                        ImGui::PopStyleColor();
-                                        if (ImGui::BeginTabBar("GameObject Generation")) {
-                                            if (ImGui::BeginTabItem("Full Model")) {
-                                                if (ImGui::Button("Generate Full Object")) {
-                                                    GameObject* gob = it->second->generateGameObject(std::string(objectName));
-                                                    selectedMap->addGameObject(gob);
-                                                    fmt::print("Added whole gltf model to the scene\n");
-                                                }
-                                                ImGui::EndTabItem();
-                                            }
-
-                                            if (ImGui::BeginTabItem("Single Mesh")) {
-                                                RenderObject* renderObj = it->second;
-                                                for (size_t i = 0; i < renderObj->getMeshCount(); i++) {
-                                                    ImGui::PushID(static_cast<int>(i));
-
-
-                                                    if (auto container = dynamic_cast<IComponentContainer*>(selectedItem)) {
-                                                        if (ImGui::Button("Attach to selected item")) {
-                                                            if (!container->getMeshRenderer()) {
-                                                                auto newComponent = components::ComponentFactory::getInstance().createComponent(components::MeshRendererComponent::getStaticType(), "");
-                                                                container->addComponent(std::move(newComponent));
-                                                            }
-                                                            if (auto meshRenderer = container->getMeshRenderer()) {
-                                                                if (meshRenderer->hasMesh()) {
-                                                                    meshRenderer->releaseMesh();
-                                                                }
-
-                                                                renderObj->generateMesh(meshRenderer, i);
-                                                            }
-                                                        }
-                                                    }
-                                                    else {
-                                                        if (ImGui::Button("Add to Scene")) {
-                                                            IHierarchical* gob = engine->createGameObject(selectedMap, objectName);
-
-                                                            if (auto _container = dynamic_cast<IComponentContainer*>(gob)) {
-                                                                auto newComponent = components::ComponentFactory::getInstance().createComponent(components::MeshRendererComponent::getStaticType(), "");
-                                                                _container->addComponent(std::move(newComponent));
-                                                                if (components::MeshRendererComponent* meshRenderer = _container->getMeshRenderer()) {
-                                                                    renderObj->generateMesh(meshRenderer, i);
-                                                                }
-                                                                fmt::print("Added single mesh to scene\n");
-                                                            }
-                                                        }
-                                                    }
-                                                    ImGui::SameLine();
-
-                                                    ImGui::Text("Mesh %zu", i);
-                                                    ImGui::PopID();
-                                                }
-                                                ImGui::EndTabItem();
-                                            }
-
-                                            ImGui::EndTabBar();
-                                        }
-                                    }
-                                    else {
-                                        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "Load render object to see available meshes");
-                                    }
-
-                                    if (ImGui::Button("Close")) ImGui::CloseCurrentPopup();
-                                    ImGui::EndPopup();
-                                }
-
-                                ImGui::PopID();
-                            }
-                            ImGui::EndTabItem();
-                        }
-
-                        if (ImGui::BeginTabItem("Model Generator")) {
-                            static std::filesystem::path gltfPath;
-                            static std::filesystem::path willmodelPath;
-
-                            ImGui::Text("GLTF Source: %s", gltfPath.empty() ? "None selected" : gltfPath.string().c_str());
-
-                            if (ImGui::Button("Select GLTF File")) {
-                                IGFD::FileDialogConfig config;
-                                config.path = "./assets/models";
-                                IGFD::FileDialog::Instance()->OpenDialog(
-                                    "ChooseGLTFDlg",
-                                    "Choose GLTF File",
-                                    ".gltf,.glb",
-                                    config);
-                            }
-
-                            ImGui::Text("Output Path: %s", willmodelPath.empty() ? "None selected" : willmodelPath.string().c_str());
-
-                            if (ImGui::Button("Select Output Path")) {
-                                IGFD::FileDialogConfig config;
-                                config.path = "./assets/willmodels";
-                                config.fileName = willmodelPath.filename().string();
-                                IGFD::FileDialog::Instance()->OpenDialog(
-                                    "SaveWillmodelDlg",
-                                    "Save Willmodel",
-                                    ".willmodel",
-                                    config);
-                            }
-
-                            if (IGFD::FileDialog::Instance()->Display("ChooseGLTFDlg")) {
-                                if (IGFD::FileDialog::Instance()->IsOk()) {
-                                    gltfPath = IGFD::FileDialog::Instance()->GetFilePathName();
-                                    gltfPath = file::getRelativePath(gltfPath);
-
-                                    willmodelPath = std::filesystem::current_path() / "assets" / "willmodels" / gltfPath.filename().string();
-                                    willmodelPath = file::getRelativePath(willmodelPath);
-                                    willmodelPath.replace_extension(".willmodel");
-                                }
-                                IGFD::FileDialog::Instance()->Close();
-                            }
-
-                            if (IGFD::FileDialog::Instance()->Display("SaveWillmodelDlg")) {
-                                if (IGFD::FileDialog::Instance()->IsOk()) {
-                                    willmodelPath = IGFD::FileDialog::Instance()->GetFilePathName();
-                                    willmodelPath = file::getRelativePath(willmodelPath);
-                                }
-                                IGFD::FileDialog::Instance()->Close();
-                            }
-
-                            if (!gltfPath.empty() && !willmodelPath.empty()) {
-                                if (ImGui::Button("Compile Model")) {
-                                    if (Serializer::generateWillModel(gltfPath, willmodelPath)) {
-                                        ImGui::OpenPopup("Success");
-                                    }
-                                    else {
-                                        ImGui::OpenPopup("Error");
-                                    }
-                                }
-                            }
-
-                            // Success/Error popups
-                            if (ImGui::BeginPopupModal("Success", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                                ImGui::Text("Model compiled successfully!");
-                                if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
-                                ImGui::EndPopup();
-                            }
-                            if (ImGui::BeginPopupModal("Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                                ImGui::Text("Failed to compile model!");
-                                if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
-                                ImGui::EndPopup();
-                            }
-
-                            ImGui::EndTabItem();
-                        }
-
-                        ImGui::EndTabBar();
-                    }
-                }
-
-                ImGui::EndTabItem();
-            }
             ImGui::EndTabBar();
         }
     }
-
-
     ImGui::End();
-
 
     drawSceneGraph(engine);
 
@@ -746,23 +652,61 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
 void ImguiWrapper::drawSceneGraph(Engine* engine)
 {
-    if (selectedMap == nullptr) { return; }
-
     if (ImGui::Begin("Scene Graph")) {
-        if (ImGui::Button("Create Game Object")) {
-            static int32_t incrementId{0};
-            [[maybe_unused]] IHierarchical* gameObject = engine->createGameObject(selectedMap, fmt::format("New GameObject_{}", incrementId++));
+        if (ImGui::BeginCombo("Select Map", selectedMap ? selectedMap->getName().data() : "None")) {
+            for (Map* map : engine->activeMaps) {
+                bool isSelected = (selectedMap == map);
+                if (ImGui::Selectable(map->getName().data(), isSelected)) {
+                    selectedMap = map;
+                }
+
+                if (isSelected) {
+                    ImGui::SetItemDefaultFocus();
+                }
+            }
+            ImGui::EndCombo();
         }
-        ImGui::Separator();
-        if (!selectedMap->getChildren().empty()) {
-            for (IHierarchical* child : selectedMap->getChildren()) {
-                displayGameObject(engine, child, 0);
+
+        if (selectedMap == nullptr) {
+            if (!engine->activeMaps.empty()) {
+                selectedMap = engine->activeMaps[0];
+            }
+            else {
+                ImGui::Text("No map currently selected");
             }
         }
         else {
-            ImGui::Text("Scene is empty");
+            bool destroy = false;
+            ImGui::SameLine();
+            if (ImGui::Button("Destroy Map")) {
+                destroy = true;
+            }
+
+
+            ImGui::Separator();
+
+            if (ImGui::Button("Create Game Object")) {
+                static int32_t incrementId{0};
+                [[maybe_unused]] IHierarchical* gameObject = engine->createGameObject(selectedMap, fmt::format("New GameObject_{}", incrementId++));
+            }
+            ImGui::Separator();
+            if (!selectedMap->getChildren().empty()) {
+                for (IHierarchical* child : selectedMap->getChildren()) {
+                    displayGameObject(engine, child, 0);
+                }
+            }
+            else {
+                ImGui::Text("Scene is empty");
+            }
+
+            if (destroy) {
+                selectedMap->destroy();
+                selectedMap = nullptr;
+                selectedItem = nullptr;
+            }
         }
     }
+
     ImGui::End();
 }
 

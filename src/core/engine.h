@@ -118,17 +118,13 @@ public:
      */
     void cleanup();
 
-public: // TEMP
-    std::vector<float> heightMapData;
-    AllocatedImage heightMap;
-    JPH::ShapeRefC terrainShape;
-    JPH::BodyID terrainBodyId{JPH::BodyID::cMaxBodyIndex};
-    terrain::TerrainChunk* mainTerrainChunk;
-
 public:
     [[nodiscard]] IHierarchical* createGameObject(Map* map, const std::string& name) const;
+
     void addToBeginQueue(IHierarchical* obj);
+
     void addToDeletionQueue(IHierarchical* obj);
+
     void addToDeletionQueue(Map* map);
 
     RenderObject* getRenderObject(uint32_t renderRefIndex);
@@ -179,6 +175,7 @@ private: // Scene Data
     int32_t environmentMapIndex{0};
 
     std::vector<Map*> activeMaps;
+    std::vector<ITerrain*> activeTerrains;
 
     std::unordered_map<uint32_t, RenderObject*> renderObjectMap;
     std::unordered_map<uint32_t, RenderObjectInfo> renderObjectInfoMap;
@@ -240,6 +237,7 @@ private: // Swapchain
 
 public:
     friend void ImguiWrapper::imguiInterface(Engine* engine);
+
     friend class ImguiWrapper;
 };
 }

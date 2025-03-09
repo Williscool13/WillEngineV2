@@ -4,6 +4,13 @@
 
 #include "terrain_chunk.h"
 
+#include <Jolt/Physics/Body/BodyCreationSettings.h>
+#include <Jolt/Physics/Collision/Shape/HeightFieldShape.h>
+
+#include "src/physics/physics.h"
+#include "src/physics/physics_filters.h"
+#include "src/physics/physics_utils.h"
+
 namespace will_engine::terrain
 {
 TerrainChunk::TerrainChunk(ResourceManager& resourceManager, const std::vector<float>& heightMapData, int32_t width, int32_t height) : resourceManager(resourceManager)
@@ -35,10 +42,30 @@ TerrainChunk::TerrainChunk(ResourceManager& resourceManager, const std::vector<f
     //instanceBuffer = resourceManager.createHostSequentialBuffer(sizeof(TerrainInstanceData));
 
     //setupTerrainTextures(resourceManager);
+
+    // Physics
+    physics::Physics* physics = physics::Physics::get();
+    constexpr float halfWidth = static_cast<float>(512 - 1) * 0.5f;
+    constexpr float halfHeight = static_cast<float>(512 - 1) * 0.5f;
+    JPH::HeightFieldShapeSettings heightFieldSettings{
+        heightMapData.data(),
+        JPH::Vec3(-halfWidth, 0.0f, -halfHeight),
+        JPH::Vec3(1.0f, 1.0f, 1.0f),
+        512,
+        {},
+    };
+
+    physics->setupRigidbody(this, heightFieldSettings, JPH::EMotionType::Static, physics::Layers::TERRAIN);
 }
 
 TerrainChunk::~TerrainChunk()
 {
+    if (terrainBodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
+        if (physics::Physics* physics = physics::Physics::get()) {
+            physics->removeRigidBody(this);
+            terrainBodyId = JPH::BodyID(JPH::BodyID::cMaxBodyIndex);
+        }
+    }
     resourceManager.destroyBuffer(vertexBuffer);
     resourceManager.destroyBuffer(indexBuffer);
 }
@@ -82,7 +109,6 @@ void TerrainChunk::generateMesh(const int32_t width, const int32_t height, const
         for (uint32_t x = 0; x < width; x++) {
             indices.push_back(z * width + x);
             indices.push_back((z + 1) * width + x);
-
         }
         // Second to last row
         if (z == height - 2) { break; }

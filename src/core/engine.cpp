@@ -174,49 +174,6 @@ void Engine::init()
     profiler.addTimer("2Render");
     profiler.addTimer("3Total");
 
-    constexpr float terrainScale = 100.0f;
-    constexpr float terrainHeightScale = 50.0f;
-    NoiseSettings settings{
-        .scale = terrainScale,
-        .persistence = 0.5f,
-        .lacunarity = 2.0f,
-        .octaves = 4,
-        .offset = {0.0f, 0.0f},
-        .heightScale = terrainHeightScale
-    };
-    heightMapData = HeightmapUtil::generateFromNoise(512, 512, 13, settings);
-    heightMap = HeightmapUtil::createHeightmapImage(*resourceManager, heightMapData, 512, 512);
-    mainTerrainChunk = new terrain::TerrainChunk(*resourceManager, heightMapData, 512, 512);
-
-    physics::Physics* physics = physics::Physics::get();
-    constexpr float halfWidth = static_cast<float>(512 - 1) * 0.5f;
-    constexpr float halfHeight = static_cast<float>(512 - 1) * 0.5f;
-    JPH::HeightFieldShapeSettings heightFieldSettings{
-        heightMapData.data(),
-        JPH::Vec3(-halfWidth, 0.0f, -halfHeight),
-        JPH::Vec3(1.0f, 1.0f, 1.0f),
-        512,
-        {},
-
-    };
-    JPH::ShapeSettings::ShapeResult result = heightFieldSettings.Create();
-    if (!result.IsValid()) {
-        fmt::print("Failed to create terrain collision shape: {}\n", result.GetError());
-        assert(false);
-        return;
-    }
-
-    terrainShape = result.Get();
-    JPH::BodyCreationSettings bodySettings(
-        terrainShape,
-        physics::PhysicsUtils::toJolt(glm::vec3(0.0f)),
-        physics::PhysicsUtils::toJolt(glm::quat{1.0f, 0.0f, 0.0f, 0.0f}),
-        JPH::EMotionType::Static,
-        physics::Layers::TERRAIN
-    );
-
-    terrainBodyId = physics->getBodyInterface().CreateAndAddBody(bodySettings, JPH::EActivation::DontActivate);
-
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     fmt::print("Finished Initialization in {} seconds\n", static_cast<float>(elapsed.count()) / 1000000.0f);
@@ -280,9 +237,9 @@ void Engine::initGame()
 {
     file::scanForModels(renderObjectInfoMap);
     camera = new FreeCamera();
-    const auto map = new Map(file::getSampleScene());
-    map->loadMap();
+    const auto map = new Map(file::getSampleScene(), *resourceManager);
     activeMaps.push_back(map);
+    activeTerrains.push_back(map);
 }
 
 void Engine::run()
@@ -377,6 +334,7 @@ void Engine::updateGame(const float deltaTime)
 
     for (Map* map : mapDeletionQueue) {
         std::erase(activeMaps, map);
+        std::erase(activeTerrains, static_cast<ITerrain*>(map));
         map->beginDestroy();
         delete map;
     }
@@ -489,7 +447,7 @@ void Engine::draw(float deltaTime)
     };
     visibilityPassPipeline->draw(cmd, csmFrustumCullDrawInfo);
 
-    cascadedShadowMap->draw(cmd, renderObjectMap, {mainTerrainChunk}, currentFrameOverlap);
+    cascadedShadowMap->draw(cmd, renderObjectMap, activeTerrains, currentFrameOverlap);
 
     vk_helpers::clearColorImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -523,7 +481,7 @@ void Engine::draw(float deltaTime)
         true,
         currentFrameOverlap,
         {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT},
-        {mainTerrainChunk},
+        activeTerrains,
         normalRenderTarget.imageView,
         albedoRenderTarget.imageView,
         pbrRenderTarget.imageView,
@@ -671,10 +629,6 @@ void Engine::cleanup()
     delete deferredResolvePipeline;
     delete temporalAntialiasingPipeline;
     delete postProcessPipeline;
-
-    delete mainTerrainChunk;
-
-    resourceManager->destroyImage(heightMap);
 
     for (AllocatedBuffer sceneBuffer : sceneDataBuffers) {
         resourceManager->destroyBuffer(sceneBuffer);

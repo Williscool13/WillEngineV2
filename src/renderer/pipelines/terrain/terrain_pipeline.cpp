@@ -87,7 +87,9 @@ void will_engine::terrain::TerrainPipeline::draw(VkCommandBuffer cmd, const Terr
 
     constexpr VkDeviceSize zeroOffset{0};
 
-    for (TerrainChunk* chunk : drawInfo.chunks) {
+    for (ITerrain* terrain : drawInfo.terrains) {
+        if (!terrain->canDraw()) { continue; }
+
         constexpr uint32_t sceneDataIndex{0};
 
         VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1];
@@ -98,9 +100,10 @@ void will_engine::terrain::TerrainPipeline::draw(VkCommandBuffer cmd, const Terr
 
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);
 
-        vkCmdBindVertexBuffers(cmd, 0, 1, &chunk->getVertexBuffer().buffer, &zeroOffset);
-        vkCmdBindIndexBuffer(cmd, chunk->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexed(cmd, chunk->getIndexCount(), 1, 0, 0, 0);
+        VkBuffer vertexBuffer = terrain->getVertexBuffer().buffer;
+        vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer, &zeroOffset);
+        vkCmdBindIndexBuffer(cmd, terrain->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(cmd, terrain->getIndicesCount(), 1, 0, 0, 0);
     }
 
     vkCmdEndRendering(cmd);

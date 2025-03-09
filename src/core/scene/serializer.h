@@ -226,7 +226,7 @@ public: // GameObjects
         ordered_json rootJ;
 
         rootJ["version"] = EngineVersion::current();
-        rootJ["metadata"] = SceneMetadata::create("Test Scene");
+        rootJ["metadata"] = SceneMetadata::create(map->getName().data());
 
         ordered_json gameObjectJ;
         ordered_json renderObjectJ;

@@ -7,29 +7,78 @@
 #include <filesystem>
 
 #include "src/core/game_object/hierarchical.h"
+#include "src/core/game_object/terrain.h"
 #include "src/core/game_object/transformable.h"
+#include "src/renderer/terrain/terrain_chunk.h"
+#include "src/util/heightmap_utils.h"
 
 namespace will_engine
 {
 /**
  * Maps do no have parents, they are the roots of their respctive hierarchies
  */
-class Map final : public IHierarchical, public ITransformable
+class Map final : public IHierarchical,
+                  public ITransformable,
+                  public ITerrain
 {
 public:
-    explicit Map(const std::filesystem::path& mapSource);
+    explicit Map(const std::filesystem::path& mapSource, ResourceManager& resourceManager, bool initializeTerrain = false);
 
     ~Map() override;
 
     void destroy() override;
 
-    bool loadMap();
-
     bool saveMap(const std::filesystem::path& newSavePath = {});
 
     int32_t getMapId() const { return mapId; }
 
+    std::filesystem::path getMapPath() const { return mapSource; }
+
     void addGameObject(IHierarchical* newChild);
+
+public: // Terrain
+    void generateTerrain();
+
+    void generateTerrain(const uint32_t seed)
+    {
+        this->seed = seed;
+        generateTerrain();
+    }
+
+    void generateTerrain(const NoiseSettings& terrainProperties)
+    {
+        this->terrainProperties = terrainProperties;
+        generateTerrain();
+    }
+
+    void generateTerrain(const NoiseSettings& terrainProperties, const uint32_t seed)
+    {
+        this->terrainProperties = terrainProperties;
+        this->seed = seed;
+        generateTerrain();
+    }
+
+    AllocatedBuffer getVertexBuffer() override;
+
+    AllocatedBuffer getIndexBuffer() override;
+
+    size_t getIndicesCount() override;
+
+    bool canDraw() override { return terrainChunk.get(); }
+
+private: // Terrain
+    std::unique_ptr<terrain::TerrainChunk> terrainChunk;
+    const float DEFAULT_TERRAIN_SCALE = 100.0f;
+    const float DEFAULT_TERRAIN_HEIGHT_SCALE = 50.0f;
+    NoiseSettings terrainProperties{
+        .scale = DEFAULT_TERRAIN_SCALE,
+        .persistence = 0.5f,
+        .lacunarity = 2.0f,
+        .octaves = 4,
+        .offset = {0.0f, 0.0f},
+        .heightScale = DEFAULT_TERRAIN_HEIGHT_SCALE
+    };
+    uint32_t seed{13};
 
 #pragma region Interfaces
 
@@ -140,7 +189,8 @@ private:
     std::string mapName{};
     uint32_t mapId;
 
-    bool canBeLoaded{false};
+    ResourceManager& resourceManager;
+
     bool isLoaded{false};
 };
 }

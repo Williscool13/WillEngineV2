@@ -4,6 +4,7 @@
 
 #ifndef TERRAIN_PIPELINE_H
 #define TERRAIN_PIPELINE_H
+#include "src/core/game_object/terrain.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/resource_manager.h"
 
@@ -17,7 +18,7 @@ struct TerrainDrawInfo
     bool bClearColor{true};
     int32_t currentFrameOverlap{0};
     glm::vec2 viewportExtents{RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
-    const std::vector<TerrainChunk*>& chunks;
+    const std::vector<ITerrain*>& terrains;
     VkImageView normalTarget{VK_NULL_HANDLE};
     VkImageView albedoTarget{VK_NULL_HANDLE};
     VkImageView pbrTarget{VK_NULL_HANDLE};

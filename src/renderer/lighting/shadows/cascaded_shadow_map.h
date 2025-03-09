@@ -67,7 +67,7 @@ public:
 
     void update(const DirectionalLight& mainLight, const Camera* camera, int32_t currentFrameOverlap);
 
-    void draw(VkCommandBuffer cmd, const std::unordered_map<uint32_t, RenderObject*>& renderObjects, const std::vector<terrain::TerrainChunk*>& terrainChunks,  int32_t currentFrameOverlap);
+    void draw(VkCommandBuffer cmd, const std::unordered_map<uint32_t, RenderObject*>& renderObjects, const std::vector<ITerrain*>& terrains, int32_t currentFrameOverlap);
 
     static glm::mat4 getLightSpaceMatrix(glm::vec3 lightDirection, const Camera* camera, float cascadeNear, float cascadeFar);
 
