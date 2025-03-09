@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 
 #include "serializer.h"
+#include "src/core/engine.h"
 #include "src/util/file.h"
 
 will_engine::Map::Map(const std::filesystem::path& mapSource) : mapSource(mapSource)
@@ -70,11 +71,15 @@ will_engine::Map::~Map()
 
 void will_engine::Map::destroy()
 {
-    for (IHierarchical* child : children) {
-        recursiveDestroy(child);
+    for (int32_t i = static_cast<int32_t>(children.size()) - 1; i >= 0; i--) {
+        recursiveDestroy(children[i]);
     }
 
     children.clear();
+
+    if (Engine* engine = Engine::get()) {
+        engine->addToDeletionQueue(this);
+    }
 }
 
 bool will_engine::Map::loadMap()
@@ -99,6 +104,11 @@ bool will_engine::Map::loadMap()
 
     Serializer::deserializeMap(this, rootJ);
     isLoaded = true;
+
+    if (Engine* engine = Engine::get()) {
+        engine->addToBeginQueue(this);
+    }
+
     return true;
 }
 
@@ -113,11 +123,6 @@ bool will_engine::Map::saveMap(const std::filesystem::path& newSavePath)
 void will_engine::Map::addGameObject(IHierarchical* newChild)
 {
     addChild(newChild);
-}
-
-void will_engine::Map::beginPlay()
-{
-    fmt::print("BeginPlay for willmap {}", mapSource.filename().string());
 }
 
 void will_engine::Map::update(const float deltaTime)
@@ -138,16 +143,14 @@ void will_engine::Map::recursiveUpdate(IHierarchical* object, const float deltaT
 
 void will_engine::Map::recursiveDestroy(IHierarchical* object)
 {
-    for (IHierarchical* child : object->getChildren()) {
-        recursiveDestroy(child);
+    for (int32_t i = static_cast<int32_t>(object->getChildren().size()) - 1; i >= 0; i--) {
+        recursiveDestroy(object->getChildren()[i]);
     }
+    // for (IHierarchical* child : object->getChildren()) {
+    //     recursiveDestroy(child);
+    // }
 
     object->destroy();
-}
-
-void will_engine::Map::beginDestroy()
-{
-    fmt::print("BeginDestroy for willmap {}", mapSource.filename().string());
 }
 
 bool will_engine::Map::addChild(IHierarchical* child)

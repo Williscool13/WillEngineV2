@@ -129,6 +129,7 @@ public:
     [[nodiscard]] IHierarchical* createGameObject(Map* map, const std::string& name) const;
     void addToBeginQueue(IHierarchical* obj);
     void addToDeletionQueue(IHierarchical* obj);
+    void addToDeletionQueue(Map* map);
 
     RenderObject* getRenderObject(uint32_t renderRefIndex);
 
@@ -184,6 +185,7 @@ private: // Scene Data
 
     std::vector<IHierarchical*> hierarchalBeginQueue{};
     std::vector<IHierarchical*> hierarchicalDeletionQueue{};
+    std::vector<Map*> mapDeletionQueue{};
 
 private: // Pipelines
     visibility_pass::VisibilityPassPipeline* visibilityPassPipeline{nullptr};

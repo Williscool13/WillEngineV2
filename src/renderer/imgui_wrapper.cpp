@@ -457,7 +457,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 }
 
                 if (!selectedMap) {
-                    if (engine->activeMaps.size() > 0) {
+                    if (!engine->activeMaps.empty()) {
                         selectedMap = engine->activeMaps[0];
                     }
                 }
@@ -466,6 +466,11 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     ImGui::Text("No map currently selected");
                 }
                 else {
+                    if (ImGui::Button("Destroy Map")) {
+                        selectedMap->destroy();
+                        selectedMap = nullptr;
+                    }
+
                     if (ImGui::BeginTabBar("SceneTabs")) {
                         if (ImGui::BeginTabItem("Serialization")) {
                             static std::filesystem::path serializationPath = {"assets/maps/sampleScene.willmap"};
@@ -895,6 +900,7 @@ void ImguiWrapper::indent(IHierarchical* obj)
 
     obj->reparent(currChildren[index - 1]);
 }
+
 void ImguiWrapper::undent(IHierarchical* obj)
 {
     // find first parent under scene root
@@ -917,6 +923,7 @@ void ImguiWrapper::undent(IHierarchical* obj)
     // move the child's position to index + 1 in the children vector
     std::rotate(parentParentChildren.begin() + index + 1, parentParentChildren.end() - 1, parentParentChildren.end());
 }
+
 void ImguiWrapper::moveObject(const IHierarchical* obj, int diff)
 {
     assert(diff != 0);
@@ -931,7 +938,8 @@ void ImguiWrapper::moveObject(const IHierarchical* obj, int diff)
 
     if (index < newIndex) {
         std::rotate(parentChildren.begin() + index, parentChildren.begin() + newIndex, parentChildren.begin() + index + 2);
-    } else {
+    }
+    else {
         std::rotate(parentChildren.begin() + newIndex, parentChildren.begin() + index, parentChildren.begin() + index + 1);
     }
 }
