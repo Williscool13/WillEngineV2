@@ -10,7 +10,6 @@
 
 #include "map.h"
 #include "src/core/transform.h"
-#include "src/core/camera/camera.h"
 #include "src/core/game_object/game_object.h"
 #include "src/core/game_object/components/component.h"
 #include "src/core/game_object/components/component_factory.h"
@@ -19,8 +18,6 @@
 
 namespace will_engine
 {
-using ordered_json = nlohmann::ordered_json;
-
 constexpr int32_t SCENE_FORMAT_VERSION = 1;
 
 struct EngineVersion
@@ -216,22 +213,20 @@ public: // GameObjects
         }
     }
 
-    static bool serializeMap(Map* map, const std::filesystem::path& filepath)
+    static bool serializeMap(IHierarchical* root, ordered_json& rootJ, const std::filesystem::path& filepath)
     {
-        if (map == nullptr) {
+        if (root == nullptr) {
             fmt::print("Warning: map is null\n");
             return false;
         }
 
-        ordered_json rootJ;
-
         rootJ["version"] = EngineVersion::current();
-        rootJ["metadata"] = SceneMetadata::create(map->getName().data());
+        rootJ["metadata"] = SceneMetadata::create(root->getName().data());
 
         ordered_json gameObjectJ;
         ordered_json renderObjectJ;
 
-        serializeGameObject(gameObjectJ, map);
+        serializeGameObject(gameObjectJ, root);
         rootJ["gameObjects"] = gameObjectJ;
 
         std::ofstream file(filepath);
