@@ -9,14 +9,15 @@
 #include <vk-bootstrap/VkBootstrap.h>
 
 #include <Jolt/Jolt.h>
+#include <Jolt/Physics/Body/BodyCreationSettings.h>
+#include <Jolt/Physics/Collision/Shape/HeightFieldShape.h>
 
 #include "identifier/identifier_manager.h"
 #include "src/physics/physics_filters.h"
 
 #include "camera/free_camera.h"
 #include "game_object/game_object.h"
-#include "scene/scene.h"
-#include "scene/scene_serializer.h"
+#include "scene/serializer.h"
 #include "src/core/input.h"
 #include "src/core/time.h"
 #include "src/physics/physics.h"
@@ -33,13 +34,24 @@
 #include "src/renderer/pipelines/visibility_pass/visibility_pass.h"
 #include "src/renderer/pipelines/post_process/post_process_pipeline.h"
 #include "src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h"
+#include "src/renderer/pipelines/terrain/terrain_pipeline.h"
+#include "src/renderer/terrain/terrain_chunk.h"
 #include "src/util/file.h"
 #include "src/util/halton.h"
+#include "src/util/heightmap_utils.h"
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
 #else
 #define USE_VALIDATION_LAYERS true
+#endif
+
+#ifdef NDEBUG
+// uncapped FPS
+#define PRESENT_MODE VK_PRESENT_MODE_IMMEDIATE_KHR
+#else
+// vsync
+#define PRESENT_MODE VK_PRESENT_MODE_FIFO_KHR
 #endif
 
 namespace will_engine
@@ -122,8 +134,7 @@ void Engine::init()
     identifier::IdentifierManager::Set(identifierManager);
 
     startupProfiler.beginTimer("3Physics");
-    physics = new physics::Physics();
-    physics::Physics::Set(physics);
+    physics::Physics::set(new physics::Physics());
     startupProfiler.endTimer("3Physics");
 
     startupProfiler.beginTimer("4Environment");
@@ -163,7 +174,6 @@ void Engine::init()
     profiler.addTimer("2Render");
     profiler.addTimer("3Total");
 
-
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     fmt::print("Finished Initialization in {} seconds\n", static_cast<float>(elapsed.count()) / 1000000.0f);
@@ -186,6 +196,7 @@ void Engine::initRenderer()
 
     visibilityPassPipeline = new visibility_pass::VisibilityPassPipeline(*resourceManager);
     environmentPipeline = new environment_pipeline::EnvironmentPipeline(*resourceManager, environmentMap->getCubemapDescriptorSetLayout());
+    terrainPipeline = new terrain::TerrainPipeline(*resourceManager);
     deferredMrtPipeline = new deferred_mrt::DeferredMrtPipeline(*resourceManager);
     deferredResolvePipeline = new deferred_resolve::DeferredResolvePipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
                                                                             cascadedShadowMap->getCascadedShadowMapUniformLayout(), cascadedShadowMap->getCascadedShadowMapSamplerLayout());
@@ -224,12 +235,11 @@ void Engine::initRenderer()
 
 void Engine::initGame()
 {
-    const auto sceneRoot = new GameObject("Scene Root");
-    scene = new Scene(sceneRoot);
     file::scanForModels(renderObjectInfoMap);
     camera = new FreeCamera();
-    Serializer::deserializeScene(scene->getRoot(), camera, file::getSampleScene().string());
-
+    const auto map = new Map(file::getSampleScene(), *resourceManager);
+    activeMaps.push_back(map);
+    activeTerrains.push_back(map);
 }
 
 void Engine::run()
@@ -281,7 +291,7 @@ void Engine::run()
         profiler.beginTimer("3Total");
 
         profiler.beginTimer("0Physics");
-        physics->update(deltaTime);
+        physics::Physics::get()->update(deltaTime);
         profiler.endTimer("0Physics");
 
         profiler.beginTimer("1Game");
@@ -318,7 +328,18 @@ void Engine::updateGame(const float deltaTime)
     }
     hierarchalBeginQueue.clear();
 
-    scene->update(deltaTime);
+    for (Map* map : activeMaps) {
+        map->update(deltaTime);
+    }
+
+    for (Map* map : mapDeletionQueue) {
+        std::erase(activeMaps, map);
+        std::erase(activeTerrains, static_cast<ITerrain*>(map));
+        map->beginDestroy();
+        delete map;
+    }
+
+    mapDeletionQueue.clear();
 
     for (IHierarchical* hierarchical : hierarchicalDeletionQueue) {
         hierarchical->beginDestroy();
@@ -426,7 +447,7 @@ void Engine::draw(float deltaTime)
     };
     visibilityPassPipeline->draw(cmd, csmFrustumCullDrawInfo);
 
-    cascadedShadowMap->draw(cmd, renderObjectMap, currentFrameOverlap);
+    cascadedShadowMap->draw(cmd, renderObjectMap, activeTerrains, currentFrameOverlap);
 
     vk_helpers::clearColorImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -456,8 +477,23 @@ void Engine::draw(float deltaTime)
     };
     visibilityPassPipeline->draw(cmd, deferredFrustumCullDrawInfo);
 
-    const deferred_mrt::DeferredMrtDrawInfo deferredMrtDrawInfo{
+    terrain::TerrainDrawInfo terrainDrawInfo{
         true,
+        currentFrameOverlap,
+        {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT},
+        activeTerrains,
+        normalRenderTarget.imageView,
+        albedoRenderTarget.imageView,
+        pbrRenderTarget.imageView,
+        velocityRenderTarget.imageView,
+        depthImage.imageView,
+        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
+    };
+    terrainPipeline->draw(cmd, terrainDrawInfo);
+
+    const deferred_mrt::DeferredMrtDrawInfo deferredMrtDrawInfo{
+        false,
         currentFrameOverlap,
         {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT},
         renderObjectMap,
@@ -582,17 +618,17 @@ void Engine::draw(float deltaTime)
 void Engine::cleanup()
 {
     fmt::print("----------------------------------------\n");
-    fmt::print("Cleaning up {}n", ENGINE_NAME);
+    fmt::print("Cleaning up {}\n", ENGINE_NAME);
 
     vkDeviceWaitIdle(context->device);
 
     delete visibilityPassPipeline;
     delete environmentPipeline;
+    delete terrainPipeline;
     delete deferredMrtPipeline;
     delete deferredResolvePipeline;
     delete temporalAntialiasingPipeline;
     delete postProcessPipeline;
-
 
     for (AllocatedBuffer sceneBuffer : sceneDataBuffers) {
         resourceManager->destroyBuffer(sceneBuffer);
@@ -621,7 +657,17 @@ void Engine::cleanup()
     resourceManager->destroyImage(historyBuffer);
     resourceManager->destroyImage(postProcessOutputBuffer);
 
-    delete scene;
+    for (Map* map : activeMaps) {
+        map->destroy();
+        delete map;
+    }
+    activeMaps.clear();
+
+    for (IHierarchical* hierarchal : hierarchalBeginQueue) {
+        hierarchal->beginPlay();
+    }
+    hierarchalBeginQueue.clear();
+
 
     for (const std::pair<uint32_t, RenderObject*> renderObject : renderObjectMap) {
         delete renderObject.second;
@@ -630,7 +676,7 @@ void Engine::cleanup()
 
     delete cascadedShadowMap;
     delete environmentMap;
-    delete physics;
+    delete physics::Physics::get();
     delete immediate;
     delete resourceManager;
     delete identifierManager;
@@ -645,10 +691,10 @@ void Engine::cleanup()
     SDL_DestroyWindow(window);
 }
 
-IHierarchical* Engine::createGameObject(const std::string& name) const
+IHierarchical* Engine::createGameObject(Map* map, const std::string& name) const
 {
     const auto newGameObject = new GameObject(name);
-    scene->addGameObject(newGameObject);
+    map->addGameObject(newGameObject);
     return newGameObject;
 }
 
@@ -664,6 +710,11 @@ void Engine::addToDeletionQueue(IHierarchical* obj)
         hierarchalBeginQueue.erase(found);
     }
     hierarchicalDeletionQueue.push_back(obj);
+}
+
+void Engine::addToDeletionQueue(Map* map)
+{
+    mapDeletionQueue.push_back(map);
 }
 
 RenderObject* Engine::getRenderObject(const uint32_t renderRefIndex)
@@ -685,8 +736,7 @@ void Engine::createSwapchain(const uint32_t width, const uint32_t height)
 
     vkb::Swapchain vkbSwapchain = swapchainBuilder
             .set_desired_format(VkSurfaceFormatKHR{.format = swapchainImageFormat, .colorSpace = VK_COLOR_SPACE_SRGB_NONLINEAR_KHR})
-            .set_desired_present_mode(VK_PRESENT_MODE_FIFO_KHR) //use vsync present mode
-            //.set_desired_present_mode(VK_PRESENT_MODE_IMMEDIATE_KHR) // uncapped fps
+            .set_desired_present_mode(PRESENT_MODE)
             .set_desired_extent(width, height)
             .add_image_usage_flags(VK_IMAGE_USAGE_TRANSFER_DST_BIT)
             .build()
@@ -858,8 +908,10 @@ void Engine::createDrawResources()
 void Engine::hotReloadShaders() const
 {
     vkDeviceWaitIdle(context->device);
+    cascadedShadowMap->reloadShaders();
     visibilityPassPipeline->reloadShaders();
     environmentPipeline->reloadShaders();
+    terrainPipeline->reloadShaders();
     deferredMrtPipeline->reloadShaders();
     deferredResolvePipeline->reloadShaders();
     temporalAntialiasingPipeline->reloadShaders();

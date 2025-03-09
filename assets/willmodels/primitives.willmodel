@@ -1,7 +1,7 @@
 {
     "renderObject": {
-        "gltfPath": "..\\assets\\models\\primitives\\primitives.gltf",
-        "id": 786709467,
+        "gltfPath": "assets\\models\\primitives\\primitives.gltf",
+        "id": 3129368917,
         "name": "primitives"
     },
     "version": 1

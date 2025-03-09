@@ -68,10 +68,10 @@ public: // Model Rendering API
     GameObject* generateGameObject(const std::string& gameObjectName = "");
 
     [[nodiscard]] size_t getMeshCount() const { return meshes.size(); }
-    bool canDraw() const { return currentInstanceCount != freeInstanceIndices.size(); }
-    const DescriptorBufferUniform& getAddressesDescriptorBuffer() const { return addressesDescriptorBuffer; }
-    const DescriptorBufferSampler& getTextureDescriptorBuffer() const { return textureDescriptorBuffer; }
-    const DescriptorBufferUniform& getFrustumCullingAddressesDescriptorBuffer() { return frustumCullingDescriptorBuffer; }
+    [[nodiscard]] bool canDraw() const { return currentInstanceCount != freeInstanceIndices.size(); }
+    [[nodiscard]] const DescriptorBufferUniform& getAddressesDescriptorBuffer() const { return addressesDescriptorBuffer; }
+    [[nodiscard]] const DescriptorBufferSampler& getTextureDescriptorBuffer() const { return textureDescriptorBuffer; }
+    [[nodiscard]] const DescriptorBufferUniform& getFrustumCullingAddressesDescriptorBuffer() { return frustumCullingDescriptorBuffer; }
     [[nodiscard]] const AllocatedBuffer& getVertexBuffer() const { return vertexBuffer; }
     [[nodiscard]] const AllocatedBuffer& getIndexBuffer() const { return indexBuffer; }
     [[nodiscard]] const AllocatedBuffer& getIndirectBuffer(const int32_t currentFrameOverlap) const { return drawIndirectBuffers[currentFrameOverlap]; }

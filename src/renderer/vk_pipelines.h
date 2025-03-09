@@ -41,7 +41,7 @@ public:
      */
     void setupVertexInput(VkVertexInputBindingDescription* bindings, uint32_t bindingCount, VkVertexInputAttributeDescription* attributes, uint32_t attributeCount);
 
-    void setupInputAssembly(VkPrimitiveTopology topology);
+    void setupInputAssembly(VkPrimitiveTopology topology, bool enablePrimitiveRestart = false);
 
     void setupRasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace, bool rasterizerDiscardEnable = false);
 

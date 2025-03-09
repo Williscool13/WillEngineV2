@@ -8,7 +8,7 @@
 #include <src/renderer/vulkan_context.h>
 
 #include "src/core/game_object/hierarchical.h"
-#include "src/core/scene/scene.h"
+#include "src/core/scene/map.h"
 
 namespace will_engine
 {
@@ -34,13 +34,30 @@ public:
 
     static void handleInput(const SDL_Event& e);
 
+    void selectMap(Map* newMap);
+
     void imguiInterface(Engine* engine);
 
-    void drawSceneGraph(Engine* engine, const Scene* scene);
+    void drawSceneGraph(Engine* engine);
 
-    void displayGameObject(Engine* engine, const Scene* scene, IHierarchical* obj, int32_t depth);
+    void displayGameObject(Engine* engine, IHierarchical* obj, int32_t depth);
 
     void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView, VkExtent2D swapchainExtent);
+
+private:
+    static void indent(IHierarchical* obj);
+
+    static void undent(IHierarchical* obj);
+
+    static void moveObject(const IHierarchical* obj, int diff);
+
+    /**
+     * Gets the index of the specified gameobject in the vector. Returns -1 if not found. O(n) complexity
+     * @param obj
+     * @param vector
+     * @return
+     */
+    static int getIndexInVector(const IHierarchical* obj, const std::vector<IHierarchical*>& vector);
 
 private:
     const VulkanContext& context;
@@ -48,6 +65,10 @@ private:
     VkDescriptorPool imguiPool{VK_NULL_HANDLE};
 
     IHierarchical* selectedItem{nullptr};
+    Map* selectedMap{nullptr};
+
+    NoiseSettings terrainProperties{};
+    uint32_t terrainSeed{13};
 };
 }
 

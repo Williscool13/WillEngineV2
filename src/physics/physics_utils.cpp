@@ -38,14 +38,14 @@ JPH::Quat will_engine::physics::PhysicsUtils::toJolt(const glm::quat& q)
 
 bool will_engine::physics::PhysicsUtils::raycastBroad(const glm::vec3& start, const glm::vec3& end)
 {
-    if (!Physics::Get()) return false;
+    if (!Physics::get()) return false;
 
     const JPH::RVec3 rayStart = toJolt(start);
     const JPH::RVec3 rayEnd = toJolt(end);
     const JPH::RayCast ray{rayStart, rayEnd - rayStart};
 
     JPH::AllHitCollisionCollector<JPH::RayCastBodyCollector> collector;
-    Physics::Get()->getPhysicsSystem().GetBroadPhaseQuery().CastRay(ray, collector);
+    Physics::get()->getPhysicsSystem().GetBroadPhaseQuery().CastRay(ray, collector);
 
     return collector.HadHit();
 }
@@ -54,14 +54,14 @@ will_engine::physics::RaycastHit will_engine::physics::PhysicsUtils::raycast(con
                                                                              const JPH::ObjectLayerFilter& objectLayerFilter, const JPH::BodyFilter& bodyFilter)
 {
     RaycastHit result;
-    if (!Physics::Get()) return result;
+    if (!Physics::get()) return result;
 
     const JPH::RVec3 rayStart = toJolt(start);
     const JPH::RVec3 rayEnd = toJolt(end);
     const JPH::RRayCast ray{rayStart, rayEnd - rayStart};
 
     JPH::RayCastResult hit;
-    if (Physics::Get()->getPhysicsSystem().GetNarrowPhaseQuery().CastRay(ray, hit, broadLayerFilter, objectLayerFilter, bodyFilter)) {
+    if (Physics::get()->getPhysicsSystem().GetNarrowPhaseQuery().CastRay(ray, hit, broadLayerFilter, objectLayerFilter, bodyFilter)) {
         result.hasHit = true;
         result.fraction = hit.mFraction;
         result.hitPosition = start + (end - start) * hit.mFraction;
@@ -70,7 +70,7 @@ will_engine::physics::RaycastHit will_engine::physics::PhysicsUtils::raycast(con
         result.subShapeID = hit.mSubShapeID2;
 
         // Get hit normal
-        const JPH::BodyLockRead lock(Physics::Get()->getPhysicsSystem().GetBodyLockInterface(), hit.mBodyID);
+        const JPH::BodyLockRead lock(Physics::get()->getPhysicsSystem().GetBodyLockInterface(), hit.mBodyID);
         if (lock.Succeeded()) {
             const JPH::Body& body = lock.GetBody();
             const JPH::Vec3 normal = body.GetWorldSpaceSurfaceNormal(hit.mSubShapeID2, toJolt(result.hitPosition));
@@ -95,7 +95,7 @@ std::vector<will_engine::physics::RaycastHit> will_engine::physics::PhysicsUtils
                                                                                              const JPH::BodyFilter& bodyFilter, const JPH::RayCastSettings& raycastSettings)
 {
     std::vector<RaycastHit> results;
-    if (!Physics::Get()) return results;
+    if (!Physics::get()) return results;
 
     const JPH::RVec3 rayStart = toJolt(start);
     const JPH::RVec3 rayEnd = toJolt(end);
@@ -103,7 +103,7 @@ std::vector<will_engine::physics::RaycastHit> will_engine::physics::PhysicsUtils
 
 
     JPH::AllHitCollisionCollector<JPH::CastRayCollector> collector;
-    Physics::Get()->getPhysicsSystem().GetNarrowPhaseQuery().CastRay(ray, raycastSettings, collector, broadLayerFilter, objectLayerFilter, bodyFilter);
+    Physics::get()->getPhysicsSystem().GetNarrowPhaseQuery().CastRay(ray, raycastSettings, collector, broadLayerFilter, objectLayerFilter, bodyFilter);
 
     collector.Sort();
     const auto& hits = collector.mHits;
@@ -120,7 +120,7 @@ std::vector<will_engine::physics::RaycastHit> will_engine::physics::PhysicsUtils
         result.hitBodyID = hit.mBodyID;
         result.subShapeID = hit.mSubShapeID2;
 
-        const JPH::BodyLockRead lock(Physics::Get()->getPhysicsSystem().GetBodyLockInterface(), hit.mBodyID);
+        const JPH::BodyLockRead lock(Physics::get()->getPhysicsSystem().GetBodyLockInterface(), hit.mBodyID);
         if (lock.Succeeded()) {
             const JPH::Body& body = lock.GetBody();
             JPH::Vec3 normal = body.GetWorldSpaceSurfaceNormal(hit.mSubShapeID2, toJolt(result.hitPosition));
@@ -135,65 +135,65 @@ std::vector<will_engine::physics::RaycastHit> will_engine::physics::PhysicsUtils
 
 void will_engine::physics::PhysicsUtils::addForce(const JPH::BodyID bodyId, const glm::vec3& force)
 {
-    if (!Physics::Get()) return;
-    if (!Physics::Get()->doesPhysicsBodyExists(bodyId)) { return; }
+    if (!Physics::get()) return;
+    if (!Physics::get()->doesPhysicsBodyExists(bodyId)) { return; }
 
-    Physics::Get()->getBodyInterface().AddForce(bodyId, toJolt(force));
+    Physics::get()->getBodyInterface().AddForce(bodyId, toJolt(force));
 }
 
 void will_engine::physics::PhysicsUtils::addForceAtPosition(const JPH::BodyID bodyId, const glm::vec3& force, const glm::vec3& position)
 {
-    if (!Physics::Get()) return;
-    Physics::Get()->getBodyInterface().AddForce(bodyId, toJolt(force), toJolt(position));
+    if (!Physics::get()) return;
+    Physics::get()->getBodyInterface().AddForce(bodyId, toJolt(force), toJolt(position));
 }
 
 void will_engine::physics::PhysicsUtils::addTorque(const JPH::BodyID bodyId, const glm::vec3& torque)
 {
-    if (!Physics::Get()) return;
-    Physics::Get()->getBodyInterface().AddTorque(bodyId, toJolt(torque));
+    if (!Physics::get()) return;
+    Physics::get()->getBodyInterface().AddTorque(bodyId, toJolt(torque));
 }
 
 void will_engine::physics::PhysicsUtils::addImpulse(const JPH::BodyID bodyId, const glm::vec3& impulse)
 {
-    if (!Physics::Get()) return;
-    Physics::Get()->getBodyInterface().AddImpulse(bodyId, toJolt(impulse));
+    if (!Physics::get()) return;
+    Physics::get()->getBodyInterface().AddImpulse(bodyId, toJolt(impulse));
 }
 
 void will_engine::physics::PhysicsUtils::addImpulseAtPosition(const JPH::BodyID bodyId, const glm::vec3& impulse, const glm::vec3& position)
 {
-    if (!Physics::Get()) return;
-    Physics::Get()->getBodyInterface().AddImpulse(bodyId, toJolt(impulse), toJolt(position));
+    if (!Physics::get()) return;
+    Physics::get()->getBodyInterface().AddImpulse(bodyId, toJolt(impulse), toJolt(position));
 }
 
 void will_engine::physics::PhysicsUtils::addAngularImpulse(const JPH::BodyID bodyId, const glm::vec3& angularImpulse)
 {
-    if (!Physics::Get()) return;
-    Physics::Get()->getBodyInterface().AddAngularImpulse(bodyId, toJolt(angularImpulse));
+    if (!Physics::get()) return;
+    Physics::get()->getBodyInterface().AddAngularImpulse(bodyId, toJolt(angularImpulse));
 }
 
 void will_engine::physics::PhysicsUtils::setLinearVelocity(const JPH::BodyID bodyId, const glm::vec3& velocity)
 {
-    if (!Physics::Get()) return;
-    Physics::Get()->getBodyInterface().SetLinearVelocity(bodyId, toJolt(velocity));
+    if (!Physics::get()) return;
+    Physics::get()->getBodyInterface().SetLinearVelocity(bodyId, toJolt(velocity));
 }
 
 void will_engine::physics::PhysicsUtils::setAngularVelocity(const JPH::BodyID bodyId, const glm::vec3& angularVelocity)
 {
-    if (!Physics::Get()) return;
-    Physics::Get()->getBodyInterface().SetAngularVelocity(bodyId, toJolt(angularVelocity));
+    if (!Physics::get()) return;
+    Physics::get()->getBodyInterface().SetAngularVelocity(bodyId, toJolt(angularVelocity));
 }
 
 glm::vec3 will_engine::physics::PhysicsUtils::getLinearVelocity(const JPH::BodyID bodyId)
 {
-    if (!Physics::Get()) return glm::vec3(0.0f);
-    const JPH::Vec3 velocity = Physics::Get()->getBodyInterface().GetLinearVelocity(bodyId);
+    if (!Physics::get()) return glm::vec3(0.0f);
+    const JPH::Vec3 velocity = Physics::get()->getBodyInterface().GetLinearVelocity(bodyId);
     return {velocity.GetX(), velocity.GetY(), velocity.GetZ()};
 }
 
 glm::vec3 will_engine::physics::PhysicsUtils::getAngularVelocity(const JPH::BodyID bodyId)
 {
-    if (!Physics::Get()) return glm::vec3(0.0f);
-    const JPH::Vec3 velocity = Physics::Get()->getBodyInterface().GetAngularVelocity(bodyId);
+    if (!Physics::get()) return glm::vec3(0.0f);
+    const JPH::Vec3 velocity = Physics::get()->getBodyInterface().GetAngularVelocity(bodyId);
     return {velocity.GetX(), velocity.GetY(), velocity.GetZ()};
 }
 
@@ -205,21 +205,21 @@ void will_engine::physics::PhysicsUtils::resetVelocity(JPH::BodyID bodyId)
 
 void will_engine::physics::PhysicsUtils::setMotionType(const JPH::BodyID bodyId, const JPH::EMotionType motionType, const JPH::EActivation activation)
 {
-    if (!Physics::Get()) return;
-    Physics::Get()->getBodyInterface().SetMotionType(bodyId, motionType, activation);
+    if (!Physics::get()) return;
+    Physics::get()->getBodyInterface().SetMotionType(bodyId, motionType, activation);
 }
 
 JPH::ObjectLayer will_engine::physics::PhysicsUtils::getObjectLayer(const JPH::BodyID bodyId)
 {
-    if (!Physics::Get()) return 0;
-    return Physics::Get()->getBodyInterface().GetObjectLayer(bodyId);
+    if (!Physics::get()) return 0;
+    return Physics::get()->getBodyInterface().GetObjectLayer(bodyId);
 }
 
 
 
 JPH::EShapeSubType will_engine::physics::PhysicsUtils::getObjectShapeSubtype(JPH::BodyID bodyId)
 {
-    if (!Physics::Get()) return JPH::EShapeSubType::Empty;
-    const JPH::RefConst<JPH::Shape> shape = Physics::Get()->getBodyInterface().GetShape(bodyId);
+    if (!Physics::get()) return JPH::EShapeSubType::Empty;
+    const JPH::RefConst<JPH::Shape> shape = Physics::get()->getBodyInterface().GetShape(bodyId);
     return shape->GetSubType();
 }

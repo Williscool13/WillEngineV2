@@ -1,0 +1,125 @@
+{
+    "version": {
+        "major": 0,
+        "minor": 1,
+        "patch": 0
+    },
+    "metadata": {
+        "name": "sampleScene2",
+        "created": "2025-03-09 15:18:47",
+        "formatVersion": 1
+    },
+    "gameObjects": {
+        "name": "sampleScene2",
+        "transform": {
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        "children": [
+            {
+                "id": 4,
+                "name": "Red Floor\u0000ject_0",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 20.0,
+                        "y": 1.0,
+                        "z": 20.0
+                    }
+                },
+                "components": {
+                    "MeshRendererComponent": {
+                        "renderReference": -1165598379,
+                        "renderMeshIndex": 1,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "New MeshRendererComponent"
+                    },
+                    "RigidBodyComponent": {
+                        "properties": {
+                            "isActive": true,
+                            "motionType": 1,
+                            "layer": 0,
+                            "shapeType": 1,
+                            "shapeParams": {
+                                "x": 20.0,
+                                "y": 1.0,
+                                "z": 20.0
+                            }
+                        },
+                        "componentName": "New RigidBodyComponent"
+                    }
+                }
+            },
+            {
+                "id": 5,
+                "name": "Sphere\u0000eObject_1",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": 2.0,
+                        "z": 0.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "components": {
+                    "MeshRendererComponent": {
+                        "renderReference": -569695456,
+                        "renderMeshIndex": 0,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "MeshRendererComponent"
+                    },
+                    "RigidBodyComponent": {
+                        "properties": {
+                            "isActive": true,
+                            "motionType": 2,
+                            "layer": 1,
+                            "shapeType": 0,
+                            "shapeParams": {
+                                "x": 1.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            }
+                        },
+                        "componentName": "New RigidBodyComponent"
+                    }
+                }
+            }
+        ]
+    }
+}

@@ -14,6 +14,9 @@ jobs:
     runs-on: windows-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Cached LFS checkout
         uses: nschloe/action-cached-lfs-checkout@v1
 

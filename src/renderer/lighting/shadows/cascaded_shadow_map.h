@@ -12,6 +12,11 @@
 
 namespace will_engine
 {
+namespace terrain
+{
+    class TerrainChunk;
+}
+
 class Camera;
 }
 
@@ -52,13 +57,17 @@ class CascadedShadowMap
 public:
     CascadedShadowMap() = delete;
 
+    void createRenderObjectPipeline();
+
+    void createTerrainPipeline();
+
     explicit CascadedShadowMap(ResourceManager& resourceManager);
 
     ~CascadedShadowMap();
 
     void update(const DirectionalLight& mainLight, const Camera* camera, int32_t currentFrameOverlap);
 
-    void draw(VkCommandBuffer cmd, const std::unordered_map<uint32_t, RenderObject*>& renderObjects, int32_t currentFrameOverlap);
+    void draw(VkCommandBuffer cmd, const std::unordered_map<uint32_t, RenderObject*>& renderObjects, const std::vector<ITerrain*>& terrains, int32_t currentFrameOverlap);
 
     static glm::mat4 getLightSpaceMatrix(glm::vec3 lightDirection, const Camera* camera, float cascadeNear, float cascadeFar);
 
@@ -67,7 +76,14 @@ public:
     const DescriptorBufferUniform& getCascadedShadowMapUniformBuffer() const { return cascadedShadowMapDescriptorBufferUniform; }
     const DescriptorBufferSampler& getCascadedShadowMapSamplerBuffer() const { return cascadedShadowMapDescriptorBufferSampler; }
 
+    void reloadShaders()
+    {
+        createRenderObjectPipeline();
+        createTerrainPipeline();
+    }
+
 public: // Debug
+
     AllocatedImage getShadowMap(const int32_t cascadeLevel) const
     {
         if (cascadeLevel >= shadows::SHADOW_CASCADE_COUNT || cascadeLevel < 0) {
@@ -90,8 +106,10 @@ private:
     VkDescriptorSetLayout cascadedShadowMapSamplerLayout{VK_NULL_HANDLE};
 
     VkSampler sampler{VK_NULL_HANDLE};
-    VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
-    VkPipeline pipeline{VK_NULL_HANDLE};
+    VkPipelineLayout renderObjectPipelineLayout{VK_NULL_HANDLE};
+    VkPipeline renderObjectPipeline{VK_NULL_HANDLE};
+    VkPipelineLayout terrainPipelineLayout{VK_NULL_HANDLE};
+    VkPipeline terrainPipeline{VK_NULL_HANDLE};
 
     // contains the depth maps used by deferred resolve
     DescriptorBufferSampler cascadedShadowMapDescriptorBufferSampler;

@@ -120,10 +120,10 @@ void PipelineBuilder::setupVertexInput(VkVertexInputBindingDescription* bindings
     vertexInputInfo.vertexAttributeDescriptionCount = attributeCount;
 }
 
-void PipelineBuilder::setupInputAssembly(VkPrimitiveTopology topology)
+void PipelineBuilder::setupInputAssembly(VkPrimitiveTopology topology, bool enablePrimitiveRestart)
 {
     inputAssembly.topology = topology;
-    inputAssembly.primitiveRestartEnable = VK_FALSE;
+    inputAssembly.primitiveRestartEnable = enablePrimitiveRestart;
 }
 
 void PipelineBuilder::setupRasterization(const VkPolygonMode polygonMode, const VkCullModeFlags cullMode, const VkFrontFace frontFace,
