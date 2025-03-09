@@ -5,18 +5,23 @@
 #ifndef TERRAIN_CHUNK_H
 #define TERRAIN_CHUNK_H
 
+#include <glm/detail/type_quat.hpp>
+#include <Jolt/Jolt.h>
+#include <Jolt/Physics/Collision/Shape/Shape.h>
+
 #include "terrain_types.h"
+#include "src/physics/physics_body.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/vk_types.h"
 
 namespace will_engine::terrain
 {
-class TerrainChunk
+class TerrainChunk : public IPhysicsBody
 {
 public:
     TerrainChunk(ResourceManager& resourceManager, const std::vector<float>& heightMapData, int32_t width, int32_t height);
 
-    ~TerrainChunk();
+    ~TerrainChunk() override;
 
     void generateMesh(int32_t width, int32_t height, const std::vector<float>& heightData);
 
@@ -28,6 +33,19 @@ public:
 
     [[nodiscard]] size_t getIndexCount() const { return indices.size(); }
     const std::vector<uint32_t>& getIndices() { return indices; }
+
+public: // Physics
+    void setGameTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) override {}
+
+    void setPhysicsTransformFromGame(const glm::vec3& position, const glm::quat& rotation) override {}
+
+    glm::vec3 getGlobalPosition() override { return glm::vec3(0.0f); }
+
+    glm::quat getGlobalRotation() override { return glm::quat(1.0f, 0.0f, 0.0f, 0.0f); }
+
+    void setPhysicsBodyId(const JPH::BodyID bodyId) override { terrainBodyId = bodyId; }
+
+    [[nodiscard]] JPH::BodyID getPhysicsBodyId() const override { return terrainBodyId; }
 
 private:
     ResourceManager& resourceManager;
@@ -41,6 +59,9 @@ private: // Buffer Data
     AllocatedBuffer indexBuffer{};
     //AllocatedBuffer instanceBuffer{};
     //AllocatedBuffer materialBuffer{};
+
+private: // Physics
+    JPH::BodyID terrainBodyId{JPH::BodyID::cMaxBodyIndex};
 };
 }
 

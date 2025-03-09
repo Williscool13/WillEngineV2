@@ -277,6 +277,43 @@ JPH::BodyID Physics::setupRigidbody(IPhysicsBody* physicsBody, const JPH::EShape
     return physicsObject.bodyId;
 }
 
+JPH::BodyID Physics::setupRigidbody(IPhysicsBody* physicsBody, JPH::HeightFieldShapeSettings& heightFieldShapeSettings, JPH::EMotionType motion, JPH::ObjectLayer layer)
+{
+    const JPH::ShapeSettings::ShapeResult result = heightFieldShapeSettings.Create();
+    if (!result.IsValid()) {
+        fmt::print("Failed to create terrain collision shape: {}\n", result.GetError());
+        assert(false);
+        return JPH::BodyID(JPH::BodyID::cMaxBodyIndex);
+    }
+
+    const JPH::ShapeRefC terrainShape = result.Get();
+    JPH::BodyCreationSettings bodySettings(
+        terrainShape,
+        PhysicsUtils::toJolt(glm::vec3(0.0f)),
+        PhysicsUtils::toJolt(glm::quat{1.0f, 0.0f, 0.0f, 0.0f}),
+        JPH::EMotionType::Static,
+        Layers::TERRAIN
+    );
+
+    const JPH::BodyCreationSettings settings{
+        terrainShape,
+        PhysicsUtils::toJolt(physicsBody->getGlobalPosition()),
+        PhysicsUtils::toJolt(physicsBody->getGlobalRotation()),
+        motion,
+        layer
+    };
+
+    PhysicsObject physicsObject;
+    physicsObject.physicsBody = physicsBody;
+    physicsObject.bodyId = physicsSystem->GetBodyInterface().CreateAndAddBody(settings, JPH::EActivation::Activate);
+    physicsObject.shape = terrainShape;
+
+    physicsObjects.insert({physicsObject.bodyId, physicsObject});
+
+    physicsBody->setPhysicsBodyId(physicsObject.bodyId);
+    return physicsObject.bodyId;
+}
+
 void Physics::releaseRigidbody(IPhysicsBody* physicsBody)
 {
     const auto bodyId = physicsBody->getPhysicsBodyId();

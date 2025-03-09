@@ -256,7 +256,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::update(const DirectionalL
 }
 
 void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd, const std::unordered_map<uint32_t, RenderObject*>& renderObjects,
-                                                            const std::vector<terrain::TerrainChunk*>& terrainChunks, const int32_t currentFrameOverlap)
+                                                            const std::vector<ITerrain*>& terrains, const int32_t currentFrameOverlap)
 {
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
@@ -312,7 +312,9 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 
             constexpr VkDeviceSize zeroOffset{0};
 
-            for (terrain::TerrainChunk* chunk : terrainChunks) {
+            for (ITerrain* terrain : terrains) {
+                if (!terrain->canDraw()) { continue; }
+
                 VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1];
                 constexpr uint32_t shadowDataIndex{0};
                 descriptorBufferBindingInfo[0] = cascadedShadowMapDescriptorBufferUniform.getDescriptorBufferBindingInfo();
@@ -322,9 +324,10 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
                 const VkDeviceSize shadowDataOffset{cascadedShadowMapDescriptorBufferUniform.getDescriptorBufferSize() * currentFrameOverlap};
                 vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, terrainPipelineLayout, 0, 1, &shadowDataIndex, &shadowDataOffset);
 
-                vkCmdBindVertexBuffers(cmd, 0, 1, &chunk->getVertexBuffer().buffer, &zeroOffset);
-                vkCmdBindIndexBuffer(cmd, chunk->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-                vkCmdDrawIndexed(cmd, chunk->getIndexCount(), 1, 0, 0, 0);
+                VkBuffer vertexBuffer = terrain->getVertexBuffer().buffer;
+                vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer, &zeroOffset);
+                vkCmdBindIndexBuffer(cmd, terrain->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
+                vkCmdDrawIndexed(cmd, terrain->getIndicesCount(), 1, 0, 0, 0);
             }
 
             vkCmdEndRendering(cmd);

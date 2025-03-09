@@ -232,6 +232,7 @@ set(TEMP_SOURCES
         src/renderer/pipelines/terrain/terrain_pipeline.h
         src/core/scene/map.cpp
         src/core/scene/map.h
+        src/core/game_object/ITerrain.h
 
 )
 

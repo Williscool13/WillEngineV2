@@ -14,6 +14,7 @@
 // PhysicsSystem can only be included once, be careful
 #include <Jolt/Physics/PhysicsSystem.h>
 #include <Jolt/Core/JobSystemThreadPool.h>
+#include <Jolt/Physics/Collision/Shape/HeightFieldShape.h>
 
 #include "physics_types.h"
 #include "physics_body.h"
@@ -70,6 +71,8 @@ public:
 
 public:
     JPH::BodyID setupRigidbody(IPhysicsBody* physicsBody, JPH::EShapeSubType shapeType, glm::vec3 shapeParams, JPH::EMotionType motion, JPH::ObjectLayer layer);
+
+    JPH::BodyID setupRigidbody(IPhysicsBody* physicsBody, JPH::HeightFieldShapeSettings& heightFieldShapeSettings, JPH::EMotionType motion, JPH::ObjectLayer layer);
 
     void releaseRigidbody(IPhysicsBody* physicsBody);
 

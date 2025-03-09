@@ -10,12 +10,13 @@
 #include "src/core/engine.h"
 #include "src/util/file.h"
 
-will_engine::Map::Map(const std::filesystem::path& mapSource) : mapSource(mapSource)
+will_engine::Map::Map(const std::filesystem::path& mapSource, ResourceManager& resourceManager, const bool initializeTerrain) : terrainChunk(nullptr), mapSource(mapSource),
+                                                                                                                                resourceManager(resourceManager)
 {
     if (!exists(mapSource)) {
-        fmt::print("Map source file not found, generating an empty map");
+        fmt::print("Map source file not found, generating an empty map\n");
         // todo: generate empty map
-        mapName = mapSource.filename().string();
+        mapName = mapSource.filename().stem().string();
         return;
     }
 
@@ -59,7 +60,24 @@ will_engine::Map::Map(const std::filesystem::path& mapSource) : mapSource(mapSou
         mapId = file::computePathHash(mapSource);
     }
 
-    canBeLoaded = true;
+    Serializer::deserializeMap(this, rootJ);
+
+    if (rootJ.contains("Terrain")) {
+        // todo: deserialize terrain chunk
+        generateTerrain();
+    }
+    else {
+        if (initializeTerrain) {
+            generateTerrain();
+        }
+    }
+
+
+    isLoaded = true;
+
+    if (Engine* engine = Engine::get()) {
+        engine->addToBeginQueue(this);
+    }
 }
 
 will_engine::Map::~Map()
@@ -80,36 +98,8 @@ void will_engine::Map::destroy()
     if (Engine* engine = Engine::get()) {
         engine->addToDeletionQueue(this);
     }
-}
 
-bool will_engine::Map::loadMap()
-{
-    if (!canBeLoaded) {
-        fmt::print("Map cannot be loaded because of an error in the constructor");
-        return false;
-    }
-    std::ifstream file(mapSource);
-    if (!file.is_open()) {
-        fmt::print("Failed to open scene file: {}\n", mapSource.string());
-        return false;
-    }
-
-    ordered_json rootJ;
-    try {
-        file >> rootJ;
-    } catch (const std::exception& e) {
-        fmt::print("Failed to parse scene file: {}\n", e.what());
-        return false;
-    }
-
-    Serializer::deserializeMap(this, rootJ);
-    isLoaded = true;
-
-    if (Engine* engine = Engine::get()) {
-        engine->addToBeginQueue(this);
-    }
-
-    return true;
+    terrainChunk.reset();
 }
 
 bool will_engine::Map::saveMap(const std::filesystem::path& newSavePath)
@@ -123,6 +113,37 @@ bool will_engine::Map::saveMap(const std::filesystem::path& newSavePath)
 void will_engine::Map::addGameObject(IHierarchical* newChild)
 {
     addChild(newChild);
+}
+
+void will_engine::Map::generateTerrain()
+{
+    std::vector<float> heightMapData = HeightmapUtil::generateFromNoise(NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, seed, terrainProperties);
+    terrainChunk = std::make_unique<terrain::TerrainChunk>(resourceManager, heightMapData, NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS);
+}
+
+AllocatedBuffer will_engine::Map::getVertexBuffer()
+{
+    if (!canDraw()) {
+        return {VK_NULL_HANDLE};
+    }
+    return terrainChunk->getVertexBuffer();
+}
+
+AllocatedBuffer will_engine::Map::getIndexBuffer()
+{
+    if (!canDraw()) {
+        return {VK_NULL_HANDLE};
+    }
+    return terrainChunk->getIndexBuffer();
+}
+
+size_t will_engine::Map::getIndicesCount()
+{
+    if (!canDraw()) {
+        return 0;
+    }
+
+    return terrainChunk->getIndexCount();
 }
 
 void will_engine::Map::update(const float deltaTime)
@@ -146,9 +167,6 @@ void will_engine::Map::recursiveDestroy(IHierarchical* object)
     for (int32_t i = static_cast<int32_t>(object->getChildren().size()) - 1; i >= 0; i--) {
         recursiveDestroy(object->getChildren()[i]);
     }
-    // for (IHierarchical* child : object->getChildren()) {
-    //     recursiveDestroy(child);
-    // }
 
     object->destroy();
 }
