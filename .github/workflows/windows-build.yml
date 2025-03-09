@@ -34,7 +34,7 @@ jobs:
         run: git submodule update --init --recursive
 
       - name: Set up Visual Studio shell
-        uses: microsoft/setup-msbuild@v1.1
+        uses: microsoft/setup-msbuild@v2
 
       - name: Install Vulkan SDK
         uses: humbletim/install-vulkan-sdk@v1.1.1
