@@ -17,8 +17,8 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-#      - name: Cached LFS checkout
-#        uses: nschloe/action-cached-lfs-checkout@v1
+      - name: Cached LFS checkout
+        uses: nschloe/action-cached-lfs-checkout@v1
 
       - name: Update submodules
         run: |
@@ -27,11 +27,11 @@ jobs:
       - name: Set up Visual Studio shell
         uses: microsoft/setup-msbuild@v1.1
 
-      - name: Install Vulkan SDK
-        uses: humbletim/install-vulkan-sdk@v1.1.1
-        with:
-          version: latest
-          cache: true
+#      - name: Install Vulkan SDK
+#        uses: humbletim/install-vulkan-sdk@v1.1.1
+#        with:
+#          version: latest
+#          cache: true
 
       - name: Configure CMake
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
