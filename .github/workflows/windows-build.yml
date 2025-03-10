@@ -20,10 +20,6 @@ jobs:
       - name: Cached LFS checkout
         uses: nschloe/action-cached-lfs-checkout@v1
 
-      - name: Update submodules
-        run: |
-          git submodule update --init --recursive
-
       - name: Set up Visual Studio shell
         uses: microsoft/setup-msbuild@v1.1
 
