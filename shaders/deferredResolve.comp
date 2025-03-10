@@ -112,7 +112,8 @@ void main() {
     vec3 diffuse = Lambert(kD, albedo.xyz);
 
     // SHADOWS
-    float normalOffsetScale = max(0.05f, dot(normal, L) * 0.05f);
+    float offset = 0.05f;
+    float normalOffsetScale = max(offset, dot(normal, L) * offset);
     vec3 offsetPosition = position + normal * normalOffsetScale;
     float _tempShadowFactor = getShadowFactorBlend(pushConstants.pcfLevel, position, sceneData.view, shadowCascadeData.cascadeSplits, shadowCascadeData.lightViewProj, shadowMapSampler, shadowCascadeData.nearShadowPlane, shadowCascadeData.farShadowPlane);
     float shadowFactor = clamp(smoothstep(-0.15f, 0.5f, dot(N, L)) * _tempShadowFactor, 0, 1);
@@ -121,7 +122,7 @@ void main() {
         shadowFactor = 1.0f;
     }
 
-    float indirectAttenuation = mix(0.4, 1.0, shadowFactor);
+    float indirectAttenuation = mix(0.2, 1.0, shadowFactor);
 
     // IBL REFLECTIONS
     vec3 irradiance = DiffuseIrradiance(environmentDiffuseAndSpecular, N);

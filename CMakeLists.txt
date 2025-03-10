@@ -82,8 +82,8 @@ set(ENGINE_SOURCES
         src/core/engine.h
         src/renderer/imgui_wrapper.h
         src/renderer/imgui_wrapper.cpp
-        src/core/scene/scene_serializer.cpp
-        src/core/scene/scene_serializer.h
+        src/core/scene/serializer.cpp
+        src/core/scene/serializer.h
 )
 set(CORE_SOURCES
         src/core/input.cpp
@@ -94,8 +94,6 @@ set(CORE_SOURCES
         src/core/engine_types.h
         src/core/transform.h
         src/core/transform.cpp
-        src/core/scene/scene.cpp
-        src/core/scene/scene.h
         src/core/identifier/identifier_manager.cpp
         src/core/identifier/identifier_manager.h
         src/core/game_object/game_object.h
@@ -222,6 +220,19 @@ endif ()
 set(TEMP_SOURCES
         src/core/game_object/components/mesh_renderer_component.h
         src/core/game_object/components/mesh_renderer_component.cpp
+        src/util/math_utils.h
+        src/renderer/terrain/terrain_manager.cpp
+        src/renderer/terrain/terrain_manager.h
+        src/renderer/terrain/terrain_types.h
+        src/util/heightmap_utils.h
+        src/util/noise_utils.h
+        src/renderer/terrain/terrain_chunk.cpp
+        src/renderer/terrain/terrain_chunk.h
+        src/renderer/pipelines/terrain/terrain_pipeline.cpp
+        src/renderer/pipelines/terrain/terrain_pipeline.h
+        src/core/scene/map.cpp
+        src/core/scene/map.h
+        src/core/game_object/terrain.h
 
 )
 
@@ -250,6 +261,7 @@ target_include_directories(WillEngine PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL3                             # SDL2
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/include                 # fastgltf
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/deps/simdjson           # simdjson
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/FastNoiseLite
 
 )
 
@@ -262,12 +274,9 @@ target_link_libraries(WillEngine PRIVATE
         Jolt
 )
 
-set(SDL_DLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lib/SDL3.dll")
-set(SDLD_DLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lib/SDL3d.dll")
+set(SDL_DLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lib/SDL3${LIB_SUFFIX}.dll")
 
 add_custom_command(TARGET WillEngine POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${SDL_DLL_PATH} $<TARGET_FILE_DIR:WillEngine>
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        ${SDLD_DLL_PATH} $<TARGET_FILE_DIR:WillEngine>
 )

@@ -10,3 +10,5 @@ shaders/**/*.spv
 
 # Generated .reg files
 branding/*.reg
+
+assets/images/

@@ -10,7 +10,7 @@
 #include <glm/glm.hpp>
 
 #include "engine_types.h"
-#include "scene/scene_serializer.h"
+#include "scene/serializer.h"
 #include "src/core/profiler/profiler.h"
 #include "src/renderer/imgui_wrapper.h"
 #include "src/renderer/renderer_constants.h"
@@ -25,6 +25,13 @@ class VulkanContext;
 
 namespace will_engine
 {
+namespace terrain
+{
+    class TerrainChunk;
+    class TerrainPipeline;
+    class TerrainManager;
+}
+
 namespace identifier
 {
     class IdentifierManager;
@@ -112,9 +119,13 @@ public:
     void cleanup();
 
 public:
-    IHierarchical* createGameObject(const std::string& name) const;
+    [[nodiscard]] IHierarchical* createGameObject(Map* map, const std::string& name) const;
+
     void addToBeginQueue(IHierarchical* obj);
+
     void addToDeletionQueue(IHierarchical* obj);
+
+    void addToDeletionQueue(Map* map);
 
     RenderObject* getRenderObject(uint32_t renderRefIndex);
 
@@ -126,9 +137,9 @@ private:
     ImmediateSubmitter* immediate = nullptr;
     ResourceManager* resourceManager = nullptr;
     identifier::IdentifierManager* identifierManager = nullptr;
-    physics::Physics* physics = nullptr;
     environment::Environment* environmentMap{nullptr};
     cascaded_shadows::CascadedShadowMap* cascadedShadowMap{nullptr};
+    terrain::TerrainManager* terrainManager{nullptr};
     ImguiWrapper* imguiWrapper = nullptr;
 
     Profiler startupProfiler{};
@@ -163,17 +174,20 @@ private: // Scene Data
     DirectionalLight mainLight{glm::normalize(glm::vec3(-0.8f, -0.6f, -0.6f)), 1.0f, glm::vec3(0.0f)};
     int32_t environmentMapIndex{0};
 
-    Scene* scene{nullptr};
+    std::vector<Map*> activeMaps;
+    std::vector<ITerrain*> activeTerrains;
 
     std::unordered_map<uint32_t, RenderObject*> renderObjectMap;
     std::unordered_map<uint32_t, RenderObjectInfo> renderObjectInfoMap;
 
     std::vector<IHierarchical*> hierarchalBeginQueue{};
     std::vector<IHierarchical*> hierarchicalDeletionQueue{};
+    std::vector<Map*> mapDeletionQueue{};
 
 private: // Pipelines
     visibility_pass::VisibilityPassPipeline* visibilityPassPipeline{nullptr};
     environment_pipeline::EnvironmentPipeline* environmentPipeline{nullptr};
+    terrain::TerrainPipeline* terrainPipeline{nullptr};
     deferred_mrt::DeferredMrtPipeline* deferredMrtPipeline{nullptr};
     deferred_resolve::DeferredResolvePipeline* deferredResolvePipeline{nullptr};
     temporal_antialiasing_pipeline::TemporalAntialiasingPipeline* temporalAntialiasingPipeline{nullptr};
@@ -223,6 +237,7 @@ private: // Swapchain
 
 public:
     friend void ImguiWrapper::imguiInterface(Engine* engine);
+
     friend class ImguiWrapper;
 };
 }

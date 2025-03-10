@@ -18,8 +18,7 @@
 #include "src/core/time.h"
 #include "src/core/camera/free_camera.h"
 #include "src/core/game_object/renderable.h"
-#include "src/core/scene/scene.h"
-#include "src/core/scene/scene_serializer.h"
+#include "src/core/scene/serializer.h"
 #include "src/util/file.h"
 
 namespace will_engine
@@ -92,6 +91,14 @@ ImguiWrapper::~ImguiWrapper()
 void ImguiWrapper::handleInput(const SDL_Event& e)
 {
     ImGui_ImplSDL3_ProcessEvent(&e);
+}
+
+void ImguiWrapper::selectMap(Map* newMap) {
+    selectedMap = newMap;
+    if (selectedMap) {
+        terrainProperties = selectedMap->getTerrainProperties();
+        terrainSeed = selectedMap->getSeed();
+    }
 }
 
 void ImguiWrapper::imguiInterface(Engine* engine)
@@ -357,73 +364,198 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     }
     ImGui::End();
 
-    if (ImGui::Begin("Scene")) {
-        if (ImGui::BeginTabBar("SceneTabs")) {
-            if (ImGui::BeginTabItem("Serialization")) {
-                static std::filesystem::path serializationPath = {"../assets/scenes/sampleScene.willmap"};
+    if (ImGui::Begin("Maps")) {
+        static std::filesystem::path mapPath = {"assets/maps/sampleScene.willmap"};
 
-                const float width = ImGui::GetContentRegionAvail().x;
-                ImGui::Text("Output Path: %s", serializationPath.empty() ? "None selected" : serializationPath.string().c_str());
-                if (ImGui::Button("Select Output Path")) {
-                    IGFD::FileDialogConfig config;
-                    config.path = "./assets/scenes/";
-                    config.fileName = serializationPath.filename().string();
-                    IGFD::FileDialog::Instance()->OpenDialog(
-                        "WillmapDlg",
-                        "Save Willmap",
-                        ".willmap",
-                        config);
-                }
-
-                if (IGFD::FileDialog::Instance()->Display("WillmapDlg")) {
-                    if (IGFD::FileDialog::Instance()->IsOk()) {
-                        serializationPath = IGFD::FileDialog::Instance()->GetFilePathName();
-                        serializationPath = file::getRelativePath(serializationPath);
-                    }
-
-                    IGFD::FileDialog::Instance()->Close();
-                }
-                if (ImGui::Button("Serialize Scene", ImVec2(width, 40))) {
-                    if (Serializer::serializeScene(engine->scene->getRoot(), engine->camera, serializationPath.string())) {
-                        ImGui::OpenPopup("SerializeSuccess");
-                    }
-                    else {
-                        ImGui::OpenPopup("SerializeError");
-                    }
-                }
-
-                if (ImGui::Button("Deserialize Scene", ImVec2(width, 40))) {
-                    file::scanForModels(engine->renderObjectInfoMap);
-                    if (Serializer::deserializeScene(engine->scene->getRoot(), engine->camera, serializationPath.string())) {
-                        ImGui::OpenPopup("SerializeSuccess");
-                    }
-                    else {
-                        ImGui::OpenPopup("SerializeError");
-                    }
-                }
-
-                // Success/Error popups
-                if (ImGui::BeginPopupModal("SerializeSuccess", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                    ImGui::Text("Scene Serialization Success!");
-                    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
-                    ImGui::EndPopup();
-                }
-                if (ImGui::BeginPopupModal("SerializeError", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                    ImGui::Text("Scene Serialization Failed!");
-                    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
-                    ImGui::EndPopup();
-                }
-
-                ImGui::EndTabItem();
+        ImGui::Text("Map Source: %s", mapPath.empty() ? "None selected" : mapPath.string().c_str());
+        ImGui::SameLine();
+        if (ImGui::Button("...")) {
+            IGFD::FileDialogConfig config;
+            config.path = "./assets/maps/";
+            config.fileName = mapPath.filename().string();
+            IGFD::FileDialog::Instance()->OpenDialog(
+                "WillmapDlg",
+                "Load Willmap",
+                ".willmap",
+                config);
+        }
+        if (IGFD::FileDialog::Instance()->Display("WillmapDlg")) {
+            if (IGFD::FileDialog::Instance()->IsOk()) {
+                mapPath = IGFD::FileDialog::Instance()->GetFilePathName();
+                mapPath = file::getRelativePath(mapPath);
             }
 
+            IGFD::FileDialog::Instance()->Close();
+        }
+
+        bool alreadyExistsInActiveMaps{false};
+        for (Map* map : engine->activeMaps) {
+            if (map->getMapPath() == mapPath) {
+                alreadyExistsInActiveMaps = true;
+                break;
+            }
+        }
+        ImGui::SameLine();
+        ImGui::BeginDisabled(alreadyExistsInActiveMaps);
+        if (ImGui::Button("Load")) {
+            file::scanForModels(engine->renderObjectInfoMap);
+
+            if (exists(mapPath)) {
+                auto map = new Map(mapPath, *engine->resourceManager);
+                engine->activeMaps.push_back(map);
+                engine->activeTerrains.push_back(map);
+                selectMap(map);
+            }
+            else {
+                auto newMap = new Map(mapPath, *engine->resourceManager);
+                engine->activeMaps.push_back(newMap);
+                engine->activeTerrains.push_back(newMap);
+                selectMap(newMap);
+            }
+        }
+        ImGui::EndDisabled();
+
+        ImGui::SameLine();
+
+        ImGui::BeginDisabled(selectedMap);
+        if (ImGui::Button("Save")) {
+            if (selectedMap->saveMap(mapPath.string())) {
+                ImGui::OpenPopup("SerializeSuccess");
+            }
+            else {
+                ImGui::OpenPopup("SerializeError");
+            }
+        }
+
+        // Success/Error popups
+        if (ImGui::BeginPopupModal("SerializeSuccess", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("Scene Serialization Success!");
+            if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+        if (ImGui::BeginPopupModal("SerializeError", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+            ImGui::Text("Scene Serialization Failed!");
+            if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+            ImGui::EndPopup();
+        }
+        ImGui::EndDisabled();
+    }
+    ImGui::End();
+
+    if (ImGui::Begin("Render Objects")) {
+        if (ImGui::BeginTabBar("SceneTabs")) {
             if (ImGui::BeginTabItem("Render Objects")) {
-                const float width = ImGui::GetContentRegionAvail().x;
-                if (ImGui::Button("Scan for .willmodel", ImVec2(width, 0))) {
+                static uint32_t selectedObjectId = 0;
+
+                ImGui::Text("Selected Render Object Details");
+
+                float detailsHeight = 150.0f;
+                ImGui::BeginChild("Selected Object", ImVec2(0, detailsHeight), ImGuiChildFlags_Borders);
+                if (!engine->renderObjectInfoMap.contains(selectedObjectId) && !engine->renderObjectInfoMap.empty()) {
+                    selectedObjectId = engine->renderObjectInfoMap.begin()->first;
+                }
+
+                if (engine->renderObjectInfoMap.contains(selectedObjectId)) {
+                    RenderObjectInfo info = engine->renderObjectInfoMap.at(selectedObjectId);
+                    ImGui::Text("Name: %s", info.name.c_str());
+                    ImGui::Text("Path: %s", file::getRelativePath(info.gltfPath).string().c_str());
+                    ImGui::Text("ID: %u", info.id);
+
+                    auto it = engine->renderObjectMap.find(selectedObjectId);
+                    const bool isLoaded = it != engine->renderObjectMap.end() && it->second != nullptr;
+                    if (isLoaded) {
+                        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
+                        static char objectName[256] = "";
+                        ImGui::InputText("Object Name", objectName, sizeof(objectName));
+                        ImGui::PopStyleColor();
+                        if (ImGui::BeginTabBar("GameObject Generation")) {
+                            if (ImGui::BeginTabItem("Full Model")) {
+                                if (ImGui::Button("Generate Full Object")) {
+                                    GameObject* gob = it->second->generateGameObject(std::string(objectName));
+                                    selectedMap->addGameObject(gob);
+                                    fmt::print("Added whole gltf model to the scene\n");
+                                }
+                                ImGui::EndTabItem();
+                            }
+
+                            if (ImGui::BeginTabItem("Single Mesh")) {
+                                RenderObject* renderObj = it->second;
+
+                                static int selectedMeshIndex = 0;
+                                if (selectedMeshIndex >= renderObj->getMeshCount()) {
+                                    selectedMeshIndex = 0;
+                                }
+
+                                ImGui::SetNextItemWidth(300.0f);
+                                if (ImGui::BeginCombo("Select Mesh", fmt::format("Mesh {}", selectedMeshIndex).c_str())) {
+                                    for (size_t i = 0; i < renderObj->getMeshCount(); i++) {
+                                        const bool isSelected = (selectedMeshIndex == static_cast<int>(i));
+                                        if (ImGui::Selectable(fmt::format("Mesh {}", i).c_str(), isSelected)) {
+                                            selectedMeshIndex = static_cast<int>(i);
+                                        }
+
+                                        if (isSelected) {
+                                            ImGui::SetItemDefaultFocus();
+                                        }
+                                    }
+                                    ImGui::EndCombo();
+                                }
+
+                                ImGui::SameLine();
+                                if (auto container = dynamic_cast<IComponentContainer*>(selectedItem)) {
+                                    if (ImGui::Button("Attach to selected item")) {
+                                        if (!container->getMeshRenderer()) {
+                                            auto newComponent = components::ComponentFactory::getInstance().createComponent(
+                                                components::MeshRendererComponent::getStaticType(), "");
+                                            container->addComponent(std::move(newComponent));
+                                        }
+                                        if (auto meshRenderer = container->getMeshRenderer()) {
+                                            if (meshRenderer->hasMesh()) {
+                                                meshRenderer->releaseMesh();
+                                            }
+
+                                            renderObj->generateMesh(meshRenderer, selectedMeshIndex);
+                                        }
+                                    }
+                                }
+                                else {
+                                    if (ImGui::Button("Add to Scene")) {
+                                        IHierarchical* gob = engine->createGameObject(selectedMap, objectName);
+
+                                        if (auto _container = dynamic_cast<IComponentContainer*>(gob)) {
+                                            auto newComponent = components::ComponentFactory::getInstance().createComponent(
+                                                components::MeshRendererComponent::getStaticType(), "");
+                                            _container->addComponent(std::move(newComponent));
+                                            if (components::MeshRendererComponent* meshRenderer = _container->getMeshRenderer()) {
+                                                renderObj->generateMesh(meshRenderer, selectedMeshIndex);
+                                            }
+                                            fmt::print("Added single mesh to scene\n");
+                                        }
+                                    }
+                                }
+                                ImGui::EndTabItem();
+                            }
+
+                            ImGui::EndTabBar();
+                        }
+                    }
+                    else {
+                        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "Load render object to see available meshes");
+                    }
+                }
+                else {
+                    ImGui::Text("No Render Objects are currently loaded");
+                }
+
+                ImGui::EndChild();
+
+                ImGui::Text("Available Objects");
+                ImGui::SameLine();
+                if (ImGui::Button("Refresh")) {
                     file::scanForModels(engine->renderObjectInfoMap);
                 }
 
-                static uint32_t selectedObjectId = 0;
+                ImGui::BeginChild("Objects List", ImVec2(0, 0), ImGuiChildFlags_Borders);
                 for (const auto& [id, info] : engine->renderObjectInfoMap) {
                     ImGui::PushID(id);
 
@@ -451,92 +583,16 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     }
 
                     ImGui::SameLine();
-                    ImGui::Text("%s", info.name.c_str());
 
-                    ImGui::SameLine();
-                    if (ImGui::Button("Details##btn")) {
+                    bool isSelected = (selectedObjectId == info.id);
+                    if (ImGui::Selectable(info.name.c_str(), isSelected)) {
                         selectedObjectId = info.id;
-                        ImGui::OpenPopup("Render Object Detail");
-                    }
-
-                    if (ImGui::BeginPopupModal("Render Object Detail", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                        ImGui::Text("Name: %s", info.name.c_str());
-                        ImGui::Text("Path: %s", file::getRelativePath(info.gltfPath).string().c_str());
-                        ImGui::Text("ID: %u", info.id);
-                        ImGui::Separator();
-
-
-                        if (auto it = engine->renderObjectMap.find(selectedObjectId); it != engine->renderObjectMap.end() && it->second != nullptr) {
-                            ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
-                            static char objectName[256] = "";
-                            ImGui::InputText("Object Name", objectName, sizeof(objectName));
-                            ImGui::PopStyleColor();
-                            if (ImGui::BeginTabBar("GameObject Generation")) {
-                                if (ImGui::BeginTabItem("Full Model")) {
-                                    if (ImGui::Button("Generate Full Object")) {
-                                        GameObject* gob = it->second->generateGameObject(std::string(objectName));
-                                        engine->scene->addGameObject(gob);
-                                        fmt::print("Added whole gltf model to the scene\n");
-                                    }
-                                    ImGui::EndTabItem();
-                                }
-
-                                if (ImGui::BeginTabItem("Single Mesh")) {
-                                    RenderObject* renderObj = it->second;
-                                    for (size_t i = 0; i < renderObj->getMeshCount(); i++) {
-                                        ImGui::PushID(static_cast<int>(i));
-
-
-                                        if (auto container = dynamic_cast<IComponentContainer*>(selectedItem)){
-                                            if (ImGui::Button("Attach to selected item")) {
-                                                if (!container->getMeshRenderer()) {
-                                                    auto newComponent = components::ComponentFactory::getInstance().createComponent(components::MeshRendererComponent::getStaticType(), "");
-                                                    container->addComponent(std::move(newComponent));
-                                                }
-                                                if (auto meshRenderer = container->getMeshRenderer()) {
-                                                    if (meshRenderer->hasMesh()) {
-                                                        meshRenderer->releaseMesh();
-                                                    }
-
-                                                    renderObj->generateMesh(meshRenderer, i);
-                                                }
-                                            }
-                                        }
-                                        else {
-                                            if (ImGui::Button("Add to Scene")) {
-                                                IHierarchical* gob = engine->createGameObject(objectName);
-
-                                                if (auto _container = dynamic_cast<IComponentContainer*>(gob)) {
-                                                    auto newComponent = components::ComponentFactory::getInstance().createComponent(components::MeshRendererComponent::getStaticType(), "");
-                                                    _container->addComponent(std::move(newComponent));
-                                                    if (components::MeshRendererComponent* meshRenderer = _container->getMeshRenderer()) {
-                                                        renderObj->generateMesh(meshRenderer, i);
-                                                    }
-                                                    fmt::print("Added single mesh to scene\n");
-                                                }
-                                            }
-                                        }
-                                        ImGui::SameLine();
-
-                                        ImGui::Text("Mesh %zu", i);
-                                        ImGui::PopID();
-                                    }
-                                    ImGui::EndTabItem();
-                                }
-
-                                ImGui::EndTabBar();
-                            }
-                        }
-                        else {
-                            ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "Load render object to see available meshes");
-                        }
-
-                        if (ImGui::Button("Close")) ImGui::CloseCurrentPopup();
-                        ImGui::EndPopup();
                     }
 
                     ImGui::PopID();
                 }
+                ImGui::EndChild();
+
                 ImGui::EndTabItem();
             }
 
@@ -620,10 +676,11 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     }
     ImGui::End();
 
-
-    if (engine->scene != nullptr) {
-        drawSceneGraph(engine, engine->scene);
+    if (ImGui::Begin("Scene Graph")) {
+        drawSceneGraph(engine);
     }
+    ImGui::End();
+
 
     if (selectedItem) {
         if (IImguiRenderable* imguiRenderable = dynamic_cast<IImguiRenderable*>(selectedItem)) {
@@ -634,35 +691,115 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::Render();
 }
 
-void ImguiWrapper::drawSceneGraph(Engine* engine, const Scene* scene)
+void ImguiWrapper::drawSceneGraph(Engine* engine)
 {
-    const auto sceneRoot = scene->getRoot();
-    if (ImGui::Begin("Scene Graph")) {
-        if (sceneRoot != nullptr && !sceneRoot->getChildren().empty()) {
-            for (IHierarchical* child : sceneRoot->getChildren()) {
-                displayGameObject(engine, scene, child, 0);
+    if (ImGui::BeginCombo("Select Map", selectedMap ? selectedMap->getName().data() : "None")) {
+        for (Map* map : engine->activeMaps) {
+            bool isSelected = (selectedMap == map);
+            if (ImGui::Selectable(map->getName().data(), isSelected)) {
+                selectMap(map);
+            }
+
+            if (isSelected) {
+                ImGui::SetItemDefaultFocus();
             }
         }
+        ImGui::EndCombo();
+    }
+
+    if (selectedMap == nullptr) {
+        if (!engine->activeMaps.empty()) {
+            selectMap(engine->activeMaps[0]);
+        }
         else {
-            ImGui::Text("Scene is empty");
+            ImGui::Text("No map currently selected");
+
+            return;
         }
     }
-    ImGui::End();
+    bool destroy = false;
+    ImGui::SameLine();
+    if (ImGui::Button("Destroy Map")) {
+        destroy = true;
+    }
+    ImGui::Separator();
+
+    if (ImGui::BeginTabBar("Scene Tab Bar")) {
+        if (ImGui::BeginTabItem("Scene Graph")) {
+            if (ImGui::Button("Create Game Object")) {
+                static int32_t incrementId{0};
+                [[maybe_unused]] IHierarchical* gameObject = engine->createGameObject(selectedMap, fmt::format("New GameObject_{}", incrementId++));
+            }
+            ImGui::Separator();
+            if (!selectedMap->getChildren().empty()) {
+                for (IHierarchical* child : selectedMap->getChildren()) {
+                    displayGameObject(engine, child, 0);
+                }
+            }
+            else {
+                ImGui::Text("Scene is empty");
+            }
+
+            ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("Terrain")) {
+            if (ImGui::CollapsingHeader("Noise Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+                ImGui::SliderFloat("Scale", &terrainProperties.scale, 1.0f, 200.0f);
+                ImGui::SliderFloat("Persistence", &terrainProperties.persistence, 0.0f, 1.0f);
+                ImGui::SliderFloat("Lacunarity", &terrainProperties.lacunarity, 1.0f, 5.0f);
+                ImGui::SliderInt("Octaves", &terrainProperties.octaves, 1, 10);
+                ImGui::DragFloat2("Offset", &terrainProperties.offset.x, 0.1f);
+                ImGui::SliderFloat("Height Scale", &terrainProperties.heightScale, 1.0f, 200.0f);
+            }
+
+            ImGui::Separator();
+            ImGui::InputScalar("Seed", ImGuiDataType_U32, &terrainSeed);
+            ImGui::SameLine();
+
+            static std::random_device rd{};
+            static std::seed_seq ss{rd(), rd(), rd(), rd(), rd(), rd(), rd(), rd()};
+            static std::mt19937 gen(ss);
+            static std::uniform_int_distribution<uint32_t> dist;
+            if (ImGui::Button("Random Seed")) {
+                terrainSeed = dist(gen);
+            }
+
+            ImGui::Separator();
+            if (ImGui::Button("Generate Terrain", ImVec2(-1, 0))) {
+                selectedMap->generateTerrain(terrainProperties, terrainSeed);
+            }
+
+            ImGui::EndTabItem();
+        }
+
+
+        ImGui::EndTabBar();
+    }
+
+
+    if (destroy) {
+        selectedMap->destroy();
+        selectMap(nullptr);
+        selectedItem = nullptr;
+    }
 }
 
-void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierarchical* obj, const int32_t depth) // NOLINT(*-no-recursion)
+void ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const int32_t depth)
 {
     const int32_t indentLength = ImGui::GetFontSize();
-    constexpr float treeNodeWidth = 150.0f;
 
     ImGui::PushID(obj);
     ImGui::Indent(static_cast<float>(depth * indentLength));
 
-    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_DefaultOpen;;
+    ImGuiTreeNodeFlags flags = ImGuiTreeNodeFlags_OpenOnArrow | ImGuiTreeNodeFlags_OpenOnDoubleClick | ImGuiTreeNodeFlags_DefaultOpen;
     if (obj->getChildren().empty()) { flags |= ImGuiTreeNodeFlags_Leaf; }
 
-    ImGui::SetNextItemWidth(treeNodeWidth);
+    // Begin columns
+    ImGui::Columns(3, "GameObjectColumns", false);
 
+    // Column 1: Delete button
+    ImGui::SetColumnWidth(0, 30.0f);
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
     if (ImGui::Button("X")) {
@@ -672,19 +809,19 @@ void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierar
         obj->destroy();
     }
     ImGui::PopStyleColor(2);
+    ImGui::NextColumn();
 
-    ImGui::SameLine();
+    // Column 2: Name with TreeNode
+    ImGui::SetColumnWidth(1, 300.0f);
     const std::string_view name = obj->getName();
-    const float availableWidth = ImGui::GetContentRegionAvail().x;
-    const int maxNameLength = static_cast<int>(availableWidth / ImGui::GetFontSize());
-    const int indentedLength = maxNameLength - depth * indentLength / ImGui::GetFontSize();
+    const float nameColumnWidth = ImGui::GetColumnWidth(1);
+    const int maxNameLength = static_cast<int>(nameColumnWidth / ImGui::GetFontSize()) - depth;
 
-
-    const std::string formattedName = indentedLength < 0
+    const std::string formattedName = maxNameLength < 0
                                           ? ""
-                                          : name.length() > indentedLength
-                                                ? fmt::format("{:.{}s}...", name, std::max(0, indentedLength - 3))
-                                                : fmt::format("{:<{}}", name, indentedLength);
+                                          : name.length() > maxNameLength
+                                                ? fmt::format("{:.{}s}...", name, std::max(0, maxNameLength - 3))
+                                                : fmt::format("{:<{}}", name, maxNameLength);
 
     if (obj == selectedItem) {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 1.0f, 0.0f, 1.0f));
@@ -694,56 +831,51 @@ void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierar
 
     const bool isOpen = ImGui::TreeNodeEx("##TreeNode", flags, "%s", formattedName.c_str());
 
-
     if (obj == selectedItem) {
         ImGui::PopStyleColor(3);
     }
 
-    ImGui::SameLine();
-    ImGui::BeginGroup();
     if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
-        if (obj == selectedItem) {
-            selectedItem = nullptr;
-        }
-        else {
-            selectedItem = obj;
-        }
+        selectedItem = (obj == selectedItem) ? nullptr : obj;
     }
+    ImGui::NextColumn();
+
+    // Column 3: Control buttons
     if (const IHierarchical* parent = obj->getParent()) {
         constexpr float spacing = 5.0f;
-        constexpr float arrowWidth = 20.0f;
         constexpr float buttonWidth = 60.0f;
-        const std::vector<IHierarchical*>& parentChildren = obj->getParent()->getChildren();
 
-        ImGui::BeginDisabled(parent == scene->getRoot());
+        ImGui::BeginDisabled(parent == selectedMap);
         if (ImGui::Button("Undent", ImVec2(buttonWidth, 0))) {
-            Scene::undent(obj);
+            undent(obj);
         }
         ImGui::EndDisabled();
 
         ImGui::SameLine(0, spacing);
+        const std::vector<IHierarchical*>& parentChildren = parent->getChildren();
         ImGui::BeginDisabled(parent != obj->getParent() || parentChildren[0] == obj);
         if (ImGui::Button("Indent", ImVec2(buttonWidth, 0))) {
-            Scene::indent(obj);
+            indent(obj);
         }
         ImGui::EndDisabled();
 
         ImGui::SameLine(0, spacing);
         ImGui::BeginDisabled(parent != obj->getParent() || parentChildren[0] == obj);
         if (ImGui::ArrowButton("##Up", ImGuiDir_Up)) {
-            Scene::moveObject(obj, -1);
+            moveObject(obj, -1);
         }
         ImGui::EndDisabled();
 
         ImGui::SameLine(0, spacing);
         ImGui::BeginDisabled(parent != obj->getParent() || parentChildren[parentChildren.size() - 1] == obj);
         if (ImGui::ArrowButton("##Down", ImGuiDir_Down)) {
-            Scene::moveObject(obj, 1);
+            moveObject(obj, 1);
         }
         ImGui::EndDisabled();
     }
+    ImGui::NextColumn();
 
-    ImGui::EndGroup();
+    ImGui::Columns(1);
 
     if (const auto imguiRenderable = dynamic_cast<IImguiRenderable*>(obj)) {
         imguiRenderable->renderImgui();
@@ -751,7 +883,7 @@ void ImguiWrapper::displayGameObject(Engine* engine, const Scene* scene, IHierar
 
     if (isOpen) {
         for (IHierarchical* child : obj->getChildren()) {
-            displayGameObject(engine, scene, child, depth + 1);
+            displayGameObject(engine, child, depth + 1);
         }
         ImGui::TreePop();
     }
@@ -774,5 +906,71 @@ void ImguiWrapper::drawImgui(VkCommandBuffer cmd, const VkImageView targetImageV
     vkCmdEndRendering(cmd);
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
+}
+
+void ImguiWrapper::indent(IHierarchical* obj)
+{
+    IHierarchical* currParent = obj->getParent();
+    if (currParent == nullptr) { return; }
+    // get index in scene Root
+    const std::vector<IHierarchical*>& currChildren = currParent->getChildren();
+    int32_t index = getIndexInVector(obj, currChildren);
+    if (index == -1 || index == 0) { return; }
+
+    obj->reparent(currChildren[index - 1]);
+}
+
+void ImguiWrapper::undent(IHierarchical* obj)
+{
+    // find first parent under scene root
+    const IHierarchical* parent = obj->getParent();
+    if (parent == nullptr) { return; }
+
+    IHierarchical* parentParent = parent->getParent();
+    if (parent->getParent() == nullptr) { return; }
+
+    // get index of in scene Root
+    std::vector<IHierarchical*>& parentParentChildren = parentParent->getChildren();
+    const int32_t index = getIndexInVector(parent, parentParentChildren);
+    if (index == -1) { return; }
+
+    obj->reparent(parentParent);
+
+
+    // already at end, no need to reorder.
+    if (index == parentParentChildren.size() - 1) { return; }
+    // move the child's position to index + 1 in the children vector
+    std::rotate(parentParentChildren.begin() + index + 1, parentParentChildren.end() - 1, parentParentChildren.end());
+}
+
+void ImguiWrapper::moveObject(const IHierarchical* obj, int diff)
+{
+    assert(diff != 0);
+
+    std::vector<IHierarchical*>& parentChildren = obj->getParent()->getChildren();
+    const int32_t index = getIndexInVector(obj, parentChildren);
+    // couldn't find. big error.
+    if (index == -1) { return; }
+
+    int32_t newIndex = index + diff;
+    if (newIndex < 0 || newIndex >= parentChildren.size()) { return; }
+
+    if (index < newIndex) {
+        std::rotate(parentChildren.begin() + index, parentChildren.begin() + newIndex, parentChildren.begin() + index + 2);
+    }
+    else {
+        std::rotate(parentChildren.begin() + newIndex, parentChildren.begin() + index, parentChildren.begin() + index + 1);
+    }
+}
+
+int ImguiWrapper::getIndexInVector(const IHierarchical* obj, const std::vector<IHierarchical*>& vector)
+{
+    for (int32_t i = 0; i < vector.size(); i++) {
+        if (vector[i] == obj) {
+            return i;
+        }
+    }
+
+    return -1;
 }
 }
