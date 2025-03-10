@@ -64,7 +64,7 @@ RigidBodyComponent::~RigidBodyComponent() = default;
 void RigidBodyComponent::releaseRigidBody()
 {
     if (hasRigidBody()) {
-        if (physics::Physics* physics = physics::Physics::Get()) {
+        if (physics::Physics* physics = physics::Physics::get()) {
             physics->removeRigidBody(this);
             bodyId = JPH::BodyID(JPH::BodyID::cMaxBodyIndex);
         }
@@ -96,7 +96,7 @@ void RigidBodyComponent::setGameTransformFromPhysics(const glm::vec3& position, 
 void RigidBodyComponent::setPhysicsTransformFromGame(const glm::vec3& position, const glm::quat& rotation)
 {
     if (!hasRigidBody()) { return; }
-    physics::Physics::Get()->setPositionAndRotation(bodyId, position, rotation);
+    physics::Physics::get()->setPositionAndRotation(bodyId, position, rotation);
 }
 
 glm::vec3 RigidBodyComponent::getGlobalPosition()
@@ -113,7 +113,7 @@ void RigidBodyComponent::serialize(ordered_json& j)
 {
     Component::serialize(j);
 
-    physics::PhysicsProperties properties = physics::Physics::Get()->serializeProperties(this);
+    physics::PhysicsProperties properties = physics::Physics::get()->serializeProperties(this);
     if (properties.isActive) {
         j["properties"] = properties;
     }
@@ -125,7 +125,7 @@ void RigidBodyComponent::deserialize(ordered_json& j)
 
     if (j.contains("properties")) {
         const auto properties = j["properties"].get<physics::PhysicsProperties>();
-        if (!physics::Physics::Get()->deserializeProperties(this, properties)) {
+        if (!physics::Physics::get()->deserializeProperties(this, properties)) {
             fmt::print("Warning: RigidBodyComponent failed to deserialize physics\n");
         }
     }
@@ -152,7 +152,7 @@ void RigidBodyComponent::updateRenderImgui()
 
         // Shape
         {
-            if (physics::PhysicsObject* physicsObject = physics::Physics::Get()->getPhysicsObject(bodyId)) {
+            if (physics::PhysicsObject* physicsObject = physics::Physics::get()->getPhysicsObject(bodyId)) {
                 const JPH::ShapeRefC shape = physicsObject->shape;
                 ImGui::Text("Shape: ");
                 ImGui::SameLine();
@@ -214,7 +214,7 @@ void RigidBodyComponent::updateRenderImgui()
 
         // MotionType
         {
-            JPH::EMotionType currentMotionType = physics::Physics::Get()->getMotionType(this);
+            JPH::EMotionType currentMotionType = physics::Physics::get()->getMotionType(this);
             if (currentMotionType == JPH::EMotionType::Static) {
                 ImGui::Text("Motion Type: Static (Immutable)");
             }
@@ -226,14 +226,14 @@ void RigidBodyComponent::updateRenderImgui()
                     const JPH::EMotionType newMotionType = static_cast<JPH::EMotionType>(currentType + 1);
                     switch (newMotionType) {
                         case JPH::EMotionType::Kinematic:
-                            physics::Physics::Get()->setMotionType(
+                            physics::Physics::get()->setMotionType(
                                 this,
                                 static_cast<JPH::EMotionType>(currentType + 1),
                                 JPH::EActivation::DontActivate
                             );
                             break;
                         case JPH::EMotionType::Dynamic:
-                            physics::Physics::Get()->setMotionType(
+                            physics::Physics::get()->setMotionType(
                                 this,
                                 static_cast<JPH::EMotionType>(currentType + 1),
                                 JPH::EActivation::Activate
@@ -254,7 +254,7 @@ void RigidBodyComponent::updateRenderImgui()
 
 
                 if (ImGui::Button("Remove Rigidbody")) {
-                    physics::Physics::Get()->releaseRigidbody(this);
+                    physics::Physics::get()->releaseRigidbody(this);
                 }
             }
         }
@@ -336,16 +336,16 @@ void RigidBodyComponent::updateRenderImgui()
     static auto motionType = JPH::EMotionType::Dynamic;
     const char* motionTypes[] = {"Static", "Kinematic", "Dynamic"};
     int currentType = static_cast<int>(motionType);
-    ImGui::Combo("Motion Type", &currentType, motionTypes, 3);
+    ImGui::Combo("(New) Motion Type", &currentType, motionTypes, 3);
     motionType = static_cast<JPH::EMotionType>(currentType);
     ImGui::SameLine();
     const char* layers[] = {"Non-Moving", "Moving", "Player", "Terrain"};
     static JPH::ObjectLayer layer = physics::Layers::MOVING;
     int currentLayer = layer;
-    ImGui::Combo("Layer", &currentLayer, layers, 4);
+    ImGui::Combo("(New) Layer", &currentLayer, layers, 4);
     layer = static_cast<JPH::ObjectLayer>(currentLayer);
 
-    if (ImGui::Button("Add Rigidbody")) {
+    if (ImGui::Button("(New) Add Rigidbody")) {
         JPH::EShapeSubType shapeType;
 
         switch (selectedShape) {
@@ -368,7 +368,7 @@ void RigidBodyComponent::updateRenderImgui()
         if (hasRigidBody()) {
             releaseRigidBody();
         }
-        physics::Physics::Get()->setupRigidbody(
+        physics::Physics::get()->setupRigidbody(
             this,
             shapeType,
             shapeParams,

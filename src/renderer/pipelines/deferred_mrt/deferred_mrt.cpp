@@ -42,7 +42,7 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
 {
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
-    label.pLabelName = "Deferred MRT Pass";
+    label.pLabelName = "Deferred MRT Pass (Render Objects)";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
     VkClearValue clearValue = {0.0f, 0.0f};

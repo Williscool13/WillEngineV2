@@ -12,6 +12,7 @@
 #include "src/core/engine.h"
 #include "src/core/time.h"
 #include "src/core/identifier/identifier_manager.h"
+#include "src/util/math_utils.h"
 
 namespace will_engine
 {
@@ -32,16 +33,13 @@ GameObject::GameObject(std::string gameObjectName, const uint64_t gameObjectId)
 
 GameObject::~GameObject()
 {
-    for (int32_t i = children.size() - 1; i >= 0; --i) {
-        delete children[i];
+    if (!children.empty()) {
+        fmt::print("Error: GameObject destroyed with children, potentially not destroyed with ::destroy. This will result in orphaned children and null references");
     }
 
     if (parent) {
-        parent->removeChild(this);
-        parent = nullptr;
+        fmt::print("Error: GameObject destroyed with a parent, potentially not destroyed with ::destroy. This will result in orphaned children and null references");
     }
-
-    children.clear();
 }
 
 void GameObject::destroy()
@@ -132,17 +130,14 @@ void GameObject::reparent(IHierarchical* newParent)
     if (this == newParent) { return; }
     const Transform previousGlobalTransform = getGlobalTransform();
     if (parent) {
-        if (!parent->removeChild(this)) {
-            setParent(nullptr);
-        }
+        parent->removeChild(this);
+        setParent(nullptr);
     }
 
     if (newParent) {
         newParent->addChild(this);
     }
-    else {
-        setParent(newParent);
-    }
+
     setGlobalTransform(previousGlobalTransform);
 }
 
@@ -289,7 +284,7 @@ void GameObject::setGlobalTransform(const Transform& newGlobalTransform)
     if (transformableParent) {
         const glm::vec3 parentPos = transformableParent->getGlobalPosition();
         const glm::quat parentRot = transformableParent->getGlobalRotation();
-        const glm::mat4 parentTransform = glm::translate(glm::mat4(1.0f), parentPos) * glm::mat4_cast(parentRot);
+        const glm::mat4 parentTransform = glm::mat4_cast(parentRot) * glm::translate(glm::mat4(1.0f), parentPos);
         const glm::mat4 inverseParentTransform = glm::inverse(parentTransform);
         const auto localPosition = glm::vec3(inverseParentTransform * glm::vec4(newGlobalTransform.getPosition(), 1.0f));
 
@@ -311,10 +306,17 @@ void GameObject::setGlobalTransform(const Transform& newGlobalTransform)
 void GameObject::setGlobalTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation)
 {
     if (transformableParent) {
-        const Transform& parentGlobal = transformableParent->getGlobalTransform();
-        const glm::mat4 parentTransform = glm::translate(glm::mat4(1.0f), parentGlobal.getPosition()) * glm::mat4_cast(parentGlobal.getRotation());
-        transform.setPosition(glm::vec3(glm::inverse(parentTransform) * glm::vec4(position, 1.0f)));
-        transform.setRotation(glm::inverse(parentGlobal.getRotation()) * rotation);
+        const glm::vec3 parentPos = transformableParent->getGlobalPosition();
+        const glm::quat parentRot = transformableParent->getGlobalRotation();
+        const glm::mat4 parentTransform = glm::mat4_cast(parentRot) * glm::translate(glm::mat4(1.0f), parentPos);
+        const glm::mat4 inverseParentTransform = glm::inverse(parentTransform);
+        const auto localPosition = glm::vec3(inverseParentTransform * glm::vec4(position, 1.0f));
+
+        const glm::quat localRotation = glm::inverse(parentRot) * rotation;
+        // Keep existing scale instead of computing new one
+        const glm::vec3 currentScale = transform.getScale();
+
+        transform.setTransform(localPosition, localRotation, currentScale);
     }
     else {
         transform.setPosition(position);
@@ -394,13 +396,6 @@ void GameObject::destroyComponent(components::Component* component)
         return comp.get() == component;
     });
 
-    if (component == rigidbodyComponent) {
-        rigidbodyComponent = nullptr;
-        meshRendererComponent= nullptr;
-        rigidbodyComponent = getComponent<components::RigidBodyComponent>();
-        meshRendererComponent = getComponent<components::MeshRendererComponent>();
-    }
-
     if (it != components.end()) {
         component->beginDestroy();
         components.erase(it);
@@ -408,6 +403,11 @@ void GameObject::destroyComponent(components::Component* component)
     else {
         fmt::print("Attempted to remove a component that does not belong to this gameobject.\n");
     }
+
+    rigidbodyComponent = nullptr;
+    meshRendererComponent = nullptr;
+    rigidbodyComponent = getComponent<components::RigidBodyComponent>();
+    meshRendererComponent = getComponent<components::MeshRendererComponent>();
 }
 
 void GameObject::selectedRenderImgui()
@@ -415,7 +415,7 @@ void GameObject::selectedRenderImgui()
     if (ImGui::Begin("Game Object")) {
         if (ImGui::BeginTabBar("Data")) {
             if (ImGui::BeginTabItem("Properties")) {
-                ImGui::Text("Name: %s", getName().data());
+                ImGui::InputText("GameObject Name", &gameObjectName[0], gameObjectName.capacity() + 1);
                 ImGui::Separator();
 
                 // ITransformable
@@ -484,11 +484,7 @@ void GameObject::selectedRenderImgui()
 
                 components::Component* componentToDestroy{nullptr};
                 for (auto& component : components) {
-                    auto componentName = std::string(component->getComponentName());
-                    if (componentName.empty()) {
-                        componentName = "<unnamed>";
-                    }
-
+                    std::string& componentName = component->getComponentNameRef();
                     ImGui::PushID(component.get());
 
                     ImGui::Text("%s:", component->getComponentType().data());
@@ -502,23 +498,16 @@ void GameObject::selectedRenderImgui()
 
                     ImGui::SameLine();
 
-                    static char objectName[256] = "";
 
                     const char* componentType = component->getComponentType().data();
                     if (ImGui::Button(componentName.c_str(), ImVec2(-1, 0))) {
-                        component->openRenderImgui();
-                        strncpy_s(objectName, sizeof(objectName), componentName.c_str(), _TRUNCATE);
                         ImGui::OpenPopup(componentType);
                     }
 
 
                     ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0.75f, 0.75f, 0.75f, 1.0f)); // Dark gray
                     if (ImGui::BeginPopupModal(componentType, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                        if (ImGui::InputText("Component Name", objectName, sizeof(objectName))) {
-                            // ReSharper disable once CppDFAUnusedValue
-                            componentName = objectName;
-                        }
-                        component->setComponentName(objectName);
+                        ImGui::InputText("Component Name", &componentName[0], componentName.capacity() + 1);
                         ImGui::Separator();
 
                         component->updateRenderImgui();
@@ -557,6 +546,7 @@ void GameObject::selectedRenderImgui()
             ImGui::EndTabBar();
         }
     }
+
     ImGui::End();
 }
 }

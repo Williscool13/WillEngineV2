@@ -14,6 +14,9 @@ jobs:
     runs-on: windows-latest
 
     steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
       - name: Cached LFS checkout
         uses: nschloe/action-cached-lfs-checkout@v1
 
@@ -25,7 +28,7 @@ jobs:
         uses: microsoft/setup-msbuild@v1.1
 
       - name: Install Vulkan SDK
-        uses: humbletim/install-vulkan-sdk@v1.1.1
+        uses: humbletim/install-vulkan-sdk@c2aa128094d42ba02959a660f03e0a4e012192f9
         with:
           version: latest
           cache: true
