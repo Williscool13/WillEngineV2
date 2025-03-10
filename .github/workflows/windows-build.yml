@@ -27,11 +27,11 @@ jobs:
       - name: Set up Visual Studio shell
         uses: microsoft/setup-msbuild@v1.1
 
-#      - name: Install Vulkan SDK
-#        uses: humbletim/install-vulkan-sdk@v1.1.1
-#        with:
-#          version: latest
-#          cache: true
+      - name: Install Vulkan SDK
+        uses: humbletim/install-vulkan-sdk@c2aa128094d42ba02959a660f03e0a4e012192f9
+        with:
+          version: latest
+          cache: true
 
       - name: Configure CMake
         run: cmake -B ${{github.workspace}}/build -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}}
