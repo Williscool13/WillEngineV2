@@ -53,7 +53,7 @@ void main() {
     }
 
     vec2 uv = (vec2(pixel.x, pixel.y) + 0.5) / vec2(push.width, push.height);
-    uv.y = 1 - uv.y;
+    //uv.y = 1 - uv.y;
     vec3 color = texture(inputImage, uv).rgb;
     vec2 texelSize = 1.0 / vec2(push.width, push.height);
 

@@ -29,7 +29,7 @@ struct CascadeSplit
     float padding[2];
 };
 
-struct CascadeShadowMap
+struct CascadeShadowMapData
 {
     int32_t cascadeLevel{-1};
     CascadeSplit split{};
@@ -92,10 +92,18 @@ public: // Debug
         return shadowMaps[cascadeLevel].depthShadowMap;
     }
 
+    CascadeShadowMapData getCascadedShadowMapData(const int32_t cascadeLevel) const
+    {
+        if (cascadeLevel >= shadows::SHADOW_CASCADE_COUNT || cascadeLevel < 0) {
+            return shadowMaps[0];
+        }
+        return shadowMaps[cascadeLevel];
+    }
+
 private:
     ResourceManager& resourceManager;
 
-    CascadeShadowMap shadowMaps[shadows::SHADOW_CASCADE_COUNT]{
+    CascadeShadowMapData shadowMaps[shadows::SHADOW_CASCADE_COUNT]{
         {0, {}, {VK_NULL_HANDLE}, {}},
         {1, {}, {VK_NULL_HANDLE}, {}},
         {2, {}, {VK_NULL_HANDLE}, {}},

@@ -39,6 +39,7 @@
 #include "src/util/file.h"
 #include "src/util/halton.h"
 #include "src/util/heightmap_utils.h"
+#include "src/util/render_utils.h"
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -240,6 +241,27 @@ void Engine::initGame()
     const auto map = new Map(file::getSampleScene(), *resourceManager);
     activeMaps.push_back(map);
     activeTerrains.push_back(map);
+
+
+    if (RenderObject* primitives = getOrLoadRenderObject(3129368917)) {
+        for (int32_t j = 0; j < 8; ++j) {
+            IHierarchical* gameObject = createGameObject(map, fmt::format("Cascade Corner {}", j));
+            const auto realGob = dynamic_cast<GameObject*>(gameObject);
+            const int32_t primitiveIndex = j > 3 ? 1 : 4;
+            auto newComponent = components::ComponentFactory::getInstance().createComponent(components::MeshRendererComponent::getStaticType(), "Mesh Renderer");
+            realGob->addComponent(std::move(newComponent));
+
+            if (auto meshRenderer = realGob->getMeshRenderer()) {
+                if (meshRenderer->hasMesh()) {
+                    meshRenderer->releaseMesh();
+                }
+
+                primitives->generateMesh(meshRenderer, primitiveIndex);
+            }
+
+            frustumCorners[j] = dynamic_cast<GameObject*>(gameObject);
+        }
+    }
 }
 
 void Engine::run()
@@ -268,7 +290,7 @@ void Engine::run()
                 fmt::print("Window resized, resize requested\n");
             }
 
-            imguiWrapper->handleInput(e);
+            ImguiWrapper::handleInput(e);
             input.processEvent(e);
         }
 
@@ -322,6 +344,38 @@ void Engine::updateGame(const float deltaTime)
             }
         }
     }
+
+
+    static bool freeze = false;
+    static int32_t cascade = 0;
+    if (input.isKeyPressed(SDLK_T)) {
+        freeze = !freeze;
+    }
+    if (input.isKeyPressed(SDLK_1)) {
+        cascade = 0;
+    }
+    if (input.isKeyPressed(SDLK_2)) {
+        cascade = 1;
+    }
+    if (input.isKeyPressed(SDLK_3)) {
+        cascade = 2;
+    }
+    if (input.isKeyPressed(SDLK_4)) {
+        cascade = 3;
+    }
+
+    if (!freeze) {
+        const cascaded_shadows::CascadeShadowMapData cascadeData = cascadedShadowMap->getCascadedShadowMapData(cascade);
+        const glm::mat4 vp = cascadedShadowMap->getLightSpaceMatrix(mainLight.getDirection(), camera, cascadeData.split.nearPlane, cascadeData.split.farPlane);
+        constexpr int32_t numberOfCorners = 8;
+        glm::vec3 corners[numberOfCorners];
+        render_utils::getPerspectiveFrustumCornersWorldSpace(vp, corners);
+
+        for (int32_t i = 0; i < frustumCorners.size(); ++i) {
+            frustumCorners[i]->setGlobalPosition(corners[i]);
+        }
+    }
+
 
     for (IHierarchical* hierarchal : hierarchalBeginQueue) {
         hierarchal->beginPlay();
@@ -717,7 +771,7 @@ void Engine::addToDeletionQueue(Map* map)
     mapDeletionQueue.push_back(map);
 }
 
-RenderObject* Engine::getRenderObject(const uint32_t renderRefIndex)
+RenderObject* Engine::getOrLoadRenderObject(const uint32_t renderRefIndex)
 {
     const bool isLoaded = renderObjectMap.contains(renderRefIndex) && renderObjectMap[renderRefIndex] != nullptr;
     const auto renderObjectProperties = renderObjectInfoMap.find(renderRefIndex);

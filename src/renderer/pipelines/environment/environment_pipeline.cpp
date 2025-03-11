@@ -50,9 +50,9 @@ void will_engine::environment_pipeline::EnvironmentPipeline::draw(VkCommandBuffe
     // Viewport
     VkViewport viewport = {};
     viewport.x = 0;
-    viewport.y = 0;
+    viewport.y = RENDER_EXTENT_HEIGHT;
     viewport.width = RENDER_EXTENT_WIDTH;
-    viewport.height = RENDER_EXTENT_HEIGHT;
+    viewport.height = -RENDER_EXTENT_HEIGHT;
     viewport.minDepth = 0.f;
     viewport.maxDepth = 1.f;
     vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -92,7 +92,7 @@ void will_engine::environment_pipeline::EnvironmentPipeline::createPipeline()
     PipelineBuilder pipelineBuilder;
     pipelineBuilder.setShaders(vertShader, fragShader);
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-    pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
+    pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
     pipelineBuilder.disableMultisampling();
     pipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
