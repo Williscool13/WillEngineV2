@@ -127,7 +127,7 @@ public:
 
     void addToDeletionQueue(Map* map);
 
-    RenderObject* getRenderObject(uint32_t renderRefIndex);
+    RenderObject* getOrLoadRenderObject(uint32_t renderRefIndex);
 
 private:
     VkExtent2D windowExtent{1700, 900};
@@ -162,6 +162,8 @@ private: // Debug
     bool bEnableDebugFrustumCullDraw{false};
     int32_t csmPcf{5};
     int32_t deferredDebug{0};
+
+    std::vector<GameObject*> frustumCorners{8};
 
     void hotReloadShaders() const;
 
