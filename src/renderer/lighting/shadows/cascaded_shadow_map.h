@@ -69,7 +69,16 @@ public:
 
     void draw(VkCommandBuffer cmd, const std::unordered_map<uint32_t, RenderObject*>& renderObjects, const std::vector<ITerrain*>& terrains, int32_t currentFrameOverlap);
 
-    static glm::mat4 getLightSpaceMatrix(glm::vec3 lightDirection, const Camera* camera, float cascadeNear, float cascadeFar);
+    /**
+     *
+     * @param lightDirection
+     * @param camera
+     * @param cascadeNear
+     * @param cascadeFar
+     * @param reversedDepth If visualizing with a pipeline that expects reversed depth buffers, use this to reverse Zs in the Orthographic Projection matrix.
+     * @return
+     */
+    static glm::mat4 getLightSpaceMatrix(glm::vec3 lightDirection, const Camera* camera, float cascadeNear, float cascadeFar, bool reversedDepth = false);
 
     VkDescriptorSetLayout getCascadedShadowMapUniformLayout() const { return cascadedShadowMapUniformLayout; }
     VkDescriptorSetLayout getCascadedShadowMapSamplerLayout() const { return cascadedShadowMapSamplerLayout; }

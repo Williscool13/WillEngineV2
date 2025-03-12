@@ -60,8 +60,6 @@ float getShadowFactorBlend(int pcfLevel, vec3 worldPos, mat4 sceneViewMatrix, Ca
     vec4 lightSpacePos = lightMatrices[cascadeLevel] * vec4(worldPos, 1.0);
     vec3 projCoords = lightSpacePos.xyz / lightSpacePos.w;
     projCoords.xy = projCoords.xy * 0.5 + 0.5;
-    float currentDepth = projCoords.z;
-
 
     float shadow = 0.0;
     vec2 texelSize = 1.0 / textureSize(shadowMaps[nonuniformEXT(cascadeLevel)], 0);

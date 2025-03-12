@@ -54,7 +54,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createRenderObjectPipelin
 
     pipelineBuilder.setShaders(vertShader, fragShader);
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-    pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+    pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     // set later during shadow pass
     pipelineBuilder.enableDepthBias(0.0f, 0, 0.0f);
     pipelineBuilder.disableMultisampling();
@@ -106,7 +106,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createTerrainPipeline()
 
     pipelineBuilder.setShaders(vertShader, fragShader);
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, true);
-    pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+    pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     // set later during shadow pass
     pipelineBuilder.enableDepthBias(0.0f, 0, 0.0f);
     pipelineBuilder.disableMultisampling();
@@ -310,22 +310,6 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             scissor.extent.width = shadows::CASCADE_WIDTH;
             scissor.extent.height = shadows::CASCADE_HEIGHT;
             vkCmdSetScissor(cmd, 0, 1, &scissor);
-            // //  Viewport
-            // VkViewport viewport = {};
-            // viewport.x = 0;
-            // viewport.y = shadows::CASCADE_HEIGHT;
-            // viewport.width = shadows::CASCADE_WIDTH;
-            // viewport.height = -shadows::CASCADE_HEIGHT;
-            // viewport.minDepth = 0.f;
-            // viewport.maxDepth = 1.f;
-            // vkCmdSetViewport(cmd, 0, 1, &viewport);
-            // //  Scissor
-            // VkRect2D scissor = {};
-            // scissor.offset.x = 0;
-            // scissor.offset.y = 0;
-            // scissor.extent.width = shadows::CASCADE_WIDTH;
-            // scissor.extent.height = shadows::CASCADE_HEIGHT;
-            // vkCmdSetScissor(cmd, 0, 1, &scissor);
 
             constexpr VkDeviceSize zeroOffset{0};
 
@@ -390,22 +374,6 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             scissor.extent.width = shadows::CASCADE_WIDTH;
             scissor.extent.height = shadows::CASCADE_HEIGHT;
             vkCmdSetScissor(cmd, 0, 1, &scissor);
-            // //  Viewport
-            // VkViewport viewport = {};
-            // viewport.x = 0;
-            // viewport.y = shadows::CASCADE_HEIGHT;
-            // viewport.width = shadows::CASCADE_WIDTH;
-            // viewport.height = -shadows::CASCADE_HEIGHT;
-            // viewport.minDepth = 0.f;
-            // viewport.maxDepth = 1.f;
-            // vkCmdSetViewport(cmd, 0, 1, &viewport);
-            // //  Scissor
-            // VkRect2D scissor = {};
-            // scissor.offset.x = 0;
-            // scissor.offset.y = 0;
-            // scissor.extent.width = shadows::CASCADE_WIDTH;
-            // scissor.extent.height = shadows::CASCADE_HEIGHT;
-            // vkCmdSetScissor(cmd, 0, 1, &scissor);
 
             constexpr VkDeviceSize zeroOffset{0};
 
@@ -443,7 +411,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 }
 
 
-glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 lightDirection, const Camera* camera, float cascadeNear, float cascadeFar)
+glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 lightDirection, const Camera* camera, float cascadeNear, float cascadeFar, bool reversedDepth)
 {
     constexpr int32_t numberOfCorners = 8;
     glm::vec3 corners[numberOfCorners];
@@ -483,6 +451,9 @@ glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(
     glm::mat4 lightView = lookAt(eye, frustumCenter, GLOBAL_UP);
     constexpr float zMult = 6.0f;
     glm::mat4 lightProj = glm::ortho(-radius, radius, -radius, radius, -radius * zMult, radius * zMult);
+    if (reversedDepth) {
+        lightProj = glm::ortho(-radius, radius, -radius, radius, radius * zMult, -radius * zMult);
+    }
 
     return lightProj * lightView;
 }
