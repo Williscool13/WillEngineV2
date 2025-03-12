@@ -769,6 +769,10 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
                 selectedMap->generateTerrain(terrainProperties, terrainSeed);
             }
 
+            if (ImGui::Button("Destroy Terrain", ImVec2(-1, 0))) {
+                selectedMap->destroyTerrain();
+            }
+
             ImGui::EndTabItem();
         }
 
