@@ -71,9 +71,9 @@ void will_engine::terrain::TerrainPipeline::draw(VkCommandBuffer cmd, const Terr
     //  Viewport
     VkViewport viewport = {};
     viewport.x = 0;
-    viewport.y = drawInfo.viewportExtents.y;
+    viewport.y = 0;
     viewport.width = drawInfo.viewportExtents.x;
-    viewport.height = -drawInfo.viewportExtents.y;
+    viewport.height = drawInfo.viewportExtents.y;
     viewport.minDepth = 0.f;
     viewport.maxDepth = 1.f;
     vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -140,7 +140,7 @@ void will_engine::terrain::TerrainPipeline::createPipeline()
 
     pipelineBuilder.setShaders(vertShader, fragShader);
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, true);
-    pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_COUNTER_CLOCKWISE);
+    pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     pipelineBuilder.disableMultisampling();
     pipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);

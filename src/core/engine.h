@@ -163,8 +163,6 @@ private: // Debug
     int32_t csmPcf{5};
     int32_t deferredDebug{0};
 
-    std::vector<GameObject*> frustumCorners{8};
-
     void hotReloadShaders() const;
 
 private: // Scene Data
