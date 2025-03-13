@@ -431,7 +431,14 @@ glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(
     }
     frustumCenter = frustumCenter * (1.0f / numberOfCorners);
 
-    float radius = length(corners[0] - corners[6]) / 2.0f;
+    float maxDistanceSquared = 0.0f;
+    for (const glm::vec3& corner : corners) {
+        float distanceSquared = glm::length2(corner - frustumCenter);
+        maxDistanceSquared = std::max(maxDistanceSquared, distanceSquared);
+    }
+
+    float radius = std::sqrt(maxDistanceSquared);
+
     assert(shadows::CASCADE_HEIGHT == shadows::CASCADE_WIDTH);
     float texelsPerUnit = shadows::CASCADE_WIDTH / glm::max(radius * 2.0f, 1.0f);
 
