@@ -131,6 +131,11 @@ void will_engine::Map::generateTerrain()
     terrainChunk = std::make_unique<terrain::TerrainChunk>(resourceManager, heightMapData, NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS);
 }
 
+void will_engine::Map::destroyTerrain()
+{
+    terrainChunk.reset();
+}
+
 AllocatedBuffer will_engine::Map::getVertexBuffer()
 {
     if (!canDraw()) {

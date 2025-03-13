@@ -38,7 +38,6 @@
 #include "src/renderer/terrain/terrain_chunk.h"
 #include "src/util/file.h"
 #include "src/util/halton.h"
-#include "src/util/heightmap_utils.h"
 
 #ifdef NDEBUG
 #define USE_VALIDATION_LAYERS false
@@ -268,7 +267,7 @@ void Engine::run()
                 fmt::print("Window resized, resize requested\n");
             }
 
-            imguiWrapper->handleInput(e);
+            ImguiWrapper::handleInput(e);
             input.processEvent(e);
         }
 
@@ -717,7 +716,7 @@ void Engine::addToDeletionQueue(Map* map)
     mapDeletionQueue.push_back(map);
 }
 
-RenderObject* Engine::getRenderObject(const uint32_t renderRefIndex)
+RenderObject* Engine::getOrLoadRenderObject(const uint32_t renderRefIndex)
 {
     const bool isLoaded = renderObjectMap.contains(renderRefIndex) && renderObjectMap[renderRefIndex] != nullptr;
     const auto renderObjectProperties = renderObjectInfoMap.find(renderRefIndex);

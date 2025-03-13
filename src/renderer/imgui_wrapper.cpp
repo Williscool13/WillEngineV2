@@ -505,8 +505,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                 if (auto container = dynamic_cast<IComponentContainer*>(selectedItem)) {
                                     if (ImGui::Button("Attach to selected item")) {
                                         if (!container->getMeshRenderer()) {
-                                            auto newComponent = components::ComponentFactory::getInstance().createComponent(
-                                                components::MeshRendererComponent::getStaticType(), "");
+                                            auto newComponent = components::ComponentFactory::getInstance().createComponent(components::MeshRendererComponent::getStaticType(), "Mesh Renderer");
                                             container->addComponent(std::move(newComponent));
                                         }
                                         if (auto meshRenderer = container->getMeshRenderer()) {
@@ -569,7 +568,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                     ImGui::Checkbox("##loaded", &checked);
                     if (checked && !isLoaded) {
-                        engine->renderObjectMap[id] = new RenderObject(info.gltfPath, *engine->resourceManager, id);
+                        engine->getOrLoadRenderObject(id);
                     }
 
                     if (!checked && isLoaded) {
@@ -768,6 +767,10 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
             ImGui::Separator();
             if (ImGui::Button("Generate Terrain", ImVec2(-1, 0))) {
                 selectedMap->generateTerrain(terrainProperties, terrainSeed);
+            }
+
+            if (ImGui::Button("Destroy Terrain", ImVec2(-1, 0))) {
+                selectedMap->destroyTerrain();
             }
 
             ImGui::EndTabItem();
