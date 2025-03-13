@@ -185,8 +185,8 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
 
     sampler = resourceManager.createSampler(samplerCreateInfo);
 
-    for (CascadeShadowMap& cascadeShadowMapData : shadowMaps) {
-        cascadeShadowMapData.depthShadowMap = resourceManager.createImage({shadows::CASCADE_EXTENT.width, shadows::CASCADE_EXTENT.height, 1}, shadows::CASCADE_DEPTH_FORMAT,
+    for (CascadeShadowMapData& cascadeShadowMapData : shadowMaps) {
+        cascadeShadowMapData.depthShadowMap = resourceManager.createImage({shadows::CASCADE_WIDTH, shadows::CASCADE_HEIGHT, 1}, shadows::CASCADE_DEPTH_FORMAT,
                                                                           VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
     }
 
@@ -196,7 +196,7 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
 
 
     std::vector<DescriptorImageData> textureDescriptors;
-    for (const CascadeShadowMap& shadowMapData : shadowMaps) {
+    for (const CascadeShadowMapData& shadowMapData : shadowMaps) {
         const VkDescriptorImageInfo imageInfo{.sampler = sampler, .imageView = shadowMapData.depthShadowMap.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
         textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imageInfo, false});
     }
@@ -221,7 +221,7 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
 
 will_engine::cascaded_shadows::CascadedShadowMap::~CascadedShadowMap()
 {
-    for (CascadeShadowMap& cascadeShadowMapData : shadowMaps) {
+    for (CascadeShadowMapData& cascadeShadowMapData : shadowMaps) {
         resourceManager.destroyImage(cascadeShadowMapData.depthShadowMap);
         cascadeShadowMapData.depthShadowMap = {};
     }
@@ -242,7 +242,7 @@ will_engine::cascaded_shadows::CascadedShadowMap::~CascadedShadowMap()
 
 void will_engine::cascaded_shadows::CascadedShadowMap::update(const DirectionalLight& mainLight, const Camera* camera, const int32_t currentFrameOverlap)
 {
-    for (CascadeShadowMap& shadowData : shadowMaps) {
+    for (CascadeShadowMapData& shadowData : shadowMaps) {
         shadowData.lightViewProj = getLightSpaceMatrix(mainLight.getDirection(), camera, shadowData.split.nearPlane, shadowData.split.farPlane);
     }
 
@@ -266,7 +266,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 
     constexpr VkClearValue clearValue = {1.0f, 1.0f};
 
-    for (const CascadeShadowMap& cascadeShadowMapData : shadowMaps) {
+    for (const CascadeShadowMapData& cascadeShadowMapData : shadowMaps) {
         vk_helpers::transitionImage(cmd, cascadeShadowMapData.depthShadowMap.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
 
 
@@ -278,7 +278,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
             renderInfo.pNext = nullptr;
 
-            renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, shadows::CASCADE_EXTENT};
+            renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, {shadows::CASCADE_WIDTH, shadows::CASCADE_HEIGHT}};
             renderInfo.layerCount = 1;
             renderInfo.colorAttachmentCount = 0;
             renderInfo.pColorAttachments = nullptr;
@@ -298,8 +298,8 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             VkViewport viewport = {};
             viewport.x = 0;
             viewport.y = 0;
-            viewport.width = shadows::CASCADE_EXTENT.width;
-            viewport.height = shadows::CASCADE_EXTENT.height;
+            viewport.width = shadows::CASCADE_WIDTH;
+            viewport.height = shadows::CASCADE_HEIGHT;
             viewport.minDepth = 0.f;
             viewport.maxDepth = 1.f;
             vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -307,8 +307,8 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             VkRect2D scissor = {};
             scissor.offset.x = 0;
             scissor.offset.y = 0;
-            scissor.extent.width = shadows::CASCADE_EXTENT.width;
-            scissor.extent.height = shadows::CASCADE_EXTENT.height;
+            scissor.extent.width = shadows::CASCADE_WIDTH;
+            scissor.extent.height = shadows::CASCADE_HEIGHT;
             vkCmdSetScissor(cmd, 0, 1, &scissor);
 
             constexpr VkDeviceSize zeroOffset{0};
@@ -342,7 +342,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
             renderInfo.pNext = nullptr;
 
-            renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, shadows::CASCADE_EXTENT};
+            renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, {shadows::CASCADE_WIDTH, shadows::CASCADE_HEIGHT}};
             renderInfo.layerCount = 1;
             renderInfo.colorAttachmentCount = 0;
             renderInfo.pColorAttachments = nullptr;
@@ -362,8 +362,8 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             VkViewport viewport = {};
             viewport.x = 0;
             viewport.y = 0;
-            viewport.width = shadows::CASCADE_EXTENT.width;
-            viewport.height = shadows::CASCADE_EXTENT.height;
+            viewport.width = shadows::CASCADE_WIDTH;
+            viewport.height = shadows::CASCADE_HEIGHT;
             viewport.minDepth = 0.f;
             viewport.maxDepth = 1.f;
             vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -371,8 +371,8 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             VkRect2D scissor = {};
             scissor.offset.x = 0;
             scissor.offset.y = 0;
-            scissor.extent.width = shadows::CASCADE_EXTENT.width;
-            scissor.extent.height = shadows::CASCADE_EXTENT.height;
+            scissor.extent.width = shadows::CASCADE_WIDTH;
+            scissor.extent.height = shadows::CASCADE_HEIGHT;
             vkCmdSetScissor(cmd, 0, 1, &scissor);
 
             constexpr VkDeviceSize zeroOffset{0};
@@ -411,7 +411,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 }
 
 
-glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 lightDirection, const Camera* camera, float cascadeNear, float cascadeFar)
+glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 lightDirection, const Camera* camera, float cascadeNear, float cascadeFar, bool reversedDepth)
 {
     constexpr int32_t numberOfCorners = 8;
     glm::vec3 corners[numberOfCorners];
@@ -431,8 +431,16 @@ glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(
     }
     frustumCenter = frustumCenter * (1.0f / numberOfCorners);
 
-    float radius = length(corners[0] - corners[6]) / 2.0f;
-    float texelsPerUnit = shadows::CASCADE_EXTENT.width / glm::max(radius * 2.0f, 1.0f);
+    float maxDistanceSquared = 0.0f;
+    for (const glm::vec3& corner : corners) {
+        float distanceSquared = glm::length2(corner - frustumCenter);
+        maxDistanceSquared = std::max(maxDistanceSquared, distanceSquared);
+    }
+
+    float radius = std::sqrt(maxDistanceSquared);
+
+    assert(shadows::CASCADE_HEIGHT == shadows::CASCADE_WIDTH);
+    float texelsPerUnit = shadows::CASCADE_WIDTH / glm::max(radius * 2.0f, 1.0f);
 
     const glm::mat4 scaleMatrix = scale(glm::mat4(1.0f), glm::vec3(texelsPerUnit));
     glm::mat4 view = glm::lookAt(-lightDirection, glm::vec3(0.0f), GLOBAL_UP);
@@ -450,6 +458,9 @@ glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(
     glm::mat4 lightView = lookAt(eye, frustumCenter, GLOBAL_UP);
     constexpr float zMult = 6.0f;
     glm::mat4 lightProj = glm::ortho(-radius, radius, -radius, radius, -radius * zMult, radius * zMult);
+    if (reversedDepth) {
+        lightProj = glm::ortho(-radius, radius, -radius, radius, radius * zMult, -radius * zMult);
+    }
 
     return lightProj * lightView;
 }

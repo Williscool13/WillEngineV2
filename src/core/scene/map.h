@@ -94,6 +94,8 @@ public: // Terrain
         generateTerrain();
     }
 
+    void destroyTerrain();
+
     AllocatedBuffer getVertexBuffer() override;
 
     AllocatedBuffer getIndexBuffer() override;

@@ -29,7 +29,7 @@ struct CascadeSplit
     float padding[2];
 };
 
-struct CascadeShadowMap
+struct CascadeShadowMapData
 {
     int32_t cascadeLevel{-1};
     CascadeSplit split{};
@@ -69,7 +69,16 @@ public:
 
     void draw(VkCommandBuffer cmd, const std::unordered_map<uint32_t, RenderObject*>& renderObjects, const std::vector<ITerrain*>& terrains, int32_t currentFrameOverlap);
 
-    static glm::mat4 getLightSpaceMatrix(glm::vec3 lightDirection, const Camera* camera, float cascadeNear, float cascadeFar);
+    /**
+     *
+     * @param lightDirection
+     * @param camera
+     * @param cascadeNear
+     * @param cascadeFar
+     * @param reversedDepth If visualizing with a pipeline that expects reversed depth buffers, use this to reverse Zs in the Orthographic Projection matrix.
+     * @return
+     */
+    static glm::mat4 getLightSpaceMatrix(glm::vec3 lightDirection, const Camera* camera, float cascadeNear, float cascadeFar, bool reversedDepth = false);
 
     VkDescriptorSetLayout getCascadedShadowMapUniformLayout() const { return cascadedShadowMapUniformLayout; }
     VkDescriptorSetLayout getCascadedShadowMapSamplerLayout() const { return cascadedShadowMapSamplerLayout; }
@@ -92,10 +101,18 @@ public: // Debug
         return shadowMaps[cascadeLevel].depthShadowMap;
     }
 
+    CascadeShadowMapData getCascadedShadowMapData(const int32_t cascadeLevel) const
+    {
+        if (cascadeLevel >= shadows::SHADOW_CASCADE_COUNT || cascadeLevel < 0) {
+            return shadowMaps[0];
+        }
+        return shadowMaps[cascadeLevel];
+    }
+
 private:
     ResourceManager& resourceManager;
 
-    CascadeShadowMap shadowMaps[shadows::SHADOW_CASCADE_COUNT]{
+    CascadeShadowMapData shadowMaps[shadows::SHADOW_CASCADE_COUNT]{
         {0, {}, {VK_NULL_HANDLE}, {}},
         {1, {}, {VK_NULL_HANDLE}, {}},
         {2, {}, {VK_NULL_HANDLE}, {}},

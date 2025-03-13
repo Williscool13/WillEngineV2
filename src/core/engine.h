@@ -127,7 +127,7 @@ public:
 
     void addToDeletionQueue(Map* map);
 
-    RenderObject* getRenderObject(uint32_t renderRefIndex);
+    RenderObject* getOrLoadRenderObject(uint32_t renderRefIndex);
 
 private:
     VkExtent2D windowExtent{1700, 900};

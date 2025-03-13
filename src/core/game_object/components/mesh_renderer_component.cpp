@@ -80,7 +80,7 @@ void MeshRendererComponent::deserialize(ordered_json& j)
         const uint32_t renderRefIndex = j["renderReference"].get<uint32_t>();
         const int32_t meshIndex = j["renderMeshIndex"].get<int32_t>();
 
-        if (RenderObject* renderObject = Engine::get()->getRenderObject(renderRefIndex)) {
+        if (RenderObject* renderObject = Engine::get()->getOrLoadRenderObject(renderRefIndex)) {
             renderObject->generateMesh(this, meshIndex);
             if (j.contains("renderIsVisible")) {
                 bIsVisible = j["renderIsVisible"];
