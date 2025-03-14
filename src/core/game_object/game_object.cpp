@@ -12,7 +12,6 @@
 #include "src/core/engine.h"
 #include "src/core/time.h"
 #include "src/core/identifier/identifier_manager.h"
-#include "src/util/math_utils.h"
 
 namespace will_engine
 {
@@ -148,6 +147,9 @@ void GameObject::dirty()
     }
 
     bIsGlobalTransformDirty = true;
+    if (rigidbodyComponent) {
+        rigidbodyComponent->dirty();
+    }
 
     for (const auto& child : children) {
         child->dirty();
@@ -209,27 +211,18 @@ void GameObject::setLocalPosition(const glm::vec3 localPosition)
 {
     transform.setPosition(localPosition);
     dirty();
-    if (rigidbodyComponent) {
-        rigidbodyComponent->setPhysicsTransformFromGame(getPosition(), getRotation());
-    }
 }
 
 void GameObject::setLocalRotation(const glm::quat localRotation)
 {
     transform.setRotation(localRotation);
     dirty();
-    if (rigidbodyComponent) {
-        rigidbodyComponent->setPhysicsTransformFromGame(getPosition(), getRotation());
-    }
 }
 
 void GameObject::setLocalScale(const glm::vec3 localScale)
 {
     transform.setScale(localScale);
     dirty();
-    if (rigidbodyComponent) {
-        rigidbodyComponent->setPhysicsTransformFromGame(getPosition(), getRotation());
-    }
 }
 
 void GameObject::setLocalScale(const float localScale)
@@ -241,9 +234,6 @@ void GameObject::setLocalTransform(const Transform& newLocalTransform)
 {
     transform = newLocalTransform;
     dirty();
-    if (rigidbodyComponent) {
-        rigidbodyComponent->setPhysicsTransformFromGame(getPosition(), getRotation());
-    }
 }
 
 void GameObject::setGlobalPosition(const glm::vec3 globalPosition)
@@ -311,9 +301,6 @@ void GameObject::setGlobalTransform(const Transform& newGlobalTransform)
     }
 
     dirty();
-    if (rigidbodyComponent) {
-        rigidbodyComponent->setPhysicsTransformFromGame(getPosition(), getRotation());
-    }
 }
 
 void GameObject::setGlobalTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation)
@@ -342,27 +329,18 @@ void GameObject::translate(const glm::vec3 translation)
 {
     transform.translate(translation);
     dirty();
-    if (rigidbodyComponent) {
-        rigidbodyComponent->setPhysicsTransformFromGame(getPosition(), getRotation());
-    }
 }
 
 void GameObject::rotate(const glm::quat rotation)
 {
     transform.rotate(rotation);
     dirty();
-    if (rigidbodyComponent) {
-        rigidbodyComponent->setPhysicsTransformFromGame(getPosition(), getRotation());
-    }
 }
 
 void GameObject::rotateAxis(const float angle, const glm::vec3& axis)
 {
     transform.rotateAxis(angle, axis);
     dirty();
-    if (rigidbodyComponent) {
-        rigidbodyComponent->setPhysicsTransformFromGame(getPosition(), getRotation());
-    }
 }
 
 
