@@ -88,24 +88,24 @@ void RigidBodyComponent::setOwner(IComponentContainer* owner)
     }
 }
 
-void RigidBodyComponent::setGameTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation)
+void RigidBodyComponent::setTransform(const glm::vec3& position, const glm::quat& rotation)
 {
     transformableOwner->setGlobalTransformFromPhysics(position, rotation);
 }
 
-void RigidBodyComponent::setPhysicsTransformFromGame(const glm::vec3& position, const glm::quat& rotation)
-{
-    if (!hasRigidBody()) { return; }
-    physics::Physics::get()->setPositionAndRotation(bodyId, position, rotation);
-}
-
 glm::vec3 RigidBodyComponent::getGlobalPosition()
 {
+    if (!transformableOwner) {
+        return glm::vec3(0.0f);
+    }
     return transformableOwner->getPosition();
 }
 
 glm::quat RigidBodyComponent::getGlobalRotation()
 {
+    if (!transformableOwner) {
+        return glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+    }
     return transformableOwner->getRotation();
 }
 
