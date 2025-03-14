@@ -101,12 +101,12 @@ void RigidBodyComponent::setPhysicsTransformFromGame(const glm::vec3& position, 
 
 glm::vec3 RigidBodyComponent::getGlobalPosition()
 {
-    return transformableOwner->getGlobalPosition();
+    return transformableOwner->getPosition();
 }
 
 glm::quat RigidBodyComponent::getGlobalRotation()
 {
-    return transformableOwner->getGlobalRotation();
+    return transformableOwner->getRotation();
 }
 
 void RigidBodyComponent::serialize(ordered_json& j)

@@ -148,7 +148,6 @@ void GameObject::dirty()
     }
 
     bIsGlobalTransformDirty = true;
-    transform.setDirty();
 
     for (const auto& child : children) {
         child->dirty();
@@ -176,17 +175,29 @@ std::vector<IHierarchical*>& GameObject::getChildren()
     return children;
 }
 
+glm::mat4 GameObject::getModelMatrix()
+{
+    getGlobalTransform();
+    return cachedModelMatrix;
+}
+
 const Transform& GameObject::getGlobalTransform()
 {
     if (bIsGlobalTransformDirty) {
         if (transformableParent != nullptr) {
             const Transform& parentGlobal = transformableParent->getGlobalTransform();
-            cachedGlobalTransform.setPosition(parentGlobal.getPositionMatrix() * glm::vec4(transform.getPosition(), 1.0f));
-            cachedGlobalTransform.setRotation(parentGlobal.getRotation() * transform.getRotation());
-            cachedGlobalTransform.setScale(parentGlobal.getScale() * transform.getScale());
+            const glm::vec3 globalPosition = parentGlobal.getPosition() + parentGlobal.getRotation() * (parentGlobal.getScale() * transform.getPosition());
+            const glm::quat globalRotation = parentGlobal.getRotation() * transform.getRotation();
+            const glm::vec3 globalScale = parentGlobal.getScale() * transform.getScale();
+
+            cachedGlobalTransform.setPosition(globalPosition);
+            cachedGlobalTransform.setRotation(globalRotation);
+            cachedGlobalTransform.setScale(globalScale);
+            cachedModelMatrix = cachedGlobalTransform.toModelMatrix();
         }
         else {
             cachedGlobalTransform = transform;
+            cachedModelMatrix = cachedGlobalTransform.toModelMatrix();
         }
         bIsGlobalTransformDirty = false;
     }
@@ -199,7 +210,7 @@ void GameObject::setLocalPosition(const glm::vec3 localPosition)
     transform.setPosition(localPosition);
     dirty();
     if (rigidbodyComponent) {
-        rigidbodyComponent->setPhysicsTransformFromGame(getGlobalPosition(), getGlobalRotation());
+        rigidbodyComponent->setPhysicsTransformFromGame(getPosition(), getRotation());
     }
 }
 
@@ -208,7 +219,7 @@ void GameObject::setLocalRotation(const glm::quat localRotation)
     transform.setRotation(localRotation);
     dirty();
     if (rigidbodyComponent) {
-        rigidbodyComponent->setPhysicsTransformFromGame(getGlobalPosition(), getGlobalRotation());
+        rigidbodyComponent->setPhysicsTransformFromGame(getPosition(), getRotation());
     }
 }
 
@@ -217,7 +228,7 @@ void GameObject::setLocalScale(const glm::vec3 localScale)
     transform.setScale(localScale);
     dirty();
     if (rigidbodyComponent) {
-        rigidbodyComponent->setPhysicsTransformFromGame(getGlobalPosition(), getGlobalRotation());
+        rigidbodyComponent->setPhysicsTransformFromGame(getPosition(), getRotation());
     }
 }
 
@@ -231,15 +242,15 @@ void GameObject::setLocalTransform(const Transform& newLocalTransform)
     transform = newLocalTransform;
     dirty();
     if (rigidbodyComponent) {
-        rigidbodyComponent->setPhysicsTransformFromGame(getGlobalPosition(), getGlobalRotation());
+        rigidbodyComponent->setPhysicsTransformFromGame(getPosition(), getRotation());
     }
 }
 
 void GameObject::setGlobalPosition(const glm::vec3 globalPosition)
 {
     if (transformableParent) {
-        const glm::vec3 parentPos = transformableParent->getGlobalPosition();
-        const glm::quat parentRot = transformableParent->getGlobalRotation();
+        const glm::vec3 parentPos = transformableParent->getPosition();
+        const glm::quat parentRot = transformableParent->getRotation();
         const glm::mat4 parentTransform = glm::translate(glm::mat4(1.0f), parentPos) * glm::mat4_cast(parentRot);
         const glm::mat4 inverseParentTransform = glm::inverse(parentTransform);
         const auto localPosition = glm::vec3(inverseParentTransform * glm::vec4(globalPosition, 1.0f));
@@ -282,14 +293,16 @@ void GameObject::setGlobalScale(const float globalScale)
 void GameObject::setGlobalTransform(const Transform& newGlobalTransform)
 {
     if (transformableParent) {
-        const glm::vec3 parentPos = transformableParent->getGlobalPosition();
-        const glm::quat parentRot = transformableParent->getGlobalRotation();
-        const glm::mat4 parentTransform = glm::mat4_cast(parentRot) * glm::translate(glm::mat4(1.0f), parentPos);
-        const glm::mat4 inverseParentTransform = glm::inverse(parentTransform);
-        const auto localPosition = glm::vec3(inverseParentTransform * glm::vec4(newGlobalTransform.getPosition(), 1.0f));
+        const glm::vec3& parentPos = transformableParent->getPosition();
+        const glm::quat& parentRot = transformableParent->getRotation();
+        const glm::vec3& parentScale = transformableParent->getScale();
 
+        const glm::vec3 relativePos = newGlobalTransform.getPosition() - parentPos;
+        const glm::vec3 unrotatedPos = glm::inverse(parentRot) * relativePos;
+
+        const glm::vec3 localPosition = unrotatedPos / parentScale;
         const glm::quat localRotation = glm::inverse(parentRot) * newGlobalTransform.getRotation();
-        const glm::vec3 localScale = newGlobalTransform.getScale() / transformableParent->getGlobalScale();
+        const glm::vec3 localScale = newGlobalTransform.getScale() / parentScale;
 
         transform.setTransform(localPosition, localRotation, localScale);
     }
@@ -299,15 +312,15 @@ void GameObject::setGlobalTransform(const Transform& newGlobalTransform)
 
     dirty();
     if (rigidbodyComponent) {
-        rigidbodyComponent->setPhysicsTransformFromGame(getGlobalPosition(), getGlobalRotation());
+        rigidbodyComponent->setPhysicsTransformFromGame(getPosition(), getRotation());
     }
 }
 
 void GameObject::setGlobalTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation)
 {
     if (transformableParent) {
-        const glm::vec3 parentPos = transformableParent->getGlobalPosition();
-        const glm::quat parentRot = transformableParent->getGlobalRotation();
+        const glm::vec3 parentPos = transformableParent->getPosition();
+        const glm::quat parentRot = transformableParent->getRotation();
         const glm::mat4 parentTransform = glm::mat4_cast(parentRot) * glm::translate(glm::mat4(1.0f), parentPos);
         const glm::mat4 inverseParentTransform = glm::inverse(parentTransform);
         const auto localPosition = glm::vec3(inverseParentTransform * glm::vec4(position, 1.0f));
@@ -330,7 +343,7 @@ void GameObject::translate(const glm::vec3 translation)
     transform.translate(translation);
     dirty();
     if (rigidbodyComponent) {
-        rigidbodyComponent->setPhysicsTransformFromGame(getGlobalPosition(), getGlobalRotation());
+        rigidbodyComponent->setPhysicsTransformFromGame(getPosition(), getRotation());
     }
 }
 
@@ -339,7 +352,7 @@ void GameObject::rotate(const glm::quat rotation)
     transform.rotate(rotation);
     dirty();
     if (rigidbodyComponent) {
-        rigidbodyComponent->setPhysicsTransformFromGame(getGlobalPosition(), getGlobalRotation());
+        rigidbodyComponent->setPhysicsTransformFromGame(getPosition(), getRotation());
     }
 }
 
@@ -348,7 +361,7 @@ void GameObject::rotateAxis(const float angle, const glm::vec3& axis)
     transform.rotateAxis(angle, axis);
     dirty();
     if (rigidbodyComponent) {
-        rigidbodyComponent->setPhysicsTransformFromGame(getGlobalPosition(), getGlobalRotation());
+        rigidbodyComponent->setPhysicsTransformFromGame(getPosition(), getRotation());
     }
 }
 
