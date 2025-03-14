@@ -37,9 +37,7 @@ public:
     const std::vector<uint32_t>& getIndices() { return indices; }
 
 public: // Physics
-    void setGameTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) override {}
-
-    void setPhysicsTransformFromGame(const glm::vec3& position, const glm::quat& rotation) override {}
+    void setTransform(const glm::vec3& position, const glm::quat& rotation) override {}
 
     glm::vec3 getGlobalPosition() override { return glm::vec3(0.0f); }
 
@@ -48,6 +46,12 @@ public: // Physics
     void setPhysicsBodyId(const JPH::BodyID bodyId) override { terrainBodyId = bodyId; }
 
     [[nodiscard]] JPH::BodyID getPhysicsBodyId() const override { return terrainBodyId; }
+
+    void dirty() override { bIsPhysicsDirty = true; }
+
+    void undirty() override { bIsPhysicsDirty = false; }
+
+    bool isTransformDirty() override { return bIsPhysicsDirty; }
 
 private:
     ResourceManager& resourceManager;
@@ -64,6 +68,8 @@ private: // Buffer Data
 
 private: // Physics
     JPH::BodyID terrainBodyId{JPH::BodyID::cMaxBodyIndex};
+
+    bool bIsPhysicsDirty{true};
 };
 }
 

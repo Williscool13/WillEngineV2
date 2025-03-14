@@ -18,9 +18,7 @@ class IPhysicsBody
 public:
     virtual ~IPhysicsBody() = default;
 
-    virtual void setGameTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) = 0;
-
-    virtual void setPhysicsTransformFromGame(const glm::vec3& position, const glm::quat& rotation) = 0;
+    virtual void setTransform(const glm::vec3& position, const glm::quat& rotation) = 0;
 
     virtual glm::vec3 getGlobalPosition() = 0;
 
@@ -29,6 +27,12 @@ public:
     virtual void setPhysicsBodyId(JPH::BodyID bodyId) = 0;
 
     [[nodiscard]] virtual JPH::BodyID getPhysicsBodyId() const = 0;
+
+    virtual void dirty() = 0;
+
+    virtual void undirty() = 0;
+
+    virtual bool isTransformDirty() = 0;
 };
 }
 

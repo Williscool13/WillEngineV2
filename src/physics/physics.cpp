@@ -4,6 +4,7 @@
 
 #include "physics.h"
 
+#include <ranges>
 #include <thread>
 #include <fmt/format.h>
 
@@ -19,8 +20,6 @@
 #include "physics_filters.h"
 #include "physics_utils.h"
 #include "physics_body.h"
-#include "src/renderer/pipelines/basic_compute/basic_compute_pipeline.h"
-#include "src/renderer/pipelines/basic_compute/basic_compute_pipeline.h"
 
 
 namespace will_engine::physics
@@ -151,9 +150,12 @@ void Physics::cleanup()
 void Physics::update(const float deltaTime)
 {
     constexpr int collisionSteps = 10;
+
+    syncGameData();
+
     physicsSystem->Update(deltaTime, collisionSteps, tempAllocator, jobSystem);
 
-    updateTransforms();
+    updateGameData();
 }
 
 JPH::BodyInterface& Physics::getBodyInterface() const
@@ -193,13 +195,28 @@ void Physics::removeRigidBodies(const std::vector<IPhysicsBody*>& objects)
     }
 }
 
-void Physics::updateTransforms() const
+void Physics::syncGameData()
+{
+    JPH::BodyInterface& bodyInterface = physicsSystem->GetBodyInterface();
+    for (auto val : physicsObjects | std::views::values) {
+        if (!val.physicsBody->isTransformDirty()) { continue; }
+
+        glm::vec3 position = val.physicsBody->getGlobalPosition();
+        glm::quat rotation = val.physicsBody->getGlobalRotation();
+
+        bodyInterface.SetPosition(val.bodyId, PhysicsUtils::toJolt(position), JPH::EActivation::Activate);
+        bodyInterface.SetRotation(val.bodyId, PhysicsUtils::toJolt(rotation), JPH::EActivation::Activate);
+        val.physicsBody->undirty();
+    }
+}
+
+void Physics::updateGameData() const
 {
     const JPH::BodyInterface& bodyInterface = physicsSystem->GetBodyInterface();
     for (auto physicsObject : physicsObjects) {
         const JPH::Vec3 position = bodyInterface.GetPosition(physicsObject.first);
         const JPH::Quat rotation = bodyInterface.GetRotation(physicsObject.first);
-        physicsObject.second.physicsBody->setGameTransformFromPhysics(PhysicsUtils::toGLM(position), PhysicsUtils::toGLM(rotation));
+        physicsObject.second.physicsBody->setTransform(PhysicsUtils::toGLM(position), PhysicsUtils::toGLM(rotation));
     }
 }
 

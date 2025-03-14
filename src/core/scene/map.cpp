@@ -222,6 +222,8 @@ void will_engine::Map::reparent(IHierarchical* newParent)
 
 void will_engine::Map::dirty()
 {
+    cachedModelMatrix = transform.toModelMatrix();
+
     for (const auto& child : children) {
         child->dirty();
     }
@@ -273,7 +275,8 @@ void will_engine::Map::setLocalScale(const glm::vec3 localScale)
 
 void will_engine::Map::setLocalScale(const float localScale)
 {
-    setLocalScale(glm::vec3(localScale));
+    transform.setScale(glm::vec3(localScale));
+    dirty();
 }
 
 void will_engine::Map::setLocalTransform(const Transform& newLocalTransform)

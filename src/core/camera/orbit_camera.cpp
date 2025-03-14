@@ -58,7 +58,7 @@ void will_engine::OrbitCamera::update(const float deltaTime)
         transform.setRotation(newRotation);
     }
 
-    const glm::vec3 targetPos = glm::mix(lastTargetPos,orbitTarget->getGlobalPosition(),deltaTime * followSpeed);
+    const glm::vec3 targetPos = glm::mix(lastTargetPos,orbitTarget->getPosition(),deltaTime * followSpeed);
     lastTargetPos = targetPos;
     const glm::vec3 newPosition = targetPos - transform.getRotation() * armOffset;
     transform.setPosition(newPosition);
@@ -69,6 +69,6 @@ void will_engine::OrbitCamera::update(const float deltaTime)
 void will_engine::OrbitCamera::setOrbitTarget(ITransformable* gameObject)
 {
     orbitTarget = gameObject;
-    const glm::vec3 newPosition = orbitTarget->getGlobalPosition() - transform.getRotation() * armOffset;
+    const glm::vec3 newPosition = orbitTarget->getPosition() - transform.getRotation() * armOffset;
     transform.setPosition(newPosition);
 }

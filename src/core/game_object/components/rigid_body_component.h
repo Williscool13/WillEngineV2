@@ -39,6 +39,8 @@ private:
 
     JPH::BodyID bodyId{JPH::BodyID::cMaxBodyIndex};
 
+    bool bIsPhysicsDirty{true};
+
 public:
     void releaseRigidBody();
 
@@ -47,9 +49,11 @@ public:
     void setOwner(IComponentContainer* owner) override;
 
 public: // IPhysicsBody
-    void setGameTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation) override;
+    void setTransform(const glm::vec3& position, const glm::quat& rotation) override;
 
-    void setPhysicsTransformFromGame(const glm::vec3& position, const glm::quat& rotation) override;
+    void dirty() override { bIsPhysicsDirty = true; }
+
+    void undirty() override { bIsPhysicsDirty = false; }
 
     glm::vec3 getGlobalPosition() override;
 
@@ -58,6 +62,8 @@ public: // IPhysicsBody
     void setPhysicsBodyId(const JPH::BodyID bodyId) override { this->bodyId = bodyId; }
 
     JPH::BodyID getPhysicsBodyId() const override { return bodyId; }
+
+    bool isTransformDirty() override { return bIsPhysicsDirty; }
 
 public: // Serialization
     void serialize(ordered_json& j) override;

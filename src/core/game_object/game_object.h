@@ -97,7 +97,7 @@ protected: // IHierarchical
     std::string gameObjectName{};
 
 public: // ITransformable
-    glm::mat4 getModelMatrix() override { return getGlobalTransform().getTRSMatrix(); }
+    glm::mat4 getModelMatrix() override;
 
     const Transform& getLocalTransform() const override { return transform; }
     glm::vec3 getLocalPosition() const override { return getLocalTransform().getPosition(); }
@@ -110,13 +110,13 @@ public: // ITransformable
      * Interface of both IPhysicsBody and ITransformable
      * @return
      */
-    glm::vec3 getGlobalPosition() override { return getGlobalTransform().getPosition(); }
+    glm::vec3 getPosition() override { return getGlobalTransform().getPosition(); }
     /**
      * Interface of both IPhysicsBody and ITransformable
      * @return
      */
-    glm::quat getGlobalRotation() override { return getGlobalTransform().getRotation(); }
-    glm::vec3 getGlobalScale() override { return getGlobalTransform().getScale(); }
+    glm::quat getRotation() override { return getGlobalTransform().getRotation(); }
+    glm::vec3 getScale() override { return getGlobalTransform().getScale(); }
 
     void setLocalPosition(glm::vec3 localPosition) override;
 
@@ -150,6 +150,8 @@ protected: // ITransformable
     Transform transform{};
     Transform cachedGlobalTransform{};
     bool bIsGlobalTransformDirty{true};
+
+    glm::mat4 cachedModelMatrix{1.0f};
 
 public: // IComponentContainer
     components::Component* getComponentByType(const std::type_info& type) override
