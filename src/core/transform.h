@@ -19,119 +19,52 @@ private:
     glm::quat rotation{1.0f, 0.0f, 0.0f, 0.0f};
     glm::vec3 scale{1.0f};
 
-    mutable glm::mat4 cachedRotationMatrix{1.0f};
-    mutable bool rotationDirty{true};
-
-    mutable glm::mat4 cachedTRSMatrix{1.0f};
-    mutable bool trsDirty{true};
-
 public:
     Transform() = default;
 
     Transform(const glm::vec3& position, const glm::quat& rotation, const glm::vec3& scale) : position(position), rotation(rotation), scale(scale) {}
 
-    [[nodiscard]] glm::vec3 getPosition() const { return position; }
-    [[nodiscard]] glm::vec3 getEulerAngles() const { return glm::eulerAngles(rotation); }
-    [[nodiscard]] glm::quat getRotation() const { return rotation; }
-    [[nodiscard]] glm::vec3 getScale() const { return scale; }
-    [[nodiscard]] glm::mat4 getPositionMatrix() const { return glm::translate(glm::mat4(1.0f), position); }
+    glm::vec3 getPosition() const { return position; }
+    glm::quat getRotation() const { return rotation; }
+    glm::vec3 getScale() const { return scale; }
 
-    [[nodiscard]] glm::mat4 getRotationMatrix() const
-    {
-        if (rotationDirty) {
-            cachedRotationMatrix = glm::toMat4(rotation);
-            rotationDirty = false;
-        }
-        return cachedRotationMatrix;
-    }
-
-    [[nodiscard]] glm::mat4 getScaleMatrix() const { return glm::scale(glm::mat4(1.0f), scale); }
-    glm::vec3 getForward() const { return glm::normalize(glm::rotate(rotation, glm::vec3(0.0f, 0.0f, -1.0f))); }
-    glm::vec3 getRight() const { return glm::normalize(glm::rotate(rotation, glm::vec3(1.0f, 0.0f, 0.0f))); }
-    glm::vec3 getUp() const { return glm::normalize(glm::rotate(rotation, glm::vec3(0.0f, 1.0f, 0.0f))); }
-    glm::vec3 transformDirection(const glm::vec3& direction) const { return glm::normalize(glm::rotate(rotation, direction)); }
-
-    void setPosition(const glm::vec3& position)
-    {
-        this->position = position;
-        trsDirty = true;
-    }
-
-    void setRotation(const glm::quat& rotation)
-    {
-        this->rotation = rotation;
-        rotationDirty = true;
-        trsDirty = true;
-    }
-
-    void setEulerRotation(const glm::vec3& eulerAngles)
-    {
-        this->rotation = glm::quat(eulerAngles);
-        rotationDirty = true;
-        trsDirty = true;
-    }
-
-    void setScale(const glm::vec3& scale)
-    {
-        this->scale = scale;
-        trsDirty = true;
-    }
-
-    void setScale(const float scale)
-    {
-        this->scale = glm::vec3(scale);
-        trsDirty = true;
-    }
-
-    void setTransform(const Transform& transform)
-    {
-        setPosition(transform.getPosition());
-        setRotation(transform.getRotation());
-        setScale(transform.getScale());
-        trsDirty = true;
-    }
+    void setPosition(const glm::vec3 position) { this->position = position; }
+    void setRotation(const glm::quat rotation) { this->rotation = rotation; }
+    void setScale(const glm::vec3 scale) { this->scale = scale; }
 
     void setTransform(const glm::vec3& position, const glm::quat& rotation, const glm::vec3& scale)
     {
-        setPosition(position);
-        setRotation(rotation);
-        setScale(scale);
-        trsDirty = true;
+        this->position = position;
+        this->rotation = rotation;
+        this->scale = scale;
     }
 
-    void setDirty() const
+    void reset()
     {
-        trsDirty = true;
-        rotationDirty = true;
+        position = glm::vec3(0.0f);
+        rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
+        scale = glm::vec3(1.0f);
     }
 
-    void translate(const glm::vec3& offset)
+    void translate(const glm::vec3& translation)
     {
-        position += offset;
-        trsDirty = true;
+        position += translation;
     }
 
-    /**
-     * Rotate in radians
-     * @param angles
-     */
     void rotate(const glm::vec3& angles)
     {
         const auto rotationDelta = glm::quat(angles);
         this->rotation = this->rotation * rotationDelta;
-        rotationDirty = true;
-        trsDirty = true;
     }
 
-    /**
-     * Rotate in radians
-     * @param angles
-     */
     void rotate(const glm::quat& angles)
     {
         this->rotation = this->rotation * angles;
-        rotationDirty = true;
-        trsDirty = true;
+    }
+
+    void rotateDegree(const glm::vec3& angles)
+    {
+        this->rotation = this->rotation * glm::radians(angles);
     }
 
     void rotateAxis(const float angle, const glm::vec3& axis)
@@ -140,21 +73,11 @@ public:
         rotate(rotationDelta);
     }
 
-    glm::mat4 getTRSMatrix() const
+    glm::mat4 toModelMatrix() const
     {
-        if (trsDirty) {
-            cachedTRSMatrix = getPositionMatrix() * getRotationMatrix() * getScaleMatrix();
-            trsDirty = false;
-        }
-        return cachedTRSMatrix;
-    }
-
-    void reset()
-    {
-        position = glm::vec3(0.0f);
-        rotation = glm::quat(1.0f, 0.0f, 0.0f, 0.0f);
-        scale = glm::vec3(1.0f);
-        trsDirty = true;
+        return glm::translate(glm::mat4(1.0f), position) *
+               mat4_cast(rotation) *
+               glm::scale(glm::mat4(1.0f), scale);
     }
 
 public:
