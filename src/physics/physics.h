@@ -63,7 +63,9 @@ public:
 
     void removeRigidBodies(const std::vector<IPhysicsBody*>& objects);
 
-    void updateTransforms() const;
+    void syncGameData();
+
+    void updateGameData() const;
 
     bool doesPhysicsBodyExists(const JPH::BodyID bodyId) const { return physicsObjects.contains(bodyId); }
 

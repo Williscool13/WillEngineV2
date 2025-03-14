@@ -169,7 +169,7 @@ private: // IHierarchical
     void recursiveDestroy(IHierarchical* object);
 
 public: // ITransformable
-    glm::mat4 getModelMatrix() override { return getGlobalTransform().getTRSMatrix(); }
+    glm::mat4 getModelMatrix() override { return cachedModelMatrix; }
 
     const Transform& getLocalTransform() const override { return transform; }
     glm::vec3 getLocalPosition() const override { return getLocalTransform().getPosition(); }
@@ -182,13 +182,13 @@ public: // ITransformable
      * Interface of both IPhysicsBody and ITransformable
      * @return
      */
-    glm::vec3 getGlobalPosition() override { return getGlobalTransform().getPosition(); }
+    glm::vec3 getPosition() override { return getGlobalTransform().getPosition(); }
     /**
      * Interface of both IPhysicsBody and ITransformable
      * @return
      */
-    glm::quat getGlobalRotation() override { return getGlobalTransform().getRotation(); }
-    glm::vec3 getGlobalScale() override { return getGlobalTransform().getScale(); }
+    glm::quat getRotation() override { return getGlobalTransform().getRotation(); }
+    glm::vec3 getScale() override { return getGlobalTransform().getScale(); }
 
     void setLocalPosition(glm::vec3 localPosition) override;
 
@@ -200,13 +200,13 @@ public: // ITransformable
 
     void setLocalTransform(const Transform& newLocalTransform) override;
 
-    void setGlobalPosition(glm::vec3 globalPosition) override { setLocalPosition(globalPosition); }
+    void setGlobalPosition(const glm::vec3 globalPosition) override { setLocalPosition(globalPosition); }
 
-    void setGlobalRotation(glm::quat globalRotation) override { setLocalRotation(globalRotation); }
+    void setGlobalRotation(const glm::quat globalRotation) override { setLocalRotation(globalRotation); }
 
-    void setGlobalScale(glm::vec3 newScale) override { setLocalScale(newScale); }
+    void setGlobalScale(const glm::vec3 newScale) override { setLocalScale(newScale); }
 
-    void setGlobalScale(float globalScale) override { setGlobalScale(glm::vec3(globalScale)); }
+    void setGlobalScale(const float globalScale) override { setGlobalScale(glm::vec3(globalScale)); }
 
     void setGlobalTransform(const Transform& newGlobalTransform) override { setLocalTransform(newGlobalTransform); }
 
@@ -220,8 +220,7 @@ public: // ITransformable
 
 private: // ITransformable
     Transform transform{};
-    Transform cachedGlobalTransform{};
-    bool bIsGlobalTransformDirty{true};
+    glm::mat4 cachedModelMatrix{1.0f};
 
 #pragma endregion
 

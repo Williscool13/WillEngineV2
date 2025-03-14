@@ -28,11 +28,11 @@ public:
 
     [[nodiscard]] virtual const Transform& getGlobalTransform() = 0;
 
-    virtual glm::vec3 getGlobalPosition() = 0;
+    virtual glm::vec3 getPosition() = 0;
 
-    virtual glm::quat getGlobalRotation() = 0;
+    virtual glm::quat getRotation() = 0;
 
-    virtual glm::vec3 getGlobalScale() = 0;
+    virtual glm::vec3 getScale() = 0;
 
     virtual void setLocalPosition(glm::vec3 localPosition) = 0;
 
