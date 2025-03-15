@@ -13,6 +13,11 @@ namespace will_engine::terrain
 {
 class TerrainChunk;
 
+struct TerrainPushConstants
+{
+    float tessLevel;
+};
+
 struct TerrainDrawInfo
 {
     bool bClearColor{true};

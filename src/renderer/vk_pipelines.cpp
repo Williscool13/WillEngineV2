@@ -59,6 +59,10 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkPipelineCreateFlagB
     if (vertexInputEnabled) {
         pipelineInfo.pVertexInputState = &vertexInputInfo;
     }
+    if (bIsTessellationEnabled) {
+        assert(shaderStages.size() > 3);
+        pipelineInfo.pTessellationState = &tessellation;
+    }
     pipelineInfo.pInputAssemblyState = &inputAssembly;
     pipelineInfo.pRasterizationState = &rasterizer;
     pipelineInfo.pMultisampleState = &multisampling;
@@ -82,7 +86,8 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkPipelineCreateFlagB
     if (response != VK_SUCCESS) {
         fmt::print("failed to create pipeline");
         return VK_NULL_HANDLE;
-    } else {
+    }
+    else {
         return newPipeline;
     }
 }
@@ -109,9 +114,28 @@ void PipelineBuilder::setShaders(VkShaderModule vertexShader, VkShaderModule fra
     );
 }
 
-void PipelineBuilder::setupVertexInput(VkVertexInputBindingDescription* bindings, uint32_t bindingCount,
-                                       VkVertexInputAttributeDescription* attributes,
-                                       uint32_t attributeCount)
+void PipelineBuilder::setShaders(const VkShaderModule vertexShader, const VkShaderModule tessControlShader, const VkShaderModule tessEvalShader, const VkShaderModule fragmentShader)
+{
+    shaderStages.clear();
+
+    shaderStages.push_back(
+        vk_helpers::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_VERTEX_BIT, vertexShader)
+    );
+
+    shaderStages.push_back(
+        vk_helpers::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, tessControlShader)
+    );
+
+    shaderStages.push_back(
+        vk_helpers::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, tessEvalShader)
+    );
+
+    shaderStages.push_back(
+        vk_helpers::pipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, fragmentShader)
+    );
+}
+
+void PipelineBuilder::setupVertexInput(const VkVertexInputBindingDescription* bindings, const uint32_t bindingCount, const VkVertexInputAttributeDescription* attributes, const uint32_t attributeCount)
 {
     vertexInputEnabled = true;
     vertexInputInfo.pVertexBindingDescriptions = bindings;
@@ -120,7 +144,7 @@ void PipelineBuilder::setupVertexInput(VkVertexInputBindingDescription* bindings
     vertexInputInfo.vertexAttributeDescriptionCount = attributeCount;
 }
 
-void PipelineBuilder::setupInputAssembly(VkPrimitiveTopology topology, bool enablePrimitiveRestart)
+void PipelineBuilder::setupInputAssembly(const VkPrimitiveTopology topology, const bool enablePrimitiveRestart)
 {
     inputAssembly.topology = topology;
     inputAssembly.primitiveRestartEnable = enablePrimitiveRestart;
@@ -194,7 +218,8 @@ void PipelineBuilder::setupDepthStencil(VkBool32 depthTestEnable, VkBool32 depth
 void PipelineBuilder::setupBlending(PipelineBuilder::BlendMode mode)
 {
     switch (mode) {
-        case BlendMode::ALPHA_BLEND: {
+        case BlendMode::ALPHA_BLEND:
+        {
             colorBlendAttachment.colorWriteMask =
                     VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
             colorBlendAttachment.blendEnable = VK_TRUE;
@@ -206,7 +231,8 @@ void PipelineBuilder::setupBlending(PipelineBuilder::BlendMode mode)
             colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
             break;
         }
-        case BlendMode::ADDITIVE_BLEND: {
+        case BlendMode::ADDITIVE_BLEND:
+        {
             colorBlendAttachment.colorWriteMask =
                     VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
             colorBlendAttachment.blendEnable = VK_TRUE;
@@ -244,7 +270,7 @@ void PipelineBuilder::enableDepthTest(bool depthWriteEnable, VkCompareOp op)
     );
 }
 
-void PipelineBuilder::disableDepthtest()
+void PipelineBuilder::disableDepthTest()
 {
     setupDepthStencil(
         VK_FALSE, VK_FALSE, VK_COMPARE_OP_NEVER,
@@ -259,4 +285,11 @@ VkPipelineDynamicStateCreateInfo PipelineBuilder::generateDynamicStates(VkDynami
     dynamicInfo.pDynamicStates = states;
     dynamicInfo.dynamicStateCount = count;
     return dynamicInfo;
+}
+
+void PipelineBuilder::setupTessellation(const int32_t controlPoints)
+{
+    bIsTessellationEnabled = true;
+    tessellation.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;
+    tessellation.patchControlPoints = controlPoints;
 }

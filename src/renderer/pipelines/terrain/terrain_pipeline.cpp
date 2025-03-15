@@ -15,12 +15,18 @@ will_engine::terrain::TerrainPipeline::TerrainPipeline(ResourceManager& resource
     VkDescriptorSetLayout descriptorLayout[1];
     descriptorLayout[0] = resourceManager.getSceneDataLayout();
 
+
+    VkPushConstantRange pushConstants = {};
+    pushConstants.offset = 0;
+    pushConstants.size = sizeof(TerrainPushConstants);
+    pushConstants.stageFlags = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+
     VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
     layoutInfo.pSetLayouts = descriptorLayout;
     layoutInfo.pNext = nullptr;
     layoutInfo.setLayoutCount = 1;
-    layoutInfo.pPushConstantRanges = nullptr;
-    layoutInfo.pushConstantRangeCount = 0;
+    layoutInfo.pPushConstantRanges = &pushConstants;
+    layoutInfo.pushConstantRangeCount = 1;
 
     pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
@@ -85,6 +91,9 @@ void will_engine::terrain::TerrainPipeline::draw(VkCommandBuffer cmd, const Terr
     scissor.extent.height = RENDER_EXTENTS.height;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
+    TerrainPushConstants push{16.0f};
+    vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, 0, sizeof(TerrainPushConstants), &push);
+
     constexpr VkDeviceSize zeroOffset{0};
 
     for (ITerrain* terrain : drawInfo.terrains) {
@@ -115,6 +124,8 @@ void will_engine::terrain::TerrainPipeline::createPipeline()
 {
     resourceManager.destroyPipeline(pipeline);
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/terrain/terrain.vert");
+    VkShaderModule tescShader = resourceManager.createShaderModule("shaders/terrain/terrain.tesc");
+    VkShaderModule teseShader = resourceManager.createShaderModule("shaders/terrain/terrain.tese");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/terrain/terrain.frag");
 
     PipelineBuilder pipelineBuilder;
@@ -138,16 +149,19 @@ void will_engine::terrain::TerrainPipeline::createPipeline()
 
     pipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 3);
 
-    pipelineBuilder.setShaders(vertShader, fragShader);
-    pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, true);
+    pipelineBuilder.setShaders(vertShader, tescShader, teseShader, fragShader);
+    pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_PATCH_LIST, false);
     pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     pipelineBuilder.disableMultisampling();
     pipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
     pipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_FORMAT);
     pipelineBuilder.setupPipelineLayout(pipelineLayout);
+    pipelineBuilder.setupTessellation(4);
 
     pipeline = resourceManager.createRenderPipeline(pipelineBuilder, {VK_DYNAMIC_STATE_DEPTH_BIAS});
     resourceManager.destroyShaderModule(vertShader);
+    resourceManager.destroyShaderModule(tescShader);
+    resourceManager.destroyShaderModule(teseShader);
     resourceManager.destroyShaderModule(fragShader);
 }

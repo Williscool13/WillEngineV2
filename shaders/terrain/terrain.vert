@@ -8,8 +8,8 @@ layout (location = 2) in vec2 uv;
 
 layout (location = 0) out vec3 outPosition;
 layout (location = 1) out vec3 outNormal;
-layout (location = 2) out vec4 outColor;
-layout (location = 3) out vec2 outUV;
+layout (location = 2) out vec2 outUV;
+layout (location = 3) out vec4 outColor;
 layout (location = 4) out vec4 outCurrMvpPosition;
 layout (location = 5) out vec4 outPrevMvpPosition;
 

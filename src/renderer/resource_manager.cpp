@@ -66,7 +66,7 @@ ResourceManager::ResourceManager(const VulkanContext& context, ImmediateSubmitte
     {
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        sceneDataLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT, nullptr,
+        sceneDataLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT | VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, nullptr,
                                               VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
     // Frustum Cull Layout
@@ -442,6 +442,9 @@ VkShaderModule ResourceManager::createShaderModule(const std::filesystem::path& 
     if (path.extension() == ".vert") kind = shaderc_vertex_shader;
     else if (path.extension() == ".frag") kind = shaderc_fragment_shader;
     else if (path.extension() == ".comp") kind = shaderc_compute_shader;
+    else if (path.extension() == ".tesc") kind = shaderc_tess_control_shader;
+    else if (path.extension() == ".tese") kind = shaderc_tess_evaluation_shader;
+
     else throw std::runtime_error(fmt::format("Unknown shader type: {}", path.extension().string()));
 
     shaderc::Compiler compiler;

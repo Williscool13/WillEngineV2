@@ -104,16 +104,18 @@ void TerrainChunk::generateMesh(const int32_t width, const int32_t height, const
 
     smoothNormals(vertices, width, height);
 
-    // Triangle Strips
+    // Quads
     for (uint32_t z = 0; z < height - 1; z++) {
-        constexpr uint32_t PRIMITIVE_RESTART_INDEX = 0xFFFFFFFF;
-        for (uint32_t x = 0; x < width; x++) {
+        for (uint32_t x = 0; x < width - 1; x++) {
+            // Top-left
             indices.push_back(z * width + x);
+            // Top-right
+            indices.push_back(z * width + x + 1);
+            // Bottom-left
             indices.push_back((z + 1) * width + x);
+            // Bottom-right
+            indices.push_back((z + 1) * width + x + 1);
         }
-        // Second to last row
-        if (z == height - 2) { break; }
-        indices.push_back(PRIMITIVE_RESTART_INDEX);
     }
 }
 
