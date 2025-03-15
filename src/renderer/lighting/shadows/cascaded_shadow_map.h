@@ -40,6 +40,7 @@ struct CascadeShadowMapData
 struct CascadedShadowMapGenerationPushConstants
 {
     int32_t cascadeIndex{};
+    int32_t tessLevel{};
 };
 
 struct CascadeShadowData

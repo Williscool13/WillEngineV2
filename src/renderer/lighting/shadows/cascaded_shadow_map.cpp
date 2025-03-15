@@ -9,6 +9,7 @@
 #include "volk/volk.h"
 #include "src/core/camera/camera.h"
 #include "src/renderer/renderer_constants.h"
+#include "src/renderer/pipelines/terrain/terrain_pipeline.h"
 #include "src/renderer/render_object/render_object_types.h"
 #include "src/renderer/terrain/terrain_chunk.h"
 #include "src/util/math_constants.h"
@@ -77,7 +78,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createTerrainPipeline()
     VkPushConstantRange pushConstantRange;
     pushConstantRange.size = sizeof(CascadedShadowMapGenerationPushConstants);
     pushConstantRange.offset = 0;
-    pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+    pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
 
     VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
     layoutInfo.pNext = nullptr;
@@ -89,6 +90,8 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createTerrainPipeline()
     terrainPipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/shadows/terrain_shadow_pass.vert");
+    VkShaderModule tescShader = resourceManager.createShaderModule("shaders/shadows/terrain_shadow_pass.tesc");
+    VkShaderModule teseShader = resourceManager.createShaderModule("shaders/shadows/terrain_shadow_pass.tese");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.frag");
 
     PipelineBuilder pipelineBuilder;
@@ -104,8 +107,8 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createTerrainPipeline()
 
     pipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 1);
 
-    pipelineBuilder.setShaders(vertShader, fragShader);
-    pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, true);
+    pipelineBuilder.setShaders(vertShader, tescShader, teseShader, fragShader);
+    pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_PATCH_LIST, false);
     pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     // set later during shadow pass
     pipelineBuilder.enableDepthBias(0.0f, 0, 0.0f);
@@ -114,9 +117,12 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createTerrainPipeline()
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_LESS_OR_EQUAL);
     pipelineBuilder.setupRenderer({}, DEPTH_FORMAT);
     pipelineBuilder.setupPipelineLayout(terrainPipelineLayout);
+    pipelineBuilder.setupTessellation(4);
 
     terrainPipeline = resourceManager.createRenderPipeline(pipelineBuilder, {VK_DYNAMIC_STATE_DEPTH_BIAS});
     resourceManager.destroyShaderModule(vertShader);
+    resourceManager.destroyShaderModule(tescShader);
+    resourceManager.destroyShaderModule(teseShader);
     resourceManager.destroyShaderModule(fragShader);
 }
 
@@ -292,7 +298,8 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 
             CascadedShadowMapGenerationPushConstants pushConstants{};
             pushConstants.cascadeIndex = cascadeShadowMapData.cascadeLevel;
-            vkCmdPushConstants(cmd, terrainPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(CascadedShadowMapGenerationPushConstants), &pushConstants);
+            pushConstants.tessLevel = 1;
+            vkCmdPushConstants(cmd, terrainPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, 0, sizeof(CascadedShadowMapGenerationPushConstants), &pushConstants);
 
             //  Viewport
             VkViewport viewport = {};

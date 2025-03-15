@@ -1,7 +1,5 @@
 #version 450
 
-#include "scene.glsl"
-
 layout(quads, equal_spacing, ccw) in;
 
 layout(location = 0) in vec3 inPosition[];
@@ -17,8 +15,6 @@ layout(location = 2) out vec2 outTexCoord;
 layout(location = 3) out vec4 outColor;
 layout(location = 4) out vec4 outCurrMvpPosition;
 layout(location = 5) out vec4 outPrevMvpPosition;
-
-// layout (std140, set = 0, binding = 0) uniform SceneData - scene.glsl
 
 void main() {
     float u = gl_TessCoord.x;
