@@ -417,7 +417,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
         ImGui::SameLine();
 
-        ImGui::BeginDisabled(selectedMap);
+        ImGui::BeginDisabled(!selectedMap);
         if (ImGui::Button("Save")) {
             if (selectedMap->saveMap(mapPath.string())) {
                 ImGui::OpenPopup("SerializeSuccess");
