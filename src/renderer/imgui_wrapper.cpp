@@ -743,6 +743,9 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
         }
 
         if (ImGui::BeginTabItem("Terrain")) {
+            ImGui::Checkbox("Draw Vertex Lines Only", &engine->bDrawTerrainLines);
+            ImGui::Separator();
+
             if (ImGui::CollapsingHeader("Noise Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
                 ImGui::SliderFloat("Scale", &terrainProperties.scale, 1.0f, 200.0f);
                 ImGui::SliderFloat("Persistence", &terrainProperties.persistence, 0.0f, 1.0f);

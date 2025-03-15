@@ -478,6 +478,7 @@ void Engine::draw(float deltaTime)
 
     terrain::TerrainDrawInfo terrainDrawInfo{
         true,
+        bDrawTerrainLines,
         currentFrameOverlap,
         {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT},
         activeTerrains,

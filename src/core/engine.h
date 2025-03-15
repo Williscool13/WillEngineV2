@@ -162,6 +162,7 @@ private: // Debug
     bool bEnableDebugFrustumCullDraw{false};
     int32_t csmPcf{5};
     int32_t deferredDebug{0};
+    bool bDrawTerrainLines{false};
 
     void hotReloadShaders() const;
 
