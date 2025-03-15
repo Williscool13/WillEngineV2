@@ -93,7 +93,8 @@ void ImguiWrapper::handleInput(const SDL_Event& e)
     ImGui_ImplSDL3_ProcessEvent(&e);
 }
 
-void ImguiWrapper::selectMap(Map* newMap) {
+void ImguiWrapper::selectMap(Map* newMap)
+{
     selectedMap = newMap;
     if (selectedMap) {
         terrainProperties = selectedMap->getTerrainProperties();
@@ -744,6 +745,15 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
 
         if (ImGui::BeginTabItem("Terrain")) {
             ImGui::Checkbox("Draw Vertex Lines Only", &engine->bDrawTerrainLines);
+
+            ImGui::BeginDisabled(!selectedMap);
+            if (ImGui::Button("Save Terrain as HeightMap")) {
+                std::vector<float> heightmapData = selectedMap->getHeightMapData();
+                std::filesystem::path path = file::imagesSavePath / "TerrainHeightMap.png";
+                vk_helpers::saveHeightmap(heightmapData, NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, path);
+            }
+
+            ImGui::EndDisabled();
             ImGui::Separator();
 
             if (ImGui::CollapsingHeader("Noise Settings", ImGuiTreeNodeFlags_DefaultOpen)) {

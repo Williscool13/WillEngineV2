@@ -12,9 +12,9 @@
 
 will_engine::terrain::TerrainPipeline::TerrainPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
-    VkDescriptorSetLayout descriptorLayout[1];
+    VkDescriptorSetLayout descriptorLayout[2];
     descriptorLayout[0] = resourceManager.getSceneDataLayout();
-
+    descriptorLayout[1] = resourceManager.getTerrainTexturesLayout();
 
     VkPushConstantRange pushConstants = {};
     pushConstants.offset = 0;
@@ -24,7 +24,7 @@ will_engine::terrain::TerrainPipeline::TerrainPipeline(ResourceManager& resource
     VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
     layoutInfo.pSetLayouts = descriptorLayout;
     layoutInfo.pNext = nullptr;
-    layoutInfo.setLayoutCount = 1;
+    layoutInfo.setLayoutCount = 2;
     layoutInfo.pPushConstantRanges = &pushConstants;
     layoutInfo.pushConstantRangeCount = 1;
 
@@ -105,7 +105,8 @@ void will_engine::terrain::TerrainPipeline::draw(VkCommandBuffer cmd, const Terr
     constexpr VkDeviceSize zeroOffset{0};
 
     for (ITerrain* terrain : drawInfo.terrains) {
-        if (!terrain->canDraw()) { continue; }
+        TerrainChunk* terrainChunk = terrain->getTerrainChunk();
+        if (!terrainChunk) { continue; }
 
         constexpr uint32_t sceneDataIndex{0};
 
@@ -117,10 +118,10 @@ void will_engine::terrain::TerrainPipeline::draw(VkCommandBuffer cmd, const Terr
 
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);
 
-        VkBuffer vertexBuffer = terrain->getVertexBuffer().buffer;
+        VkBuffer vertexBuffer = terrainChunk->getVertexBuffer().buffer;
         vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer, &zeroOffset);
-        vkCmdBindIndexBuffer(cmd, terrain->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexed(cmd, terrain->getIndicesCount(), 1, 0, 0, 0);
+        vkCmdBindIndexBuffer(cmd, terrainChunk->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexed(cmd, terrainChunk->getIndexCount(), 1, 0, 0, 0);
     }
 
     vkCmdEndRendering(cmd);
@@ -141,7 +142,7 @@ void will_engine::terrain::TerrainPipeline::createPipeline()
     mainBinding.binding = 0;
     mainBinding.stride = sizeof(TerrainVertex);
     mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    VkVertexInputAttributeDescription vertexAttributes[3];
+    VkVertexInputAttributeDescription vertexAttributes[4];
     vertexAttributes[0].binding = 0;
     vertexAttributes[0].location = 0;
     vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -154,8 +155,12 @@ void will_engine::terrain::TerrainPipeline::createPipeline()
     vertexAttributes[2].location = 2;
     vertexAttributes[2].format = VK_FORMAT_R32G32_SFLOAT;
     vertexAttributes[2].offset = offsetof(TerrainVertex, uv);
+    vertexAttributes[3].binding = 0;
+    vertexAttributes[3].location = 3;
+    vertexAttributes[3].format = VK_FORMAT_R32_SINT;
+    vertexAttributes[3].offset = offsetof(TerrainVertex, materialIndex);
 
-    pipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 3);
+    pipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 4);
 
     pipelineBuilder.setShaders(vertShader, tescShader, teseShader, fragShader);
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_PATCH_LIST, false);
@@ -187,7 +192,7 @@ void will_engine::terrain::TerrainPipeline::createLinePipeline()
     mainBinding.binding = 0;
     mainBinding.stride = sizeof(TerrainVertex);
     mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    VkVertexInputAttributeDescription vertexAttributes[3];
+    VkVertexInputAttributeDescription vertexAttributes[4];
     vertexAttributes[0].binding = 0;
     vertexAttributes[0].location = 0;
     vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -200,8 +205,12 @@ void will_engine::terrain::TerrainPipeline::createLinePipeline()
     vertexAttributes[2].location = 2;
     vertexAttributes[2].format = VK_FORMAT_R32G32_SFLOAT;
     vertexAttributes[2].offset = offsetof(TerrainVertex, uv);
+    vertexAttributes[3].binding = 0;
+    vertexAttributes[3].location = 3;
+    vertexAttributes[3].format = VK_FORMAT_R32_SINT;
+    vertexAttributes[3].offset = offsetof(TerrainVertex, materialIndex);
 
-    pipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 3);
+    pipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 4);
 
     pipelineBuilder.setShaders(vertShader, tescShader, teseShader, fragShader);
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_PATCH_LIST, false);

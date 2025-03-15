@@ -448,7 +448,7 @@ void vk_helpers::generateMipmapsCubemap(VkCommandBuffer cmd, VkImage image, VkEx
     transitionImage(cmd, image, inputLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     const int mipLevels = static_cast<int>(std::floor(std::log2(std::max(imageSize.width, imageSize.height)))) + 1;
-     for (int mip = 0; mip < mipLevels; mip++) {
+    for (int mip = 0; mip < mipLevels; mip++) {
         VkExtent2D halfSize = imageSize;
         halfSize.width /= 2;
         halfSize.height /= 2;
@@ -771,4 +771,46 @@ void vk_helpers::saveImageR32F(const ResourceManager& resourceManager, const Imm
 
     delete[] byteImageData;
     resourceManager.destroyBuffer(receivingBuffer);
+}
+
+void vk_helpers::saveImage(const std::vector<float>& imageData, int width, int height, std::filesystem::path filename, bool overrideAlpha)
+{
+    const auto byteImageData = new uint8_t[width * height * 4];
+    for (size_t i = 0; i < width * height; ++i) {
+        for (int j = 0; j < 4; j++) {
+            auto value = static_cast<float>(imageData[i * 4 + j]);
+            value = std::max(0.0f, std::min(1.0f, value));
+            byteImageData[i * 4 + j] = static_cast<uint8_t>(std::lround(value * 255.0f));
+        }
+
+        if (overrideAlpha) {
+            byteImageData[i * 4 + 3] = 255;
+        }
+    }
+
+    stbi_write_png(filename.string().c_str(), width, height, 4, byteImageData, width * 4);
+    delete[] byteImageData;
+}
+
+void vk_helpers::saveHeightmap(const std::vector<float>& heightData, int width, int height, const std::filesystem::path& filename)
+{
+    float minHeight = std::numeric_limits<float>::max();
+    float maxHeight = std::numeric_limits<float>::lowest();
+
+    for (const float _height : heightData) {
+        minHeight = std::min(minHeight, _height);
+        maxHeight = std::max(maxHeight, _height);
+    }
+
+    const auto byteImageData = new uint8_t[width * height];
+
+    for (size_t i = 0; i < width * height; ++i) {
+        float normalizedHeight = (heightData[i] - minHeight) / (maxHeight - minHeight);
+        normalizedHeight = std::max(0.0f, std::min(1.0f, normalizedHeight));
+        byteImageData[i] = static_cast<uint8_t>(std::lround(normalizedHeight * 255.0f));
+    }
+
+    stbi_write_png(filename.string().c_str(), width, height, 1, byteImageData, width);
+
+    delete[] byteImageData;
 }

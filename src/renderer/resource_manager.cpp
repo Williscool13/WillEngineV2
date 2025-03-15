@@ -102,6 +102,13 @@ ResourceManager::ResourceManager(const VulkanContext& context, ImmediateSubmitte
 
         renderTargetsLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
+    // Terrain Textures
+    {
+        DescriptorLayoutBuilder layoutBuilder;
+        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 8);
+
+        terrainTexturesLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    }
 }
 
 ResourceManager::~ResourceManager()
@@ -118,6 +125,7 @@ ResourceManager::~ResourceManager()
     vkDestroyDescriptorSetLayout(context.device, addressesLayout, nullptr);
     vkDestroyDescriptorSetLayout(context.device, texturesLayout, nullptr);
     vkDestroyDescriptorSetLayout(context.device, renderTargetsLayout, nullptr);
+    vkDestroyDescriptorSetLayout(context.device, terrainTexturesLayout, nullptr);
 }
 
 AllocatedBuffer ResourceManager::createBuffer(const size_t allocSize, const VkBufferUsageFlags usage, const VmaMemoryUsage memoryUsage) const

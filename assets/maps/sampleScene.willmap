@@ -1,16 +1,18 @@
 {
-    "TerrainProperties": {
-        "scale": 158.0,
-        "persistence": 0.30000001192092896,
-        "lacunarity": 1.5,
-        "octaves": 4,
-        "offset": {
-            "x": 0.0,
-            "y": 0.0
+    "Terrain": {
+        "TerrainProperties": {
+            "scale": 158.0,
+            "persistence": 0.30000001192092896,
+            "lacunarity": 1.5,
+            "octaves": 4,
+            "offset": {
+                "x": 0.0,
+                "y": 0.0
+            },
+            "heightScale": 25.0
         },
-        "heightScale": 25.0
+        "TerrainSeed": 1695802020
     },
-    "TerrainSeed": 1695802020,
     "version": {
         "major": 0,
         "minor": 1,
@@ -18,8 +20,8 @@
     },
     "metadata": {
         "name": "sampleScene",
-        "created": "2025-03-09 16:33:15",
-        "formatVersion": 1
+        "created": "2025-03-15 16:41:02",
+        "formatVersion": 2
     },
     "gameObjects": {
         "name": "sampleScene",

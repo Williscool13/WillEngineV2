@@ -131,9 +131,9 @@ std::optional<AllocatedImage> will_engine::model_utils::loadImage(const Resource
     }
 }
 
-will_engine::Material will_engine::model_utils::extractMaterial(fastgltf::Asset& gltf, const fastgltf::Material& gltfMaterial)
+will_engine::MaterialProperties will_engine::model_utils::extractMaterial(fastgltf::Asset& gltf, const fastgltf::Material& gltfMaterial)
 {
-    Material material = {};
+    MaterialProperties material = {};
     material.colorFactor = glm::vec4(
         gltfMaterial.pbrData.baseColorFactor[0]
         , gltfMaterial.pbrData.baseColorFactor[1]

@@ -46,10 +46,10 @@ RenderObject::RenderObject(const std::filesystem::path& gltfFilepath, ResourceMa
     resourceManager.setupDescriptorBufferSampler(textureDescriptorBuffer, textureDescriptors, 0);
 
 
-    AllocatedBuffer materialStaging = resourceManager.createStagingBuffer(materials.size() * sizeof(Material));
-    memcpy(materialStaging.info.pMappedData, materials.data(), materials.size() * sizeof(Material));
-    materialBuffer = resourceManager.createDeviceBuffer(materials.size() * sizeof(Material));
-    resourceManager.copyBuffer(materialStaging, materialBuffer, materials.size() * sizeof(Material));
+    AllocatedBuffer materialStaging = resourceManager.createStagingBuffer(materials.size() * sizeof(MaterialProperties));
+    memcpy(materialStaging.info.pMappedData, materials.data(), materials.size() * sizeof(MaterialProperties));
+    materialBuffer = resourceManager.createDeviceBuffer(materials.size() * sizeof(MaterialProperties));
+    resourceManager.copyBuffer(materialStaging, materialBuffer, materials.size() * sizeof(MaterialProperties));
     resourceManager.destroyBuffer(materialStaging);
 
 
@@ -429,7 +429,7 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
     int32_t materialOffset = 1;
     // default material at 0
     materials.reserve(gltf.materials.size() + materialOffset);
-    Material defaultMaterial{
+    MaterialProperties defaultMaterial{
         glm::vec4(1.0f),
         {0.0f, 1.0f, 0.0f, 0.0f},
         glm::vec4(0.0f),
@@ -438,7 +438,7 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
     };
     materials.push_back(defaultMaterial);
     for (const fastgltf::Material& gltfMaterial : gltf.materials) {
-        Material material = model_utils::extractMaterial(gltf, gltfMaterial);
+        MaterialProperties material = model_utils::extractMaterial(gltf, gltfMaterial);
         materials.push_back(material);
     }
 

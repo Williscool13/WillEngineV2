@@ -92,6 +92,8 @@ void TerrainChunk::generateMesh(const int32_t width, const int32_t height, const
             vertex.uv.x = static_cast<float>(x) / static_cast<float>(width - 1);
             vertex.uv.y = static_cast<float>(z) / static_cast<float>(height - 1);
 
+            vertex.materialIndex = 0;
+
             vertices.push_back(vertex);
         }
     }

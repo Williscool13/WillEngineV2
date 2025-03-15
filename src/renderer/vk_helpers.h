@@ -4,6 +4,7 @@
 
 #ifndef VKHELPERS_H
 #define VKHELPERS_H
+#include <filesystem>
 #include <functional>
 
 #include <vulkan/vulkan_core.h>
@@ -21,7 +22,6 @@ class Engine;
 
 namespace vk_helpers
 {
-
 VkImageCreateInfo imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
 
 VkImageCreateInfo cubemapCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
@@ -111,6 +111,10 @@ void savePacked64Bit(const ResourceManager& resourceManager, const ImmediateSubm
  */
 void saveImageR32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
                    const char* savePath, const std::function<float(float)>& valueTransform);
+
+void saveImage(const std::vector<float>& imageData, int width, int height, std::filesystem::path filename, bool overrideAlpha = true);
+
+void saveHeightmap(const std::vector<float>& heightData, int width, int height, const std::filesystem::path& filename);
 }
 
 

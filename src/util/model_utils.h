@@ -19,7 +19,7 @@ static constexpr int32_t imageOffset{1};
 
 [[nodiscard]] std::optional<AllocatedImage> loadImage(const ResourceManager& resourceManager, const fastgltf::Asset& asset, const fastgltf::Image& image, const std::filesystem::path& parentFolder);
 
-Material extractMaterial(fastgltf::Asset& gltf, const fastgltf::Material& gltfMaterial);
+MaterialProperties extractMaterial(fastgltf::Asset& gltf, const fastgltf::Material& gltfMaterial);
 
 void loadTextureIndices(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, int& imageIndex, int& samplerIndex);
 

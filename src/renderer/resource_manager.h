@@ -108,6 +108,7 @@ public:
     [[nodiscard]] VkDescriptorSetLayout getAddressesLayout() const { return addressesLayout; }
     [[nodiscard]] VkDescriptorSetLayout getTexturesLayout() const { return texturesLayout; }
     [[nodiscard]] VkDescriptorSetLayout getRenderTargetsLayout() const { return renderTargetsLayout; }
+    [[nodiscard]] VkDescriptorSetLayout getTerrainTexturesLayout() const { return terrainTexturesLayout; }
 
 private:
     const VulkanContext& context;
@@ -135,6 +136,8 @@ private:
      * Used in deferred resolve
      */
     VkDescriptorSetLayout renderTargetsLayout{VK_NULL_HANDLE};
+
+    VkDescriptorSetLayout terrainTexturesLayout{VK_NULL_HANDLE};
 };
 
 class CustomIncluder final : public shaderc::CompileOptions::IncluderInterface

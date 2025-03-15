@@ -321,7 +321,8 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             constexpr VkDeviceSize zeroOffset{0};
 
             for (ITerrain* terrain : terrains) {
-                if (!terrain->canDraw()) { continue; }
+                terrain::TerrainChunk* terrainChunk = terrain->getTerrainChunk();
+                if (!terrainChunk) { continue; }
 
                 VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1];
                 constexpr uint32_t shadowDataIndex{0};
@@ -332,10 +333,10 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
                 const VkDeviceSize shadowDataOffset{cascadedShadowMapDescriptorBufferUniform.getDescriptorBufferSize() * currentFrameOverlap};
                 vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, terrainPipelineLayout, 0, 1, &shadowDataIndex, &shadowDataOffset);
 
-                VkBuffer vertexBuffer = terrain->getVertexBuffer().buffer;
+                VkBuffer vertexBuffer = terrainChunk->getVertexBuffer().buffer;
                 vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer, &zeroOffset);
-                vkCmdBindIndexBuffer(cmd, terrain->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-                vkCmdDrawIndexed(cmd, terrain->getIndicesCount(), 1, 0, 0, 0);
+                vkCmdBindIndexBuffer(cmd, terrainChunk->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
+                vkCmdDrawIndexed(cmd, terrainChunk->getIndexCount(), 1, 0, 0, 0);
             }
 
             vkCmdEndRendering(cmd);

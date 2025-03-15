@@ -20,60 +20,8 @@ will_engine::Map::Map(const std::filesystem::path& mapSource, ResourceManager& r
         return;
     }
 
-    std::ifstream file(mapSource);
-    if (!file.is_open()) {
-        fmt::print("Failed to open scene file: %s\n", mapSource.string());
-        return;
-    }
 
-    ordered_json rootJ;
-    try {
-        file >> rootJ;
-    } catch (const std::exception& e) {
-        fmt::print("Failed to parse scene file: {}\n", e.what());
-        return;
-    }
-
-    if (!rootJ.contains("version")) {
-        fmt::print("Scene file missing version information\n");
-        return;
-    }
-
-    const auto fileVersion = rootJ["version"].get<EngineVersion>();
-    if (fileVersion > EngineVersion::current()) {
-        fmt::print("Scene file version {} is newer than current engine version {}\n", fileVersion.toString(), EngineVersion::current().toString());
-        return;
-    }
-
-    if (rootJ.contains("mapName")) {
-        mapName = rootJ["mapName"].get<std::string>();
-    }
-
-    if (mapName.empty()) {
-        mapName = mapSource.filename().stem().string();
-    }
-
-    if (rootJ.contains("mapId")) {
-        mapId = rootJ["mapId"].get<uint32_t>();
-    }
-    else {
-        mapId = file::computePathHash(mapSource);
-    }
-
-    Serializer::deserializeMap(this, rootJ);
-
-    if (rootJ.contains("TerrainProperties")) {
-        terrainProperties = rootJ["TerrainProperties"];
-        initializeTerrain = true;
-    }
-    if (rootJ.contains("TerrainSeed")) {
-        seed = rootJ["TerrainSeed"];
-        initializeTerrain = true;
-    }
-
-    if (initializeTerrain) {
-        generateTerrain();
-    }
+    loadMap(initializeTerrain);
 
     isLoaded = true;
 
@@ -104,6 +52,80 @@ void will_engine::Map::destroy()
     terrainChunk.reset();
 }
 
+bool will_engine::Map::loadMap(bool initializeTerrain)
+{
+    std::ifstream file(mapSource);
+    if (!file.is_open()) {
+        fmt::print("Failed to open scene file: %s\n", mapSource.string());
+        return false;
+    }
+
+    ordered_json rootJ;
+    try {
+        file >> rootJ;
+    } catch (const std::exception& e) {
+        fmt::print("Failed to parse scene file: {}\n", e.what());
+        return false;
+    }
+
+    if (!rootJ.contains("version")) {
+        fmt::print("Scene file missing version information\n");
+        return false;
+    }
+
+    const auto fileVersion = rootJ["version"].get<EngineVersion>();
+    if (fileVersion > EngineVersion::current()) {
+        fmt::print("Scene file version {} is newer than current engine version {}\n", fileVersion.toString(), EngineVersion::current().toString());
+        return false;
+    }
+
+    if (rootJ.contains("mapName")) {
+        mapName = rootJ["mapName"].get<std::string>();
+    }
+
+    if (mapName.empty()) {
+        mapName = mapSource.filename().stem().string();
+    }
+
+    if (rootJ.contains("mapId")) {
+        mapId = rootJ["mapId"].get<uint32_t>();
+    }
+    else {
+        mapId = file::computePathHash(mapSource);
+    }
+
+    Serializer::deserializeMap(this, rootJ);
+
+    if (rootJ.contains("Terrain")) {
+        const ordered_json terrain = rootJ["Terrain"];
+
+        if (terrain.contains("TerrainProperties")) {
+            terrainProperties = terrain["TerrainProperties"];
+            initializeTerrain = true;
+        }
+
+        if (terrain.contains("TerrainSeed")) {
+            seed = terrain["TerrainSeed"];
+            initializeTerrain = true;
+        }
+    }
+
+    if (rootJ.contains("TerrainProperties")) {
+        terrainProperties = rootJ["TerrainProperties"];
+        initializeTerrain = true;
+    }
+    if (rootJ.contains("TerrainSeed")) {
+        seed = rootJ["TerrainSeed"];
+        initializeTerrain = true;
+    }
+
+    if (initializeTerrain) {
+        generateTerrain();
+    }
+
+    return true;
+}
+
 bool will_engine::Map::saveMap(const std::filesystem::path& newSavePath)
 {
     if (!newSavePath.empty() && mapSource != newSavePath) {
@@ -113,8 +135,8 @@ bool will_engine::Map::saveMap(const std::filesystem::path& newSavePath)
     ordered_json rootJ;
 
     if (terrainChunk.get()) {
-        rootJ["TerrainProperties"] = terrainProperties;
-        rootJ["TerrainSeed"] = seed;
+        rootJ["Terrain"]["TerrainProperties"] = terrainProperties;
+        rootJ["Terrain"]["TerrainSeed"] = seed;
     }
 
     return Serializer::serializeMap(this, rootJ, mapSource);
@@ -136,29 +158,9 @@ void will_engine::Map::destroyTerrain()
     terrainChunk.reset();
 }
 
-AllocatedBuffer will_engine::Map::getVertexBuffer()
+std::vector<float> will_engine::Map::getHeightMapData() const
 {
-    if (!canDraw()) {
-        return {VK_NULL_HANDLE};
-    }
-    return terrainChunk->getVertexBuffer();
-}
-
-AllocatedBuffer will_engine::Map::getIndexBuffer()
-{
-    if (!canDraw()) {
-        return {VK_NULL_HANDLE};
-    }
-    return terrainChunk->getIndexBuffer();
-}
-
-size_t will_engine::Map::getIndicesCount()
-{
-    if (!canDraw()) {
-        return 0;
-    }
-
-    return terrainChunk->getIndexCount();
+    return HeightmapUtil::generateFromNoise(NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, seed, terrainProperties);
 }
 
 void will_engine::Map::update(const float deltaTime)

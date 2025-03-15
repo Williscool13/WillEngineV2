@@ -4,7 +4,7 @@
 
 #ifndef TERRAIN_H
 #define TERRAIN_H
-#include "src/renderer/vk_types.h"
+#include "src/renderer/terrain/terrain_chunk.h"
 
 namespace will_engine
 {
@@ -13,13 +13,7 @@ class ITerrain
 public:
     virtual ~ITerrain() = default;
 
-    virtual AllocatedBuffer getVertexBuffer() = 0;
-
-    virtual AllocatedBuffer getIndexBuffer() = 0;
-
-    virtual size_t getIndicesCount() = 0;
-
-    virtual bool canDraw() = 0;
+    virtual terrain::TerrainChunk* getTerrainChunk() = 0;
 };
 }
 

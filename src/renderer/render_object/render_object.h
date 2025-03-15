@@ -94,7 +94,7 @@ private: // Model Data
 
     std::vector<VkSampler> samplers{};
     std::vector<AllocatedImage> images{};
-    std::vector<Material> materials{};
+    std::vector<MaterialProperties> materials{};
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
     std::vector<Mesh> meshes{};

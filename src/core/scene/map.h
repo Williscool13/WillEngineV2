@@ -64,6 +64,8 @@ public:
 
     void destroy() override;
 
+    bool loadMap(bool initializeTerrain);
+
     bool saveMap(const std::filesystem::path& newSavePath = {});
 
     int32_t getMapId() const { return mapId; }
@@ -96,16 +98,13 @@ public: // Terrain
 
     void destroyTerrain();
 
-    AllocatedBuffer getVertexBuffer() override;
-
-    AllocatedBuffer getIndexBuffer() override;
-
-    size_t getIndicesCount() override;
-
-    bool canDraw() override { return terrainChunk.get(); }
+    terrain::TerrainChunk* getTerrainChunk() override { return terrainChunk.get(); }
 
     NoiseSettings getTerrainProperties() const { return terrainProperties; }
     uint32_t getSeed() const { return seed; }
+
+public: // Debug
+    std::vector<float> getHeightMapData() const;
 
 private: // Terrain
     std::unique_ptr<terrain::TerrainChunk> terrainChunk;
