@@ -8,7 +8,7 @@
 #include "shadow_types.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/lighting/directional_light.h"
-#include "src/renderer/render_object/render_object.h"
+#include "src/renderer/assets/render_object/render_object.h"
 
 namespace will_engine
 {
@@ -68,7 +68,7 @@ public:
 
     void update(const DirectionalLight& mainLight, const Camera* camera, int32_t currentFrameOverlap);
 
-    void draw(VkCommandBuffer cmd, const std::unordered_map<uint32_t, RenderObject*>& renderObjects, const std::vector<ITerrain*>& terrains, int32_t currentFrameOverlap);
+    void draw(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects, const std::vector<ITerrain*>& terrains, int32_t currentFrameOverlap);
 
     /**
      *

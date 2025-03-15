@@ -8,7 +8,7 @@
 #include <stb/stb_image.h>
 
 #include "src/renderer/resource_manager.h"
-#include "src/renderer/render_object/render_object.h"
+#include "src/renderer/assets/render_object/render_object.h"
 
 std::optional<AllocatedImage> will_engine::model_utils::loadImage(const ResourceManager& resourceManager, const fastgltf::Asset& asset, const fastgltf::Image& image,
                                                                   const std::filesystem::path& parentFolder)

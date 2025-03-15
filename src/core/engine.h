@@ -15,6 +15,7 @@
 #include "src/renderer/imgui_wrapper.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/vk_types.h"
+#include "src/renderer/assets/asset_manager.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/lighting/directional_light.h"
 
@@ -127,7 +128,7 @@ public:
 
     void addToDeletionQueue(Map* map);
 
-    RenderObject* getOrLoadRenderObject(uint32_t renderRefIndex);
+    RenderObject* getRenderObject(uint32_t renderRefIndex);
 
 private:
     VkExtent2D windowExtent{1700, 900};
@@ -178,8 +179,7 @@ private: // Scene Data
     std::vector<Map*> activeMaps;
     std::vector<ITerrain*> activeTerrains;
 
-    std::unordered_map<uint32_t, RenderObject*> renderObjectMap;
-    std::unordered_map<uint32_t, RenderObjectInfo> renderObjectInfoMap;
+    AssetManager* assetManager{nullptr};
 
     std::vector<IHierarchical*> hierarchalBeginQueue{};
     std::vector<IHierarchical*> hierarchicalDeletionQueue{};

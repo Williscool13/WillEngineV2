@@ -15,7 +15,7 @@
 #include "vk_descriptors.h"
 #include "vk_helpers.h"
 #include "vulkan_context.h"
-#include "render_object/render_object_constants.h"
+#include "assets/render_object/render_object_constants.h"
 #include "descriptor_buffer/descriptor_buffer_uniform.h"
 #include "shaderc/shaderc.hpp"
 

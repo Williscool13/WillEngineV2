@@ -153,11 +153,11 @@ set(RENDERER_SOURCES
         src/renderer/vk_types.cpp
         src/renderer/vk_types.h
         src/renderer/renderer_constants.h
-        src/renderer/render_object/render_object.h
-        src/renderer/render_object/render_object.cpp
-        src/renderer/render_object/render_object_types.h
-        src/renderer/render_object/render_object_types.cpp
-        src/renderer/render_object/render_reference.h
+        src/renderer/assets/render_object/render_object.h
+        src/renderer/assets/render_object/render_object.cpp
+        src/renderer/assets/render_object/render_object_types.h
+        src/renderer/assets/render_object/render_object_types.cpp
+        src/renderer/assets/render_object/render_reference.h
         src/renderer/environment/environment.cpp
         src/renderer/environment/environment.h
         src/renderer/environment/environment_constants.h
@@ -193,7 +193,7 @@ set(RENDERER_SOURCES
         src/renderer/descriptor_buffer/descriptor_buffer_types.h
         src/renderer/descriptor_buffer/descriptor_buffer_uniform.cpp
         src/renderer/descriptor_buffer/descriptor_buffer_uniform.h
-        src/renderer/render_object/render_object_constants.h
+        src/renderer/assets/render_object/render_object_constants.h
         src/renderer/post_process/post_process_types.h
 )
 
@@ -233,6 +233,12 @@ set(TEMP_SOURCES
         src/core/scene/map.cpp
         src/core/scene/map.h
         src/core/game_object/terrain.h
+        src/renderer/assets/material/material.cpp
+        src/renderer/assets/material/material.h
+        src/renderer/assets/texture/texture.cpp
+        src/renderer/assets/texture/texture.h
+        src/renderer/assets/asset_manager.cpp
+        src/renderer/assets/asset_manager.h
 
 )
 

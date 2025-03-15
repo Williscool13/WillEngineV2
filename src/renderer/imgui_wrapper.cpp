@@ -399,8 +399,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         ImGui::SameLine();
         ImGui::BeginDisabled(alreadyExistsInActiveMaps);
         if (ImGui::Button("Load")) {
-            file::scanForModels(engine->renderObjectInfoMap);
-
+            engine->assetManager->scanForRenderObjects();
             if (exists(mapPath)) {
                 auto map = new Map(mapPath, *engine->resourceManager);
                 engine->activeMaps.push_back(map);
@@ -446,147 +445,131 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     if (ImGui::Begin("Render Objects")) {
         if (ImGui::BeginTabBar("SceneTabs")) {
             if (ImGui::BeginTabItem("Render Objects")) {
-                static uint32_t selectedObjectId = 0;
+                static uint32_t selectedRenderObjectId = 0;
 
                 ImGui::Text("Selected Render Object Details");
 
                 float detailsHeight = 150.0f;
                 ImGui::BeginChild("Selected Object", ImVec2(0, detailsHeight), ImGuiChildFlags_Borders);
-                if (!engine->renderObjectInfoMap.contains(selectedObjectId) && !engine->renderObjectInfoMap.empty()) {
-                    selectedObjectId = engine->renderObjectInfoMap.begin()->first;
+                auto& renderObjects = engine->assetManager->getRenderObjects();
+                if (!renderObjects.contains(selectedRenderObjectId) && !renderObjects.empty()) {
+                    selectedRenderObjectId = renderObjects.begin()->first;
                 }
 
-                if (engine->renderObjectInfoMap.contains(selectedObjectId)) {
-                    RenderObjectInfo info = engine->renderObjectInfoMap.at(selectedObjectId);
-                    ImGui::Text("Name: %s", info.name.c_str());
-                    ImGui::Text("Path: %s", file::getRelativePath(info.gltfPath).string().c_str());
-                    ImGui::Text("ID: %u", info.id);
+                RenderObject* selectedRenderObject = renderObjects.at(selectedRenderObjectId).get();
+                ImGui::Text("Name: %s", selectedRenderObject->getName().c_str());
+                ImGui::Text("Path: %s", file::getRelativePath(selectedRenderObject->getPath()).string().c_str());
+                ImGui::Text("ID: %u", selectedRenderObject->getId());
 
-                    auto it = engine->renderObjectMap.find(selectedObjectId);
-                    const bool isLoaded = it != engine->renderObjectMap.end() && it->second != nullptr;
-                    if (isLoaded) {
-                        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
-                        static char objectName[256] = "";
-                        ImGui::InputText("Object Name", objectName, sizeof(objectName));
-                        ImGui::PopStyleColor();
-                        if (ImGui::BeginTabBar("GameObject Generation")) {
-                            if (ImGui::BeginTabItem("Full Model")) {
-                                if (ImGui::Button("Generate Full Object")) {
-                                    GameObject* gob = it->second->generateGameObject(std::string(objectName));
-                                    selectedMap->addGameObject(gob);
-                                    fmt::print("Added whole gltf model to the scene\n");
-                                }
-                                ImGui::EndTabItem();
+                bool isLoaded = engine->assetManager->getRenderObjects().contains(selectedRenderObjectId);
+                if (isLoaded) {
+                    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
+                    static char objectName[256] = "";
+                    ImGui::InputText("Object Name", objectName, sizeof(objectName));
+                    ImGui::PopStyleColor();
+                    if (ImGui::BeginTabBar("GameObject Generation")) {
+                        if (ImGui::BeginTabItem("Full Model")) {
+                            if (ImGui::Button("Generate Full Object")) {
+                                GameObject* gob = selectedRenderObject->generateGameObject(std::string(objectName));
+                                selectedMap->addGameObject(gob);
+                                // todo: fix add full gameobject
+                                fmt::print("Added whole gltf model to the scene\n");
                             }
-
-                            if (ImGui::BeginTabItem("Single Mesh")) {
-                                RenderObject* renderObj = it->second;
-
-                                static int selectedMeshIndex = 0;
-                                if (selectedMeshIndex >= renderObj->getMeshCount()) {
-                                    selectedMeshIndex = 0;
-                                }
-
-                                ImGui::SetNextItemWidth(300.0f);
-                                if (ImGui::BeginCombo("Select Mesh", fmt::format("Mesh {}", selectedMeshIndex).c_str())) {
-                                    for (size_t i = 0; i < renderObj->getMeshCount(); i++) {
-                                        const bool isSelected = (selectedMeshIndex == static_cast<int>(i));
-                                        if (ImGui::Selectable(fmt::format("Mesh {}", i).c_str(), isSelected)) {
-                                            selectedMeshIndex = static_cast<int>(i);
-                                        }
-
-                                        if (isSelected) {
-                                            ImGui::SetItemDefaultFocus();
-                                        }
-                                    }
-                                    ImGui::EndCombo();
-                                }
-
-                                ImGui::SameLine();
-                                if (auto container = dynamic_cast<IComponentContainer*>(selectedItem)) {
-                                    if (ImGui::Button("Attach to selected item")) {
-                                        if (!container->getMeshRenderer()) {
-                                            auto newComponent = components::ComponentFactory::getInstance().createComponent(components::MeshRendererComponent::getStaticType(), "Mesh Renderer");
-                                            container->addComponent(std::move(newComponent));
-                                        }
-                                        if (auto meshRenderer = container->getMeshRenderer()) {
-                                            if (meshRenderer->hasMesh()) {
-                                                meshRenderer->releaseMesh();
-                                            }
-
-                                            renderObj->generateMesh(meshRenderer, selectedMeshIndex);
-                                        }
-                                    }
-                                }
-                                else {
-                                    if (ImGui::Button("Add to Scene")) {
-                                        IHierarchical* gob = engine->createGameObject(selectedMap, objectName);
-
-                                        if (auto _container = dynamic_cast<IComponentContainer*>(gob)) {
-                                            auto newComponent = components::ComponentFactory::getInstance().createComponent(
-                                                components::MeshRendererComponent::getStaticType(), "");
-                                            _container->addComponent(std::move(newComponent));
-                                            if (components::MeshRendererComponent* meshRenderer = _container->getMeshRenderer()) {
-                                                renderObj->generateMesh(meshRenderer, selectedMeshIndex);
-                                            }
-                                            fmt::print("Added single mesh to scene\n");
-                                        }
-                                    }
-                                }
-                                ImGui::EndTabItem();
-                            }
-
-                            ImGui::EndTabBar();
+                            ImGui::EndTabItem();
                         }
-                    }
-                    else {
-                        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "Load render object to see available meshes");
+
+                        if (ImGui::BeginTabItem("Single Mesh")) {
+                            static int selectedMeshIndex = 0;
+                            if (selectedMeshIndex >= selectedRenderObject->getMeshCount()) {
+                                selectedMeshIndex = 0;
+                            }
+
+                            ImGui::SetNextItemWidth(300.0f);
+                            if (ImGui::BeginCombo("Select Mesh", fmt::format("Mesh {}", selectedMeshIndex).c_str())) {
+                                for (size_t i = 0; i < selectedRenderObject->getMeshCount(); i++) {
+                                    const bool isSelected = (selectedMeshIndex == static_cast<int>(i));
+                                    if (ImGui::Selectable(fmt::format("Mesh {}", i).c_str(), isSelected)) {
+                                        selectedMeshIndex = static_cast<int>(i);
+                                    }
+
+                                    if (isSelected) {
+                                        ImGui::SetItemDefaultFocus();
+                                    }
+                                }
+                                ImGui::EndCombo();
+                            }
+
+                            ImGui::SameLine();
+                            if (auto container = dynamic_cast<IComponentContainer*>(selectedItem)) {
+                                if (ImGui::Button("Attach to selected item")) {
+                                    if (!container->getMeshRenderer()) {
+                                        auto newComponent = components::ComponentFactory::getInstance().createComponent(components::MeshRendererComponent::getStaticType(), "Mesh Renderer");
+                                        container->addComponent(std::move(newComponent));
+                                    }
+                                    if (auto meshRenderer = container->getMeshRenderer()) {
+                                        if (meshRenderer->hasMesh()) {
+                                            meshRenderer->releaseMesh();
+                                        }
+
+                                        selectedRenderObject->generateMesh(meshRenderer, selectedMeshIndex);
+                                    }
+                                }
+                            }
+                            else {
+                                if (ImGui::Button("Add to Scene")) {
+                                    IHierarchical* gob = engine->createGameObject(selectedMap, objectName);
+
+                                    if (auto _container = dynamic_cast<IComponentContainer*>(gob)) {
+                                        auto newComponent = components::ComponentFactory::getInstance().createComponent(
+                                            components::MeshRendererComponent::getStaticType(), "");
+                                        _container->addComponent(std::move(newComponent));
+                                        if (components::MeshRendererComponent* meshRenderer = _container->getMeshRenderer()) {
+                                            selectedRenderObject->generateMesh(meshRenderer, selectedMeshIndex);
+                                        }
+                                        fmt::print("Added single mesh to scene\n");
+                                    }
+                                }
+                            }
+                            ImGui::EndTabItem();
+                        }
+
+                        ImGui::EndTabBar();
                     }
                 }
                 else {
-                    ImGui::Text("No Render Objects are currently loaded");
+                    ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "Load render object to see available meshes");
                 }
+
 
                 ImGui::EndChild();
 
                 ImGui::Text("Available Objects");
                 ImGui::SameLine();
                 if (ImGui::Button("Refresh")) {
-                    file::scanForModels(engine->renderObjectInfoMap);
+                    engine->assetManager->scanForRenderObjects();
                 }
 
                 ImGui::BeginChild("Objects List", ImVec2(0, 0), ImGuiChildFlags_Borders);
-                for (const auto& [id, info] : engine->renderObjectInfoMap) {
+                for (const auto& [id, renderObject] : engine->assetManager->getRenderObjects()) {
                     ImGui::PushID(id);
 
-                    bool isLoaded = engine->renderObjectMap.contains(id) && engine->renderObjectMap[id] != nullptr;
+                    bool isLoaded = renderObject->isLoaded();
                     bool checked = isLoaded;
-                    bool disabled = false;
-                    if (isLoaded && engine->renderObjectMap[id]->canDraw()) {
-                        disabled = true;
-                        ImGui::BeginDisabled(true);
-                    }
 
                     ImGui::Checkbox("##loaded", &checked);
                     if (checked && !isLoaded) {
-                        engine->getOrLoadRenderObject(id);
+                        renderObject->load();
                     }
 
                     if (!checked && isLoaded) {
-                        assert(!engine->renderObjectMap[id]->canDraw());
-                        assert(engine->renderObjectMap.contains(id));
-                        delete engine->renderObjectMap[id];
-                        engine->renderObjectMap.erase(id);
-                    }
-                    if (disabled) {
-                        ImGui::EndDisabled();
+                        renderObject->unload();
                     }
 
                     ImGui::SameLine();
 
-                    bool isSelected = (selectedObjectId == info.id);
-                    if (ImGui::Selectable(info.name.c_str(), isSelected)) {
-                        selectedObjectId = info.id;
+                    bool isSelected = (selectedRenderObjectId == id);
+                    if (ImGui::Selectable(renderObject->getName().c_str(), isSelected)) {
+                        selectedRenderObjectId = id;
                     }
 
                     ImGui::PopID();

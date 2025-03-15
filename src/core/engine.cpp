@@ -24,7 +24,7 @@
 #include "src/physics/physics_utils.h"
 #include "src/renderer/immediate_submitter.h"
 #include "src/renderer/resource_manager.h"
-#include "src/renderer/render_object/render_object.h"
+#include "src/renderer/assets/render_object/render_object.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/environment/environment.h"
 #include "src/renderer/lighting/shadows/cascaded_shadow_map.h"
@@ -35,7 +35,6 @@
 #include "src/renderer/pipelines/post_process/post_process_pipeline.h"
 #include "src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h"
 #include "src/renderer/pipelines/terrain/terrain_pipeline.h"
-#include "src/renderer/terrain/terrain_chunk.h"
 #include "src/util/file.h"
 #include "src/util/halton.h"
 
@@ -128,6 +127,8 @@ void Engine::init()
     startupProfiler.beginTimer("2ResourceManager");
     resourceManager = new ResourceManager(*context, *immediate);
     startupProfiler.endTimer("2ResourceManager");
+
+    assetManager = new AssetManager(*resourceManager);
 
     identifierManager = new identifier::IdentifierManager();
     identifier::IdentifierManager::Set(identifierManager);
@@ -234,7 +235,7 @@ void Engine::initRenderer()
 
 void Engine::initGame()
 {
-    file::scanForModels(renderObjectInfoMap);
+    assetManager->scanForRenderObjects();
     camera = new FreeCamera();
     const auto map = new Map(file::getSampleScene(), *resourceManager);
     activeMaps.push_back(map);
@@ -426,8 +427,10 @@ void Engine::draw(float deltaTime)
     int32_t previousFrameOverlap = getPreviousFrameOverlap();
 
     // Update Render Object Buffers and Model Matrices
-    for (RenderObject* val : renderObjectMap | std::views::values) {
-        val->update(currentFrameOverlap, previousFrameOverlap);
+    for (auto& renderObjectPair : assetManager->getRenderObjects()) {
+        if (auto renderObject = renderObjectPair.second.get()) {
+            renderObject->update(currentFrameOverlap, previousFrameOverlap);
+        }
     }
 
     // Updates Scene Data buffer
@@ -436,9 +439,16 @@ void Engine::draw(float deltaTime)
     // Updates Cascaded Shadow Map Properties
     cascadedShadowMap->update(mainLight, camera, currentFrameOverlap);
 
+    // Temp while a better solution is figured out
+    std::vector<RenderObject*> allRenderObjects{};
+    allRenderObjects.reserve(assetManager->getRenderObjects().size());
+    for (auto& val : assetManager->getRenderObjects() | std::views::values) {
+        allRenderObjects.push_back(val.get());
+    }
+
     visibility_pass::VisibilityPassDrawInfo csmFrustumCullDrawInfo{
         currentFrameOverlap,
-        renderObjectMap,
+        allRenderObjects,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
         false,
@@ -446,7 +456,7 @@ void Engine::draw(float deltaTime)
     };
     visibilityPassPipeline->draw(cmd, csmFrustumCullDrawInfo);
 
-    cascadedShadowMap->draw(cmd, renderObjectMap, activeTerrains, currentFrameOverlap);
+    cascadedShadowMap->draw(cmd, allRenderObjects, activeTerrains, currentFrameOverlap);
 
     vk_helpers::clearColorImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -468,7 +478,7 @@ void Engine::draw(float deltaTime)
 
     visibility_pass::VisibilityPassDrawInfo deferredFrustumCullDrawInfo{
         currentFrameOverlap,
-        renderObjectMap,
+        allRenderObjects,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
         true,
@@ -496,7 +506,7 @@ void Engine::draw(float deltaTime)
         false,
         currentFrameOverlap,
         {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT},
-        renderObjectMap,
+        allRenderObjects,
         normalRenderTarget.imageView,
         albedoRenderTarget.imageView,
         pbrRenderTarget.imageView,
@@ -512,7 +522,7 @@ void Engine::draw(float deltaTime)
             false,
             currentFrameOverlap,
             {RENDER_EXTENT_WIDTH / 3.0f, RENDER_EXTENT_HEIGHT / 3.0f},
-            renderObjectMap,
+            allRenderObjects,
             normalRenderTarget.imageView,
             albedoRenderTarget.imageView,
             pbrRenderTarget.imageView,
@@ -668,11 +678,7 @@ void Engine::cleanup()
     }
     hierarchalBeginQueue.clear();
 
-
-    for (const std::pair<uint32_t, RenderObject*> renderObject : renderObjectMap) {
-        delete renderObject.second;
-    }
-    renderObjectMap.clear();
+    delete assetManager;
 
     delete cascadedShadowMap;
     delete environmentMap;
@@ -717,15 +723,14 @@ void Engine::addToDeletionQueue(Map* map)
     mapDeletionQueue.push_back(map);
 }
 
-RenderObject* Engine::getOrLoadRenderObject(const uint32_t renderRefIndex)
+RenderObject* Engine::getRenderObject(const uint32_t renderRefIndex)
 {
-    const bool isLoaded = renderObjectMap.contains(renderRefIndex) && renderObjectMap[renderRefIndex] != nullptr;
-    const auto renderObjectProperties = renderObjectInfoMap.find(renderRefIndex);
-    if (!isLoaded) {
-        renderObjectMap[renderRefIndex] = new RenderObject(renderObjectProperties->second.gltfPath, *resourceManager, renderRefIndex);
+    auto& renderObjects = assetManager->getRenderObjects();
+    if (renderObjects.contains(renderRefIndex)) {
+        return renderObjects.at(renderRefIndex).get();
     }
 
-    return renderObjectMap[renderRefIndex];
+    return nullptr;
 }
 
 void Engine::createSwapchain(const uint32_t width, const uint32_t height)

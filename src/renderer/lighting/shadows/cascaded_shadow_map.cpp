@@ -10,7 +10,7 @@
 #include "src/core/camera/camera.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/pipelines/terrain/terrain_pipeline.h"
-#include "src/renderer/render_object/render_object_types.h"
+#include "src/renderer/assets/render_object/render_object_types.h"
 #include "src/renderer/terrain/terrain_chunk.h"
 #include "src/util/math_constants.h"
 #include "src/util/render_utils.h"
@@ -262,7 +262,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::update(const DirectionalL
     data->directionalLightData = mainLight.getData();
 }
 
-void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd, const std::unordered_map<uint32_t, RenderObject*>& renderObjects,
+void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects,
                                                             const std::vector<ITerrain*>& terrains, const int32_t currentFrameOverlap)
 {
     VkDebugUtilsLabelEXT label = {};
@@ -385,8 +385,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 
             constexpr VkDeviceSize zeroOffset{0};
 
-            for (const auto val : renderObjects | std::views::values) {
-                const RenderObject* renderObject = val;
+            for (RenderObject* renderObject : renderObjects) {
                 if (!renderObject->canDraw()) { continue; }
 
                 VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];

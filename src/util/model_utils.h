@@ -9,7 +9,7 @@
 
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/vk_types.h"
-#include "src/renderer/render_object/render_object_types.h"
+#include "src/renderer/assets/render_object/render_object_types.h"
 
 
 namespace will_engine::model_utils

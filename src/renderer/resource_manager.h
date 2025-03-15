@@ -28,6 +28,7 @@ public:
 
     ~ResourceManager();
 
+public: // Resource Creation
     [[nodiscard]] AllocatedBuffer createBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) const;
 
     AllocatedBuffer createHostSequentialBuffer(size_t allocSize) const;

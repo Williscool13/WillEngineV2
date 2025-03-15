@@ -13,7 +13,7 @@
 #include "src/core/game_object/game_object.h"
 #include "src/core/game_object/components/component.h"
 #include "src/core/game_object/components/component_factory.h"
-#include "src/renderer/render_object/render_object.h"
+#include "src/renderer/assets/render_object/render_object.h"
 
 
 namespace will_engine

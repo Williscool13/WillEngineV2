@@ -10,7 +10,7 @@
 
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/resource_manager.h"
-#include "src/renderer/render_object/render_object_types.h"
+#include "src/renderer/assets/render_object/render_object_types.h"
 
 will_engine::deferred_mrt::DeferredMrtPipeline::DeferredMrtPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
@@ -92,8 +92,7 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
 
     constexpr VkDeviceSize zeroOffset{0};
 
-    for (RenderObject* val : drawInfo.renderObjects | std::views::values) {
-        const RenderObject* renderObject = val;
+    for (RenderObject* renderObject : drawInfo.renderObjects) {
         if (!renderObject->canDraw()) { continue; }
 
         constexpr uint32_t sceneDataIndex{0};
