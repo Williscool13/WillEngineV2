@@ -25,6 +25,10 @@ struct RenderableProperties
     int32_t instanceIndex;
 };
 
+/**
+ * Render Objects are persistent class representations of GLTF files. They always exist and their lifetime is managed through \code AssetManager\endcode.
+ * \n The Render Object can be loaded/unloaded at runtime to avoid unnecessary GPU allocations.
+ */
 class RenderObject final : public IRenderReference
 {
 public:

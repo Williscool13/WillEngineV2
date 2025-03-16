@@ -63,23 +63,6 @@ static std::vector<std::filesystem::path> findWillmodels(const std::filesystem::
     return models;
 }
 
-static void scanForModels(std::unordered_map<uint32_t, RenderObjectInfo>& renderObjectInfoMap)
-{
-    fmt::print("Scanning for .willmodel files\n");
-    renderObjectInfoMap.clear();
-    const std::vector<std::filesystem::path> willModels = findWillmodels(relative(std::filesystem::current_path() / "assets"));
-    renderObjectInfoMap.reserve(willModels.size());
-    for (std::filesystem::path willModel : willModels) {
-        std::optional<RenderObjectInfo> modelMetadata = Serializer::loadWillModel(willModel);
-        if (modelMetadata.has_value()) {
-            renderObjectInfoMap[modelMetadata->id] = modelMetadata.value();
-        }
-        else {
-            fmt::print("Failed to load render object, see previous error message\n");
-        }
-    }
-}
-
 static std::filesystem::path getSampleScene()
 {
     const std::filesystem::path devSampleScenePath = "../assets/maps/sampleScene.willmap";

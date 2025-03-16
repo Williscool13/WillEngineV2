@@ -6,24 +6,51 @@
 #define TEXTURE_H
 #include <filesystem>
 
+#include "src/renderer/resource_manager.h"
 #include "src/renderer/vk_types.h"
 
 
 namespace will_engine
 {
+struct TextureProperties
+{
+    bool mipmapped{true};
+};
+
 class Texture
 {
 public:
-    Texture(std::filesystem::path source);
+    Texture() = delete;
+
+    Texture(ResourceManager& resourceManager, uint32_t textureId, const std::filesystem::path& willTexturePath, const std::filesystem::path& texturePath, TextureProperties textureProperties);
 
     ~Texture();
+
+    void load();
+
+    void unload() const;
+
+    AllocatedImage getTextureResource() const { return texture; }
+
+    const std::string& getName() { return name; }
+
+    const std::filesystem::path& getTexturePath() { return texturePath; }
+
+    const std::filesystem::path& getWillTexturePath() { return willTexturePath; }
 
 private:
     AllocatedImage texture;
 
 private:
-    std::filesystem::path source;
+    uint32_t textureId;
+    std::filesystem::path willTexturePath;
+    std::filesystem::path texturePath;
     std::string name;
+
+    TextureProperties properties;
+
+private:
+    ResourceManager& resourceManager;
 };
 }
 

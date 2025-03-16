@@ -20,10 +20,15 @@ public:
 
     ~AssetManager();
 
-public:
+public: // Textures
+
+
+private: // Textures
+    std::unordered_map<uint32_t, std::unique_ptr<Texture> > textures;
+
+public: // Render Objects
     void scanForRenderObjects();
 
-public:
     RenderObject* getRenderObject(uint32_t renderObjectId) const;
 
     std::vector<RenderObject*> getAllRenderObjects();
@@ -32,9 +37,9 @@ public:
 
     RenderObject* getAnyRenderObject() const;
 
-private:
+private: // Render Objects
     std::unordered_map<uint32_t, std::unique_ptr<RenderObject> > renderObjects;
-    std::unordered_map<uint32_t, std::unique_ptr<Texture> > textures;
+
     std::unordered_map<uint32_t, std::unique_ptr<Material> > materials;
 
 private:

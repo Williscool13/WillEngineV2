@@ -19,6 +19,8 @@
 namespace will_engine
 {
 constexpr int32_t SCENE_FORMAT_VERSION = 1;
+constexpr int32_t WILL_MODEL_FORMAT_VERSION = 1;
+constexpr int32_t WILL_TEXTURE_FORMAT_VERSION = 1;
 
 struct EngineVersion
 {
@@ -81,6 +83,14 @@ struct RenderObjectInfo
 {
     std::filesystem::path willmodelPath;
     std::string gltfPath;
+    std::string name;
+    uint32_t id;
+};
+
+struct TextureInfo
+{
+    std::filesystem::path willtexturePath;
+    std::string texturePath;
     std::string name;
     uint32_t id;
 };
@@ -315,7 +325,7 @@ public: // Render Objects
         info.id = computePathHash(gltfPath);
 
         nlohmann::json j;
-        j["version"] = 1;
+        j["version"] = WILL_MODEL_FORMAT_VERSION;
         j["renderObject"] = {
             {"gltfPath", info.gltfPath},
             {"name", info.name},
@@ -364,8 +374,8 @@ public: // Render Objects
 
             uint32_t computedId = computePathHash(info.gltfPath);
             if (computedId != info.id) {
-                fmt::print("Warning: ID mismatch in {}, expected: {}, found: {} (not necessarily a problem).\n",
-                           willmodelPath.string(), computedId, info.id);
+                fmt::print("Warning: ID mismatch in {}, expected: {}, found: {} (not necessarily a problem).\n", willmodelPath.string(), computedId, info.id);
+                info.id = computedId;
             }
 
             return info;
@@ -375,6 +385,76 @@ public: // Render Objects
         }
     }
 
+public: // Textures
+    static bool generateWillTexture(const std::filesystem::path& texturePath, const std::filesystem::path& outputPath)
+    {
+        TextureInfo info;
+        info.texturePath = texturePath.string();
+        info.name = outputPath.stem().string();
+        info.id = computePathHash(texturePath);
+
+        nlohmann::json j;
+        j["version"] = WILL_TEXTURE_FORMAT_VERSION;
+        j["texture"] = {
+            {"gltfPath", info.texturePath},
+            {"name", info.name},
+            {"id", info.id}
+        };
+
+        try {
+            std::ofstream o(outputPath);
+            o << std::setw(4) << j << std::endl;
+            return true;
+        } catch (const std::exception& e) {
+            fmt::print("Failed to write willtexture file: {}\n", e.what());
+            return false;
+        }
+    }
+
+    static std::optional<TextureInfo> loadWillTexture(const std::filesystem::path& willtexturePath)
+    {
+        try {
+            std::ifstream i(willtexturePath);
+            if (!i.is_open()) {
+                fmt::print("Failed to open willtexture file: {}\n", willtexturePath.string());
+                return std::nullopt;
+            }
+
+            nlohmann::json j;
+            i >> j;
+
+            if (!j.contains("version") || j["version"] != 1) {
+                fmt::print("Invalid or unsupported willtexture version in: {}\n", willtexturePath.string());
+                return std::nullopt;
+            }
+
+            if (!j.contains("texture")) {
+                fmt::print("No texture data found in: {}\n", willtexturePath.string());
+                return std::nullopt;
+            }
+
+            const auto& texture = j["texture"];
+
+            TextureInfo info;
+            info.willtexturePath = willtexturePath;
+            info.texturePath = texture["gltfPath"].get<std::string>();
+            info.name = texture["name"].get<std::string>();
+            info.id = texture["id"].get<uint32_t>();
+
+            uint32_t computedId = computePathHash(info.willtexturePath);
+            if (computedId != info.id) {
+                fmt::print("Warning: ID mismatch in {}, expected: {}, found: {} (not necessarily a problem).\n",willtexturePath.string(), computedId, info.id);
+                info.id = computedId;
+            }
+
+            return info;
+        } catch (const std::exception& e) {
+            fmt::print("Error loading willtexture file {}: {}\n", willtexturePath.string(), e.what());
+            return std::nullopt;
+        }
+    }
+
+public: //
     static uint32_t computePathHash(const std::filesystem::path& path)
     {
         const std::string normalizedPath = path.lexically_normal().string();

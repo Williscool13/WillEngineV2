@@ -442,7 +442,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     }
     ImGui::End();
 
-    if (ImGui::Begin("Render Objects")) {
+    if (ImGui::Begin("Will Engine Type Generator")) {
         if (ImGui::BeginTabBar("SceneTabs")) {
             if (ImGui::BeginTabItem("Render Objects")) {
                 static uint32_t selectedRenderObjectId = 0;
@@ -584,7 +584,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 ImGui::EndTabItem();
             }
 
-            if (ImGui::BeginTabItem("Will Engine Type Generator")) {
+            if (ImGui::BeginTabItem(".willmodel Generator")) {
                 static std::filesystem::path gltfPath;
                 static std::filesystem::path willmodelPath;
 
@@ -656,6 +656,84 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     ImGui::EndPopup();
                 }
 
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem(".willTexture Generator")) {
+                static std::filesystem::path texturesPath;
+
+                ImGui::Text("Will Texture folder to scan: %s", texturesPath.empty() ? "None selected" : texturesPath.string().c_str());
+
+                if (ImGui::Button("Select Folder to Scan")) {
+                    IGFD::FileDialogConfig config;
+                    config.path = "./assets/textures";
+                    config.countSelectionMax = 1;
+                    //config.flags = ImGuiFileDialogFlags_DontShowHiddenFiles;
+
+                    IGFD::FileDialog::Instance()->OpenDialog(
+                        "ChooseTextureFldrDlg",
+                        "Choose Texture Folder",
+                        nullptr, // No need for extensions when selecting directories
+                        config);
+                }
+
+                if (IGFD::FileDialog::Instance()->Display("ChooseTextureFldrDlg")) {
+                    if (IGFD::FileDialog::Instance()->IsOk()) {
+                        texturesPath = IGFD::FileDialog::Instance()->GetCurrentPath();
+                        texturesPath = file::getRelativePath(texturesPath);
+                    }
+                    IGFD::FileDialog::Instance()->Close();
+                }
+
+                ImGui::BeginDisabled(texturesPath.empty());
+                if (ImGui::Button("Generate Texture Files")) {
+                    if (!exists(texturesPath) || !is_directory(texturesPath)) {
+                        fmt::print("Error: Invalid textures directory path: {}\n", texturesPath.string());
+                        return;
+                    }
+
+                    int generatedCount = 0;
+                    std::vector<std::string> extensions = {".jpg", ".jpeg", ".png", ".tga", ".bmp"};
+
+                    for (const auto& entry : std::filesystem::recursive_directory_iterator(texturesPath)) {
+                        if (!entry.is_regular_file()) continue;
+
+                        std::string extension = entry.path().extension().string();
+                        std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
+
+                        if (std::find(extensions.begin(), extensions.end(), extension) != extensions.end()) {
+                            const std::filesystem::path texturePath = entry.path();
+                            const std::filesystem::path outputPath = texturePath.parent_path() /
+                                                                   (texturePath.stem().string() + ".willtexture");
+
+                            if (Serializer::generateWillTexture(texturePath, outputPath)) {
+                                generatedCount++;
+                            }
+                        }
+                    }
+
+                    fmt::print("Generated {} texture descriptor files in {}\n", generatedCount, texturesPath.string());
+                    if (generatedCount > 0) {
+                        ImGui::OpenPopup("Success");
+                    } else {
+                        ImGui::OpenPopup("Error");
+                    }
+                }
+
+                ImGui::EndDisabled();
+
+
+                // Success/Error popups
+                if (ImGui::BeginPopupModal("Success", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                    ImGui::Text("Model compiled successfully!");
+                    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+                    ImGui::EndPopup();
+                }
+                if (ImGui::BeginPopupModal("Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                    ImGui::Text("Failed to compile model!");
+                    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+                    ImGui::EndPopup();
+                }
                 ImGui::EndTabItem();
             }
 
