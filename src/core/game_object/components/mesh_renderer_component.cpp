@@ -45,7 +45,7 @@ void MeshRendererComponent::serialize(ordered_json& j)
 {
     Component::serialize(j);
 
-    const int32_t renderRefIndex = getRenderReferenceId();
+    const uint32_t renderRefIndex = getRenderReferenceId();
     if (renderRefIndex != INDEX_NONE) {
         j["renderReference"] = renderRefIndex;
         j["renderMeshIndex"] = meshIndex;

@@ -24,6 +24,7 @@ RenderObject::RenderObject(ResourceManager& resourceManager, const std::filesyst
 
 RenderObject::~RenderObject()
 {
+    // todo: unload needs to be delayed to account for double buffer
     unload();
 }
 
@@ -484,7 +485,8 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
 void RenderObject::load()
 {
     if (bIsLoaded) {
-        unload();
+        fmt::print("Render Object attempted to load when it is already loaded");
+        return;
     }
 
     freeInstanceIndices.reserve(10);

@@ -13,10 +13,16 @@ will_engine::Texture::Texture(ResourceManager& resourceManager, const uint32_t t
 {}
 
 will_engine::Texture::~Texture()
-{}
+{
+    unload();
+}
 
 void will_engine::Texture::load()
 {
+    if (bIsLoaded) {
+        return;
+    }
+
     if (!exists(texturePath)) {
         fmt::print("Error: Texture file not found: {}\n", texturePath.string());
         return;
@@ -48,6 +54,7 @@ void will_engine::Texture::load()
     );
 
     stbi_image_free(data);
+    bIsLoaded = true;
 }
 
 void will_engine::Texture::unload() const

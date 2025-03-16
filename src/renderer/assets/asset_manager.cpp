@@ -11,9 +11,6 @@ will_engine::AssetManager::AssetManager(ResourceManager& resourceManager) : reso
 
 will_engine::AssetManager::~AssetManager()
 {
-    for (auto& texture : textures) {
-        texture.second.release();
-    }
 }
 
 void will_engine::AssetManager::scanForAll()
@@ -54,6 +51,30 @@ void will_engine::AssetManager::scanForRenderObjects()
             }
         }
     }
+}
+
+will_engine::Texture* will_engine::AssetManager::getTexture(const uint32_t textureId) const
+{
+    if (textures.contains(textureId)) {
+        return textures.at(textureId).get();
+    }
+
+    return nullptr;
+}
+
+std::vector<will_engine::Texture*> will_engine::AssetManager::getAllTextures()
+{
+    std::vector<Texture*> result;
+    result.reserve(textures.size());
+
+    std::ranges::transform(textures, std::back_inserter(result), [](const auto& pair) { return pair.second.get(); });
+
+    return result;
+}
+
+will_engine::Texture* will_engine::AssetManager::getAnyTexture() const
+{
+    return textures.begin()->second.get();
 }
 
 will_engine::RenderObject* will_engine::AssetManager::getRenderObject(const uint32_t renderObjectId) const

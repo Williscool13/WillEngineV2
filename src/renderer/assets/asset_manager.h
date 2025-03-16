@@ -22,14 +22,23 @@ public:
 
     void scanForAll();
 
-public: // Textures
     void scanForTextures();
+
+    void scanForRenderObjects();
+
+public: // Textures
+    Texture* getTexture(uint32_t textureId) const;
+
+    std::vector<Texture*> getAllTextures();
+
+    bool hasAnyTexture() const { return textures.size() > 0; }
+
+    Texture* getAnyTexture() const;
 
 private: // Textures
     std::unordered_map<uint32_t, std::unique_ptr<Texture> > textures;
 
 public: // Render Objects
-    void scanForRenderObjects();
 
     RenderObject* getRenderObject(uint32_t renderObjectId) const;
 

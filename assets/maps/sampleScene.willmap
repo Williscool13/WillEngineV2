@@ -6,7 +6,7 @@
     },
     "metadata": {
         "name": "sampleScene",
-        "created": "2025-03-16 16:52:18",
+        "created": "2025-03-16 18:49:52",
         "formatVersion": 1
     },
     "rootComponents": {
@@ -91,7 +91,7 @@
                 },
                 "components": {
                     "MeshRendererComponent": {
-                        "renderReference": -1165598379,
+                        "renderReference": 3129368917,
                         "renderMeshIndex": 0,
                         "renderIsVisible": true,
                         "renderIsShadowCaster": true,
@@ -136,7 +136,7 @@
                 },
                 "components": {
                     "MeshRendererComponent": {
-                        "renderReference": -569695456,
+                        "renderReference": 3725271840,
                         "renderMeshIndex": 0,
                         "renderIsVisible": true,
                         "renderIsShadowCaster": true,
@@ -181,7 +181,7 @@
                 },
                 "components": {
                     "MeshRendererComponent": {
-                        "renderReference": -1165598379,
+                        "renderReference": 3129368917,
                         "renderMeshIndex": 5,
                         "renderIsVisible": true,
                         "renderIsShadowCaster": true,
@@ -208,15 +208,15 @@
                 "name": "Cube\u0000ing Orb",
                 "transform": {
                     "position": {
-                        "x": -11.383732795715332,
+                        "x": -11.383736610412598,
                         "y": 9.166512489318848,
-                        "z": -2.577199697494507
+                        "z": -2.5771937370300293
                     },
                     "rotation": {
-                        "x": -0.018269548192620277,
-                        "y": -0.9867493510246277,
-                        "z": 0.03245534002780914,
-                        "w": 0.15791940689086914
+                        "x": -0.018268059939146042,
+                        "y": -0.9867494702339172,
+                        "z": 0.03245330974459648,
+                        "w": 0.15791946649551392
                     },
                     "scale": {
                         "x": 1.0,
@@ -226,7 +226,7 @@
                 },
                 "components": {
                     "MeshRendererComponent": {
-                        "renderReference": -1165598379,
+                        "renderReference": 3129368917,
                         "renderMeshIndex": 1,
                         "renderIsVisible": true,
                         "renderIsShadowCaster": true,

@@ -69,6 +69,8 @@ private:
 
     NoiseSettings terrainProperties{};
     uint32_t terrainSeed{13};
+
+    VkDescriptorSet currentlySelectedTextureImguiId = VK_NULL_HANDLE;
 };
 }
 

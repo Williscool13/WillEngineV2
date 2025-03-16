@@ -30,7 +30,10 @@ public:
 
     void unload() const;
 
+public:
     AllocatedImage getTextureResource() const { return texture; }
+
+    uint32_t getId() const { return textureId; }
 
     const std::string& getName() { return name; }
 
@@ -48,6 +51,8 @@ private:
     std::string name;
 
     TextureProperties properties;
+
+    bool bIsLoaded{false};
 
 private:
     ResourceManager& resourceManager;
