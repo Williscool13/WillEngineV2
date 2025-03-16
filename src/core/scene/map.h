@@ -62,6 +62,9 @@ public:
 
     ~Map() override;
 
+    /**
+     * Destroys the map and all gameobjects that are children of this map
+     */
     void destroy() override;
 
     bool loadMap();

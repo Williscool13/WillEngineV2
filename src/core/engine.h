@@ -180,7 +180,7 @@ private: // Scene Data
     DirectionalLight mainLight{glm::normalize(glm::vec3(-0.8f, -0.6f, -0.6f)), 1.0f, glm::vec3(0.0f)};
     int32_t environmentMapIndex{0};
 
-    std::vector<Map*> activeMaps;
+    std::unordered_set<Map*> activeMaps;
     std::unordered_set<ITerrain*> activeTerrains;
 
     AssetManager* assetManager{nullptr};

@@ -238,7 +238,7 @@ void Engine::initGame()
     assetManager->scanForRenderObjects();
     camera = new FreeCamera();
     const auto map = new Map(file::getSampleScene(), *resourceManager);
-    activeMaps.push_back(map);
+    activeMaps.insert(map);
 }
 
 void Engine::run()
@@ -332,6 +332,12 @@ void Engine::updateGame(const float deltaTime)
     }
 
     for (IHierarchical* hierarchical : hierarchicalDeletionQueue) {
+        if (auto map = dynamic_cast<Map*>(hierarchical)) {
+            if (activeMaps.contains(map)) {
+                activeMaps.erase(map);
+            }
+        }
+
         hierarchical->beginDestroy();
         delete hierarchical;
     }
@@ -653,13 +659,19 @@ void Engine::cleanup()
 
     for (Map* map : activeMaps) {
         map->destroy();
-        delete map;
     }
-    activeMaps.clear();
 
-    for (IHierarchical* hierarchal : hierarchalBeginQueue) {
-        hierarchal->beginPlay();
+    for (IHierarchical* hierarchical : hierarchicalDeletionQueue) {
+        if (auto map = dynamic_cast<Map*>(hierarchical)) {
+            if (activeMaps.contains(map)) {
+                activeMaps.erase(map);
+            }
+        }
+
+        hierarchical->beginDestroy();
+        delete hierarchical;
     }
+    hierarchicalDeletionQueue.clear();
     hierarchalBeginQueue.clear();
 
     delete assetManager;

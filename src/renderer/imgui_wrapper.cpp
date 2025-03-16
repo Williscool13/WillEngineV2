@@ -417,7 +417,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             engine->assetManager->scanForRenderObjects();
             if (exists(mapPath)) {
                 auto map = new Map(mapPath, *engine->resourceManager);
-                engine->activeMaps.push_back(map);
+                engine->activeMaps.insert(map);
                 selectMap(map);
             }
             else {
@@ -787,7 +787,8 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
 
     if (selectedMap == nullptr) {
         if (!engine->activeMaps.empty()) {
-            selectMap(engine->activeMaps[0]);
+            const auto firstMap = *engine->activeMaps.begin();
+            selectMap(firstMap);
         }
         else {
             ImGui::Text("No map currently selected");
