@@ -14,6 +14,10 @@ public:
     virtual ~ITerrain() = default;
 
     virtual terrain::TerrainChunk* getTerrainChunk() = 0;
+
+    virtual void generateTerrain() = 0;
+
+    virtual void destroyTerrain() = 0;
 };
 }
 

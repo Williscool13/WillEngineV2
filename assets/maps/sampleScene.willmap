@@ -1,18 +1,4 @@
 {
-    "Terrain": {
-        "TerrainProperties": {
-            "scale": 158.0,
-            "persistence": 0.30000001192092896,
-            "lacunarity": 1.5,
-            "octaves": 4,
-            "offset": {
-                "x": 0.0,
-                "y": 0.0
-            },
-            "heightScale": 25.0
-        },
-        "TerrainSeed": 1695802020
-    },
     "version": {
         "major": 0,
         "minor": 1,
@@ -20,8 +6,27 @@
     },
     "metadata": {
         "name": "sampleScene",
-        "created": "2025-03-15 16:41:02",
-        "formatVersion": 2
+        "created": "2025-03-16 15:58:32",
+        "formatVersion": 1
+    },
+    "rootComponents": {
+        "TerrainComponent": {
+            "terrain": {
+                "terrainProperties": {
+                    "scale": 64.58599853515625,
+                    "persistence": 0.17499999701976776,
+                    "lacunarity": 1.1180000305175781,
+                    "octaves": 6,
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    },
+                    "heightScale": 19.84000015258789
+                },
+                "terrainSeed": 2855772438
+            },
+            "componentName": "Terrain Component"
+        }
     },
     "gameObjects": {
         "name": "sampleScene",
@@ -41,6 +46,25 @@
                 "x": 1.0,
                 "y": 1.0,
                 "z": 1.0
+            }
+        },
+        "components": {
+            "TerrainComponent": {
+                "terrain": {
+                    "terrainProperties": {
+                        "scale": 64.58599853515625,
+                        "persistence": 0.17499999701976776,
+                        "lacunarity": 1.1180000305175781,
+                        "octaves": 6,
+                        "offset": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "heightScale": 19.84000015258789
+                    },
+                    "terrainSeed": 2855772438
+                },
+                "componentName": "Terrain Component"
             }
         },
         "children": [
@@ -184,15 +208,15 @@
                 "name": "Cube\u0000ing Orb",
                 "transform": {
                     "position": {
-                        "x": -12.133661270141602,
-                        "y": 9.87217903137207,
-                        "z": -1.1131681203842163
+                        "x": -11.863805770874023,
+                        "y": 1.9999966621398926,
+                        "z": -1.015789270401001
                     },
                     "rotation": {
-                        "x": 0.02900923416018486,
-                        "y": -0.6882249116897583,
-                        "z": 0.02402949333190918,
-                        "w": 0.724518895149231
+                        "x": 6.290070473369269e-07,
+                        "y": -0.7903207540512085,
+                        "z": 1.2837880376537214e-06,
+                        "w": 0.6126933693885803
                     },
                     "scale": {
                         "x": 1.0,

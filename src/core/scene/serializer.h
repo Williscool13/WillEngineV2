@@ -224,20 +224,34 @@ public: // GameObjects
         }
     }
 
-    static bool serializeMap(IHierarchical* root, ordered_json& rootJ, const std::filesystem::path& filepath)
+    static bool serializeMap(IHierarchical* map, ordered_json& rootJ, const std::filesystem::path& filepath)
     {
-        if (root == nullptr) {
+        if (map == nullptr) {
             fmt::print("Warning: map is null\n");
             return false;
         }
 
         rootJ["version"] = EngineVersion::current();
-        rootJ["metadata"] = SceneMetadata::create(root->getName().data());
+        rootJ["metadata"] = SceneMetadata::create(map->getName().data());
+
+        if (const auto componentContainer = dynamic_cast<IComponentContainer*>(map)) {
+            const std::vector<components::Component*> components = componentContainer->getAllComponents();
+            if (components.size() > 0) {
+                ordered_json componentsJson;
+                for (const auto& component : components) {
+                    ordered_json componentData;
+                    component->serialize(componentData);
+                    componentsJson[component->getComponentType()] = componentData;
+                    componentsJson[component->getComponentType()]["componentName"] = component->getComponentName();
+                }
+                rootJ["rootComponents"] = componentsJson;
+            }
+        }
 
         ordered_json gameObjectJ;
         ordered_json renderObjectJ;
 
-        serializeGameObject(gameObjectJ, root);
+        serializeGameObject(gameObjectJ, map);
         rootJ["gameObjects"] = gameObjectJ;
 
         std::ofstream file(filepath);
@@ -310,6 +324,30 @@ public: // GameObjects
             for (auto child : rootJ["gameObjects"]["children"]) {
                 IHierarchical* childObject = deserializeGameObject(child, root);
                 root->addChild(childObject);
+            }
+        }
+
+        if (rootJ.contains("rootComponents")) {
+            if (const auto componentContainer = dynamic_cast<IComponentContainer*>(root)) {
+                const auto& components = rootJ["rootComponents"];
+                for (const auto& [componentType, componentData] : components.items()) {
+                    std::string componentName;
+                    if (componentData.contains("componentName")) {
+                        componentName = componentData["componentName"].get<std::string>();
+                    }
+                    else {
+                        componentName = componentType;
+                    }
+
+                    auto& factory = components::ComponentFactory::getInstance();
+                    auto newComponent = factory.createComponent(componentType, componentName);
+
+                    if (newComponent) {
+                        auto orderedComponentData = ordered_json(componentData);
+                        const auto _component = componentContainer->addComponent(std::move(newComponent));
+                        _component->deserialize(orderedComponentData);
+                    }
+                }
             }
         }
 

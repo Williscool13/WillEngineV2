@@ -126,10 +126,13 @@ public:
 
     void addToDeletionQueue(IHierarchical* obj);
 
-    void addToDeletionQueue(Map* map);
-
 public:
     AssetManager* getAssetManager() const { return assetManager; }
+    ResourceManager* getResourceManager() const { return resourceManager; }
+
+    void addToActiveTerrain(ITerrain* terrain);
+
+    void removeFromActiveTerrain(ITerrain* terrain);
 
 private:
     VkExtent2D windowExtent{1700, 900};
@@ -178,13 +181,12 @@ private: // Scene Data
     int32_t environmentMapIndex{0};
 
     std::vector<Map*> activeMaps;
-    std::vector<ITerrain*> activeTerrains;
+    std::unordered_set<ITerrain*> activeTerrains;
 
     AssetManager* assetManager{nullptr};
 
     std::vector<IHierarchical*> hierarchalBeginQueue{};
     std::vector<IHierarchical*> hierarchicalDeletionQueue{};
-    std::vector<Map*> mapDeletionQueue{};
 
 private: // Pipelines
     visibility_pass::VisibilityPassPipeline* visibilityPassPipeline{nullptr};

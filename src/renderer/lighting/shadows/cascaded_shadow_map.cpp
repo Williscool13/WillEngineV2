@@ -263,7 +263,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::update(const DirectionalL
 }
 
 void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects,
-                                                            const std::vector<ITerrain*>& terrains, const int32_t currentFrameOverlap)
+                                                            const std::unordered_set<ITerrain*>& terrains, const int32_t currentFrameOverlap)
 {
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;

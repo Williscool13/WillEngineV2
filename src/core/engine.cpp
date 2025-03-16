@@ -239,7 +239,6 @@ void Engine::initGame()
     camera = new FreeCamera();
     const auto map = new Map(file::getSampleScene(), *resourceManager);
     activeMaps.push_back(map);
-    activeTerrains.push_back(map);
 }
 
 void Engine::run()
@@ -331,15 +330,6 @@ void Engine::updateGame(const float deltaTime)
     for (Map* map : activeMaps) {
         map->update(deltaTime);
     }
-
-    for (Map* map : mapDeletionQueue) {
-        std::erase(activeMaps, map);
-        std::erase(activeTerrains, static_cast<ITerrain*>(map));
-        map->beginDestroy();
-        delete map;
-    }
-
-    mapDeletionQueue.clear();
 
     for (IHierarchical* hierarchical : hierarchicalDeletionQueue) {
         hierarchical->beginDestroy();
@@ -712,9 +702,16 @@ void Engine::addToDeletionQueue(IHierarchical* obj)
     hierarchicalDeletionQueue.push_back(obj);
 }
 
-void Engine::addToDeletionQueue(Map* map)
+void Engine::addToActiveTerrain(ITerrain* terrain)
 {
-    mapDeletionQueue.push_back(map);
+    activeTerrains.insert(terrain);
+}
+
+void Engine::removeFromActiveTerrain(ITerrain* terrain)
+{
+    if (activeTerrains.contains(terrain)) {
+        activeTerrains.erase(terrain);
+    }
 }
 
 void Engine::createSwapchain(const uint32_t width, const uint32_t height)

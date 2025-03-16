@@ -96,10 +96,25 @@ void ImguiWrapper::handleInput(const SDL_Event& e)
 void ImguiWrapper::selectMap(Map* newMap)
 {
     selectedMap = newMap;
-    if (selectedMap) {
-        terrainProperties = selectedMap->getTerrainProperties();
-        terrainSeed = selectedMap->getSeed();
+    if (!selectedMap) {
+        return;
     }
+
+    auto terrainComponent = selectedMap->getComponent<components::TerrainComponent>();
+    if (!terrainComponent) {
+        auto& factory = components::ComponentFactory::getInstance();
+        auto newComponent = factory.createComponent(components::TerrainComponent::TYPE, "Terrain Component");
+        selectedMap->addComponent(std::move(newComponent));
+    }
+
+    terrainComponent = selectedMap->getComponent<components::TerrainComponent>();
+    if (!terrainComponent) {
+        fmt::print("Unable to create terrain component, very strange");
+        return;
+    }
+
+    terrainProperties = terrainComponent->getTerrainProperties();
+    terrainSeed = terrainComponent->getSeed();
 }
 
 void ImguiWrapper::imguiInterface(Engine* engine)
@@ -403,14 +418,10 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             if (exists(mapPath)) {
                 auto map = new Map(mapPath, *engine->resourceManager);
                 engine->activeMaps.push_back(map);
-                engine->activeTerrains.push_back(map);
                 selectMap(map);
             }
             else {
-                auto newMap = new Map(mapPath, *engine->resourceManager);
-                engine->activeMaps.push_back(newMap);
-                engine->activeTerrains.push_back(newMap);
-                selectMap(newMap);
+                fmt::print("No map found at path %s", mapPath.string().c_str());
             }
         }
         ImGui::EndDisabled();
@@ -704,7 +715,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                         if (std::find(extensions.begin(), extensions.end(), extension) != extensions.end()) {
                             const std::filesystem::path texturePath = entry.path();
                             const std::filesystem::path outputPath = texturePath.parent_path() /
-                                                                   (texturePath.stem().string() + ".willtexture");
+                                                                     (texturePath.stem().string() + ".willtexture");
 
                             if (Serializer::generateWillTexture(texturePath, outputPath)) {
                                 generatedCount++;
@@ -715,7 +726,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     fmt::print("Generated {} texture descriptor files in {}\n", generatedCount, texturesPath.string());
                     if (generatedCount > 0) {
                         ImGui::OpenPopup("Success");
-                    } else {
+                    }
+                    else {
                         ImGui::OpenPopup("Error");
                     }
                 }
@@ -812,9 +824,11 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
         if (ImGui::BeginTabItem("Terrain")) {
             ImGui::Checkbox("Draw Vertex Lines Only", &engine->bDrawTerrainLines);
 
-            ImGui::BeginDisabled(!selectedMap);
+
+            auto currentTerrainComponent = selectedMap->getComponent<components::TerrainComponent>();
+            ImGui::BeginDisabled(!currentTerrainComponent);
             if (ImGui::Button("Save Terrain as HeightMap")) {
-                std::vector<float> heightmapData = selectedMap->getHeightMapData();
+                std::vector<float> heightmapData = currentTerrainComponent->getHeightMapData();
                 std::filesystem::path path = file::imagesSavePath / "TerrainHeightMap.png";
                 vk_helpers::saveHeightmap(heightmapData, NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, path);
             }
@@ -845,11 +859,11 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
 
             ImGui::Separator();
             if (ImGui::Button("Generate Terrain", ImVec2(-1, 0))) {
-                selectedMap->generateTerrain(terrainProperties, terrainSeed);
+                currentTerrainComponent->generateTerrain(terrainProperties, terrainSeed);
             }
 
             if (ImGui::Button("Destroy Terrain", ImVec2(-1, 0))) {
-                selectedMap->destroyTerrain();
+                currentTerrainComponent->destroyTerrain();
             }
 
             ImGui::EndTabItem();

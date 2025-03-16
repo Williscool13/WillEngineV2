@@ -239,6 +239,8 @@ set(TEMP_SOURCES
         src/renderer/assets/texture/texture.h
         src/renderer/assets/asset_manager.cpp
         src/renderer/assets/asset_manager.h
+        src/core/game_object/components/terrain_component.cpp
+        src/core/game_object/components/terrain_component.h
 
 )
 

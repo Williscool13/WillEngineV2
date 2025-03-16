@@ -7,10 +7,10 @@
 #include <filesystem>
 #include <json/json.hpp>
 
+#include "src/core/game_object/component_container.h"
 #include "src/core/game_object/hierarchical.h"
-#include "src/core/game_object/terrain.h"
 #include "src/core/game_object/transformable.h"
-#include "src/renderer/terrain/terrain_chunk.h"
+#include "src/core/game_object/components/terrain_component.h"
 #include "src/util/heightmap_utils.h"
 
 namespace will_engine
@@ -55,16 +55,16 @@ inline void from_json(const ordered_json& j, NoiseSettings& settings)
  */
 class Map final : public IHierarchical,
                   public ITransformable,
-                  public ITerrain
+                  public IComponentContainer
 {
 public:
-    explicit Map(const std::filesystem::path& mapSource, ResourceManager& resourceManager, bool initializeTerrain = false);
+    explicit Map(const std::filesystem::path& mapSource, ResourceManager& resourceManager);
 
     ~Map() override;
 
     void destroy() override;
 
-    bool loadMap(bool initializeTerrain);
+    bool loadMap();
 
     bool saveMap(const std::filesystem::path& newSavePath = {});
 
@@ -74,56 +74,61 @@ public:
 
     void addGameObject(IHierarchical* newChild);
 
-public: // Terrain
-    void generateTerrain();
-
-    void generateTerrain(const uint32_t seed)
-    {
-        this->seed = seed;
-        generateTerrain();
-    }
-
-    void generateTerrain(const NoiseSettings& terrainProperties)
-    {
-        this->terrainProperties = terrainProperties;
-        generateTerrain();
-    }
-
-    void generateTerrain(const NoiseSettings& terrainProperties, const uint32_t seed)
-    {
-        this->terrainProperties = terrainProperties;
-        this->seed = seed;
-        generateTerrain();
-    }
-
-    void destroyTerrain();
-
-    terrain::TerrainChunk* getTerrainChunk() override { return terrainChunk.get(); }
-
-    NoiseSettings getTerrainProperties() const { return terrainProperties; }
-    uint32_t getSeed() const { return seed; }
-
-public: // Debug
-    std::vector<float> getHeightMapData() const;
-
-private: // Terrain
-    std::unique_ptr<terrain::TerrainChunk> terrainChunk;
-    const float DEFAULT_TERRAIN_SCALE = 100.0f;
-    const float DEFAULT_TERRAIN_HEIGHT_SCALE = 50.0f;
-    NoiseSettings terrainProperties{
-        .scale = DEFAULT_TERRAIN_SCALE,
-        .persistence = 0.5f,
-        .lacunarity = 2.0f,
-        .octaves = 4,
-        .offset = {0.0f, 0.0f},
-        .heightScale = DEFAULT_TERRAIN_HEIGHT_SCALE
-    };
-    uint32_t seed{13};
-
 #pragma region Interfaces
 
+public: // IComponentContainer
+    components::Component* getComponentByType(const std::type_info& type) override
+    {
+        for (const auto& component : components) {
+            if (typeid(*component) == type) {
+                return component.get();
+            }
+        }
+        return nullptr;
+    }
+
+    std::vector<components::Component*> getComponentsByType(const std::type_info& type) override
+    {
+        std::vector<components::Component*> outComponents;
+        outComponents.reserve(components.size());
+        for (const auto& component : components) {
+            if (typeid(*component) == type) {
+                outComponents.push_back(component.get());
+            }
+        }
+
+        return outComponents;
+    }
+
+    std::vector<components::Component*> getAllComponents() override
+    {
+        std::vector<components::Component*> _components;
+        _components.reserve(components.size());
+        for (auto& comp : components) {
+            _components.push_back(comp.get());
+        }
+
+        return _components;
+    }
+
+    bool canAddComponent(std::string_view componentType) override;
+
+    components::Component* addComponent(std::unique_ptr<components::Component> component) override;
+
+    void destroyComponent(components::Component* component) override;
+
+    components::RigidBodyComponent* getRigidbody() const override { return nullptr; }
+
+    components::MeshRendererComponent* getMeshRenderer() const override { return nullptr; }
+
+protected: // IComponentContainer
+    std::vector<std::unique_ptr<components::Component> > components{};
+
+protected:
+    components::TerrainComponent* terrainComponent{nullptr};
+
 public: // IHierarchical
-    void beginPlay() override {};
+    void beginPlay() override;
 
     /**
      * Updates all gameobjects under this map
@@ -131,7 +136,7 @@ public: // IHierarchical
      */
     void update(float deltaTime) override;
 
-    void beginDestroy() override {};
+    void beginDestroy() override;
 
     bool addChild(IHierarchical* child) override;
 
@@ -166,6 +171,8 @@ private: // IHierarchical
     void recursiveUpdate(IHierarchical* object, float deltaTime);
 
     void recursiveDestroy(IHierarchical* object);
+
+    bool bHasBegunPlay{false};
 
 public: // ITransformable
     glm::mat4 getModelMatrix() override { return cachedModelMatrix; }

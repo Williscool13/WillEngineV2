@@ -68,7 +68,7 @@ public:
 
     void update(const DirectionalLight& mainLight, const Camera* camera, int32_t currentFrameOverlap);
 
-    void draw(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects, const std::vector<ITerrain*>& terrains, int32_t currentFrameOverlap);
+    void draw(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects, const std::unordered_set<ITerrain*>& terrains, int32_t currentFrameOverlap);
 
     /**
      *

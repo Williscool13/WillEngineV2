@@ -8,6 +8,7 @@
 #include "mesh_renderer_component.h"
 #include "name_printing_component.h"
 #include "rigid_body_component.h"
+#include "terrain_component.h"
 #include "src/core/game_object/components/component.h"
 
 namespace will_engine::components
@@ -27,6 +28,7 @@ public:
         registerComponent<NamePrintingComponent>();
         registerComponent<RigidBodyComponent>();
         registerComponent<MeshRendererComponent>();
+        registerComponent<TerrainComponent>();
     }
 
     using ComponentCreator = std::function<std::unique_ptr<Component>(const std::string& name)>;
