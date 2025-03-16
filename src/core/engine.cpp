@@ -426,9 +426,10 @@ void Engine::draw(float deltaTime)
     int32_t currentFrameOverlap = getCurrentFrameOverlap();
     int32_t previousFrameOverlap = getPreviousFrameOverlap();
 
+    std::vector<RenderObject*> allRenderObjects = assetManager->getAllRenderObjects();
     // Update Render Object Buffers and Model Matrices
-    for (auto& renderObjectPair : assetManager->getRenderObjects()) {
-        if (auto renderObject = renderObjectPair.second.get()) {
+    for (RenderObject* renderObject : allRenderObjects) {
+        if (renderObject) {
             renderObject->update(currentFrameOverlap, previousFrameOverlap);
         }
     }
@@ -438,13 +439,6 @@ void Engine::draw(float deltaTime)
 
     // Updates Cascaded Shadow Map Properties
     cascadedShadowMap->update(mainLight, camera, currentFrameOverlap);
-
-    // Temp while a better solution is figured out
-    std::vector<RenderObject*> allRenderObjects{};
-    allRenderObjects.reserve(assetManager->getRenderObjects().size());
-    for (auto& val : assetManager->getRenderObjects() | std::views::values) {
-        allRenderObjects.push_back(val.get());
-    }
 
     visibility_pass::VisibilityPassDrawInfo csmFrustumCullDrawInfo{
         currentFrameOverlap,
@@ -721,16 +715,6 @@ void Engine::addToDeletionQueue(IHierarchical* obj)
 void Engine::addToDeletionQueue(Map* map)
 {
     mapDeletionQueue.push_back(map);
-}
-
-RenderObject* Engine::getRenderObject(const uint32_t renderRefIndex)
-{
-    auto& renderObjects = assetManager->getRenderObjects();
-    if (renderObjects.contains(renderRefIndex)) {
-        return renderObjects.at(renderRefIndex).get();
-    }
-
-    return nullptr;
 }
 
 void Engine::createSwapchain(const uint32_t width, const uint32_t height)

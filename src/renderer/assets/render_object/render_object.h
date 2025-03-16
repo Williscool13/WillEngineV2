@@ -28,7 +28,7 @@ struct RenderableProperties
 class RenderObject final : public IRenderReference
 {
 public:
-    RenderObject(ResourceManager& resourceManager, const std::filesystem::path& gltfFilepath, std::string name, uint32_t renderObjectId);
+    RenderObject(ResourceManager& resourceManager, const std::filesystem::path& willmodelPath, const std::filesystem::path& gltfFilepath, std::string name, uint32_t renderObjectId);
 
     ~RenderObject() override;
 
@@ -49,12 +49,14 @@ public:
 
     const std::string& getName() { return name; }
 
-    const std::filesystem::path& getPath() { return gltfPath; }
+    const std::filesystem::path& getGltfPath() { return gltfPath; }
+
+    const std::filesystem::path& getWillmodelPath() { return willmodelPath; }
 
 private:
     bool bIsLoaded{false};
 
-
+    std::filesystem::path willmodelPath;
     std::filesystem::path gltfPath;
     std::string name;
 

@@ -79,6 +79,7 @@ struct SceneMetadata
 
 struct RenderObjectInfo
 {
+    std::filesystem::path willmodelPath;
     std::string gltfPath;
     std::string name;
     uint32_t id;
@@ -343,7 +344,6 @@ public: // Render Objects
             nlohmann::json j;
             i >> j;
 
-            // todo: .willmodel version conversion code
             if (!j.contains("version") || j["version"] != 1) {
                 fmt::print("Invalid or unsupported willmodel version in: {}\n", willmodelPath.string());
                 return std::nullopt;
@@ -357,6 +357,7 @@ public: // Render Objects
             const auto& renderObject = j["renderObject"];
 
             RenderObjectInfo info;
+            info.willmodelPath = willmodelPath;
             info.gltfPath = renderObject["gltfPath"].get<std::string>();
             info.name = renderObject["name"].get<std::string>();
             info.id = renderObject["id"].get<uint32_t>();

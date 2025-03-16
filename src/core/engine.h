@@ -128,7 +128,8 @@ public:
 
     void addToDeletionQueue(Map* map);
 
-    RenderObject* getRenderObject(uint32_t renderRefIndex);
+public:
+    AssetManager* getAssetManager() const { return assetManager; }
 
 private:
     VkExtent2D windowExtent{1700, 900};

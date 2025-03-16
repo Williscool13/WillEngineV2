@@ -18,8 +18,8 @@
 
 namespace will_engine
 {
-RenderObject::RenderObject(ResourceManager& resourceManager, const std::filesystem::path& gltfFilepath, std::string name, const uint32_t renderObjectId)
-    : gltfPath(gltfFilepath), name(std::move(name)), renderObjectId(renderObjectId), resourceManager(resourceManager)
+RenderObject::RenderObject(ResourceManager& resourceManager, const std::filesystem::path& willmodelPath, const std::filesystem::path& gltfFilepath, std::string name, const uint32_t renderObjectId)
+    : willmodelPath(willmodelPath), gltfPath(gltfFilepath), name(std::move(name)), renderObjectId(renderObjectId), resourceManager(resourceManager)
 {
     load();
 }
@@ -31,6 +31,7 @@ RenderObject::~RenderObject()
 
 void RenderObject::update(const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
 {
+    if (!bIsLoaded) { return; }
     updateBuffers(currentFrameOverlap, previousFrameOverlap);
 
     for (const std::pair renderablePair : renderableMap) {

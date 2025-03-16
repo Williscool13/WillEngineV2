@@ -451,93 +451,98 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                 float detailsHeight = 150.0f;
                 ImGui::BeginChild("Selected Object", ImVec2(0, detailsHeight), ImGuiChildFlags_Borders);
-                auto& renderObjects = engine->assetManager->getRenderObjects();
-                if (!renderObjects.contains(selectedRenderObjectId) && !renderObjects.empty()) {
-                    selectedRenderObjectId = renderObjects.begin()->first;
+                RenderObject* _currentlySelected = engine->assetManager->getRenderObject(selectedRenderObjectId);
+
+                if (!_currentlySelected && engine->assetManager->hasAnyRenderObjects()) {
+                    selectedRenderObjectId = engine->assetManager->getAnyRenderObject()->getId();
                 }
 
-                RenderObject* selectedRenderObject = renderObjects.at(selectedRenderObjectId).get();
-                ImGui::Text("Name: %s", selectedRenderObject->getName().c_str());
-                ImGui::Text("Path: %s", file::getRelativePath(selectedRenderObject->getPath()).string().c_str());
-                ImGui::Text("ID: %u", selectedRenderObject->getId());
+                RenderObject* selectedRenderObject = engine->assetManager->getRenderObject(selectedRenderObjectId);
+                if (selectedRenderObject) {
+                    ImGui::Text("Source: %s", file::getRelativePath(selectedRenderObject->getWillmodelPath()).string().c_str());
+                    ImGui::Separator();
+                    ImGui::Text("Name: %s", selectedRenderObject->getName().c_str());
+                    ImGui::Text("GLTF Path: %s", file::getRelativePath(selectedRenderObject->getGltfPath()).string().c_str());
+                    ImGui::Text("ID: %u", selectedRenderObject->getId());
 
-                bool isLoaded = engine->assetManager->getRenderObjects().contains(selectedRenderObjectId);
-                if (isLoaded) {
-                    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
-                    static char objectName[256] = "";
-                    ImGui::InputText("Object Name", objectName, sizeof(objectName));
-                    ImGui::PopStyleColor();
-                    if (ImGui::BeginTabBar("GameObject Generation")) {
-                        if (ImGui::BeginTabItem("Full Model")) {
-                            if (ImGui::Button("Generate Full Object")) {
-                                GameObject* gob = selectedRenderObject->generateGameObject(std::string(objectName));
-                                selectedMap->addGameObject(gob);
-                                // todo: fix add full gameobject
-                                fmt::print("Added whole gltf model to the scene\n");
-                            }
-                            ImGui::EndTabItem();
-                        }
-
-                        if (ImGui::BeginTabItem("Single Mesh")) {
-                            static int selectedMeshIndex = 0;
-                            if (selectedMeshIndex >= selectedRenderObject->getMeshCount()) {
-                                selectedMeshIndex = 0;
-                            }
-
-                            ImGui::SetNextItemWidth(300.0f);
-                            if (ImGui::BeginCombo("Select Mesh", fmt::format("Mesh {}", selectedMeshIndex).c_str())) {
-                                for (size_t i = 0; i < selectedRenderObject->getMeshCount(); i++) {
-                                    const bool isSelected = (selectedMeshIndex == static_cast<int>(i));
-                                    if (ImGui::Selectable(fmt::format("Mesh {}", i).c_str(), isSelected)) {
-                                        selectedMeshIndex = static_cast<int>(i);
-                                    }
-
-                                    if (isSelected) {
-                                        ImGui::SetItemDefaultFocus();
-                                    }
+                    bool isLoaded = selectedRenderObject->isLoaded();
+                    if (isLoaded) {
+                        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
+                        static char objectName[256] = "";
+                        ImGui::InputText("Object Name", objectName, sizeof(objectName));
+                        ImGui::PopStyleColor();
+                        if (ImGui::BeginTabBar("GameObject Generation")) {
+                            if (ImGui::BeginTabItem("Full Model")) {
+                                if (ImGui::Button("Generate Full Object")) {
+                                    GameObject* gob = selectedRenderObject->generateGameObject(std::string(objectName));
+                                    selectedMap->addGameObject(gob);
+                                    // todo: fix add full gameobject
+                                    fmt::print("Added whole gltf model to the scene\n");
                                 }
-                                ImGui::EndCombo();
+                                ImGui::EndTabItem();
                             }
 
-                            ImGui::SameLine();
-                            if (auto container = dynamic_cast<IComponentContainer*>(selectedItem)) {
-                                if (ImGui::Button("Attach to selected item")) {
-                                    if (!container->getMeshRenderer()) {
-                                        auto newComponent = components::ComponentFactory::getInstance().createComponent(components::MeshRendererComponent::getStaticType(), "Mesh Renderer");
-                                        container->addComponent(std::move(newComponent));
-                                    }
-                                    if (auto meshRenderer = container->getMeshRenderer()) {
-                                        if (meshRenderer->hasMesh()) {
-                                            meshRenderer->releaseMesh();
+                            if (ImGui::BeginTabItem("Single Mesh")) {
+                                static int selectedMeshIndex = 0;
+                                if (selectedMeshIndex >= selectedRenderObject->getMeshCount()) {
+                                    selectedMeshIndex = 0;
+                                }
+
+                                ImGui::SetNextItemWidth(300.0f);
+                                if (ImGui::BeginCombo("Select Mesh", fmt::format("Mesh {}", selectedMeshIndex).c_str())) {
+                                    for (size_t i = 0; i < selectedRenderObject->getMeshCount(); i++) {
+                                        const bool isSelected = (selectedMeshIndex == static_cast<int>(i));
+                                        if (ImGui::Selectable(fmt::format("Mesh {}", i).c_str(), isSelected)) {
+                                            selectedMeshIndex = static_cast<int>(i);
                                         }
 
-                                        selectedRenderObject->generateMesh(meshRenderer, selectedMeshIndex);
+                                        if (isSelected) {
+                                            ImGui::SetItemDefaultFocus();
+                                        }
                                     }
+                                    ImGui::EndCombo();
                                 }
-                            }
-                            else {
-                                if (ImGui::Button("Add to Scene")) {
-                                    IHierarchical* gob = engine->createGameObject(selectedMap, objectName);
 
-                                    if (auto _container = dynamic_cast<IComponentContainer*>(gob)) {
-                                        auto newComponent = components::ComponentFactory::getInstance().createComponent(
-                                            components::MeshRendererComponent::getStaticType(), "");
-                                        _container->addComponent(std::move(newComponent));
-                                        if (components::MeshRendererComponent* meshRenderer = _container->getMeshRenderer()) {
+                                ImGui::SameLine();
+                                if (auto container = dynamic_cast<IComponentContainer*>(selectedItem)) {
+                                    if (ImGui::Button("Attach to selected item")) {
+                                        if (!container->getMeshRenderer()) {
+                                            auto newComponent = components::ComponentFactory::getInstance().createComponent(components::MeshRendererComponent::getStaticType(), "Mesh Renderer");
+                                            container->addComponent(std::move(newComponent));
+                                        }
+                                        if (auto meshRenderer = container->getMeshRenderer()) {
+                                            if (meshRenderer->hasMesh()) {
+                                                meshRenderer->releaseMesh();
+                                            }
+
                                             selectedRenderObject->generateMesh(meshRenderer, selectedMeshIndex);
                                         }
-                                        fmt::print("Added single mesh to scene\n");
                                     }
                                 }
-                            }
-                            ImGui::EndTabItem();
-                        }
+                                else {
+                                    if (ImGui::Button("Add to Scene")) {
+                                        IHierarchical* gob = engine->createGameObject(selectedMap, objectName);
 
-                        ImGui::EndTabBar();
+                                        if (auto _container = dynamic_cast<IComponentContainer*>(gob)) {
+                                            auto newComponent = components::ComponentFactory::getInstance().createComponent(
+                                                components::MeshRendererComponent::getStaticType(), "");
+                                            _container->addComponent(std::move(newComponent));
+                                            if (components::MeshRendererComponent* meshRenderer = _container->getMeshRenderer()) {
+                                                selectedRenderObject->generateMesh(meshRenderer, selectedMeshIndex);
+                                            }
+                                            fmt::print("Added single mesh to scene\n");
+                                        }
+                                    }
+                                }
+                                ImGui::EndTabItem();
+                            }
+
+                            ImGui::EndTabBar();
+                        }
                     }
-                }
-                else {
-                    ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "Load render object to see available meshes");
+                    else {
+                        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "Load render object to see available meshes");
+                    }
                 }
 
 
@@ -550,26 +555,26 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 }
 
                 ImGui::BeginChild("Objects List", ImVec2(0, 0), ImGuiChildFlags_Borders);
-                for (const auto& [id, renderObject] : engine->assetManager->getRenderObjects()) {
-                    ImGui::PushID(id);
+                for (const auto renderObject : engine->assetManager->getAllRenderObjects()) {
+                    ImGui::PushID(renderObject->getId());
 
-                    bool isLoaded = renderObject->isLoaded();
-                    bool checked = isLoaded;
+                    bool _isLoaded = renderObject->isLoaded();
+                    bool checked = _isLoaded;
 
                     ImGui::Checkbox("##loaded", &checked);
-                    if (checked && !isLoaded) {
+                    if (checked && !_isLoaded) {
                         renderObject->load();
                     }
 
-                    if (!checked && isLoaded) {
+                    if (!checked && _isLoaded) {
                         renderObject->unload();
                     }
 
                     ImGui::SameLine();
 
-                    bool isSelected = (selectedRenderObjectId == id);
+                    bool isSelected = (selectedRenderObjectId == renderObject->getId());
                     if (ImGui::Selectable(renderObject->getName().c_str(), isSelected)) {
-                        selectedRenderObjectId = id;
+                        selectedRenderObjectId = renderObject->getId();
                     }
 
                     ImGui::PopID();
@@ -579,7 +584,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 ImGui::EndTabItem();
             }
 
-            if (ImGui::BeginTabItem("Model Generator")) {
+            if (ImGui::BeginTabItem("Will Engine Type Generator")) {
                 static std::filesystem::path gltfPath;
                 static std::filesystem::path willmodelPath;
 

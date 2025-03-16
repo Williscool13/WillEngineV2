@@ -24,7 +24,13 @@ public:
     void scanForRenderObjects();
 
 public:
-    const std::unordered_map<uint32_t, std::unique_ptr<RenderObject> >& getRenderObjects() { return renderObjects; }
+    RenderObject* getRenderObject(uint32_t renderObjectId) const;
+
+    std::vector<RenderObject*> getAllRenderObjects();
+
+    bool hasAnyRenderObjects() const { return renderObjects.size() > 0; }
+
+    RenderObject* getAnyRenderObject() const;
 
 private:
     std::unordered_map<uint32_t, std::unique_ptr<RenderObject> > renderObjects;

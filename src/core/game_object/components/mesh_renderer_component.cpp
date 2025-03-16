@@ -62,21 +62,24 @@ void MeshRendererComponent::deserialize(ordered_json& j)
         const uint32_t renderRefIndex = j["renderReference"].get<uint32_t>();
         const int32_t meshIndex = j["renderMeshIndex"].get<int32_t>();
 
-        if (RenderObject* renderObject = Engine::get()->getRenderObject(renderRefIndex)) {
-            if (!renderObject->isLoaded()) {
-                renderObject->load();
-            }
-            renderObject->generateMesh(this, meshIndex);
-            if (j.contains("renderIsVisible")) {
-                bIsVisible = j["renderIsVisible"];
-            }
-            if (j.contains("renderIsShadowCaster")) {
-                bIsShadowCaster = j["renderIsShadowCaster"];
+        if (const AssetManager* assetManager = Engine::get()->getAssetManager()) {
+            if (RenderObject* renderObject = assetManager->getRenderObject(renderRefIndex)) {
+                if (!renderObject->isLoaded()) {
+                    renderObject->load();
+                }
+                renderObject->generateMesh(this, meshIndex);
+                if (j.contains("renderIsVisible")) {
+                    bIsVisible = j["renderIsVisible"];
+                }
+                if (j.contains("renderIsShadowCaster")) {
+                    bIsShadowCaster = j["renderIsShadowCaster"];
+                }
+
+                return;
             }
         }
-        else {
-            fmt::print("Warning: Mesh Renderer Component failed to find render reference\n");
-        }
+
+        fmt::print("Warning: Mesh Renderer Component failed to find render reference\n");
     }
 }
 

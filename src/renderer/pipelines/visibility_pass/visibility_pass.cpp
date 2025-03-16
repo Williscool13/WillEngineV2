@@ -61,6 +61,8 @@ void will_engine::visibility_pass::VisibilityPassPipeline::draw(VkCommandBuffer 
     constexpr uint32_t addressesIndex{1};
 
     for (RenderObject* renderObject : drawInfo.renderObjects) {
+        if (!renderObject->canDraw()) { continue; }
+
         VkDescriptorBufferBindingInfoEXT bindingInfo[2];
         bindingInfo[0] = drawInfo.sceneDataBinding;
         bindingInfo[1] = renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();

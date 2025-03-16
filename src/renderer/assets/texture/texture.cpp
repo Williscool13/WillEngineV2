@@ -3,5 +3,9 @@
 //
 
 #include "texture.h"
-will_engine::Texture::Texture() {}
+
+will_engine::Texture::Texture(std::filesystem::path source) : source(source)
+{
+
+}
 will_engine::Texture::~Texture() {}

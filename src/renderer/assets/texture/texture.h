@@ -14,7 +14,7 @@ namespace will_engine
 class Texture
 {
 public:
-    Texture();
+    Texture(std::filesystem::path source);
 
     ~Texture();
 
