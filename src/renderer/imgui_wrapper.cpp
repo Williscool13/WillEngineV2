@@ -414,7 +414,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         ImGui::SameLine();
         ImGui::BeginDisabled(alreadyExistsInActiveMaps);
         if (ImGui::Button("Load")) {
-            engine->assetManager->scanForRenderObjects();
+            engine->assetManager->scanForAll();
             if (exists(mapPath)) {
                 auto map = new Map(mapPath, *engine->resourceManager);
                 engine->activeMaps.insert(map);
@@ -562,7 +562,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 ImGui::Text("Available Objects");
                 ImGui::SameLine();
                 if (ImGui::Button("Refresh")) {
-                    engine->assetManager->scanForRenderObjects();
+                    engine->assetManager->scanForAll();
                 }
 
                 ImGui::BeginChild("Objects List", ImVec2(0, 0), ImGuiChildFlags_Borders);
@@ -697,13 +697,15 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 }
 
                 ImGui::BeginDisabled(texturesPath.empty());
+                static int32_t generatedCount = 0;
+
                 if (ImGui::Button("Generate Texture Files")) {
+                    generatedCount = 0;
                     if (!exists(texturesPath) || !is_directory(texturesPath)) {
                         fmt::print("Error: Invalid textures directory path: {}\n", texturesPath.string());
                         return;
                     }
 
-                    int generatedCount = 0;
                     std::vector<std::string> extensions = {".jpg", ".jpeg", ".png", ".tga", ".bmp"};
 
                     for (const auto& entry : std::filesystem::recursive_directory_iterator(texturesPath)) {
@@ -723,7 +725,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                         }
                     }
 
-                    fmt::print("Generated {} texture descriptor files in {}\n", generatedCount, texturesPath.string());
                     if (generatedCount > 0) {
                         ImGui::OpenPopup("Success");
                     }
@@ -737,12 +738,12 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                 // Success/Error popups
                 if (ImGui::BeginPopupModal("Success", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                    ImGui::Text("Model compiled successfully!");
+                    ImGui::Text(fmt::format("Successfully compiled {} textures into .willtexture files", generatedCount).c_str());
                     if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
                     ImGui::EndPopup();
                 }
                 if (ImGui::BeginPopupModal("Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                    ImGui::Text("Failed to compile model!");
+                    ImGui::Text("Failed to find any textures to generate.");
                     if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
                     ImGui::EndPopup();
                 }

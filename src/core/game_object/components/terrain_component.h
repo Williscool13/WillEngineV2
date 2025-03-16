@@ -85,6 +85,8 @@ private:
     };
     uint32_t seed{13};
 
+    //uint32_t textureImage
+
 public:
     void updateRenderImgui() override;
 };

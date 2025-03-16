@@ -235,7 +235,7 @@ void Engine::initRenderer()
 
 void Engine::initGame()
 {
-    assetManager->scanForRenderObjects();
+    assetManager->scanForAll();
     camera = new FreeCamera();
     const auto map = new Map(file::getSampleScene(), *resourceManager);
     activeMaps.insert(map);

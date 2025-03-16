@@ -20,8 +20,10 @@ public:
 
     ~AssetManager();
 
-public: // Textures
+    void scanForAll();
 
+public: // Textures
+    void scanForTextures();
 
 private: // Textures
     std::unordered_map<uint32_t, std::unique_ptr<Texture> > textures;

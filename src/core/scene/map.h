@@ -16,6 +16,7 @@
 namespace will_engine
 {
 using ordered_json = nlohmann::ordered_json;
+using json = nlohmann::json;
 
 inline void to_json(ordered_json& j, const NoiseSettings& settings)
 {

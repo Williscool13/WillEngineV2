@@ -16,17 +16,41 @@ will_engine::AssetManager::~AssetManager()
     }
 }
 
+void will_engine::AssetManager::scanForAll()
+{
+    scanForRenderObjects();
+    scanForTextures();
+}
+
+void will_engine::AssetManager::scanForTextures()
+{
+    fmt::print("Scanning for .willtexture files\n");
+
+    const std::vector<std::filesystem::path> willTextures = file::findWillFiles(relative(std::filesystem::current_path() / "assets"), ".willtexture");
+    textures.reserve(willTextures.size());
+    for (std::filesystem::path willTexture : willTextures) {
+        std::optional<TextureInfo> textureInfo = Serializer::loadWillTexture(willTexture);
+        if (textureInfo.has_value()) {
+            if (!textures.contains(textureInfo->id)) {
+                textures[textureInfo->id] = std::make_unique<Texture>(resourceManager, textureInfo->id, textureInfo->willtexturePath, std::filesystem::path(textureInfo->texturePath),
+                                                                      textureInfo->textureProperties);
+            }
+        }
+    }
+}
+
 void will_engine::AssetManager::scanForRenderObjects()
 {
     fmt::print("Scanning for .willmodel files\n");
 
-    const std::vector<std::filesystem::path> willModels = file::findWillmodels(relative(std::filesystem::current_path() / "assets"));
+    const std::vector<std::filesystem::path> willModels = file::findWillFiles(relative(std::filesystem::current_path() / "assets"), ".willmodel");
     renderObjects.reserve(willModels.size());
     for (std::filesystem::path willModel : willModels) {
         std::optional<RenderObjectInfo> renderObjectInfo = Serializer::loadWillModel(willModel);
         if (renderObjectInfo.has_value()) {
             if (!renderObjects.contains(renderObjectInfo->id)) {
-                renderObjects[renderObjectInfo->id] = std::make_unique<RenderObject>(resourceManager, renderObjectInfo->willmodelPath, std::filesystem::path(renderObjectInfo->gltfPath), renderObjectInfo->name, renderObjectInfo->id);
+                renderObjects[renderObjectInfo->id] = std::make_unique<RenderObject>(resourceManager, renderObjectInfo->willmodelPath, std::filesystem::path(renderObjectInfo->gltfPath),
+                                                                                     renderObjectInfo->name, renderObjectInfo->id);
             }
         }
     }

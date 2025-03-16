@@ -14,6 +14,7 @@
 #include "src/core/game_object/components/component.h"
 #include "src/core/game_object/components/component_factory.h"
 #include "src/renderer/assets/render_object/render_object.h"
+#include "src/renderer/assets/texture/texture.h"
 
 
 namespace will_engine
@@ -89,6 +90,7 @@ struct RenderObjectInfo
 
 struct TextureInfo
 {
+    TextureProperties textureProperties;
     std::filesystem::path willtexturePath;
     std::string texturePath;
     std::string name;
@@ -178,6 +180,20 @@ inline void from_json(const ordered_json& j, SceneMetadata& metadata)
     metadata.name = j["name"].get<std::string>();
     metadata.created = j["created"].get<std::string>();
     metadata.formatVersion = j["formatVersion"].get<uint32_t>();
+}
+
+inline void to_json(json& j, const TextureProperties& t)
+{
+    j = ordered_json{
+        {
+            "mipmapped", t.mipmapped
+        }
+    };
+}
+
+inline void from_json(const json& j, TextureProperties& t)
+{
+    t = {j["mipmapped"].get<bool>()};
 }
 
 class Serializer
@@ -360,7 +376,7 @@ public: // Render Objects
         RenderObjectInfo info;
         info.gltfPath = gltfPath.string();
         info.name = gltfPath.stem().string();
-        info.id = computePathHash(gltfPath);
+        info.id = computePathHash(info.gltfPath);
 
         nlohmann::json j;
         j["version"] = WILL_MODEL_FORMAT_VERSION;
@@ -429,14 +445,15 @@ public: // Textures
         TextureInfo info;
         info.texturePath = texturePath.string();
         info.name = outputPath.stem().string();
-        info.id = computePathHash(texturePath);
+        info.id = computePathHash(texturePath.string());
 
         nlohmann::json j;
         j["version"] = WILL_TEXTURE_FORMAT_VERSION;
         j["texture"] = {
             {"gltfPath", info.texturePath},
             {"name", info.name},
-            {"id", info.id}
+            {"id", info.id},
+            {"textureProperties", info.textureProperties},
         };
 
         try {
@@ -475,13 +492,14 @@ public: // Textures
 
             TextureInfo info;
             info.willtexturePath = willtexturePath;
-            info.texturePath = texture["gltfPath"].get<std::string>();
-            info.name = texture["name"].get<std::string>();
-            info.id = texture["id"].get<uint32_t>();
+            info.texturePath = texture.value<std::string>("gltfPath", "");
+            info.name = texture.value<std::string>("name", "");
+            info.id = texture.value<uint32_t>("id", 0);;
+            info.textureProperties = texture.value<TextureProperties>("textureProperties", {});
 
-            uint32_t computedId = computePathHash(info.willtexturePath);
+            uint32_t computedId = computePathHash(info.texturePath);
             if (computedId != info.id) {
-                fmt::print("Warning: ID mismatch in {}, expected: {}, found: {} (not necessarily a problem).\n",willtexturePath.string(), computedId, info.id);
+                fmt::print("Warning: ID mismatch in {}, expected: {}, found: {} (not necessarily a problem).\n", willtexturePath.string(), computedId, info.id);
                 info.id = computedId;
             }
 

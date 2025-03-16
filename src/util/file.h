@@ -52,11 +52,11 @@ static std::filesystem::path getRelativePath(const std::filesystem::path& fullPa
     return "assets" / relPath;
 }
 
-static std::vector<std::filesystem::path> findWillmodels(const std::filesystem::path& dir)
+static std::vector<std::filesystem::path> findWillFiles(const std::filesystem::path& dir, const char* extension)
 {
     std::vector<std::filesystem::path> models;
     for (const auto& entry : std::filesystem::recursive_directory_iterator(dir)) {
-        if (entry.path().extension() == ".willmodel") {
+        if (entry.path().extension() == extension) {
             models.push_back(entry.path());
         }
     }
