@@ -60,6 +60,7 @@ public:
 
 public:
     static constexpr auto TYPE = "TerrainComponent";
+    static constexpr bool CAN_BE_CREATED_MANUALLY = false;
 
     static std::string_view getStaticType()
     {
@@ -83,6 +84,9 @@ private:
         .heightScale = DEFAULT_TERRAIN_HEIGHT_SCALE
     };
     uint32_t seed{13};
+
+public:
+    void updateRenderImgui() override;
 };
 }
 

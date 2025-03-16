@@ -4,6 +4,7 @@
 
 #include "terrain_component.h"
 
+#include "imgui.h"
 #include "src/core/engine.h"
 
 will_engine::components::TerrainComponent::TerrainComponent(const std::string& name) : Component(name)
@@ -80,4 +81,11 @@ void will_engine::components::TerrainComponent::destroyTerrain()
 std::vector<float> will_engine::components::TerrainComponent::getHeightMapData() const
 {
     return HeightmapUtil::generateFromNoise(NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, seed, terrainProperties);
+}
+
+void will_engine::components::TerrainComponent::updateRenderImgui()
+{
+    Component::updateRenderImgui();
+
+    ImGui::Text("This component is not meant to be added directly to game objects. This will have no effect.");
 }

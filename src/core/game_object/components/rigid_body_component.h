@@ -75,6 +75,7 @@ public: // Editor Tools
 
 public:
     static constexpr auto TYPE = "RigidBodyComponent";
+    static constexpr bool CAN_BE_CREATED_MANUALLY = true;
 
     static std::string_view getStaticType()
     {
