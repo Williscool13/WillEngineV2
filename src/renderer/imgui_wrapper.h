@@ -67,6 +67,11 @@ private:
     IHierarchical* selectedItem{nullptr};
     Map* selectedMap{nullptr};
 
+    uint32_t selectedRenderObjectId = 0;
+    uint32_t currentlySelectedTextureId;
+
+    int32_t shadowMapDebug{0};
+
     NoiseSettings terrainProperties{};
     uint32_t terrainSeed{13};
 

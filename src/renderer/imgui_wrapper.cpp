@@ -13,7 +13,7 @@
 
 #include "environment/environment.h"
 #include "lighting/shadows/cascaded_shadow_map.h"
-#include "lighting/shadows/shadows.h"
+#include "lighting/shadows/shadow_constants.h"
 #include "src/core/engine.h"
 #include "src/core/time.h"
 #include "src/core/camera/free_camera.h"
@@ -256,7 +256,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 ImGui::InputFloat2("Cascade 3 Bias", shadows::CASCADE_BIAS[2]);
                 ImGui::InputFloat2("Cascade 4 Bias", shadows::CASCADE_BIAS[3]);
                 ImGui::SetNextItemWidth(100);
-                static int32_t shadowMapDebug{0};
                 ImGui::SliderInt("Shadow Map Level", &shadowMapDebug, 0, shadows::SHADOW_CASCADE_COUNT - 1);
                 ImGui::SameLine();
                 if (ImGui::Button(fmt::format("Save Shadow Map", shadowMapDebug).c_str())) {
@@ -463,8 +462,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             if (ImGui::BeginTabItem("Render Objects")) {
                 if (ImGui::BeginTabBar("Render Object Tab Bar")) {
                     if (ImGui::BeginTabItem("Use")) {
-                        static uint32_t selectedRenderObjectId = 0;
-
                         ImGui::Text("Selected Render Object Details");
 
                         float detailsHeight = 160.0f;
@@ -689,7 +686,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             if (ImGui::BeginTabItem("Textures")) {
                 if (ImGui::BeginTabBar("Textures Tab Bar")) {
                     if (ImGui::BeginTabItem("Visualization")) {
-                        static uint32_t currentlySelectedTextureId;
                         if (currentlySelectedTextureImguiId == VK_NULL_HANDLE) {
                             if (engine->assetManager->hasAnyTexture()) {
                                 if (currentlySelectedTextureImguiId != VK_NULL_HANDLE) {

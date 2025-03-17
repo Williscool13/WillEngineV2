@@ -36,6 +36,8 @@ public:
     [[nodiscard]] size_t getIndexCount() const { return indices.size(); }
     const std::vector<uint32_t>& getIndices() { return indices; }
 
+    [[nodiscard]] const DescriptorBufferSampler& getTextureDescriptorBuffer() const { return textureDescriptorBuffer; }
+
 public: // Physics
     void setTransform(const glm::vec3& position, const glm::quat& rotation) override {}
 
@@ -63,8 +65,8 @@ private: // Model Data
 private: // Buffer Data
     AllocatedBuffer vertexBuffer{};
     AllocatedBuffer indexBuffer{};
-    //AllocatedBuffer instanceBuffer{};
-    //AllocatedBuffer materialBuffer{};
+
+    DescriptorBufferSampler textureDescriptorBuffer;
 
 private: // Physics
     JPH::BodyID terrainBodyId{JPH::BodyID::cMaxBodyIndex};

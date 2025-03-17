@@ -7,6 +7,9 @@
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 #include <Jolt/Physics/Collision/Shape/HeightFieldShape.h>
 
+#include "src/core/engine.h"
+
+#include "terrain_constants.h"
 #include "src/physics/physics.h"
 #include "src/physics/physics_filters.h"
 #include "src/physics/physics_utils.h"
@@ -39,9 +42,20 @@ TerrainChunk::TerrainChunk(ResourceManager& resourceManager, const std::vector<f
     resourceManager.copyBuffer(stagingBuffer, indexBuffer, indexBufferSize);
     resourceManager.destroyBuffer(stagingBuffer);
 
-    //instanceBuffer = resourceManager.createHostSequentialBuffer(sizeof(TerrainInstanceData));
+    std::vector<DescriptorImageData> textureDescriptors;
+    textureDescriptors.reserve(MAX_TEXTURE_COUNT);
 
-    //setupTerrainTextures(resourceManager);
+    Texture* defaultTerrainTexture = Engine::get()->getAssetManager()->getTexture(DEFAULT_TERRAIN_TEXTURE_ID);
+    if (defaultTerrainTexture) {
+        defaultTerrainTexture->load();
+        textureDescriptors.push_back({
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            {.sampler = resourceManager.getDefaultSamplerLinear(), .imageView = defaultTerrainTexture->getTextureResource().imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}, false
+        });
+    }
+
+    textureDescriptorBuffer = resourceManager.createDescriptorBufferSampler(resourceManager.getTerrainTexturesLayout(), 1);
+    resourceManager.setupDescriptorBufferSampler(textureDescriptorBuffer, textureDescriptors, 0);
 
     // Physics
     physics::Physics* physics = physics::Physics::get();
@@ -68,6 +82,8 @@ TerrainChunk::~TerrainChunk()
     }
     resourceManager.destroyBuffer(vertexBuffer);
     resourceManager.destroyBuffer(indexBuffer);
+
+    resourceManager.destroyDescriptorBuffer(textureDescriptorBuffer);
 }
 
 void TerrainChunk::generateMesh(const int32_t width, const int32_t height, const std::vector<float>& heightData)

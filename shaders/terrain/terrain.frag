@@ -11,7 +11,7 @@
 layout (location = 0) in vec3 inPosition;
 layout (location = 1) in vec3 inNormal;
 layout (location = 2) in vec2 inUV;
-layout (location = 3) flat in int materialIndex;
+layout (location = 3) flat in int inMaterialIndex;
 layout (location = 4) in vec4 inCurrMvpPosition;
 layout (location = 5) in vec4 inPrevMvpPosition;
 
@@ -27,7 +27,7 @@ layout (set = 1, binding = 0) uniform sampler2D textures[];
 void main() {
 
     normalTarget = vec4(normalize(inNormal), 0.0f);
-    albedoTarget = vec4(1.0);
+    albedoTarget = vec4(texture(textures[inMaterialIndex], inUV));
     pbrTarget = vec4(0.0f, 0.5f, 0.0f, 0.0f); // 0 metallic, 0.5 roughness
 
     vec2 currNdc = inCurrMvpPosition.xy / inCurrMvpPosition.w;

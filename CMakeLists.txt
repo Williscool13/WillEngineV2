@@ -182,8 +182,8 @@ set(RENDERER_SOURCES
         src/renderer/lighting/directional_light.cpp
         src/renderer/lighting/shadows/cascaded_shadow_map.cpp
         src/renderer/lighting/shadows/cascaded_shadow_map.h
-        src/renderer/lighting/shadows/shadows.cpp
-        src/renderer/lighting/shadows/shadows.h
+        src/renderer/lighting/shadows/shadow_constants.cpp
+        src/renderer/lighting/shadows/shadow_constants.h
         src/renderer/lighting/shadows/shadow_types.h
         src/renderer/descriptor_buffer/descriptor_buffer.cpp
         src/renderer/descriptor_buffer/descriptor_buffer.h
@@ -241,6 +241,7 @@ set(TEMP_SOURCES
         src/renderer/assets/asset_manager.h
         src/core/game_object/components/terrain_component.cpp
         src/core/game_object/components/terrain_component.h
+        src/renderer/terrain/terrain_constants.h
 
 )
 

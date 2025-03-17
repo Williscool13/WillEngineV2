@@ -4,7 +4,7 @@
 
 #ifndef CASCADED_SHADOW_MAP_H
 #define CASCADED_SHADOW_MAP_H
-#include "shadows.h"
+#include "shadow_constants.h"
 #include "shadow_types.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/lighting/directional_light.h"

@@ -109,14 +109,18 @@ void will_engine::terrain::TerrainPipeline::draw(VkCommandBuffer cmd, const Terr
         if (!terrainChunk) { continue; }
 
         constexpr uint32_t sceneDataIndex{0};
+        constexpr uint32_t textureIndex{1};
 
-        VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1];
+        VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];
         descriptorBufferBindingInfo[0] = drawInfo.sceneDataBinding;
-        vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
+        descriptorBufferBindingInfo[1] = terrainChunk->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
+        vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
 
         const VkDeviceSize sceneDataOffset{drawInfo.sceneDataOffset};
+        constexpr VkDeviceSize textureDescriptorOffset{0};
 
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &textureIndex, &textureDescriptorOffset);
 
         VkBuffer vertexBuffer = terrainChunk->getVertexBuffer().buffer;
         vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer, &zeroOffset);
