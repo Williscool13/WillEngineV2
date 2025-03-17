@@ -19,7 +19,7 @@ namespace will_engine::terrain
 class TerrainChunk : public IPhysicsBody
 {
 public:
-    TerrainChunk(ResourceManager& resourceManager, const std::vector<float>& heightMapData, int32_t width, int32_t height);
+    TerrainChunk(ResourceManager& resourceManager, const std::vector<float>& heightMapData, int32_t width, int32_t height, TerrainConfig terrainConfig);
 
     ~TerrainChunk() override;
 
@@ -57,6 +57,8 @@ public: // Physics
 
 private:
     ResourceManager& resourceManager;
+
+    TerrainConfig terrainConfig;
 
 private: // Model Data
     std::vector<TerrainVertex> vertices;

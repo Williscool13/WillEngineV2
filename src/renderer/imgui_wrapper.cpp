@@ -120,6 +120,7 @@ void ImguiWrapper::selectMap(Map* newMap)
 
     terrainProperties = terrainComponent->getTerrainProperties();
     terrainSeed = terrainComponent->getSeed();
+    terrainConfig = terrainComponent->getConfig();
 }
 
 void ImguiWrapper::imguiInterface(Engine* engine)
@@ -943,8 +944,24 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
             }
 
             ImGui::Separator();
+
+            if (ImGui::CollapsingHeader("Terrain Texture Properties")) {
+                ImGui::DragFloat2("UV Offset", &terrainConfig.uvOffset.x, 0.01f, -10.0f, 10.0f);
+                ImGui::DragFloat2("UV Scale", &terrainConfig.uvScale.x, 0.1f, 0.1f, 50.0f);
+                ImGui::Separator();
+                ImGui::Text("Material Settings");
+                ImGui::ColorEdit4("Base Color", &terrainConfig.baseColor.x, ImGuiColorEditFlags_NoAlpha);
+
+                // todo: terrain texture selection
+
+
+                // todo: terrain blending
+            }
+
+            ImGui::Separator();
+
             if (ImGui::Button("Generate Terrain", ImVec2(-1, 0))) {
-                currentTerrainComponent->generateTerrain(terrainProperties, terrainSeed);
+                currentTerrainComponent->generateTerrain(terrainProperties, terrainSeed, terrainConfig);
             }
 
             if (ImGui::Button("Destroy Terrain", ImVec2(-1, 0))) {

@@ -12,8 +12,9 @@ layout (location = 0) in vec3 inPosition;
 layout (location = 1) in vec3 inNormal;
 layout (location = 2) in vec2 inUV;
 layout (location = 3) flat in int inMaterialIndex;
-layout (location = 4) in vec4 inCurrMvpPosition;
-layout (location = 5) in vec4 inPrevMvpPosition;
+layout (location = 4) in vec4 inColor;
+layout (location = 5) in vec4 inCurrMvpPosition;
+layout (location = 6) in vec4 inPrevMvpPosition;
 
 layout (location = 0) out vec4 normalTarget; // 8,8,8 normal 8 unused
 layout (location = 1) out vec4 albedoTarget; // 8,8,8 albedo 8 coverage
@@ -27,8 +28,11 @@ layout (set = 1, binding = 0) uniform sampler2D textures[];
 void main() {
 
     normalTarget = vec4(normalize(inNormal), 0.0f);
-    albedoTarget = vec4(texture(textures[inMaterialIndex], inUV));
-    pbrTarget = vec4(0.0f, 0.5f, 0.0f, 0.0f); // 0 metallic, 0.5 roughness
+    vec4 color = texture(textures[inMaterialIndex], inUV);
+    color *= inColor;
+
+    albedoTarget = color;
+    pbrTarget = vec4(0.0f, 0.8f, 0.0f, 0.0f); // 0 metallic, 0.5 roughness
 
     vec2 currNdc = inCurrMvpPosition.xy / inCurrMvpPosition.w;
     vec2 prevNdc = inPrevMvpPosition.xy / inPrevMvpPosition.w;

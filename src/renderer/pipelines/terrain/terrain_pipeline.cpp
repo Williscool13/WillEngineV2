@@ -146,7 +146,7 @@ void will_engine::terrain::TerrainPipeline::createPipeline()
     mainBinding.binding = 0;
     mainBinding.stride = sizeof(TerrainVertex);
     mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    VkVertexInputAttributeDescription vertexAttributes[4];
+    VkVertexInputAttributeDescription vertexAttributes[5];
     vertexAttributes[0].binding = 0;
     vertexAttributes[0].location = 0;
     vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -163,8 +163,12 @@ void will_engine::terrain::TerrainPipeline::createPipeline()
     vertexAttributes[3].location = 3;
     vertexAttributes[3].format = VK_FORMAT_R32_SINT;
     vertexAttributes[3].offset = offsetof(TerrainVertex, materialIndex);
+    vertexAttributes[4].binding = 0;
+    vertexAttributes[4].location = 4;
+    vertexAttributes[4].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    vertexAttributes[4].offset = offsetof(TerrainVertex, color);
 
-    pipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 4);
+    pipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 5);
 
     pipelineBuilder.setShaders(vertShader, tescShader, teseShader, fragShader);
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_PATCH_LIST, false);
@@ -196,7 +200,7 @@ void will_engine::terrain::TerrainPipeline::createLinePipeline()
     mainBinding.binding = 0;
     mainBinding.stride = sizeof(TerrainVertex);
     mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    VkVertexInputAttributeDescription vertexAttributes[4];
+    VkVertexInputAttributeDescription vertexAttributes[5];
     vertexAttributes[0].binding = 0;
     vertexAttributes[0].location = 0;
     vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
@@ -213,8 +217,12 @@ void will_engine::terrain::TerrainPipeline::createLinePipeline()
     vertexAttributes[3].location = 3;
     vertexAttributes[3].format = VK_FORMAT_R32_SINT;
     vertexAttributes[3].offset = offsetof(TerrainVertex, materialIndex);
+    vertexAttributes[4].binding = 0;
+    vertexAttributes[4].location = 4;
+    vertexAttributes[4].format = VK_FORMAT_R32G32B32A32_SFLOAT;
+    vertexAttributes[4].offset = offsetof(TerrainVertex, color);
 
-    pipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 4);
+    pipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 5);
 
     pipelineBuilder.setShaders(vertShader, tescShader, teseShader, fragShader);
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_PATCH_LIST, false);

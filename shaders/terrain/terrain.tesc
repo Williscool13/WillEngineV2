@@ -6,15 +6,17 @@ layout(location = 0) in vec3 inPosition[];
 layout(location = 1) in vec3 inNormal[];
 layout(location = 2) in vec2 inTexCoord[];
 layout(location = 3) flat in int inMaterialIndex[];
+layout(location = 4) in vec4 inColor[];
 
 layout(location = 0) out vec3 outPosition[];
 layout(location = 1) out vec3 outNormal[];
 layout(location = 2) out vec2 outTexCoord[];
 layout(location = 3) flat out int outMaterialIndex[];
+layout(location = 4) out vec4 outColor[];
 
 layout(push_constant) uniform PushConstants {
     float tessLevel;
-    //vec3 cameraPos; // for distance based LOD later on
+//vec3 cameraPos; // for distance based LOD later on
 } pushConstants;
 
 void main() {
@@ -22,6 +24,7 @@ void main() {
     outNormal[gl_InvocationID] = inNormal[gl_InvocationID];
     outTexCoord[gl_InvocationID] = inTexCoord[gl_InvocationID];
     outMaterialIndex[gl_InvocationID] = inMaterialIndex[gl_InvocationID];
+    outColor[gl_InvocationID] = inColor[gl_InvocationID];
 
     if (gl_InvocationID == 0) {
         float tessLevel = pushConstants.tessLevel;

@@ -9,26 +9,20 @@
 
 namespace will_engine::terrain
 {
-struct TerrainConfig
-{
-    uint32_t width = 128;
-    uint32_t height = 128;
-    float scale = 100.0f;
-    float heightScale = 20.0f;
-};
-
-struct TerrainRenderData
-{
-    uint32_t renderObjectId;
-    uint32_t materialId;
-};
-
 struct TerrainVertex
 {
     glm::vec3 position;
     glm::vec3 normal;
     glm::vec2 uv;
     int32_t materialIndex;
+    glm::vec4 color;
+};
+
+struct TerrainConfig
+{
+    glm::vec2 uvOffset;
+    glm::vec2 uvScale;
+    glm::vec4 baseColor;
 };
 }
 

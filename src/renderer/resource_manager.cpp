@@ -55,6 +55,20 @@ ResourceManager::ResourceManager(const VulkanContext& context, ImmediateSubmitte
         samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
         vkCreateSampler(context.device, &samplerInfo, nullptr, &defaultSamplerLinear);
     }
+    // linear sampler mipmapped
+    {
+        VkSamplerCreateInfo samplerInfo = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
+        samplerInfo.magFilter = VK_FILTER_LINEAR;
+        samplerInfo.minFilter = VK_FILTER_LINEAR;
+        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        samplerInfo.minLod = 0.0f;
+        samplerInfo.maxLod = VK_LOD_CLAMP_NONE;
+        samplerInfo.mipLodBias = 0.0f;
+        samplerInfo.anisotropyEnable = VK_TRUE;
+        samplerInfo.maxAnisotropy = 8;
+        vkCreateSampler(context.device, &samplerInfo, nullptr, &defaultSamplerMipMappedLinear);
+    }
+
     // Empty (WIP/unused)
     {
         DescriptorLayoutBuilder layoutBuilder;
@@ -66,8 +80,10 @@ ResourceManager::ResourceManager(const VulkanContext& context, ImmediateSubmitte
     {
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        sceneDataLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT | VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, nullptr,
-                                              VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        sceneDataLayout = layoutBuilder.build(
+            context.device,
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT | VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, nullptr,
+            VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
     // Frustum Cull Layout
     {
@@ -119,6 +135,7 @@ ResourceManager::~ResourceManager()
     destroyImage(errorCheckerboardImage);
     vkDestroySampler(context.device, defaultSamplerNearest, nullptr);
     vkDestroySampler(context.device, defaultSamplerLinear, nullptr);
+    vkDestroySampler(context.device, defaultSamplerMipMappedLinear, nullptr);
     vkDestroyDescriptorSetLayout(context.device, emptyDescriptorSetLayout, nullptr);
     vkDestroyDescriptorSetLayout(context.device, sceneDataLayout, nullptr);
     vkDestroyDescriptorSetLayout(context.device, frustumCullLayout, nullptr);
@@ -335,7 +352,8 @@ AllocatedImage ResourceManager::createImage(const void* data, const size_t dataS
 
         if (mipmapped) {
             vk_helpers::generateMipmaps(cmd, newImage.image, VkExtent2D{newImage.imageExtent.width, newImage.imageExtent.height});
-        } else {
+        }
+        else {
             vk_helpers::transitionImage(cmd, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
         }
     });
@@ -411,7 +429,6 @@ VkShaderModule ResourceManager::createShaderModule(const std::filesystem::path& 
     std::filesystem::path projectRoot = std::filesystem::current_path();
     // Pre-Compiled
     if (path.extension() == ".spv") {
-
         const std::filesystem::path shaderPath((projectRoot / path).string().c_str());
         std::ifstream file(shaderPath, std::ios::ate | std::ios::binary);
         if (!file.is_open()) {

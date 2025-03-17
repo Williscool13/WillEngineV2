@@ -34,27 +34,17 @@ public:
 
     void destroyTerrain() override;
 
-    void generateTerrain(const uint32_t seed)
+    void generateTerrain(const NoiseSettings& terrainProperties, const uint32_t seed, const terrain::TerrainConfig& terrainConfig)
     {
+        this->terrainGenerationProperties = terrainProperties;
         this->seed = seed;
+        this->terrainConfig = terrainConfig;
         generateTerrain();
     }
 
-    void generateTerrain(const NoiseSettings& terrainProperties)
-    {
-        this->terrainProperties = terrainProperties;
-        generateTerrain();
-    }
-
-    void generateTerrain(const NoiseSettings& terrainProperties, const uint32_t seed)
-    {
-        this->terrainProperties = terrainProperties;
-        this->seed = seed;
-        generateTerrain();
-    }
-
-    NoiseSettings getTerrainProperties() const { return terrainProperties; }
+    NoiseSettings getTerrainProperties() const { return terrainGenerationProperties; }
     uint32_t getSeed() const { return seed; }
+    terrain::TerrainConfig getConfig() const { return terrainConfig; }
 
     std::vector<float> getHeightMapData() const;
 
@@ -75,7 +65,7 @@ private:
     const float DEFAULT_TERRAIN_SCALE{100.0f};
     const float DEFAULT_TERRAIN_HEIGHT_SCALE{50.0f};
 
-    NoiseSettings terrainProperties{
+    NoiseSettings terrainGenerationProperties{
         .scale = DEFAULT_TERRAIN_SCALE,
         .persistence = 0.5f,
         .lacunarity = 2.0f,
@@ -85,7 +75,11 @@ private:
     };
     uint32_t seed{13};
 
-    //uint32_t textureImage
+    terrain::TerrainConfig terrainConfig{
+        .uvOffset = {0.0f, 0.0f},
+        .uvScale = {1.0f, 1.0f},
+        .baseColor = {1.0f, 1.0f, 1.0f, 1.0f}
+    };
 
 public:
     void updateRenderImgui() override;

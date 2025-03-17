@@ -100,6 +100,7 @@ public: // Resource Creation
 public:
     [[nodiscard]] VkSampler getDefaultSamplerLinear() const { return defaultSamplerLinear; }
     [[nodiscard]] VkSampler getDefaultSamplerNearest() const { return defaultSamplerNearest; }
+    [[nodiscard]] VkSampler getDefaultSamplerMipMappedNearest() const { return defaultSamplerMipMappedLinear; }
     [[nodiscard]] AllocatedImage getWhiteImage() const { return whiteImage; }
     [[nodiscard]] AllocatedImage getErrorCheckerboardImage() const { return errorCheckerboardImage; }
 
@@ -119,6 +120,7 @@ private:
     AllocatedImage errorCheckerboardImage{};
     VkSampler defaultSamplerLinear{VK_NULL_HANDLE};
     VkSampler defaultSamplerNearest{VK_NULL_HANDLE};
+    VkSampler defaultSamplerMipMappedLinear{VK_NULL_HANDLE};
 
     VkDescriptorSetLayout emptyDescriptorSetLayout{VK_NULL_HANDLE};
 

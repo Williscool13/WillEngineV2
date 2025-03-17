@@ -16,7 +16,7 @@
 
 namespace will_engine::terrain
 {
-TerrainChunk::TerrainChunk(ResourceManager& resourceManager, const std::vector<float>& heightMapData, int32_t width, int32_t height) : resourceManager(resourceManager)
+TerrainChunk::TerrainChunk(ResourceManager& resourceManager, const std::vector<float>& heightMapData, int32_t width, int32_t height, TerrainConfig terrainConfig) : resourceManager(resourceManager), terrainConfig(terrainConfig)
 {
     generateMesh(width, height, heightMapData);
 
@@ -50,7 +50,7 @@ TerrainChunk::TerrainChunk(ResourceManager& resourceManager, const std::vector<f
         defaultTerrainTexture->load();
         textureDescriptors.push_back({
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            {.sampler = resourceManager.getDefaultSamplerLinear(), .imageView = defaultTerrainTexture->getTextureResource().imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}, false
+            {.sampler = resourceManager.getDefaultSamplerMipMappedNearest(), .imageView = defaultTerrainTexture->getTextureResource().imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}, false
         });
     }
 
@@ -105,10 +105,14 @@ void TerrainChunk::generateMesh(const int32_t width, const int32_t height, const
 
             vertex.position = glm::vec3(xPos, yPos, zPos);
 
-            vertex.uv.x = static_cast<float>(x) / static_cast<float>(width - 1);
-            vertex.uv.y = static_cast<float>(z) / static_cast<float>(height - 1);
+            const float uvX = static_cast<float>(x) / static_cast<float>(width - 1);
+            const float uvY = static_cast<float>(z) / static_cast<float>(height - 1);
+            vertex.uv.x = uvX * terrainConfig.uvScale.x + terrainConfig.uvOffset.x;
+            vertex.uv.y = uvY * terrainConfig.uvScale.y + terrainConfig.uvOffset.y;
 
             vertex.materialIndex = 0;
+
+            vertex.color = terrainConfig.baseColor;
 
             vertices.push_back(vertex);
         }

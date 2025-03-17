@@ -242,6 +242,8 @@ set(TEMP_SOURCES
         src/core/game_object/components/terrain_component.cpp
         src/core/game_object/components/terrain_component.h
         src/renderer/terrain/terrain_constants.h
+        src/core/scene/serializer_types.h
+        src/core/scene/serializer_constants.h
 
 )
 

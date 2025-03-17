@@ -9,6 +9,7 @@
 
 
 #include "map.h"
+#include "serializer_types.h"
 #include "src/core/transform.h"
 #include "src/core/game_object/game_object.h"
 #include "src/core/game_object/components/component.h"
@@ -19,83 +20,131 @@
 
 namespace will_engine
 {
-constexpr int32_t SCENE_FORMAT_VERSION = 1;
-constexpr int32_t WILL_MODEL_FORMAT_VERSION = 1;
-constexpr int32_t WILL_TEXTURE_FORMAT_VERSION = 1;
+using ordered_json = nlohmann::ordered_json;
+using json = nlohmann::json;
 
-struct EngineVersion
+inline void to_json(ordered_json& j, const glm::vec2& v)
 {
-    uint32_t major;
-    uint32_t minor;
-    uint32_t patch;
+    j = {
+        {"x", v.x},
+        {"y", v.y}
+    };
+}
 
-    static EngineVersion current()
-    {
-        return {ENGINE_VERSION_MAJOR, ENGINE_VERSION_MINOR, ENGINE_VERSION_PATCH};
-    }
-
-    bool operator==(const EngineVersion& other) const
-    {
-        return major == other.major && minor == other.minor && patch == other.patch;
-    }
-
-    bool operator<(const EngineVersion& other) const
-    {
-        if (major != other.major) return major < other.major;
-        if (minor != other.minor) return minor < other.minor;
-        return patch < other.patch;
-    }
-
-    bool operator>(const EngineVersion& other) const
-    {
-        return other < *this;
-    }
-
-    std::string toString() const
-    {
-        return fmt::format("{}.{}.{}", major, minor, patch);
-    }
-};
-
-struct SceneMetadata
+inline void from_json(const ordered_json& j, glm::vec2& v)
 {
-    std::string name;
-    std::string created;
-    uint32_t formatVersion;
+    v.x = j["x"].get<float>();
+    v.y = j["y"].get<float>();
+}
 
-    static SceneMetadata create(const std::string& sceneName)
+inline void to_json(ordered_json& j, const glm::vec3& v)
+{
+    j = {
+        {"x", v.x},
+        {"y", v.y},
+        {"z", v.z}
+    };
+}
+
+inline void from_json(const ordered_json& j, glm::vec3& v)
+{
+    v.x = j["x"].get<float>();
+    v.y = j["y"].get<float>();
+    v.z = j["z"].get<float>();
+}
+
+inline void to_json(ordered_json& j, const glm::vec4& v)
+{
+    j = {
+        {"x", v.x},
+        {"y", v.y},
+        {"z", v.z},
+        {"w", v.w}
+    };
+}
+
+inline void from_json(const ordered_json& j, glm::vec4& v)
+{
+    v.x = j["x"].get<float>();
+    v.y = j["y"].get<float>();
+    v.z = j["z"].get<float>();
+    v.w = j["w"].get<float>();
+}
+
+inline void to_json(ordered_json& j, const NoiseSettings& settings)
+{
+    j = {
+        {"scale", settings.scale},
+        {"persistence", settings.persistence},
+        {"lacunarity", settings.lacunarity},
+        {"octaves", settings.octaves},
+        {
+            "offset", {
+                {"x", settings.offset.x},
+                {"y", settings.offset.y}
+            }
+        },
+        {"heightScale", settings.heightScale}
+    };
+}
+
+inline void from_json(const ordered_json& j, NoiseSettings& settings)
+{
+    settings.scale = j["scale"].get<float>();
+    settings.persistence = j["persistence"].get<float>();
+    settings.lacunarity = j["lacunarity"].get<float>();
+    settings.octaves = j["octaves"].get<int>();
+
+    glm::vec2 offset{
+        j["offset"]["x"].get<float>(),
+        j["offset"]["y"].get<float>()
+    };
+    settings.offset = offset;
+
+    settings.heightScale = j["heightScale"].get<float>();
+}
+
+namespace terrain
+{
+    inline void to_json(ordered_json& j, const TerrainConfig& config)
     {
-        const auto now = std::chrono::system_clock::now();
-        const auto timeT = std::chrono::system_clock::to_time_t(now);
-        std::stringstream ss;
-        tm timeInfo;
-        localtime_s(&timeInfo, &timeT);
-        ss << std::put_time(&timeInfo, "%Y-%m-%d %H:%M:%S");
-
-        return {
-            sceneName,
-            ss.str(),
-            SCENE_FORMAT_VERSION
+        j = {
+            {
+                "uvOffset", {
+                    {"x", config.uvOffset.x},
+                    {"y", config.uvOffset.y}
+                }
+            },
+            {
+                "uvScale", {
+                    {"x", config.uvScale.x},
+                    {"y", config.uvScale.y},
+                }
+            },
+            {
+                "baseColor", {
+                    {"x", config.baseColor.x},
+                    {"y", config.baseColor.y},
+                    {"z", config.baseColor.z},
+                    {"w", config.baseColor.w},
+                }
+            }
         };
     }
-};
 
-struct RenderObjectInfo
-{
-    std::filesystem::path willmodelPath;
-    std::string gltfPath;
-    std::string name;
-    uint32_t id;
-};
+    inline void from_json(const ordered_json& j, TerrainConfig& config)
+    {
+        config.uvOffset.x = j["uvOffset"]["x"].get<float>();
+        config.uvOffset.y = j["uvOffset"]["y"].get<float>();
+        config.uvScale.x = j["uvScale"]["x"].get<float>();
+        config.uvScale.y = j["uvScale"]["y"].get<float>();
 
-struct TextureInfo
-{
-    TextureProperties textureProperties;
-    std::filesystem::path willtexturePath;
-    std::string texturePath;
-    std::string name;
-    uint32_t id;
-};
+        config.baseColor.x = j["baseColor"]["x"].get<float>();
+        config.baseColor.y = j["baseColor"]["y"].get<float>();
+        config.baseColor.z = j["baseColor"]["z"].get<float>();
+        config.baseColor.w = j["baseColor"]["w"].get<float>();
+    }
+}
 
 inline void to_json(ordered_json& j, const Transform& t)
 {

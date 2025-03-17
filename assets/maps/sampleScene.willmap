@@ -6,13 +6,13 @@
     },
     "metadata": {
         "name": "sampleScene",
-        "created": "2025-03-16 18:49:52",
+        "created": "2025-03-17 22:06:14",
         "formatVersion": 1
     },
     "rootComponents": {
         "TerrainComponent": {
             "terrain": {
-                "terrainProperties": {
+                "terrainGenerationProperties": {
                     "scale": 64.58599853515625,
                     "persistence": 0.17499999701976776,
                     "lacunarity": 1.1180000305175781,
@@ -23,7 +23,23 @@
                     },
                     "heightScale": 19.84000015258789
                 },
-                "terrainSeed": 2855772438
+                "terrainSeed": 2855772438,
+                "terrainConfig": {
+                    "uvOffset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    },
+                    "uvScale": {
+                        "x": 50.0,
+                        "y": 50.0
+                    },
+                    "baseColor": {
+                        "x": 0.43367934226989746,
+                        "y": 0.6911764740943909,
+                        "z": 0.44882628321647644,
+                        "w": 1.0
+                    }
+                }
             },
             "componentName": "Terrain Component"
         }
@@ -51,7 +67,7 @@
         "components": {
             "TerrainComponent": {
                 "terrain": {
-                    "terrainProperties": {
+                    "terrainGenerationProperties": {
                         "scale": 64.58599853515625,
                         "persistence": 0.17499999701976776,
                         "lacunarity": 1.1180000305175781,
@@ -62,7 +78,23 @@
                         },
                         "heightScale": 19.84000015258789
                     },
-                    "terrainSeed": 2855772438
+                    "terrainSeed": 2855772438,
+                    "terrainConfig": {
+                        "uvOffset": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "uvScale": {
+                            "x": 50.0,
+                            "y": 50.0
+                        },
+                        "baseColor": {
+                            "x": 0.43367934226989746,
+                            "y": 0.6911764740943909,
+                            "z": 0.44882628321647644,
+                            "w": 1.0
+                        }
+                    }
                 },
                 "componentName": "Terrain Component"
             }
@@ -208,15 +240,15 @@
                 "name": "Cube\u0000ing Orb",
                 "transform": {
                     "position": {
-                        "x": -11.383736610412598,
+                        "x": -11.383755683898926,
                         "y": 9.166512489318848,
-                        "z": -2.5771937370300293
+                        "z": -2.5771360397338867
                     },
                     "rotation": {
-                        "x": -0.018268059939146042,
-                        "y": -0.9867494702339172,
-                        "z": 0.03245330974459648,
-                        "w": 0.15791946649551392
+                        "x": -0.01825932413339615,
+                        "y": -0.9867500066757202,
+                        "z": 0.03244137391448021,
+                        "w": 0.15791970491409302
                     },
                     "scale": {
                         "x": 1.0,
