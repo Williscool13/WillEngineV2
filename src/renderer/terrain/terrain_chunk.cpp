@@ -70,7 +70,6 @@ TerrainChunk::TerrainChunk(ResourceManager& resourceManager, const std::vector<f
     physics->setupRigidbody(this, heightFieldSettings, JPH::EMotionType::Static, physics::Layers::TERRAIN);
 
     TerrainProperties t{};
-    t.maxHeight = 1;
     setTerrainProperties(t);
 }
 
