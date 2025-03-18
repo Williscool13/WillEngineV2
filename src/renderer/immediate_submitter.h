@@ -12,6 +12,8 @@
 #include "volk/volk.h"
 #include "vulkan_context.h"
 
+namespace will_engine
+{
 class ImmediateSubmitter
 {
 public:
@@ -58,6 +60,7 @@ private:
     VkCommandPool immCommandPool{VK_NULL_HANDLE};
     VkCommandBuffer immCommandBuffer{VK_NULL_HANDLE};
 };
+}
 
 
 #endif //IMMEDIATE_SUBMITTER_H

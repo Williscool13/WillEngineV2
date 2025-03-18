@@ -16,7 +16,8 @@
 
 namespace will_engine::terrain
 {
-TerrainChunk::TerrainChunk(ResourceManager& resourceManager, const std::vector<float>& heightMapData, int32_t width, int32_t height, TerrainConfig terrainConfig) : resourceManager(resourceManager), terrainConfig(terrainConfig)
+TerrainChunk::TerrainChunk(ResourceManager& resourceManager, const std::vector<float>& heightMapData, int32_t width, int32_t height, TerrainConfig terrainConfig) : resourceManager(resourceManager),
+    terrainConfig(terrainConfig)
 {
     generateMesh(width, height, heightMapData);
 
@@ -42,20 +43,17 @@ TerrainChunk::TerrainChunk(ResourceManager& resourceManager, const std::vector<f
     resourceManager.copyBuffer(stagingBuffer, indexBuffer, indexBufferSize);
     resourceManager.destroyBuffer(stagingBuffer);
 
-    std::vector<DescriptorImageData> textureDescriptors;
-    textureDescriptors.reserve(MAX_TEXTURE_COUNT);
+    uploadTextures();
 
-    Texture* defaultTerrainTexture = Engine::get()->getAssetManager()->getTexture(DEFAULT_TERRAIN_TEXTURE_ID);
-    if (defaultTerrainTexture) {
-        defaultTerrainTexture->load();
-        textureDescriptors.push_back({
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            {.sampler = resourceManager.getDefaultSamplerMipMappedNearest(), .imageView = defaultTerrainTexture->getTextureResource().imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}, false
-        });
+    for (int i{0}; i < FRAME_OVERLAP; i++) {
+        terrainUniformBuffers[i] = resourceManager.createHostSequentialBuffer(sizeof(TerrainProperties));
     }
-
-    textureDescriptorBuffer = resourceManager.createDescriptorBufferSampler(resourceManager.getTerrainTexturesLayout(), 1);
-    resourceManager.setupDescriptorBufferSampler(textureDescriptorBuffer, textureDescriptors, 0);
+    uniformDescriptorBuffer = resourceManager.createDescriptorBufferUniform(resourceManager.getTerrainUniformLayout(), FRAME_OVERLAP);
+    std::vector<DescriptorUniformData> terrainBuffers{1};
+    for (int i{0}; i < FRAME_OVERLAP; i++) {
+        terrainBuffers[0] = DescriptorUniformData{.uniformBuffer = terrainUniformBuffers[i], .allocSize = sizeof(TerrainProperties)};
+        resourceManager.setupDescriptorBufferUniform(uniformDescriptorBuffer, terrainBuffers, i);
+    }
 
     // Physics
     physics::Physics* physics = physics::Physics::get();
@@ -70,6 +68,10 @@ TerrainChunk::TerrainChunk(ResourceManager& resourceManager, const std::vector<f
     };
 
     physics->setupRigidbody(this, heightFieldSettings, JPH::EMotionType::Static, physics::Layers::TERRAIN);
+
+    TerrainProperties t{};
+    t.maxHeight = 1;
+    setTerrainProperties(t);
 }
 
 TerrainChunk::~TerrainChunk()
@@ -83,7 +85,12 @@ TerrainChunk::~TerrainChunk()
     resourceManager.destroyBuffer(vertexBuffer);
     resourceManager.destroyBuffer(indexBuffer);
 
+    for (AllocatedBuffer buffer : terrainUniformBuffers) {
+        resourceManager.destroyBuffer(buffer);
+    }
+
     resourceManager.destroyDescriptorBuffer(textureDescriptorBuffer);
+    resourceManager.destroyDescriptorBuffer(uniformDescriptorBuffer);
 }
 
 void TerrainChunk::generateMesh(const int32_t width, const int32_t height, const std::vector<float>& heightData)
@@ -193,5 +200,52 @@ void TerrainChunk::smoothNormals(std::vector<TerrainVertex>& vertices, const int
     for (int32_t i = 0; i < width * height; i++) {
         vertices[i].normal = smoothedNormals[i];
     }
+}
+
+void TerrainChunk::uploadTextures()
+{
+    std::vector<DescriptorImageData> textureDescriptors;
+    constexpr std::array defaultTextures{DEFAULT_TERRAIN_GRASS_TEXTURE_ID, DEFAULT_TERRAIN_ROCKS_TEXTURE_ID, DEFAULT_TERRAIN_SAND_TEXTURE_ID};
+    textureDescriptors.reserve(defaultTextures.size());
+
+    for (const uint32_t textureId : defaultTextures) {
+        if (Texture* texture = Engine::get()->getAssetManager()->getTexture(textureId)) {
+            texture->load();
+            textureDescriptors.push_back({
+                VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+                {
+                    .sampler = resourceManager.getDefaultSamplerMipMappedNearest(),
+                    .imageView = texture->getTextureResource().imageView,
+                    .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+                },
+                false
+            });
+        }
+        else {
+            textureDescriptors.push_back({
+                VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, {}, true
+            });
+        }
+    }
+
+    textureDescriptorBuffer = resourceManager.createDescriptorBufferSampler(resourceManager.getTerrainTexturesLayout(), 1);
+    resourceManager.setupDescriptorBufferSampler(textureDescriptorBuffer, textureDescriptors, 0);
+}
+
+void TerrainChunk::update(const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
+{
+    if (bufferFramesToUpdate <= 0) { return; }
+
+    const AllocatedBuffer& currentFrameUniformBuffer = terrainUniformBuffers[currentFrameOverlap];
+    const auto pUniformBuffer = reinterpret_cast<TerrainProperties*>(static_cast<char*>(currentFrameUniformBuffer.info.pMappedData));
+    memcpy(pUniformBuffer, &terrainProperties, sizeof(TerrainProperties));
+
+    bufferFramesToUpdate--;
+}
+
+void TerrainChunk::setTerrainProperties(TerrainProperties newTerrainProperties)
+{
+    terrainProperties = newTerrainProperties;
+    bufferFramesToUpdate = FRAME_OVERLAP;
 }
 }

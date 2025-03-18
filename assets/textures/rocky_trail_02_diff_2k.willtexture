@@ -1,0 +1,11 @@
+{
+    "texture": {
+        "gltfPath": "assets\\textures\\rocky_trail_02_diff_2k.jpg",
+        "id": 3929634359,
+        "name": "rocky_trail_02_diff_2k",
+        "textureProperties": {
+            "mipmapped": true
+        }
+    },
+    "version": 1
+}

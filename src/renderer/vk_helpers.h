@@ -16,107 +16,110 @@
 #include "vk_types.h"
 
 
-class ImmediateSubmitter;
-class ResourceManager;
 class Engine;
+
+namespace will_engine
+{
+class ResourceManager;
+class ImmediateSubmitter;
 
 namespace vk_helpers
 {
-VkImageCreateInfo imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
+    VkImageCreateInfo imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
 
-VkImageCreateInfo cubemapCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
+    VkImageCreateInfo cubemapCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
 
-VkImageViewCreateInfo imageviewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags);
+    VkImageViewCreateInfo imageviewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags);
 
-VkImageViewCreateInfo cubemapViewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags);
+    VkImageViewCreateInfo cubemapViewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags);
 
-VkImageSubresourceRange imageSubresourceRange(VkImageAspectFlags aspectMask);
-
-
-VkCommandPoolCreateInfo commandPoolCreateInfo(uint32_t queueFamilyIndex, VkCommandPoolCreateFlags flags = 0);
-
-VkCommandBufferAllocateInfo commandBufferAllocateInfo(VkCommandPool pool, uint32_t count = 1);
-
-VkCommandBufferBeginInfo commandBufferBeginInfo(VkCommandBufferUsageFlags flags = 0);
-
-VkCommandBufferSubmitInfo commandBufferSubmitInfo(VkCommandBuffer cmd);
+    VkImageSubresourceRange imageSubresourceRange(VkImageAspectFlags aspectMask);
 
 
-VkFenceCreateInfo fenceCreateInfo(VkFenceCreateFlags flags = 0);
+    VkCommandPoolCreateInfo commandPoolCreateInfo(uint32_t queueFamilyIndex, VkCommandPoolCreateFlags flags = 0);
 
-VkSemaphoreCreateInfo semaphoreCreateInfo(VkSemaphoreCreateFlags flags = 0);
+    VkCommandBufferAllocateInfo commandBufferAllocateInfo(VkCommandPool pool, uint32_t count = 1);
 
-VkSemaphoreSubmitInfo semaphoreSubmitInfo(VkPipelineStageFlags2 stageMask, VkSemaphore semaphore);
+    VkCommandBufferBeginInfo commandBufferBeginInfo(VkCommandBufferUsageFlags flags = 0);
 
-VkRenderingAttachmentInfo attachmentInfo(VkImageView view, const VkClearValue* clear,
-                                         VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/);
-
-VkRenderingInfo renderingInfo(VkExtent2D renderExtent, const VkRenderingAttachmentInfo* colorAttachment, const VkRenderingAttachmentInfo* depthAttachment);
-
-VkSubmitInfo2 submitInfo(const VkCommandBufferSubmitInfo* cmd, const VkSemaphoreSubmitInfo* signalSemaphoreInfo, const VkSemaphoreSubmitInfo* waitSemaphoreInfo);
-
-VkPresentInfoKHR presentInfo();
+    VkCommandBufferSubmitInfo commandBufferSubmitInfo(VkCommandBuffer cmd);
 
 
-/**
- * Returns the Buffer Device address of the specified buffer
- * @param device The device the buffer was created with
- * @param buffer The buffer whose address will be returned
- * @return the address of the buffer
- */
-VkDeviceAddress getDeviceAddress(VkDevice device, VkBuffer buffer);
+    VkFenceCreateInfo fenceCreateInfo(VkFenceCreateFlags flags = 0);
 
-/**
- * Returns the final aligned size based on the alignment given
- * @param value value to align
- * @param alignment value to align to
- * @return
- */
-VkDeviceSize getAlignedSize(VkDeviceSize value, VkDeviceSize alignment);
+    VkSemaphoreCreateInfo semaphoreCreateInfo(VkSemaphoreCreateFlags flags = 0);
 
-void clearColorImage(VkCommandBuffer cmd, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout, VkClearColorValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f});
+    VkSemaphoreSubmitInfo semaphoreSubmitInfo(VkPipelineStageFlags2 stageMask, VkSemaphore semaphore);
 
-void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
+    VkRenderingAttachmentInfo attachmentInfo(VkImageView view, const VkClearValue* clear,
+                                             VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/);
 
-void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageAspectFlags aspectMask, VkImageLayout targetLayout);
+    VkRenderingInfo renderingInfo(VkExtent2D renderExtent, const VkRenderingAttachmentInfo* colorAttachment, const VkRenderingAttachmentInfo* depthAttachment);
 
-void copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize);
+    VkSubmitInfo2 submitInfo(const VkCommandBufferSubmitInfo* cmd, const VkSemaphoreSubmitInfo* signalSemaphoreInfo, const VkSemaphoreSubmitInfo* waitSemaphoreInfo);
 
-void copyDepthToDepth(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize);
-
-void generateMipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize);
-
-void generateMipmapsCubemap(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize, VkImageLayout inputLayout, VkImageLayout ouputLayout);
+    VkPresentInfoKHR presentInfo();
 
 
-VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo();
+    /**
+     * Returns the Buffer Device address of the specified buffer
+     * @param device The device the buffer was created with
+     * @param buffer The buffer whose address will be returned
+     * @return the address of the buffer
+     */
+    VkDeviceAddress getDeviceAddress(VkDevice device, VkBuffer buffer);
 
-VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shaderModule,
-                                                              const char* entry = "main");
+    /**
+     * Returns the final aligned size based on the alignment given
+     * @param value value to align
+     * @param alignment value to align to
+     * @return
+     */
+    VkDeviceSize getAlignedSize(VkDeviceSize value, VkDeviceSize alignment);
 
-void saveImageRGBA32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-                      const char* savePath, bool overrideAlpha = true);
+    void clearColorImage(VkCommandBuffer cmd, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout, VkClearColorValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f});
 
-void saveImageRGBA16SFLOAT(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-                           const char* savePath, bool overrideAlpha = true);
+    void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
 
-void savePacked32Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-                     const char* savePath, const std::function<glm::vec4(uint32_t)>& unpackingFunction);
+    void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageAspectFlags aspectMask, VkImageLayout targetLayout);
 
-void savePacked64Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-                     const char* savePath, const std::function<glm::vec4(uint64_t)>& unpackingFunction);
+    void copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize);
 
-/**
- * Save the Allocated image as a grayscaled image. The image must be a format with only 1 channel (e.g. R32 or D32)
- */
-void saveImageR32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-                   const char* savePath, const std::function<float(float)>& valueTransform);
+    void copyDepthToDepth(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize);
 
-void saveImage(const std::vector<float>& imageData, int width, int height, std::filesystem::path filename, bool overrideAlpha = true);
+    void generateMipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize);
 
-void saveHeightmap(const std::vector<float>& heightData, int width, int height, const std::filesystem::path& filename);
+    void generateMipmapsCubemap(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize, VkImageLayout inputLayout, VkImageLayout ouputLayout);
+
+
+    VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo();
+
+    VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shaderModule,
+                                                                  const char* entry = "main");
+
+    void saveImageRGBA32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+                          const char* savePath, bool overrideAlpha = true);
+
+    void saveImageRGBA16SFLOAT(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+                               const char* savePath, bool overrideAlpha = true);
+
+    void savePacked32Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+                         const char* savePath, const std::function<glm::vec4(uint32_t)>& unpackingFunction);
+
+    void savePacked64Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+                         const char* savePath, const std::function<glm::vec4(uint64_t)>& unpackingFunction);
+
+    /**
+     * Save the Allocated image as a grayscaled image. The image must be a format with only 1 channel (e.g. R32 or D32)
+     */
+    void saveImageR32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+                       const char* savePath, const std::function<float(float)>& valueTransform);
+
+    void saveImage(const std::vector<float>& imageData, int width, int height, std::filesystem::path filename, bool overrideAlpha = true);
+
+    void saveHeightmap(const std::vector<float>& heightData, int width, int height, const std::filesystem::path& filename);
 }
-
+}
 
 #define VK_CHECK(x)                                                          \
     do {                                                                     \

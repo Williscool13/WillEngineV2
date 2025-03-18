@@ -1,0 +1,11 @@
+{
+    "texture": {
+        "gltfPath": "assets\\textures\\rock_face_03_diff_2k.jpg",
+        "id": 219859308,
+        "name": "rock_face_03_diff_2k",
+        "textureProperties": {
+            "mipmapped": true
+        }
+    },
+    "version": 1
+}

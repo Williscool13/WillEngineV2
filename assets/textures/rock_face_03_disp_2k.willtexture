@@ -1,0 +1,11 @@
+{
+    "texture": {
+        "gltfPath": "assets\\textures\\rock_face_03_disp_2k.png",
+        "id": 1256937365,
+        "name": "rock_face_03_disp_2k",
+        "textureProperties": {
+            "mipmapped": true
+        }
+    },
+    "version": 1
+}

@@ -6,8 +6,8 @@
 #define ENVIRONMENT_PIPELINE_H
 #include <vulkan/vulkan_core.h>
 
+#include "src/renderer/resource_manager.h"
 
-class ResourceManager;
 
 namespace will_engine::environment_pipeline
 {

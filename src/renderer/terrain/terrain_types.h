@@ -24,6 +24,20 @@ struct TerrainConfig
     glm::vec2 uvScale;
     glm::vec4 baseColor;
 };
+
+struct TerrainProperties
+{
+
+    float slopeRockThreshold = 0.7f;
+    float slopeRockBlend = 0.2;
+    float heightSandThreshold = 0.1f;
+    float heightSandBlend = 0.05f;
+    float heightGrassThreshold = 0.9f;
+    float heightGrassBlend = 0.1f;
+
+    float minHeight = 0.0f;
+    float maxHeight = 100.0f;
+};
 }
 
 #endif //TERRAIN_TYPES_H

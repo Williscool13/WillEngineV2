@@ -697,7 +697,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                     ImGui_ImplVulkan_RemoveTexture(currentlySelectedTextureImguiId);
                                     // todo: remove texture needs to be delayed to account for double buffer
                                     currentlySelectedTextureImguiId = VK_NULL_HANDLE;
-
                                 }
                                 auto randomTexture = engine->assetManager->getAnyTexture();
                                 randomTexture->load();
@@ -780,6 +779,9 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                         ImGui::BeginDisabled(texturesPath.empty());
                         static int32_t generatedCount = 0;
 
+                        static bool forceTextureGeneration = false;
+                        ImGui::Checkbox("Forced", &forceTextureGeneration);
+                        ImGui::SameLine();
                         if (ImGui::Button("Generate Texture Files")) {
                             generatedCount = 0;
                             if (!exists(texturesPath) || !is_directory(texturesPath)) {
@@ -789,7 +791,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                             std::vector<std::string> extensions = {".jpg", ".jpeg", ".png", ".tga", ".bmp"};
 
-                            for (const auto& entry : std::filesystem::recursive_directory_iterator(texturesPath)) {
+                            for (const auto& entry : std::filesystem::directory_iterator(texturesPath)) {
                                 if (!entry.is_regular_file()) continue;
 
                                 std::string extension = entry.path().extension().string();
@@ -799,6 +801,10 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                     const std::filesystem::path texturePath = entry.path();
                                     const std::filesystem::path outputPath = texturePath.parent_path() /
                                                                              (texturePath.stem().string() + ".willtexture");
+
+                                    if (!forceTextureGeneration && exists(outputPath)) {
+                                        continue;
+                                    }
 
                                     if (Serializer::generateWillTexture(texturePath, outputPath)) {
                                         generatedCount++;
@@ -824,7 +830,11 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             ImGui::EndPopup();
                         }
                         if (ImGui::BeginPopupModal("Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                            ImGui::Text("Failed to find any textures to generate.");
+                            if (forceTextureGeneration) {
+                                ImGui::Text("Failed to find any textures to generate.");
+                            } else {
+                                ImGui::Text("Failed to find any (new) textures to generate.");
+                            }
                             if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
                             ImGui::EndPopup();
                         }

@@ -184,6 +184,7 @@ void Engine::initRenderer()
     for (int i{0}; i < FRAME_OVERLAP; i++) {
         sceneDataBuffers[i] = resourceManager->createHostSequentialBuffer(sizeof(SceneData));
     }
+    // +1 for the debug scene data buffer. Not multi-buffering for simplicity
     sceneDataDescriptorBuffer = DescriptorBufferUniform(*context, resourceManager->getSceneDataLayout(), FRAME_OVERLAP + 1);
     std::vector<DescriptorUniformData> sceneDataBufferData{1};
     for (int i{0}; i < FRAME_OVERLAP; i++) {
@@ -423,10 +424,15 @@ void Engine::draw(float deltaTime)
     int32_t previousFrameOverlap = getPreviousFrameOverlap();
 
     std::vector<RenderObject*> allRenderObjects = assetManager->getAllRenderObjects();
+
     // Update Render Object Buffers and Model Matrices
     for (RenderObject* renderObject : allRenderObjects) {
-        if (renderObject) {
-            renderObject->update(currentFrameOverlap, previousFrameOverlap);
+        renderObject->update(currentFrameOverlap, previousFrameOverlap);
+    }
+
+    for (ITerrain* terrain : activeTerrains) {
+        if (auto chunk = terrain->getTerrainChunk()) {
+            chunk->update(currentFrameOverlap, previousFrameOverlap);
         }
     }
 

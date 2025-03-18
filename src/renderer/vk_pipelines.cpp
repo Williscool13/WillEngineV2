@@ -6,7 +6,7 @@
 
 #include <volk/volk.h>
 
-void PipelineBuilder::clear()
+void will_engine::PipelineBuilder::clear()
 {
     vertexInputInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
     inputAssembly = {.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
@@ -19,7 +19,7 @@ void PipelineBuilder::clear()
     shaderStages.clear();
 }
 
-VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkPipelineCreateFlagBits flags, std::vector<VkDynamicState> additionalDynamicStates)
+VkPipeline will_engine::PipelineBuilder::buildPipeline(VkDevice device, VkPipelineCreateFlagBits flags, std::vector<VkDynamicState> additionalDynamicStates)
 {
     // Viewport, details not necessary here (dynamic rendering)
     VkPipelineViewportStateCreateInfo viewportState = {}; {
@@ -92,7 +92,7 @@ VkPipeline PipelineBuilder::buildPipeline(VkDevice device, VkPipelineCreateFlagB
     }
 }
 
-void PipelineBuilder::setShaders(VkShaderModule vertexShader)
+void will_engine::PipelineBuilder::setShaders(VkShaderModule vertexShader)
 {
     shaderStages.clear();
 
@@ -101,7 +101,7 @@ void PipelineBuilder::setShaders(VkShaderModule vertexShader)
     );
 }
 
-void PipelineBuilder::setShaders(VkShaderModule vertexShader, VkShaderModule fragmentShader)
+void will_engine::PipelineBuilder::setShaders(VkShaderModule vertexShader, VkShaderModule fragmentShader)
 {
     shaderStages.clear();
 
@@ -114,7 +114,7 @@ void PipelineBuilder::setShaders(VkShaderModule vertexShader, VkShaderModule fra
     );
 }
 
-void PipelineBuilder::setShaders(const VkShaderModule vertexShader, const VkShaderModule tessControlShader, const VkShaderModule tessEvalShader, const VkShaderModule fragmentShader)
+void will_engine::PipelineBuilder::setShaders(const VkShaderModule vertexShader, const VkShaderModule tessControlShader, const VkShaderModule tessEvalShader, const VkShaderModule fragmentShader)
 {
     shaderStages.clear();
 
@@ -135,7 +135,7 @@ void PipelineBuilder::setShaders(const VkShaderModule vertexShader, const VkShad
     );
 }
 
-void PipelineBuilder::setupVertexInput(const VkVertexInputBindingDescription* bindings, const uint32_t bindingCount, const VkVertexInputAttributeDescription* attributes, const uint32_t attributeCount)
+void will_engine::PipelineBuilder::setupVertexInput(const VkVertexInputBindingDescription* bindings, const uint32_t bindingCount, const VkVertexInputAttributeDescription* attributes, const uint32_t attributeCount)
 {
     vertexInputEnabled = true;
     vertexInputInfo.pVertexBindingDescriptions = bindings;
@@ -144,13 +144,13 @@ void PipelineBuilder::setupVertexInput(const VkVertexInputBindingDescription* bi
     vertexInputInfo.vertexAttributeDescriptionCount = attributeCount;
 }
 
-void PipelineBuilder::setupInputAssembly(const VkPrimitiveTopology topology, const bool enablePrimitiveRestart)
+void will_engine::PipelineBuilder::setupInputAssembly(const VkPrimitiveTopology topology, const bool enablePrimitiveRestart)
 {
     inputAssembly.topology = topology;
     inputAssembly.primitiveRestartEnable = enablePrimitiveRestart;
 }
 
-void PipelineBuilder::setupRasterization(const VkPolygonMode polygonMode, const VkCullModeFlags cullMode, const VkFrontFace frontFace,
+void will_engine::PipelineBuilder::setupRasterization(const VkPolygonMode polygonMode, const VkCullModeFlags cullMode, const VkFrontFace frontFace,
                                          bool rasterizerDiscardEnable)
 {
     // Draw Mode
@@ -164,7 +164,7 @@ void PipelineBuilder::setupRasterization(const VkPolygonMode polygonMode, const 
     rasterizer.rasterizerDiscardEnable = rasterizerDiscardEnable;
 }
 
-void PipelineBuilder::enableDepthBias(const float depthBiasConstantFactor, const float depthBiasClamp, const float depthBiasSlopeFactor)
+void will_engine::PipelineBuilder::enableDepthBias(const float depthBiasConstantFactor, const float depthBiasClamp, const float depthBiasSlopeFactor)
 {
     rasterizer.depthBiasEnable = true;
     rasterizer.depthBiasConstantFactor = depthBiasConstantFactor;
@@ -172,7 +172,7 @@ void PipelineBuilder::enableDepthBias(const float depthBiasConstantFactor, const
     rasterizer.depthBiasSlopeFactor = depthBiasSlopeFactor;
 }
 
-void PipelineBuilder::setupMultisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples, float minSampleShading,
+void will_engine::PipelineBuilder::setupMultisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples, float minSampleShading,
                                          const VkSampleMask* pSampleMask, VkBool32 alphaToCoverageEnable, VkBool32 alphaToOneEnable)
 {
     multisampling.sampleShadingEnable = sampleShadingEnable;
@@ -185,7 +185,7 @@ void PipelineBuilder::setupMultisampling(VkBool32 sampleShadingEnable, VkSampleC
     multisampling.alphaToOneEnable = alphaToOneEnable;
 }
 
-void PipelineBuilder::setupRenderer(const std::vector<VkFormat>& colorattachmentFormat, const VkFormat depthAttachmentFormat)
+void will_engine::PipelineBuilder::setupRenderer(const std::vector<VkFormat>& colorattachmentFormat, const VkFormat depthAttachmentFormat)
 {
     // Color Format
     if (!colorattachmentFormat.empty()) {
@@ -200,7 +200,7 @@ void PipelineBuilder::setupRenderer(const std::vector<VkFormat>& colorattachment
     }
 }
 
-void PipelineBuilder::setupDepthStencil(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp, VkBool32 depthBoundsTestEnable,
+void will_engine::PipelineBuilder::setupDepthStencil(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp, VkBool32 depthBoundsTestEnable,
                                         VkBool32 stencilTestEnable, VkStencilOpState front, VkStencilOpState back, float minDepthBounds,
                                         float maxDepthBounds)
 {
@@ -215,7 +215,7 @@ void PipelineBuilder::setupDepthStencil(VkBool32 depthTestEnable, VkBool32 depth
     depthStencil.maxDepthBounds = maxDepthBounds;
 }
 
-void PipelineBuilder::setupBlending(PipelineBuilder::BlendMode mode)
+void will_engine::PipelineBuilder::setupBlending(PipelineBuilder::BlendMode mode)
 {
     switch (mode) {
         case BlendMode::ALPHA_BLEND:
@@ -252,17 +252,17 @@ void PipelineBuilder::setupBlending(PipelineBuilder::BlendMode mode)
     }
 }
 
-void PipelineBuilder::setupPipelineLayout(VkPipelineLayout pipelineLayout)
+void will_engine::PipelineBuilder::setupPipelineLayout(VkPipelineLayout pipelineLayout)
 {
     this->pipelineLayout = pipelineLayout;
 }
 
-void PipelineBuilder::disableMultisampling()
+void will_engine::PipelineBuilder::disableMultisampling()
 {
     setupMultisampling(VK_FALSE, VK_SAMPLE_COUNT_1_BIT, 1.0f, nullptr, VK_FALSE, VK_FALSE);
 }
 
-void PipelineBuilder::enableDepthTest(bool depthWriteEnable, VkCompareOp op)
+void will_engine::PipelineBuilder::enableDepthTest(bool depthWriteEnable, VkCompareOp op)
 {
     setupDepthStencil(
         VK_TRUE, depthWriteEnable, op,
@@ -270,7 +270,7 @@ void PipelineBuilder::enableDepthTest(bool depthWriteEnable, VkCompareOp op)
     );
 }
 
-void PipelineBuilder::disableDepthTest()
+void will_engine::PipelineBuilder::disableDepthTest()
 {
     setupDepthStencil(
         VK_FALSE, VK_FALSE, VK_COMPARE_OP_NEVER,
@@ -278,7 +278,7 @@ void PipelineBuilder::disableDepthTest()
     );
 }
 
-VkPipelineDynamicStateCreateInfo PipelineBuilder::generateDynamicStates(VkDynamicState states[], uint32_t count)
+VkPipelineDynamicStateCreateInfo will_engine::PipelineBuilder::generateDynamicStates(VkDynamicState states[], uint32_t count)
 {
     VkPipelineDynamicStateCreateInfo dynamicInfo = {};
     dynamicInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
@@ -287,7 +287,7 @@ VkPipelineDynamicStateCreateInfo PipelineBuilder::generateDynamicStates(VkDynami
     return dynamicInfo;
 }
 
-void PipelineBuilder::setupTessellation(const int32_t controlPoints)
+void will_engine::PipelineBuilder::setupTessellation(const int32_t controlPoints)
 {
     bIsTessellationEnabled = true;
     tessellation.sType = VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO;

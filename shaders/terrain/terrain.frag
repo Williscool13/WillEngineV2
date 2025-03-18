@@ -16,14 +16,25 @@ layout (location = 4) in vec4 inColor;
 layout (location = 5) in vec4 inCurrMvpPosition;
 layout (location = 6) in vec4 inPrevMvpPosition;
 
-layout (location = 0) out vec4 normalTarget; // 8,8,8 normal 8 unused
-layout (location = 1) out vec4 albedoTarget; // 8,8,8 albedo 8 coverage
-layout (location = 2) out vec4 pbrTarget;    // 8 metallic, 8 roughness, 8 emissive (unused), 8 unused
-layout (location = 3) out vec2 velocityTarget;    // 16 X, 16 Y
+layout (location = 0) out vec4 normalTarget;// 8,8,8 normal 8 unused
+layout (location = 1) out vec4 albedoTarget;// 8,8,8 albedo 8 coverage
+layout (location = 2) out vec4 pbrTarget;// 8 metallic, 8 roughness, 8 emissive (unused), 8 unused
+layout (location = 3) out vec2 velocityTarget;// 16 X, 16 Y
 
 // layout (std140, set = 0, binding = 0) uniform SceneData - scene.glsl
 
 layout (set = 1, binding = 0) uniform sampler2D textures[];
+
+layout (std140, set = 2, binding = 0) uniform TerrainProperties {
+    float slopeRockThreshold;
+    float slopeRockBlend;
+    float heightSandThreshold;
+    float heightSandBlend;
+    float heightGrassThreshold;
+    float heightGrassBlend;
+    float minHeight;
+    float maxHeight;
+} terrainProperties;
 
 void main() {
 
@@ -32,7 +43,7 @@ void main() {
     color *= inColor;
 
     albedoTarget = color;
-    pbrTarget = vec4(0.0f, 0.8f, 0.0f, 0.0f); // 0 metallic, 0.5 roughness
+    pbrTarget = vec4(0.0f, 0.8f, 0.0f, 0.0f);// 0 metallic, 0.5 roughness
 
     vec2 currNdc = inCurrMvpPosition.xy / inCurrMvpPosition.w;
     vec2 prevNdc = inPrevMvpPosition.xy / inPrevMvpPosition.w;

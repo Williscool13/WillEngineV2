@@ -1,0 +1,11 @@
+{
+    "texture": {
+        "gltfPath": "assets\\textures\\rocky_trail_02_disp_2k.png",
+        "id": 993448962,
+        "name": "rocky_trail_02_disp_2k",
+        "textureProperties": {
+            "mipmapped": true
+        }
+    },
+    "version": 1
+}

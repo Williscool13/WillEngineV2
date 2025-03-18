@@ -9,8 +9,8 @@
 #include "src/renderer/resource_manager.h"
 
 will_engine::deferred_resolve::DeferredResolvePipeline::DeferredResolvePipeline(ResourceManager& resourceManager, VkDescriptorSetLayout environmentIBLLayout,
-                                                                                VkDescriptorSetLayout cascadeUniformLayout, VkDescriptorSetLayout cascadeSamplerlayout) : resourceManager(
-    resourceManager)
+                                                                                VkDescriptorSetLayout cascadeUniformLayout, VkDescriptorSetLayout cascadeSamplerLayout)
+    : resourceManager(resourceManager)
 {
     VkPushConstantRange pushConstants = {};
     pushConstants.offset = 0;
@@ -22,7 +22,7 @@ will_engine::deferred_resolve::DeferredResolvePipeline::DeferredResolvePipeline(
     setLayouts[1] = resourceManager.getRenderTargetsLayout();
     setLayouts[2] = environmentIBLLayout;
     setLayouts[3] = cascadeUniformLayout;
-    setLayouts[4] = cascadeSamplerlayout;
+    setLayouts[4] = cascadeSamplerLayout;
 
     VkPipelineLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;

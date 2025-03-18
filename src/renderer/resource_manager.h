@@ -16,8 +16,11 @@
 #include "shaderc/shaderc.hpp"
 
 
-class ImmediateSubmitter;
 class VulkanContext;
+
+namespace will_engine
+{
+class ImmediateSubmitter;
 
 class ResourceManager
 {
@@ -111,6 +114,7 @@ public:
     [[nodiscard]] VkDescriptorSetLayout getTexturesLayout() const { return texturesLayout; }
     [[nodiscard]] VkDescriptorSetLayout getRenderTargetsLayout() const { return renderTargetsLayout; }
     [[nodiscard]] VkDescriptorSetLayout getTerrainTexturesLayout() const { return terrainTexturesLayout; }
+    [[nodiscard]] VkDescriptorSetLayout getTerrainUniformLayout() const { return terrainUniformLayout; }
 
 private:
     const VulkanContext& context;
@@ -141,6 +145,7 @@ private:
     VkDescriptorSetLayout renderTargetsLayout{VK_NULL_HANDLE};
 
     VkDescriptorSetLayout terrainTexturesLayout{VK_NULL_HANDLE};
+    VkDescriptorSetLayout terrainUniformLayout{VK_NULL_HANDLE};
 };
 
 class CustomIncluder final : public shaderc::CompileOptions::IncluderInterface
@@ -206,5 +211,7 @@ private:
         return result;
     }
 };
+}
+
 
 #endif //RESOURCE_MANAGER_H

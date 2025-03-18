@@ -7,9 +7,8 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include "src/renderer/resource_manager.h"
 #include "src/renderer/assets/render_object/render_object.h"
-
-class ResourceManager;
 
 namespace will_engine::deferred_mrt
 {

@@ -20,7 +20,7 @@
 #include "shaderc/shaderc.hpp"
 
 
-ResourceManager::ResourceManager(const VulkanContext& context, ImmediateSubmitter& immediate) : context(context), immediate(immediate)
+will_engine::ResourceManager::ResourceManager(const VulkanContext& context, ImmediateSubmitter& immediate) : context(context), immediate(immediate)
 {
     // white
     {
@@ -102,8 +102,8 @@ ResourceManager::ResourceManager(const VulkanContext& context, ImmediateSubmitte
     // Render Object Textures
     {
         DescriptorLayoutBuilder layoutBuilder;
-        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_SAMPLER, will_engine::render_object_constants::MAX_SAMPLER_COUNT);
-        layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, will_engine::render_object_constants::MAX_IMAGES_COUNT);
+        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_SAMPLER, render_object_constants::MAX_SAMPLER_COUNT);
+        layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, render_object_constants::MAX_IMAGES_COUNT);
         texturesLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
     // Render Targets
@@ -118,6 +118,7 @@ ResourceManager::ResourceManager(const VulkanContext& context, ImmediateSubmitte
 
         renderTargetsLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
+
     // Terrain Textures
     {
         DescriptorLayoutBuilder layoutBuilder;
@@ -125,9 +126,16 @@ ResourceManager::ResourceManager(const VulkanContext& context, ImmediateSubmitte
 
         terrainTexturesLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
+    // Terrain Uniform
+    {
+        DescriptorLayoutBuilder layoutBuilder;
+        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
+
+        terrainUniformLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    }
 }
 
-ResourceManager::~ResourceManager()
+will_engine::ResourceManager::~ResourceManager()
 {
     if (context.device == VK_NULL_HANDLE) { return; }
 
@@ -143,9 +151,10 @@ ResourceManager::~ResourceManager()
     vkDestroyDescriptorSetLayout(context.device, texturesLayout, nullptr);
     vkDestroyDescriptorSetLayout(context.device, renderTargetsLayout, nullptr);
     vkDestroyDescriptorSetLayout(context.device, terrainTexturesLayout, nullptr);
+    vkDestroyDescriptorSetLayout(context.device, terrainUniformLayout, nullptr);
 }
 
-AllocatedBuffer ResourceManager::createBuffer(const size_t allocSize, const VkBufferUsageFlags usage, const VmaMemoryUsage memoryUsage) const
+AllocatedBuffer will_engine::ResourceManager::createBuffer(const size_t allocSize, const VkBufferUsageFlags usage, const VmaMemoryUsage memoryUsage) const
 {
     VkBufferCreateInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     bufferInfo.pNext = nullptr;
@@ -163,7 +172,7 @@ AllocatedBuffer ResourceManager::createBuffer(const size_t allocSize, const VkBu
     return newBuffer;
 }
 
-AllocatedBuffer ResourceManager::createHostSequentialBuffer(const size_t allocSize) const
+AllocatedBuffer will_engine::ResourceManager::createHostSequentialBuffer(const size_t allocSize) const
 {
     const VkBufferCreateInfo bufferInfo{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -183,7 +192,7 @@ AllocatedBuffer ResourceManager::createHostSequentialBuffer(const size_t allocSi
     return newBuffer;
 }
 
-AllocatedBuffer ResourceManager::createHostRandomBuffer(const size_t allocSize, const VkBufferUsageFlags additionalUsages) const
+AllocatedBuffer will_engine::ResourceManager::createHostRandomBuffer(const size_t allocSize, const VkBufferUsageFlags additionalUsages) const
 {
     const VkBufferCreateInfo bufferInfo{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -202,7 +211,7 @@ AllocatedBuffer ResourceManager::createHostRandomBuffer(const size_t allocSize, 
     return newBuffer;
 }
 
-AllocatedBuffer ResourceManager::createDeviceBuffer(const size_t allocSize, const VkBufferUsageFlags additionalUsages) const
+AllocatedBuffer will_engine::ResourceManager::createDeviceBuffer(const size_t allocSize, const VkBufferUsageFlags additionalUsages) const
 {
     const VkBufferCreateInfo bufferInfo{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -223,7 +232,7 @@ AllocatedBuffer ResourceManager::createDeviceBuffer(const size_t allocSize, cons
     return newBuffer;
 }
 
-AllocatedBuffer ResourceManager::createStagingBuffer(const size_t allocSize) const
+AllocatedBuffer will_engine::ResourceManager::createStagingBuffer(const size_t allocSize) const
 {
     const VkBufferCreateInfo bufferInfo{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -243,12 +252,12 @@ AllocatedBuffer ResourceManager::createStagingBuffer(const size_t allocSize) con
     return newBuffer;
 }
 
-AllocatedBuffer ResourceManager::createReceivingBuffer(const size_t allocSize) const
+AllocatedBuffer will_engine::ResourceManager::createReceivingBuffer(const size_t allocSize) const
 {
     return createBuffer(allocSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU);
 }
 
-void ResourceManager::copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, const VkDeviceSize size) const
+void will_engine::ResourceManager::copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, const VkDeviceSize size) const
 {
     immediate.submit([&](VkCommandBuffer cmd) {
         VkBufferCopy vertexCopy{};
@@ -260,7 +269,7 @@ void ResourceManager::copyBuffer(const AllocatedBuffer& src, const AllocatedBuff
     });
 }
 
-void ResourceManager::copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, const VkDeviceSize size, const VkDeviceSize offset) const
+void will_engine::ResourceManager::copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, const VkDeviceSize size, const VkDeviceSize offset) const
 {
     immediate.submit([&](VkCommandBuffer cmd) {
         VkBufferCopy vertexCopy{};
@@ -273,7 +282,7 @@ void ResourceManager::copyBuffer(const AllocatedBuffer& src, const AllocatedBuff
 }
 
 
-VkDeviceAddress ResourceManager::getBufferAddress(const AllocatedBuffer& buffer) const
+VkDeviceAddress will_engine::ResourceManager::getBufferAddress(const AllocatedBuffer& buffer) const
 {
     VkBufferDeviceAddressInfo addressInfo{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR};
     addressInfo.buffer = buffer.buffer;
@@ -281,21 +290,21 @@ VkDeviceAddress ResourceManager::getBufferAddress(const AllocatedBuffer& buffer)
     return srcPtr;
 }
 
-void ResourceManager::destroyBuffer(AllocatedBuffer& buffer) const
+void will_engine::ResourceManager::destroyBuffer(AllocatedBuffer& buffer) const
 {
     if (buffer.buffer == VK_NULL_HANDLE) { return; }
     vmaDestroyBuffer(context.allocator, buffer.buffer, buffer.allocation);
     buffer.buffer = VK_NULL_HANDLE;
 }
 
-VkSampler ResourceManager::createSampler(const VkSamplerCreateInfo& createInfo) const
+VkSampler will_engine::ResourceManager::createSampler(const VkSamplerCreateInfo& createInfo) const
 {
     VkSampler newSampler;
     vkCreateSampler(context.device, &createInfo, nullptr, &newSampler);
     return newSampler;
 }
 
-AllocatedImage ResourceManager::createImage(const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped) const
+AllocatedImage will_engine::ResourceManager::createImage(const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped) const
 {
     AllocatedImage newImage{};
     newImage.imageFormat = format;
@@ -324,7 +333,7 @@ AllocatedImage ResourceManager::createImage(const VkExtent3D size, const VkForma
     return newImage;
 }
 
-AllocatedImage ResourceManager::createImage(const void* data, const size_t dataSize, const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped) const
+AllocatedImage will_engine::ResourceManager::createImage(const void* data, const size_t dataSize, const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped) const
 {
     const size_t data_size = dataSize;
     AllocatedBuffer uploadbuffer = createBuffer(data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
@@ -363,7 +372,7 @@ AllocatedImage ResourceManager::createImage(const void* data, const size_t dataS
     return newImage;
 }
 
-AllocatedImage ResourceManager::createCubemap(const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped) const
+AllocatedImage will_engine::ResourceManager::createCubemap(const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped) const
 {
     AllocatedImage newImage{};
     newImage.imageFormat = format;
@@ -387,43 +396,43 @@ AllocatedImage ResourceManager::createCubemap(const VkExtent3D size, const VkFor
     return newImage;
 }
 
-void ResourceManager::destroyImage(const AllocatedImage& img) const
+void will_engine::ResourceManager::destroyImage(const AllocatedImage& img) const
 {
     vkDestroyImageView(context.device, img.imageView, nullptr);
     vmaDestroyImage(context.allocator, img.image, img.allocation);
 }
 
-void ResourceManager::destroySampler(const VkSampler& sampler) const
+void will_engine::ResourceManager::destroySampler(const VkSampler& sampler) const
 {
     vkDestroySampler(context.device, sampler, nullptr);
 }
 
-DescriptorBufferSampler ResourceManager::createDescriptorBufferSampler(VkDescriptorSetLayout layout, int32_t maxObjectCount) const
+will_engine::DescriptorBufferSampler will_engine::ResourceManager::createDescriptorBufferSampler(VkDescriptorSetLayout layout, int32_t maxObjectCount) const
 {
     return DescriptorBufferSampler(context, layout, maxObjectCount);
 }
 
-int32_t ResourceManager::setupDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer, const std::vector<will_engine::DescriptorImageData>& imageBuffers, const int index) const
+int32_t will_engine::ResourceManager::setupDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer, const std::vector<will_engine::DescriptorImageData>& imageBuffers, const int index) const
 {
     return descriptorBuffer.setupData(context.device, imageBuffers, index);
 }
 
-DescriptorBufferUniform ResourceManager::createDescriptorBufferUniform(VkDescriptorSetLayout layout, int32_t maxObjectCount) const
+will_engine::DescriptorBufferUniform will_engine::ResourceManager::createDescriptorBufferUniform(VkDescriptorSetLayout layout, int32_t maxObjectCount) const
 {
     return DescriptorBufferUniform(context, layout, maxObjectCount);
 }
 
-int32_t ResourceManager::setupDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer, const std::vector<will_engine::DescriptorUniformData>& uniformBuffers, const int index) const
+int32_t will_engine::ResourceManager::setupDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer, const std::vector<will_engine::DescriptorUniformData>& uniformBuffers, const int index) const
 {
     return descriptorBuffer.setupData(context.device, uniformBuffers, index);
 }
 
-void ResourceManager::destroyDescriptorBuffer(DescriptorBuffer& descriptorBuffer) const
+void will_engine::ResourceManager::destroyDescriptorBuffer(DescriptorBuffer& descriptorBuffer) const
 {
     descriptorBuffer.destroy(context.allocator);
 }
 
-VkShaderModule ResourceManager::createShaderModule(const std::filesystem::path& path) const
+VkShaderModule will_engine::ResourceManager::createShaderModule(const std::filesystem::path& path) const
 {
     auto start = std::chrono::system_clock::now();
     std::filesystem::path projectRoot = std::filesystem::current_path();
@@ -503,68 +512,67 @@ VkShaderModule ResourceManager::createShaderModule(const std::filesystem::path& 
     return shaderModule;
 }
 
-void ResourceManager::destroyShaderModule(VkShaderModule& shaderModule) const
+void will_engine::ResourceManager::destroyShaderModule(VkShaderModule& shaderModule) const
 {
     vkDestroyShaderModule(context.device, shaderModule, nullptr);
     shaderModule = VK_NULL_HANDLE;
 }
 
-VkPipelineLayout ResourceManager::createPipelineLayout(const VkPipelineLayoutCreateInfo& createInfo) const
+VkPipelineLayout will_engine::ResourceManager::createPipelineLayout(const VkPipelineLayoutCreateInfo& createInfo) const
 {
     VkPipelineLayout pipelineLayout;
     VK_CHECK(vkCreatePipelineLayout(context.device, &createInfo, nullptr, &pipelineLayout));
     return pipelineLayout;
 }
 
-
-void ResourceManager::destroyPipelineLayout(VkPipelineLayout& pipelineLayout) const
+void will_engine::ResourceManager::destroyPipelineLayout(VkPipelineLayout& pipelineLayout) const
 {
     if (pipelineLayout == VK_NULL_HANDLE) { return; }
     vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
     pipelineLayout = VK_NULL_HANDLE;
 }
 
-VkPipeline ResourceManager::createRenderPipeline(PipelineBuilder& builder, const std::vector<VkDynamicState>& additionalDynamicStates) const
+VkPipeline will_engine::ResourceManager::createRenderPipeline(PipelineBuilder& builder, const std::vector<VkDynamicState>& additionalDynamicStates) const
 {
     const VkPipeline pipeline = builder.buildPipeline(context.device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT, additionalDynamicStates);
     return pipeline;
 }
 
-VkPipeline ResourceManager::createComputePipeline(const VkComputePipelineCreateInfo& pipelineInfo) const
+VkPipeline will_engine::ResourceManager::createComputePipeline(const VkComputePipelineCreateInfo& pipelineInfo) const
 {
     VkPipeline computePipeline;
     vkCreateComputePipelines(context.device, VK_NULL_HANDLE, 1, &pipelineInfo, nullptr, &computePipeline);
     return computePipeline;
 }
 
-void ResourceManager::destroyPipeline(VkPipeline& pipeline) const
+void will_engine::ResourceManager::destroyPipeline(VkPipeline& pipeline) const
 {
     if (pipeline == VK_NULL_HANDLE) { return; }
     vkDestroyPipeline(context.device, pipeline, nullptr);
     pipeline = VK_NULL_HANDLE;
 }
 
-VkDescriptorSetLayout ResourceManager::createDescriptorSetLayout(DescriptorLayoutBuilder& layoutBuilder, const VkShaderStageFlagBits shaderStageFlags,
+VkDescriptorSetLayout will_engine::ResourceManager::createDescriptorSetLayout(DescriptorLayoutBuilder& layoutBuilder, const VkShaderStageFlagBits shaderStageFlags,
                                                                  const VkDescriptorSetLayoutCreateFlagBits layoutCreateFlags) const
 {
     return layoutBuilder.build(context.device, shaderStageFlags, nullptr, layoutCreateFlags);
 }
 
-void ResourceManager::destroyDescriptorSetLayout(VkDescriptorSetLayout& descriptorSetLayout) const
+void will_engine::ResourceManager::destroyDescriptorSetLayout(VkDescriptorSetLayout& descriptorSetLayout) const
 {
     if (descriptorSetLayout == VK_NULL_HANDLE) { return; }
     vkDestroyDescriptorSetLayout(context.device, descriptorSetLayout, nullptr);
     descriptorSetLayout = VK_NULL_HANDLE;
 }
 
-VkImageView ResourceManager::createImageView(const VkImageViewCreateInfo& viewInfo) const
+VkImageView will_engine::ResourceManager::createImageView(const VkImageViewCreateInfo& viewInfo) const
 {
     VkImageView imageView;
     VK_CHECK(vkCreateImageView(context.device, &viewInfo, nullptr, &imageView));
     return imageView;
 }
 
-void ResourceManager::destroyImageView(VkImageView& imageView) const
+void will_engine::ResourceManager::destroyImageView(VkImageView& imageView) const
 {
     if (imageView == VK_NULL_HANDLE) { return; }
     vkDestroyImageView(context.device, imageView, nullptr);

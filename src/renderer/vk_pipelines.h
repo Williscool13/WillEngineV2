@@ -11,6 +11,8 @@
 
 #include "vk_helpers.h"
 
+namespace will_engine
+{
 class PipelineBuilder
 {
 public:
@@ -123,6 +125,8 @@ private:
     // keep to avoid dangling pointer for color attachment (referenced by pointer)
     std::vector<VkFormat> colorAttachmentFormats;
 };
+}
+
 
 
 #endif //VK_PIPELINES_H

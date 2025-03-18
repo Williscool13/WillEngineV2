@@ -12,9 +12,10 @@
 
 will_engine::terrain::TerrainPipeline::TerrainPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
-    VkDescriptorSetLayout descriptorLayout[2];
+    VkDescriptorSetLayout descriptorLayout[3];
     descriptorLayout[0] = resourceManager.getSceneDataLayout();
     descriptorLayout[1] = resourceManager.getTerrainTexturesLayout();
+    descriptorLayout[2] = resourceManager.getTerrainUniformLayout();
 
     VkPushConstantRange pushConstants = {};
     pushConstants.offset = 0;
@@ -24,7 +25,7 @@ will_engine::terrain::TerrainPipeline::TerrainPipeline(ResourceManager& resource
     VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
     layoutInfo.pSetLayouts = descriptorLayout;
     layoutInfo.pNext = nullptr;
-    layoutInfo.setLayoutCount = 2;
+    layoutInfo.setLayoutCount = 3;
     layoutInfo.pPushConstantRanges = &pushConstants;
     layoutInfo.pushConstantRangeCount = 1;
 
@@ -110,17 +111,21 @@ void will_engine::terrain::TerrainPipeline::draw(VkCommandBuffer cmd, const Terr
 
         constexpr uint32_t sceneDataIndex{0};
         constexpr uint32_t textureIndex{1};
+        constexpr uint32_t uniformIndex{2};
 
-        VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];
+        VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[3];
         descriptorBufferBindingInfo[0] = drawInfo.sceneDataBinding;
         descriptorBufferBindingInfo[1] = terrainChunk->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo();
-        vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
+        descriptorBufferBindingInfo[2] = terrainChunk->getUniformDescriptorBuffer().getDescriptorBufferBindingInfo();
+        vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptorBufferBindingInfo);
 
         const VkDeviceSize sceneDataOffset{drawInfo.sceneDataOffset};
         constexpr VkDeviceSize textureDescriptorOffset{0};
+        const VkDeviceSize uniformDescriptorOffset{drawInfo.currentFrameOverlap * terrainChunk->getUniformDescriptorBuffer().getDescriptorBufferSize()};
 
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &textureIndex, &textureDescriptorOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 2, 1, &uniformIndex, &uniformDescriptorOffset);
 
         VkBuffer vertexBuffer = terrainChunk->getVertexBuffer().buffer;
         vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer, &zeroOffset);

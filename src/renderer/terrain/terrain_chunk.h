@@ -5,12 +5,12 @@
 #ifndef TERRAIN_CHUNK_H
 #define TERRAIN_CHUNK_H
 
+#include <array>
 #include <glm/detail/type_quat.hpp>
-#include <Jolt/Jolt.h>
-#include <Jolt/Physics/Collision/Shape/Shape.h>
 
 #include "terrain_types.h"
 #include "src/physics/physics_body.h"
+#include "src/renderer/renderer_constants.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/vk_types.h"
 
@@ -29,6 +29,12 @@ public:
 
     static void smoothNormals(std::vector<TerrainVertex>& vertices, int32_t width, int32_t height);
 
+    void uploadTextures();
+
+    void update(int32_t currentFrameOverlap, int32_t previousFrameOverlap);
+
+    void setTerrainProperties(TerrainProperties newTerrainProperties);
+
 public:
     [[nodiscard]] const AllocatedBuffer& getVertexBuffer() const { return vertexBuffer; }
     [[nodiscard]] const AllocatedBuffer& getIndexBuffer() const { return indexBuffer; }
@@ -37,6 +43,8 @@ public:
     const std::vector<uint32_t>& getIndices() { return indices; }
 
     [[nodiscard]] const DescriptorBufferSampler& getTextureDescriptorBuffer() const { return textureDescriptorBuffer; }
+    [[nodiscard]] const DescriptorBufferUniform& getUniformDescriptorBuffer() const { return uniformDescriptorBuffer; }
+
 
 public: // Physics
     void setTransform(const glm::vec3& position, const glm::quat& rotation) override {}
@@ -57,8 +65,8 @@ public: // Physics
 
 private:
     ResourceManager& resourceManager;
-
     TerrainConfig terrainConfig;
+    TerrainProperties terrainProperties;
 
 private: // Model Data
     std::vector<TerrainVertex> vertices;
@@ -69,6 +77,10 @@ private: // Buffer Data
     AllocatedBuffer indexBuffer{};
 
     DescriptorBufferSampler textureDescriptorBuffer;
+    DescriptorBufferUniform uniformDescriptorBuffer;
+
+    std::array<AllocatedBuffer, FRAME_OVERLAP> terrainUniformBuffers{};
+    int32_t bufferFramesToUpdate{FRAME_OVERLAP};
 
 private: // Physics
     JPH::BodyID terrainBodyId{JPH::BodyID::cMaxBodyIndex};
