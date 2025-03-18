@@ -194,6 +194,10 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Hot-Reload Shaders")) {
                     engine->hotReloadShaders();
                 }
+                ImGui::Separator();
+                ImGui::Text("Temporal Anti-Aliasing");
+                ImGui::Checkbox("Enable TAA", &engine->bEnableTaa);
+                ImGui::DragFloat("Taa Blend Value", &engine->taaBlendValue, 0.01, 0.1f, 0.5f);
                 ImGui::EndTabItem();
             }
 
@@ -201,8 +205,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 ImGui::Text("Deferred Debug");
                 const char* deferredDebugOptions[]{"None", "Depth", "Velocity", "Albedo", "Normal", "PBR", "Shadows", "Cascade Level", "nDotL"};
                 ImGui::Combo("Deferred Debug", &engine->deferredDebug, deferredDebugOptions, IM_ARRAYSIZE(deferredDebugOptions));
-                ImGui::Text("Temporal Anti-Aliasing");
-                ImGui::Checkbox("Enable TAA", &engine->bEnableTaa);
+
                 ImGui::EndTabItem();
             }
 

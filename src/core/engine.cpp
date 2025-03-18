@@ -459,6 +459,7 @@ void Engine::draw(float deltaTime)
         environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferBindingInfo(),
         environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferSize() * environmentMapIndex,
     };
+    // todo: make environment pipeline draw to the render targets rather than directly to the draw image!!!
     environmentPipeline->draw(cmd, environmentPipelineDrawInfo);
 
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -551,7 +552,7 @@ void Engine::draw(float deltaTime)
     vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     const temporal_antialiasing_pipeline::TemporalAntialiasingDrawInfo taaDrawInfo{
-        0.1f,
+        taaBlendValue,
         bEnableTaa ? 0 : 1,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap

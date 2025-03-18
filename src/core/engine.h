@@ -164,6 +164,7 @@ private: // Rendering
 
 private: // Debug
     bool bEnableTaa{true};
+    float taaBlendValue{0.1f};
     bool bEnableDebugFrustumCullDraw{false};
     int32_t csmPcf{5};
     int32_t deferredDebug{0};
