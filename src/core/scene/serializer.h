@@ -104,47 +104,7 @@ inline void from_json(const ordered_json& j, NoiseSettings& settings)
     settings.heightScale = j["heightScale"].get<float>();
 }
 
-namespace terrain
-{
-    inline void to_json(ordered_json& j, const TerrainConfig& config)
-    {
-        j = {
-            {
-                "uvOffset", {
-                    {"x", config.uvOffset.x},
-                    {"y", config.uvOffset.y}
-                }
-            },
-            {
-                "uvScale", {
-                    {"x", config.uvScale.x},
-                    {"y", config.uvScale.y},
-                }
-            },
-            {
-                "baseColor", {
-                    {"x", config.baseColor.x},
-                    {"y", config.baseColor.y},
-                    {"z", config.baseColor.z},
-                    {"w", config.baseColor.w},
-                }
-            }
-        };
-    }
 
-    inline void from_json(const ordered_json& j, TerrainConfig& config)
-    {
-        config.uvOffset.x = j["uvOffset"]["x"].get<float>();
-        config.uvOffset.y = j["uvOffset"]["y"].get<float>();
-        config.uvScale.x = j["uvScale"]["x"].get<float>();
-        config.uvScale.y = j["uvScale"]["y"].get<float>();
-
-        config.baseColor.x = j["baseColor"]["x"].get<float>();
-        config.baseColor.y = j["baseColor"]["y"].get<float>();
-        config.baseColor.z = j["baseColor"]["z"].get<float>();
-        config.baseColor.w = j["baseColor"]["w"].get<float>();
-    }
-}
 
 inline void to_json(ordered_json& j, const Transform& t)
 {

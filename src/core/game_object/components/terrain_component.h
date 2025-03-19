@@ -32,6 +32,8 @@ public:
 
     void generateTerrain() override;
 
+    void generateTerrain(terrain::TerrainProperties terrainProperties) override;
+
     void destroyTerrain() override;
 
     void generateTerrain(const NoiseSettings& terrainProperties, const uint32_t seed, const terrain::TerrainConfig& terrainConfig)
@@ -42,7 +44,7 @@ public:
         generateTerrain();
     }
 
-    NoiseSettings getTerrainProperties() const { return terrainGenerationProperties; }
+    NoiseSettings getTerrainGenerationProperties() const { return terrainGenerationProperties; }
     uint32_t getSeed() const { return seed; }
     terrain::TerrainConfig getConfig() const { return terrainConfig; }
 

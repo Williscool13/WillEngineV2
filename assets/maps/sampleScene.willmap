@@ -6,7 +6,7 @@
     },
     "metadata": {
         "name": "sampleScene",
-        "created": "2025-03-18 23:47:42",
+        "created": "2025-03-19 23:48:29",
         "formatVersion": 1
     },
     "rootComponents": {
@@ -15,13 +15,13 @@
                 "terrainGenerationProperties": {
                     "scale": 150.54400634765625,
                     "persistence": 0.24799999594688416,
-                    "lacunarity": 2.0889999866485596,
+                    "lacunarity": 2.313999891281128,
                     "octaves": 4,
                     "offset": {
                         "x": 0.0,
                         "y": 0.0
                     },
-                    "heightScale": 95.20099639892578
+                    "heightScale": 85.78099822998047
                 },
                 "terrainSeed": 111219222,
                 "terrainConfig": {
@@ -39,6 +39,16 @@
                         "z": 1.0,
                         "w": 1.0
                     }
+                },
+                "terrainProperties": {
+                    "slopeRockThreshold": 0.699999988079071,
+                    "slopeRockBlend": 0.5,
+                    "heightSandThreshold": 0.2800000011920929,
+                    "heightSandBlend": 0.10000000149011612,
+                    "heightGrassThreshold": 0.6499999761581421,
+                    "heightGrassBlend": 0.25,
+                    "minHeight": 0.0,
+                    "maxHeight": 85.0
                 }
             },
             "componentName": "Terrain Component"
@@ -70,13 +80,13 @@
                     "terrainGenerationProperties": {
                         "scale": 150.54400634765625,
                         "persistence": 0.24799999594688416,
-                        "lacunarity": 2.0889999866485596,
+                        "lacunarity": 2.313999891281128,
                         "octaves": 4,
                         "offset": {
                             "x": 0.0,
                             "y": 0.0
                         },
-                        "heightScale": 95.20099639892578
+                        "heightScale": 85.78099822998047
                     },
                     "terrainSeed": 111219222,
                     "terrainConfig": {
@@ -94,6 +104,16 @@
                             "z": 1.0,
                             "w": 1.0
                         }
+                    },
+                    "terrainProperties": {
+                        "slopeRockThreshold": 0.699999988079071,
+                        "slopeRockBlend": 0.5,
+                        "heightSandThreshold": 0.2800000011920929,
+                        "heightSandBlend": 0.10000000149011612,
+                        "heightGrassThreshold": 0.6499999761581421,
+                        "heightGrassBlend": 0.25,
+                        "minHeight": 0.0,
+                        "maxHeight": 85.0
                     }
                 },
                 "componentName": "Terrain Component"
@@ -240,15 +260,15 @@
                 "name": "Cube\u0000ing Orb",
                 "transform": {
                     "position": {
-                        "x": 12.933794975280762,
-                        "y": 18.784332275390625,
-                        "z": 36.34267807006836
+                        "x": 13.52847957611084,
+                        "y": 21.364282608032227,
+                        "z": 37.19425582885742
                     },
                     "rotation": {
-                        "x": 0.531548023223877,
-                        "y": 0.6210870742797852,
-                        "z": 0.38691169023513794,
-                        "w": 0.42662280797958374
+                        "x": 0.19276493787765503,
+                        "y": 0.20272879302501678,
+                        "z": 0.6592577695846558,
+                        "w": 0.697941243648529
                     },
                     "scale": {
                         "x": 1.0,

@@ -17,6 +17,8 @@ public:
 
     virtual void generateTerrain() = 0;
 
+    virtual void generateTerrain(terrain::TerrainProperties terrainProperties) = 0;
+
     virtual void destroyTerrain() = 0;
 };
 }

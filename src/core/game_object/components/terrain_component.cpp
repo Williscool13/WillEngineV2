@@ -39,6 +39,9 @@ void will_engine::components::TerrainComponent::serialize(ordered_json& j)
     j["terrain"]["terrainGenerationProperties"] = terrainGenerationProperties;
     j["terrain"]["terrainSeed"] = seed;
     j["terrain"]["terrainConfig"] = terrainConfig;
+    if (terrainChunk) {
+        j["terrain"]["terrainProperties"] = terrainChunk->getTerrainProperties();
+    }
 }
 
 void will_engine::components::TerrainComponent::deserialize(ordered_json& j)
@@ -64,7 +67,11 @@ void will_engine::components::TerrainComponent::deserialize(ordered_json& j)
             shouldLoad = true;
         }
 
-        if (shouldLoad) {
+        if (terrain.contains("terrainProperties")) {
+            const terrain::TerrainProperties tempProperties = terrain["terrainProperties"];
+            generateTerrain(tempProperties);
+        }
+        else if (shouldLoad) {
             generateTerrain();
         }
     }
@@ -77,6 +84,16 @@ void will_engine::components::TerrainComponent::generateTerrain()
     if (Engine* engine = Engine::get()) {
         engine->addToActiveTerrain(this);
     }
+}
+
+void will_engine::components::TerrainComponent::generateTerrain(terrain::TerrainProperties terrainProperties)
+{
+    std::vector<float> heightMapData = HeightmapUtil::generateFromNoise(NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, seed, terrainGenerationProperties);
+    terrainChunk = std::make_unique<terrain::TerrainChunk>(*Engine::get()->getResourceManager(), heightMapData, NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, terrainConfig);
+    if (Engine* engine = Engine::get()) {
+        engine->addToActiveTerrain(this);
+    }
+    terrainChunk->setTerrainProperties(terrainProperties);
 }
 
 void will_engine::components::TerrainComponent::destroyTerrain()

@@ -118,9 +118,10 @@ void ImguiWrapper::selectMap(Map* newMap)
         return;
     }
 
-    terrainProperties = terrainComponent->getTerrainProperties();
+    terrainGenerationSettings = terrainComponent->getTerrainGenerationProperties();
     terrainSeed = terrainComponent->getSeed();
     terrainConfig = terrainComponent->getConfig();
+    terrainProperties = terrainComponent->getTerrainChunk()->getTerrainProperties();
 }
 
 void ImguiWrapper::imguiInterface(Engine* engine)
@@ -832,7 +833,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                         if (ImGui::BeginPopupModal("Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
                             if (forceTextureGeneration) {
                                 ImGui::Text("Failed to find any textures to generate.");
-                            } else {
+                            }
+                            else {
                                 ImGui::Text("Failed to find any (new) textures to generate.");
                             }
                             if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
@@ -923,64 +925,98 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
         if (ImGui::BeginTabItem("Terrain")) {
             ImGui::Checkbox("Draw Vertex Lines Only", &engine->bDrawTerrainLines);
 
+            if (ImGui::BeginTabBar("Terrain Tab Bar")) {
+                auto currentTerrainComponent = selectedMap->getComponent<components::TerrainComponent>();
 
-            auto currentTerrainComponent = selectedMap->getComponent<components::TerrainComponent>();
-            ImGui::BeginDisabled(!currentTerrainComponent);
-            if (ImGui::Button("Save Terrain as HeightMap")) {
-                std::vector<float> heightmapData = currentTerrainComponent->getHeightMapData();
-                std::filesystem::path path = file::imagesSavePath / "TerrainHeightMap.png";
-                vk_helpers::saveHeightmap(heightmapData, NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, path);
+                if (ImGui::BeginTabItem("Terrain Generation")) {
+                    ImGui::BeginDisabled(!currentTerrainComponent);
+                    if (ImGui::Button("Save Terrain as HeightMap")) {
+                        std::vector<float> heightmapData = currentTerrainComponent->getHeightMapData();
+                        std::filesystem::path path = file::imagesSavePath / "TerrainHeightMap.png";
+                        vk_helpers::saveHeightmap(heightmapData, NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, path);
+                    }
+                    ImGui::EndDisabled();
+
+
+                    ImGui::Separator();
+
+                    if (ImGui::CollapsingHeader("Noise Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+                        ImGui::SliderFloat("Scale", &terrainGenerationSettings.scale, 1.0f, 200.0f);
+                        ImGui::SliderFloat("Persistence", &terrainGenerationSettings.persistence, 0.0f, 1.0f);
+                        ImGui::SliderFloat("Lacunarity", &terrainGenerationSettings.lacunarity, 1.0f, 5.0f);
+                        ImGui::SliderInt("Octaves", &terrainGenerationSettings.octaves, 1, 10);
+                        ImGui::DragFloat2("Offset", &terrainGenerationSettings.offset.x, 0.1f);
+                        ImGui::SliderFloat("Height Scale", &terrainGenerationSettings.heightScale, 1.0f, 200.0f);
+                    }
+
+                    ImGui::Separator();
+
+                    if (ImGui::CollapsingHeader("Terrain Texture Properties", ImGuiTreeNodeFlags_DefaultOpen)) {
+                        ImGui::DragFloat2("UV Offset", &terrainConfig.uvOffset.x, 0.01f, -10.0f, 10.0f);
+                        ImGui::DragFloat2("UV Scale", &terrainConfig.uvScale.x, 0.1f, 0.1f, 50.0f);
+                        ImGui::Separator();
+                        ImGui::Text("Material Settings");
+                        ImGui::ColorEdit4("Base Color", &terrainConfig.baseColor.x, ImGuiColorEditFlags_NoAlpha);
+                    }
+
+                    ImGui::Separator();
+
+                    ImGui::InputScalar("Seed", ImGuiDataType_U32, &terrainSeed);
+
+                    ImGui::Separator();
+
+                    static std::random_device rd{};
+                    static std::seed_seq ss{rd(), rd(), rd(), rd(), rd(), rd(), rd(), rd()};
+                    static std::mt19937 gen(ss);
+                    static std::uniform_int_distribution<uint32_t> dist;
+                    if (ImGui::Button("Random Seed Generate")) {
+                        terrainSeed = dist(gen);
+                    }
+
+                    ImGui::SameLine();
+
+                    if (ImGui::Button("Generate Terrain", ImVec2(-1, 0))) {
+                        currentTerrainComponent->generateTerrain(terrainGenerationSettings, terrainSeed, terrainConfig);
+                    }
+
+                    if (ImGui::Button("Destroy Terrain", ImVec2(-1, 0))) {
+                        // todo: destroy terrain needs to be delayed to account for double buffer
+                        currentTerrainComponent->destroyTerrain();
+                    }
+
+                    ImGui::EndTabItem();
+                }
+
+                if (ImGui::BeginTabItem("Terrain Config")) {
+                    // todo: terrain texture selection
+
+                    ImGui::Separator();
+
+                    if (ImGui::CollapsingHeader("Terrain Properties")) {
+                        ImGui::SliderFloat("Rocks: Slope Threshold", &terrainProperties.slopeRockThreshold, 0.0f, 1.0f, "%.2f");
+                        ImGui::SliderFloat("Rocks: Blend", &terrainProperties.slopeRockBlend, 0.0f, 1.0f, "%.2f");
+                        ImGui::SliderFloat("Sand: Height Threshold", &terrainProperties.heightSandThreshold, 0.0f, 1.0f, "%.2f");
+                        ImGui::SliderFloat("Sand: Blend", &terrainProperties.heightSandBlend, 0.0f, 1.0f, "%.2f");
+                        ImGui::SliderFloat("Grass: Height Threshold", &terrainProperties.heightGrassThreshold, 0.0f, 1.0f, "%.2f");
+                        ImGui::SliderFloat("Grass: Blend", &terrainProperties.heightGrassBlend, 0.0f, 1.0f, "%.2f");
+
+                        ImGui::DragFloat("Min Height", &terrainProperties.minHeight, 1, -200, 200);
+                        ImGui::DragFloat("Max Height", &terrainProperties.maxHeight, 1, -200, 200);
+                    }
+
+                    ImGui::Separator();
+
+                    if (ImGui::Button("Update")) {
+                        currentTerrainComponent->getTerrainChunk()->setTerrainProperties(terrainProperties);
+                    }
+
+                    ImGui::EndTabItem();
+                }
+
+
+                ImGui::EndTabBar();
             }
 
-            ImGui::EndDisabled();
-            ImGui::Separator();
-
-            if (ImGui::CollapsingHeader("Noise Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
-                ImGui::SliderFloat("Scale", &terrainProperties.scale, 1.0f, 200.0f);
-                ImGui::SliderFloat("Persistence", &terrainProperties.persistence, 0.0f, 1.0f);
-                ImGui::SliderFloat("Lacunarity", &terrainProperties.lacunarity, 1.0f, 5.0f);
-                ImGui::SliderInt("Octaves", &terrainProperties.octaves, 1, 10);
-                ImGui::DragFloat2("Offset", &terrainProperties.offset.x, 0.1f);
-                ImGui::SliderFloat("Height Scale", &terrainProperties.heightScale, 1.0f, 200.0f);
-            }
-
-            ImGui::Separator();
-            ImGui::InputScalar("Seed", ImGuiDataType_U32, &terrainSeed);
-            ImGui::SameLine();
-
-            static std::random_device rd{};
-            static std::seed_seq ss{rd(), rd(), rd(), rd(), rd(), rd(), rd(), rd()};
-            static std::mt19937 gen(ss);
-            static std::uniform_int_distribution<uint32_t> dist;
-            if (ImGui::Button("Random Seed")) {
-                terrainSeed = dist(gen);
-            }
-
-            ImGui::Separator();
-
-            if (ImGui::CollapsingHeader("Terrain Texture Properties")) {
-                ImGui::DragFloat2("UV Offset", &terrainConfig.uvOffset.x, 0.01f, -10.0f, 10.0f);
-                ImGui::DragFloat2("UV Scale", &terrainConfig.uvScale.x, 0.1f, 0.1f, 50.0f);
-                ImGui::Separator();
-                ImGui::Text("Material Settings");
-                ImGui::ColorEdit4("Base Color", &terrainConfig.baseColor.x, ImGuiColorEditFlags_NoAlpha);
-
-                // todo: terrain texture selection
-
-
-                // todo: terrain blending
-            }
-
-            ImGui::Separator();
-
-            if (ImGui::Button("Generate Terrain", ImVec2(-1, 0))) {
-                currentTerrainComponent->generateTerrain(terrainProperties, terrainSeed, terrainConfig);
-            }
-
-            if (ImGui::Button("Destroy Terrain", ImVec2(-1, 0))) {
-                // todo: destroy terrain needs to be delayed to account for double buffer
-                currentTerrainComponent->destroyTerrain();
-            }
 
             ImGui::EndTabItem();
         }

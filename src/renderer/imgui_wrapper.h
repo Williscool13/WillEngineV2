@@ -72,9 +72,11 @@ private:
 
     int32_t shadowMapDebug{0};
 
-    NoiseSettings terrainProperties{};
+    NoiseSettings terrainGenerationSettings{};
     uint32_t terrainSeed{13};
     terrain::TerrainConfig terrainConfig{};
+
+    terrain::TerrainProperties terrainProperties{};
 
     VkDescriptorSet currentlySelectedTextureImguiId = VK_NULL_HANDLE;
 };

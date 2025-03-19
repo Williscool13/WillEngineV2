@@ -35,6 +35,8 @@ public:
 
     void setTerrainProperties(TerrainProperties newTerrainProperties);
 
+    TerrainProperties getTerrainProperties() { return terrainProperties; }
+
 public:
     [[nodiscard]] const AllocatedBuffer& getVertexBuffer() const { return vertexBuffer; }
     [[nodiscard]] const AllocatedBuffer& getIndexBuffer() const { return indexBuffer; }
@@ -44,7 +46,6 @@ public:
 
     [[nodiscard]] const DescriptorBufferSampler& getTextureDescriptorBuffer() const { return textureDescriptorBuffer; }
     [[nodiscard]] const DescriptorBufferUniform& getUniformDescriptorBuffer() const { return uniformDescriptorBuffer; }
-
 
 public: // Physics
     void setTransform(const glm::vec3& position, const glm::quat& rotation) override {}
