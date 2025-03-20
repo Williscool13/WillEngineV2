@@ -43,12 +43,12 @@ TerrainChunk::TerrainChunk(ResourceManager& resourceManager, const std::vector<f
     resourceManager.copyBuffer(stagingBuffer, indexBuffer, indexBufferSize);
     resourceManager.destroyBuffer(stagingBuffer);
 
-    uploadTextures();
-
     for (int i{0}; i < FRAME_OVERLAP; i++) {
         terrainUniformBuffers[i] = resourceManager.createHostSequentialBuffer(sizeof(TerrainProperties));
     }
     uniformDescriptorBuffer = resourceManager.createDescriptorBufferUniform(resourceManager.getTerrainUniformLayout(), FRAME_OVERLAP);
+    // todo: maybe make this multi buffer for changing textures? Need to be careful about lifetimes of texture resources.
+    textureDescriptorBuffer = resourceManager.createDescriptorBufferSampler(resourceManager.getTerrainTexturesLayout(), 1);
     std::vector<DescriptorUniformData> terrainBuffers{1};
     for (int i{0}; i < FRAME_OVERLAP; i++) {
         terrainBuffers[0] = DescriptorUniformData{.uniformBuffer = terrainUniformBuffers[i], .allocSize = sizeof(TerrainProperties)};
@@ -69,8 +69,11 @@ TerrainChunk::TerrainChunk(ResourceManager& resourceManager, const std::vector<f
 
     physics->setupRigidbody(this, heightFieldSettings, JPH::EMotionType::Static, physics::Layers::TERRAIN);
 
-    TerrainProperties t{};
-    setTerrainProperties(t);
+    textureIds[0] = DEFAULT_TERRAIN_GRASS_TEXTURE_ID;
+    textureIds[1] = DEFAULT_TERRAIN_ROCKS_TEXTURE_ID;
+    textureIds[2] = DEFAULT_TERRAIN_SAND_TEXTURE_ID;
+
+    setTerrainBufferData(terrainProperties, textureIds);
 }
 
 TerrainChunk::~TerrainChunk()
@@ -202,14 +205,26 @@ void TerrainChunk::smoothNormals(std::vector<TerrainVertex>& vertices, const int
     }
 }
 
-void TerrainChunk::uploadTextures()
+void TerrainChunk::update(const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
 {
+    if (bufferFramesToUpdate <= 0) { return; }
+
+    const AllocatedBuffer& currentFrameUniformBuffer = terrainUniformBuffers[currentFrameOverlap];
+    const auto pUniformBuffer = reinterpret_cast<TerrainProperties*>(static_cast<char*>(currentFrameUniformBuffer.info.pMappedData));
+    memcpy(pUniformBuffer, &terrainProperties, sizeof(TerrainProperties));
+
+    bufferFramesToUpdate--;
+}
+
+void TerrainChunk::setTerrainBufferData(const TerrainProperties& terrainProperties, const std::array<uint32_t, MAX_TERRAIN_TEXTURE_COUNT>& textureIds)
+{
+    this->terrainProperties = terrainProperties;
+    textureResources.clear();
+
     std::vector<DescriptorImageData> textureDescriptors;
-    constexpr std::array defaultTextures{DEFAULT_TERRAIN_GRASS_TEXTURE_ID, DEFAULT_TERRAIN_ROCKS_TEXTURE_ID, DEFAULT_TERRAIN_SAND_TEXTURE_ID};
-    textureDescriptors.reserve(defaultTextures.size());
+    textureDescriptors.reserve(MAX_TERRAIN_TEXTURE_COUNT);
 
-    for (const uint32_t textureId : defaultTextures) {
-
+    for (const uint32_t textureId : textureIds) {
         if (Texture* texture = Engine::get()->getAssetManager()->getTexture(textureId)) {
             std::shared_ptr<TextureResource> textureResource = texture->getTextureResource();
             textureResources.push_back(textureResource);
@@ -230,33 +245,9 @@ void TerrainChunk::uploadTextures()
         }
     }
 
-    textureDescriptorBuffer = resourceManager.createDescriptorBufferSampler(resourceManager.getTerrainTexturesLayout(), 1);
     resourceManager.setupDescriptorBufferSampler(textureDescriptorBuffer, textureDescriptors, 0);
-}
 
-void TerrainChunk::update(const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
-{
-    if (bufferFramesToUpdate <= 0) { return; }
-
-    const AllocatedBuffer& currentFrameUniformBuffer = terrainUniformBuffers[currentFrameOverlap];
-    const auto pUniformBuffer = reinterpret_cast<TerrainProperties*>(static_cast<char*>(currentFrameUniformBuffer.info.pMappedData));
-    memcpy(pUniformBuffer, &terrainProperties, sizeof(TerrainProperties));
-
-    bufferFramesToUpdate--;
-}
-
-void TerrainChunk::setTerrainProperties(const TerrainProperties& newTerrainProperties)
-{
-    terrainProperties = newTerrainProperties;
+    this->textureIds = textureIds;
     bufferFramesToUpdate = FRAME_OVERLAP;
-}
-
-std::array<uint32_t, MAX_TERRAIN_TEXTURE_COUNT> TerrainChunk::getTerrainTextureIds() const
-{
-    std::array<uint32_t, MAX_TERRAIN_TEXTURE_COUNT> textures;
-    for (int32_t i = 0; i < textureResources.size(); ++i) {
-        textures[i] = textureResources[i]->getId();
-    }
-    return textures;
 }
 }

@@ -985,6 +985,13 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
 
                     if (ImGui::Button("Generate Terrain", ImVec2(-1, 0))) {
                         currentTerrainComponent->generateTerrain(terrainGenerationSettings, terrainSeed, terrainConfig);
+                        currentTerrainComponent->getTerrainChunk()->setTerrainBufferData(terrainProperties, terrainTextures);
+
+                        terrainGenerationSettings = currentTerrainComponent->getTerrainGenerationProperties();
+                        terrainSeed = currentTerrainComponent->getSeed();
+                        terrainConfig = currentTerrainComponent->getConfig();
+                        terrainProperties = currentTerrainComponent->getTerrainChunk()->getTerrainProperties();
+                        terrainTextures = currentTerrainComponent->getTerrainChunk()->getTerrainTextureIds();
                     }
 
                     if (ImGui::Button("Destroy Terrain", ImVec2(-1, 0))) {
@@ -1008,12 +1015,51 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
                         ImGui::DragFloat("Max Height", &terrainProperties.maxHeight, 1, -200, 200);
                     }
 
-                    if (ImGui::CollapsingHeader("Terrain Properties", ImGuiTreeNodeFlags_DefaultOpen)) {}
+                    if (ImGui::CollapsingHeader("Terrain Textures", ImGuiTreeNodeFlags_DefaultOpen)) {
+                        const char* textureSlotNames[3] = {"Grass Texture", "Rocks Texture", "Sand Texture"};
+
+                        for (int i = 0; i < 3; i++) {
+                            std::string currentTextureName = "None";
+                            if (Texture* tex = engine->assetManager->getTexture(terrainTextures[i])) {
+                                currentTextureName = tex->getName();
+                                if (currentTextureName.empty()) {
+                                    currentTextureName = std::to_string(tex->getId());
+                                }
+                            }
+
+                            // Begin combo box
+                            if (ImGui::BeginCombo(textureSlotNames[i], currentTextureName.c_str())) {
+                                bool isSelected = (terrainTextures[i] == 0);
+                                if (ImGui::Selectable("None", isSelected)) {
+                                    terrainTextures[i] = 0;
+                                }
+
+                                std::vector<Texture*> textures = engine->assetManager->getAllTextures();
+
+                                for (const Texture* tex2 : textures) {
+                                    std::string textureName = tex2->getName();
+                                    if (textureName.empty()) {
+                                        textureName = std::to_string(tex2->getId());
+                                    }
+
+                                    isSelected = (tex2->getId() == terrainTextures[i]);
+                                    if (ImGui::Selectable(textureName.c_str(), isSelected)) {
+                                        terrainTextures[i] = tex2->getId();
+                                    }
+
+                                    if (isSelected) {
+                                        ImGui::SetItemDefaultFocus();
+                                    }
+                                }
+                                ImGui::EndCombo();
+                            }
+                        }
+                    }
 
                     ImGui::Separator();
 
                     if (ImGui::Button("Update")) {
-                        currentTerrainComponent->getTerrainChunk()->setTerrainProperties(terrainProperties);
+                        currentTerrainComponent->getTerrainChunk()->setTerrainBufferData(terrainProperties, terrainTextures);
                     }
 
                     ImGui::EndTabItem();

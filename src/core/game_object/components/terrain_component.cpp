@@ -93,7 +93,7 @@ void will_engine::components::TerrainComponent::generateTerrain(terrain::Terrain
     if (Engine* engine = Engine::get()) {
         engine->addToActiveTerrain(this);
     }
-    terrainChunk->setTerrainProperties(terrainProperties);
+    terrainChunk->setTerrainBufferData(terrainProperties, terrainChunk->getTerrainTextureIds());
 }
 
 void will_engine::components::TerrainComponent::destroyTerrain()

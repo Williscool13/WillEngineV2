@@ -35,11 +35,11 @@ public:
 
     void update(int32_t currentFrameOverlap, int32_t previousFrameOverlap);
 
-    void setTerrainProperties(const TerrainProperties& newTerrainProperties);
+    void setTerrainBufferData(const TerrainProperties& terrainProperties, const std::array<uint32_t, MAX_TERRAIN_TEXTURE_COUNT>& textureIds);
 
     TerrainProperties getTerrainProperties() const { return terrainProperties; }
 
-    std::array<uint32_t, MAX_TERRAIN_TEXTURE_COUNT> getTerrainTextureIds() const;
+    std::array<uint32_t, MAX_TERRAIN_TEXTURE_COUNT> getTerrainTextureIds() const { return textureIds; }
 
 public:
     [[nodiscard]] const AllocatedBuffer& getVertexBuffer() const { return vertexBuffer; }
@@ -73,8 +73,8 @@ private:
     TerrainConfig terrainConfig;
 
 private: // Buffer Data
-    TerrainProperties terrainProperties;
-    std::vector<std::shared_ptr<TextureResource>> textureResources;
+    TerrainProperties terrainProperties{};
+    std::array<uint32_t, MAX_TERRAIN_TEXTURE_COUNT> textureIds{};
 
 private: // Model Data
     std::vector<TerrainVertex> vertices;
@@ -88,6 +88,7 @@ private: // Buffer Data
     DescriptorBufferUniform uniformDescriptorBuffer;
 
     std::array<AllocatedBuffer, FRAME_OVERLAP> terrainUniformBuffers{};
+    std::vector<std::shared_ptr<TextureResource> > textureResources{};
     int32_t bufferFramesToUpdate{FRAME_OVERLAP};
 
 private: // Physics

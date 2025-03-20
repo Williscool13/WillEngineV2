@@ -28,11 +28,11 @@ public:
 public:
     uint32_t getId() const { return textureId; }
 
-    const std::string& getName() { return name; }
+    const std::string& getName() const { return name; }
 
-    const std::filesystem::path& getTexturePath() { return texturePath; }
+    const std::filesystem::path& getTexturePath() const { return texturePath; }
 
-    const std::filesystem::path& getWillTexturePath() { return willTexturePath; }
+    const std::filesystem::path& getWillTexturePath() const { return willTexturePath; }
 
 private:
     std::weak_ptr<TextureResource> textureResource;
