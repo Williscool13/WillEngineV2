@@ -18,6 +18,7 @@
 #include "assets/render_object/render_object_constants.h"
 #include "descriptor_buffer/descriptor_buffer_uniform.h"
 #include "shaderc/shaderc.hpp"
+#include "terrain/terrain_constants.h"
 
 
 will_engine::ResourceManager::ResourceManager(const VulkanContext& context, ImmediateSubmitter& immediate) : context(context), immediate(immediate)
@@ -122,7 +123,7 @@ will_engine::ResourceManager::ResourceManager(const VulkanContext& context, Imme
     // Terrain Textures
     {
         DescriptorLayoutBuilder layoutBuilder;
-        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 8);
+        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, terrain::MAX_TERRAIN_TEXTURE_COUNT);
 
         terrainTexturesLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }

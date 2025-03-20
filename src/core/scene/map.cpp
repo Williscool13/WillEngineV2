@@ -14,7 +14,6 @@ will_engine::Map::Map(const std::filesystem::path& mapSource, ResourceManager& r
 {
     if (!exists(mapSource)) {
         fmt::print("Map source file not found, generating an empty map\n");
-        // todo: generate empty map
         mapName = mapSource.filename().stem().string();
         return;
     }

@@ -11,6 +11,7 @@ static constexpr size_t MAX_TEXTURE_COUNT{8};
 static constexpr uint32_t DEFAULT_TERRAIN_GRASS_TEXTURE_ID{3813767237};
 static constexpr uint32_t DEFAULT_TERRAIN_ROCKS_TEXTURE_ID{219859308};
 static constexpr uint32_t DEFAULT_TERRAIN_SAND_TEXTURE_ID{3986109841};
+static constexpr int32_t MAX_TERRAIN_TEXTURE_COUNT{8};
 
 }
 

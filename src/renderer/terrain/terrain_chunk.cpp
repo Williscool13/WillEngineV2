@@ -75,6 +75,7 @@ TerrainChunk::TerrainChunk(ResourceManager& resourceManager, const std::vector<f
 
 TerrainChunk::~TerrainChunk()
 {
+    // todo: deferred terrain destruction for mult-buffer
     if (terrainBodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex) {
         if (physics::Physics* physics = physics::Physics::get()) {
             physics->removeRigidBody(this);
@@ -208,13 +209,15 @@ void TerrainChunk::uploadTextures()
     textureDescriptors.reserve(defaultTextures.size());
 
     for (const uint32_t textureId : defaultTextures) {
+
         if (Texture* texture = Engine::get()->getAssetManager()->getTexture(textureId)) {
-            texture->load();
+            std::shared_ptr<TextureResource> textureResource = texture->getTextureResource();
+            textureResources.push_back(textureResource);
             textureDescriptors.push_back({
                 VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                 {
                     .sampler = resourceManager.getDefaultSamplerMipMappedNearest(),
-                    .imageView = texture->getTextureResource().imageView,
+                    .imageView = textureResource->getTexture().imageView,
                     .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
                 },
                 false
@@ -242,9 +245,18 @@ void TerrainChunk::update(const int32_t currentFrameOverlap, const int32_t previ
     bufferFramesToUpdate--;
 }
 
-void TerrainChunk::setTerrainProperties(TerrainProperties newTerrainProperties)
+void TerrainChunk::setTerrainProperties(const TerrainProperties& newTerrainProperties)
 {
     terrainProperties = newTerrainProperties;
     bufferFramesToUpdate = FRAME_OVERLAP;
+}
+
+std::array<uint32_t, MAX_TERRAIN_TEXTURE_COUNT> TerrainChunk::getTerrainTextureIds() const
+{
+    std::array<uint32_t, MAX_TERRAIN_TEXTURE_COUNT> textures;
+    for (int32_t i = 0; i < textureResources.size(); ++i) {
+        textures[i] = textureResources[i]->getId();
+    }
+    return textures;
 }
 }

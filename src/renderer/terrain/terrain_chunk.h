@@ -8,11 +8,13 @@
 #include <array>
 #include <glm/detail/type_quat.hpp>
 
+#include "terrain_constants.h"
 #include "terrain_types.h"
 #include "src/physics/physics_body.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/vk_types.h"
+#include "src/renderer/assets/texture/texture_resource.h"
 
 namespace will_engine::terrain
 {
@@ -33,9 +35,11 @@ public:
 
     void update(int32_t currentFrameOverlap, int32_t previousFrameOverlap);
 
-    void setTerrainProperties(TerrainProperties newTerrainProperties);
+    void setTerrainProperties(const TerrainProperties& newTerrainProperties);
 
-    TerrainProperties getTerrainProperties() { return terrainProperties; }
+    TerrainProperties getTerrainProperties() const { return terrainProperties; }
+
+    std::array<uint32_t, MAX_TERRAIN_TEXTURE_COUNT> getTerrainTextureIds() const;
 
 public:
     [[nodiscard]] const AllocatedBuffer& getVertexBuffer() const { return vertexBuffer; }
@@ -67,7 +71,10 @@ public: // Physics
 private:
     ResourceManager& resourceManager;
     TerrainConfig terrainConfig;
+
+private: // Buffer Data
     TerrainProperties terrainProperties;
+    std::vector<std::shared_ptr<TextureResource>> textureResources;
 
 private: // Model Data
     std::vector<TerrainVertex> vertices;

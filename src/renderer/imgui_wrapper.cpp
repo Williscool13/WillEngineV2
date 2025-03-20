@@ -122,6 +122,7 @@ void ImguiWrapper::selectMap(Map* newMap)
     terrainSeed = terrainComponent->getSeed();
     terrainConfig = terrainComponent->getConfig();
     terrainProperties = terrainComponent->getTerrainChunk()->getTerrainProperties();
+    terrainTextures = terrainComponent->getTerrainChunk()->getTerrainTextureIds();
 }
 
 void ImguiWrapper::imguiInterface(Engine* engine)
@@ -691,6 +692,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             if (ImGui::BeginTabItem("Textures")) {
                 if (ImGui::BeginTabBar("Textures Tab Bar")) {
                     if (ImGui::BeginTabItem("Visualization")) {
+                        // Randomly select a texture if none selected
                         if (currentlySelectedTextureImguiId == VK_NULL_HANDLE) {
                             if (engine->assetManager->hasAnyTexture()) {
                                 if (currentlySelectedTextureImguiId != VK_NULL_HANDLE) {
@@ -699,19 +701,30 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                     // todo: remove texture needs to be delayed to account for double buffer
                                     currentlySelectedTextureImguiId = VK_NULL_HANDLE;
                                 }
-                                auto randomTexture = engine->assetManager->getAnyTexture();
-                                randomTexture->load();
-                                currentlySelectedTextureImguiId = ImGui_ImplVulkan_AddTexture(engine->resourceManager->getDefaultSamplerLinear(), randomTexture->getTextureResource().imageView,
+                                Texture* randomTexture = engine->assetManager->getAnyTexture();
+
+                                currentlySelectedTexture = randomTexture->getTextureResource();
+                                currentlySelectedTextureImguiId = ImGui_ImplVulkan_AddTexture(engine->resourceManager->getDefaultSamplerLinear(), currentlySelectedTexture->getTexture().imageView,
                                                                                               VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-                                currentlySelectedTextureId = randomTexture->getId();
                             }
                         }
 
-                        if (ImGui::BeginCombo("Select Texture", fmt::format("Texture ID - {}", currentlySelectedTextureId).c_str())) {
-                            for (Texture* texture : engine->assetManager->getAllTextures()) {
-                                bool isSelected = (currentlySelectedTextureId == texture->getId());
+                        std::string previewText;
+                        if (currentlySelectedTexture) {
+                            previewText = fmt::format("Texture ID - {}", currentlySelectedTexture->getId());
+                        }
+                        else {
+                            previewText = "Select Texture";
+                        }
 
-                                if (ImGui::Selectable(fmt::format("Texture ID - {}", texture->getId()).c_str(), isSelected)) {
+
+                        if (ImGui::BeginCombo("Select Texture", previewText.c_str())) {
+                            for (Texture* texture : engine->assetManager->getAllTextures()) {
+                                bool isSelected = (currentlySelectedTexture->getId() == texture->getId());
+
+                                std::string label = fmt::format("[{}] Texture ID - {}", texture->isTextureResourceLoaded() ? "LOADED" : "NOT LOADED", texture->getId());
+
+                                if (ImGui::Selectable(label.c_str(), isSelected)) {
                                     if (currentlySelectedTextureImguiId != VK_NULL_HANDLE) {
                                         vkDeviceWaitIdle(context.device);
                                         ImGui_ImplVulkan_RemoveTexture(currentlySelectedTextureImguiId);
@@ -719,10 +732,9 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                         currentlySelectedTextureImguiId = VK_NULL_HANDLE;
                                     }
 
-                                    texture->load();
-                                    currentlySelectedTextureImguiId = ImGui_ImplVulkan_AddTexture(engine->resourceManager->getDefaultSamplerLinear(), texture->getTextureResource().imageView,
+                                    currentlySelectedTexture = texture->getTextureResource();
+                                    currentlySelectedTextureImguiId = ImGui_ImplVulkan_AddTexture(engine->resourceManager->getDefaultSamplerLinear(), currentlySelectedTexture->getTexture().imageView,
                                                                                                   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-                                    currentlySelectedTextureId = texture->getId();
                                 }
                             }
 
@@ -736,15 +748,11 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             float maxSize = ImGui::GetContentRegionAvail().x;
                             maxSize = glm::min(maxSize, 512.0f);
 
-                            float width = maxSize;
-                            float height = maxSize;
+                            VkExtent3D imageExtent = currentlySelectedTexture->getTexture().imageExtent;
+                            float width = std::min(maxSize, static_cast<float>(imageExtent.width));
+                            float aspectRatio = static_cast<float>(imageExtent.width) / static_cast<float>(imageExtent.height);
+                            float height = width / aspectRatio;
 
-                            if (Texture* texture = engine->assetManager->getTexture(currentlySelectedTextureId)) {
-                                VkExtent3D imageExtent = texture->getTextureResource().imageExtent;
-                                width = std::min(maxSize, static_cast<float>(imageExtent.width));
-                                float aspectRatio = static_cast<float>(imageExtent.width) / static_cast<float>(imageExtent.height);
-                                height = width / aspectRatio;
-                            }
                             ImGui::Image(reinterpret_cast<ImTextureID>(currentlySelectedTextureImguiId), ImVec2(width, height));
                         }
 
@@ -988,11 +996,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
                 }
 
                 if (ImGui::BeginTabItem("Terrain Config")) {
-                    // todo: terrain texture selection
-
-                    ImGui::Separator();
-
-                    if (ImGui::CollapsingHeader("Terrain Properties")) {
+                    if (ImGui::CollapsingHeader("Terrain Properties", ImGuiTreeNodeFlags_DefaultOpen)) {
                         ImGui::SliderFloat("Rocks: Slope Threshold", &terrainProperties.slopeRockThreshold, 0.0f, 1.0f, "%.2f");
                         ImGui::SliderFloat("Rocks: Blend", &terrainProperties.slopeRockBlend, 0.0f, 1.0f, "%.2f");
                         ImGui::SliderFloat("Sand: Height Threshold", &terrainProperties.heightSandThreshold, 0.0f, 1.0f, "%.2f");
@@ -1003,6 +1007,8 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
                         ImGui::DragFloat("Min Height", &terrainProperties.minHeight, 1, -200, 200);
                         ImGui::DragFloat("Max Height", &terrainProperties.maxHeight, 1, -200, 200);
                     }
+
+                    if (ImGui::CollapsingHeader("Terrain Properties", ImGuiTreeNodeFlags_DefaultOpen)) {}
 
                     ImGui::Separator();
 

@@ -24,7 +24,7 @@ RenderObject::RenderObject(ResourceManager& resourceManager, const std::filesyst
 
 RenderObject::~RenderObject()
 {
-    // todo: unload needs to be delayed to account for double buffer
+    // todo: deferred buffer destruction for multi-buffer
     unload();
 }
 

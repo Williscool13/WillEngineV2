@@ -244,6 +244,9 @@ set(TEMP_SOURCES
         src/renderer/terrain/terrain_constants.h
         src/core/scene/serializer_types.h
         src/core/scene/serializer_constants.h
+        src/renderer/assets/texture/texture_resource.cpp
+        src/renderer/assets/texture/texture_resource.h
+        src/renderer/assets/texture/texture_types.h
 
 )
 

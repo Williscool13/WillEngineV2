@@ -4,8 +4,6 @@
 
 #include "texture.h"
 
-#include <stb/stb_image.h>
-
 
 will_engine::Texture::Texture(ResourceManager& resourceManager, const uint32_t textureId, const std::filesystem::path& willTexturePath, const std::filesystem::path& texturePath,
                               const TextureProperties textureProperties)
@@ -14,50 +12,18 @@ will_engine::Texture::Texture(ResourceManager& resourceManager, const uint32_t t
 
 will_engine::Texture::~Texture()
 {
-    unload();
+    if (!textureResource.expired()) {
+        fmt::print("Texture: Warning, Texture was destroyed when the texture resource was still in use. This will cause problems");
+    }
 }
 
-void will_engine::Texture::load()
+std::shared_ptr<will_engine::TextureResource> will_engine::Texture::getTextureResource()
 {
-    if (bIsLoaded) {
-        return;
+    if (textureResource.expired()) {
+        auto newTexture = std::make_shared<TextureResource>(resourceManager, texturePath, textureId, properties);
+        textureResource = newTexture;
+        return newTexture;
     }
 
-    if (!exists(texturePath)) {
-        fmt::print("Error: Texture file not found: {}\n", texturePath.string());
-        return;
-    }
-
-    int32_t width, height, channels;
-    unsigned char* data = stbi_load(texturePath.string().c_str(), &width, &height, &channels, STBI_rgb_alpha);
-
-    if (!data) {
-        fmt::print("Failed to load texture: {}\n", texturePath.string());
-        fmt::print("STB Error: {}\n", stbi_failure_reason());
-        return;
-    }
-
-    const VkExtent3D imageExtent{
-        static_cast<uint32_t>(width),
-        static_cast<uint32_t>(height),
-        1
-    };
-
-    const size_t imageSize = width * height * 4;
-    texture = resourceManager.createImage(
-        data,
-        imageSize,
-        imageExtent,
-        VK_FORMAT_R8G8B8A8_UNORM,
-        VK_IMAGE_USAGE_SAMPLED_BIT,
-        properties.mipmapped
-    );
-
-    stbi_image_free(data);
-    bIsLoaded = true;
-}
-
-void will_engine::Texture::unload() const
-{
-    resourceManager.destroyImage(texture);
+    return textureResource.lock();
 }

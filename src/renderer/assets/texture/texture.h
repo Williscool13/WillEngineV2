@@ -6,17 +6,12 @@
 #define TEXTURE_H
 #include <filesystem>
 
+#include "texture_resource.h"
+#include "texture_types.h"
 #include "src/renderer/resource_manager.h"
-#include "src/renderer/vk_types.h"
-
 
 namespace will_engine
 {
-struct TextureProperties
-{
-    bool mipmapped{true};
-};
-
 class Texture
 {
 public:
@@ -26,13 +21,11 @@ public:
 
     ~Texture();
 
-    void load();
+    std::shared_ptr<TextureResource> getTextureResource();
 
-    void unload() const;
+    bool isTextureResourceLoaded() const { return !textureResource.expired(); }
 
 public:
-    AllocatedImage getTextureResource() const { return texture; }
-
     uint32_t getId() const { return textureId; }
 
     const std::string& getName() { return name; }
@@ -42,7 +35,7 @@ public:
     const std::filesystem::path& getWillTexturePath() { return willTexturePath; }
 
 private:
-    AllocatedImage texture;
+    std::weak_ptr<TextureResource> textureResource;
 
 private:
     uint32_t textureId;
@@ -51,8 +44,6 @@ private:
     std::string name;
 
     TextureProperties properties;
-
-    bool bIsLoaded{false};
 
 private:
     ResourceManager& resourceManager;
