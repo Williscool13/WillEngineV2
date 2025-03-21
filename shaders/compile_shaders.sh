@@ -21,7 +21,7 @@ find_shaders() {
     shopt -s nullglob
     
     # Find and compile all shader types
-    for ext in comp vert frag; do
+    for ext in comp vert frag tese tesc; do
         for file in "$dir"/*.$ext; do
             if [ -f "$file" ]; then
                 compile_shader "$file"

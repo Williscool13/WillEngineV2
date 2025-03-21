@@ -52,32 +52,15 @@ static std::filesystem::path getRelativePath(const std::filesystem::path& fullPa
     return "assets" / relPath;
 }
 
-static std::vector<std::filesystem::path> findWillmodels(const std::filesystem::path& dir)
+static std::vector<std::filesystem::path> findWillFiles(const std::filesystem::path& dir, const char* extension)
 {
     std::vector<std::filesystem::path> models;
     for (const auto& entry : std::filesystem::recursive_directory_iterator(dir)) {
-        if (entry.path().extension() == ".willmodel") {
+        if (entry.path().extension() == extension) {
             models.push_back(entry.path());
         }
     }
     return models;
-}
-
-static void scanForModels(std::unordered_map<uint32_t, RenderObjectInfo>& renderObjectInfoMap)
-{
-    fmt::print("Scanning for .willmodel files\n");
-    renderObjectInfoMap.clear();
-    const std::vector<std::filesystem::path> willModels = findWillmodels(relative(std::filesystem::current_path() / "assets"));
-    renderObjectInfoMap.reserve(willModels.size());
-    for (std::filesystem::path willModel : willModels) {
-        std::optional<RenderObjectInfo> modelMetadata = Serializer::loadWillModel(willModel);
-        if (modelMetadata.has_value()) {
-            renderObjectInfoMap[modelMetadata->id] = modelMetadata.value();
-        }
-        else {
-            fmt::print("Failed to load render object, see previous error message\n");
-        }
-    }
 }
 
 static std::filesystem::path getSampleScene()

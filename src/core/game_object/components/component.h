@@ -69,7 +69,7 @@ public: // Defined Behaviors
         return componentName;
     }
 
-    void EnableComponent()
+    void enableComponent()
     {
         if (!bIsEnabled) {
             bIsEnabled = true;
@@ -77,7 +77,7 @@ public: // Defined Behaviors
         }
     }
 
-    void DisableComponent()
+    void disableComponent()
     {
         if (bIsEnabled) {
             bIsEnabled = false;

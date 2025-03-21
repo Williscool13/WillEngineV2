@@ -6,10 +6,9 @@
 #define DEFERRED_RESOLVE_H
 #include <vulkan/vulkan_core.h>
 
+#include "src/renderer/resource_manager.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
 
-
-class ResourceManager;
 
 namespace will_engine::deferred_resolve
 {
@@ -55,7 +54,7 @@ class DeferredResolvePipeline
 {
 public:
     explicit DeferredResolvePipeline(ResourceManager& resourceManager, VkDescriptorSetLayout environmentIBLLayout, VkDescriptorSetLayout cascadeUniformLayout,
-                                     VkDescriptorSetLayout cascadeSamplerlayout);
+                                     VkDescriptorSetLayout cascadeSamplerLayout);
 
     ~DeferredResolvePipeline();
 

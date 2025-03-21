@@ -16,8 +16,11 @@
 #include "shaderc/shaderc.hpp"
 
 
-class ImmediateSubmitter;
 class VulkanContext;
+
+namespace will_engine
+{
+class ImmediateSubmitter;
 
 class ResourceManager
 {
@@ -28,6 +31,7 @@ public:
 
     ~ResourceManager();
 
+public: // Resource Creation
     [[nodiscard]] AllocatedBuffer createBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) const;
 
     AllocatedBuffer createHostSequentialBuffer(size_t allocSize) const;
@@ -99,6 +103,7 @@ public:
 public:
     [[nodiscard]] VkSampler getDefaultSamplerLinear() const { return defaultSamplerLinear; }
     [[nodiscard]] VkSampler getDefaultSamplerNearest() const { return defaultSamplerNearest; }
+    [[nodiscard]] VkSampler getDefaultSamplerMipMappedNearest() const { return defaultSamplerMipMappedLinear; }
     [[nodiscard]] AllocatedImage getWhiteImage() const { return whiteImage; }
     [[nodiscard]] AllocatedImage getErrorCheckerboardImage() const { return errorCheckerboardImage; }
 
@@ -108,6 +113,8 @@ public:
     [[nodiscard]] VkDescriptorSetLayout getAddressesLayout() const { return addressesLayout; }
     [[nodiscard]] VkDescriptorSetLayout getTexturesLayout() const { return texturesLayout; }
     [[nodiscard]] VkDescriptorSetLayout getRenderTargetsLayout() const { return renderTargetsLayout; }
+    [[nodiscard]] VkDescriptorSetLayout getTerrainTexturesLayout() const { return terrainTexturesLayout; }
+    [[nodiscard]] VkDescriptorSetLayout getTerrainUniformLayout() const { return terrainUniformLayout; }
 
 private:
     const VulkanContext& context;
@@ -117,6 +124,7 @@ private:
     AllocatedImage errorCheckerboardImage{};
     VkSampler defaultSamplerLinear{VK_NULL_HANDLE};
     VkSampler defaultSamplerNearest{VK_NULL_HANDLE};
+    VkSampler defaultSamplerMipMappedLinear{VK_NULL_HANDLE};
 
     VkDescriptorSetLayout emptyDescriptorSetLayout{VK_NULL_HANDLE};
 
@@ -135,6 +143,9 @@ private:
      * Used in deferred resolve
      */
     VkDescriptorSetLayout renderTargetsLayout{VK_NULL_HANDLE};
+
+    VkDescriptorSetLayout terrainTexturesLayout{VK_NULL_HANDLE};
+    VkDescriptorSetLayout terrainUniformLayout{VK_NULL_HANDLE};
 };
 
 class CustomIncluder final : public shaderc::CompileOptions::IncluderInterface
@@ -200,5 +211,7 @@ private:
         return result;
     }
 };
+}
+
 
 #endif //RESOURCE_MANAGER_H

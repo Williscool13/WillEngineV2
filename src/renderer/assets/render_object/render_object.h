@@ -25,10 +25,14 @@ struct RenderableProperties
     int32_t instanceIndex;
 };
 
+/**
+ * Render Objects are persistent class representations of GLTF files. They always exist and their lifetime is managed through \code AssetManager\endcode.
+ * \n The Render Object can be loaded/unloaded at runtime to avoid unnecessary GPU allocations.
+ */
 class RenderObject final : public IRenderReference
 {
 public:
-    RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager, uint32_t renderObjectId);
+    RenderObject(ResourceManager& resourceManager, const std::filesystem::path& willmodelPath, const std::filesystem::path& gltfFilepath, std::string name, uint32_t renderObjectId);
 
     ~RenderObject() override;
 
@@ -39,6 +43,26 @@ public:
     void dirty() { bufferFramesToUpdate = FRAME_OVERLAP; }
 
     int32_t bufferFramesToUpdate{0};
+
+public:
+    void load();
+
+    void unload();
+
+    bool isLoaded() const { return bIsLoaded; }
+
+    const std::string& getName() { return name; }
+
+    const std::filesystem::path& getGltfPath() { return gltfPath; }
+
+    const std::filesystem::path& getWillmodelPath() { return willmodelPath; }
+
+private:
+    bool bIsLoaded{false};
+
+    std::filesystem::path willmodelPath;
+    std::filesystem::path gltfPath;
+    std::string name;
 
 private:
     int32_t getFreeInstanceIndex();
@@ -56,7 +80,6 @@ public: // IRenderReference
     [[nodiscard]] uint32_t getId() const override { return renderObjectId; }
 
     bool releaseInstanceIndex(IRenderable* renderable) override;
-
 
 private: // IRenderReference
     /**
@@ -92,9 +115,7 @@ private: // Model Parsing
 private: // Model Data
     ResourceManager& resourceManager;
 
-    std::vector<VkSampler> samplers{};
-    std::vector<AllocatedImage> images{};
-    std::vector<Material> materials{};
+    std::vector<MaterialProperties> materials{};
     std::vector<Vertex> vertices;
     std::vector<uint32_t> indices;
     std::vector<Mesh> meshes{};
@@ -103,6 +124,9 @@ private: // Model Data
     std::vector<int32_t> topNodes;
 
 private: // Buffer Data
+    std::vector<VkSampler> samplers{};
+    std::vector<AllocatedImage> images{};
+
     std::vector<VkDrawIndexedIndirectCommand> drawCommands{};
     std::vector<uint32_t> boundingSphereIndices;
 

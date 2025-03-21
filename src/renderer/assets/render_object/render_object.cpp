@@ -18,134 +18,19 @@
 
 namespace will_engine
 {
-RenderObject::RenderObject(const std::filesystem::path& gltfFilepath, ResourceManager& resourceManager, uint32_t renderObjectId)
-    : renderObjectId(renderObjectId), resourceManager(resourceManager)
-{
-    freeInstanceIndices.reserve(10);
-    for (int32_t i = 0; i < 10; ++i) { freeInstanceIndices.insert(i); }
-    currentInstanceCount = freeInstanceIndices.size();
-
-    if (!parseGltf(gltfFilepath)) { return; }
-
-    std::vector<DescriptorImageData> textureDescriptors;
-    for (const VkSampler sampler : samplers) {
-        textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, {.sampler = sampler}, false});
-    }
-
-    const size_t remaining = render_object_constants::MAX_SAMPLER_COUNT - samplers.size();
-    for (int i = 0; i < remaining; i++) {
-        textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, {}, true});
-    }
-
-    for (const AllocatedImage& image : images) {
-        textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, {.imageView = image.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}, false});
-    }
-
-
-    textureDescriptorBuffer = resourceManager.createDescriptorBufferSampler(resourceManager.getTexturesLayout(), 1);
-    resourceManager.setupDescriptorBufferSampler(textureDescriptorBuffer, textureDescriptors, 0);
-
-
-    AllocatedBuffer materialStaging = resourceManager.createStagingBuffer(materials.size() * sizeof(Material));
-    memcpy(materialStaging.info.pMappedData, materials.data(), materials.size() * sizeof(Material));
-    materialBuffer = resourceManager.createDeviceBuffer(materials.size() * sizeof(Material));
-    resourceManager.copyBuffer(materialStaging, materialBuffer, materials.size() * sizeof(Material));
-    resourceManager.destroyBuffer(materialStaging);
-
-
-    AllocatedBuffer vertexStaging = resourceManager.createStagingBuffer(vertices.size() * sizeof(Vertex));
-    memcpy(vertexStaging.info.pMappedData, vertices.data(), vertices.size() * sizeof(Vertex));
-    vertexBuffer = resourceManager.createDeviceBuffer(vertices.size() * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-    resourceManager.copyBuffer(vertexStaging, vertexBuffer, vertices.size() * sizeof(Vertex));
-    resourceManager.destroyBuffer(vertexStaging);
-
-    AllocatedBuffer indexStaging = resourceManager.createStagingBuffer(indices.size() * sizeof(uint32_t));
-    memcpy(indexStaging.info.pMappedData, indices.data(), indices.size() * sizeof(uint32_t));
-    indexBuffer = resourceManager.createDeviceBuffer(indices.size() * sizeof(uint32_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-    resourceManager.copyBuffer(indexStaging, indexBuffer, indices.size() * sizeof(uint32_t));
-    resourceManager.destroyBuffer(indexStaging);
-
-    // Addresses (Texture and Uniform model data)
-    // todo: make address buffer for statics (dont need multiple)
-    addressesDescriptorBuffer = resourceManager.createDescriptorBufferUniform(resourceManager.getAddressesLayout(), FRAME_OVERLAP);
-    for (int32_t i = 0; i < FRAME_OVERLAP; i++) {
-        constexpr size_t addressesSize = sizeof(VkDeviceAddress) * 2;
-        addressBuffers[i] = resourceManager.createHostSequentialBuffer(addressesSize);
-        DescriptorUniformData addressesUniformData{
-            .uniformBuffer = addressBuffers[i],
-            .allocSize = addressesSize,
-        };
-        resourceManager.setupDescriptorBufferUniform(addressesDescriptorBuffer, {addressesUniformData}, i);
-
-        modelMatrixBuffers[i] = resourceManager.createHostRandomBuffer(currentInstanceCount * sizeof(InstanceData), VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-
-
-        const VkDeviceAddress materialBufferAddress = resourceManager.getBufferAddress(materialBuffer);
-        const VkDeviceAddress instanceBufferAddress = resourceManager.getBufferAddress(modelMatrixBuffers[i]);
-        const VkDeviceAddress addresses[2] = {materialBufferAddress, instanceBufferAddress};
-        memcpy(addressBuffers[i].info.pMappedData, addresses, sizeof(VkDeviceAddress) * 2);
-    }
-
-    frustumCullingDescriptorBuffer = resourceManager.createDescriptorBufferUniform(resourceManager.getFrustumCullLayout(), FRAME_OVERLAP);
-    for (int32_t i = 0; i < FRAME_OVERLAP; i++) {
-        cullingAddressBuffers[i] = resourceManager.createDeviceBuffer(sizeof(FrustumCullingBuffers));
-        const DescriptorUniformData cullingAddressesUniformData{
-            .uniformBuffer = cullingAddressBuffers[i],
-            .allocSize = sizeof(FrustumCullingBuffers),
-        };
-        resourceManager.setupDescriptorBufferUniform(frustumCullingDescriptorBuffer, {cullingAddressesUniformData}, i);
-    }
-
-
-    AllocatedBuffer meshBoundsStaging = resourceManager.createStagingBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
-    memcpy(meshBoundsStaging.info.pMappedData, boundingSpheres.data(), sizeof(BoundingSphere) * boundingSpheres.size());
-    meshBoundsBuffer = resourceManager.createDeviceBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
-    resourceManager.copyBuffer(meshBoundsStaging, meshBoundsBuffer, sizeof(BoundingSphere) * boundingSpheres.size());
-    resourceManager.destroyBuffer(meshBoundsStaging);
-}
+RenderObject::RenderObject(ResourceManager& resourceManager, const std::filesystem::path& willmodelPath, const std::filesystem::path& gltfFilepath, std::string name, const uint32_t renderObjectId)
+    : willmodelPath(willmodelPath), gltfPath(gltfFilepath), name(std::move(name)), renderObjectId(renderObjectId), resourceManager(resourceManager)
+{}
 
 RenderObject::~RenderObject()
 {
-    for (auto& image : images) {
-        if (image.image == resourceManager.getErrorCheckerboardImage().image || image.image == resourceManager.getWhiteImage().image) {
-            //dont destroy the default images
-            continue;
-        }
-
-        resourceManager.destroyImage(image);
-    }
-
-    for (const auto& sampler : samplers) {
-        if (sampler == resourceManager.getDefaultSamplerNearest() || sampler == resourceManager.getDefaultSamplerLinear()) {
-            //dont destroy the default samplers
-            continue;
-        }
-
-        resourceManager.destroySampler(sampler);
-    }
-
-    resourceManager.destroyBuffer(indexBuffer);
-    resourceManager.destroyBuffer(vertexBuffer);
-
-    resourceManager.destroyBuffer(materialBuffer);
-
-    resourceManager.destroyBuffer(meshBoundsBuffer);
-
-    for (int i = 0; i < FRAME_OVERLAP; ++i) {
-        resourceManager.destroyBuffer(drawIndirectBuffers[i]);
-        resourceManager.destroyBuffer(addressBuffers[i]);
-        resourceManager.destroyBuffer(modelMatrixBuffers[i]);
-        resourceManager.destroyBuffer(cullingAddressBuffers[i]);
-        resourceManager.destroyBuffer(boundingSphereIndicesBuffers[i]);
-    }
-
-    resourceManager.destroyDescriptorBuffer(addressesDescriptorBuffer);
-    resourceManager.destroyDescriptorBuffer(frustumCullingDescriptorBuffer);
-    resourceManager.destroyDescriptorBuffer(textureDescriptorBuffer);
+    // todo: deferred buffer destruction for multi-buffer
+    unload();
 }
 
 void RenderObject::update(const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
 {
+    if (!bIsLoaded) { return; }
     updateBuffers(currentFrameOverlap, previousFrameOverlap);
 
     for (const std::pair renderablePair : renderableMap) {
@@ -429,7 +314,7 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
     int32_t materialOffset = 1;
     // default material at 0
     materials.reserve(gltf.materials.size() + materialOffset);
-    Material defaultMaterial{
+    MaterialProperties defaultMaterial{
         glm::vec4(1.0f),
         {0.0f, 1.0f, 0.0f, 0.0f},
         glm::vec4(0.0f),
@@ -438,7 +323,7 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
     };
     materials.push_back(defaultMaterial);
     for (const fastgltf::Material& gltfMaterial : gltf.materials) {
-        Material material = model_utils::extractMaterial(gltf, gltfMaterial);
+        MaterialProperties material = model_utils::extractMaterial(gltf, gltfMaterial);
         materials.push_back(material);
     }
 
@@ -595,6 +480,166 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
                samplers.size() - model_utils::samplerOffset,
                images.size() - model_utils::imageOffset, materials.size() - materialOffset, meshes.size(), primitiveCount, instanceCount, time);
     return true;
+}
+
+void RenderObject::load()
+{
+    if (bIsLoaded) {
+        fmt::print("Render Object attempted to load when it is already loaded");
+        return;
+    }
+
+    freeInstanceIndices.reserve(10);
+    for (int32_t i = 0; i < 10; ++i) { freeInstanceIndices.insert(i); }
+    currentInstanceCount = freeInstanceIndices.size();
+
+    if (!parseGltf(gltfPath)) { return; }
+
+    std::vector<DescriptorImageData> textureDescriptors;
+    for (const VkSampler sampler : samplers) {
+        textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, {.sampler = sampler}, false});
+    }
+
+    const size_t remaining = render_object_constants::MAX_SAMPLER_COUNT - samplers.size();
+    for (int i = 0; i < remaining; i++) {
+        textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, {}, true});
+    }
+
+    for (const AllocatedImage& image : images) {
+        textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, {.imageView = image.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}, false});
+    }
+
+
+    textureDescriptorBuffer = resourceManager.createDescriptorBufferSampler(resourceManager.getTexturesLayout(), 1);
+    resourceManager.setupDescriptorBufferSampler(textureDescriptorBuffer, textureDescriptors, 0);
+
+
+    AllocatedBuffer materialStaging = resourceManager.createStagingBuffer(materials.size() * sizeof(MaterialProperties));
+    memcpy(materialStaging.info.pMappedData, materials.data(), materials.size() * sizeof(MaterialProperties));
+    materialBuffer = resourceManager.createDeviceBuffer(materials.size() * sizeof(MaterialProperties));
+    resourceManager.copyBuffer(materialStaging, materialBuffer, materials.size() * sizeof(MaterialProperties));
+    resourceManager.destroyBuffer(materialStaging);
+
+
+    AllocatedBuffer vertexStaging = resourceManager.createStagingBuffer(vertices.size() * sizeof(Vertex));
+    memcpy(vertexStaging.info.pMappedData, vertices.data(), vertices.size() * sizeof(Vertex));
+    vertexBuffer = resourceManager.createDeviceBuffer(vertices.size() * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    resourceManager.copyBuffer(vertexStaging, vertexBuffer, vertices.size() * sizeof(Vertex));
+    resourceManager.destroyBuffer(vertexStaging);
+
+    AllocatedBuffer indexStaging = resourceManager.createStagingBuffer(indices.size() * sizeof(uint32_t));
+    memcpy(indexStaging.info.pMappedData, indices.data(), indices.size() * sizeof(uint32_t));
+    indexBuffer = resourceManager.createDeviceBuffer(indices.size() * sizeof(uint32_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    resourceManager.copyBuffer(indexStaging, indexBuffer, indices.size() * sizeof(uint32_t));
+    resourceManager.destroyBuffer(indexStaging);
+
+    // Addresses (Texture and Uniform model data)
+    // todo: make address buffer for statics (dont need multiple)
+    addressesDescriptorBuffer = resourceManager.createDescriptorBufferUniform(resourceManager.getAddressesLayout(), FRAME_OVERLAP);
+    for (int32_t i = 0; i < FRAME_OVERLAP; i++) {
+        constexpr size_t addressesSize = sizeof(VkDeviceAddress) * 2;
+        addressBuffers[i] = resourceManager.createHostSequentialBuffer(addressesSize);
+        DescriptorUniformData addressesUniformData{
+            .uniformBuffer = addressBuffers[i],
+            .allocSize = addressesSize,
+        };
+        resourceManager.setupDescriptorBufferUniform(addressesDescriptorBuffer, {addressesUniformData}, i);
+
+        modelMatrixBuffers[i] = resourceManager.createHostRandomBuffer(currentInstanceCount * sizeof(InstanceData), VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+
+
+        const VkDeviceAddress materialBufferAddress = resourceManager.getBufferAddress(materialBuffer);
+        const VkDeviceAddress instanceBufferAddress = resourceManager.getBufferAddress(modelMatrixBuffers[i]);
+        const VkDeviceAddress addresses[2] = {materialBufferAddress, instanceBufferAddress};
+        memcpy(addressBuffers[i].info.pMappedData, addresses, sizeof(VkDeviceAddress) * 2);
+    }
+
+    frustumCullingDescriptorBuffer = resourceManager.createDescriptorBufferUniform(resourceManager.getFrustumCullLayout(), FRAME_OVERLAP);
+    for (int32_t i = 0; i < FRAME_OVERLAP; i++) {
+        cullingAddressBuffers[i] = resourceManager.createDeviceBuffer(sizeof(FrustumCullingBuffers));
+        const DescriptorUniformData cullingAddressesUniformData{
+            .uniformBuffer = cullingAddressBuffers[i],
+            .allocSize = sizeof(FrustumCullingBuffers),
+        };
+        resourceManager.setupDescriptorBufferUniform(frustumCullingDescriptorBuffer, {cullingAddressesUniformData}, i);
+    }
+
+
+    AllocatedBuffer meshBoundsStaging = resourceManager.createStagingBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
+    memcpy(meshBoundsStaging.info.pMappedData, boundingSpheres.data(), sizeof(BoundingSphere) * boundingSpheres.size());
+    meshBoundsBuffer = resourceManager.createDeviceBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
+    resourceManager.copyBuffer(meshBoundsStaging, meshBoundsBuffer, sizeof(BoundingSphere) * boundingSpheres.size());
+    resourceManager.destroyBuffer(meshBoundsStaging);
+
+
+    bIsLoaded = true;
+}
+
+void RenderObject::unload()
+{
+    std::vector<IRenderable*> renderables{};
+    renderables.reserve(renderableMap.size());
+    for (std::pair renderable : renderableMap) {
+        renderables.push_back(renderable.first);
+    }
+
+    for (const auto renderable : renderables) {
+        renderable->releaseMesh();
+    }
+
+    renderables.clear();
+    renderableMap.clear();
+
+    for (auto& image : images) {
+        if (image.image == resourceManager.getErrorCheckerboardImage().image || image.image == resourceManager.getWhiteImage().image) {
+            //dont destroy the default images
+            continue;
+        }
+
+        resourceManager.destroyImage(image);
+    }
+
+    for (const auto& sampler : samplers) {
+        if (sampler == resourceManager.getDefaultSamplerNearest() || sampler == resourceManager.getDefaultSamplerLinear()) {
+            //dont destroy the default samplers
+            continue;
+        }
+
+        resourceManager.destroySampler(sampler);
+    }
+
+    resourceManager.destroyBuffer(vertexBuffer);
+    resourceManager.destroyBuffer(indexBuffer);
+
+    resourceManager.destroyBuffer(materialBuffer);
+
+    resourceManager.destroyBuffer(meshBoundsBuffer);
+
+    for (int i = 0; i < FRAME_OVERLAP; ++i) {
+        resourceManager.destroyBuffer(drawIndirectBuffers[i]);
+        resourceManager.destroyBuffer(addressBuffers[i]);
+        resourceManager.destroyBuffer(modelMatrixBuffers[i]);
+        resourceManager.destroyBuffer(cullingAddressBuffers[i]);
+        resourceManager.destroyBuffer(boundingSphereIndicesBuffers[i]);
+    }
+
+    resourceManager.destroyDescriptorBuffer(addressesDescriptorBuffer);
+    resourceManager.destroyDescriptorBuffer(frustumCullingDescriptorBuffer);
+    resourceManager.destroyDescriptorBuffer(textureDescriptorBuffer);
+
+    drawCommands.clear();
+    boundingSphereIndices.clear();
+
+    materials.clear();
+    vertices.clear();
+    indices.clear();
+    meshes.clear();
+    boundingSpheres.clear();
+    renderNodes.clear();
+    topNodes.clear();
+
+
+    bIsLoaded = false;
 }
 
 int32_t RenderObject::getFreeInstanceIndex()

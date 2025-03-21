@@ -13,7 +13,7 @@
 
 #include "environment/environment.h"
 #include "lighting/shadows/cascaded_shadow_map.h"
-#include "lighting/shadows/shadows.h"
+#include "lighting/shadows/shadow_constants.h"
 #include "src/core/engine.h"
 #include "src/core/time.h"
 #include "src/core/camera/free_camera.h"
@@ -30,12 +30,12 @@ ImguiWrapper::ImguiWrapper(const VulkanContext& context, const ImguiWrapperInfo&
     // DYNAMIC RENDERING (NOT RENDER PASS)
     constexpr VkDescriptorPoolSize pool_sizes[] =
     {
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 1},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 100},
     };
     VkDescriptorPoolCreateInfo pool_info = {};
     pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     pool_info.flags = VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
-    pool_info.maxSets = 1;
+    pool_info.maxSets = 100;
     pool_info.poolSizeCount = static_cast<uint32_t>(std::size(pool_sizes));
     pool_info.pPoolSizes = pool_sizes;
 
@@ -84,6 +84,11 @@ ImguiWrapper::ImguiWrapper(const VulkanContext& context, const ImguiWrapperInfo&
 
 ImguiWrapper::~ImguiWrapper()
 {
+    if (currentlySelectedTextureImguiId != VK_NULL_HANDLE) {
+        ImGui_ImplVulkan_RemoveTexture(currentlySelectedTextureImguiId);
+        currentlySelectedTextureImguiId = VK_NULL_HANDLE;
+    }
+
     ImGui_ImplVulkan_Shutdown();
     vkDestroyDescriptorPool(context.device, imguiPool, nullptr);
 }
@@ -93,12 +98,31 @@ void ImguiWrapper::handleInput(const SDL_Event& e)
     ImGui_ImplSDL3_ProcessEvent(&e);
 }
 
-void ImguiWrapper::selectMap(Map* newMap) {
+void ImguiWrapper::selectMap(Map* newMap)
+{
     selectedMap = newMap;
-    if (selectedMap) {
-        terrainProperties = selectedMap->getTerrainProperties();
-        terrainSeed = selectedMap->getSeed();
+    if (!selectedMap) {
+        return;
     }
+
+    auto terrainComponent = selectedMap->getComponent<components::TerrainComponent>();
+    if (!terrainComponent) {
+        auto& factory = components::ComponentFactory::getInstance();
+        auto newComponent = factory.createComponent(components::TerrainComponent::TYPE, "Terrain Component");
+        selectedMap->addComponent(std::move(newComponent));
+    }
+
+    terrainComponent = selectedMap->getComponent<components::TerrainComponent>();
+    if (!terrainComponent) {
+        fmt::print("Unable to create terrain component, very strange");
+        return;
+    }
+
+    terrainGenerationSettings = terrainComponent->getTerrainGenerationProperties();
+    terrainSeed = terrainComponent->getSeed();
+    terrainConfig = terrainComponent->getConfig();
+    terrainProperties = terrainComponent->getTerrainChunk()->getTerrainProperties();
+    terrainTextures = terrainComponent->getTerrainChunk()->getTerrainTextureIds();
 }
 
 void ImguiWrapper::imguiInterface(Engine* engine)
@@ -172,6 +196,10 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Hot-Reload Shaders")) {
                     engine->hotReloadShaders();
                 }
+                ImGui::Separator();
+                ImGui::Text("Temporal Anti-Aliasing");
+                ImGui::Checkbox("Enable TAA", &engine->bEnableTaa);
+                ImGui::DragFloat("Taa Blend Value", &engine->taaBlendValue, 0.01, 0.1f, 0.5f);
                 ImGui::EndTabItem();
             }
 
@@ -179,8 +207,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 ImGui::Text("Deferred Debug");
                 const char* deferredDebugOptions[]{"None", "Depth", "Velocity", "Albedo", "Normal", "PBR", "Shadows", "Cascade Level", "nDotL"};
                 ImGui::Combo("Deferred Debug", &engine->deferredDebug, deferredDebugOptions, IM_ARRAYSIZE(deferredDebugOptions));
-                ImGui::Text("Temporal Anti-Aliasing");
-                ImGui::Checkbox("Enable TAA", &engine->bEnableTaa);
+
                 ImGui::EndTabItem();
             }
 
@@ -235,7 +262,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 ImGui::InputFloat2("Cascade 3 Bias", shadows::CASCADE_BIAS[2]);
                 ImGui::InputFloat2("Cascade 4 Bias", shadows::CASCADE_BIAS[3]);
                 ImGui::SetNextItemWidth(100);
-                static int32_t shadowMapDebug{0};
                 ImGui::SliderInt("Shadow Map Level", &shadowMapDebug, 0, shadows::SHADOW_CASCADE_COUNT - 1);
                 ImGui::SameLine();
                 if (ImGui::Button(fmt::format("Save Shadow Map", shadowMapDebug).c_str())) {
@@ -398,26 +424,21 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         ImGui::SameLine();
         ImGui::BeginDisabled(alreadyExistsInActiveMaps);
         if (ImGui::Button("Load")) {
-            file::scanForModels(engine->renderObjectInfoMap);
-
+            engine->assetManager->scanForAll();
             if (exists(mapPath)) {
                 auto map = new Map(mapPath, *engine->resourceManager);
-                engine->activeMaps.push_back(map);
-                engine->activeTerrains.push_back(map);
+                engine->activeMaps.insert(map);
                 selectMap(map);
             }
             else {
-                auto newMap = new Map(mapPath, *engine->resourceManager);
-                engine->activeMaps.push_back(newMap);
-                engine->activeTerrains.push_back(newMap);
-                selectMap(newMap);
+                fmt::print("No map found at path %s", mapPath.string().c_str());
             }
         }
         ImGui::EndDisabled();
 
         ImGui::SameLine();
 
-        ImGui::BeginDisabled(selectedMap);
+        ImGui::BeginDisabled(!selectedMap);
         if (ImGui::Button("Save")) {
             if (selectedMap->saveMap(mapPath.string())) {
                 ImGui::OpenPopup("SerializeSuccess");
@@ -442,229 +463,395 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     }
     ImGui::End();
 
-    if (ImGui::Begin("Render Objects")) {
+    if (ImGui::Begin("Will Engine Type Generator")) {
         if (ImGui::BeginTabBar("SceneTabs")) {
             if (ImGui::BeginTabItem("Render Objects")) {
-                static uint32_t selectedObjectId = 0;
+                if (ImGui::BeginTabBar("Render Object Tab Bar")) {
+                    if (ImGui::BeginTabItem("Use")) {
+                        ImGui::Text("Selected Render Object Details");
 
-                ImGui::Text("Selected Render Object Details");
+                        float detailsHeight = 160.0f;
+                        ImGui::BeginChild("Selected Object", ImVec2(0, detailsHeight), ImGuiChildFlags_Borders);
+                        RenderObject* _currentlySelected = engine->assetManager->getRenderObject(selectedRenderObjectId);
 
-                float detailsHeight = 150.0f;
-                ImGui::BeginChild("Selected Object", ImVec2(0, detailsHeight), ImGuiChildFlags_Borders);
-                if (!engine->renderObjectInfoMap.contains(selectedObjectId) && !engine->renderObjectInfoMap.empty()) {
-                    selectedObjectId = engine->renderObjectInfoMap.begin()->first;
-                }
+                        if (!_currentlySelected && engine->assetManager->hasAnyRenderObjects()) {
+                            selectedRenderObjectId = engine->assetManager->getAnyRenderObject()->getId();
+                        }
 
-                if (engine->renderObjectInfoMap.contains(selectedObjectId)) {
-                    RenderObjectInfo info = engine->renderObjectInfoMap.at(selectedObjectId);
-                    ImGui::Text("Name: %s", info.name.c_str());
-                    ImGui::Text("Path: %s", file::getRelativePath(info.gltfPath).string().c_str());
-                    ImGui::Text("ID: %u", info.id);
+                        RenderObject* selectedRenderObject = engine->assetManager->getRenderObject(selectedRenderObjectId);
+                        if (selectedRenderObject) {
+                            ImGui::Text("Source: %s", file::getRelativePath(selectedRenderObject->getWillmodelPath()).string().c_str());
+                            ImGui::Separator();
+                            ImGui::Text("Name: %s", selectedRenderObject->getName().c_str());
+                            ImGui::Text("GLTF Path: %s", file::getRelativePath(selectedRenderObject->getGltfPath()).string().c_str());
+                            ImGui::Text("ID: %u", selectedRenderObject->getId());
 
-                    auto it = engine->renderObjectMap.find(selectedObjectId);
-                    const bool isLoaded = it != engine->renderObjectMap.end() && it->second != nullptr;
-                    if (isLoaded) {
-                        ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
-                        static char objectName[256] = "";
-                        ImGui::InputText("Object Name", objectName, sizeof(objectName));
-                        ImGui::PopStyleColor();
-                        if (ImGui::BeginTabBar("GameObject Generation")) {
-                            if (ImGui::BeginTabItem("Full Model")) {
-                                if (ImGui::Button("Generate Full Object")) {
-                                    GameObject* gob = it->second->generateGameObject(std::string(objectName));
-                                    selectedMap->addGameObject(gob);
-                                    fmt::print("Added whole gltf model to the scene\n");
+                            bool isLoaded = selectedRenderObject->isLoaded();
+                            if (isLoaded) {
+                                ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
+                                static char objectName[256] = "";
+                                ImGui::InputText("Object Name", objectName, sizeof(objectName));
+                                ImGui::PopStyleColor();
+                                if (ImGui::BeginTabBar("GameObject Generation")) {
+                                    if (ImGui::BeginTabItem("Full Model")) {
+                                        if (ImGui::Button("Generate Full Object")) {
+                                            GameObject* gob = selectedRenderObject->generateGameObject(std::string(objectName));
+                                            selectedMap->addGameObject(gob);
+                                            // todo: fix add full gameobject
+                                            fmt::print("Added whole gltf model to the scene\n");
+                                        }
+                                        ImGui::EndTabItem();
+                                    }
+
+                                    if (ImGui::BeginTabItem("Single Mesh")) {
+                                        static int selectedMeshIndex = 0;
+                                        if (selectedMeshIndex >= selectedRenderObject->getMeshCount()) {
+                                            selectedMeshIndex = 0;
+                                        }
+
+                                        ImGui::SetNextItemWidth(300.0f);
+                                        if (ImGui::BeginCombo("Select Mesh", fmt::format("Mesh {}", selectedMeshIndex).c_str())) {
+                                            for (size_t i = 0; i < selectedRenderObject->getMeshCount(); i++) {
+                                                const bool isSelected = (selectedMeshIndex == static_cast<int>(i));
+                                                if (ImGui::Selectable(fmt::format("Mesh {}", i).c_str(), isSelected)) {
+                                                    selectedMeshIndex = static_cast<int>(i);
+                                                }
+
+                                                if (isSelected) {
+                                                    ImGui::SetItemDefaultFocus();
+                                                }
+                                            }
+                                            ImGui::EndCombo();
+                                        }
+
+                                        ImGui::SameLine();
+                                        if (auto container = dynamic_cast<IComponentContainer*>(selectedItem)) {
+                                            if (ImGui::Button("Attach to selected item")) {
+                                                if (!container->getMeshRenderer()) {
+                                                    auto newComponent = components::ComponentFactory::getInstance().
+                                                            createComponent(components::MeshRendererComponent::getStaticType(), "Mesh Renderer");
+                                                    container->addComponent(std::move(newComponent));
+                                                }
+                                                if (auto meshRenderer = container->getMeshRenderer()) {
+                                                    if (meshRenderer->hasMesh()) {
+                                                        meshRenderer->releaseMesh();
+                                                    }
+
+                                                    selectedRenderObject->generateMesh(meshRenderer, selectedMeshIndex);
+                                                }
+                                            }
+                                        }
+                                        else {
+                                            if (ImGui::Button("Add to Scene")) {
+                                                IHierarchical* gob = engine->createGameObject(selectedMap, objectName);
+
+                                                if (auto _container = dynamic_cast<IComponentContainer*>(gob)) {
+                                                    auto newComponent = components::ComponentFactory::getInstance().createComponent(
+                                                        components::MeshRendererComponent::getStaticType(), "");
+                                                    _container->addComponent(std::move(newComponent));
+                                                    if (components::MeshRendererComponent* meshRenderer = _container->getMeshRenderer()) {
+                                                        selectedRenderObject->generateMesh(meshRenderer, selectedMeshIndex);
+                                                    }
+                                                    fmt::print("Added single mesh to scene\n");
+                                                }
+                                            }
+                                        }
+                                        ImGui::EndTabItem();
+                                    }
+
+                                    ImGui::EndTabBar();
                                 }
-                                ImGui::EndTabItem();
+                            }
+                            else {
+                                ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "Load render object to see available meshes");
+                            }
+                        }
+
+
+                        ImGui::EndChild();
+
+                        ImGui::Text("Available Objects");
+                        ImGui::SameLine();
+                        if (ImGui::Button("Refresh")) {
+                            engine->assetManager->scanForAll();
+                        }
+
+                        ImGui::BeginChild("Objects List", ImVec2(0, 0), ImGuiChildFlags_Borders);
+                        for (const auto renderObject : engine->assetManager->getAllRenderObjects()) {
+                            ImGui::PushID(renderObject->getId());
+
+                            bool _isLoaded = renderObject->isLoaded();
+                            bool checked = _isLoaded;
+
+                            ImGui::Checkbox("##loaded", &checked);
+                            if (checked && !_isLoaded) {
+                                renderObject->load();
                             }
 
-                            if (ImGui::BeginTabItem("Single Mesh")) {
-                                RenderObject* renderObj = it->second;
+                            if (!checked && _isLoaded) {
+                                // todo: unload needs to be delayed to account for double buffer
+                                renderObject->unload();
+                            }
 
-                                static int selectedMeshIndex = 0;
-                                if (selectedMeshIndex >= renderObj->getMeshCount()) {
-                                    selectedMeshIndex = 0;
-                                }
+                            ImGui::SameLine();
 
-                                ImGui::SetNextItemWidth(300.0f);
-                                if (ImGui::BeginCombo("Select Mesh", fmt::format("Mesh {}", selectedMeshIndex).c_str())) {
-                                    for (size_t i = 0; i < renderObj->getMeshCount(); i++) {
-                                        const bool isSelected = (selectedMeshIndex == static_cast<int>(i));
-                                        if (ImGui::Selectable(fmt::format("Mesh {}", i).c_str(), isSelected)) {
-                                            selectedMeshIndex = static_cast<int>(i);
-                                        }
+                            bool isSelected = (selectedRenderObjectId == renderObject->getId());
+                            if (ImGui::Selectable(renderObject->getName().c_str(), isSelected)) {
+                                selectedRenderObjectId = renderObject->getId();
+                            }
 
-                                        if (isSelected) {
-                                            ImGui::SetItemDefaultFocus();
-                                        }
-                                    }
-                                    ImGui::EndCombo();
-                                }
+                            ImGui::PopID();
+                        }
+                        ImGui::EndChild();
 
-                                ImGui::SameLine();
-                                if (auto container = dynamic_cast<IComponentContainer*>(selectedItem)) {
-                                    if (ImGui::Button("Attach to selected item")) {
-                                        if (!container->getMeshRenderer()) {
-                                            auto newComponent = components::ComponentFactory::getInstance().createComponent(components::MeshRendererComponent::getStaticType(), "Mesh Renderer");
-                                            container->addComponent(std::move(newComponent));
-                                        }
-                                        if (auto meshRenderer = container->getMeshRenderer()) {
-                                            if (meshRenderer->hasMesh()) {
-                                                meshRenderer->releaseMesh();
-                                            }
 
-                                            renderObj->generateMesh(meshRenderer, selectedMeshIndex);
-                                        }
-                                    }
+                        ImGui::EndTabItem();
+                    }
+
+                    if (ImGui::BeginTabItem(".willmodel Generator")) {
+                        static std::filesystem::path gltfPath;
+                        static std::filesystem::path willmodelPath;
+
+                        ImGui::Text("GLTF Source: %s", gltfPath.empty() ? "None selected" : gltfPath.string().c_str());
+
+                        if (ImGui::Button("Select GLTF File")) {
+                            IGFD::FileDialogConfig config;
+                            config.path = "./assets/models";
+                            IGFD::FileDialog::Instance()->OpenDialog(
+                                "ChooseGLTFDlg",
+                                "Choose GLTF File",
+                                ".gltf,.glb",
+                                config);
+                        }
+
+                        ImGui::Text("Output Path: %s", willmodelPath.empty() ? "None selected" : willmodelPath.string().c_str());
+
+                        if (ImGui::Button("Select Output Path")) {
+                            IGFD::FileDialogConfig config;
+                            config.path = "./assets/willmodels";
+                            config.fileName = willmodelPath.filename().string();
+                            IGFD::FileDialog::Instance()->OpenDialog(
+                                "SaveWillmodelDlg",
+                                "Save Willmodel",
+                                ".willmodel",
+                                config);
+                        }
+
+                        if (IGFD::FileDialog::Instance()->Display("ChooseGLTFDlg")) {
+                            if (IGFD::FileDialog::Instance()->IsOk()) {
+                                gltfPath = IGFD::FileDialog::Instance()->GetFilePathName();
+                                gltfPath = file::getRelativePath(gltfPath);
+
+                                willmodelPath = std::filesystem::current_path() / "assets" / "willmodels" / gltfPath.filename().string();
+                                willmodelPath = file::getRelativePath(willmodelPath);
+                                willmodelPath.replace_extension(".willmodel");
+                            }
+                            IGFD::FileDialog::Instance()->Close();
+                        }
+
+                        if (IGFD::FileDialog::Instance()->Display("SaveWillmodelDlg")) {
+                            if (IGFD::FileDialog::Instance()->IsOk()) {
+                                willmodelPath = IGFD::FileDialog::Instance()->GetFilePathName();
+                                willmodelPath = file::getRelativePath(willmodelPath);
+                            }
+                            IGFD::FileDialog::Instance()->Close();
+                        }
+
+                        if (!gltfPath.empty() && !willmodelPath.empty()) {
+                            if (ImGui::Button("Compile Model")) {
+                                if (Serializer::generateWillModel(gltfPath, willmodelPath)) {
+                                    ImGui::OpenPopup("Success");
                                 }
                                 else {
-                                    if (ImGui::Button("Add to Scene")) {
-                                        IHierarchical* gob = engine->createGameObject(selectedMap, objectName);
-
-                                        if (auto _container = dynamic_cast<IComponentContainer*>(gob)) {
-                                            auto newComponent = components::ComponentFactory::getInstance().createComponent(
-                                                components::MeshRendererComponent::getStaticType(), "");
-                                            _container->addComponent(std::move(newComponent));
-                                            if (components::MeshRendererComponent* meshRenderer = _container->getMeshRenderer()) {
-                                                renderObj->generateMesh(meshRenderer, selectedMeshIndex);
-                                            }
-                                            fmt::print("Added single mesh to scene\n");
-                                        }
-                                    }
+                                    ImGui::OpenPopup("Error");
                                 }
-                                ImGui::EndTabItem();
                             }
-
-                            ImGui::EndTabBar();
                         }
+
+                        // Success/Error popups
+                        if (ImGui::BeginPopupModal("Success", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                            ImGui::Text("Model compiled successfully!");
+                            if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+                            ImGui::EndPopup();
+                        }
+                        if (ImGui::BeginPopupModal("Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                            ImGui::Text("Failed to compile model!");
+                            if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+                            ImGui::EndPopup();
+                        }
+
+                        ImGui::EndTabItem();
                     }
-                    else {
-                        ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.5f, 1.0f), "Load render object to see available meshes");
-                    }
+
+                    ImGui::EndTabBar();
                 }
-                else {
-                    ImGui::Text("No Render Objects are currently loaded");
-                }
-
-                ImGui::EndChild();
-
-                ImGui::Text("Available Objects");
-                ImGui::SameLine();
-                if (ImGui::Button("Refresh")) {
-                    file::scanForModels(engine->renderObjectInfoMap);
-                }
-
-                ImGui::BeginChild("Objects List", ImVec2(0, 0), ImGuiChildFlags_Borders);
-                for (const auto& [id, info] : engine->renderObjectInfoMap) {
-                    ImGui::PushID(id);
-
-                    bool isLoaded = engine->renderObjectMap.contains(id) && engine->renderObjectMap[id] != nullptr;
-                    bool checked = isLoaded;
-                    bool disabled = false;
-                    if (isLoaded && engine->renderObjectMap[id]->canDraw()) {
-                        disabled = true;
-                        ImGui::BeginDisabled(true);
-                    }
-
-                    ImGui::Checkbox("##loaded", &checked);
-                    if (checked && !isLoaded) {
-                        engine->getOrLoadRenderObject(id);
-                    }
-
-                    if (!checked && isLoaded) {
-                        assert(!engine->renderObjectMap[id]->canDraw());
-                        assert(engine->renderObjectMap.contains(id));
-                        delete engine->renderObjectMap[id];
-                        engine->renderObjectMap.erase(id);
-                    }
-                    if (disabled) {
-                        ImGui::EndDisabled();
-                    }
-
-                    ImGui::SameLine();
-
-                    bool isSelected = (selectedObjectId == info.id);
-                    if (ImGui::Selectable(info.name.c_str(), isSelected)) {
-                        selectedObjectId = info.id;
-                    }
-
-                    ImGui::PopID();
-                }
-                ImGui::EndChild();
 
                 ImGui::EndTabItem();
             }
 
-            if (ImGui::BeginTabItem("Model Generator")) {
-                static std::filesystem::path gltfPath;
-                static std::filesystem::path willmodelPath;
+            if (ImGui::BeginTabItem("Textures")) {
+                if (ImGui::BeginTabBar("Textures Tab Bar")) {
+                    if (ImGui::BeginTabItem("Visualization")) {
+                        // Randomly select a texture if none selected
+                        if (currentlySelectedTextureImguiId == VK_NULL_HANDLE) {
+                            if (engine->assetManager->hasAnyTexture()) {
+                                if (currentlySelectedTextureImguiId != VK_NULL_HANDLE) {
+                                    vkDeviceWaitIdle(context.device);
+                                    ImGui_ImplVulkan_RemoveTexture(currentlySelectedTextureImguiId);
+                                    // todo: remove texture needs to be delayed to account for double buffer
+                                    currentlySelectedTextureImguiId = VK_NULL_HANDLE;
+                                }
+                                Texture* randomTexture = engine->assetManager->getAnyTexture();
 
-                ImGui::Text("GLTF Source: %s", gltfPath.empty() ? "None selected" : gltfPath.string().c_str());
+                                currentlySelectedTexture = randomTexture->getTextureResource();
+                                currentlySelectedTextureImguiId = ImGui_ImplVulkan_AddTexture(engine->resourceManager->getDefaultSamplerLinear(), currentlySelectedTexture->getTexture().imageView,
+                                                                                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                            }
+                        }
 
-                if (ImGui::Button("Select GLTF File")) {
-                    IGFD::FileDialogConfig config;
-                    config.path = "./assets/models";
-                    IGFD::FileDialog::Instance()->OpenDialog(
-                        "ChooseGLTFDlg",
-                        "Choose GLTF File",
-                        ".gltf,.glb",
-                        config);
-                }
-
-                ImGui::Text("Output Path: %s", willmodelPath.empty() ? "None selected" : willmodelPath.string().c_str());
-
-                if (ImGui::Button("Select Output Path")) {
-                    IGFD::FileDialogConfig config;
-                    config.path = "./assets/willmodels";
-                    config.fileName = willmodelPath.filename().string();
-                    IGFD::FileDialog::Instance()->OpenDialog(
-                        "SaveWillmodelDlg",
-                        "Save Willmodel",
-                        ".willmodel",
-                        config);
-                }
-
-                if (IGFD::FileDialog::Instance()->Display("ChooseGLTFDlg")) {
-                    if (IGFD::FileDialog::Instance()->IsOk()) {
-                        gltfPath = IGFD::FileDialog::Instance()->GetFilePathName();
-                        gltfPath = file::getRelativePath(gltfPath);
-
-                        willmodelPath = std::filesystem::current_path() / "assets" / "willmodels" / gltfPath.filename().string();
-                        willmodelPath = file::getRelativePath(willmodelPath);
-                        willmodelPath.replace_extension(".willmodel");
-                    }
-                    IGFD::FileDialog::Instance()->Close();
-                }
-
-                if (IGFD::FileDialog::Instance()->Display("SaveWillmodelDlg")) {
-                    if (IGFD::FileDialog::Instance()->IsOk()) {
-                        willmodelPath = IGFD::FileDialog::Instance()->GetFilePathName();
-                        willmodelPath = file::getRelativePath(willmodelPath);
-                    }
-                    IGFD::FileDialog::Instance()->Close();
-                }
-
-                if (!gltfPath.empty() && !willmodelPath.empty()) {
-                    if (ImGui::Button("Compile Model")) {
-                        if (Serializer::generateWillModel(gltfPath, willmodelPath)) {
-                            ImGui::OpenPopup("Success");
+                        std::string previewText;
+                        if (currentlySelectedTexture) {
+                            previewText = fmt::format("Texture ID - {}", currentlySelectedTexture->getId());
                         }
                         else {
-                            ImGui::OpenPopup("Error");
+                            previewText = "Select Texture";
                         }
-                    }
-                }
 
-                // Success/Error popups
-                if (ImGui::BeginPopupModal("Success", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                    ImGui::Text("Model compiled successfully!");
-                    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
-                    ImGui::EndPopup();
-                }
-                if (ImGui::BeginPopupModal("Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                    ImGui::Text("Failed to compile model!");
-                    if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
-                    ImGui::EndPopup();
+
+                        if (ImGui::BeginCombo("Select Texture", previewText.c_str())) {
+                            for (Texture* texture : engine->assetManager->getAllTextures()) {
+                                bool isSelected = (currentlySelectedTexture->getId() == texture->getId());
+
+                                std::string label = fmt::format("[{}] Texture ID - {}", texture->isTextureResourceLoaded() ? "LOADED" : "NOT LOADED", texture->getId());
+
+                                if (ImGui::Selectable(label.c_str(), isSelected)) {
+                                    if (currentlySelectedTextureImguiId != VK_NULL_HANDLE) {
+                                        vkDeviceWaitIdle(context.device);
+                                        ImGui_ImplVulkan_RemoveTexture(currentlySelectedTextureImguiId);
+                                        // todo: remove texture needs to be delayed to account for double buffer
+                                        currentlySelectedTextureImguiId = VK_NULL_HANDLE;
+                                    }
+
+                                    currentlySelectedTexture = texture->getTextureResource();
+                                    currentlySelectedTextureImguiId = ImGui_ImplVulkan_AddTexture(engine->resourceManager->getDefaultSamplerLinear(), currentlySelectedTexture->getTexture().imageView,
+                                                                                                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                                }
+                            }
+
+                            ImGui::EndCombo();
+                        }
+
+                        if (currentlySelectedTextureImguiId == VK_NULL_HANDLE) {
+                            ImGui::Text("No Textures could be found");
+                        }
+                        else {
+                            float maxSize = ImGui::GetContentRegionAvail().x;
+                            maxSize = glm::min(maxSize, 512.0f);
+
+                            VkExtent3D imageExtent = currentlySelectedTexture->getTexture().imageExtent;
+                            float width = std::min(maxSize, static_cast<float>(imageExtent.width));
+                            float aspectRatio = static_cast<float>(imageExtent.width) / static_cast<float>(imageExtent.height);
+                            float height = width / aspectRatio;
+
+                            ImGui::Image(reinterpret_cast<ImTextureID>(currentlySelectedTextureImguiId), ImVec2(width, height));
+                        }
+
+                        ImGui::EndTabItem();
+                    }
+
+                    if (ImGui::BeginTabItem(".willTexture Generator")) {
+                        static std::filesystem::path texturesPath;
+
+                        ImGui::Text("Will Texture folder to scan: %s", texturesPath.empty() ? "None selected" : texturesPath.string().c_str());
+
+                        if (ImGui::Button("Select Folder to Scan")) {
+                            IGFD::FileDialogConfig config;
+                            config.path = "./assets/textures";
+                            config.countSelectionMax = 1;
+                            //config.flags = ImGuiFileDialogFlags_DontShowHiddenFiles;
+
+                            IGFD::FileDialog::Instance()->OpenDialog(
+                                "ChooseTextureFldrDlg",
+                                "Choose Texture Folder",
+                                nullptr, // No need for extensions when selecting directories
+                                config);
+                        }
+
+                        if (IGFD::FileDialog::Instance()->Display("ChooseTextureFldrDlg")) {
+                            if (IGFD::FileDialog::Instance()->IsOk()) {
+                                texturesPath = IGFD::FileDialog::Instance()->GetCurrentPath();
+                                texturesPath = file::getRelativePath(texturesPath);
+                            }
+                            IGFD::FileDialog::Instance()->Close();
+                        }
+
+                        ImGui::BeginDisabled(texturesPath.empty());
+                        static int32_t generatedCount = 0;
+
+                        static bool forceTextureGeneration = false;
+                        ImGui::Checkbox("Forced", &forceTextureGeneration);
+                        ImGui::SameLine();
+                        if (ImGui::Button("Generate Texture Files")) {
+                            generatedCount = 0;
+                            if (!exists(texturesPath) || !is_directory(texturesPath)) {
+                                fmt::print("Error: Invalid textures directory path: {}\n", texturesPath.string());
+                                return;
+                            }
+
+                            std::vector<std::string> extensions = {".jpg", ".jpeg", ".png", ".tga", ".bmp"};
+
+                            for (const auto& entry : std::filesystem::directory_iterator(texturesPath)) {
+                                if (!entry.is_regular_file()) continue;
+
+                                std::string extension = entry.path().extension().string();
+                                std::transform(extension.begin(), extension.end(), extension.begin(), ::tolower);
+
+                                if (std::find(extensions.begin(), extensions.end(), extension) != extensions.end()) {
+                                    const std::filesystem::path texturePath = entry.path();
+                                    const std::filesystem::path outputPath = texturePath.parent_path() /
+                                                                             (texturePath.stem().string() + ".willtexture");
+
+                                    if (!forceTextureGeneration && exists(outputPath)) {
+                                        continue;
+                                    }
+
+                                    if (Serializer::generateWillTexture(texturePath, outputPath)) {
+                                        generatedCount++;
+                                    }
+                                }
+                            }
+
+                            if (generatedCount > 0) {
+                                ImGui::OpenPopup("Success");
+                            }
+                            else {
+                                ImGui::OpenPopup("Error");
+                            }
+                        }
+
+                        ImGui::EndDisabled();
+
+
+                        // Success/Error popups
+                        if (ImGui::BeginPopupModal("Success", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                            ImGui::Text(fmt::format("Successfully compiled {} textures into .willtexture files", generatedCount).c_str());
+                            if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+                            ImGui::EndPopup();
+                        }
+                        if (ImGui::BeginPopupModal("Error", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+                            if (forceTextureGeneration) {
+                                ImGui::Text("Failed to find any textures to generate.");
+                            }
+                            else {
+                                ImGui::Text("Failed to find any (new) textures to generate.");
+                            }
+                            if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+                            ImGui::EndPopup();
+                        }
+                        ImGui::EndTabItem();
+                    }
+
+                    ImGui::EndTabBar();
                 }
 
                 ImGui::EndTabItem();
@@ -708,7 +895,8 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
 
     if (selectedMap == nullptr) {
         if (!engine->activeMaps.empty()) {
-            selectMap(engine->activeMaps[0]);
+            const auto firstMap = *engine->activeMaps.begin();
+            selectMap(firstMap);
         }
         else {
             ImGui::Text("No map currently selected");
@@ -743,35 +931,144 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
         }
 
         if (ImGui::BeginTabItem("Terrain")) {
-            if (ImGui::CollapsingHeader("Noise Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
-                ImGui::SliderFloat("Scale", &terrainProperties.scale, 1.0f, 200.0f);
-                ImGui::SliderFloat("Persistence", &terrainProperties.persistence, 0.0f, 1.0f);
-                ImGui::SliderFloat("Lacunarity", &terrainProperties.lacunarity, 1.0f, 5.0f);
-                ImGui::SliderInt("Octaves", &terrainProperties.octaves, 1, 10);
-                ImGui::DragFloat2("Offset", &terrainProperties.offset.x, 0.1f);
-                ImGui::SliderFloat("Height Scale", &terrainProperties.heightScale, 1.0f, 200.0f);
+            ImGui::Checkbox("Draw Vertex Lines Only", &engine->bDrawTerrainLines);
+
+            if (ImGui::BeginTabBar("Terrain Tab Bar")) {
+                auto currentTerrainComponent = selectedMap->getComponent<components::TerrainComponent>();
+
+                if (ImGui::BeginTabItem("Terrain Generation")) {
+                    ImGui::BeginDisabled(!currentTerrainComponent);
+                    if (ImGui::Button("Save Terrain as HeightMap")) {
+                        std::vector<float> heightmapData = currentTerrainComponent->getHeightMapData();
+                        std::filesystem::path path = file::imagesSavePath / "TerrainHeightMap.png";
+                        vk_helpers::saveHeightmap(heightmapData, NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, path);
+                    }
+                    ImGui::EndDisabled();
+
+
+                    ImGui::Separator();
+
+                    if (ImGui::CollapsingHeader("Noise Settings", ImGuiTreeNodeFlags_DefaultOpen)) {
+                        ImGui::SliderFloat("Scale", &terrainGenerationSettings.scale, 1.0f, 200.0f);
+                        ImGui::SliderFloat("Persistence", &terrainGenerationSettings.persistence, 0.0f, 1.0f);
+                        ImGui::SliderFloat("Lacunarity", &terrainGenerationSettings.lacunarity, 1.0f, 5.0f);
+                        ImGui::SliderInt("Octaves", &terrainGenerationSettings.octaves, 1, 10);
+                        ImGui::DragFloat2("Offset", &terrainGenerationSettings.offset.x, 0.1f);
+                        ImGui::SliderFloat("Height Scale", &terrainGenerationSettings.heightScale, 1.0f, 200.0f);
+                    }
+
+                    ImGui::Separator();
+
+                    if (ImGui::CollapsingHeader("Terrain Texture Properties", ImGuiTreeNodeFlags_DefaultOpen)) {
+                        ImGui::DragFloat2("UV Offset", &terrainConfig.uvOffset.x, 0.01f, -10.0f, 10.0f);
+                        ImGui::DragFloat2("UV Scale", &terrainConfig.uvScale.x, 0.1f, 0.1f, 50.0f);
+                        ImGui::Separator();
+                        ImGui::Text("Material Settings");
+                        ImGui::ColorEdit4("Base Color", &terrainConfig.baseColor.x, ImGuiColorEditFlags_NoAlpha);
+                    }
+
+                    ImGui::Separator();
+
+                    ImGui::InputScalar("Seed", ImGuiDataType_U32, &terrainSeed);
+
+                    ImGui::Separator();
+
+                    static std::random_device rd{};
+                    static std::seed_seq ss{rd(), rd(), rd(), rd(), rd(), rd(), rd(), rd()};
+                    static std::mt19937 gen(ss);
+                    static std::uniform_int_distribution<uint32_t> dist;
+                    if (ImGui::Button("Random Seed Generate")) {
+                        terrainSeed = dist(gen);
+                    }
+
+                    ImGui::SameLine();
+
+                    if (ImGui::Button("Generate Terrain", ImVec2(-1, 0))) {
+                        currentTerrainComponent->generateTerrain(terrainGenerationSettings, terrainSeed, terrainConfig);
+                        currentTerrainComponent->getTerrainChunk()->setTerrainBufferData(terrainProperties, terrainTextures);
+
+                        terrainGenerationSettings = currentTerrainComponent->getTerrainGenerationProperties();
+                        terrainSeed = currentTerrainComponent->getSeed();
+                        terrainConfig = currentTerrainComponent->getConfig();
+                        terrainProperties = currentTerrainComponent->getTerrainChunk()->getTerrainProperties();
+                        terrainTextures = currentTerrainComponent->getTerrainChunk()->getTerrainTextureIds();
+                    }
+
+                    if (ImGui::Button("Destroy Terrain", ImVec2(-1, 0))) {
+                        // todo: destroy terrain needs to be delayed to account for double buffer
+                        currentTerrainComponent->destroyTerrain();
+                    }
+
+                    ImGui::EndTabItem();
+                }
+
+                if (ImGui::BeginTabItem("Terrain Config")) {
+                    if (ImGui::CollapsingHeader("Terrain Properties", ImGuiTreeNodeFlags_DefaultOpen)) {
+                        ImGui::SliderFloat("Rocks: Slope Threshold", &terrainProperties.slopeRockThreshold, 0.0f, 1.0f, "%.2f");
+                        ImGui::SliderFloat("Rocks: Blend", &terrainProperties.slopeRockBlend, 0.0f, 1.0f, "%.2f");
+                        ImGui::SliderFloat("Sand: Height Threshold", &terrainProperties.heightSandThreshold, 0.0f, 1.0f, "%.2f");
+                        ImGui::SliderFloat("Sand: Blend", &terrainProperties.heightSandBlend, 0.0f, 1.0f, "%.2f");
+                        ImGui::SliderFloat("Grass: Height Threshold", &terrainProperties.heightGrassThreshold, 0.0f, 1.0f, "%.2f");
+                        ImGui::SliderFloat("Grass: Blend", &terrainProperties.heightGrassBlend, 0.0f, 1.0f, "%.2f");
+
+                        ImGui::DragFloat("Min Height", &terrainProperties.minHeight, 1, -200, 200);
+                        ImGui::DragFloat("Max Height", &terrainProperties.maxHeight, 1, -200, 200);
+                    }
+
+                    if (ImGui::CollapsingHeader("Terrain Textures", ImGuiTreeNodeFlags_DefaultOpen)) {
+                        const char* textureSlotNames[3] = {"Grass Texture", "Rocks Texture", "Sand Texture"};
+
+                        for (int i = 0; i < 3; i++) {
+                            std::string currentTextureName = "None";
+                            if (Texture* tex = engine->assetManager->getTexture(terrainTextures[i])) {
+                                currentTextureName = tex->getName();
+                                if (currentTextureName.empty()) {
+                                    currentTextureName = std::to_string(tex->getId());
+                                }
+                            }
+
+                            // Begin combo box
+                            if (ImGui::BeginCombo(textureSlotNames[i], currentTextureName.c_str())) {
+                                bool isSelected = (terrainTextures[i] == 0);
+                                if (ImGui::Selectable("None", isSelected)) {
+                                    terrainTextures[i] = 0;
+                                }
+
+                                std::vector<Texture*> textures = engine->assetManager->getAllTextures();
+
+                                for (const Texture* tex2 : textures) {
+                                    std::string textureName = tex2->getName();
+                                    if (textureName.empty()) {
+                                        textureName = std::to_string(tex2->getId());
+                                    }
+
+                                    isSelected = (tex2->getId() == terrainTextures[i]);
+                                    if (ImGui::Selectable(textureName.c_str(), isSelected)) {
+                                        terrainTextures[i] = tex2->getId();
+                                    }
+
+                                    if (isSelected) {
+                                        ImGui::SetItemDefaultFocus();
+                                    }
+                                }
+                                ImGui::EndCombo();
+                            }
+                        }
+                    }
+
+                    ImGui::Separator();
+
+                    if (ImGui::Button("Update")) {
+                        currentTerrainComponent->getTerrainChunk()->setTerrainBufferData(terrainProperties, terrainTextures);
+                    }
+
+                    ImGui::EndTabItem();
+                }
+
+
+                ImGui::EndTabBar();
             }
 
-            ImGui::Separator();
-            ImGui::InputScalar("Seed", ImGuiDataType_U32, &terrainSeed);
-            ImGui::SameLine();
-
-            static std::random_device rd{};
-            static std::seed_seq ss{rd(), rd(), rd(), rd(), rd(), rd(), rd(), rd()};
-            static std::mt19937 gen(ss);
-            static std::uniform_int_distribution<uint32_t> dist;
-            if (ImGui::Button("Random Seed")) {
-                terrainSeed = dist(gen);
-            }
-
-            ImGui::Separator();
-            if (ImGui::Button("Generate Terrain", ImVec2(-1, 0))) {
-                selectedMap->generateTerrain(terrainProperties, terrainSeed);
-            }
-
-            if (ImGui::Button("Destroy Terrain", ImVec2(-1, 0))) {
-                selectedMap->destroyTerrain();
-            }
 
             ImGui::EndTabItem();
         }

@@ -7,10 +7,9 @@
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/vulkan_context.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
-#include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 
 
-namespace basic_render
+namespace will_engine::basic_render
 {
 struct RenderDescriptorInfo
 {

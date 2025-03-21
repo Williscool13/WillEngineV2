@@ -15,6 +15,7 @@
 #include "src/renderer/imgui_wrapper.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/vk_types.h"
+#include "src/renderer/assets/asset_manager.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/lighting/directional_light.h"
 
@@ -125,9 +126,13 @@ public:
 
     void addToDeletionQueue(IHierarchical* obj);
 
-    void addToDeletionQueue(Map* map);
+public:
+    AssetManager* getAssetManager() const { return assetManager; }
+    ResourceManager* getResourceManager() const { return resourceManager; }
 
-    RenderObject* getOrLoadRenderObject(uint32_t renderRefIndex);
+    void addToActiveTerrain(ITerrain* terrain);
+
+    void removeFromActiveTerrain(ITerrain* terrain);
 
 private:
     VkExtent2D windowExtent{1700, 900};
@@ -159,9 +164,11 @@ private: // Rendering
 
 private: // Debug
     bool bEnableTaa{true};
+    float taaBlendValue{0.1f};
     bool bEnableDebugFrustumCullDraw{false};
     int32_t csmPcf{5};
     int32_t deferredDebug{0};
+    bool bDrawTerrainLines{false};
 
     void hotReloadShaders() const;
 
@@ -174,15 +181,13 @@ private: // Scene Data
     DirectionalLight mainLight{glm::normalize(glm::vec3(-0.8f, -0.6f, -0.6f)), 1.0f, glm::vec3(0.0f)};
     int32_t environmentMapIndex{0};
 
-    std::vector<Map*> activeMaps;
-    std::vector<ITerrain*> activeTerrains;
+    std::unordered_set<Map*> activeMaps;
+    std::unordered_set<ITerrain*> activeTerrains;
 
-    std::unordered_map<uint32_t, RenderObject*> renderObjectMap;
-    std::unordered_map<uint32_t, RenderObjectInfo> renderObjectInfoMap;
+    AssetManager* assetManager{nullptr};
 
     std::vector<IHierarchical*> hierarchalBeginQueue{};
     std::vector<IHierarchical*> hierarchicalDeletionQueue{};
-    std::vector<Map*> mapDeletionQueue{};
 
 private: // Pipelines
     visibility_pass::VisibilityPassPipeline* visibilityPassPipeline{nullptr};

@@ -8,7 +8,7 @@
 
 #include "volk/volk.h"
 
-#include "src/renderer/render_object/render_object.h"
+#include "src/renderer/assets/render_object/render_object.h"
 
 will_engine::visibility_pass::VisibilityPassPipeline::VisibilityPassPipeline(ResourceManager& resourceManager)
     : resourceManager(resourceManager)
@@ -60,8 +60,9 @@ void will_engine::visibility_pass::VisibilityPassPipeline::draw(VkCommandBuffer 
     constexpr uint32_t sceneDataIndex{0};
     constexpr uint32_t addressesIndex{1};
 
-    for (const auto val : drawInfo.renderObjects | std::views::values) {
-        RenderObject* renderObject = val;
+    for (RenderObject* renderObject : drawInfo.renderObjects) {
+        if (!renderObject->canDraw()) { continue; }
+
         VkDescriptorBufferBindingInfoEXT bindingInfo[2];
         bindingInfo[0] = drawInfo.sceneDataBinding;
         bindingInfo[1] = renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();

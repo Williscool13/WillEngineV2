@@ -13,12 +13,18 @@ namespace will_engine::terrain
 {
 class TerrainChunk;
 
+struct TerrainPushConstants
+{
+    float tessLevel;
+};
+
 struct TerrainDrawInfo
 {
     bool bClearColor{true};
+    bool bDrawLinesOnly{false};
     int32_t currentFrameOverlap{0};
     glm::vec2 viewportExtents{RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
-    const std::vector<ITerrain*>& terrains;
+    const std::unordered_set<ITerrain*>& terrains;
     VkImageView normalTarget{VK_NULL_HANDLE};
     VkImageView albedoTarget{VK_NULL_HANDLE};
     VkImageView pbrTarget{VK_NULL_HANDLE};
@@ -39,16 +45,25 @@ public:
 
     void draw(VkCommandBuffer cmd, const TerrainDrawInfo& drawInfo) const;
 
-    void reloadShaders() { createPipeline(); }
+    void reloadShaders()
+    {
+        createPipeline();
+        createLinePipeline();
+    }
 
 private:
     void createPipeline();
+
+    void createLinePipeline();
 
 private:
     ResourceManager& resourceManager;
 
     VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
     VkPipeline pipeline{VK_NULL_HANDLE};
+
+    VkPipeline linePipeline{VK_NULL_HANDLE};
+
     VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};
     DescriptorBufferSampler descriptorBuffer;
 };

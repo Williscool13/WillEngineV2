@@ -9,6 +9,7 @@
 
 #include "src/core/game_object/hierarchical.h"
 #include "src/core/scene/map.h"
+#include "terrain/terrain_constants.h"
 
 namespace will_engine
 {
@@ -67,8 +68,19 @@ private:
     IHierarchical* selectedItem{nullptr};
     Map* selectedMap{nullptr};
 
-    NoiseSettings terrainProperties{};
+    uint32_t selectedRenderObjectId = 0;
+    std::shared_ptr<TextureResource> currentlySelectedTexture;
+
+    int32_t shadowMapDebug{0};
+
+    NoiseSettings terrainGenerationSettings{};
     uint32_t terrainSeed{13};
+    terrain::TerrainConfig terrainConfig{};
+
+    terrain::TerrainProperties terrainProperties{};
+    std::array<uint32_t, terrain::MAX_TERRAIN_TEXTURE_COUNT> terrainTextures;
+
+    VkDescriptorSet currentlySelectedTextureImguiId = VK_NULL_HANDLE;
 };
 }
 

@@ -10,7 +10,7 @@
 
 using will_engine::DescriptorBufferException;
 
-DescriptorBufferUniform::DescriptorBufferUniform(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int32_t maxObjectCount)
+will_engine::DescriptorBufferUniform::DescriptorBufferUniform(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int32_t maxObjectCount)
     : DescriptorBuffer(context, descriptorSetLayout, maxObjectCount)
 {
     VkBufferCreateInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
@@ -27,9 +27,9 @@ DescriptorBufferUniform::DescriptorBufferUniform(const VulkanContext& context, V
     descriptorBufferGpuAddress = vk_helpers::getDeviceAddress(context.device, descriptorBuffer.buffer);
 }
 
-int DescriptorBufferUniform::setupData(VkDevice device, const std::vector<DescriptorUniformData>& uniformBuffers, int32_t index)
+int32_t will_engine::DescriptorBufferUniform::setupData(VkDevice device, const std::vector<DescriptorUniformData>& uniformBuffers, int32_t index)
 {
-    int descriptorBufferIndex;
+    int32_t descriptorBufferIndex;
     if (index < 0) {
         if (freeIndices.empty()) {
             // TODO: Manage what happens if attempt to allocate a descriptor buffer set but out of space
@@ -49,7 +49,7 @@ int DescriptorBufferUniform::setupData(VkDevice device, const std::vector<Descri
 
     uint64_t accum_offset{descriptorBufferOffset};
 
-    for (int i = 0; i < uniformBuffers.size(); i++) {
+    for (int32_t i = 0; i < uniformBuffers.size(); i++) {
         const VkDeviceAddress uniformBufferAddress = vk_helpers::getDeviceAddress(device, uniformBuffers[i].uniformBuffer.buffer);
 
 
@@ -80,7 +80,7 @@ int DescriptorBufferUniform::setupData(VkDevice device, const std::vector<Descri
     return descriptorBufferIndex;
 }
 
-VkBufferUsageFlagBits DescriptorBufferUniform::getBufferUsageFlags() const
+VkBufferUsageFlagBits will_engine::DescriptorBufferUniform::getBufferUsageFlags() const
 {
     return VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT;
 }

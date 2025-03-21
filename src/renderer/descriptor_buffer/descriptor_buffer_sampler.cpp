@@ -11,7 +11,7 @@
 using will_engine::DescriptorImageData;
 using will_engine::DescriptorBufferException;
 
-DescriptorBufferSampler::DescriptorBufferSampler(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, const int32_t maxObjectCount)
+will_engine::DescriptorBufferSampler::DescriptorBufferSampler(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, const int32_t maxObjectCount)
     : DescriptorBuffer(context, descriptorSetLayout, maxObjectCount)
 {
     VkBufferCreateInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
@@ -29,7 +29,7 @@ DescriptorBufferSampler::DescriptorBufferSampler(const VulkanContext& context, V
     descriptorBufferGpuAddress = vk_helpers::getDeviceAddress(context.device, descriptorBuffer.buffer);
 }
 
-int32_t DescriptorBufferSampler::setupData(VkDevice device, const std::vector<DescriptorImageData>& imageBuffers, const int32_t index /*= -1*/)
+int32_t will_engine::DescriptorBufferSampler::setupData(VkDevice device, const std::vector<DescriptorImageData>& imageBuffers, const int32_t index /*= -1*/)
 {
     int descriptorBufferIndex;
     if (index < 0) {
@@ -116,7 +116,7 @@ int32_t DescriptorBufferSampler::setupData(VkDevice device, const std::vector<De
     return descriptorBufferIndex;
 }
 
-VkBufferUsageFlagBits DescriptorBufferSampler::getBufferUsageFlags() const
+VkBufferUsageFlagBits will_engine::DescriptorBufferSampler::getBufferUsageFlags() const
 {
     return static_cast<VkBufferUsageFlagBits>(VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT | VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT);
 }

@@ -18,6 +18,7 @@ public:
         : Component(name) {}
 
     static constexpr auto TYPE = "NamePrintingComponent";
+    static constexpr bool CAN_BE_CREATED_MANUALLY = true;
 
     static std::string_view getStaticType()
     {

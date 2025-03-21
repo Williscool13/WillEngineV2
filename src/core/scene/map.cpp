@@ -10,70 +10,15 @@
 #include "src/core/engine.h"
 #include "src/util/file.h"
 
-will_engine::Map::Map(const std::filesystem::path& mapSource, ResourceManager& resourceManager, bool initializeTerrain) : terrainChunk(nullptr), mapSource(mapSource),
-                                                                                                                          resourceManager(resourceManager)
+will_engine::Map::Map(const std::filesystem::path& mapSource, ResourceManager& resourceManager) : mapSource(mapSource), resourceManager(resourceManager)
 {
     if (!exists(mapSource)) {
         fmt::print("Map source file not found, generating an empty map\n");
-        // todo: generate empty map
         mapName = mapSource.filename().stem().string();
         return;
     }
 
-    std::ifstream file(mapSource);
-    if (!file.is_open()) {
-        fmt::print("Failed to open scene file: %s\n", mapSource.string());
-        return;
-    }
-
-    ordered_json rootJ;
-    try {
-        file >> rootJ;
-    } catch (const std::exception& e) {
-        fmt::print("Failed to parse scene file: {}\n", e.what());
-        return;
-    }
-
-    if (!rootJ.contains("version")) {
-        fmt::print("Scene file missing version information\n");
-        return;
-    }
-
-    const auto fileVersion = rootJ["version"].get<EngineVersion>();
-    if (fileVersion > EngineVersion::current()) {
-        fmt::print("Scene file version {} is newer than current engine version {}\n", fileVersion.toString(), EngineVersion::current().toString());
-        return;
-    }
-
-    if (rootJ.contains("mapName")) {
-        mapName = rootJ["mapName"].get<std::string>();
-    }
-
-    if (mapName.empty()) {
-        mapName = mapSource.filename().stem().string();
-    }
-
-    if (rootJ.contains("mapId")) {
-        mapId = rootJ["mapId"].get<uint32_t>();
-    }
-    else {
-        mapId = file::computePathHash(mapSource);
-    }
-
-    Serializer::deserializeMap(this, rootJ);
-
-    if (rootJ.contains("TerrainProperties")) {
-        terrainProperties = rootJ["TerrainProperties"];
-        initializeTerrain = true;
-    }
-    if (rootJ.contains("TerrainSeed")) {
-        seed = rootJ["TerrainSeed"];
-        initializeTerrain = true;
-    }
-
-    if (initializeTerrain) {
-        generateTerrain();
-    }
+    loadMap();
 
     isLoaded = true;
 
@@ -100,8 +45,53 @@ void will_engine::Map::destroy()
     if (Engine* engine = Engine::get()) {
         engine->addToDeletionQueue(this);
     }
+}
 
-    terrainChunk.reset();
+bool will_engine::Map::loadMap()
+{
+    std::ifstream file(mapSource);
+    if (!file.is_open()) {
+        fmt::print("Failed to open scene file: %s\n", mapSource.string());
+        return false;
+    }
+
+    ordered_json rootJ;
+    try {
+        file >> rootJ;
+    } catch (const std::exception& e) {
+        fmt::print("Failed to parse scene file: {}\n", e.what());
+        return false;
+    }
+
+    if (!rootJ.contains("version")) {
+        fmt::print("Scene file missing version information\n");
+        return false;
+    }
+
+    const auto fileVersion = rootJ["version"].get<EngineVersion>();
+    if (fileVersion > EngineVersion::current()) {
+        fmt::print("Scene file version {} is newer than current engine version {}\n", fileVersion.toString(), EngineVersion::current().toString());
+        return false;
+    }
+
+    if (rootJ.contains("mapName")) {
+        mapName = rootJ["mapName"].get<std::string>();
+    }
+
+    if (mapName.empty()) {
+        mapName = mapSource.filename().stem().string();
+    }
+
+    if (rootJ.contains("mapId")) {
+        mapId = rootJ["mapId"].get<uint32_t>();
+    }
+    else {
+        mapId = file::computePathHash(mapSource);
+    }
+
+    Serializer::deserializeMap(this, rootJ);
+
+    return true;
 }
 
 bool will_engine::Map::saveMap(const std::filesystem::path& newSavePath)
@@ -112,11 +102,6 @@ bool will_engine::Map::saveMap(const std::filesystem::path& newSavePath)
 
     ordered_json rootJ;
 
-    if (terrainChunk.get()) {
-        rootJ["TerrainProperties"] = terrainProperties;
-        rootJ["TerrainSeed"] = seed;
-    }
-
     return Serializer::serializeMap(this, rootJ, mapSource);
 }
 
@@ -125,46 +110,87 @@ void will_engine::Map::addGameObject(IHierarchical* newChild)
     addChild(newChild);
 }
 
-void will_engine::Map::generateTerrain()
+bool will_engine::Map::canAddComponent(std::string_view componentType)
 {
-    std::vector<float> heightMapData = HeightmapUtil::generateFromNoise(NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, seed, terrainProperties);
-    terrainChunk = std::make_unique<terrain::TerrainChunk>(resourceManager, heightMapData, NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS);
-}
-
-void will_engine::Map::destroyTerrain()
-{
-    terrainChunk.reset();
-}
-
-AllocatedBuffer will_engine::Map::getVertexBuffer()
-{
-    if (!canDraw()) {
-        return {VK_NULL_HANDLE};
-    }
-    return terrainChunk->getVertexBuffer();
-}
-
-AllocatedBuffer will_engine::Map::getIndexBuffer()
-{
-    if (!canDraw()) {
-        return {VK_NULL_HANDLE};
-    }
-    return terrainChunk->getIndexBuffer();
-}
-
-size_t will_engine::Map::getIndicesCount()
-{
-    if (!canDraw()) {
-        return 0;
+    for (const auto& _component : components) {
+        if (componentType == _component->getComponentType()) {
+            fmt::print("Attempted to add a component of the same type to a gameobject. This is not supported at this time.\n");
+            return false;
+        }
     }
 
-    return terrainChunk->getIndexCount();
+    return true;
+}
+
+will_engine::components::Component* will_engine::Map::addComponent(std::unique_ptr<components::Component> component)
+{
+    if (!component) { return nullptr; }
+
+    for (const auto& _component : components) {
+        if (component->getComponentType() == _component->getComponentType()) {
+            fmt::print("Attempted to add a component of the same type to a gameobject. This is not supported at this time.\n");
+            return nullptr;
+        }
+    }
+    component->setOwner(this);
+    components.push_back(std::move(component));
+
+    terrainComponent = getComponent<components::TerrainComponent>();
+
+    if (bHasBegunPlay) {
+        components.back()->beginPlay();
+    }
+
+    return components.back().get();
+}
+
+void will_engine::Map::destroyComponent(components::Component* component)
+{
+    if (!component) { return; }
+
+    const auto it = std::ranges::find_if(components, [component](const std::unique_ptr<components::Component>& comp) {
+        return comp.get() == component;
+    });
+
+    if (it != components.end()) {
+        component->beginDestroy();
+        components.erase(it);
+    }
+    else {
+        fmt::print("Attempted to remove a component that does not belong to this gameobject.\n");
+    }
+
+    terrainComponent = nullptr;
+    terrainComponent = getComponent<components::TerrainComponent>();
+}
+
+void will_engine::Map::beginPlay()
+{
+    for (const auto& component : components) {
+        component->beginPlay();
+    }
+    bHasBegunPlay = true;
 }
 
 void will_engine::Map::update(const float deltaTime)
 {
+    if (!bHasBegunPlay) { return; }
+
+    for (const auto& component : components) {
+        if (component->isEnabled()) {
+            component->update(deltaTime);
+        }
+    }
+
     for (IHierarchical* child : getChildren()) {
         recursiveUpdate(child, deltaTime);
+    }
+}
+
+void will_engine::Map::beginDestroy()
+{
+    for (const auto& component : components) {
+        component->beginDestroy();
     }
 }
 

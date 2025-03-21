@@ -9,10 +9,10 @@
 #include "src/renderer/vulkan_context.h"
 
 
-VkPhysicalDeviceDescriptorBufferPropertiesEXT DescriptorBuffer::deviceDescriptorBufferProperties = {};
-bool DescriptorBuffer::devicePropertiesRetrieved = false;
+VkPhysicalDeviceDescriptorBufferPropertiesEXT will_engine::DescriptorBuffer::deviceDescriptorBufferProperties = {};
+bool will_engine::DescriptorBuffer::devicePropertiesRetrieved = false;
 
-DescriptorBuffer::DescriptorBuffer(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int32_t maxObjectCount)
+will_engine::DescriptorBuffer::DescriptorBuffer(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int32_t maxObjectCount)
 {
     if (!devicePropertiesRetrieved) {
         VkPhysicalDeviceProperties2KHR device_properties{};
@@ -39,24 +39,24 @@ DescriptorBuffer::DescriptorBuffer(const VulkanContext& context, VkDescriptorSet
     this->maxObjectCount = maxObjectCount;
 }
 
-void DescriptorBuffer::destroy(const VmaAllocator allocator)
+void will_engine::DescriptorBuffer::destroy(const VmaAllocator allocator)
 {
     if (descriptorBuffer.buffer == VK_NULL_HANDLE) { return; }
     vmaDestroyBuffer(allocator, descriptorBuffer.buffer, descriptorBuffer.allocation);
     descriptorBuffer = {VK_NULL_HANDLE};
 }
 
-void DescriptorBuffer::freeDescriptorBufferIndex(const int32_t index)
+void will_engine::DescriptorBuffer::freeDescriptorBufferIndex(const int32_t index)
 {
     freeIndices.insert(index);
 }
 
-void DescriptorBuffer::freeAllDescriptorBufferIndices()
+void will_engine::DescriptorBuffer::freeAllDescriptorBufferIndices()
 {
     for (int32_t i = 0; i < maxObjectCount; i++) { freeIndices.insert(i); }
 }
 
-VkDescriptorBufferBindingInfoEXT DescriptorBuffer::getDescriptorBufferBindingInfo() const
+VkDescriptorBufferBindingInfoEXT will_engine::DescriptorBuffer::getDescriptorBufferBindingInfo() const
 {
     VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info{};
     descriptor_buffer_binding_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT;

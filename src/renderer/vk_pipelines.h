@@ -8,10 +8,11 @@
 #include <vector>
 
 #include <vulkan/vulkan_core.h>
-#include <fmt/format.h>
 
 #include "vk_helpers.h"
 
+namespace will_engine
+{
 class PipelineBuilder
 {
 public:
@@ -32,6 +33,8 @@ public:
 
     void setShaders(VkShaderModule vertexShader, VkShaderModule fragmentShader);
 
+    void setShaders(VkShaderModule vertexShader, VkShaderModule tessControlShader, VkShaderModule tessEvalShader, VkShaderModule fragmentShader);
+
     /**
      * Care must be taken when using this to ensure that the pointers are still valid when the pipeline is constructed
      * @param bindings
@@ -39,7 +42,7 @@ public:
      * @param attributes
      * @param attributeCount
      */
-    void setupVertexInput(VkVertexInputBindingDescription* bindings, uint32_t bindingCount, VkVertexInputAttributeDescription* attributes, uint32_t attributeCount);
+    void setupVertexInput(const VkVertexInputBindingDescription* bindings, uint32_t bindingCount, const VkVertexInputAttributeDescription* attributes, uint32_t attributeCount);
 
     void setupInputAssembly(VkPrimitiveTopology topology, bool enablePrimitiveRestart = false);
 
@@ -95,9 +98,11 @@ public:
     /**
      * Shortcut to disable depth testing for this pipeline
      */
-    void disableDepthtest();
+    void disableDepthTest();
 
     VkPipelineDynamicStateCreateInfo generateDynamicStates(VkDynamicState states[], uint32_t count);
+
+    void setupTessellation(int32_t controlPoints = 4);
 
 private:
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
@@ -111,11 +116,17 @@ private:
     VkPipelineRenderingCreateInfo renderInfo{};
     VkPipelineDepthStencilStateCreateInfo depthStencil{};
 
+    bool bIsTessellationEnabled{false};
+    VkPipelineTessellationStateCreateInfo tessellation{};
+
+
     VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
 
     // keep to avoid dangling pointer for color attachment (referenced by pointer)
     std::vector<VkFormat> colorAttachmentFormats;
 };
+}
+
 
 
 #endif //VK_PIPELINES_H

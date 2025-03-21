@@ -18,13 +18,6 @@ MeshRendererComponent::MeshRendererComponent(const std::string& name)
 
 MeshRendererComponent::~MeshRendererComponent() = default;
 
-void MeshRendererComponent::dirty()
-{
-    if (!bIsStatic) {
-        renderFramesToUpdate = FRAME_OVERLAP + 1;
-    }
-}
-
 bool MeshRendererComponent::hasMesh() const
 {
     return pRenderReference && meshIndex != INDEX_NONE;
@@ -42,17 +35,6 @@ void MeshRendererComponent::update(const float deltaTime)
     // Add update logic here
 }
 
-void MeshRendererComponent::releaseMesh()
-{
-    if (!pRenderReference) {
-        meshIndex = INDEX_NONE;
-        return;
-    }
-    pRenderReference->releaseInstanceIndex(this);
-    pRenderReference = nullptr;
-    meshIndex = INDEX_NONE;
-}
-
 void MeshRendererComponent::beginDestroy()
 {
     Component::beginDestroy();
@@ -63,7 +45,7 @@ void MeshRendererComponent::serialize(ordered_json& j)
 {
     Component::serialize(j);
 
-    const int32_t renderRefIndex = getRenderReferenceId();
+    const uint32_t renderRefIndex = getRenderReferenceId();
     if (renderRefIndex != INDEX_NONE) {
         j["renderReference"] = renderRefIndex;
         j["renderMeshIndex"] = meshIndex;
@@ -80,18 +62,24 @@ void MeshRendererComponent::deserialize(ordered_json& j)
         const uint32_t renderRefIndex = j["renderReference"].get<uint32_t>();
         const int32_t meshIndex = j["renderMeshIndex"].get<int32_t>();
 
-        if (RenderObject* renderObject = Engine::get()->getOrLoadRenderObject(renderRefIndex)) {
-            renderObject->generateMesh(this, meshIndex);
-            if (j.contains("renderIsVisible")) {
-                bIsVisible = j["renderIsVisible"];
-            }
-            if (j.contains("renderIsShadowCaster")) {
-                bIsShadowCaster = j["renderIsShadowCaster"];
+        if (const AssetManager* assetManager = Engine::get()->getAssetManager()) {
+            if (RenderObject* renderObject = assetManager->getRenderObject(renderRefIndex)) {
+                if (!renderObject->isLoaded()) {
+                    renderObject->load();
+                }
+                renderObject->generateMesh(this, meshIndex);
+                if (j.contains("renderIsVisible")) {
+                    bIsVisible = j["renderIsVisible"];
+                }
+                if (j.contains("renderIsShadowCaster")) {
+                    bIsShadowCaster = j["renderIsShadowCaster"];
+                }
+
+                return;
             }
         }
-        else {
-            fmt::print("Warning: Mesh Renderer Component failed to find render reference\n");
-        }
+
+        fmt::print("Warning: Mesh Renderer Component failed to find render reference\n");
     }
 }
 
@@ -104,8 +92,8 @@ void MeshRendererComponent::updateRenderImgui()
             ImGui::Text("Not currently representing any mesh");
         }
         else {
-            ImGui::Text(fmt::format("Render Reference Id: {}",  pRenderReference->getId()).c_str());
-            ImGui::Text(fmt::format("Mesh Index: {}",  meshIndex).c_str());
+            ImGui::Text(fmt::format("Render Reference Id: {}", pRenderReference->getId()).c_str());
+            ImGui::Text(fmt::format("Mesh Index: {}", meshIndex).c_str());
 
             if (ImGui::Button("Release Mesh")) {
                 releaseMesh();
@@ -116,6 +104,24 @@ void MeshRendererComponent::updateRenderImgui()
             ImGui::Checkbox("Cast Shadows", &bIsShadowCaster);
         }
     }
+}
+
+void MeshRendererComponent::dirty()
+{
+    if (!bIsStatic) {
+        renderFramesToUpdate = FRAME_OVERLAP + 1;
+    }
+}
+
+void MeshRendererComponent::releaseMesh()
+{
+    if (!pRenderReference) {
+        meshIndex = INDEX_NONE;
+        return;
+    }
+    pRenderReference->releaseInstanceIndex(this);
+    pRenderReference = nullptr;
+    meshIndex = INDEX_NONE;
 }
 
 glm::mat4 MeshRendererComponent::getModelMatrix()

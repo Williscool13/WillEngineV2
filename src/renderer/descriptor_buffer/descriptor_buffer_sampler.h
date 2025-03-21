@@ -6,6 +6,8 @@
 #include "descriptor_buffer_types.h"
 #include "descriptor_buffer.h"
 
+namespace will_engine
+{
 /**
  * A descriptor buffer specifically for images/sampler images, as textures require additional descriptor binding details and are unable to be fully buffer based like Uniforms
  */
@@ -24,10 +26,11 @@ public:
      * @param index optional. If specified, will allocate/overwrite the descriptor set in that index of the descriptor buffer
      * @return the index of the allocated descriptor set. Store and use when binding during draw call.
      */
-    int32_t setupData(VkDevice device, const std::vector<will_engine::DescriptorImageData>& imageBuffers, int32_t index = -1);
+    int32_t setupData(VkDevice device, const std::vector<DescriptorImageData>& imageBuffers, int32_t index = -1);
 
     VkBufferUsageFlagBits getBufferUsageFlags() const override;
 };
+}
 
 
 #endif //DESCRIPTOR_BUFFER_SAMPLER_H

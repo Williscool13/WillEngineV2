@@ -7,7 +7,8 @@
 #include "descriptor_buffer.h"
 #include "descriptor_buffer_types.h"
 
-
+namespace will_engine
+{
 using will_engine::DescriptorUniformData;
 
 class DescriptorBufferUniform final : public DescriptorBuffer
@@ -35,6 +36,7 @@ public:
 
     VkBufferUsageFlagBits getBufferUsageFlags() const override;
 };
+}
 
 
 

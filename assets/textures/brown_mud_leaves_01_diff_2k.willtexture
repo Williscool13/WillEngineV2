@@ -1,0 +1,11 @@
+{
+    "texture": {
+        "gltfPath": "assets\\textures\\brown_mud_leaves_01_diff_2k.jpg",
+        "id": 3813767237,
+        "name": "brown_mud_leaves_01_diff_2k",
+        "textureProperties": {
+            "mipmapped": true
+        }
+    },
+    "version": 1
+}

@@ -16,6 +16,8 @@
 
 class VulkanContext;
 
+namespace will_engine
+{
 class DescriptorBuffer
 {
 public:
@@ -60,7 +62,7 @@ protected:
      * Must be specified when this descriptor buffer is created.
      * \n Total descriptor buffer size will be offset + size * maxObjectCount
      */
-    int maxObjectCount{10};
+    int32_t maxObjectCount{10};
 
     virtual VkBufferUsageFlagBits getBufferUsageFlags() const = 0;
 
@@ -70,6 +72,7 @@ protected:
     static VkPhysicalDeviceDescriptorBufferPropertiesEXT deviceDescriptorBufferProperties;
     static bool devicePropertiesRetrieved;
 };
+}
 
 
 #endif //VKDESCRIPTORBUFFER_H

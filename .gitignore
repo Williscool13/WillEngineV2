@@ -12,3 +12,4 @@ shaders/**/*.spv
 branding/*.reg
 
 assets/images/
+assets/textures/source/

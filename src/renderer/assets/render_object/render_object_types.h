@@ -22,7 +22,7 @@ enum class MaterialType
     MASK        = 2,
 };
 
-struct Material
+struct MaterialProperties
 {
     glm::vec4 colorFactor{1.0f};
     glm::vec4 metalRoughFactors{0.0f, 1.0f, 0.0f, 0.0f}; // x: metallic, y: roughness

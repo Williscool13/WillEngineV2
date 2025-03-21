@@ -24,7 +24,7 @@
 #include "src/physics/physics_utils.h"
 #include "src/renderer/immediate_submitter.h"
 #include "src/renderer/resource_manager.h"
-#include "src/renderer/render_object/render_object.h"
+#include "src/renderer/assets/render_object/render_object.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/environment/environment.h"
 #include "src/renderer/lighting/shadows/cascaded_shadow_map.h"
@@ -35,7 +35,6 @@
 #include "src/renderer/pipelines/post_process/post_process_pipeline.h"
 #include "src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h"
 #include "src/renderer/pipelines/terrain/terrain_pipeline.h"
-#include "src/renderer/terrain/terrain_chunk.h"
 #include "src/util/file.h"
 #include "src/util/halton.h"
 
@@ -129,6 +128,8 @@ void Engine::init()
     resourceManager = new ResourceManager(*context, *immediate);
     startupProfiler.endTimer("2ResourceManager");
 
+    assetManager = new AssetManager(*resourceManager);
+
     identifierManager = new identifier::IdentifierManager();
     identifier::IdentifierManager::Set(identifierManager);
 
@@ -183,6 +184,7 @@ void Engine::initRenderer()
     for (int i{0}; i < FRAME_OVERLAP; i++) {
         sceneDataBuffers[i] = resourceManager->createHostSequentialBuffer(sizeof(SceneData));
     }
+    // +1 for the debug scene data buffer. Not multi-buffering for simplicity
     sceneDataDescriptorBuffer = DescriptorBufferUniform(*context, resourceManager->getSceneDataLayout(), FRAME_OVERLAP + 1);
     std::vector<DescriptorUniformData> sceneDataBufferData{1};
     for (int i{0}; i < FRAME_OVERLAP; i++) {
@@ -234,11 +236,10 @@ void Engine::initRenderer()
 
 void Engine::initGame()
 {
-    file::scanForModels(renderObjectInfoMap);
+    assetManager->scanForAll();
     camera = new FreeCamera();
     const auto map = new Map(file::getSampleScene(), *resourceManager);
-    activeMaps.push_back(map);
-    activeTerrains.push_back(map);
+    activeMaps.insert(map);
 }
 
 void Engine::run()
@@ -331,16 +332,13 @@ void Engine::updateGame(const float deltaTime)
         map->update(deltaTime);
     }
 
-    for (Map* map : mapDeletionQueue) {
-        std::erase(activeMaps, map);
-        std::erase(activeTerrains, static_cast<ITerrain*>(map));
-        map->beginDestroy();
-        delete map;
-    }
-
-    mapDeletionQueue.clear();
-
     for (IHierarchical* hierarchical : hierarchicalDeletionQueue) {
+        if (auto map = dynamic_cast<Map*>(hierarchical)) {
+            if (activeMaps.contains(map)) {
+                activeMaps.erase(map);
+            }
+        }
+
         hierarchical->beginDestroy();
         delete hierarchical;
     }
@@ -425,9 +423,17 @@ void Engine::draw(float deltaTime)
     int32_t currentFrameOverlap = getCurrentFrameOverlap();
     int32_t previousFrameOverlap = getPreviousFrameOverlap();
 
+    std::vector<RenderObject*> allRenderObjects = assetManager->getAllRenderObjects();
+
     // Update Render Object Buffers and Model Matrices
-    for (RenderObject* val : renderObjectMap | std::views::values) {
-        val->update(currentFrameOverlap, previousFrameOverlap);
+    for (RenderObject* renderObject : allRenderObjects) {
+        renderObject->update(currentFrameOverlap, previousFrameOverlap);
+    }
+
+    for (ITerrain* terrain : activeTerrains) {
+        if (auto chunk = terrain->getTerrainChunk()) {
+            chunk->update(currentFrameOverlap, previousFrameOverlap);
+        }
     }
 
     // Updates Scene Data buffer
@@ -438,7 +444,7 @@ void Engine::draw(float deltaTime)
 
     visibility_pass::VisibilityPassDrawInfo csmFrustumCullDrawInfo{
         currentFrameOverlap,
-        renderObjectMap,
+        allRenderObjects,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
         false,
@@ -446,7 +452,7 @@ void Engine::draw(float deltaTime)
     };
     visibilityPassPipeline->draw(cmd, csmFrustumCullDrawInfo);
 
-    cascadedShadowMap->draw(cmd, renderObjectMap, activeTerrains, currentFrameOverlap);
+    cascadedShadowMap->draw(cmd, allRenderObjects, activeTerrains, currentFrameOverlap);
 
     vk_helpers::clearColorImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -459,6 +465,7 @@ void Engine::draw(float deltaTime)
         environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferBindingInfo(),
         environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferSize() * environmentMapIndex,
     };
+    // todo: make environment pipeline draw to the render targets rather than directly to the draw image!!!
     environmentPipeline->draw(cmd, environmentPipelineDrawInfo);
 
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -468,7 +475,7 @@ void Engine::draw(float deltaTime)
 
     visibility_pass::VisibilityPassDrawInfo deferredFrustumCullDrawInfo{
         currentFrameOverlap,
-        renderObjectMap,
+        allRenderObjects,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
         true,
@@ -478,6 +485,7 @@ void Engine::draw(float deltaTime)
 
     terrain::TerrainDrawInfo terrainDrawInfo{
         true,
+        bDrawTerrainLines,
         currentFrameOverlap,
         {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT},
         activeTerrains,
@@ -495,7 +503,7 @@ void Engine::draw(float deltaTime)
         false,
         currentFrameOverlap,
         {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT},
-        renderObjectMap,
+        allRenderObjects,
         normalRenderTarget.imageView,
         albedoRenderTarget.imageView,
         pbrRenderTarget.imageView,
@@ -511,7 +519,7 @@ void Engine::draw(float deltaTime)
             false,
             currentFrameOverlap,
             {RENDER_EXTENT_WIDTH / 3.0f, RENDER_EXTENT_HEIGHT / 3.0f},
-            renderObjectMap,
+            allRenderObjects,
             normalRenderTarget.imageView,
             albedoRenderTarget.imageView,
             pbrRenderTarget.imageView,
@@ -550,7 +558,7 @@ void Engine::draw(float deltaTime)
     vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     const temporal_antialiasing_pipeline::TemporalAntialiasingDrawInfo taaDrawInfo{
-        0.1f,
+        taaBlendValue,
         bEnableTaa ? 0 : 1,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
@@ -658,20 +666,22 @@ void Engine::cleanup()
 
     for (Map* map : activeMaps) {
         map->destroy();
-        delete map;
     }
-    activeMaps.clear();
 
-    for (IHierarchical* hierarchal : hierarchalBeginQueue) {
-        hierarchal->beginPlay();
+    for (IHierarchical* hierarchical : hierarchicalDeletionQueue) {
+        if (auto map = dynamic_cast<Map*>(hierarchical)) {
+            if (activeMaps.contains(map)) {
+                activeMaps.erase(map);
+            }
+        }
+
+        hierarchical->beginDestroy();
+        delete hierarchical;
     }
+    hierarchicalDeletionQueue.clear();
     hierarchalBeginQueue.clear();
 
-
-    for (const std::pair<uint32_t, RenderObject*> renderObject : renderObjectMap) {
-        delete renderObject.second;
-    }
-    renderObjectMap.clear();
+    delete assetManager;
 
     delete cascadedShadowMap;
     delete environmentMap;
@@ -711,20 +721,16 @@ void Engine::addToDeletionQueue(IHierarchical* obj)
     hierarchicalDeletionQueue.push_back(obj);
 }
 
-void Engine::addToDeletionQueue(Map* map)
+void Engine::addToActiveTerrain(ITerrain* terrain)
 {
-    mapDeletionQueue.push_back(map);
+    activeTerrains.insert(terrain);
 }
 
-RenderObject* Engine::getOrLoadRenderObject(const uint32_t renderRefIndex)
+void Engine::removeFromActiveTerrain(ITerrain* terrain)
 {
-    const bool isLoaded = renderObjectMap.contains(renderRefIndex) && renderObjectMap[renderRefIndex] != nullptr;
-    const auto renderObjectProperties = renderObjectInfoMap.find(renderRefIndex);
-    if (!isLoaded) {
-        renderObjectMap[renderRefIndex] = new RenderObject(renderObjectProperties->second.gltfPath, *resourceManager, renderRefIndex);
+    if (activeTerrains.contains(terrain)) {
+        activeTerrains.erase(terrain);
     }
-
-    return renderObjectMap[renderRefIndex];
 }
 
 void Engine::createSwapchain(const uint32_t width, const uint32_t height)

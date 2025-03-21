@@ -1,16 +1,4 @@
 {
-    "TerrainProperties": {
-        "scale": 158.0,
-        "persistence": 0.30000001192092896,
-        "lacunarity": 1.5,
-        "octaves": 4,
-        "offset": {
-            "x": 0.0,
-            "y": 0.0
-        },
-        "heightScale": 25.0
-    },
-    "TerrainSeed": 1695802020,
     "version": {
         "major": 0,
         "minor": 1,
@@ -18,8 +6,63 @@
     },
     "metadata": {
         "name": "sampleScene",
-        "created": "2025-03-09 16:33:15",
+        "created": "2025-03-21 18:18:15",
         "formatVersion": 1
+    },
+    "rootComponents": {
+        "TerrainComponent": {
+            "terrain": {
+                "terrainGenerationProperties": {
+                    "scale": 150.54400634765625,
+                    "persistence": 0.24799999594688416,
+                    "lacunarity": 2.313999891281128,
+                    "octaves": 4,
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    },
+                    "heightScale": 85.78099822998047
+                },
+                "terrainSeed": 111219222,
+                "terrainConfig": {
+                    "uvOffset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    },
+                    "uvScale": {
+                        "x": 50.0,
+                        "y": 50.0
+                    },
+                    "baseColor": {
+                        "x": 0.5343137383460999,
+                        "y": 0.5343137383460999,
+                        "z": 0.5343137383460999,
+                        "w": 1.0
+                    }
+                },
+                "terrainProperties": {
+                    "slopeRockThreshold": 0.699999988079071,
+                    "slopeRockBlend": 0.5,
+                    "heightSandThreshold": 0.2800000011920929,
+                    "heightSandBlend": 0.10000000149011612,
+                    "heightGrassThreshold": 0.6499999761581421,
+                    "heightGrassBlend": 0.25,
+                    "minHeight": 5.0,
+                    "maxHeight": 75.0
+                },
+                "terrainTextures": [
+                    3813767237,
+                    219859308,
+                    3929634359,
+                    0,
+                    0,
+                    0,
+                    0,
+                    0
+                ]
+            },
+            "componentName": "Terrain Component"
+        }
     },
     "gameObjects": {
         "name": "sampleScene",
@@ -41,6 +84,61 @@
                 "z": 1.0
             }
         },
+        "components": {
+            "TerrainComponent": {
+                "terrain": {
+                    "terrainGenerationProperties": {
+                        "scale": 150.54400634765625,
+                        "persistence": 0.24799999594688416,
+                        "lacunarity": 2.313999891281128,
+                        "octaves": 4,
+                        "offset": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "heightScale": 85.78099822998047
+                    },
+                    "terrainSeed": 111219222,
+                    "terrainConfig": {
+                        "uvOffset": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "uvScale": {
+                            "x": 50.0,
+                            "y": 50.0
+                        },
+                        "baseColor": {
+                            "x": 0.5343137383460999,
+                            "y": 0.5343137383460999,
+                            "z": 0.5343137383460999,
+                            "w": 1.0
+                        }
+                    },
+                    "terrainProperties": {
+                        "slopeRockThreshold": 0.699999988079071,
+                        "slopeRockBlend": 0.5,
+                        "heightSandThreshold": 0.2800000011920929,
+                        "heightSandBlend": 0.10000000149011612,
+                        "heightGrassThreshold": 0.6499999761581421,
+                        "heightGrassBlend": 0.25,
+                        "minHeight": 5.0,
+                        "maxHeight": 75.0
+                    },
+                    "terrainTextures": [
+                        3813767237,
+                        219859308,
+                        3929634359,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0
+                    ]
+                },
+                "componentName": "Terrain Component"
+            }
+        },
         "children": [
             {
                 "id": 5,
@@ -48,7 +146,7 @@
                 "transform": {
                     "position": {
                         "x": 1.3145529010216706e-05,
-                        "y": 0.0,
+                        "y": -20.0,
                         "z": 1.9005896319868043e-05
                     },
                     "rotation": {
@@ -65,7 +163,7 @@
                 },
                 "components": {
                     "MeshRendererComponent": {
-                        "renderReference": -1165598379,
+                        "renderReference": 3129368917,
                         "renderMeshIndex": 0,
                         "renderIsVisible": true,
                         "renderIsShadowCaster": true,
@@ -93,7 +191,7 @@
                 "transform": {
                     "position": {
                         "x": -95.4189224243164,
-                        "y": 5.2970123291015625,
+                        "y": 28.597000122070313,
                         "z": 40.403629302978516
                     },
                     "rotation": {
@@ -110,7 +208,7 @@
                 },
                 "components": {
                     "MeshRendererComponent": {
-                        "renderReference": -569695456,
+                        "renderReference": 3725271840,
                         "renderMeshIndex": 0,
                         "renderIsVisible": true,
                         "renderIsShadowCaster": true,
@@ -138,7 +236,7 @@
                 "transform": {
                     "position": {
                         "x": 0.0,
-                        "y": 12.899999618530273,
+                        "y": 41.5,
                         "z": 0.0
                     },
                     "rotation": {
@@ -155,7 +253,7 @@
                 },
                 "components": {
                     "MeshRendererComponent": {
-                        "renderReference": -1165598379,
+                        "renderReference": 3129368917,
                         "renderMeshIndex": 5,
                         "renderIsVisible": true,
                         "renderIsShadowCaster": true,
@@ -182,15 +280,15 @@
                 "name": "Cube\u0000ing Orb",
                 "transform": {
                     "position": {
-                        "x": -12.133661270141602,
-                        "y": 9.87217903137207,
-                        "z": -1.1131681203842163
+                        "x": 13.52876091003418,
+                        "y": 21.364248275756836,
+                        "z": 37.19429397583008
                     },
                     "rotation": {
-                        "x": 0.02900923416018486,
-                        "y": -0.6882249116897583,
-                        "z": 0.02402949333190918,
-                        "w": 0.724518895149231
+                        "x": 0.19281113147735596,
+                        "y": 0.20267827808856964,
+                        "z": 0.6591735482215881,
+                        "w": 0.6980226635932922
                     },
                     "scale": {
                         "x": 1.0,
@@ -200,7 +298,7 @@
                 },
                 "components": {
                     "MeshRendererComponent": {
-                        "renderReference": -1165598379,
+                        "renderReference": 3129368917,
                         "renderMeshIndex": 1,
                         "renderIsVisible": true,
                         "renderIsShadowCaster": true,

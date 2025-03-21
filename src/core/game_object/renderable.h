@@ -6,7 +6,7 @@
 #define RENDERABLE_H
 #include <cstdint>
 
-#include "src/renderer/render_object/render_reference.h"
+#include "src/renderer/assets/render_object/render_reference.h"
 
 namespace will_engine
 {
@@ -16,6 +16,8 @@ public:
     virtual ~IRenderable() = default;
 
     virtual void setRenderObjectReference(IRenderReference* owner, int32_t meshIndex) = 0;
+
+    virtual void releaseMesh() = 0;
 
     [[nodiscard]] virtual uint32_t getRenderReferenceId() const = 0;
 
@@ -37,7 +39,6 @@ public:
     virtual void dirty() = 0;
 
     virtual void setRenderFramesToUpdate(int32_t value) = 0;
-
 
 };
 }

@@ -153,11 +153,11 @@ set(RENDERER_SOURCES
         src/renderer/vk_types.cpp
         src/renderer/vk_types.h
         src/renderer/renderer_constants.h
-        src/renderer/render_object/render_object.h
-        src/renderer/render_object/render_object.cpp
-        src/renderer/render_object/render_object_types.h
-        src/renderer/render_object/render_object_types.cpp
-        src/renderer/render_object/render_reference.h
+        src/renderer/assets/render_object/render_object.h
+        src/renderer/assets/render_object/render_object.cpp
+        src/renderer/assets/render_object/render_object_types.h
+        src/renderer/assets/render_object/render_object_types.cpp
+        src/renderer/assets/render_object/render_reference.h
         src/renderer/environment/environment.cpp
         src/renderer/environment/environment.h
         src/renderer/environment/environment_constants.h
@@ -182,8 +182,8 @@ set(RENDERER_SOURCES
         src/renderer/lighting/directional_light.cpp
         src/renderer/lighting/shadows/cascaded_shadow_map.cpp
         src/renderer/lighting/shadows/cascaded_shadow_map.h
-        src/renderer/lighting/shadows/shadows.cpp
-        src/renderer/lighting/shadows/shadows.h
+        src/renderer/lighting/shadows/shadow_constants.cpp
+        src/renderer/lighting/shadows/shadow_constants.h
         src/renderer/lighting/shadows/shadow_types.h
         src/renderer/descriptor_buffer/descriptor_buffer.cpp
         src/renderer/descriptor_buffer/descriptor_buffer.h
@@ -193,7 +193,7 @@ set(RENDERER_SOURCES
         src/renderer/descriptor_buffer/descriptor_buffer_types.h
         src/renderer/descriptor_buffer/descriptor_buffer_uniform.cpp
         src/renderer/descriptor_buffer/descriptor_buffer_uniform.h
-        src/renderer/render_object/render_object_constants.h
+        src/renderer/assets/render_object/render_object_constants.h
         src/renderer/post_process/post_process_types.h
 )
 
@@ -233,6 +233,20 @@ set(TEMP_SOURCES
         src/core/scene/map.cpp
         src/core/scene/map.h
         src/core/game_object/terrain.h
+        src/renderer/assets/material/material.cpp
+        src/renderer/assets/material/material.h
+        src/renderer/assets/texture/texture.cpp
+        src/renderer/assets/texture/texture.h
+        src/renderer/assets/asset_manager.cpp
+        src/renderer/assets/asset_manager.h
+        src/core/game_object/components/terrain_component.cpp
+        src/core/game_object/components/terrain_component.h
+        src/renderer/terrain/terrain_constants.h
+        src/core/scene/serializer_types.h
+        src/core/scene/serializer_constants.h
+        src/renderer/assets/texture/texture_resource.cpp
+        src/renderer/assets/texture/texture_resource.h
+        src/renderer/assets/texture/texture_types.h
 
 )
 

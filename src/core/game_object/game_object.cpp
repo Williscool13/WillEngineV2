@@ -451,7 +451,7 @@ void GameObject::selectedRenderImgui()
                     ImGui::Text("Available Components:");
                     ImGui::Separator();
 
-                    const auto& creators = components::ComponentFactory::getInstance().getComponentCreators();
+                    const auto& creators = components::ComponentFactory::getInstance().getManuallyCreatableComponentCreators();
                     for (const auto& type : creators | std::views::keys) {
                         if (ImGui::Selectable(type.data())) {
                             if (!canAddComponent(type)) {

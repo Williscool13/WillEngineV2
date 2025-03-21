@@ -9,80 +9,102 @@
 
 
 #include "map.h"
+#include "serializer_types.h"
 #include "src/core/transform.h"
 #include "src/core/game_object/game_object.h"
 #include "src/core/game_object/components/component.h"
 #include "src/core/game_object/components/component_factory.h"
-#include "src/renderer/render_object/render_object.h"
+#include "src/renderer/assets/render_object/render_object.h"
+#include "src/renderer/assets/texture/texture.h"
 
 
 namespace will_engine
 {
-constexpr int32_t SCENE_FORMAT_VERSION = 1;
+using ordered_json = nlohmann::ordered_json;
+using json = nlohmann::json;
 
-struct EngineVersion
+inline void to_json(ordered_json& j, const glm::vec2& v)
 {
-    uint32_t major;
-    uint32_t minor;
-    uint32_t patch;
+    j = {
+        {"x", v.x},
+        {"y", v.y}
+    };
+}
 
-    static EngineVersion current()
-    {
-        return {ENGINE_VERSION_MAJOR, ENGINE_VERSION_MINOR, ENGINE_VERSION_PATCH};
-    }
-
-    bool operator==(const EngineVersion& other) const
-    {
-        return major == other.major && minor == other.minor && patch == other.patch;
-    }
-
-    bool operator<(const EngineVersion& other) const
-    {
-        if (major != other.major) return major < other.major;
-        if (minor != other.minor) return minor < other.minor;
-        return patch < other.patch;
-    }
-
-    bool operator>(const EngineVersion& other) const
-    {
-        return other < *this;
-    }
-
-    std::string toString() const
-    {
-        return fmt::format("{}.{}.{}", major, minor, patch);
-    }
-};
-
-struct SceneMetadata
+inline void from_json(const ordered_json& j, glm::vec2& v)
 {
-    std::string name;
-    std::string created;
-    uint32_t formatVersion;
+    v.x = j["x"].get<float>();
+    v.y = j["y"].get<float>();
+}
 
-    static SceneMetadata create(const std::string& sceneName)
-    {
-        const auto now = std::chrono::system_clock::now();
-        const auto timeT = std::chrono::system_clock::to_time_t(now);
-        std::stringstream ss;
-        tm timeInfo;
-        localtime_s(&timeInfo, &timeT);
-        ss << std::put_time(&timeInfo, "%Y-%m-%d %H:%M:%S");
-
-        return {
-            sceneName,
-            ss.str(),
-            SCENE_FORMAT_VERSION
-        };
-    }
-};
-
-struct RenderObjectInfo
+inline void to_json(ordered_json& j, const glm::vec3& v)
 {
-    std::string gltfPath;
-    std::string name;
-    uint32_t id;
-};
+    j = {
+        {"x", v.x},
+        {"y", v.y},
+        {"z", v.z}
+    };
+}
+
+inline void from_json(const ordered_json& j, glm::vec3& v)
+{
+    v.x = j["x"].get<float>();
+    v.y = j["y"].get<float>();
+    v.z = j["z"].get<float>();
+}
+
+inline void to_json(ordered_json& j, const glm::vec4& v)
+{
+    j = {
+        {"x", v.x},
+        {"y", v.y},
+        {"z", v.z},
+        {"w", v.w}
+    };
+}
+
+inline void from_json(const ordered_json& j, glm::vec4& v)
+{
+    v.x = j["x"].get<float>();
+    v.y = j["y"].get<float>();
+    v.z = j["z"].get<float>();
+    v.w = j["w"].get<float>();
+}
+
+inline void to_json(ordered_json& j, const NoiseSettings& settings)
+{
+    j = {
+        {"scale", settings.scale},
+        {"persistence", settings.persistence},
+        {"lacunarity", settings.lacunarity},
+        {"octaves", settings.octaves},
+        {
+            "offset", {
+                {"x", settings.offset.x},
+                {"y", settings.offset.y}
+            }
+        },
+        {"heightScale", settings.heightScale}
+    };
+}
+
+inline void from_json(const ordered_json& j, NoiseSettings& settings)
+{
+    settings.scale = j["scale"].get<float>();
+    settings.persistence = j["persistence"].get<float>();
+    settings.lacunarity = j["lacunarity"].get<float>();
+    settings.octaves = j["octaves"].get<int>();
+
+    glm::vec2 offset{
+        j["offset"]["x"].get<float>(),
+        j["offset"]["y"].get<float>()
+    };
+    settings.offset = offset;
+
+    settings.heightScale = j["heightScale"].get<float>();
+}
+
+
 
 inline void to_json(ordered_json& j, const Transform& t)
 {
@@ -169,6 +191,20 @@ inline void from_json(const ordered_json& j, SceneMetadata& metadata)
     metadata.formatVersion = j["formatVersion"].get<uint32_t>();
 }
 
+inline void to_json(json& j, const TextureProperties& t)
+{
+    j = ordered_json{
+        {
+            "mipmapped", t.mipmapped
+        }
+    };
+}
+
+inline void from_json(const json& j, TextureProperties& t)
+{
+    t = {j["mipmapped"].get<bool>()};
+}
+
 class Serializer
 {
 public: // GameObjects
@@ -213,20 +249,34 @@ public: // GameObjects
         }
     }
 
-    static bool serializeMap(IHierarchical* root, ordered_json& rootJ, const std::filesystem::path& filepath)
+    static bool serializeMap(IHierarchical* map, ordered_json& rootJ, const std::filesystem::path& filepath)
     {
-        if (root == nullptr) {
+        if (map == nullptr) {
             fmt::print("Warning: map is null\n");
             return false;
         }
 
         rootJ["version"] = EngineVersion::current();
-        rootJ["metadata"] = SceneMetadata::create(root->getName().data());
+        rootJ["metadata"] = SceneMetadata::create(map->getName().data());
+
+        if (const auto componentContainer = dynamic_cast<IComponentContainer*>(map)) {
+            const std::vector<components::Component*> components = componentContainer->getAllComponents();
+            if (components.size() > 0) {
+                ordered_json componentsJson;
+                for (const auto& component : components) {
+                    ordered_json componentData;
+                    component->serialize(componentData);
+                    componentsJson[component->getComponentType()] = componentData;
+                    componentsJson[component->getComponentType()]["componentName"] = component->getComponentName();
+                }
+                rootJ["rootComponents"] = componentsJson;
+            }
+        }
 
         ordered_json gameObjectJ;
         ordered_json renderObjectJ;
 
-        serializeGameObject(gameObjectJ, root);
+        serializeGameObject(gameObjectJ, map);
         rootJ["gameObjects"] = gameObjectJ;
 
         std::ofstream file(filepath);
@@ -302,6 +352,30 @@ public: // GameObjects
             }
         }
 
+        if (rootJ.contains("rootComponents")) {
+            if (const auto componentContainer = dynamic_cast<IComponentContainer*>(root)) {
+                const auto& components = rootJ["rootComponents"];
+                for (const auto& [componentType, componentData] : components.items()) {
+                    std::string componentName;
+                    if (componentData.contains("componentName")) {
+                        componentName = componentData["componentName"].get<std::string>();
+                    }
+                    else {
+                        componentName = componentType;
+                    }
+
+                    auto& factory = components::ComponentFactory::getInstance();
+                    auto newComponent = factory.createComponent(componentType, componentName);
+
+                    if (newComponent) {
+                        auto orderedComponentData = ordered_json(componentData);
+                        const auto _component = componentContainer->addComponent(std::move(newComponent));
+                        _component->deserialize(orderedComponentData);
+                    }
+                }
+            }
+        }
+
         return true;
     }
 
@@ -311,10 +385,10 @@ public: // Render Objects
         RenderObjectInfo info;
         info.gltfPath = gltfPath.string();
         info.name = gltfPath.stem().string();
-        info.id = computePathHash(gltfPath);
+        info.id = computePathHash(info.gltfPath);
 
         nlohmann::json j;
-        j["version"] = 1;
+        j["version"] = WILL_MODEL_FORMAT_VERSION;
         j["renderObject"] = {
             {"gltfPath", info.gltfPath},
             {"name", info.name},
@@ -343,7 +417,6 @@ public: // Render Objects
             nlohmann::json j;
             i >> j;
 
-            // todo: .willmodel version conversion code
             if (!j.contains("version") || j["version"] != 1) {
                 fmt::print("Invalid or unsupported willmodel version in: {}\n", willmodelPath.string());
                 return std::nullopt;
@@ -357,14 +430,15 @@ public: // Render Objects
             const auto& renderObject = j["renderObject"];
 
             RenderObjectInfo info;
+            info.willmodelPath = willmodelPath;
             info.gltfPath = renderObject["gltfPath"].get<std::string>();
             info.name = renderObject["name"].get<std::string>();
             info.id = renderObject["id"].get<uint32_t>();
 
             uint32_t computedId = computePathHash(info.gltfPath);
             if (computedId != info.id) {
-                fmt::print("Warning: ID mismatch in {}, expected: {}, found: {} (not necessarily a problem).\n",
-                           willmodelPath.string(), computedId, info.id);
+                fmt::print("Warning: ID mismatch in {}, expected: {}, found: {} (not necessarily a problem).\n", willmodelPath.string(), computedId, info.id);
+                info.id = computedId;
             }
 
             return info;
@@ -374,6 +448,78 @@ public: // Render Objects
         }
     }
 
+public: // Textures
+    static bool generateWillTexture(const std::filesystem::path& texturePath, const std::filesystem::path& outputPath)
+    {
+        TextureInfo info;
+        info.texturePath = texturePath.string();
+        info.name = outputPath.stem().string();
+        info.id = computePathHash(texturePath.string());
+
+        nlohmann::json j;
+        j["version"] = WILL_TEXTURE_FORMAT_VERSION;
+        j["texture"] = {
+            {"gltfPath", info.texturePath},
+            {"name", info.name},
+            {"id", info.id},
+            {"textureProperties", info.textureProperties},
+        };
+
+        try {
+            std::ofstream o(outputPath);
+            o << std::setw(4) << j << std::endl;
+            return true;
+        } catch (const std::exception& e) {
+            fmt::print("Failed to write willtexture file: {}\n", e.what());
+            return false;
+        }
+    }
+
+    static std::optional<TextureInfo> loadWillTexture(const std::filesystem::path& willtexturePath)
+    {
+        try {
+            std::ifstream i(willtexturePath);
+            if (!i.is_open()) {
+                fmt::print("Failed to open willtexture file: {}\n", willtexturePath.string());
+                return std::nullopt;
+            }
+
+            nlohmann::json j;
+            i >> j;
+
+            if (!j.contains("version") || j["version"] != 1) {
+                fmt::print("Invalid or unsupported willtexture version in: {}\n", willtexturePath.string());
+                return std::nullopt;
+            }
+
+            if (!j.contains("texture")) {
+                fmt::print("No texture data found in: {}\n", willtexturePath.string());
+                return std::nullopt;
+            }
+
+            const auto& texture = j["texture"];
+
+            TextureInfo info;
+            info.willtexturePath = willtexturePath;
+            info.texturePath = texture.value<std::string>("gltfPath", "");
+            info.name = texture.value<std::string>("name", "");
+            info.id = texture.value<uint32_t>("id", 0);;
+            info.textureProperties = texture.value<TextureProperties>("textureProperties", {});
+
+            uint32_t computedId = computePathHash(info.texturePath);
+            if (computedId != info.id) {
+                fmt::print("Warning: ID mismatch in {}, expected: {}, found: {} (not necessarily a problem).\n", willtexturePath.string(), computedId, info.id);
+                info.id = computedId;
+            }
+
+            return info;
+        } catch (const std::exception& e) {
+            fmt::print("Error loading willtexture file {}: {}\n", willtexturePath.string(), e.what());
+            return std::nullopt;
+        }
+    }
+
+public: //
     static uint32_t computePathHash(const std::filesystem::path& path)
     {
         const std::string normalizedPath = path.lexically_normal().string();

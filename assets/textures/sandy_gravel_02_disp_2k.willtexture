@@ -1,0 +1,11 @@
+{
+    "texture": {
+        "gltfPath": "assets\\textures\\sandy_gravel_02_disp_2k.png",
+        "id": 1295288672,
+        "name": "sandy_gravel_02_disp_2k",
+        "textureProperties": {
+            "mipmapped": true
+        }
+    },
+    "version": 1
+}

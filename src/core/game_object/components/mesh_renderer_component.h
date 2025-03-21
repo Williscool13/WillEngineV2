@@ -30,8 +30,6 @@ public:
 public:
     bool hasMesh() const;
 
-    void releaseMesh();
-
 private: // IRenderable
     /**
       * If true, the model matrix will never be updated from defaults.
@@ -57,7 +55,6 @@ public:
 
     void beginDestroy() override;
 
-
 public: // Serialization
     void serialize(ordered_json& j) override;
 
@@ -73,6 +70,7 @@ public: // IRenderable
 
     void setRenderFramesToUpdate(const int32_t value) override { renderFramesToUpdate = value; }
 
+
     void setRenderObjectReference(IRenderReference* owner, const int32_t meshIndex) override
     {
         pRenderReference = owner;
@@ -82,6 +80,8 @@ public: // IRenderable
     uint32_t getRenderReferenceId() const override { return pRenderReference ? pRenderReference->getId() : INDEX_NONE; }
 
     int32_t getMeshIndex() const override { return meshIndex; }
+
+    void releaseMesh() override;
 
     [[nodiscard]] bool& isVisible() override { return bIsVisible; }
 
@@ -95,9 +95,9 @@ public: // IRenderable
 
     void setOwner(IComponentContainer* owner) override;
 
-
 public:
     static constexpr auto TYPE = "MeshRendererComponent";
+    static constexpr bool CAN_BE_CREATED_MANUALLY = true;
 
     static std::string_view getStaticType()
     {

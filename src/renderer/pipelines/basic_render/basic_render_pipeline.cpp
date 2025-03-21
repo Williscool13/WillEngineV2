@@ -10,9 +10,8 @@
 #include "src/renderer/vk_helpers.h"
 #include "src/renderer/vk_pipelines.h"
 
-namespace basic_render
-{
-BasicRenderPipeline::BasicRenderPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
+
+will_engine::basic_render::BasicRenderPipeline::BasicRenderPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
     DescriptorLayoutBuilder layoutBuilder;
     layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -37,7 +36,7 @@ BasicRenderPipeline::BasicRenderPipeline(ResourceManager& resourceManager) : res
     createPipeline();
 }
 
-BasicRenderPipeline::~BasicRenderPipeline()
+will_engine::basic_render::BasicRenderPipeline::~BasicRenderPipeline()
 {
     resourceManager.destroyPipeline(pipeline);
     resourceManager.destroyPipelineLayout(pipelineLayout);
@@ -45,7 +44,7 @@ BasicRenderPipeline::~BasicRenderPipeline()
     resourceManager.destroyDescriptorBuffer(samplerDescriptorBuffer);
 }
 
-void BasicRenderPipeline::setupDescriptors(const RenderDescriptorInfo& descriptorInfo)
+void will_engine::basic_render::BasicRenderPipeline::setupDescriptors(const RenderDescriptorInfo& descriptorInfo)
 {
     std::vector<will_engine::DescriptorImageData> imageDescriptor;
     imageDescriptor.reserve(1);
@@ -59,7 +58,7 @@ void BasicRenderPipeline::setupDescriptors(const RenderDescriptorInfo& descripto
     resourceManager.setupDescriptorBufferSampler(samplerDescriptorBuffer, imageDescriptor, 0);
 }
 
-void BasicRenderPipeline::draw(VkCommandBuffer cmd, const RenderDrawInfo& drawInfo) const
+void will_engine::basic_render::BasicRenderPipeline::draw(VkCommandBuffer cmd, const RenderDrawInfo& drawInfo) const
 {
     if (drawInfo.drawImage == VK_NULL_HANDLE || drawInfo.depthImage == VK_NULL_HANDLE) { return; }
     constexpr VkClearValue clearValue = {0.0f, 0};
@@ -107,7 +106,7 @@ void BasicRenderPipeline::draw(VkCommandBuffer cmd, const RenderDrawInfo& drawIn
     vkCmdEndRendering(cmd);
 }
 
-void BasicRenderPipeline::createPipeline()
+void will_engine::basic_render::BasicRenderPipeline::createPipeline()
 {
     resourceManager.destroyPipeline(pipeline);
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/basic/vertex.vert");
@@ -127,5 +126,5 @@ void BasicRenderPipeline::createPipeline()
 
     resourceManager.destroyShaderModule(vertShader);
     resourceManager.destroyShaderModule(fragShader);
-}
+
 }
