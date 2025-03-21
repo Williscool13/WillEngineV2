@@ -32,7 +32,7 @@ public:
 
     void generateTerrain() override;
 
-    void generateTerrain(terrain::TerrainProperties terrainProperties) override;
+    void generateTerrain(terrain::TerrainProperties terrainProperties, std::array<uint32_t, terrain::MAX_TERRAIN_TEXTURE_COUNT> textureIds) override;
 
     void destroyTerrain() override;
 

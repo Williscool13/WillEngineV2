@@ -41,6 +41,7 @@ void will_engine::components::TerrainComponent::serialize(ordered_json& j)
     j["terrain"]["terrainConfig"] = terrainConfig;
     if (terrainChunk) {
         j["terrain"]["terrainProperties"] = terrainChunk->getTerrainProperties();
+        j["terrain"]["terrainTextures"] = terrainChunk->getTerrainTextureIds();
     }
 }
 
@@ -67,12 +68,25 @@ void will_engine::components::TerrainComponent::deserialize(ordered_json& j)
             shouldLoad = true;
         }
 
+        terrain::TerrainProperties tempProperties{};
         if (terrain.contains("terrainProperties")) {
-            const terrain::TerrainProperties tempProperties = terrain["terrainProperties"];
-            generateTerrain(tempProperties);
+            tempProperties = terrain["terrainProperties"];
+            shouldLoad = true;
         }
-        else if (shouldLoad) {
-            generateTerrain();
+
+        std::array<uint32_t, terrain::MAX_TERRAIN_TEXTURE_COUNT> tempTextures = terrain::TerrainChunk::getDefaultTextureIds();
+        if (terrain.contains("terrainTextures")) {
+            auto& textureArray = terrain["terrainTextures"];
+            if (textureArray.is_array()) {
+                for (size_t i = 0; i < std::min(textureArray.size(), static_cast<size_t>(terrain::MAX_TERRAIN_TEXTURE_COUNT)); i++) {
+                    tempTextures[i] = textureArray[i].get<uint32_t>();
+                }
+            }
+            shouldLoad = true;
+        }
+
+        if (shouldLoad) {
+            generateTerrain(tempProperties, tempTextures);
         }
     }
 }
@@ -86,14 +100,14 @@ void will_engine::components::TerrainComponent::generateTerrain()
     }
 }
 
-void will_engine::components::TerrainComponent::generateTerrain(terrain::TerrainProperties terrainProperties)
+void will_engine::components::TerrainComponent::generateTerrain(terrain::TerrainProperties terrainProperties, std::array<uint32_t, terrain::MAX_TERRAIN_TEXTURE_COUNT> textureIds)
 {
     std::vector<float> heightMapData = HeightmapUtil::generateFromNoise(NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, seed, terrainGenerationProperties);
     terrainChunk = std::make_unique<terrain::TerrainChunk>(*Engine::get()->getResourceManager(), heightMapData, NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, terrainConfig);
     if (Engine* engine = Engine::get()) {
         engine->addToActiveTerrain(this);
     }
-    terrainChunk->setTerrainBufferData(terrainProperties, terrainChunk->getTerrainTextureIds());
+    terrainChunk->setTerrainBufferData(terrainProperties, textureIds);
 }
 
 void will_engine::components::TerrainComponent::destroyTerrain()

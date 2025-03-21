@@ -17,7 +17,7 @@ public:
 
     virtual void generateTerrain() = 0;
 
-    virtual void generateTerrain(terrain::TerrainProperties terrainProperties) = 0;
+    virtual void generateTerrain(terrain::TerrainProperties terrainProperties, std::array<uint32_t, terrain::MAX_TERRAIN_TEXTURE_COUNT> textures) = 0;
 
     virtual void destroyTerrain() = 0;
 };

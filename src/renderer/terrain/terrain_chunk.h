@@ -31,8 +31,6 @@ public:
 
     static void smoothNormals(std::vector<TerrainVertex>& vertices, int32_t width, int32_t height);
 
-    void uploadTextures();
-
     void update(int32_t currentFrameOverlap, int32_t previousFrameOverlap);
 
     void setTerrainBufferData(const TerrainProperties& terrainProperties, const std::array<uint32_t, MAX_TERRAIN_TEXTURE_COUNT>& textureIds);
@@ -40,6 +38,11 @@ public:
     TerrainProperties getTerrainProperties() const { return terrainProperties; }
 
     std::array<uint32_t, MAX_TERRAIN_TEXTURE_COUNT> getTerrainTextureIds() const { return textureIds; }
+
+    static std::array<uint32_t, MAX_TERRAIN_TEXTURE_COUNT> getDefaultTextureIds()
+    {
+        return {DEFAULT_TERRAIN_GRASS_TEXTURE_ID, DEFAULT_TERRAIN_ROCKS_TEXTURE_ID, DEFAULT_TERRAIN_SAND_TEXTURE_ID, 0, 0, 0, 0, 0};
+    }
 
 public:
     [[nodiscard]] const AllocatedBuffer& getVertexBuffer() const { return vertexBuffer; }
