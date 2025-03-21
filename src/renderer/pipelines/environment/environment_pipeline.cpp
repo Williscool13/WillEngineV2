@@ -39,10 +39,30 @@ void will_engine::environment_pipeline::EnvironmentPipeline::draw(VkCommandBuffe
     label.pLabelName = "Environment Map";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
-    constexpr VkClearValue depthClearValue{0.0f, 0.0f};
-    const VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawInfo.colorAttachment, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    const VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthAttachment, &depthClearValue, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
-    const VkRenderingInfo renderInfo = vk_helpers::renderingInfo(RENDER_EXTENTS, &colorAttachment, &depthAttachment);
+    VkClearValue clearValue = {0.0f, 0.0f};
+
+    VkRenderingAttachmentInfo normalAttachment = vk_helpers::attachmentInfo(drawInfo.normalTarget, drawInfo.bClearColor ? &clearValue : nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo albedoAttachment = vk_helpers::attachmentInfo(drawInfo.albedoTarget, drawInfo.bClearColor ? &clearValue : nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo pbrAttachment = vk_helpers::attachmentInfo(drawInfo.pbrTarget, drawInfo.bClearColor ? &clearValue : nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo velocityAttachment = vk_helpers::attachmentInfo(drawInfo.velocityTarget, drawInfo.bClearColor ? &clearValue : nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthTarget, drawInfo.bClearColor ? &clearValue : nullptr, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+    VkRenderingInfo renderInfo{};
+    renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    renderInfo.pNext = nullptr;
+
+    VkRenderingAttachmentInfo mrtAttachments[4];
+    mrtAttachments[0] = normalAttachment;
+    mrtAttachments[1] = albedoAttachment;
+    mrtAttachments[2] = pbrAttachment;
+    mrtAttachments[3] = velocityAttachment;
+
+    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, RENDER_EXTENTS};
+    renderInfo.layerCount = 1;
+    renderInfo.colorAttachmentCount = 4;
+    renderInfo.pColorAttachments = mrtAttachments;
+    renderInfo.pDepthAttachment = &depthAttachment;
+    renderInfo.pStencilAttachment = nullptr;
 
     vkCmdBeginRendering(cmd, &renderInfo);
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
@@ -96,7 +116,7 @@ void will_engine::environment_pipeline::EnvironmentPipeline::createPipeline()
     pipelineBuilder.disableMultisampling();
     pipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    pipelineBuilder.setupRenderer({DRAW_FORMAT}, DEPTH_FORMAT);
+    pipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_FORMAT);
     pipelineBuilder.setupPipelineLayout(pipelineLayout);
 
 

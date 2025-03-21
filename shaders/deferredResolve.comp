@@ -75,6 +75,7 @@ void main() {
     vec2 uv = (vec2(screenPos) + 0.5) / vec2(pushConstants.width, pushConstants.height);
     vec4 albedo = texture(albedoRenderTarget, uv);
     if (albedo.w != 1) {
+        imageStore(outputImage, screenPos, albedo);
         return;
     }
     float depth = texture(depthBuffer, uv).r;
