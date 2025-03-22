@@ -50,6 +50,8 @@ struct SceneData
     glm::mat4 invProj{1.0f};
     glm::mat4 invViewProj{1.0f};
 
+    glm::mat4 viewProjCameraLookDirection{1.0f};
+
     glm::mat4 prevView{1.0f};
     glm::mat4 prevProj{1.0f};
     glm::mat4 prevViewProj{1.0f};
@@ -58,9 +60,10 @@ struct SceneData
     glm::mat4 prevInvProj{1.0f};
     glm::mat4 prevInvViewProj{1.0f};
 
-    glm::mat4 viewProjCameraLookDirection{1.0f};
+    glm::mat4 prevViewProjCameraLookDirection{1.0f};
 
     glm::vec4 cameraWorldPos{0.0f};
+    glm::vec4 prevCameraWorldPos{0.0f};
 
     /**
      * x,y is current; z,w is previous

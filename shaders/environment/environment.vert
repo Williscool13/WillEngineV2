@@ -13,12 +13,15 @@ void main() {
 
 
     vec4 currClipPos = vec4(vertices[gl_VertexIndex], 1);
-    vec4 prevClipPos = vec4(vertices[gl_VertexIndex], 1);
+    vec3 currWorldPos = (inverse(sceneData.viewProjCameraLookDirection) * currClipPos).xyz;
+    gl_Position = currClipPos;
+    gl_Position.xy += gl_Position.w * sceneData.jitter.xy;
+    uv = currWorldPos;
+
+    vec4 prevClipPos = sceneData.prevViewProjCameraLookDirection * vec4(currWorldPos, 1.0f);
+
     currClipPos.xy += currClipPos.w * sceneData.jitter.xy;
     prevClipPos.xy += prevClipPos.w * sceneData.jitter.zw;
     outCurrMvpPosition = currClipPos;
     outPrevMvpPosition = prevClipPos;
-
-    gl_Position = currClipPos;
-    uv = (inverse(sceneData.viewProjCameraLookDirection) * gl_Position).xyz;
 }

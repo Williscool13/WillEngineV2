@@ -362,6 +362,8 @@ void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverl
 
     pSceneData->jitter = bEnableTaa ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
 
+    const glm::mat4 cameraLook = glm::lookAt(glm::vec3(0), camera->getForwardWS(), glm::vec3(0, 1, 0));
+
     pSceneData->prevView = bIsFrameZero ? camera->getViewMatrix() : pPreviousSceneData->view;
     pSceneData->prevProj = bIsFrameZero ? camera->getProjMatrix() : pPreviousSceneData->proj;
     pSceneData->prevViewProj = bIsFrameZero ? camera->getViewProjMatrix() : pPreviousSceneData->viewProj;
@@ -369,6 +371,8 @@ void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverl
     pSceneData->prevInvView = bIsFrameZero ? inverse(camera->getViewMatrix()) : pPreviousSceneData->invView;
     pSceneData->prevInvProj = bIsFrameZero ? inverse(camera->getProjMatrix()) : pPreviousSceneData->invProj;
     pSceneData->prevInvViewProj = bIsFrameZero ? inverse(camera->getViewProjMatrix()) : pPreviousSceneData->invViewProj;
+
+    pSceneData->prevViewProjCameraLookDirection = bIsFrameZero ? pSceneData->proj * cameraLook : pPreviousSceneData->viewProjCameraLookDirection;
 
     pSceneData->view = camera->getViewMatrix();
     pSceneData->proj = camera->getProjMatrix();
@@ -378,9 +382,11 @@ void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverl
     pSceneData->invProj = glm::inverse(pSceneData->proj);
     pSceneData->invViewProj = glm::inverse(pSceneData->viewProj);
 
-    const glm::mat4 cameraLook = glm::lookAt(glm::vec3(0), camera->getForwardWS(), glm::vec3(0, 1, 0));
     pSceneData->viewProjCameraLookDirection = pSceneData->proj * cameraLook;
+
+    pSceneData->prevCameraWorldPos = bIsFrameZero ? camera->getPosition() : pPreviousSceneData->cameraWorldPos;
     pSceneData->cameraWorldPos = camera->getPosition();
+
 
     pSceneData->renderTargetSize = {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
     pSceneData->deltaTime = deltaTime;
@@ -399,7 +405,10 @@ void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverl
     pDebugSceneData->invView = glm::inverse(pDebugSceneData->view);
     pDebugSceneData->invProj = glm::inverse(pDebugSceneData->proj);
     pDebugSceneData->invViewProj = glm::inverse(pDebugSceneData->viewProj);
+
+    pDebugSceneData->prevCameraWorldPos = glm::vec4(0.0f);
     pDebugSceneData->cameraWorldPos = glm::vec4(0.0f);
+
 
     pDebugSceneData->renderTargetSize = {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
     pDebugSceneData->deltaTime = deltaTime;

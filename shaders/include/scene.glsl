@@ -7,6 +7,8 @@ layout (std140, set = 0, binding = 0) uniform SceneData {
     mat4 invProjection;
     mat4 invViewProjection;
 
+    mat4 viewProjCameraLookDirection;
+
     mat4 prevView;
     mat4 prevProj;
     mat4 prevViewProj;
@@ -15,9 +17,10 @@ layout (std140, set = 0, binding = 0) uniform SceneData {
     mat4 prevInvProjection;
     mat4 prevInvViewProjection;
 
-    mat4 viewProjCameraLookDirection;
+    mat4 prevViewProjCameraLookDirection;
 
     vec4 cameraPos;
+    vec4 prevCameraPos;
 
     vec4 jitter;
 

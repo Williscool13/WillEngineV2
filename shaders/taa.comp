@@ -165,6 +165,31 @@ vec3 varianceClipping(vec3 color, vec2 uv) {
     return clamp(color, minc, maxc);
 }
 
+vec3 neighborhoodClamping(vec3 historyColor, vec2 uv) {
+    vec2 du = vec2(push.texelSize.x);
+    vec2 dv = vec2(push.texelSize.y);
+
+    // Sample current frame neighborhood
+    vec3 topL = texture(drawImage, uv - dv - du).rgb;
+    vec3 topM = texture(drawImage, uv - dv).rgb;
+    vec3 topR = texture(drawImage, uv - dv + du).rgb;
+
+    vec3 midL = texture(drawImage, uv - du).rgb;
+    vec3 midM = texture(drawImage, uv).rgb;
+    vec3 midR = texture(drawImage, uv + du).rgb;
+
+    vec3 botL = texture(drawImage, uv + dv - du).rgb;
+    vec3 botM = texture(drawImage, uv + dv).rgb;
+    vec3 botR = texture(drawImage, uv + dv + du).rgb;
+
+    // Find min/max color in the 3x3 neighborhood
+    vec3 minColor = min(min(min(min(min(min(min(min(topL, topM), topR), midL), midM), midR), botL), botM), botR);
+    vec3 maxColor = max(max(max(max(max(max(max(max(topL, topM), topR), midL), midM), midR), botL), botM), botR);
+
+    // Clamp history color to the neighborhood min/max
+    return clamp(historyColor, minColor, maxColor);
+}
+
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
     if (pixel.x >= push.width || pixel.y >= push.height) {
@@ -200,7 +225,11 @@ void main() {
         vec3 historyColor = texture(drawHistory, historyUv).rgb;
         vec3 historyYCoCg = RGBToYCoCg(historyColor);
 
-        historyYCoCg = varianceClipping(historyYCoCg, uv);
+        vec3 neighborClampedYCoCg = RGBToYCoCg(neighborhoodClamping(historyColor, uv));
+        vec3 varianceClampedYCoCg = varianceClipping(neighborClampedYCoCg, uv);
+        historyYCoCg = varianceClampedYCoCg;
+
+        //historyYCoCg = varianceClipping(historyYCoCg, uv);
 
         float alpha = 1 - push.blendValue;
         vec3 resultYCoCg = mix(currentYCoCg, historyYCoCg, alpha);
