@@ -360,10 +360,19 @@ void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverl
     currentJitter.x /= RENDER_EXTENT_WIDTH;
     currentJitter.y /= RENDER_EXTENT_HEIGHT;
 
+    pSceneData->jitter = bEnableTaa ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
+
+    const glm::mat4 cameraLook = glm::lookAt(glm::vec3(0), camera->getForwardWS(), glm::vec3(0, 1, 0));
+
     pSceneData->prevView = bIsFrameZero ? camera->getViewMatrix() : pPreviousSceneData->view;
     pSceneData->prevProj = bIsFrameZero ? camera->getProjMatrix() : pPreviousSceneData->proj;
     pSceneData->prevViewProj = bIsFrameZero ? camera->getViewProjMatrix() : pPreviousSceneData->viewProj;
-    pSceneData->jitter = bEnableTaa ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
+
+    pSceneData->prevInvView = bIsFrameZero ? inverse(camera->getViewMatrix()) : pPreviousSceneData->invView;
+    pSceneData->prevInvProj = bIsFrameZero ? inverse(camera->getProjMatrix()) : pPreviousSceneData->invProj;
+    pSceneData->prevInvViewProj = bIsFrameZero ? inverse(camera->getViewProjMatrix()) : pPreviousSceneData->invViewProj;
+
+    pSceneData->prevViewProjCameraLookDirection = bIsFrameZero ? pSceneData->proj * cameraLook : pPreviousSceneData->viewProjCameraLookDirection;
 
     pSceneData->view = camera->getViewMatrix();
     pSceneData->proj = camera->getProjMatrix();
@@ -372,9 +381,12 @@ void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverl
     pSceneData->invView = glm::inverse(pSceneData->view);
     pSceneData->invProj = glm::inverse(pSceneData->proj);
     pSceneData->invViewProj = glm::inverse(pSceneData->viewProj);
-    pSceneData->cameraWorldPos = camera->getPosition();
-    const glm::mat4 cameraLook = glm::lookAt(glm::vec3(0), camera->getForwardWS(), glm::vec3(0, 1, 0));
+
     pSceneData->viewProjCameraLookDirection = pSceneData->proj * cameraLook;
+
+    pSceneData->prevCameraWorldPos = bIsFrameZero ? camera->getPosition() : pPreviousSceneData->cameraWorldPos;
+    pSceneData->cameraWorldPos = camera->getPosition();
+
 
     pSceneData->renderTargetSize = {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
     pSceneData->deltaTime = deltaTime;
@@ -392,8 +404,12 @@ void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverl
 
     pDebugSceneData->invView = glm::inverse(pDebugSceneData->view);
     pDebugSceneData->invProj = glm::inverse(pDebugSceneData->proj);
-    pDebugSceneData->prevViewProj = pDebugSceneData->viewProj;
+    pDebugSceneData->invViewProj = glm::inverse(pDebugSceneData->viewProj);
+
+    pDebugSceneData->prevCameraWorldPos = glm::vec4(0.0f);
     pDebugSceneData->cameraWorldPos = glm::vec4(0.0f);
+
+
     pDebugSceneData->renderTargetSize = {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
     pDebugSceneData->deltaTime = deltaTime;
 }
@@ -455,10 +471,19 @@ void Engine::draw(float deltaTime)
     cascadedShadowMap->draw(cmd, allRenderObjects, activeTerrains, currentFrameOverlap);
 
     vk_helpers::clearColorImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+    vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     environment_pipeline::EnvironmentDrawInfo environmentPipelineDrawInfo{
-        drawImage.imageView,
+        true,
+        normalRenderTarget.imageView,
+        albedoRenderTarget.imageView,
+        pbrRenderTarget.imageView,
+        velocityRenderTarget.imageView,
         depthImage.imageView,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
@@ -468,10 +493,6 @@ void Engine::draw(float deltaTime)
     // todo: make environment pipeline draw to the render targets rather than directly to the draw image!!!
     environmentPipeline->draw(cmd, environmentPipelineDrawInfo);
 
-    vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     visibility_pass::VisibilityPassDrawInfo deferredFrustumCullDrawInfo{
         currentFrameOverlap,
@@ -484,7 +505,7 @@ void Engine::draw(float deltaTime)
     visibilityPassPipeline->draw(cmd, deferredFrustumCullDrawInfo);
 
     terrain::TerrainDrawInfo terrainDrawInfo{
-        true,
+        false,
         bDrawTerrainLines,
         currentFrameOverlap,
         {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT},

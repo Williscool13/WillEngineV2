@@ -13,8 +13,12 @@ namespace will_engine::environment_pipeline
 {
 struct EnvironmentDrawInfo
 {
-    VkImageView colorAttachment;
-    VkImageView depthAttachment;
+    bool bClearColor{false};
+    VkImageView normalTarget{VK_NULL_HANDLE};
+    VkImageView albedoTarget{VK_NULL_HANDLE};
+    VkImageView pbrTarget{VK_NULL_HANDLE};
+    VkImageView velocityTarget{VK_NULL_HANDLE};
+    VkImageView depthTarget{VK_NULL_HANDLE};
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset;
     VkDescriptorBufferBindingInfoEXT environmentMapBinding{};

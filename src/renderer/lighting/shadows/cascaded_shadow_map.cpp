@@ -19,23 +19,6 @@
 void will_engine::cascaded_shadows::CascadedShadowMap::createRenderObjectPipeline()
 {
     resourceManager.destroyPipeline(renderObjectPipeline);
-    VkDescriptorSetLayout layouts[2];
-    layouts[0] = cascadedShadowMapUniformLayout;
-    layouts[1] = resourceManager.getAddressesLayout();
-
-    VkPushConstantRange pushConstantRange;
-    pushConstantRange.size = sizeof(CascadedShadowMapGenerationPushConstants);
-    pushConstantRange.offset = 0;
-    pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-
-    VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
-    layoutInfo.pNext = nullptr;
-    layoutInfo.setLayoutCount = 2;
-    layoutInfo.pSetLayouts = layouts;
-    layoutInfo.pPushConstantRanges = &pushConstantRange;
-    layoutInfo.pushConstantRangeCount = 1;
-
-    renderObjectPipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.vert");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.frag");
@@ -72,22 +55,6 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createRenderObjectPipelin
 void will_engine::cascaded_shadows::CascadedShadowMap::createTerrainPipeline()
 {
     resourceManager.destroyPipeline(terrainPipeline);
-    VkDescriptorSetLayout layouts[1];
-    layouts[0] = cascadedShadowMapUniformLayout;
-
-    VkPushConstantRange pushConstantRange;
-    pushConstantRange.size = sizeof(CascadedShadowMapGenerationPushConstants);
-    pushConstantRange.offset = 0;
-    pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
-
-    VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
-    layoutInfo.pNext = nullptr;
-    layoutInfo.setLayoutCount = 1;
-    layoutInfo.pSetLayouts = layouts;
-    layoutInfo.pPushConstantRanges = &pushConstantRange;
-    layoutInfo.pushConstantRangeCount = 1;
-
-    terrainPipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/shadows/terrain_shadow_pass.vert");
     VkShaderModule tescShader = resourceManager.createShaderModule("shaders/shadows/terrain_shadow_pass.tesc");
@@ -196,8 +163,46 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
                                                                           VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
     }
 
-    createRenderObjectPipeline();
+    //
+    {
+        VkDescriptorSetLayout layouts[2];
+        layouts[0] = cascadedShadowMapUniformLayout;
+        layouts[1] = resourceManager.getAddressesLayout();
 
+        VkPushConstantRange pushConstantRange;
+        pushConstantRange.size = sizeof(CascadedShadowMapGenerationPushConstants);
+        pushConstantRange.offset = 0;
+        pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+        VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
+        layoutInfo.pNext = nullptr;
+        layoutInfo.setLayoutCount = 2;
+        layoutInfo.pSetLayouts = layouts;
+        layoutInfo.pPushConstantRanges = &pushConstantRange;
+        layoutInfo.pushConstantRangeCount = 1;
+
+        renderObjectPipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+    }
+
+    createRenderObjectPipeline();
+    //
+    {
+        VkDescriptorSetLayout layouts[1];
+        layouts[0] = cascadedShadowMapUniformLayout;
+
+        VkPushConstantRange pushConstantRange;
+        pushConstantRange.size = sizeof(CascadedShadowMapGenerationPushConstants);
+        pushConstantRange.offset = 0;
+        pushConstantRange.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
+
+        VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
+        layoutInfo.pNext = nullptr;
+        layoutInfo.setLayoutCount = 1;
+        layoutInfo.pSetLayouts = layouts;
+        layoutInfo.pPushConstantRanges = &pushConstantRange;
+        layoutInfo.pushConstantRangeCount = 1;
+        terrainPipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+    }
     createTerrainPipeline();
 
 
