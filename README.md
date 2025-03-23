@@ -5,10 +5,9 @@ This is my second attempt at my own 3d game engine.
 ## Table of Contents
 - [Prerequisites](#prerequisites)
 - [Getting Started](#getting-started)
-- [Build Instructions](#build-instructions)
+- [Build Instructions](#build-instructions-cmake-gui)
 - [Setting Up Symlinks](#setting-up-symlinks)
 - [Troubleshooting](#troubleshooting)
-- [Additional Notes](#additional-notes)
 - [Contact Me](#contact-me)
 
 ## Prerequisites
@@ -24,10 +23,12 @@ This is my second attempt at my own 3d game engine.
 
 This engine only supports Windows at the moment and all instructions and setup will only be outlined for Windows.
 
-1. Clone the repository:
+1. Clone the repository (skip LFS files):
    ```sh
-   git clone https://github.com/Williscool13/WillEngineV2.git
+   export GIT_LFS_SKIP_SMUDGE=1
+   git clone --filter=blob:none https://github.com/Williscool13/WillEngineV2.git
    ```
+  
 
 2. Navigate to the project directory:
    ```sh
@@ -40,26 +41,24 @@ This engine only supports Windows at the moment and all instructions and setup w
    git submodule update
    ```
 
-4. Ensure Git LFS is set up properly:
+4. Download LFS files:
 
    ```sh
-   git lfs install
    git lfs pull
    ```
 
-## Build Instructions
+## Build Instructions (CMake GUI)
 
-1. Open CMake GUI
-2. Set the source code directory to the root of the WillEngineV2 project
-3. Choose a build directory (e.g., `build` or `cmake-build-debug`)
-4. Click "Configure" and select your preferred generator
-5. Click "Generate"
-6. Open the generated project in your IDE or build it from the command line
+1. Set the source code directory to the root of the WillEngineV2 project
+2. Choose a build directory (e.g., `build` or `cmake-build-debug`)
+3. Click "Configure" and select your preferred generator (must be MSVC, I suggest VS2022)
+4. Click "Generate"
+5. Open the generated project in your IDE or build it from the command line
 
 ## Setting Up Symlinks
 
 After building the project, you need to set up symlinks for the shaders and assets directories to avoid creating unnecessary copies. 
-For simplicity, you may simply copy the entire shaders and assets folder instead.
+For simplicity, you may simply copy the entire shaders and assets folder into your build folder instead.
 
 Open a Command Prompt as administrator in your build directory and run:
 
@@ -74,21 +73,14 @@ mklink /D assets ..\assets
 
 ### assert(m_init) failed in `VulkanBootstrap.h in Line 132`
 
-This error is often caused by vkb failing to find a suitable GPU to use. It could be that your GPUs do not support Vulkan 1.3 or the use of some vulkan extensions (in this case Descriptor Buffers).
+This error is typically caused by vkb failing to find a suitable GPU to use. It could be that your GPUs do not support Vulkan 1.3 or the use of some vulkan extensions (in this case Descriptor Buffers).
 You can verify this by checking what extensions your GPU supports at https://vulkan.gpuinfo.org/.
 
 Unfortunately there isn't much that can be done if you get this error. 
 
-### mklink "You do not have sufficient privilege to perform this operation"
-
-If `mklink` fails, ensure that:
-
-- You are running Command Prompt as an **Administrator**.
-- Your user account has the necessary permissions to create symlinks.
-
 ### shaderc link errors
 
-- Use `git lfs pull` after cloning to ensure large files are correctly downloaded. Specifically shaderc_combinedd.lib and shaderc_combined.lib
+- Use `git lfs pull` after cloning to ensure large files are correctly downloaded. For this project, shaderc is precompiled and the binaries are stored in Git LFS.
 
 ## Contact Me
 
