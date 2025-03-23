@@ -308,6 +308,31 @@ VkSampler will_engine::ResourceManager::createSampler(const VkSamplerCreateInfo&
     return newSampler;
 }
 
+
+AllocatedImage will_engine::ResourceManager::createImage(const VkImageCreateInfo& createInfo) const
+{
+    AllocatedImage newImage{};
+    newImage.imageFormat = createInfo.format;
+    newImage.imageExtent = createInfo.extent;
+
+    VmaAllocationCreateInfo allocInfo = {};
+    allocInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+    allocInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+    // allocate and create the image
+    VK_CHECK(vmaCreateImage(context.allocator, &createInfo, &allocInfo, &newImage.image, &newImage.allocation, nullptr));
+
+    const VkImageAspectFlags aspectFlag = createInfo.format == VK_FORMAT_D32_SFLOAT ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+
+    // build an image-view for the image
+    VkImageViewCreateInfo view_info = vk_helpers::imageviewCreateInfo(createInfo.format, newImage.image, aspectFlag);
+    view_info.subresourceRange.levelCount = createInfo.mipLevels;
+
+    VK_CHECK(vkCreateImageView(context.device, &view_info, nullptr, &newImage.imageView));
+
+    return newImage;
+}
+
 AllocatedImage will_engine::ResourceManager::createImage(const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped) const
 {
     AllocatedImage newImage{};
@@ -416,7 +441,7 @@ will_engine::DescriptorBufferSampler will_engine::ResourceManager::createDescrip
     return DescriptorBufferSampler(context, layout, maxObjectCount);
 }
 
-int32_t will_engine::ResourceManager::setupDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer, const std::vector<will_engine::DescriptorImageData>& imageBuffers, const int index) const
+int32_t will_engine::ResourceManager::setupDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer, const std::vector<DescriptorImageData>& imageBuffers, const int index) const
 {
     return descriptorBuffer.setupData(context.device, imageBuffers, index);
 }
@@ -426,7 +451,7 @@ will_engine::DescriptorBufferUniform will_engine::ResourceManager::createDescrip
     return DescriptorBufferUniform(context, layout, maxObjectCount);
 }
 
-int32_t will_engine::ResourceManager::setupDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer, const std::vector<will_engine::DescriptorUniformData>& uniformBuffers, const int index) const
+int32_t will_engine::ResourceManager::setupDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer, const std::vector<DescriptorUniformData>& uniformBuffers, const int index) const
 {
     return descriptorBuffer.setupData(context.device, uniformBuffers, index);
 }

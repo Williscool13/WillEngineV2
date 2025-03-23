@@ -58,6 +58,8 @@ public: // Resource Creation
     void destroySampler(const VkSampler& sampler) const;
 
 
+    [[nodiscard]] AllocatedImage createImage(const VkImageCreateInfo& createInfo) const;
+
     [[nodiscard]] AllocatedImage createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
 
     [[nodiscard]] AllocatedImage createImage(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;

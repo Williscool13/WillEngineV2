@@ -130,7 +130,7 @@ void main() {
         shadowFactor = 1.0f;
     }
 
-    float indirectAttenuation = mix(0.2, 1.0, shadowFactor);
+    float indirectAttenuation = mix(0.5, 1.0, shadowFactor);
 
     // IBL REFLECTIONS
     vec3 irradiance = DiffuseIrradiance(environmentDiffuseAndSpecular, N);
@@ -185,6 +185,9 @@ void main() {
             break;
         case 8:
             imageStore(outputImage, screenPos, vec4(vec3(dot(N, L)), 1.0));
+            break;
+        case 9:
+        // imageStore(outputImage, screenPos, vec4(vec3(ao), 1.0f));
             break;
     }
 }

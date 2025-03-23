@@ -642,7 +642,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                 gltfPath = IGFD::FileDialog::Instance()->GetFilePathName();
                                 gltfPath = file::getRelativePath(gltfPath);
 
-                                willmodelPath = std::filesystem::current_path() / "assets" / "willmodels" / gltfPath.filename().string();
+                                willmodelPath = gltfPath.parent_path() / gltfPath.filename().string();
                                 willmodelPath = file::getRelativePath(willmodelPath);
                                 willmodelPath.replace_extension(".willmodel");
                             }

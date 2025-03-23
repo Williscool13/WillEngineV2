@@ -6,7 +6,7 @@
     },
     "metadata": {
         "name": "sampleScene",
-        "created": "2025-03-21 18:18:15",
+        "created": "2025-03-22 17:23:20",
         "formatVersion": 1
     },
     "rootComponents": {
@@ -280,15 +280,15 @@
                 "name": "Cube\u0000ing Orb",
                 "transform": {
                     "position": {
-                        "x": 13.52876091003418,
-                        "y": 21.364248275756836,
-                        "z": 37.19429397583008
+                        "x": 13.52898120880127,
+                        "y": 21.364240646362305,
+                        "z": 37.19432067871094
                     },
                     "rotation": {
-                        "x": 0.19281113147735596,
-                        "y": 0.20267827808856964,
-                        "z": 0.6591735482215881,
-                        "w": 0.6980226635932922
+                        "x": 0.19284461438655853,
+                        "y": 0.2026415914297104,
+                        "z": 0.6591105461120605,
+                        "w": 0.6980835795402527
                     },
                     "scale": {
                         "x": 1.0,
@@ -317,6 +317,37 @@
                             }
                         },
                         "componentName": "New RigidBodyComponent"
+                    }
+                }
+            },
+            {
+                "id": 4,
+                "name": "Sponza\u0000ect_4",
+                "transform": {
+                    "position": {
+                        "x": 102.19999694824219,
+                        "y": 77.0,
+                        "z": -49.099998474121094
+                    },
+                    "rotation": {
+                        "x": 5.711166295441217e-08,
+                        "y": -0.3826834559440613,
+                        "z": 5.711166295441217e-08,
+                        "w": 0.9238795042037964
+                    },
+                    "scale": {
+                        "x": 0.05000000074505806,
+                        "y": 0.05000000074505806,
+                        "z": 0.05000000074505806
+                    }
+                },
+                "components": {
+                    "MeshRendererComponent": {
+                        "renderReference": 195023067,
+                        "renderMeshIndex": 0,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "MeshRendererComponent"
                     }
                 }
             }

@@ -490,7 +490,6 @@ void Engine::draw(float deltaTime)
         environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferBindingInfo(),
         environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferSize() * environmentMapIndex,
     };
-    // todo: make environment pipeline draw to the render targets rather than directly to the draw image!!!
     environmentPipeline->draw(cmd, environmentPipelineDrawInfo);
 
 

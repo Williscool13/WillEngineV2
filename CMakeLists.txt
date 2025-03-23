@@ -247,6 +247,9 @@ set(TEMP_SOURCES
         src/renderer/assets/texture/texture_resource.cpp
         src/renderer/assets/texture/texture_resource.h
         src/renderer/assets/texture/texture_types.h
+        src/renderer/lighting/ambient_occlusion/ground_truth/ground_truth_ambient_occlusion.cpp
+        src/renderer/lighting/ambient_occlusion/ground_truth/ground_truth_ambient_occlusion.h
+        src/renderer/lighting/ambient_occlusion/ambient_occlusion_types.h
 
 )
 
