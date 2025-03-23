@@ -436,9 +436,10 @@ void will_engine::ResourceManager::destroyImage(AllocatedImage& img) const
     img.imageFormat = {};
 }
 
-void will_engine::ResourceManager::destroySampler(const VkSampler& sampler) const
+void will_engine::ResourceManager::destroySampler(VkSampler& sampler) const
 {
     vkDestroySampler(context.device, sampler, nullptr);
+    sampler = VK_NULL_HANDLE;
 }
 
 will_engine::DescriptorBufferSampler will_engine::ResourceManager::createDescriptorBufferSampler(VkDescriptorSetLayout layout, int32_t maxObjectCount) const

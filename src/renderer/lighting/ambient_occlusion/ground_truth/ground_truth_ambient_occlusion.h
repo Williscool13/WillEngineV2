@@ -17,20 +17,26 @@ namespace will_engine::ambient_occlusion
 class GroundTruthAmbientOcclusionPipeline
 {
 public:
-    GroundTruthAmbientOcclusionPipeline(ResourceManager& resourceManager);
+    explicit GroundTruthAmbientOcclusionPipeline(ResourceManager& resourceManager);
 
     ~GroundTruthAmbientOcclusionPipeline();
 
-    void setupDepthPrefilterDescriptorBuffer(VkSampler depthImageSampler, VkImageView depthImageView);
+    void setupDepthPrefilterDescriptorBuffer(VkImageView depthImageView);
+
+    void setupAmbientOcclusionDescriptorBuffer(VkImageView normalsImageView);
+
+    void draw(VkCommandBuffer cmd, const GTAODrawInfo& drawInfo);
 
 private:
     void createDepthPrefilterPipeline();
+    void createAmbientOcclusionPipeline();
 
-private:
+private: // Depth prefilter
     VkDescriptorSetLayout depthPrefilterSetLayout{VK_NULL_HANDLE};
     VkPipelineLayout depthPrefilterPipelineLayout{VK_NULL_HANDLE};
     VkPipeline depthPrefilterPipeline{VK_NULL_HANDLE};
 
+    VkSampler depthPrefilterSampler{VK_NULL_HANDLE};
     // 16 vs 32. look at cost later.
     VkFormat depthPrefilterFormat{VK_FORMAT_R16_SFLOAT};
     AllocatedImage depthPrefilterImage{VK_NULL_HANDLE};
@@ -38,8 +44,19 @@ private:
 
     DescriptorBufferSampler depthPrefilterDescriptorBuffer;
 
+private: // ao
+    VkDescriptorSetLayout ambientOcclusionSetLayout{VK_NULL_HANDLE};
     VkPipelineLayout ambientOcclusionPipelineLayout{VK_NULL_HANDLE};
     VkPipeline ambientOcclusionPipeline{VK_NULL_HANDLE};
+
+    VkSampler ambientOcclusionDepthSampler{VK_NULL_HANDLE};
+    VkSampler ambientOcclusionNormalsSampler{VK_NULL_HANDLE};
+    VkFormat ambientOcclusionFormat{VK_FORMAT_R8_UNORM};
+    AllocatedImage ambientOcclusionImage{VK_NULL_HANDLE};
+
+    DescriptorBufferSampler ambientOcclusionDescriptorBuffer;
+
+private: //
 
     VkPipelineLayout spatialFilteringPipelineLayout{VK_NULL_HANDLE};
     VkPipeline spatialFilteringPipeline{VK_NULL_HANDLE};

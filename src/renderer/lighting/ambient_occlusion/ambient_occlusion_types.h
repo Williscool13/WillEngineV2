@@ -29,6 +29,13 @@ struct GTAOPushConstants
     float temporalWeight;
     float spatialFilterRadius;
 };
+
+struct GTAODrawInfo
+{
+    GTAOPushConstants pushConstants{};
+    VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
+    VkDeviceSize sceneDataOffset{0};
+};
 }
 
 #endif //AMBIENT_OCCLUSION_TYPES_H

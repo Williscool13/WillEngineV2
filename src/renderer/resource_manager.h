@@ -55,7 +55,7 @@ public: // Resource Creation
 
     [[nodiscard]] VkSampler createSampler(const VkSamplerCreateInfo& createInfo) const;
 
-    void destroySampler(const VkSampler& sampler) const;
+    void destroySampler(VkSampler& sampler) const;
 
 
     [[nodiscard]] AllocatedImage createImage(const VkImageCreateInfo& createInfo) const;
