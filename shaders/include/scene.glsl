@@ -25,5 +25,7 @@ layout (std140, set = 0, binding = 0) uniform SceneData {
     vec4 jitter;
 
     vec2 renderTargetSize;
+    // equal to 1 / renderTargetSize
+    vec2 texelSize;
     float deltaTime;
 } sceneData;

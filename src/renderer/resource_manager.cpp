@@ -425,10 +425,15 @@ AllocatedImage will_engine::ResourceManager::createCubemap(const VkExtent3D size
     return newImage;
 }
 
-void will_engine::ResourceManager::destroyImage(const AllocatedImage& img) const
+void will_engine::ResourceManager::destroyImage(AllocatedImage& img) const
 {
     vkDestroyImageView(context.device, img.imageView, nullptr);
     vmaDestroyImage(context.allocator, img.image, img.allocation);
+    img.image = VK_NULL_HANDLE;
+    img.imageView = VK_NULL_HANDLE;
+    img.allocation = VK_NULL_HANDLE;
+    img.imageExtent = {};
+    img.imageFormat = {};
 }
 
 void will_engine::ResourceManager::destroySampler(const VkSampler& sampler) const

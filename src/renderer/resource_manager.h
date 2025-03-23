@@ -66,7 +66,7 @@ public: // Resource Creation
 
     [[nodiscard]] AllocatedImage createCubemap(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
 
-    void destroyImage(const AllocatedImage& img) const;
+    void destroyImage(AllocatedImage& img) const;
 
 
     [[nodiscard]] DescriptorBufferSampler createDescriptorBufferSampler(VkDescriptorSetLayout layout, int32_t maxObjectCount) const;

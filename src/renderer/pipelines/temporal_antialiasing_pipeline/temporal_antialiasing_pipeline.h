@@ -11,9 +11,6 @@ namespace will_engine::temporal_antialiasing_pipeline
 {
 struct TemporalAntialiasingPushConstants
 {
-    glm::vec2 texelSize;
-    int32_t width;
-    int32_t height;
     float blendValue;
     int32_t taaDebug;
 };

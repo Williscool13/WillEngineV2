@@ -389,6 +389,7 @@ void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverl
 
 
     pSceneData->renderTargetSize = {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
+    pSceneData->texelSize = {1.0f / RENDER_EXTENT_WIDTH, 1.0f / RENDER_EXTENT_HEIGHT};
     pSceneData->deltaTime = deltaTime;
 
 

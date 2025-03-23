@@ -71,6 +71,7 @@ struct SceneData
     glm::vec4 jitter{0.0f};
 
     glm::vec2 renderTargetSize{};
+    glm::vec2 texelSize{};
     float deltaTime{};
 };
 

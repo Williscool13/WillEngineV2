@@ -933,19 +933,17 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
         if (ImGui::BeginTabItem("Terrain")) {
             ImGui::Checkbox("Draw Vertex Lines Only", &engine->bDrawTerrainLines);
 
+            const auto currentTerrainComponent = selectedMap->getComponent<components::TerrainComponent>();
+            ImGui::BeginDisabled(!currentTerrainComponent);
+            if (ImGui::Button("Save Terrain as HeightMap")) {
+                const std::vector<float> heightmapData = currentTerrainComponent->getHeightMapData();
+                const std::filesystem::path path = file::imagesSavePath / "TerrainHeightMap.png";
+                vk_helpers::saveHeightmap(heightmapData, NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, path);
+            }
+            ImGui::EndDisabled();
+
             if (ImGui::BeginTabBar("Terrain Tab Bar")) {
-                auto currentTerrainComponent = selectedMap->getComponent<components::TerrainComponent>();
-
                 if (ImGui::BeginTabItem("Terrain Generation")) {
-                    ImGui::BeginDisabled(!currentTerrainComponent);
-                    if (ImGui::Button("Save Terrain as HeightMap")) {
-                        std::vector<float> heightmapData = currentTerrainComponent->getHeightMapData();
-                        std::filesystem::path path = file::imagesSavePath / "TerrainHeightMap.png";
-                        vk_helpers::saveHeightmap(heightmapData, NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, path);
-                    }
-                    ImGui::EndDisabled();
-
-
                     ImGui::Separator();
 
                     if (ImGui::CollapsingHeader("Noise Settings", ImGuiTreeNodeFlags_DefaultOpen)) {

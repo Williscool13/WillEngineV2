@@ -105,9 +105,6 @@ void will_engine::temporal_antialiasing_pipeline::TemporalAntialiasingPipeline::
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
 
     TemporalAntialiasingPushConstants properties{};;
-    properties.width = RENDER_EXTENT_WIDTH;
-    properties.height = RENDER_EXTENT_HEIGHT;
-    properties.texelSize = {1.0f / properties.width, 1.0f / properties.height};
     properties.blendValue = drawInfo.blendValue;
     properties.taaDebug = drawInfo.debugMode;
 
