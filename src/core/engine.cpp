@@ -395,6 +395,7 @@ void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverl
 
     pSceneData->renderTargetSize = {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
     pSceneData->texelSize = {1.0f / RENDER_EXTENT_WIDTH, 1.0f / RENDER_EXTENT_HEIGHT};
+    pSceneData->cameraPlanes = {camera->getNearPlane(), camera->getFarPlane()};
     pSceneData->deltaTime = deltaTime;
 
 
@@ -414,7 +415,6 @@ void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverl
 
     pDebugSceneData->prevCameraWorldPos = glm::vec4(0.0f);
     pDebugSceneData->cameraWorldPos = glm::vec4(0.0f);
-
 
     pDebugSceneData->renderTargetSize = {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
     pDebugSceneData->deltaTime = deltaTime;

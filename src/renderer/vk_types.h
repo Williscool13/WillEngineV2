@@ -72,6 +72,8 @@ struct SceneData
 
     glm::vec2 renderTargetSize{};
     glm::vec2 texelSize{};
+
+    glm::vec2 cameraPlanes{1000.0f, 0.1f};
     float deltaTime{};
 };
 

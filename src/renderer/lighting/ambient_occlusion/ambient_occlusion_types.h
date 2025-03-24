@@ -6,14 +6,20 @@
 #define AMBIENT_OCCLUSION_TYPES_H
 #include <glm/glm.hpp>
 
+#include "src/core/camera/camera.h"
+
 namespace will_engine::ambient_occlusion
 {
 static constexpr int32_t DEPTH_PREFILTER_MIP_COUNT = 5;
 
 struct GTAOPushConstants
 {
-    glm::vec2 viewportSize;
-    glm::vec2 viewportPixelSize;
+    // Depth prefilter parameters
+    float depthLinearizeMult;
+    float depthLinearizeAdd;
+
+    glm::vec2 ndcToViewMult;
+    glm::vec2 ndcToViewAdd;
 
     // AO parameters
     float radius;
@@ -32,6 +38,7 @@ struct GTAOPushConstants
 
 struct GTAODrawInfo
 {
+    Camera* camera{nullptr};
     GTAOPushConstants pushConstants{};
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};

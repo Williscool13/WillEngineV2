@@ -5,12 +5,66 @@
 // layout (std140, set = 0, binding = 0) uniform SceneData - scene.glsl
 
 layout (set = 1, binding = 0) uniform sampler2D depthImage;
-layout (r16f, set = 1, binding = 1) uniform image2D depthMip0;
-layout (r16f, set = 1, binding = 2) uniform image2D depthMip1;
-layout (r16f, set = 1, binding = 3) uniform image2D depthMip2;
-layout (r16f, set = 1, binding = 4) uniform image2D depthMip3;
-layout (r16f, set = 1, binding = 5) uniform image2D depthMip4;
+layout (r16f, set = 1, binding = 1) uniform image2D outDepth0;
+layout (r16f, set = 1, binding = 2) uniform image2D outDepth1;
+layout (r16f, set = 1, binding = 3) uniform image2D outDepth2;
+layout (r16f, set = 1, binding = 4) uniform image2D outDepth3;
+layout (r16f, set = 1, binding = 5) uniform image2D outDepth4;
+
+layout (push_constant) uniform PushConstants {
+    float depthLinearizeMult;
+    float depthLinearizeAdd;
+
+    vec2 ndcToViewMult;
+    vec2 ndcToViewAdd;
+
+    float radius;
+    float faloff;
+    float strength;
+    float radiusMultiplier;
+
+    int numDirections;
+    int numSteps;
+
+    float spatialFilterRadius;
+
+    float temporalWeight;
+} pushConstants;
+
+
+shared float g_scratchDepths[16][16];
+
+layout(local_size_x = 16, local_size_y = 16) in;
+
+//float screenSpaceToViewSpaceDepth(float screenDepth) {
+//    vec4 clipSpacePos = vec4(0.0, 0.0, screenDepth, 1.0);
+//    vec4 viewSpacePos = sceneData.invProjection * clipSpacePos;
+//    return -viewSpacePos.z / viewSpacePos.w;
+//}
+//
+//float clampDepth(){
+//    // using half float precision
+//    return clamp(depth, 0.0, 65504.0);
+//}
 
 void main() {
-
+//    vec2 dispatchID = gl_GlobalInvocationID.xy;
+//    uvec2 groupThreadID = gl_LocalInvocationID.xy;
+//
+//    // mip 0
+//    const uvec2 baseCoord = dispatchThreadID;
+//    const uvec2 pixCoord = baseCoord * 2;// We process 2x2 pixels in MIP 0
+//
+//    vec2 uvCoord = vec2(pixCoord) * sceneData.texelSize;
+//
+//    vec4 depths4;
+//    depths4.w = texture(depthImage, uvCoord + vec2(0.0, 0.0) * sceneData.texelSize).r;
+//    depths4.z = texture(depthImage, uvCoord + vec2(1.0, 0.0) * sceneData.texelSize).r;
+//    depths4.x = texture(depthImage, uvCoord + vec2(0.0, 1.0) * sceneData.texelSize).r;
+//    depths4.y = texture(depthImage, uvCoord + vec2(1.0, 1.0) * sceneData.texelSize).r;
+//
+//    float depth0 = clampDepth(ScreenSpaceToViewSpaceDepth(depths4.w));
+//    float depth1 = clampDepth(ScreenSpaceToViewSpaceDepth(depths4.z));
+//    float depth2 = clampDepth(ScreenSpaceToViewSpaceDepth(depths4.x));
+//    float depth3 = clampDepth(ScreenSpaceToViewSpaceDepth(depths4.y));
 }
