@@ -599,7 +599,7 @@ void RenderObject::unload()
         resourceManager.destroyImage(image);
     }
 
-    for (const auto& sampler : samplers) {
+    for (auto& sampler : samplers) {
         if (sampler == resourceManager.getDefaultSamplerNearest() || sampler == resourceManager.getDefaultSamplerLinear()) {
             //dont destroy the default samplers
             continue;

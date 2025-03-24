@@ -27,6 +27,7 @@
 #include "src/renderer/assets/render_object/render_object.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/environment/environment.h"
+#include "src/renderer/lighting/ambient_occlusion/ground_truth/ground_truth_ambient_occlusion.h"
 #include "src/renderer/lighting/shadows/cascaded_shadow_map.h"
 #include "src/renderer/pipelines/deferred_mrt/deferred_mrt.h"
 #include "src/renderer/pipelines/deferred_resolve/deferred_resolve.h"
@@ -199,10 +200,14 @@ void Engine::initRenderer()
     environmentPipeline = new environment_pipeline::EnvironmentPipeline(*resourceManager, environmentMap->getCubemapDescriptorSetLayout());
     terrainPipeline = new terrain::TerrainPipeline(*resourceManager);
     deferredMrtPipeline = new deferred_mrt::DeferredMrtPipeline(*resourceManager);
+    ambientOcclusionPipeline = new ambient_occlusion::GroundTruthAmbientOcclusionPipeline(*resourceManager);
     deferredResolvePipeline = new deferred_resolve::DeferredResolvePipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
                                                                             cascadedShadowMap->getCascadedShadowMapUniformLayout(), cascadedShadowMap->getCascadedShadowMapSamplerLayout());
     temporalAntialiasingPipeline = new temporal_antialiasing_pipeline::TemporalAntialiasingPipeline(*resourceManager);
     postProcessPipeline = new post_process_pipeline::PostProcessPipeline(*resourceManager);
+
+    ambientOcclusionPipeline->setupDepthPrefilterDescriptorBuffer(depthImage.imageView);
+    ambientOcclusionPipeline->setupAmbientOcclusionDescriptorBuffer(normalRenderTarget.imageView);
 
     const deferred_resolve::DeferredResolveDescriptor deferredResolveDescriptor{
         normalRenderTarget.imageView,
@@ -654,6 +659,7 @@ void Engine::cleanup()
     delete environmentPipeline;
     delete terrainPipeline;
     delete deferredMrtPipeline;
+    delete ambientOcclusionPipeline;
     delete deferredResolvePipeline;
     delete temporalAntialiasingPipeline;
     delete postProcessPipeline;

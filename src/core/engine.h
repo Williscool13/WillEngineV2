@@ -26,6 +26,11 @@ class VulkanContext;
 
 namespace will_engine
 {
+namespace ambient_occlusion
+{
+    class GroundTruthAmbientOcclusionPipeline;
+}
+
 namespace terrain
 {
     class TerrainChunk;
@@ -142,8 +147,10 @@ private:
     ImmediateSubmitter* immediate = nullptr;
     ResourceManager* resourceManager = nullptr;
     identifier::IdentifierManager* identifierManager = nullptr;
+
     environment::Environment* environmentMap{nullptr};
     cascaded_shadows::CascadedShadowMap* cascadedShadowMap{nullptr};
+
     terrain::TerrainManager* terrainManager{nullptr};
     ImguiWrapper* imguiWrapper = nullptr;
 
@@ -195,6 +202,7 @@ private: // Pipelines
     terrain::TerrainPipeline* terrainPipeline{nullptr};
     deferred_mrt::DeferredMrtPipeline* deferredMrtPipeline{nullptr};
     deferred_resolve::DeferredResolvePipeline* deferredResolvePipeline{nullptr};
+    ambient_occlusion::GroundTruthAmbientOcclusionPipeline* ambientOcclusionPipeline{nullptr};
     temporal_antialiasing_pipeline::TemporalAntialiasingPipeline* temporalAntialiasingPipeline{nullptr};
     post_process_pipeline::PostProcessPipeline* postProcessPipeline{nullptr};
 
