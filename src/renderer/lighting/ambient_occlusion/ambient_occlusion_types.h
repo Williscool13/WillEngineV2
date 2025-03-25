@@ -18,14 +18,17 @@ struct GTAOPushConstants
     float depthLinearizeMult;
     float depthLinearizeAdd;
 
+    // Defaults follow Intel's implementation
+    float radius = 0.5f;
+    float falloff = 0.615f;
+    float radiusMultiplier = 1.457f;
+
     glm::vec2 ndcToViewMult;
     glm::vec2 ndcToViewAdd;
 
     // AO parameters
-    float radius;
-    float falloff;
     float strength;
-    float radiusMultiplier;
+
 
     // Sampling parameters
     uint32_t numDirections;

@@ -15,13 +15,14 @@ layout (push_constant) uniform PushConstants {
     float depthLinearizeMult;
     float depthLinearizeAdd;
 
+    float radius;
+    float radiusMultiplier;
+    float falloff;
+
     vec2 ndcToViewMult;
     vec2 ndcToViewAdd;
 
-    float radius;
-    float faloff;
     float strength;
-    float radiusMultiplier;
 
     int numDirections;
     int numSteps;
@@ -45,6 +46,29 @@ float screenToViewSpaceDepth(float screenDepth, float depthLinearizeMul, float d
 float clampDepth(float depth){
     // using half float precision
     return clamp(depth, 0.0, 65504.0);
+}
+
+float depthMipFilter(float depth0, float depth1, float depth2, float depth3, float effectRadius, float radiusMultiplier, float falloffRange){
+    float maxDepth = max(max(depth0, depth1), max(depth2, depth3));
+
+    // https://github.com/GameTechDev/XeGTAO/blob/e7698f874e90f2516fca26c696ec3cd2c70e505a/Source/Rendering/Shaders/XeGTAO.hlsli#L583C13-L583C14
+    const float depthRangeScaleFactor = 0.75f;// found empirically :)
+
+
+    const float _effectRadius = depthRangeScaleFactor * effectRadius * radiusMultiplier;
+    const float _falloffRange = falloffRange * _effectRadius;
+    const float falloffFrom = _effectRadius * (1 - falloffRange);
+
+    const float falloffMul = -1.0 /  _falloffRange;
+    const float falloffAdd = falloffFrom / (_falloffRange) + 1.0;
+
+    float weight0 = clamp((maxDepth-depth0) * falloffMul + falloffAdd, 0.0f, 1.0f);
+    float weight1 = clamp((maxDepth-depth1) * falloffMul + falloffAdd, 0.0f, 1.0f);
+    float weight2 = clamp((maxDepth-depth2) * falloffMul + falloffAdd, 0.0f, 1.0f);
+    float weight3 = clamp((maxDepth-depth3) * falloffMul + falloffAdd, 0.0f, 1.0f);
+
+    float weightSum = weight0 + weight1 + weight2 + weight3;
+    return (weight0 * depth0 + weight1 * depth1 + weight2 * depth2 + weight3 * depth3) / weightSum;
 }
 
 void main() {
@@ -74,4 +98,13 @@ void main() {
     imageStore(outDepth0, pixCoord + ivec2(1, 0), vec4(depth1, 0.0f, 0.0f, 0.0f));
     imageStore(outDepth0, pixCoord + ivec2(0, 1), vec4(depth2, 0.0f, 0.0f, 0.0f));
     imageStore(outDepth0, pixCoord + ivec2(1, 1), vec4(depth3, 0.0f, 0.0f, 0.0f));
+
+    // MIP 1
+    float dm1 = depthMipFilter(depth0, depth1, depth2, depth3, pushConstants.radius, pushConstants.radiusMultiplier, pushConstants.falloff);
+    imageStore(outDepth1, ivec2(baseCoord), vec4(dm1));
+
+    g_scratchDepths[gl_LocalInvocationID.x][gl_LocalInvocationID.y] = dm1;
+
+    memoryBarrierShared();
+    barrier();
 }
