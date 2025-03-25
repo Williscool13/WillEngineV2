@@ -36,35 +36,42 @@ shared float g_scratchDepths[16][16];
 
 layout(local_size_x = 16, local_size_y = 16) in;
 
-//float screenSpaceToViewSpaceDepth(float screenDepth) {
-//    vec4 clipSpacePos = vec4(0.0, 0.0, screenDepth, 1.0);
-//    vec4 viewSpacePos = sceneData.invProjection * clipSpacePos;
-//    return -viewSpacePos.z / viewSpacePos.w;
-//}
-//
-//float clampDepth(){
-//    // using half float precision
-//    return clamp(depth, 0.0, 65504.0);
-//}
+float screenToViewSpaceDepth(float screenDepth, float depthLinearizeMul, float depthLinearizeAdd) {
+    // Optimization by XeGTAO
+    // https://github.com/GameTechDev/XeGTAO/blob/a5b1686c7ea37788eeb3576b5be47f7c03db532c/Source/Rendering/Shaders/XeGTAO.hlsli#L112
+    return depthLinearizeMul / (depthLinearizeAdd - screenDepth);
+}
+
+float clampDepth(float depth){
+    // using half float precision
+    return clamp(depth, 0.0, 65504.0);
+}
 
 void main() {
-//    vec2 dispatchID = gl_GlobalInvocationID.xy;
-//    uvec2 groupThreadID = gl_LocalInvocationID.xy;
-//
-//    // mip 0
-//    const uvec2 baseCoord = dispatchThreadID;
-//    const uvec2 pixCoord = baseCoord * 2;// We process 2x2 pixels in MIP 0
-//
-//    vec2 uvCoord = vec2(pixCoord) * sceneData.texelSize;
-//
-//    vec4 depths4;
-//    depths4.w = texture(depthImage, uvCoord + vec2(0.0, 0.0) * sceneData.texelSize).r;
-//    depths4.z = texture(depthImage, uvCoord + vec2(1.0, 0.0) * sceneData.texelSize).r;
-//    depths4.x = texture(depthImage, uvCoord + vec2(0.0, 1.0) * sceneData.texelSize).r;
-//    depths4.y = texture(depthImage, uvCoord + vec2(1.0, 1.0) * sceneData.texelSize).r;
-//
-//    float depth0 = clampDepth(ScreenSpaceToViewSpaceDepth(depths4.w));
-//    float depth1 = clampDepth(ScreenSpaceToViewSpaceDepth(depths4.z));
-//    float depth2 = clampDepth(ScreenSpaceToViewSpaceDepth(depths4.x));
-//    float depth3 = clampDepth(ScreenSpaceToViewSpaceDepth(depths4.y));
+    ivec2 screenPos = ivec2(gl_GlobalInvocationID.xy);
+
+    ivec2 dispatchID = ivec2(gl_GlobalInvocationID.xy);
+    ivec2 groupThreadID = ivec2(gl_LocalInvocationID.xy);
+
+    // MIP 0
+    const ivec2 baseCoord = dispatchID;
+    const ivec2 pixCoord = baseCoord * 2;// We process 2x2 pixels in MIP 0
+
+    vec2 uvCoord = vec2(pixCoord) * sceneData.texelSize;
+
+    vec4 depths4;
+    depths4.x = texture(depthImage, uvCoord + vec2(0.0, 0.0) * sceneData.texelSize).r;
+    depths4.y = texture(depthImage, uvCoord + vec2(1.0, 0.0) * sceneData.texelSize).r;
+    depths4.z = texture(depthImage, uvCoord + vec2(0.0, 1.0) * sceneData.texelSize).r;
+    depths4.w = texture(depthImage, uvCoord + vec2(1.0, 1.0) * sceneData.texelSize).r;
+
+    float depth0 = clampDepth(screenToViewSpaceDepth(depths4.x, pushConstants.depthLinearizeMult, pushConstants.depthLinearizeAdd));
+    float depth1 = clampDepth(screenToViewSpaceDepth(depths4.y, pushConstants.depthLinearizeMult, pushConstants.depthLinearizeAdd));
+    float depth2 = clampDepth(screenToViewSpaceDepth(depths4.z, pushConstants.depthLinearizeMult, pushConstants.depthLinearizeAdd));
+    float depth3 = clampDepth(screenToViewSpaceDepth(depths4.w, pushConstants.depthLinearizeMult, pushConstants.depthLinearizeAdd));
+
+    imageStore(outDepth0, pixCoord + ivec2(0, 0), vec4(depth0, 0.0f, 0.0f, 0.0f));
+    imageStore(outDepth0, pixCoord + ivec2(1, 0), vec4(depth1, 0.0f, 0.0f, 0.0f));
+    imageStore(outDepth0, pixCoord + ivec2(0, 1), vec4(depth2, 0.0f, 0.0f, 0.0f));
+    imageStore(outDepth0, pixCoord + ivec2(1, 1), vec4(depth3, 0.0f, 0.0f, 0.0f));
 }
