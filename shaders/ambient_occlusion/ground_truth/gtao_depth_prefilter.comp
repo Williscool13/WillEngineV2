@@ -36,16 +36,26 @@ shared float g_scratchDepths[16][16];
 
 layout(local_size_x = 16, local_size_y = 16) in;
 
+// Using this technique because
+// depthLinearizeMul / (depthLinearizeAdd - screenDepth)
+// doesn't seem to be stable, maybe because of the use of a reversed depth buffer?
+float screenToViewSpaceDepth(float projDepth, float clipNear, float clipFar) {
+    return -clipNear / (clipFar - projDepth * (clipFar - clipNear)) * clipFar;
+}
+
+float clampDepth(){
+    // using half float precision
+    return clamp(depth, 0.0, 65504.0);
+}
+
+
 //float screenSpaceToViewSpaceDepth(float screenDepth) {
 //    vec4 clipSpacePos = vec4(0.0, 0.0, screenDepth, 1.0);
 //    vec4 viewSpacePos = sceneData.invProjection * clipSpacePos;
 //    return -viewSpacePos.z / viewSpacePos.w;
 //}
 //
-//float clampDepth(){
-//    // using half float precision
-//    return clamp(depth, 0.0, 65504.0);
-//}
+
 
 void main() {
 //    vec2 dispatchID = gl_GlobalInvocationID.xy;
