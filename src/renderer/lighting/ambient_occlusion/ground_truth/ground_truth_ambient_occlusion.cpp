@@ -373,8 +373,8 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
 
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, depthPrefilterPipelineLayout, 0, 2, indices.data(), offsets.data());
 
-        auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
-        auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
+        auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 8.0f));
+        auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 8.0f));
         // divided by 2 because depth prepass operates on 2x2 (still input4 -> output4)
         x /= 2;
         y /= 2;

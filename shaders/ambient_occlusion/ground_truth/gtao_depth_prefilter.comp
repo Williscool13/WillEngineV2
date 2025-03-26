@@ -33,9 +33,9 @@ layout (push_constant) uniform PushConstants {
 } pushConstants;
 
 
-shared float g_scratchDepths[16][16];
+shared float g_scratchDepths[8][8];
 
-layout(local_size_x = 16, local_size_y = 16) in;
+layout(local_size_x = 8, local_size_y = 8) in;
 
 float screenToViewSpaceDepth(float screenDepth, float depthLinearizeMul, float depthLinearizeAdd) {
     // Optimization by XeGTAO
@@ -102,9 +102,50 @@ void main() {
     // MIP 1
     float dm1 = depthMipFilter(depth0, depth1, depth2, depth3, pushConstants.radius, pushConstants.radiusMultiplier, pushConstants.falloff);
     imageStore(outDepth1, ivec2(baseCoord), vec4(dm1));
-
-    g_scratchDepths[gl_LocalInvocationID.x][gl_LocalInvocationID.y] = dm1;
+    g_scratchDepths[groupThreadID.x][groupThreadID.y] = dm1;
 
     memoryBarrierShared();
     barrier();
+
+    // MIP 2
+    if (all(equal(groupThreadID.xy % 2u, uvec2(0u)))){
+        float inTL = g_scratchDepths[groupThreadID.x+0][groupThreadID.y+0];
+        float inTR = g_scratchDepths[groupThreadID.x+1][groupThreadID.y+0];
+        float inBL = g_scratchDepths[groupThreadID.x+0][groupThreadID.y+1];
+        float inBR = g_scratchDepths[groupThreadID.x+1][groupThreadID.y+1];
+
+        float dm2 = depthMipFilter(inTL, inTR, inBL, inBR, pushConstants.radius, pushConstants.radiusMultiplier, pushConstants.falloff);
+        imageStore(outDepth2, ivec2(baseCoord/2u), vec4(dm2));
+        g_scratchDepths[groupThreadID.x][groupThreadID.y] = dm2;
+    }
+
+    memoryBarrierShared();
+    barrier();
+
+    // MIP 3
+    if (all(equal(groupThreadID.xy % 4u, uvec2(0u)))){
+        float inTL = g_scratchDepths[groupThreadID.x+0][groupThreadID.y+0];
+        float inTR = g_scratchDepths[groupThreadID.x+2][groupThreadID.y+0];
+        float inBL = g_scratchDepths[groupThreadID.x+0][groupThreadID.y+2];
+        float inBR = g_scratchDepths[groupThreadID.x+2][groupThreadID.y+2];
+
+        float dm3 = depthMipFilter(inTL, inTR, inBL, inBR, pushConstants.radius, pushConstants.radiusMultiplier, pushConstants.falloff);
+        imageStore(outDepth3, ivec2(baseCoord/4u), vec4(dm3));
+        g_scratchDepths[groupThreadID.x][groupThreadID.y] = dm3;
+    }
+
+    memoryBarrierShared();
+    barrier();
+
+    // MIP 4
+    if (all(equal(groupThreadID.xy % 8u, uvec2(0u)))){
+        float inTL = g_scratchDepths[groupThreadID.x+0][groupThreadID.y+0];
+        float inTR = g_scratchDepths[groupThreadID.x+4][groupThreadID.y+0];
+        float inBL = g_scratchDepths[groupThreadID.x+0][groupThreadID.y+4];
+        float inBR = g_scratchDepths[groupThreadID.x+4][groupThreadID.y+4];
+
+        float dm4 = depthMipFilter(inTL, inTR, inBL, inBR, pushConstants.radius, pushConstants.radiusMultiplier, pushConstants.falloff);
+        imageStore(outDepth4, ivec2(baseCoord/8u), vec4(dm4));
+        //g_scratchDepths[groupThreadID.x][groupThreadID.y] = dm4;
+    }
 }
