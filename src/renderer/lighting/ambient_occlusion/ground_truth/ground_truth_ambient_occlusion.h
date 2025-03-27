@@ -7,6 +7,7 @@
 
 #include <array>
 
+#include "src/renderer/imgui_wrapper.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/lighting/ambient_occlusion/ambient_occlusion_types.h"
 
@@ -40,7 +41,7 @@ private: // Depth Pre-filter
     VkSampler depthPrefilterSampler{VK_NULL_HANDLE};
 
     // 16 vs 32. look at cost later.
-    VkFormat depthPrefilterFormat{VK_FORMAT_R16_SFLOAT};
+    VkFormat depthPrefilterFormat{VK_FORMAT_R32_SFLOAT};
     AllocatedImage depthPrefilterImage{VK_NULL_HANDLE};
     std::array<VkImageView, DEPTH_PREFILTER_MIP_COUNT> depthPrefilterImageViews{};
 
@@ -83,6 +84,8 @@ private: // Output
 
 private:
     ResourceManager& resourceManager;
+
+    friend void ImguiWrapper::imguiInterface(Engine* engine);
 };
 }
 

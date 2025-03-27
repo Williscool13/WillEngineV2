@@ -14,6 +14,9 @@ static constexpr int32_t DEPTH_PREFILTER_MIP_COUNT = 5;
 
 struct GTAOPushConstants
 {
+    glm::vec2 ndcToViewMult;
+    glm::vec2 ndcToViewAdd;
+
     // Depth prefilter parameters
     float depthLinearizeMult;
     float depthLinearizeAdd;
@@ -23,12 +26,8 @@ struct GTAOPushConstants
     float falloff = 0.615f;
     float radiusMultiplier = 1.457f;
 
-    glm::vec2 ndcToViewMult;
-    glm::vec2 ndcToViewAdd;
-
     // AO parameters
     float strength;
-
 
     // Sampling parameters
     uint32_t numDirections;

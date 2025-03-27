@@ -12,6 +12,7 @@
 
 #include <fmt/format.h>
 #include <glm/glm.hpp>
+#include <half/half/half.hpp>
 
 #include "vk_types.h"
 
@@ -114,6 +115,9 @@ namespace vk_helpers
      */
     void saveImageR32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
                        const char* savePath, const std::function<float(float)>& valueTransform);
+
+    void saveImageR16F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+                       const char* savePath, const std::function<float(half_float::half)>& valueTransform);
 
     void saveImage(const std::vector<float>& imageData, int width, int height, std::filesystem::path filename, bool overrideAlpha = true);
 

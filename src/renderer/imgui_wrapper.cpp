@@ -12,6 +12,7 @@
 
 
 #include "environment/environment.h"
+#include "lighting/ambient_occlusion/ground_truth/ground_truth_ambient_occlusion.h"
 #include "lighting/shadows/cascaded_shadow_map.h"
 #include "lighting/shadows/shadow_constants.h"
 #include "src/core/engine.h"
@@ -867,6 +868,32 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     }
     ImGui::End();
 
+    if (ImGui::Begin("Discardable Debug")) {
+        if (ImGui::Button("Save GTAO depth image")) {
+            if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                const std::filesystem::path path = file::imagesSavePath / "gtao_depth.png";
+
+                auto depthNormalize = [](const float depth) {
+                    return depth;
+                };
+
+                vk_helpers::saveImageR32F(
+                    *engine->resourceManager,
+                    *engine->immediate,
+                    engine->ambientOcclusionPipeline->depthPrefilterImage,
+                    //engine->depthImage,
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    VK_IMAGE_ASPECT_COLOR_BIT,
+                    path.string().c_str(),
+                    depthNormalize
+                );
+            }
+            else {
+                fmt::print(" Failed to find/create image save path directory");
+            }
+        }
+    }
+    ImGui::End();
 
     if (selectedItem) {
         if (IImguiRenderable* imguiRenderable = dynamic_cast<IImguiRenderable*>(selectedItem)) {
