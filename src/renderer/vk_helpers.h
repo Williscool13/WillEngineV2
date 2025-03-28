@@ -12,7 +12,7 @@
 
 #include <fmt/format.h>
 #include <glm/glm.hpp>
-#include <half/half/half.hpp>
+#include <half/half.hpp>
 
 #include "vk_types.h"
 
@@ -55,9 +55,11 @@ namespace vk_helpers
     VkRenderingAttachmentInfo attachmentInfo(VkImageView view, const VkClearValue* clear,
                                              VkImageLayout layout /*= VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL*/);
 
-    VkRenderingInfo renderingInfo(VkExtent2D renderExtent, const VkRenderingAttachmentInfo* colorAttachment, const VkRenderingAttachmentInfo* depthAttachment);
+    VkRenderingInfo renderingInfo(VkExtent2D renderExtent, const VkRenderingAttachmentInfo* colorAttachment,
+                                  const VkRenderingAttachmentInfo* depthAttachment);
 
-    VkSubmitInfo2 submitInfo(const VkCommandBufferSubmitInfo* cmd, const VkSemaphoreSubmitInfo* signalSemaphoreInfo, const VkSemaphoreSubmitInfo* waitSemaphoreInfo);
+    VkSubmitInfo2 submitInfo(const VkCommandBufferSubmitInfo* cmd, const VkSemaphoreSubmitInfo* signalSemaphoreInfo,
+                             const VkSemaphoreSubmitInfo* waitSemaphoreInfo);
 
     VkPresentInfoKHR presentInfo();
 
@@ -78,7 +80,8 @@ namespace vk_helpers
      */
     VkDeviceSize getAlignedSize(VkDeviceSize value, VkDeviceSize alignment);
 
-    void clearColorImage(VkCommandBuffer cmd, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout, VkClearColorValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f});
+    void clearColorImage(VkCommandBuffer cmd, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout,
+                         VkClearColorValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f});
 
     void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
 
@@ -98,26 +101,30 @@ namespace vk_helpers
     VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shaderModule,
                                                                   const char* entry = "main");
 
-    void saveImageRGBA32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-                          const char* savePath, bool overrideAlpha = true);
+    void saveImageRGBA32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
+                          VkImageLayout imageLayout, VkImageAspectFlags aspectFlag, const char* savePath, bool overrideAlpha = true);
 
-    void saveImageRGBA16SFLOAT(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-                               const char* savePath, bool overrideAlpha = true);
+    void saveImageRGBA16SFLOAT(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
+                               VkImageLayout imageLayout, VkImageAspectFlags aspectFlag, const char* savePath, bool overrideAlpha = true);
 
-    void savePacked32Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-                         const char* savePath, const std::function<glm::vec4(uint32_t)>& unpackingFunction);
+    void savePacked32Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
+                         VkImageLayout imageLayout, VkImageAspectFlags aspectFlag, const char* savePath,
+                         const std::function<glm::vec4(uint32_t)>& unpackingFunction);
 
-    void savePacked64Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-                         const char* savePath, const std::function<glm::vec4(uint64_t)>& unpackingFunction);
+    void savePacked64Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
+                         VkImageLayout imageLayout, VkImageAspectFlags aspectFlag, const char* savePath,
+                         const std::function<glm::vec4(uint64_t)>& unpackingFunction);
 
     /**
      * Save the Allocated image as a grayscaled image. The image must be a format with only 1 channel (e.g. R32 or D32)
      */
-    void saveImageR32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-                       const char* savePath, const std::function<float(float)>& valueTransform, int32_t mipLevel = 0);
+    void saveImageR32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
+                       VkImageLayout imageLayout, VkImageAspectFlags aspectFlag, const char* savePath,
+                       const std::function<float(float)>& valueTransform, int32_t mipLevel = 0);
 
-    void saveImageR16F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-                       const char* savePath, const std::function<float(half_float::half)>& valueTransform);
+    void saveImageR16F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
+                       VkImageLayout imageLayout, VkImageAspectFlags aspectFlag, const char* savePath,
+                       const std::function<float(uint16_t)>& valueTransform, int32_t mipLevel = 0);
 
     void saveImage(const std::vector<float>& imageData, int width, int height, std::filesystem::path filename, bool overrideAlpha = true);
 

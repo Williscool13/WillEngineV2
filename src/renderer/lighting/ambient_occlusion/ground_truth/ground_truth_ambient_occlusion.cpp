@@ -351,7 +351,7 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
     //vk_helpers::transitionImage(cmd, depthPrefilterImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::clearColorImage(cmd, depthPrefilterImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
     // Depth Prefilter
-    {;
+    {
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, depthPrefilterPipeline);
         vkCmdPushConstants(cmd, depthPrefilterPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GTAOPushConstants), &push);
 
@@ -377,7 +377,6 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
 
     vk_helpers::transitionImage(cmd, depthPrefilterImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     // vk_helpers::transitionImage(cmd, ambientOcclusionImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    //
     // // Ambient Occlusion
     // {
     //     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, ambientOcclusionPipeline);
@@ -398,12 +397,11 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
     //     const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
     //     const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
     //     vkCmdDispatch(cmd, x, y, 1);
-    //     vkCmdEndRendering(cmd);
     // }
     //
     //
     // vk_helpers::transitionImage(cmd, ambientOcclusionImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    //
+
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }

@@ -42,7 +42,7 @@ private: // Depth Pre-filter
     VkSampler depthPrefilterSampler{VK_NULL_HANDLE};
 
     // 16 vs 32. look at cost later.
-    VkFormat depthPrefilterFormat{VK_FORMAT_R32_SFLOAT};
+    VkFormat depthPrefilterFormat{VK_FORMAT_R16_SFLOAT};
     AllocatedImage depthPrefilterImage{VK_NULL_HANDLE};
     std::array<VkImageView, DEPTH_PREFILTER_MIP_COUNT> depthPrefilterImageViews{};
 

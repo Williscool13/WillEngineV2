@@ -10,11 +10,11 @@ shared float g_scratchDepths[8][8];
 // layout (std140, set = 0, binding = 0) uniform SceneData - scene.glsl
 
 layout (set = 1, binding = 0) uniform sampler2D depthImage;
-layout (r32f, set = 1, binding = 1) uniform image2D outDepth0;
-layout (r32f, set = 1, binding = 2) uniform image2D outDepth1;
-layout (r32f, set = 1, binding = 3) uniform image2D outDepth2;
-layout (r32f, set = 1, binding = 4) uniform image2D outDepth3;
-layout (r32f, set = 1, binding = 5) uniform image2D outDepth4;
+layout (r16f, set = 1, binding = 1) uniform image2D outDepth0;
+layout (r16f, set = 1, binding = 2) uniform image2D outDepth1;
+layout (r16f, set = 1, binding = 3) uniform image2D outDepth2;
+layout (r16f, set = 1, binding = 4) uniform image2D outDepth3;
+layout (r16f, set = 1, binding = 5) uniform image2D outDepth4;
 
 layout (push_constant) uniform PushConstants {
     vec2 ndcToViewMult;

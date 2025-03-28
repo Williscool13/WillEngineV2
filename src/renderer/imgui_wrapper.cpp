@@ -21,6 +21,7 @@
 #include "src/core/game_object/renderable.h"
 #include "src/core/scene/serializer.h"
 #include "src/util/file.h"
+#include "src/util/math_utils.h"
 
 namespace will_engine
 {
@@ -316,7 +317,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                         };
 
                         vk_helpers::saveImageR32F(*engine->resourceManager, *engine->immediate, engine->depthImage,
-                                                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT, path.string().c_str(), depthNormalize);
+                                                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT, path.string().c_str(),
+                                                  depthNormalize);
                     }
                     else {
                         fmt::print(" Failed to find/create image save path directory");
@@ -335,7 +337,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             return pixel;
                         };
                         vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->normalRenderTarget,
-                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
+                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(),
+                                                    unpackFunc);
                     }
                     else {
                         fmt::print(" Failed to save normal render target");
@@ -351,7 +354,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             return pixel;
                         };
                         vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->albedoRenderTarget,
-                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
+                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(),
+                                                    unpackFunc);
                     }
                     else {
                         fmt::print(" Failed to save albedo render target");
@@ -367,7 +371,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             return pixel;
                         };
                         vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->pbrRenderTarget,
-                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
+                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(),
+                                                    unpackFunc);
                     }
                     else {
                         fmt::print(" Failed to save pbr render target");
@@ -705,8 +710,9 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                 Texture* randomTexture = engine->assetManager->getAnyTexture();
 
                                 currentlySelectedTexture = randomTexture->getTextureResource();
-                                currentlySelectedTextureImguiId = ImGui_ImplVulkan_AddTexture(engine->resourceManager->getDefaultSamplerLinear(), currentlySelectedTexture->getTexture().imageView,
-                                                                                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                                currentlySelectedTextureImguiId = ImGui_ImplVulkan_AddTexture(
+                                    engine->resourceManager->getDefaultSamplerLinear(), currentlySelectedTexture->getTexture().imageView,
+                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
                             }
                         }
 
@@ -723,7 +729,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             for (Texture* texture : engine->assetManager->getAllTextures()) {
                                 bool isSelected = (currentlySelectedTexture->getId() == texture->getId());
 
-                                std::string label = fmt::format("[{}] Texture ID - {}", texture->isTextureResourceLoaded() ? "LOADED" : "NOT LOADED", texture->getId());
+                                std::string label = fmt::format("[{}] Texture ID - {}", texture->isTextureResourceLoaded() ? "LOADED" : "NOT LOADED",
+                                                                texture->getId());
 
                                 if (ImGui::Selectable(label.c_str(), isSelected)) {
                                     if (currentlySelectedTextureImguiId != VK_NULL_HANDLE) {
@@ -734,8 +741,9 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                     }
 
                                     currentlySelectedTexture = texture->getTextureResource();
-                                    currentlySelectedTextureImguiId = ImGui_ImplVulkan_AddTexture(engine->resourceManager->getDefaultSamplerLinear(), currentlySelectedTexture->getTexture().imageView,
-                                                                                                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                                    currentlySelectedTextureImguiId = ImGui_ImplVulkan_AddTexture(
+                                        engine->resourceManager->getDefaultSamplerLinear(), currentlySelectedTexture->getTexture().imageView,
+                                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
                                 }
                             }
 
@@ -879,15 +887,17 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             if (file::getOrCreateDirectory(file::imagesSavePath)) {
                 const std::filesystem::path path = file::imagesSavePath / "gtao_depth.png";
 
-                auto depthNormalize = [](const float depth) {
-                    return depth / 1000.f;
+                auto depthNormalize = [](const uint16_t depth) {
+                    // Equivalent
+                    float manualDepth = math::halfToFloat(depth);
+                    float libraryDepth = half_float::detail::half2float<float>(depth);
+                    return libraryDepth / 1000.f;
                 };
 
-                vk_helpers::saveImageR32F(
+                vk_helpers::saveImageR16F(
                     *engine->resourceManager,
                     *engine->immediate,
                     engine->ambientOcclusionPipeline->depthPrefilterImage,
-                    //engine->depthImage,
                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     VK_IMAGE_ASPECT_COLOR_BIT,
                     path.string().c_str(),
