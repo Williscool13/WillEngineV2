@@ -909,6 +909,24 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 fmt::print(" Failed to find/create image save path directory");
             }
         }
+
+        if (ImGui::Button("Save raw ao image")) {
+            if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                const std::filesystem::path path = file::imagesSavePath / "raw_ao_image.png";
+
+                vk_helpers::saveImageR8UNORM(
+                    *engine->resourceManager,
+                    *engine->immediate,
+                    engine->ambientOcclusionPipeline->ambientOcclusionImage,
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                    path.string().c_str(),
+                    0
+                );
+            }
+            else {
+                fmt::print(" Failed to find/create image save path directory");
+            }
+        }
     }
     ImGui::End();
 

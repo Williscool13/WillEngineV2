@@ -2,12 +2,40 @@
 
 #include "scene.glsl"
 
+layout(local_size_x = 16, local_size_y = 16) in;
+
 // layout (std140, set = 0, binding = 0) uniform SceneData - scene.glsl
 
 layout (set = 1, binding = 0) uniform sampler2D prefilteredDepth;
 layout (set = 1, binding = 1) uniform sampler2D normalBuffer;
 layout (r8, set = 1, binding = 2) uniform image2D aoOutput;
 
-void main() {
+layout (push_constant) uniform PushConstants {
+    vec2 ndcToViewMult;
+    vec2 ndcToViewAdd;
 
+    float depthLinearizeMult;
+    float depthLinearizeAdd;
+
+    float radius;
+    float falloff;
+    float radiusMultiplier;
+
+    float strength;
+
+    int numDirections;
+    int numSteps;
+
+    float temporalWeight;
+    float spatialFilterRadius;
+} pushConstants;
+
+void main() {
+    const ivec2 screenPos = ivec2(gl_GlobalInvocationID.xy);
+
+    if (screenPos.x % 2 == 0 && screenPos.y % 2 == 0){
+        imageStore(aoOutput, screenPos, vec4(1.0f));
+    } else {
+        imageStore(aoOutput, screenPos, vec4(0.5f));
+    }
 }

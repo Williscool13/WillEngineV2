@@ -105,6 +105,8 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
         VkImageUsageFlags usage{};
         usage |= VK_IMAGE_USAGE_STORAGE_BIT;
         usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+        usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
         VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(ambientOcclusionFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
         ambientOcclusionImage = resourceManager.createImage(imgInfo);
@@ -360,12 +362,10 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
         bindingInfos[1] = depthPrefilterDescriptorBuffer.getDescriptorBufferBindingInfo();
         vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos);
 
-        uint32_t index0 = 0;
-        uint32_t index1 = 1;
-        VkDeviceSize offset0 = drawInfo.sceneDataOffset;
+        constexpr std::array<uint32_t, 2> indices{0,1};
+        const std::array offsets{drawInfo.sceneDataOffset, ZERO_DEVICE_SIZE};
 
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, depthPrefilterPipelineLayout, 0, 1, &index0, &offset0);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, depthPrefilterPipelineLayout, 1, 1, &index1, &ZERO_DEVICE_SIZE);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, depthPrefilterPipelineLayout, 0, 2, indices.data(), offsets.data());
 
         auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 8.0f));
         auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 8.0f));
@@ -376,31 +376,29 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
     }
 
     vk_helpers::transitionImage(cmd, depthPrefilterImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    // vk_helpers::transitionImage(cmd, ambientOcclusionImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    // // Ambient Occlusion
-    // {
-    //     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, ambientOcclusionPipeline);
-    //     vkCmdPushConstants(cmd, ambientOcclusionPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GTAOPushConstants), &drawInfo.pushConstants);
-    //
-    //     VkDescriptorBufferBindingInfoEXT bindingInfos[2] = {};
-    //     bindingInfos[0] = drawInfo.sceneDataBinding;
-    //     bindingInfos[1] = ambientOcclusionDescriptorBuffer.getDescriptorBufferBindingInfo();
-    //     vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos);
-    //
-    //     constexpr VkDeviceSize zeroOffset{0};
-    //     constexpr uint32_t sceneDataIndex{0};
-    //     constexpr uint32_t descriptorIndex{1};
-    //
-    //     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, ambientOcclusionPipelineLayout, 0, 1, &sceneDataIndex, &drawInfo.sceneDataOffset);
-    //     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, ambientOcclusionPipelineLayout, 1, 1, &descriptorIndex, &zeroOffset);
-    //
-    //     const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
-    //     const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
-    //     vkCmdDispatch(cmd, x, y, 1);
-    // }
-    //
-    //
-    // vk_helpers::transitionImage(cmd, ambientOcclusionImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, ambientOcclusionImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    // Ambient Occlusion
+    {
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, ambientOcclusionPipeline);
+        vkCmdPushConstants(cmd, ambientOcclusionPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GTAOPushConstants), &push);
+
+        VkDescriptorBufferBindingInfoEXT bindingInfos[2] = {};
+        bindingInfos[0] = drawInfo.sceneDataBinding;
+        bindingInfos[1] = ambientOcclusionDescriptorBuffer.getDescriptorBufferBindingInfo();
+        vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos);
+
+        constexpr std::array<uint32_t, 2> indices{0,1};
+        const std::array offsets{drawInfo.sceneDataOffset, ZERO_DEVICE_SIZE};
+
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, depthPrefilterPipelineLayout, 0, 2, indices.data(), offsets.data());
+
+        const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
+        const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
+        vkCmdDispatch(cmd, x, y, 1);
+    }
+
+
+    vk_helpers::transitionImage(cmd, ambientOcclusionImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
