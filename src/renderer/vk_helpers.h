@@ -114,7 +114,7 @@ namespace vk_helpers
      * Save the Allocated image as a grayscaled image. The image must be a format with only 1 channel (e.g. R32 or D32)
      */
     void saveImageR32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-                       const char* savePath, const std::function<float(float)>& valueTransform);
+                       const char* savePath, const std::function<float(float)>& valueTransform, int32_t mipLevel = 0);
 
     void saveImageR16F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
                        const char* savePath, const std::function<float(half_float::half)>& valueTransform);

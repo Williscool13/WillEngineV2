@@ -9,7 +9,7 @@ layout (location = 2) out vec4 outPrevMvpPosition;
 // layout (std140, set = 0, binding = 0) uniform SceneData - scene.glsl
 
 void main() {
-    const vec3 vertices[3] = vec3[3](vec3(-1, -1, 0.00001), vec3(3, -1, 0.00001), vec3(-1, 3, 0.00001));
+    const vec3 vertices[3] = vec3[3](vec3(-1, -1, 0.0002), vec3(3, -1, 0.0002), vec3(-1, 3, 0.0002));
 
 
     vec4 currClipPos = vec4(vertices[gl_VertexIndex], 1);

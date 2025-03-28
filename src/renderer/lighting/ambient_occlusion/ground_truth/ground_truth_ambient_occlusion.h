@@ -21,12 +21,13 @@ public:
 
     ~GroundTruthAmbientOcclusionPipeline();
 
-    void setupDepthPrefilterDescriptorBuffer(VkImageView depthImageView);
+    void setupDepthPrefilterDescriptorBuffer(const VkImageView& depthImageView);
 
     void setupAmbientOcclusionDescriptorBuffer(VkImageView normalsImageView);
 
     void draw(VkCommandBuffer cmd, const GTAODrawInfo& drawInfo) const;
 
+    void reloadShaders();
 private:
     void createDepthPrefilterPipeline();
     void createAmbientOcclusionPipeline();

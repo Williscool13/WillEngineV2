@@ -283,7 +283,7 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::~GroundTrut
     resourceManager.destroyDescriptorBuffer(temporalAccumulationDescriptorBuffer);
 }
 
-void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupDepthPrefilterDescriptorBuffer(const VkImageView depthImageView)
+void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupDepthPrefilterDescriptorBuffer(const VkImageView& depthImageView)
 {
     std::vector<DescriptorImageData> imageDescriptors{};
     imageDescriptors.reserve(1 + DEPTH_PREFILTER_MIP_COUNT);
@@ -370,8 +370,8 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
         auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 8.0f));
         auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 8.0f));
         // divided by 2 because depth prepass operates on 2x2 (still input4 -> output4)
-        x = x / 2 + 1;
-        y = y / 2 + 1;
+        x = x / 2;
+        y = y / 2;
         vkCmdDispatch(cmd, x, y, 1);
     }
 
@@ -406,6 +406,14 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
     //
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
+}
+
+void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::reloadShaders()
+{
+    createDepthPrefilterPipeline();
+    createAmbientOcclusionPipeline();
+    createSpatialFilteringPipeline();
+    createTemporalAccumulationPipeline();
 }
 
 void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::createDepthPrefilterPipeline()

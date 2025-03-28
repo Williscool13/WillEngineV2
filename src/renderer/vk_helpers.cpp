@@ -730,35 +730,38 @@ void will_engine::vk_helpers::savePacked64Bit(const ResourceManager& resourceMan
 }
 
 void will_engine::vk_helpers::saveImageR32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-                               const char* savePath, const std::function<float(float)>& valueTransform)
+                               const char* savePath, const std::function<float(float)>& valueTransform, int32_t mipLevel)
 {
-    const size_t dataSize = image.imageExtent.width * image.imageExtent.height * 1 * sizeof(float);
+    size_t newXSize = image.imageExtent.width / static_cast<size_t>(std::pow(2, mipLevel));
+    size_t newYSize = image.imageExtent.height / static_cast<size_t>(std::pow(2, mipLevel));
+    const size_t texelCount = newXSize * newYSize;
+    const size_t dataSize = texelCount * 1 * sizeof(float);
     AllocatedBuffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
 
-    immediate.submit([&](VkCommandBuffer cmd) {
+    immediate.submit([&, mipLevel](VkCommandBuffer cmd) {
         VkBufferImageCopy bufferCopyRegion{};
         bufferCopyRegion.imageSubresource.aspectMask = aspectFlag;
-        bufferCopyRegion.imageSubresource.mipLevel = 0;
+        bufferCopyRegion.imageSubresource.mipLevel = mipLevel;
         bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
         bufferCopyRegion.imageSubresource.layerCount = 1;
-        bufferCopyRegion.imageExtent = image.imageExtent;
+        bufferCopyRegion.imageExtent = {static_cast<uint32_t>(newXSize), static_cast<uint32_t>(newYSize), 1u};
         bufferCopyRegion.bufferOffset = 0;
         bufferCopyRegion.bufferRowLength = 0;
         bufferCopyRegion.bufferImageHeight = 0;
 
-        vk_helpers::transitionImage(cmd, image.image, imageLayout, VK_IMAGE_LAYOUT_GENERAL, aspectFlag);
+        transitionImage(cmd, image.image, imageLayout, VK_IMAGE_LAYOUT_GENERAL, aspectFlag);
 
         vkCmdCopyImageToBuffer(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer.buffer, 1, &bufferCopyRegion);
 
-        vk_helpers::transitionImage(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout, aspectFlag);
+        transitionImage(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout, aspectFlag);
     });
 
     void* data = receivingBuffer.info.pMappedData;
     const auto imageData = static_cast<float*>(data);
 
-    const auto byteImageData = new uint8_t[image.imageExtent.width * image.imageExtent.height * 4];
+    const auto byteImageData = new uint8_t[texelCount * 4];
     const auto powEight = static_cast<float>(pow(2, 8) - 1);
-    for (size_t i = 0; i < image.imageExtent.width * image.imageExtent.height; ++i) {
+    for (size_t i = 0; i < texelCount; ++i) {
         const float floatValue = valueTransform(imageData[i]);
         const auto value = static_cast<uint8_t>(floatValue * powEight);
         byteImageData[i * 4 + 0] = value;
@@ -767,7 +770,7 @@ void will_engine::vk_helpers::saveImageR32F(const ResourceManager& resourceManag
         byteImageData[i * 4 + 3] = 255;
     }
 
-    stbi_write_png(savePath, image.imageExtent.width, image.imageExtent.height, 4, byteImageData, image.imageExtent.width * 4);
+    stbi_write_png(savePath, static_cast<int>(newXSize), static_cast<int>(newYSize), 4, byteImageData, static_cast<int>(newXSize) * 4);
 
     delete[] byteImageData;
     resourceManager.destroyBuffer(receivingBuffer);

@@ -955,6 +955,7 @@ void Engine::hotReloadShaders() const
     environmentPipeline->reloadShaders();
     terrainPipeline->reloadShaders();
     deferredMrtPipeline->reloadShaders();
+    ambientOcclusionPipeline->reloadShaders();
     deferredResolvePipeline->reloadShaders();
     temporalAntialiasingPipeline->reloadShaders();
     postProcessPipeline->reloadShaders();

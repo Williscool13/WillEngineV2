@@ -869,12 +869,18 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::End();
 
     if (ImGui::Begin("Discardable Debug")) {
+        static int32_t gtaoMip;
+        constexpr uint32_t minMip = 0;
+        constexpr uint32_t maxMip = 4;
+
+        ImGui::SliderScalar("GTAO level", ImGuiDataType_S32, &gtaoMip, &minMip, &maxMip);
+
         if (ImGui::Button("Save GTAO depth image")) {
             if (file::getOrCreateDirectory(file::imagesSavePath)) {
                 const std::filesystem::path path = file::imagesSavePath / "gtao_depth.png";
 
                 auto depthNormalize = [](const float depth) {
-                    return depth;
+                    return depth / 1000.f;
                 };
 
                 vk_helpers::saveImageR32F(
@@ -885,7 +891,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     VK_IMAGE_ASPECT_COLOR_BIT,
                     path.string().c_str(),
-                    depthNormalize
+                    depthNormalize,
+                    gtaoMip
                 );
             }
             else {
