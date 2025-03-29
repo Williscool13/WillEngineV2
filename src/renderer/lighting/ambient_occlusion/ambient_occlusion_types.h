@@ -34,7 +34,7 @@ struct GTAOPushConstants
     float thinOccluderCompensation = 0.0f;
     float finalValuePower = 2.2f;
     float depthMipSamplingOffset = 3.30f;
-    uint32_t noiseIndex;
+    uint32_t noiseIndex{0};
 };
 
 struct GTAODrawInfo
