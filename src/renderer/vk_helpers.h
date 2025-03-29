@@ -129,6 +129,9 @@ namespace vk_helpers
     void saveImageR8UNORM(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
                        VkImageLayout imageLayout, const char* savePath, int32_t mipLevel = 0);
 
+    void saveImageR8G8B8A8UNORM(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
+                       VkImageLayout imageLayout, const char* savePath, int32_t mipLevel = 0);
+
     void saveImage(const std::vector<float>& imageData, int width, int height, std::filesystem::path filename, bool overrideAlpha = true);
 
     void saveHeightmap(const std::vector<float>& heightData, int width, int height, const std::filesystem::path& filename);

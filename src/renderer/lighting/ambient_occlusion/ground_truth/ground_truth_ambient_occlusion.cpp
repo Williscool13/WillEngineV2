@@ -10,8 +10,21 @@
 #include "src/renderer/vk_descriptors.h"
 #include "src/renderer/lighting/ambient_occlusion/ambient_occlusion_types.h"
 
-will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruthAmbientOcclusionPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
+will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruthAmbientOcclusionPipeline(
+    ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
+    // Debug
+    {
+        VkImageUsageFlags usage{};
+        usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+        usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+        VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(debugFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
+        debugImage = resourceManager.createImage(imgInfo);
+    }
+
     // Depth Pre-filtering
     {
         DescriptorLayoutBuilder layoutBuilder;
@@ -21,8 +34,10 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
         layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // ao depth mip 2
         layoutBuilder.addBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // ao depth mip 3
         layoutBuilder.addBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // ao depth mip 4
+        layoutBuilder.addBinding(6, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // debug image
 
-        depthPrefilterSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        depthPrefilterSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT,
+                                                                            VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
         VkPushConstantRange pushConstants{};
         pushConstants.offset = 0;
@@ -77,8 +92,10 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // pre-filtered depth
         layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // MRT normal buffer
         layoutBuilder.addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // ao output
+        layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // debug image
 
-        ambientOcclusionSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        ambientOcclusionSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT,
+                                                                              VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
         VkPushConstantRange pushConstants{};
         pushConstants.offset = 0;
@@ -156,7 +173,8 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
         layoutBuilder.addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // MRT normal buffer
         layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // filtered ao
 
-        spatialFilteringSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        spatialFilteringSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT,
+                                                                              VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
         VkPushConstantRange pushConstants{};
         pushConstants.offset = 0;
@@ -197,7 +215,8 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
         layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // MRT depth buffer
         layoutBuilder.addBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // final output
 
-        temporalAccumulationSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        temporalAccumulationSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT,
+                                                                                  VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
         VkPushConstantRange pushConstants{};
         pushConstants.offset = 0;
@@ -239,6 +258,9 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
 
 will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::~GroundTruthAmbientOcclusionPipeline()
 {
+    // Debug Resources
+    resourceManager.destroyImage(debugImage);
+
     // Depth Prefilter Resources
     resourceManager.destroyDescriptorSetLayout(depthPrefilterSetLayout);
     resourceManager.destroyPipelineLayout(depthPrefilterPipelineLayout);
@@ -288,7 +310,7 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::~GroundTrut
 void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupDepthPrefilterDescriptorBuffer(const VkImageView& depthImageView)
 {
     std::vector<DescriptorImageData> imageDescriptors{};
-    imageDescriptors.reserve(1 + DEPTH_PREFILTER_MIP_COUNT);
+    imageDescriptors.reserve(1 + DEPTH_PREFILTER_MIP_COUNT + 1);
 
     imageDescriptors.push_back(
         {
@@ -307,13 +329,19 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupD
         imageDescriptors.push_back(imageData);
     }
 
+    imageDescriptors.push_back({
+        VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        {VK_NULL_HANDLE, debugImage.imageView, VK_IMAGE_LAYOUT_GENERAL},
+        false
+    });
+
     resourceManager.setupDescriptorBufferSampler(depthPrefilterDescriptorBuffer, imageDescriptors, 0);
 }
 
 void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupAmbientOcclusionDescriptorBuffer(VkImageView normalsImageView)
 {
     std::vector<DescriptorImageData> imageDescriptors{};
-    imageDescriptors.reserve(2);
+    imageDescriptors.reserve(4);
 
     imageDescriptors.push_back(
         {
@@ -333,6 +361,11 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupA
             {VK_NULL_HANDLE, ambientOcclusionImage.imageView, VK_IMAGE_LAYOUT_GENERAL},
             false
         });
+    imageDescriptors.push_back({
+        VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        {VK_NULL_HANDLE, debugImage.imageView, VK_IMAGE_LAYOUT_GENERAL},
+        false
+    });
 
     resourceManager.setupDescriptorBufferSampler(ambientOcclusionDescriptorBuffer, imageDescriptors, 0);
 }
@@ -349,8 +382,13 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
     push.depthLinearizeMult = -projMatrix[3][2];
     push.depthLinearizeAdd = projMatrix[2][2];
 
+    push.projectionParamX = projMatrix[0][0];
+    push.projectionParamY = projMatrix[1][1];
 
-    //vk_helpers::transitionImage(cmd, depthPrefilterImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    push.noiseIndex = GTAO_DENOISE_PASSES > 0 ? drawInfo.currentFrame % 64 : 0;
+
+    vk_helpers::transitionImage(cmd, debugImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+
     vk_helpers::clearColorImage(cmd, depthPrefilterImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
     // Depth Prefilter
     {
@@ -362,20 +400,21 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
         bindingInfos[1] = depthPrefilterDescriptorBuffer.getDescriptorBufferBindingInfo();
         vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos);
 
-        constexpr std::array<uint32_t, 2> indices{0,1};
+        constexpr std::array<uint32_t, 2> indices{0, 1};
         const std::array offsets{drawInfo.sceneDataOffset, ZERO_DEVICE_SIZE};
 
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, depthPrefilterPipelineLayout, 0, 2, indices.data(), offsets.data());
 
-        auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 8.0f));
-        auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 8.0f));
-        // divided by 2 because depth prepass operates on 2x2 (still input4 -> output4)
-        x = x / 2;
-        y = y / 2;
+        auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
+        auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
+        // shader only operates on 8,8 work groups, mip 0 will operate on 2x2 texels
+        // x = x / 2 + 1;
+        // y = y / 2 + 1;
         vkCmdDispatch(cmd, x, y, 1);
     }
 
-    vk_helpers::transitionImage(cmd, depthPrefilterImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, depthPrefilterImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, ambientOcclusionImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     // Ambient Occlusion
     {
@@ -387,7 +426,7 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
         bindingInfos[1] = ambientOcclusionDescriptorBuffer.getDescriptorBufferBindingInfo();
         vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos);
 
-        constexpr std::array<uint32_t, 2> indices{0,1};
+        constexpr std::array<uint32_t, 2> indices{0, 1};
         const std::array offsets{drawInfo.sceneDataOffset, ZERO_DEVICE_SIZE};
 
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, depthPrefilterPipelineLayout, 0, 2, indices.data(), offsets.data());
@@ -398,8 +437,12 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
     }
 
 
-    vk_helpers::transitionImage(cmd, ambientOcclusionImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, ambientOcclusionImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                VK_IMAGE_ASPECT_COLOR_BIT);
 
+
+    vk_helpers::transitionImage(cmd, debugImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                            VK_IMAGE_ASPECT_COLOR_BIT);
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }

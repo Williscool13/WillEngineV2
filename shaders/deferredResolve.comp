@@ -50,12 +50,12 @@ layout (push_constant) uniform PushConstants {
     float farPlane;
 } pushConstants;
 
-vec3 reconstructPosition(ivec2 texCoord, vec2 texelSize, float depth) {
+vec3 reconstructPosition(vec2 uv, float ndcDepth) {
     // Get normalized device coordinates
-    vec2 ndc = (vec2(texCoord) + 0.5) * texelSize * 2.0 - 1.0;
+    vec2 ndc = uv * 2.0 - 1.0;
 
     // Reconstruct view-space position
-    vec4 positionVS = sceneData.invProjection * vec4(ndc, depth, 1.0);
+    vec4 positionVS = sceneData.invProjection * vec4(ndc, ndcDepth, 1.0);
     positionVS /= positionVS.w;
 
     // Transform to world-space
@@ -87,7 +87,7 @@ void main() {
     float depth = texture(depthBuffer, uv).r;
     vec3 normal = texture(normalRenderTarget, uv).rgb;
     vec4 pbrData = texture(pbrRenderTarget, uv);
-    vec3 position = reconstructPosition(screenPos, sceneData.texelSize, depth);
+    vec3 position = reconstructPosition(uv, depth);
 
     float roughness = pbrData.g;
     float metallic = pbrData.r;
@@ -186,7 +186,8 @@ void main() {
             imageStore(outputImage, screenPos, vec4(vec3(dot(N, L)), 1.0));
             break;
         case 9:
-        // imageStore(outputImage, screenPos, vec4(vec3(ao), 1.0f));
+            vec4 viewPos = sceneData.view * vec4(position, 1.0f);
+            imageStore(outputImage, screenPos, vec4(-viewPos.xyz / 100.0f, 1.0f));
             break;
     }
 }

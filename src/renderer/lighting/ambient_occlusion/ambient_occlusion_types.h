@@ -11,37 +11,33 @@
 namespace will_engine::ambient_occlusion
 {
 static constexpr int32_t DEPTH_PREFILTER_MIP_COUNT = 5;
+static constexpr int32_t GTAO_DENOISE_PASSES = 1;
 
 struct GTAOPushConstants
 {
-    glm::vec2 ndcToViewMult;
-    glm::vec2 ndcToViewAdd;
-
-    // Depth prefilter parameters
     float depthLinearizeMult;
     float depthLinearizeAdd;
 
-    // Defaults follow Intel's implementation
-    float radius = 0.5f;
-    float falloff = 0.615f;
+    float projectionParamX;
+    float projectionParamY;
+
+    float effectRadius = 0.5f;
+    float effectFalloffRange = 0.615f;
+    float denoiseBlurBeta = (GTAO_DENOISE_PASSES == 0) ? (1e4f) : (1.2f);
+
     float radiusMultiplier = 1.457f;
-
-    // AO parameters
-    float strength;
-
-    // Sampling parameters
-    uint32_t numDirections;
-    uint32_t numSteps;
-
-    // Temporal/filter parameters
-    float temporalWeight;
-    float spatialFilterRadius;
+    float sampleDistributionPower = 2.0f;
+    float thinOccluderCompensation = 0.0f;
+    float finalValuePower = 2.2f;
+    float depthMipSamplingOffset = 3.30f;
+    float noiseIndex;
 };
 
 struct GTAODrawInfo
 {
     Camera* camera{nullptr};
     GTAOPushConstants pushConstants{};
+    int32_t currentFrame{};
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};
 };

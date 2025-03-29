@@ -568,6 +568,7 @@ void Engine::draw(float deltaTime)
     ambient_occlusion::GTAODrawInfo gtaoDrawInfo{
         camera,
         {},
+        frameNumber,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
     };

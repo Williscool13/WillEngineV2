@@ -83,6 +83,10 @@ private: // Temporal Accumulation
 private: // Output
     AllocatedImage ambientOcclusionOutputImage{VK_NULL_HANDLE};
 
+private: // Debug
+    VkFormat debugFormat{VK_FORMAT_R8G8B8A8_UNORM};
+    AllocatedImage debugImage{VK_NULL_HANDLE};
+
 private:
     ResourceManager& resourceManager;
 

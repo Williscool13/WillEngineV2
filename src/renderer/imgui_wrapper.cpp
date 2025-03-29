@@ -207,7 +207,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
             if (ImGui::BeginTabItem("Pipelines")) {
                 ImGui::Text("Deferred Debug");
-                const char* deferredDebugOptions[]{"None", "Depth", "Velocity", "Albedo", "Normal", "PBR", "Shadows", "Cascade Level", "nDotL"};
+                const char* deferredDebugOptions[]{"None", "Depth", "Velocity", "Albedo", "Normal", "PBR", "Shadows", "Cascade Level", "nDotL", "AO"};
                 ImGui::Combo("Deferred Debug", &engine->deferredDebug, deferredDebugOptions, IM_ARRAYSIZE(deferredDebugOptions));
 
                 ImGui::EndTabItem();
@@ -881,50 +881,42 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         constexpr uint32_t minMip = 0;
         constexpr uint32_t maxMip = 4;
 
-        ImGui::SliderScalar("GTAO level", ImGuiDataType_S32, &gtaoMip, &minMip, &maxMip);
-
-        if (ImGui::Button("Save GTAO depth image")) {
-            if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                const std::filesystem::path path = file::imagesSavePath / "gtao_depth.png";
-
-                auto depthNormalize = [](const uint16_t depth) {
-                    // Equivalent
-                    float manualDepth = math::halfToFloat(depth);
-                    float libraryDepth = half_float::detail::half2float<float>(depth);
-                    return libraryDepth / 1000.f;
-                };
-
-                vk_helpers::saveImageR16F(
-                    *engine->resourceManager,
-                    *engine->immediate,
-                    engine->ambientOcclusionPipeline->depthPrefilterImage,
-                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                    VK_IMAGE_ASPECT_COLOR_BIT,
-                    path.string().c_str(),
-                    depthNormalize,
-                    gtaoMip
-                );
-            }
-            else {
-                fmt::print(" Failed to find/create image save path directory");
+        if (aoDebugTextureImguiId == VK_NULL_HANDLE) {
+            if (engine->ambientOcclusionPipeline->debugImage.image != VK_NULL_HANDLE) {
+                aoDebugTextureImguiId = ImGui_ImplVulkan_AddTexture(engine->resourceManager->getDefaultSamplerLinear(),
+                                                                    engine->ambientOcclusionPipeline->debugImage.imageView,
+                                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             }
         }
 
-        if (ImGui::Button("Save raw ao image")) {
-            if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                const std::filesystem::path path = file::imagesSavePath / "raw_ao_image.png";
 
-                vk_helpers::saveImageR8UNORM(
+        if (aoDebugTextureImguiId == VK_NULL_HANDLE) {
+            ImGui::Text("Issue.");
+        }
+        else {
+            float maxSize = ImGui::GetContentRegionAvail().x;
+            maxSize = glm::min(maxSize, 1024.0f);
+
+            VkExtent3D imageExtent = engine->ambientOcclusionPipeline->debugImage.imageExtent;
+            float width = std::min(maxSize, static_cast<float>(imageExtent.width));
+            float aspectRatio = static_cast<float>(imageExtent.width) / static_cast<float>(imageExtent.height);
+            float height = width / aspectRatio;
+
+            ImGui::Image(reinterpret_cast<ImTextureID>(aoDebugTextureImguiId), ImVec2(width, height));
+        }
+
+        if (ImGui::Button("Save GTAO Debug Image")) {
+            if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                const std::filesystem::path path = file::imagesSavePath / "gtao_debug.png";
+
+                vk_helpers::saveImageR8G8B8A8UNORM(
                     *engine->resourceManager,
                     *engine->immediate,
-                    engine->ambientOcclusionPipeline->ambientOcclusionImage,
+                    engine->ambientOcclusionPipeline->debugImage,
                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                     path.string().c_str(),
                     0
                 );
-            }
-            else {
-                fmt::print(" Failed to find/create image save path directory");
             }
         }
     }

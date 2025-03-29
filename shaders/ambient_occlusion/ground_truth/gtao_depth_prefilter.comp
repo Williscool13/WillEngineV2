@@ -15,25 +15,25 @@ layout (r16f, set = 1, binding = 2) uniform image2D outDepth1;
 layout (r16f, set = 1, binding = 3) uniform image2D outDepth2;
 layout (r16f, set = 1, binding = 4) uniform image2D outDepth3;
 layout (r16f, set = 1, binding = 5) uniform image2D outDepth4;
+layout (rgba8, set = 1, binding = 6) uniform image2D debugImage;
 
 layout (push_constant) uniform PushConstants {
-    vec2 ndcToViewMult;
-    vec2 ndcToViewAdd;
-
     float depthLinearizeMult;
     float depthLinearizeAdd;
 
-    float radius;
-    float falloff;
+    float projectionParamX;
+    float projectionParamY;
+
+    float effectRadius;
+    float effectFalloffRange;
+    float denoiseBlurBeta;
+
     float radiusMultiplier;
-
-    float strength;
-
-    int numDirections;
-    int numSteps;
-
-    float temporalWeight;
-    float spatialFilterRadius;
+    float sampleDistributionPower;
+    float thinOccluderCompensation;
+    float finalValuePower;
+    float depthMipSamplingOffset;
+    float noiseIndex;
 } pushConstants;
 
 float screenToViewSpaceDepth(float screenDepth, float depthLinearizeMul, float depthLinearizeAdd) {
@@ -78,6 +78,10 @@ void main() {
     const uvec2 baseCoord = gl_GlobalInvocationID.xy;
     const ivec2 screenPos = ivec2(baseCoord.xy) * 2;// We process 2x2 pixels in MIP 0
 
+    if (screenPos.x > sceneData.renderTargetSize.x || screenPos.y > sceneData.renderTargetSize.y) {
+        return;
+    }
+
     vec2 uv = (vec2(screenPos) + 0.5) * sceneData.texelSize;
 
     float rDepth0 = texture(depthImage, uv + vec2(0.0, 0.0) * sceneData.texelSize).r;
@@ -97,7 +101,7 @@ void main() {
 
 
     // MIP 1
-    float dm1 = depthMipFilter(depth0, depth1, depth2, depth3, pushConstants.radius, pushConstants.radiusMultiplier, pushConstants.falloff);
+    float dm1 = depthMipFilter(depth0, depth1, depth2, depth3, pushConstants.effectRadius, pushConstants.radiusMultiplier, pushConstants.effectFalloffRange);
     imageStore(outDepth1, ivec2(baseCoord), vec4(dm1));
     g_scratchDepths[groupThreadID.x][groupThreadID.y] = dm1;
 
@@ -111,7 +115,7 @@ void main() {
         float inBL = g_scratchDepths[groupThreadID.x+0][groupThreadID.y+1];
         float inBR = g_scratchDepths[groupThreadID.x+1][groupThreadID.y+1];
 
-        float dm2 = depthMipFilter(inTL, inTR, inBL, inBR, pushConstants.radius, pushConstants.radiusMultiplier, pushConstants.falloff);
+        float dm2 = depthMipFilter(inTL, inTR, inBL, inBR, pushConstants.effectRadius, pushConstants.radiusMultiplier, pushConstants.effectFalloffRange);
         imageStore(outDepth2, ivec2(baseCoord/2u), vec4(dm2));
         g_scratchDepths[groupThreadID.x][groupThreadID.y] = dm2;
     }
@@ -126,7 +130,7 @@ void main() {
         float inBL = g_scratchDepths[groupThreadID.x+0][groupThreadID.y+2];
         float inBR = g_scratchDepths[groupThreadID.x+2][groupThreadID.y+2];
 
-        float dm3 = depthMipFilter(inTL, inTR, inBL, inBR, pushConstants.radius, pushConstants.radiusMultiplier, pushConstants.falloff);
+        float dm3 = depthMipFilter(inTL, inTR, inBL, inBR, pushConstants.effectRadius, pushConstants.radiusMultiplier, pushConstants.effectFalloffRange);
         imageStore(outDepth3, ivec2(baseCoord/4u), vec4(dm3));
         g_scratchDepths[groupThreadID.x][groupThreadID.y] = dm3;
     }
@@ -141,7 +145,7 @@ void main() {
         float inBL = g_scratchDepths[groupThreadID.x+0][groupThreadID.y+4];
         float inBR = g_scratchDepths[groupThreadID.x+4][groupThreadID.y+4];
 
-        float dm4 = depthMipFilter(inTL, inTR, inBL, inBR, pushConstants.radius, pushConstants.radiusMultiplier, pushConstants.falloff);
+        float dm4 = depthMipFilter(inTL, inTR, inBL, inBR, pushConstants.effectRadius, pushConstants.radiusMultiplier, pushConstants.effectFalloffRange);
         imageStore(outDepth4, ivec2(baseCoord/8u), vec4(dm4));
         //g_scratchDepths[groupThreadID.x][groupThreadID.y] = dm4;
     }

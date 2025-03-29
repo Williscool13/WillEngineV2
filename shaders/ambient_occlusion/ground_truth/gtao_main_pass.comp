@@ -9,25 +9,25 @@ layout(local_size_x = 16, local_size_y = 16) in;
 layout (set = 1, binding = 0) uniform sampler2D prefilteredDepth;
 layout (set = 1, binding = 1) uniform sampler2D normalBuffer;
 layout (r8, set = 1, binding = 2) uniform image2D aoOutput;
+layout (rgba8, set = 1, binding = 3) uniform image2D debugImage;
 
 layout (push_constant) uniform PushConstants {
-    vec2 ndcToViewMult;
-    vec2 ndcToViewAdd;
-
     float depthLinearizeMult;
     float depthLinearizeAdd;
 
-    float radius;
-    float falloff;
+    float projectionParamX;
+    float projectionParamY;
+
+    float effectRadius;
+    float effectFalloffRange;
+    float denoiseBlurBeta;
+
     float radiusMultiplier;
-
-    float strength;
-
-    int numDirections;
-    int numSteps;
-
-    float temporalWeight;
-    float spatialFilterRadius;
+    float sampleDistributionPower;
+    float thinOccluderCompensation;
+    float finalValuePower;
+    float depthMipSamplingOffset;
+    float noiseIndex;
 } pushConstants;
 
 vec4 calculateDepthEdges(const float centerZ, const float leftZ, const float rightZ, const float topZ, const float bottomZ)
@@ -42,9 +42,19 @@ vec4 calculateDepthEdges(const float centerZ, const float leftZ, const float rig
     return clamp((1.25 - edgesLRTB / (centerZ * 0.011)), 0, 1);;
 }
 
+vec3 reconstructViewSpacePosition(vec2 uv, float viewDepth, float xProj, float yProj) {
+    vec2 ndc = uv * 2.0 - 1.0;
+    vec2 projectionParams = vec2(1.0 / xProj, 1.0 / yProj);
+    return vec3(ndc * viewDepth * projectionParams, -viewDepth);
+}
+
 void main() {
-    // todo: a debug output image that will be used to visualize every step in a separate output image shared by every stage!
     const ivec2 screenPos = ivec2(gl_GlobalInvocationID.xy);
+
+    if (screenPos.x > sceneData.renderTargetSize.x || screenPos.y > sceneData.renderTargetSize.y) {
+        return;
+    }
+
     vec2 uv = (vec2(screenPos) + 0.5) * sceneData.texelSize;
 
     float viewSpaceZM = textureLod(prefilteredDepth, uv + vec2(0.0, 0.0) * sceneData.texelSize, 0).r;
@@ -55,18 +65,36 @@ void main() {
 
     vec4 edges  = calculateDepthEdges(viewSpaceZM, viewSpaceZL, viewSpaceZR, viewSpaceZT, viewSpaceZB);
     float minEdge = min(min(edges.x, edges.y), min(edges.z, edges.w));
-    imageStore(aoOutput, screenPos, vec4(minEdge));
+    // imageStore(debugImage, screenPos, vec4(vec3(minEdge), 1.0f));
 
     // Get view space normal by sampling normal buffer and converting from world to view (code not relevant)
-    //vec3 viewspaceNormal = (lpfloat3)XeGTAO_CalculateNormal(edgesLRTB, CENTER, LEFT, RIGHT, TOP, BOTTOM);
+    vec3 worldNormal = texture(normalBuffer, uv).rgb;
+    vec3 viewNormal = mat3(sceneData.view) * worldNormal;
+    // imageStore(debugImage, screenPos, vec4(viewNormal * 0.5f + 0.5f, 1.0f));
 
     // Per Intel: Move center pixel slightly towards camera to avoid imprecision artifacts due to depth buffer imprecision; offset depends on depth texture format used
-    viewspaceZM = viewspaceZM * 0.99920f;
+    viewSpaceZM = viewSpaceZM * 0.99920f;
 
-    // Get the viewspace fragment position of the center pixel (i.e. reconstruct from depth, but in view space instead of world space)
-    // const vec3 pixCenterPos = XeGTAO_ComputeViewspacePosition( normalizedScreenPos, viewspaceZ, consts );
-    // const vec3 viewVec = normalize(-pixCenterPos);
 
+    vec3 vPos = reconstructViewSpacePosition(uv, viewSpaceZM, pushConstants.projectionParamX, pushConstants.projectionParamY);
+    vec3 viewVec = normalize(-vPos);
+    imageStore(debugImage, screenPos, vec4(viewVec, 1.0f));
+
+    // Per Intel
     // prevents normals that are facing away from the view vector - xeGTAO struggles with extreme cases, but in Vanilla it seems rare so it's disabled by default
     // viewspaceNormal = normalize( viewspaceNormal + max( 0, -dot( viewspaceNormal, viewVec ) ) * viewVec );
+
+
+    const float effectRadius = pushConstants.effectRadius * pushConstants.radiusMultiplier;
+    const float sampleDistributionPower = pushConstants.sampleDistributionPower;
+    const float thinOccluderCompensation = pushConstants.thinOccluderCompensation;
+    const float falloffRange = pushConstants.effectFalloffRange * effectRadius;
+
+    const float falloffFrom = effectRadius * (1 - pushConstants.effectFalloffRange);
+
+    // fadeout precompute optimisation
+    const float falloffMul = 1.0 / (falloffRange);
+    const float falloffAdd = falloffFrom / (falloffRange) + 1.0;
+
+    vec3 bentNormal = viewNormal;
 }

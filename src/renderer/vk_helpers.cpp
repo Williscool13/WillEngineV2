@@ -872,6 +872,53 @@ void will_engine::vk_helpers::saveImageR8UNORM(const ResourceManager& resourceMa
     resourceManager.destroyBuffer(receivingBuffer);
 }
 
+void will_engine::vk_helpers::saveImageR8G8B8A8UNORM(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
+    const AllocatedImage& image, VkImageLayout imageLayout, const char* savePath, int32_t mipLevel)
+{
+    const size_t width = image.imageExtent.width / static_cast<size_t>(std::pow(2, mipLevel));
+    const size_t height = image.imageExtent.height / static_cast<size_t>(std::pow(2, mipLevel));
+    const size_t texelCount = width * height;
+    const size_t dataSize = texelCount * 4 * sizeof(uint8_t);
+
+    AllocatedBuffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
+
+    immediate.submit([&, mipLevel](VkCommandBuffer cmd) {
+        VkBufferImageCopy bufferCopyRegion{};
+        bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        bufferCopyRegion.imageSubresource.mipLevel = mipLevel;
+        bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
+        bufferCopyRegion.imageSubresource.layerCount = 1;
+        bufferCopyRegion.imageExtent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1u};
+        bufferCopyRegion.bufferOffset = 0;
+        bufferCopyRegion.bufferRowLength = 0;
+        bufferCopyRegion.bufferImageHeight = 0;
+
+        transitionImage(cmd, image.image, imageLayout, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+
+        vkCmdCopyImageToBuffer(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer.buffer, 1, &bufferCopyRegion);
+
+        transitionImage(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout, VK_IMAGE_ASPECT_COLOR_BIT);
+    });
+
+    void* data = receivingBuffer.info.pMappedData;
+    const auto imageData = static_cast<uint8_t*>(data);
+
+    const auto byteImageData = new uint8_t[texelCount * 4];
+    for (size_t i = 0; i < texelCount; ++i) {
+        const auto value = imageData[i];
+        byteImageData[i * 4 + 0] = imageData[i * 4 + 0];
+        byteImageData[i * 4 + 1] = imageData[i * 4 + 1];
+        byteImageData[i * 4 + 2] = imageData[i * 4 + 2];
+        // overwrite alpha to 1.0f
+        byteImageData[i * 4 + 3] = 255;
+    }
+
+    stbi_write_png(savePath, static_cast<int>(width), static_cast<int>(height), 4, byteImageData, static_cast<int>(width) * 4);
+
+    delete[] byteImageData;
+    resourceManager.destroyBuffer(receivingBuffer);
+}
+
 void will_engine::vk_helpers::saveImage(const std::vector<float>& imageData, int width, int height, std::filesystem::path filename, bool overrideAlpha)
 {
     const auto byteImageData = new uint8_t[width * height * 4];
