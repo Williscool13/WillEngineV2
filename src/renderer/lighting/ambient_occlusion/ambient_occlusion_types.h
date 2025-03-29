@@ -15,11 +15,15 @@ static constexpr int32_t GTAO_DENOISE_PASSES = 1;
 
 struct GTAOPushConstants
 {
+    glm::vec2 cameraTanHalfFOV;
+
+    glm::vec2 ndcToViewMul;
+    glm::vec2 ndcToViewAdd;
+
+    glm::vec2 ndcToViewMul_x_PixelSize;
+
     float depthLinearizeMult;
     float depthLinearizeAdd;
-
-    float projectionParamX;
-    float projectionParamY;
 
     float effectRadius = 0.5f;
     float effectFalloffRange = 0.615f;
@@ -30,7 +34,7 @@ struct GTAOPushConstants
     float thinOccluderCompensation = 0.0f;
     float finalValuePower = 2.2f;
     float depthMipSamplingOffset = 3.30f;
-    float noiseIndex;
+    uint32_t noiseIndex;
 };
 
 struct GTAODrawInfo

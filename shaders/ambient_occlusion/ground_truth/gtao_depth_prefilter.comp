@@ -18,11 +18,15 @@ layout (r16f, set = 1, binding = 5) uniform image2D outDepth4;
 layout (rgba8, set = 1, binding = 6) uniform image2D debugImage;
 
 layout (push_constant) uniform PushConstants {
+    vec2 cameraTanHalfFOV;
+
+    vec2 ndcToViewMul;
+    vec2 ndcToViewAdd;
+
+    vec2 ndcToViewMul_x_PixelSize;
+
     float depthLinearizeMult;
     float depthLinearizeAdd;
-
-    float projectionParamX;
-    float projectionParamY;
 
     float effectRadius;
     float effectFalloffRange;
@@ -33,7 +37,7 @@ layout (push_constant) uniform PushConstants {
     float thinOccluderCompensation;
     float finalValuePower;
     float depthMipSamplingOffset;
-    float noiseIndex;
+    uint noiseIndex;
 } pushConstants;
 
 float screenToViewSpaceDepth(float screenDepth, float depthLinearizeMul, float depthLinearizeAdd) {

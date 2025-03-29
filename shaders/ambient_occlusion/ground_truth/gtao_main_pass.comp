@@ -12,11 +12,15 @@ layout (r8, set = 1, binding = 2) uniform image2D aoOutput;
 layout (rgba8, set = 1, binding = 3) uniform image2D debugImage;
 
 layout (push_constant) uniform PushConstants {
+    vec2 cameraTanHalfFOV;
+
+    vec2 ndcToViewMul;
+    vec2 ndcToViewAdd;
+
+    vec2 ndcToViewMul_x_PixelSize;
+
     float depthLinearizeMult;
     float depthLinearizeAdd;
-
-    float projectionParamX;
-    float projectionParamY;
 
     float effectRadius;
     float effectFalloffRange;
@@ -27,8 +31,43 @@ layout (push_constant) uniform PushConstants {
     float thinOccluderCompensation;
     float finalValuePower;
     float depthMipSamplingOffset;
-    float noiseIndex;
+    uint noiseIndex;
 } pushConstants;
+
+#define XE_HILBERT_LEVEL 6u
+#define XE_HILBERT_WIDTH (1u << XE_HILBERT_LEVEL)
+#define XE_HILBERT_AREA (XE_HILBERT_WIDTH * XE_HILBERT_WIDTH)
+
+uint hilbertIndex(uint posX, uint posY)
+{
+    uint index = 0u;
+    for (uint curLevel = XE_HILBERT_WIDTH/2u; curLevel > 0u; curLevel /= 2u)
+    {
+        uint regionX = (posX & curLevel) > 0u ? 1u : 0u;
+        uint regionY = (posY & curLevel) > 0u ? 1u : 0u;
+        index += curLevel * curLevel * ((3u * regionX) ^ regionY);
+        if (regionY == 0u)
+        {
+            if (regionX == 1u)
+            {
+                posX = uint(XE_HILBERT_WIDTH - 1u) - posX;
+                posY = uint(XE_HILBERT_WIDTH - 1u) - posY;
+            }
+
+            uint temp = posX;
+            posX = posY;
+            posY = temp;
+        }
+    }
+    return index;
+}
+
+vec2 spatioTemporalNoise(ivec2 pixCoord, uint temporalIndex)// without TAA, temporalIndex is always 0
+{
+    uint index = hilbertIndex(uint(pixCoord.x), uint(pixCoord.y));
+    index += 288u * (temporalIndex % 64u);
+    return vec2(fract(0.5 + index * vec2(0.75487766624669276005, 0.5698402909980532659114)));
+}
 
 vec4 calculateDepthEdges(const float centerZ, const float leftZ, const float rightZ, const float topZ, const float bottomZ)
 {
@@ -42,10 +81,29 @@ vec4 calculateDepthEdges(const float centerZ, const float leftZ, const float rig
     return clamp((1.25 - edgesLRTB / (centerZ * 0.011)), 0, 1);;
 }
 
-vec3 reconstructViewSpacePosition(vec2 uv, float viewDepth, float xProj, float yProj) {
+vec3 cheapReconstructViewSpacePosition(vec2 uv, const float viewspaceDepth, vec2 ndcToViewMul, vec2 ndcToViewAdd)
+{
+    vec3 ret;
+    ret.xy = (ndcToViewMul * uv.xy + ndcToViewAdd) * viewspaceDepth;
+    ret.z = -viewspaceDepth;
+    return ret;
+}
+
+
+vec3 reconstructViewSpacePosition(vec2 uv, float viewDepth, float depthLinearizeAdd, float depthLinearizeMult) {
+    float ndcDepth = pushConstants.depthLinearizeAdd - (pushConstants.depthLinearizeMult / viewDepth);
+    uv.y = 1 - uv.y;
     vec2 ndc = uv * 2.0 - 1.0;
-    vec2 projectionParams = vec2(1.0 / xProj, 1.0 / yProj);
-    return vec3(ndc * viewDepth * projectionParams, -viewDepth);
+    vec4 positionVS = sceneData.invProjection * vec4(ndc, ndcDepth, 1.0);
+
+    positionVS /= positionVS.w;
+    return positionVS.xyz;
+}
+
+void outputWorkingTerm(ivec2 screenPos, float visibility, vec3 bentNormal, image2D outputImage){
+    const float XE_GTAO_OCCLUSION_TERM_SCALE = 1.5f;
+    visibility = clamp(visibility / XE_GTAO_OCCLUSION_TERM_SCALE, 0, 1);
+    imageStore(outputImage, screenPos, vec4(visibility + 0.5f / 255.0f));
 }
 
 void main() {
@@ -75,10 +133,14 @@ void main() {
     // Per Intel: Move center pixel slightly towards camera to avoid imprecision artifacts due to depth buffer imprecision; offset depends on depth texture format used
     viewSpaceZM = viewSpaceZM * 0.99920f;
 
+    vec3 vPos = cheapReconstructViewSpacePosition(uv, viewSpaceZM, pushConstants.ndcToViewMul, pushConstants.ndcToViewAdd);
 
-    vec3 vPos = reconstructViewSpacePosition(uv, viewSpaceZM, pushConstants.projectionParamX, pushConstants.projectionParamY);
     vec3 viewVec = normalize(-vPos);
-    imageStore(debugImage, screenPos, vec4(viewVec, 1.0f));
+    //imageStore(debugImage, screenPos, vec4(viewVec, 1.0f));
+
+    // debug world pos
+    vec3 worldPos = (sceneData.invView * vec4(vPos, 1.0)).xyz;
+    imageStore(debugImage, screenPos, vec4(worldPos / 1000.0f, 1.0f));
 
     // Per Intel
     // prevents normals that are facing away from the view vector - xeGTAO struggles with extreme cases, but in Vanilla it seems rare so it's disabled by default
@@ -96,5 +158,30 @@ void main() {
     const float falloffMul = 1.0 / (falloffRange);
     const float falloffAdd = falloffFrom / (falloffRange) + 1.0;
 
+    float visibility = 0;
+    // set bent normal to 0 if generating and outputting to buffer for use in deferred resolve
     vec3 bentNormal = viewNormal;
+
+    // NOISE
+    vec2 noise = spatioTemporalNoise(screenPos, pushConstants.noiseIndex);
+    float noiseSlice = noise.x;
+    float noiseSample = noise.y;
+
+    const float pixelTooCloseThreshold  = 1.3;
+    const vec2 pixelDirRBViewspaceSizeAtCenterZ = viewSpaceZM.xx * pushConstants.ndcToViewMul_x_PixelSize;
+
+    float screenspaceRadius = effectRadius / pixelDirRBViewspaceSizeAtCenterZ.x;
+    visibility += clamp((10 - screenspaceRadius)/100, 0, 1) * 0.5;
+
+    if(screenspaceRadius < pixelTooCloseThreshold)
+    {
+        visibility = 1;
+        const float XE_GTAO_OCCLUSION_TERM_SCALE = 1.5f;
+        visibility = clamp(visibility / XE_GTAO_OCCLUSION_TERM_SCALE, 0, 1);
+        imageStore(debugImage, screenPos, vec4(vec3(visibility), 1.0f));
+        // if outputting bent normals, need to write `viewNormal's` value to the buffer (i.e. no change to trajectory of normal)
+        return;
+    } else {
+        imageStore(debugImage, screenPos, vec4(vec3(1.0f, 1.0f, 0.0f), 1.0f));
+    }
 }

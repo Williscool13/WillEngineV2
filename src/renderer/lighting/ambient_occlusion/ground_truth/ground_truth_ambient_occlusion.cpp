@@ -381,9 +381,18 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
     glm::mat4 projMatrix = drawInfo.camera->getProjMatrix();
     push.depthLinearizeMult = -projMatrix[3][2];
     push.depthLinearizeAdd = projMatrix[2][2];
+    if (push.depthLinearizeMult * push.depthLinearizeAdd < 0) {
+        push.depthLinearizeAdd = -push.depthLinearizeAdd;
+    }
 
-    push.projectionParamX = projMatrix[0][0];
-    push.projectionParamY = projMatrix[1][1];
+    float tanHalfFOVY = 1.0f / projMatrix[1][1];
+    float tanHalfFOVX = 1.0F / projMatrix[0][0];
+    push.cameraTanHalfFOV = {tanHalfFOVX, tanHalfFOVY};
+    push.ndcToViewMul = {push.cameraTanHalfFOV.x * 2.0f, push.cameraTanHalfFOV.y * -2.0f};
+    push.ndcToViewAdd = {push.cameraTanHalfFOV.x * -1.0f, push.cameraTanHalfFOV.y * 1.0f};
+    constexpr glm::vec2 texelSize = {1.0f / RENDER_EXTENT_WIDTH, 1.0f / RENDER_EXTENT_HEIGHT};
+    push.ndcToViewMul_x_PixelSize = {push.ndcToViewMul.x * texelSize.x, push.ndcToViewMul.y * texelSize.y};
+
 
     push.noiseIndex = GTAO_DENOISE_PASSES > 0 ? drawInfo.currentFrame % 64 : 0;
 
@@ -442,7 +451,7 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
 
 
     vk_helpers::transitionImage(cmd, debugImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                            VK_IMAGE_ASPECT_COLOR_BIT);
+                                VK_IMAGE_ASPECT_COLOR_BIT);
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }

@@ -186,8 +186,9 @@ void main() {
             imageStore(outputImage, screenPos, vec4(vec3(dot(N, L)), 1.0));
             break;
         case 9:
-            vec4 viewPos = sceneData.view * vec4(position, 1.0f);
-            imageStore(outputImage, screenPos, vec4(-viewPos.xyz / 100.0f, 1.0f));
+            // vec4 viewPos = sceneData.view * vec4(position, 1.0f);
+            // imageStore(outputImage, screenPos, vec4(-viewPos.xyz / 100.0f, 1.0f));
+            imageStore(outputImage, screenPos, vec4(position.xyz / 1000.0f, 1.0f));
             break;
     }
 }
