@@ -135,20 +135,13 @@ void main() {
 
     vec2 uv = (vec2(screenPos) + 0.5) * sceneData.texelSize;
 
-    float viewSpaceZM = textureLod(prefilteredDepth, uv + vec2(0.0, 0.0) * sceneData.texelSize, 0).r;
-    float viewSpaceZL = textureLod(prefilteredDepth, uv + vec2(-1.0, 0.0) * sceneData.texelSize, 0).r;
-    float viewSpaceZR = textureLod(prefilteredDepth, uv + vec2(1.0, 0.0) * sceneData.texelSize, 0).r;
-    float viewSpaceZT = textureLod(prefilteredDepth, uv + vec2(0.0, 1.0) * sceneData.texelSize, 0).r;
-    float viewSpaceZB = textureLod(prefilteredDepth, uv + vec2(0.0, -1.0) * sceneData.texelSize, 0).r;
-
-    // Theoretically Equivalent, but visibly more noisy for some reason.
-    // vec4 leftGather = textureGather(prefilteredDepth, uv + vec2(-1.0, 0.0) * sceneData.texelSize, 0);
-    // float viewSpaceZL = leftGather.x;
-    // float viewSpaceZT = leftGather.w;
-    // float viewSpaceZM = leftGather.y;
-    // vec4 bottomather = textureGather(prefilteredDepth, uv + vec2(0.0, -1.0) * sceneData.texelSize, 0);
-    // float viewSpaceZB = bottomather.x;
-    // float viewSpaceZR = bottomather.w;
+    vec4 valuesUL = textureGather(prefilteredDepth, screenPos * sceneData.texelSize, 0);
+    vec4 valuesBR = textureGatherOffset(prefilteredDepth, screenPos * sceneData.texelSize, ivec2(1,1), 0);
+    float viewSpaceZM = valuesUL.y;
+    const float viewSpaceZL = valuesUL.x;
+    const float viewSpaceZR = valuesUL.z;
+    const float viewSpaceZT = valuesBR.z;
+    const float viewSpaceZB = valuesBR.x;
 
     vec4 edges  = calculateDepthEdges(viewSpaceZM, viewSpaceZL, viewSpaceZR, viewSpaceZT, viewSpaceZB);
     float packedEdges = XeGTAO_PackEdges(edges);
