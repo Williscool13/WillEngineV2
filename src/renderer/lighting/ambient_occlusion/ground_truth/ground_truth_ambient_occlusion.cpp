@@ -64,7 +64,6 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
         VkImageUsageFlags usage{};
         usage |= VK_IMAGE_USAGE_STORAGE_BIT;
         usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-        usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
         VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(depthPrefilterFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
@@ -82,8 +81,17 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
         VkSamplerCreateInfo samplerInfo = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
         samplerInfo.magFilter = VK_FILTER_NEAREST;
         samplerInfo.minFilter = VK_FILTER_NEAREST;
+        samplerInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+        samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+        samplerInfo.anisotropyEnable = VK_FALSE;
+        samplerInfo.maxAnisotropy = 1.0f;
+        samplerInfo.compareEnable = VK_FALSE;
+        samplerInfo.minLod = 0.0f;
+        samplerInfo.maxLod = 0.0f;
 
-        depthPrefilterSampler = resourceManager.createSampler(samplerInfo);
+        depthSampler = resourceManager.createSampler(samplerInfo);
     }
 
     // AO Calculation
@@ -92,7 +100,8 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // pre-filtered depth
         layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // MRT normal buffer
         layoutBuilder.addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // ao output
-        layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // debug image
+        layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // edge data output
+        layoutBuilder.addBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // debug image
 
         ambientOcclusionSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT,
                                                                               VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
@@ -122,11 +131,17 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
         VkImageUsageFlags usage{};
         usage |= VK_IMAGE_USAGE_STORAGE_BIT;
         usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-        usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
         VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(ambientOcclusionFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
         ambientOcclusionImage = resourceManager.createImage(imgInfo);
+
+        usage = {};
+        usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+
+        imgInfo = vk_helpers::imageCreateInfo(edgeDataFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
+        edgeDataImage = resourceManager.createImage(imgInfo);
+
 
         // Depth Mip sampler
         {
@@ -143,7 +158,7 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
             samplerInfo.minLod = 0.0f;
             samplerInfo.maxLod = DEPTH_PREFILTER_MIP_COUNT - 1;
 
-            ambientOcclusionDepthSampler = resourceManager.createSampler(samplerInfo);
+            depthPrefilterSampler = resourceManager.createSampler(samplerInfo);
         }
 
         // Normals sampler
@@ -161,7 +176,7 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
             samplerInfo.minLod = 0.0f;
             samplerInfo.maxLod = 0.0f;
 
-            ambientOcclusionNormalsSampler = resourceManager.createSampler(samplerInfo);
+            normalsSampler = resourceManager.createSampler(samplerInfo);
         }
     }
 
@@ -169,9 +184,9 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
     {
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // raw ao
-        layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // MRT depth buffer
-        layoutBuilder.addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // MRT normal buffer
-        layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // filtered ao
+        layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // edge data
+        layoutBuilder.addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // filtered ao
+        layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // debug image
 
         spatialFilteringSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT,
                                                                               VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
@@ -271,7 +286,7 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::~GroundTrut
     }
 
     resourceManager.destroyImage(depthPrefilterImage);
-    resourceManager.destroySampler(depthPrefilterSampler);
+    resourceManager.destroySampler(depthSampler);
 
     resourceManager.destroyDescriptorBuffer(depthPrefilterDescriptorBuffer);
 
@@ -280,9 +295,10 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::~GroundTrut
     resourceManager.destroyPipelineLayout(ambientOcclusionPipelineLayout);
     resourceManager.destroyPipeline(ambientOcclusionPipeline);
 
-    resourceManager.destroySampler(ambientOcclusionDepthSampler);
-    resourceManager.destroySampler(ambientOcclusionNormalsSampler);
+    resourceManager.destroySampler(depthPrefilterSampler);
+    resourceManager.destroySampler(normalsSampler);
     resourceManager.destroyImage(ambientOcclusionImage);
+    resourceManager.destroyImage(edgeDataImage);
 
     resourceManager.destroyDescriptorBuffer(ambientOcclusionDescriptorBuffer);
 
@@ -315,7 +331,7 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupD
     imageDescriptors.push_back(
         {
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            {resourceManager.getDefaultSamplerLinear(), depthImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+            {depthSampler, depthImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
             false
         }
     );
@@ -338,7 +354,7 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupD
     resourceManager.setupDescriptorBufferSampler(depthPrefilterDescriptorBuffer, imageDescriptors, 0);
 }
 
-void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupAmbientOcclusionDescriptorBuffer(VkImageView normalsImageView)
+void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupAmbientOcclusionDescriptorBuffer(const VkImageView& normalsImageView)
 {
     std::vector<DescriptorImageData> imageDescriptors{};
     imageDescriptors.reserve(4);
@@ -346,19 +362,25 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupA
     imageDescriptors.push_back(
         {
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            {ambientOcclusionDepthSampler, depthPrefilterImage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+            {depthPrefilterSampler, depthPrefilterImage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
             false
         });
     imageDescriptors.push_back(
         {
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            {ambientOcclusionNormalsSampler, normalsImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+            {normalsSampler, normalsImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
             false
         });
     imageDescriptors.push_back(
         {
             VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
             {VK_NULL_HANDLE, ambientOcclusionImage.imageView, VK_IMAGE_LAYOUT_GENERAL},
+            false
+        });
+    imageDescriptors.push_back(
+        {
+            VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+            {VK_NULL_HANDLE, edgeDataImage.imageView, VK_IMAGE_LAYOUT_GENERAL},
             false
         });
     imageDescriptors.push_back({
@@ -368,6 +390,50 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupA
     });
 
     resourceManager.setupDescriptorBufferSampler(ambientOcclusionDescriptorBuffer, imageDescriptors, 0);
+}
+
+void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupSpatialFilteringDescriptorBuffer(const VkImageView& depthImageView,
+    const VkImageView& normalsImageView)
+{
+    std::vector<DescriptorImageData> imageDescriptors{};
+    imageDescriptors.reserve(5);
+
+    imageDescriptors.push_back(
+        {
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            {depthSampler, ambientOcclusionImage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+            false
+        });
+    // imageDescriptors.push_back(
+    //     {
+    //         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+    //         {depthSampler, depthImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+    //         false
+    //     });
+    // imageDescriptors.push_back(
+    //     {
+    //         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+    //         {normalsSampler, normalsImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+    //         false
+    //     });
+    imageDescriptors.push_back(
+        {
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+            {depthSampler, edgeDataImage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+            false
+        });
+    imageDescriptors.push_back({
+        VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        {VK_NULL_HANDLE, spatialFilteringImage.imageView, VK_IMAGE_LAYOUT_GENERAL},
+        false
+    });
+    imageDescriptors.push_back({
+        VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        {VK_NULL_HANDLE, debugImage.imageView, VK_IMAGE_LAYOUT_GENERAL},
+        false
+    });
+
+    resourceManager.setupDescriptorBufferSampler(spatialFilteringDescriptorBuffer, imageDescriptors, 0);
 }
 
 void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(VkCommandBuffer cmd, const GTAODrawInfo& drawInfo) const
@@ -448,6 +514,32 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
 
     vk_helpers::transitionImage(cmd, ambientOcclusionImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, spatialFilteringImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
+                                VK_IMAGE_ASPECT_COLOR_BIT);
+    // Spatial Filtering
+    {
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, spatialFilteringPipeline);
+        vkCmdPushConstants(cmd, spatialFilteringPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GTAOPushConstants), &push);
+
+        VkDescriptorBufferBindingInfoEXT bindingInfos[2] = {};
+        bindingInfos[0] = drawInfo.sceneDataBinding;
+        bindingInfos[1] = spatialFilteringDescriptorBuffer.getDescriptorBufferBindingInfo();
+        vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos);
+
+        constexpr std::array<uint32_t, 2> indices{0, 1};
+        const std::array offsets{drawInfo.sceneDataOffset, ZERO_DEVICE_SIZE};
+
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, spatialFilteringPipelineLayout, 0, 2, indices.data(), offsets.data());
+
+        const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
+        const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
+        vkCmdDispatch(cmd, x, y, 1);
+    }
+
+    vk_helpers::transitionImage(cmd, spatialFilteringImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                    VK_IMAGE_ASPECT_COLOR_BIT);
+
+
 
 
     vk_helpers::transitionImage(cmd, debugImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,

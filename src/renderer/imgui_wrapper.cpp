@@ -877,13 +877,11 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::End();
 
     if (ImGui::Begin("Discardable Debug")) {
-        static int32_t gtaoMip;
-        constexpr uint32_t minMip = 0;
-        constexpr uint32_t maxMip = 4;
+        ImGui::InputInt("GTAO Debug", &engine->gtaoDebug);
 
         if (aoDebugTextureImguiId == VK_NULL_HANDLE) {
             if (engine->ambientOcclusionPipeline->debugImage.image != VK_NULL_HANDLE) {
-                aoDebugTextureImguiId = ImGui_ImplVulkan_AddTexture(engine->resourceManager->getDefaultSamplerLinear(),
+                aoDebugTextureImguiId = ImGui_ImplVulkan_AddTexture(engine->resourceManager->getDefaultSamplerNearest(),
                                                                     engine->ambientOcclusionPipeline->debugImage.imageView,
                                                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
             }

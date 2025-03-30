@@ -23,7 +23,9 @@ public:
 
     void setupDepthPrefilterDescriptorBuffer(const VkImageView& depthImageView);
 
-    void setupAmbientOcclusionDescriptorBuffer(VkImageView normalsImageView);
+    void setupAmbientOcclusionDescriptorBuffer(const VkImageView& normalsImageView);
+
+    void setupSpatialFilteringDescriptorBuffer(const VkImageView& depthImageView, const VkImageView& normalsImageView);
 
     void draw(VkCommandBuffer cmd, const GTAODrawInfo& drawInfo) const;
 
@@ -39,7 +41,7 @@ private: // Depth Pre-filter
     VkPipelineLayout depthPrefilterPipelineLayout{VK_NULL_HANDLE};
     VkPipeline depthPrefilterPipeline{VK_NULL_HANDLE};
 
-    VkSampler depthPrefilterSampler{VK_NULL_HANDLE};
+    VkSampler depthSampler{VK_NULL_HANDLE};
 
     // 16 vs 32. look at cost later.
     VkFormat depthPrefilterFormat{VK_FORMAT_R16_SFLOAT};
@@ -53,12 +55,15 @@ private: // Ambient Occlusion
     VkPipelineLayout ambientOcclusionPipelineLayout{VK_NULL_HANDLE};
     VkPipeline ambientOcclusionPipeline{VK_NULL_HANDLE};
 
-    VkSampler ambientOcclusionDepthSampler{VK_NULL_HANDLE};
-    VkSampler ambientOcclusionNormalsSampler{VK_NULL_HANDLE};
+    VkSampler depthPrefilterSampler{VK_NULL_HANDLE};
+    VkSampler normalsSampler{VK_NULL_HANDLE};
 
     // 8 is supposedly enough?
     VkFormat ambientOcclusionFormat{VK_FORMAT_R8_UNORM};
     AllocatedImage ambientOcclusionImage{VK_NULL_HANDLE};
+
+    VkFormat edgeDataFormat{VK_FORMAT_R8_UNORM};
+    AllocatedImage edgeDataImage{VK_NULL_HANDLE};
 
     DescriptorBufferSampler ambientOcclusionDescriptorBuffer;
 

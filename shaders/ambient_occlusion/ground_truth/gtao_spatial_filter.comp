@@ -1,14 +1,46 @@
 #version 460
 
 #include "scene.glsl"
+#include "gtao.glsl"
+
+layout(local_size_x = 16, local_size_y = 16) in;
 
 // layout (std140, set = 0, binding = 0) uniform SceneData - scene.glsl
 
 layout (set = 1, binding = 0) uniform sampler2D rawAO;
-layout (set = 1, binding = 1) uniform sampler2D depthBuffer;
-layout (set = 1, binding = 2) uniform sampler2D normalBuffer;
-layout (r8, set = 1, binding = 3) uniform image2D filteredAO;
+layout (set = 1, binding = 1) uniform sampler2D edgeData;
+layout (r8, set = 1, binding = 2) uniform image2D filteredAO;
+layout (rgba8, set = 1, binding = 3) uniform image2D debugImage;
 
 void main() {
+    const ivec2 screenPos = ivec2(gl_GlobalInvocationID.xy);
 
+    if (screenPos.x > sceneData.renderTargetSize.x || screenPos.y > sceneData.renderTargetSize.y) {
+        return;
+    }
+
+    vec2 uv = (vec2(screenPos) + 0.5) * sceneData.texelSize;
+
+    float blurAmount = pushConstants.denoiseBlurBeta / 5.0f;
+    float diagWeight = 0.85 * 0.5;
+
+    // each dispatch operates on 2x1 pixels
+
+    vec4 edges = XeGTAO_UnpackEdges(texture(edgeData, uv).r);
+    float minEdge = min(min(edges.x, edges.y), min(edges.z, edges.w));
+
+    if (pushConstants.debug == 5){
+        imageStore(debugImage, screenPos, vec4(vec3(minEdge), 1.0f));
+        return;
+    }
+
+    if (pushConstants.debug == 5) {
+        imageStore(debugImage, screenPos, vec4(edges.xyz, 1.0f));
+        return;
+        if (screenPos.x % 2 == 0 && screenPos.y %2 == 0){
+            imageStore(debugImage, screenPos, vec4(vec3(1.0f), 1.0f));
+        } else {
+            imageStore(debugImage, screenPos, vec4(vec3(0.5f), 1.0f));
+        }
+    }
 }

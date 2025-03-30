@@ -1,6 +1,7 @@
 #version 460
 
 #include "scene.glsl"
+#include "gtao.glsl"
 
 layout(local_size_x = 16, local_size_y = 16) in;
 
@@ -9,30 +10,9 @@ layout(local_size_x = 16, local_size_y = 16) in;
 layout (set = 1, binding = 0) uniform sampler2D prefilteredDepth;
 layout (set = 1, binding = 1) uniform sampler2D normalBuffer;
 layout (r8, set = 1, binding = 2) uniform image2D aoOutput;
-layout (rgba8, set = 1, binding = 3) uniform image2D debugImage;
+layout (r8, set = 1, binding = 3) uniform image2D edgeDataOutput;
+layout (rgba8, set = 1, binding = 4) uniform image2D debugImage;
 
-layout (push_constant) uniform PushConstants {
-    vec2 cameraTanHalfFOV;
-
-    vec2 ndcToViewMul;
-    vec2 ndcToViewAdd;
-
-    vec2 ndcToViewMul_x_PixelSize;
-
-    float depthLinearizeMult;
-    float depthLinearizeAdd;
-
-    float effectRadius;
-    float effectFalloffRange;
-    float denoiseBlurBeta;
-
-    float radiusMultiplier;
-    float sampleDistributionPower;
-    float thinOccluderCompensation;
-    float finalValuePower;
-    float depthMipSamplingOffset;
-    uint noiseIndex;
-} pushConstants;
 
 #define XE_HILBERT_LEVEL 6u
 #define XE_HILBERT_WIDTH (1u << XE_HILBERT_LEVEL)
@@ -161,13 +141,34 @@ void main() {
     float viewSpaceZT = textureLod(prefilteredDepth, uv + vec2(0.0, 1.0) * sceneData.texelSize, 0).r;
     float viewSpaceZB = textureLod(prefilteredDepth, uv + vec2(0.0, -1.0) * sceneData.texelSize, 0).r;
 
+    // Theoretically Equivalent, but visibly more noisy for some reason.
+    // vec4 leftGather = textureGather(prefilteredDepth, uv + vec2(-1.0, 0.0) * sceneData.texelSize, 0);
+    // float viewSpaceZL = leftGather.x;
+    // float viewSpaceZT = leftGather.w;
+    // float viewSpaceZM = leftGather.y;
+    // vec4 bottomather = textureGather(prefilteredDepth, uv + vec2(0.0, -1.0) * sceneData.texelSize, 0);
+    // float viewSpaceZB = bottomather.x;
+    // float viewSpaceZR = bottomather.w;
+
     vec4 edges  = calculateDepthEdges(viewSpaceZM, viewSpaceZL, viewSpaceZR, viewSpaceZT, viewSpaceZB);
+    float packedEdges = XeGTAO_PackEdges(edges);
+    imageStore(edgeDataOutput, screenPos, vec4(packedEdges));
+
     float minEdge = min(min(edges.x, edges.y), min(edges.z, edges.w));
-    // imageStore(debugImage, screenPos, vec4(vec3(minEdge), 1.0f));
+
+    if (pushConstants.debug == 2){
+        imageStore(debugImage, screenPos, vec4(vec3(minEdge), 1.0f));
+        return;
+    }
 
     // Get view space normal by sampling normal buffer and converting from world to view (code not relevant)
     vec3 worldNormal = texture(normalBuffer, uv).rgb;
     vec3 viewNormal = adjugate(sceneData.view) * worldNormal;
+
+    if (pushConstants.debug == 2){
+        imageStore(debugImage, screenPos, vec4(viewNormal, 1.0f));
+        return;
+    }
 
     // Per Intel: Move center pixel slightly towards camera to avoid imprecision artifacts due to depth buffer imprecision; offset depends on depth texture format used
     viewSpaceZM = viewSpaceZM * 0.998f;
@@ -177,9 +178,11 @@ void main() {
     vec3 viewVec = normalize(-vPos);
 
     // debug world pos
-//    vec3 worldPos = (sceneData.invView * vec4(vPos, 1.0)).xyz;
-//    imageStore(debugImage, screenPos, vec4(worldPos / 1000.0f, 1.0f));
-//    return;
+    if (pushConstants.debug == 3){
+        vec3 worldPos = (sceneData.invView * vec4(vPos, 1.0)).xyz;
+        imageStore(debugImage, screenPos, vec4(worldPos / 1000.0f, 1.0f));
+        return;
+    }
 
     // Per Intel
     // prevents normals that are facing away from the view vector - xeGTAO struggles with extreme cases, but in Vanilla it seems rare so it's disabled by default
@@ -217,7 +220,12 @@ void main() {
         {
             visibility = 1;
             visibility = clamp(visibility / XE_GTAO_OCCLUSION_TERM_SCALE, 0, 1);
-            imageStore(debugImage, screenPos, vec4(vec3(visibility, 0, visibility), 1.0f));
+            if (pushConstants.debug == 4){
+                imageStore(debugImage, screenPos, vec4(vec3(visibility), 1.0f));
+                return;
+            }
+
+            imageStore(aoOutput, screenPos, vec4(visibility));
             // todo: look at how this will return 1/1.5 instead of 1 for visibility always?
             // todo: (bent normal) need to write `viewNormal` value to the buffer (i.e. no change to trajectory of normal)
             return;
@@ -371,7 +379,10 @@ void main() {
 
     // todo (bent normal)
     visibility = clamp(visibility / XE_GTAO_OCCLUSION_TERM_SCALE, 0, 1);
-    imageStore(debugImage, screenPos, vec4(vec3(visibility), 1.0f));
+    if (pushConstants.debug == 4){
+        imageStore(debugImage, screenPos, vec4(vec3(visibility), 1.0f));
+        return;
+    }
 
-    //imageStore(debugImage, screenPos, vec4(viewNormal * 0.5f + 0.5f, 1.0f));
+    imageStore(aoOutput, screenPos, vec4(visibility));
 }

@@ -175,6 +175,7 @@ private: // Debug
     bool bEnableDebugFrustumCullDraw{false};
     int32_t csmPcf{1};
     int32_t deferredDebug{0};
+    int32_t gtaoDebug{5};
     bool bDrawTerrainLines{false};
 
     void hotReloadShaders() const;

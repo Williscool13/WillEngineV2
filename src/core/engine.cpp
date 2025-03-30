@@ -208,6 +208,7 @@ void Engine::initRenderer()
 
     ambientOcclusionPipeline->setupDepthPrefilterDescriptorBuffer(depthImage.imageView);
     ambientOcclusionPipeline->setupAmbientOcclusionDescriptorBuffer(normalRenderTarget.imageView);
+    ambientOcclusionPipeline->setupSpatialFilteringDescriptorBuffer(depthImage.imageView, normalRenderTarget.imageView);
 
     const deferred_resolve::DeferredResolveDescriptor deferredResolveDescriptor{
         normalRenderTarget.imageView,
@@ -565,9 +566,11 @@ void Engine::draw(float deltaTime)
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
+    ambient_occlusion::GTAOPushConstants gtaoPush{};
+    gtaoPush.debug = gtaoDebug;
     ambient_occlusion::GTAODrawInfo gtaoDrawInfo{
         camera,
-        {},
+        gtaoPush,
         frameNumber,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
