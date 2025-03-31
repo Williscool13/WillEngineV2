@@ -39,6 +39,8 @@ public:
 
     void draw(VkCommandBuffer cmd, const VisibilityPassDrawInfo& drawInfo) const;
 
+    void indirectBufferSynchronize();
+
     void reloadShaders() { createPipeline(); }
 
 private:

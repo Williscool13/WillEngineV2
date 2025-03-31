@@ -306,6 +306,34 @@ void will_engine::vk_helpers::transitionImage(VkCommandBuffer cmd, VkImage image
     vkCmdPipelineBarrier2(cmd, &depInfo);
 }
 
+void will_engine::vk_helpers::synchronizeUniform(VkCommandBuffer cmd, const AllocatedBuffer& buffer, VkPipelineStageFlagBits2 srcPipelineStage, VkAccessFlagBits2 srcAccessBit , VkPipelineStageFlagBits2 dstPipelineStage, VkAccessFlagBits2 dstAccessBit)
+{
+    VkBufferMemoryBarrier2 bufferBarrier{};
+    bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
+    bufferBarrier.pNext = nullptr;
+
+    bufferBarrier.srcStageMask = srcPipelineStage;
+    bufferBarrier.srcAccessMask = srcAccessBit;
+
+    bufferBarrier.dstStageMask = dstPipelineStage;
+    bufferBarrier.dstAccessMask = dstAccessBit;
+
+    bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    bufferBarrier.buffer = buffer.buffer;
+    bufferBarrier.offset = 0;
+    bufferBarrier.size = VK_WHOLE_SIZE;
+
+    VkDependencyInfo depInfo{};
+    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    depInfo.pNext = nullptr;
+    depInfo.dependencyFlags = 0;
+    depInfo.bufferMemoryBarrierCount = 1;
+    depInfo.pBufferMemoryBarriers = &bufferBarrier;
+
+    vkCmdPipelineBarrier2(cmd, &depInfo);
+}
+
 void will_engine::vk_helpers::copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize)
 {
     VkImageBlit2 blitRegion{.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2, .pNext = nullptr};
