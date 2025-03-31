@@ -216,6 +216,7 @@ void Engine::initRenderer()
         pbrRenderTarget.imageView,
         depthImage.imageView,
         velocityRenderTarget.imageView,
+        ambientOcclusionPipeline->getAmbientOcclusionRenderTarget().imageView,
         drawImage.imageView,
         resourceManager->getDefaultSamplerLinear()
     };

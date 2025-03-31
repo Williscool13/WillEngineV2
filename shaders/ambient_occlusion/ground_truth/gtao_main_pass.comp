@@ -93,23 +93,22 @@ vec4 calculateDepthEdges(const float centerZ, const float leftZ, const float rig
     return clamp((1.25 - edgesLRTB / (centerZ * 0.011)), 0, 1);;
 }
 
-vec3 cheapReconstructViewSpacePosition(vec2 uv, const float viewspaceDepth, vec2 ndcToViewMul, vec2 ndcToViewAdd)
+vec3 cheapReconstructViewSpacePosition(vec2 uv, float viewspaceDepth)
 {
     vec3 ret;
-    ret.xy = (ndcToViewMul * uv.xy + ndcToViewAdd) * viewspaceDepth;
+    ret.xy = (pushConstants.ndcToViewMul * uv.xy + pushConstants.ndcToViewAdd) * viewspaceDepth;
     ret.z = -viewspaceDepth;
     return ret;
 }
 
 
-vec3 reconstructViewSpacePosition(vec2 uv, float viewDepth) {
+vec4 reconstructViewSpacePosition(vec2 uv, float viewDepth) {
     float ndcDepth = pushConstants.depthLinearizeAdd - (pushConstants.depthLinearizeMult / viewDepth);
-    uv.y = 1 - uv.y;
     vec2 ndc = uv * 2.0 - 1.0;
     vec4 positionVS = sceneData.invProjection * vec4(ndc, ndcDepth, 1.0);
 
     positionVS /= positionVS.w;
-    return positionVS.xyz;
+    return positionVS;
 }
 
 void outputWorkingTerm(ivec2 screenPos, float visibility, vec3 bentNormal, image2D outputImage){
@@ -135,8 +134,6 @@ void main() {
 
     vec2 uv = (vec2(screenPos) + 0.5) * sceneData.texelSize;
 
-    //vec4 valuesUL = textureGather(prefilteredDepth, screenPos * sceneData.texelSize, 0);
-    //vec4 valuesBR = textureGatherOffset(prefilteredDepth, screenPos * sceneData.texelSize, ivec2(1,1), 0);
     vec4 valuesUL = textureGather(prefilteredDepth, uv, 0);
     vec4 valuesBR = textureGatherOffset(prefilteredDepth, uv, ivec2(1,1), 0);
     float viewSpaceZM = valuesUL.y;
@@ -168,13 +165,14 @@ void main() {
     // Per Intel: Move center pixel slightly towards camera to avoid imprecision artifacts due to depth buffer imprecision; offset depends on depth texture format used
     viewSpaceZM = viewSpaceZM * 0.998f;
 
-    vec3 vPos = cheapReconstructViewSpacePosition(uv, viewSpaceZM, pushConstants.ndcToViewMul, pushConstants.ndcToViewAdd);
-    //vec3 vPos = reconstructViewSpacePosition(uv, viewSpaceZM);
+    //vec3 vPos = cheapReconstructViewSpacePosition(uv, viewSpaceZM);
+    vec4 vPosAlt = reconstructViewSpacePosition(uv, viewSpaceZM);
+    vec3 vPos = vPosAlt.xyz;
     vec3 viewVec = normalize(-vPos);
 
     // debug world pos
     if (pushConstants.debug == 3){
-        vec3 worldPos = (sceneData.invView * vec4(vPos, 1.0)).xyz;
+        vec3 worldPos = (sceneData.invView * vPosAlt).xyz;
         imageStore(debugImage, screenPos, vec4(worldPos / 1000.0f, 1.0f));
         return;
     }
@@ -305,13 +303,13 @@ void main() {
 
                 vec2 sampleScreenPos0 = uv + sampleOffset;
                 float  SZ0 = textureLod(prefilteredDepth, sampleScreenPos0, mipLevel).r;
-                vec3 samplePos0 = cheapReconstructViewSpacePosition(sampleScreenPos0, SZ0, pushConstants.ndcToViewMul, pushConstants.ndcToViewAdd);
-                //vec3 samplePos0 = reconstructViewSpacePosition(sampleScreenPos0, SZ0);
+                //vec3 samplePos0 = cheapReconstructViewSpacePosition(sampleScreenPos0, SZ0);
+                vec3 samplePos0 = reconstructViewSpacePosition(sampleScreenPos0, SZ0).xyz;
 
                 vec2 sampleScreenPos1 = uv - sampleOffset;
                 float  SZ1 = textureLod(prefilteredDepth, sampleScreenPos1, mipLevel).r;
-                vec3 samplePos1 = cheapReconstructViewSpacePosition(sampleScreenPos1, SZ1, pushConstants.ndcToViewMul, pushConstants.ndcToViewAdd);
-                //vec3 samplePos1 = reconstructViewSpacePosition(sampleScreenPos1, SZ1);
+                //vec3 samplePos1 = cheapReconstructViewSpacePosition(sampleScreenPos1, SZ1);
+                vec3 samplePos1 = reconstructViewSpacePosition(sampleScreenPos1, SZ1).xyz;
 
                 vec3 sampleDelta0     = (samplePos0 - vec3(vPos));// using lpfloat for sampleDelta causes precision issues
                 vec3 sampleDelta1     = (samplePos1 - vec3(vPos));// using lpfloat for sampleDelta causes precision issues

@@ -115,21 +115,23 @@ void main() {
         if (pushConstants.debug == 5){
             imageStore(debugImage, sideScreenPos, vec4(vec3(outputValue), 1.0f));
         }
+
+        imageStore(filteredAO, sideScreenPos, vec4(outputValue));
     }
 
 
-//    if (pushConstants.debug == 5){
-//        imageStore(debugImage, screenPos, vec4(vec3(minEdge), 1.0f));
-//        return;
-//    }
-//
-//    if (pushConstants.debug == 5) {
-//        imageStore(debugImage, screenPos, vec4(edges.xyz, 1.0f));
-//        return;
-//        if (screenPos.x % 2 == 0 && screenPos.y %2 == 0){
-//            imageStore(debugImage, screenPos, vec4(vec3(1.0f), 1.0f));
-//        } else {
-//            imageStore(debugImage, screenPos, vec4(vec3(0.5f), 1.0f));
-//        }
-//    }
+    //    if (pushConstants.debug == 5){
+    //        imageStore(debugImage, screenPos, vec4(vec3(minEdge), 1.0f));
+    //        return;
+    //    }
+    //
+    //    if (pushConstants.debug == 5) {
+    //        imageStore(debugImage, screenPos, vec4(edges.xyz, 1.0f));
+    //        return;
+    //        if (screenPos.x % 2 == 0 && screenPos.y %2 == 0){
+    //            imageStore(debugImage, screenPos, vec4(vec3(1.0f), 1.0f));
+    //        } else {
+    //            imageStore(debugImage, screenPos, vec4(vec3(0.5f), 1.0f));
+    //        }
+    //    }
 }

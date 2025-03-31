@@ -218,56 +218,7 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
         usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
         VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(ambientOcclusionFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
-        spatialFilteringImage = resourceManager.createImage(imgInfo);
-    }
-
-    // Temporal Accumulation
-    {
-        DescriptorLayoutBuilder layoutBuilder;
-        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // filtered ao
-        layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // final output history
-        layoutBuilder.addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // MRT velocity buffer
-        layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // MRT depth buffer
-        layoutBuilder.addBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // final output
-
-        temporalAccumulationSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT,
-                                                                                  VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-
-        VkPushConstantRange pushConstants{};
-        pushConstants.offset = 0;
-        pushConstants.size = sizeof(GTAOPushConstants);
-        pushConstants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-        VkDescriptorSetLayout setLayouts[2];
-        setLayouts[0] = resourceManager.getSceneDataLayout();
-        setLayouts[1] = temporalAccumulationSetLayout;
-
-        VkPipelineLayoutCreateInfo layoutInfo{};
-        layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-        layoutInfo.pNext = nullptr;
-        layoutInfo.pSetLayouts = setLayouts;
-        layoutInfo.setLayoutCount = 2;
-        layoutInfo.pPushConstantRanges = &pushConstants;
-        layoutInfo.pushConstantRangeCount = 1;
-
-        temporalAccumulationPipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
-        createTemporalAccumulationPipeline();
-
-        temporalAccumulationDescriptorBuffer = resourceManager.createDescriptorBufferSampler(temporalAccumulationSetLayout, 1);
-
-
-        VkImageUsageFlags usage{};
-        usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-        VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(ambientOcclusionFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
-        historyOutputImage = resourceManager.createImage(imgInfo);
-
-        usage = {};
-        usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        usage |= VK_IMAGE_USAGE_STORAGE_BIT;
-        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-        imgInfo = vk_helpers::imageCreateInfo(ambientOcclusionFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
-        ambientOcclusionOutputImage = resourceManager.createImage(imgInfo);
+        denoisedFinalAO = resourceManager.createImage(imgInfo);
     }
 }
 
@@ -307,20 +258,9 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::~GroundTrut
     resourceManager.destroyPipelineLayout(spatialFilteringPipelineLayout);
     resourceManager.destroyPipeline(spatialFilteringPipeline);
 
-    resourceManager.destroyImage(spatialFilteringImage);
+    resourceManager.destroyImage(denoisedFinalAO);
 
     resourceManager.destroyDescriptorBuffer(spatialFilteringDescriptorBuffer);
-
-
-    // Temporal Accumulation Resources
-    resourceManager.destroyDescriptorSetLayout(temporalAccumulationSetLayout);
-    resourceManager.destroyPipelineLayout(temporalAccumulationPipelineLayout);
-    resourceManager.destroyPipeline(temporalAccumulationPipeline);
-
-    resourceManager.destroyImage(historyOutputImage);
-    resourceManager.destroyImage(ambientOcclusionOutputImage);
-
-    resourceManager.destroyDescriptorBuffer(temporalAccumulationDescriptorBuffer);
 }
 
 void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupDepthPrefilterDescriptorBuffer(const VkImageView& depthImageView)
@@ -424,7 +364,7 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupS
         });
     imageDescriptors.push_back({
         VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-        {VK_NULL_HANDLE, spatialFilteringImage.imageView, VK_IMAGE_LAYOUT_GENERAL},
+        {VK_NULL_HANDLE, denoisedFinalAO.imageView, VK_IMAGE_LAYOUT_GENERAL},
         false
     });
     imageDescriptors.push_back({
@@ -514,7 +454,7 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
 
     vk_helpers::transitionImage(cmd, ambientOcclusionImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, spatialFilteringImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
+    vk_helpers::transitionImage(cmd, denoisedFinalAO.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
     // Spatial Filtering
     {
@@ -537,7 +477,7 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
         vkCmdDispatch(cmd, x, y, 1);
     }
 
-    vk_helpers::transitionImage(cmd, spatialFilteringImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    vk_helpers::transitionImage(cmd, denoisedFinalAO.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                     VK_IMAGE_ASPECT_COLOR_BIT);
 
 
@@ -554,7 +494,6 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::reload
     createDepthPrefilterPipeline();
     createAmbientOcclusionPipeline();
     createSpatialFilteringPipeline();
-    createTemporalAccumulationPipeline();
 }
 
 void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::createDepthPrefilterPipeline()
@@ -623,28 +562,5 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::create
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     spatialFilteringPipeline = resourceManager.createComputePipeline(pipelineInfo);
-    resourceManager.destroyShaderModule(computeShader);
-}
-
-void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::createTemporalAccumulationPipeline()
-{
-    resourceManager.destroyPipeline(temporalAccumulationPipeline);
-    VkShaderModule computeShader = resourceManager.createShaderModule("shaders/ambient_occlusion/ground_truth/gtao_temporal_accumulation.comp");
-
-    VkPipelineShaderStageCreateInfo stageInfo{};
-    stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-    stageInfo.pNext = nullptr;
-    stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageInfo.module = computeShader;
-    stageInfo.pName = "main";
-
-    VkComputePipelineCreateInfo pipelineInfo{};
-    pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
-    pipelineInfo.pNext = nullptr;
-    pipelineInfo.layout = temporalAccumulationPipelineLayout;
-    pipelineInfo.stage = stageInfo;
-    pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
-
-    temporalAccumulationPipeline = resourceManager.createComputePipeline(pipelineInfo);
     resourceManager.destroyShaderModule(computeShader);
 }

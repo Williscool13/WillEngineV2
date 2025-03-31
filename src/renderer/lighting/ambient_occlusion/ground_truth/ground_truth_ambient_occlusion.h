@@ -30,11 +30,15 @@ public:
     void draw(VkCommandBuffer cmd, const GTAODrawInfo& drawInfo) const;
 
     void reloadShaders();
+
+    AllocatedImage getAmbientOcclusionRenderTarget() const { return denoisedFinalAO; }
+
 private:
     void createDepthPrefilterPipeline();
+
     void createAmbientOcclusionPipeline();
+
     void createSpatialFilteringPipeline();
-    void createTemporalAccumulationPipeline();
 
 private: // Depth Pre-filter
     VkDescriptorSetLayout depthPrefilterSetLayout{VK_NULL_HANDLE};
@@ -72,21 +76,9 @@ private: // Spatial Filtering
     VkPipelineLayout spatialFilteringPipelineLayout{VK_NULL_HANDLE};
     VkPipeline spatialFilteringPipeline{VK_NULL_HANDLE};
 
-    AllocatedImage spatialFilteringImage{VK_NULL_HANDLE};
+    AllocatedImage denoisedFinalAO{VK_NULL_HANDLE};
 
     DescriptorBufferSampler spatialFilteringDescriptorBuffer;
-
-private: // Temporal Accumulation
-    VkDescriptorSetLayout temporalAccumulationSetLayout{VK_NULL_HANDLE};
-    VkPipelineLayout temporalAccumulationPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline temporalAccumulationPipeline{VK_NULL_HANDLE};
-
-    AllocatedImage historyOutputImage{VK_NULL_HANDLE};
-
-    DescriptorBufferSampler temporalAccumulationDescriptorBuffer;
-
-private: // Output
-    AllocatedImage ambientOcclusionOutputImage{VK_NULL_HANDLE};
 
 private: // Debug
     VkFormat debugFormat{VK_FORMAT_R8G8B8A8_UNORM};
