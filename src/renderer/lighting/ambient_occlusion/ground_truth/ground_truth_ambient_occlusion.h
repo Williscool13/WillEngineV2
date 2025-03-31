@@ -27,7 +27,7 @@ public:
 
     void setupSpatialFilteringDescriptorBuffer(const VkImageView& depthImageView, const VkImageView& normalsImageView);
 
-    void draw(VkCommandBuffer cmd, const GTAODrawInfo& drawInfo) const;
+    void draw(VkCommandBuffer cmd, const GTAODrawInfo& drawInfo);
 
     void reloadShaders();
 
@@ -86,6 +86,8 @@ private: // Debug
 
 private:
     ResourceManager& resourceManager;
+
+    GTAOPushConstants gtaoPush{};
 
     friend void ImguiWrapper::imguiInterface(Engine* engine);
 };

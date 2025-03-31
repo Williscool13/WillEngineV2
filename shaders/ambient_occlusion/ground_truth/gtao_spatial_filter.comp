@@ -27,6 +27,12 @@ void main() {
     //const ivec2 screenPos = ivec2(gl_GlobalInvocationID.xy);
     const ivec2 screenPos = ivec2(gl_GlobalInvocationID.xy) * ivec2(2, 1);
 
+    if (pushConstants.debug == -1){
+        imageStore(filteredAO, screenPos, vec4(1.0f));
+        imageStore(filteredAO, screenPos + ivec2(1, 0), vec4(1.0f));
+        return;
+    }
+
     if (screenPos.x > sceneData.renderTargetSize.x || screenPos.y > sceneData.renderTargetSize.y) {
         return;
     }

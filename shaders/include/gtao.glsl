@@ -21,6 +21,9 @@ layout (push_constant) uniform PushConstants {
     int noiseIndex;
     int isFinalDenoisePass;
 
+    float sliceCount;
+    float stepsPerSliceCount;
+
     int debug;
 } pushConstants;
 

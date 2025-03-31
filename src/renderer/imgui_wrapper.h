@@ -82,6 +82,7 @@ private:
 
     VkDescriptorSet currentlySelectedTextureImguiId{VK_NULL_HANDLE};
 
+    bool showGtaoDebugPreview = false;
     VkDescriptorSet aoDebugTextureImguiId{VK_NULL_HANDLE};
 };
 }

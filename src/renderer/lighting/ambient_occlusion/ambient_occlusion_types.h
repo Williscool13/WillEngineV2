@@ -13,17 +13,26 @@ namespace will_engine::ambient_occlusion
 static constexpr int32_t DEPTH_PREFILTER_MIP_COUNT = 5;
 static constexpr int32_t GTAO_DENOISE_PASSES = 1;
 
+static constexpr float XE_GTAO_SLICE_COUNT_LOW = 1.0f;
+static constexpr float XE_GTAO_SLICE_COUNT_MEDIUM = 2.0f;
+static constexpr float XE_GTAO_SLICE_COUNT_HIGH = 3.0f;
+static constexpr float XE_GTAO_SLICE_COUNT_ULTRA = 9.0f;
+static constexpr float XE_GTAO_STEPS_PER_SLICE_COUNT_LOW = 2.0f;
+static constexpr float XE_GTAO_STEPS_PER_SLICE_COUNT_MEDIUM = 2.0f;
+static constexpr float XE_GTAO_STEPS_PER_SLICE_COUNT_HIGH = 3.0f;
+static constexpr float XE_GTAO_STEPS_PER_SLICE_COUNT_ULTRA = 3.0f;
+
 struct GTAOPushConstants
 {
-    glm::vec2 cameraTanHalfFOV;
+    glm::vec2 cameraTanHalfFOV{};
 
-    glm::vec2 ndcToViewMul;
-    glm::vec2 ndcToViewAdd;
+    glm::vec2 ndcToViewMul{};
+    glm::vec2 ndcToViewAdd{};
 
-    glm::vec2 ndcToViewMul_x_PixelSize;
+    glm::vec2 ndcToViewMul_x_PixelSize{};
 
-    float depthLinearizeMult;
-    float depthLinearizeAdd;
+    float depthLinearizeMult{0.0f};
+    float depthLinearizeAdd{0.0f};
 
     float effectRadius = 0.5f;
     float effectFalloffRange = 0.615f;
@@ -36,6 +45,9 @@ struct GTAOPushConstants
     float depthMipSamplingOffset = 3.30f;
     uint32_t noiseIndex{0};
     int32_t isFinalDenoisePass{1};
+
+    float sliceCount{XE_GTAO_SLICE_COUNT_ULTRA};
+    float stepsPerSliceCount{XE_GTAO_STEPS_PER_SLICE_COUNT_ULTRA};
 
     int32_t debug{0};
 };

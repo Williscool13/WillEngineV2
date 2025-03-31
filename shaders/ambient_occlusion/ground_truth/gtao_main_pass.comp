@@ -21,16 +21,6 @@ layout (rgba8, set = 1, binding = 4) uniform image2D debugImage;
 #define XE_GTAO_PI                (3.1415926535897932384626433832795)
 #define XE_GTAO_PI_HALF             (1.5707963267948966192313216916398)
 
-#define XE_GTAO_SLICE_COUNT_LOW                 1.0f
-#define XE_GTAO_SLICE_COUNT_MEDIUM              2.0f
-#define XE_GTAO_SLICE_COUNT_HIGH                3.0f
-#define XE_GTAO_SLICE_COUNT_ULTRA               9.0f
-
-#define XE_GTAO_STEPS_PER_SLICE_COUNT_LOW       2.0f
-#define XE_GTAO_STEPS_PER_SLICE_COUNT_MEDIUM    2.0f
-#define XE_GTAO_STEPS_PER_SLICE_COUNT_HIGH      3.0f
-#define XE_GTAO_STEPS_PER_SLICE_COUNT_ULTRA     3.0f
-
 #define XE_GTAO_OCCLUSION_TERM_SCALE            1.5f
 
 // http://h14s.p5r.org/2012/09/0x5f3759df.html, [Drobot2014a] Low Level Optimizations for GCN, https://blog.selfshadow.com/publications/s2016-shading-course/activision/s2016_pbs_activision_occlusion.pdf slide 63
@@ -50,7 +40,7 @@ float XeGTAO_FastACos(float inX)
     return (inX >= 0) ? res : PI - res;
 }
 
-uint hilbertIndex(uint posX, uint posY)
+uint XE_GTAO_HilbertIndex(uint posX, uint posY)
 {
     uint index = 0u;
     for (uint curLevel = XE_HILBERT_WIDTH/2u; curLevel > 0u; curLevel /= 2u)
@@ -74,14 +64,14 @@ uint hilbertIndex(uint posX, uint posY)
     return index;
 }
 
-vec2 spatioTemporalNoise(ivec2 pixCoord, uint temporalIndex)// without TAA, temporalIndex is always 0
+vec2 XE_GTAO_SpatioTemporalNoise(ivec2 pixCoord, uint temporalIndex)// without TAA, temporalIndex is always 0
 {
-    uint index = hilbertIndex(uint(pixCoord.x), uint(pixCoord.y));
+    uint index = XE_GTAO_HilbertIndex(uint(pixCoord.x), uint(pixCoord.y));
     index += 288u * (temporalIndex % 64u);
     return vec2(fract(0.5 + index * vec2(0.75487766624669276005, 0.5698402909980532659114)));
 }
 
-vec4 calculateDepthEdges(const float centerZ, const float leftZ, const float rightZ, const float topZ, const float bottomZ)
+vec4 XE_GTAO_CalculateDepthEdges(const float centerZ, const float leftZ, const float rightZ, const float topZ, const float bottomZ)
 {
     vec4 edgesLRTB = vec4(leftZ, rightZ, topZ, bottomZ) - vec4(centerZ);
 
@@ -97,6 +87,7 @@ vec3 cheapReconstructViewSpacePosition(vec2 uv, float viewspaceDepth)
 {
     vec3 ret;
     ret.xy = (pushConstants.ndcToViewMul * uv.xy + pushConstants.ndcToViewAdd) * viewspaceDepth;
+    //ret.y = -ret.y;
     ret.z = -viewspaceDepth;
     return ret;
 }
@@ -111,11 +102,6 @@ vec4 reconstructViewSpacePosition(vec2 uv, float viewDepth) {
     return positionVS;
 }
 
-void outputWorkingTerm(ivec2 screenPos, float visibility, vec3 bentNormal, image2D outputImage){
-    visibility = clamp(visibility / XE_GTAO_OCCLUSION_TERM_SCALE, 0, 1);
-    imageStore(outputImage, screenPos, vec4(visibility + 0.5f / 255.0f));
-}
-
 mat3 adjugate(mat4 m) {
     return mat3(
     cross(m[1].xyz, m[2].xyz),
@@ -126,6 +112,10 @@ mat3 adjugate(mat4 m) {
 }
 
 void main() {
+    if (pushConstants.debug == -1){
+        return;
+    }
+
     const ivec2 screenPos = ivec2(gl_GlobalInvocationID.xy);
 
     if (screenPos.x > sceneData.renderTargetSize.x || screenPos.y > sceneData.renderTargetSize.y) {
@@ -143,7 +133,7 @@ void main() {
     const float viewSpaceZT = valuesBR.z;
     const float viewSpaceZB = valuesBR.x;
 
-    vec4 edges  = calculateDepthEdges(viewSpaceZM, viewSpaceZL, viewSpaceZR, viewSpaceZT, viewSpaceZB);
+    vec4 edges  = XE_GTAO_CalculateDepthEdges(viewSpaceZM, viewSpaceZL, viewSpaceZR, viewSpaceZT, viewSpaceZB);
     float packedEdges = XeGTAO_PackEdges(edges);
     imageStore(edgeDataOutput, screenPos, vec4(packedEdges));
 
@@ -191,7 +181,7 @@ void main() {
 
     {
         // NOISE
-        vec2 noise = spatioTemporalNoise(screenPos, pushConstants.noiseIndex);
+        vec2 noise = XE_GTAO_SpatioTemporalNoise(screenPos, pushConstants.noiseIndex);
         float noiseSlice = noise.x;
         float noiseSample = noise.y;
 
@@ -211,15 +201,14 @@ void main() {
             }
 
             imageStore(aoOutput, screenPos, vec4(visibility));
-            // todo: look at how this will return 1/1.5 instead of 1 for visibility always?
-            // todo: (bent normal) need to write `viewNormal` value to the buffer (i.e. no change to trajectory of normal)
+            // (Bent Normals) need to write `viewNormal` value to the buffer (i.e. no change to trajectory of normal)
             return;
         }
 
         const float minS = pixelTooCloseThreshold / screenspaceRadius;
 
-        float sliceCount = XE_GTAO_SLICE_COUNT_ULTRA;
-        float stepsPerSlice = XE_GTAO_STEPS_PER_SLICE_COUNT_ULTRA;
+        float sliceCount = pushConstants.sliceCount;
+        float stepsPerSlice = pushConstants.stepsPerSliceCount;
 
         for (float slice = 0; slice < sliceCount; slice++){
             float sliceK = (slice+noiseSlice) / sliceCount;
@@ -345,7 +334,7 @@ void main() {
             float localVisibility = projectedNormalVecLength * (iarc0+iarc1);
             visibility += localVisibility;
 
-            // todo: uncomment and fix if outputting bent normals
+            // (Bent Normals)
             // see "Algorithm 2 Extension that computes bent normals b."
             // lpfloat t0 = (6*sin(h0-n)-sin(3*h0-n)+6*sin(h1-n)-sin(3*h1-n)+16*sin(n)-3*(sin(h0+n)+sin(h1+n)))/12;
             // lpfloat t1 = (-cos(3 * h0-n)-cos(3 * h1-n) +8 * cos(n)-3 * (cos(h0+n) +cos(h1+n)))/12;
@@ -358,11 +347,11 @@ void main() {
         visibility = pow(visibility, pushConstants.finalValuePower);
         visibility = max(0.03, visibility);// disallow total occlusion (which wouldn't make any sense anyhow since pixel is visible but also helps with packing bent normals)
 
-        // todo (bent normal)
+        // (Bent Normals)
         // bentNormal = normalize(bentNormal) ;
     }
 
-    // todo (bent normal)
+    // (Bent Normals)
     visibility = clamp(visibility / XE_GTAO_OCCLUSION_TERM_SCALE, 0, 1);
     if (pushConstants.debug == 4){
         imageStore(debugImage, screenPos, vec4(vec3(visibility), 1.0f));

@@ -54,6 +54,10 @@ float depthMipFilter(float depth0, float depth1, float depth2, float depth3, flo
 }
 
 void main() {
+    if (pushConstants.debug == -1){
+        return;
+    }
+
     ivec2 groupThreadID = ivec2(gl_LocalInvocationID.xy);
 
     // MIP 0
@@ -88,7 +92,6 @@ void main() {
         imageStore(debugImage, screenPos + ivec2(1, 0), vec4(vec3(depth1 / 1000.0f), 1.0f));
         imageStore(debugImage, screenPos + ivec2(0, 1), vec4(vec3(depth2 / 1000.0f), 1.0f));
         imageStore(debugImage, screenPos + ivec2(1, 1), vec4(vec3(depth3 / 1000.0f), 1.0f));
-        return;
     }
 
     // MIP 1

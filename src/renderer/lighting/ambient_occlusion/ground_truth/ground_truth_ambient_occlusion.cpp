@@ -376,31 +376,30 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupS
     resourceManager.setupDescriptorBufferSampler(spatialFilteringDescriptorBuffer, imageDescriptors, 0);
 }
 
-void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(VkCommandBuffer cmd, const GTAODrawInfo& drawInfo) const
+void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(VkCommandBuffer cmd, const GTAODrawInfo& drawInfo)
 {
     VkDebugUtilsLabelEXT label{};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
     label.pLabelName = "GT Ambient Occlusion";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
-    GTAOPushConstants push = drawInfo.pushConstants;
     glm::mat4 projMatrix = drawInfo.camera->getProjMatrix();
-    push.depthLinearizeMult = -projMatrix[3][2];
-    push.depthLinearizeAdd = projMatrix[2][2];
-    if (push.depthLinearizeMult * push.depthLinearizeAdd < 0) {
-        push.depthLinearizeAdd = -push.depthLinearizeAdd;
+    gtaoPush.depthLinearizeMult = -projMatrix[3][2];
+    gtaoPush.depthLinearizeAdd = projMatrix[2][2];
+    if (gtaoPush.depthLinearizeMult * gtaoPush.depthLinearizeAdd < 0) {
+        gtaoPush.depthLinearizeAdd = -gtaoPush.depthLinearizeAdd;
     }
 
     float tanHalfFOVY = 1.0f / projMatrix[1][1];
     float tanHalfFOVX = 1.0F / projMatrix[0][0];
-    push.cameraTanHalfFOV = {tanHalfFOVX, tanHalfFOVY};
-    push.ndcToViewMul = {push.cameraTanHalfFOV.x * 2.0f, push.cameraTanHalfFOV.y * -2.0f};
-    push.ndcToViewAdd = {push.cameraTanHalfFOV.x * -1.0f, push.cameraTanHalfFOV.y * 1.0f};
+    gtaoPush.cameraTanHalfFOV = {tanHalfFOVX, tanHalfFOVY};
+    gtaoPush.ndcToViewMul = {gtaoPush.cameraTanHalfFOV.x * 2.0f, gtaoPush.cameraTanHalfFOV.y * -2.0f};
+    gtaoPush.ndcToViewAdd = {gtaoPush.cameraTanHalfFOV.x * -1.0f, gtaoPush.cameraTanHalfFOV.y * 1.0f};
     constexpr glm::vec2 texelSize = {1.0f / RENDER_EXTENT_WIDTH, 1.0f / RENDER_EXTENT_HEIGHT};
-    push.ndcToViewMul_x_PixelSize = {push.ndcToViewMul.x * texelSize.x, push.ndcToViewMul.y * texelSize.y};
+    gtaoPush.ndcToViewMul_x_PixelSize = {gtaoPush.ndcToViewMul.x * texelSize.x, gtaoPush.ndcToViewMul.y * texelSize.y};
 
 
-    push.noiseIndex = GTAO_DENOISE_PASSES > 0 ? drawInfo.currentFrame % 64 : 0;
+    gtaoPush.noiseIndex = GTAO_DENOISE_PASSES > 0 ? drawInfo.currentFrame % 64 : 0;
 
     vk_helpers::transitionImage(cmd, debugImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -408,7 +407,7 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
     // Depth Prefilter
     {
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, depthPrefilterPipeline);
-        vkCmdPushConstants(cmd, depthPrefilterPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GTAOPushConstants), &push);
+        vkCmdPushConstants(cmd, depthPrefilterPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GTAOPushConstants), &gtaoPush);
 
         VkDescriptorBufferBindingInfoEXT bindingInfos[2] = {};
         bindingInfos[0] = drawInfo.sceneDataBinding;
@@ -434,7 +433,7 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
     // Ambient Occlusion
     {
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, ambientOcclusionPipeline);
-        vkCmdPushConstants(cmd, ambientOcclusionPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GTAOPushConstants), &push);
+        vkCmdPushConstants(cmd, ambientOcclusionPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GTAOPushConstants), &gtaoPush);
 
         VkDescriptorBufferBindingInfoEXT bindingInfos[2] = {};
         bindingInfos[0] = drawInfo.sceneDataBinding;
@@ -459,7 +458,7 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
     // Spatial Filtering
     {
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, spatialFilteringPipeline);
-        vkCmdPushConstants(cmd, spatialFilteringPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GTAOPushConstants), &push);
+        vkCmdPushConstants(cmd, spatialFilteringPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GTAOPushConstants), &gtaoPush);
 
         VkDescriptorBufferBindingInfoEXT bindingInfos[2] = {};
         bindingInfos[0] = drawInfo.sceneDataBinding;
@@ -478,9 +477,7 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
     }
 
     vk_helpers::transitionImage(cmd, denoisedFinalAO.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                    VK_IMAGE_ASPECT_COLOR_BIT);
-
-
+                                VK_IMAGE_ASPECT_COLOR_BIT);
 
 
     vk_helpers::transitionImage(cmd, debugImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
