@@ -138,10 +138,11 @@ void main() {
 
     vec3 reflectionSpecular = SpecularReflection(environmentDiffuseAndSpecular, lut, V, N, roughness, F) * indirectAttenuation;
 
-    vec3 ambient = (kD * reflectionDiffuse + reflectionSpecular);
+    //vec3 ambient = (kD * reflectionDiffuse + reflectionSpecular);
+    float ao = texture(aoBuffer, uv).r;
+    vec3  ambient = (kD * reflectionDiffuse + reflectionSpecular) * ao;
 
-
-    vec3 finalColor = (diffuse + specular) * vec3(1.0f) * nDotL * shadowFactor;
+    vec3 finalColor = (diffuse + specular) * nDotL * shadowFactor;
     finalColor += ambient;
 
     imageStore(outputImage, screenPos, vec4(finalColor, albedo.w));

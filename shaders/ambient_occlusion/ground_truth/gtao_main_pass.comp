@@ -134,8 +134,9 @@ void main() {
 
     vec2 uv = (vec2(screenPos) + 0.5) * sceneData.texelSize;
 
-    vec4 valuesUL = textureGather(prefilteredDepth, uv, 0);
-    vec4 valuesBR = textureGatherOffset(prefilteredDepth, uv, ivec2(1,1), 0);
+    vec2 gatherCenter = vec2(screenPos) * sceneData.texelSize;
+    vec4 valuesUL = textureGather(prefilteredDepth, gatherCenter, 0);
+    vec4 valuesBR = textureGatherOffset(prefilteredDepth, gatherCenter, ivec2(1, 1), 0);
     float viewSpaceZM = valuesUL.y;
     const float viewSpaceZL = valuesUL.x;
     const float viewSpaceZR = valuesUL.z;
@@ -146,12 +147,6 @@ void main() {
     float packedEdges = XeGTAO_PackEdges(edges);
     imageStore(edgeDataOutput, screenPos, vec4(packedEdges));
 
-    float minEdge = min(min(edges.x, edges.y), min(edges.z, edges.w));
-
-    if (pushConstants.debug == 2){
-        imageStore(debugImage, screenPos, vec4(vec3(minEdge), 1.0f));
-        return;
-    }
 
     // Get view space normal by sampling normal buffer and converting from world to view (code not relevant)
     vec3 worldNormal = texture(normalBuffer, uv).rgb;
@@ -159,7 +154,6 @@ void main() {
 
     if (pushConstants.debug == 2){
         imageStore(debugImage, screenPos, vec4(viewNormal, 1.0f));
-        return;
     }
 
     // Per Intel: Move center pixel slightly towards camera to avoid imprecision artifacts due to depth buffer imprecision; offset depends on depth texture format used
@@ -174,12 +168,11 @@ void main() {
     if (pushConstants.debug == 3){
         vec3 worldPos = (sceneData.invView * vPosAlt).xyz;
         imageStore(debugImage, screenPos, vec4(worldPos / 1000.0f, 1.0f));
-        return;
     }
 
     // Per Intel
     // prevents normals that are facing away from the view vector - xeGTAO struggles with extreme cases, but in Vanilla it seems rare so it's disabled by default
-     viewNormal = normalize(viewNormal + max(0, -dot(viewNormal, viewVec)) * viewVec);
+    viewNormal = normalize(viewNormal + max(0, -dot(viewNormal, viewVec)) * viewVec);
 
 
     const float effectRadius = pushConstants.effectRadius * pushConstants.radiusMultiplier;
@@ -215,7 +208,6 @@ void main() {
             visibility = clamp(visibility / XE_GTAO_OCCLUSION_TERM_SCALE, 0, 1);
             if (pushConstants.debug == 4){
                 imageStore(debugImage, screenPos, vec4(vec3(visibility), 1.0f));
-                return;
             }
 
             imageStore(aoOutput, screenPos, vec4(visibility));
@@ -374,7 +366,6 @@ void main() {
     visibility = clamp(visibility / XE_GTAO_OCCLUSION_TERM_SCALE, 0, 1);
     if (pushConstants.debug == 4){
         imageStore(debugImage, screenPos, vec4(vec3(visibility), 1.0f));
-        return;
     }
 
     imageStore(aoOutput, screenPos, vec4(visibility));

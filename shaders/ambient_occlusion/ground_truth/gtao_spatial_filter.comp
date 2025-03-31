@@ -31,8 +31,6 @@ void main() {
         return;
     }
 
-    vec2 uv = (vec2(screenPos) + 0.5) * sceneData.texelSize;
-
     // if final apply use below (see, using multiple denoise passes)
     float blurAmount = pushConstants.isFinalDenoisePass == 1 ? pushConstants.denoiseBlurBeta : pushConstants.denoiseBlurBeta / 5.0f;
 
@@ -46,15 +44,16 @@ void main() {
     float weightBR[2];
 
 
+    vec2 gatherCenter = vec2(screenPos) * sceneData.texelSize;
 
-    vec4 edgesQ0 = textureGatherOffset(edgeData, uv, ivec2(0, 0), 0);
-    vec4 edgesQ1 = textureGatherOffset(edgeData, uv, ivec2(2, 0), 0);
-    vec4 edgesQ2 = textureGatherOffset(edgeData, uv, ivec2(1, 2), 0);
+    vec4 edgesQ0 = textureGatherOffset(edgeData, gatherCenter, ivec2(0, 0), 0);
+    vec4 edgesQ1 = textureGatherOffset(edgeData, gatherCenter, ivec2(2, 0), 0);
+    vec4 edgesQ2 = textureGatherOffset(edgeData, gatherCenter, ivec2(1, 2), 0);
 
-    vec4 visQ0 = textureGatherOffset(rawAO, uv, ivec2(0, 0), 0);
-    vec4 visQ1 = textureGatherOffset(rawAO, uv, ivec2(2, 0), 0);
-    vec4 visQ2 = textureGatherOffset(rawAO, uv, ivec2(0, 2), 0);
-    vec4 visQ3 = textureGatherOffset(rawAO, uv, ivec2(2, 2), 0);
+    vec4 visQ0 = textureGatherOffset(rawAO, gatherCenter, ivec2(0, 0), 0);
+    vec4 visQ1 = textureGatherOffset(rawAO, gatherCenter, ivec2(2, 0), 0);
+    vec4 visQ2 = textureGatherOffset(rawAO, gatherCenter, ivec2(0, 2), 0);
+    vec4 visQ3 = textureGatherOffset(rawAO, gatherCenter, ivec2(2, 2), 0);
 
     for (int side = 0; side < 2; side++)
     {

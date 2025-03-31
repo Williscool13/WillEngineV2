@@ -67,15 +67,11 @@ void main() {
     vec2 uv = (vec2(screenPos) + 0.5) * sceneData.texelSize;
 
     // todo: optimize with textureGather?
-    vec4 depths = textureGatherOffset(depthImage, uv, ivec2(1,1), 0);
-    float rDepth0 = depths.w; // top-left
-    float rDepth1 = depths.z; // top-right
-    float rDepth2 = depths.x; // bottom-left
-    float rDepth3 = depths.y; // bottom-right
-//    float rDepth0 = texture(depthImage, uv + vec2(0.0, 0.0) * sceneData.texelSize).r;
-//    float rDepth1 = texture(depthImage, uv + vec2(1.0, 0.0) * sceneData.texelSize).r;
-//    float rDepth2 = texture(depthImage, uv + vec2(0.0, 1.0) * sceneData.texelSize).r;
-//    float rDepth3 = texture(depthImage, uv + vec2(1.0, 1.0) * sceneData.texelSize).r;
+    vec4 depths = textureGatherOffset(depthImage, vec2(screenPos) * sceneData.texelSize, ivec2(1,1), 0);
+    float rDepth0 = depths.w;
+    float rDepth1 = depths.z;
+    float rDepth2 = depths.x;
+    float rDepth3 = depths.y;
 
     float depth0 = clampDepth(screenToViewSpaceDepth(rDepth0, pushConstants.depthLinearizeMult, pushConstants.depthLinearizeAdd));
     float depth1 = clampDepth(screenToViewSpaceDepth(rDepth1, pushConstants.depthLinearizeMult, pushConstants.depthLinearizeAdd));
