@@ -531,7 +531,8 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
 
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, spatialFilteringPipelineLayout, 0, 2, indices.data(), offsets.data());
 
-        const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
+        // each dispatch operates on 2x1 pixels
+        const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / (16.0f * 2.0f)));
         const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
         vkCmdDispatch(cmd, x, y, 1);
     }

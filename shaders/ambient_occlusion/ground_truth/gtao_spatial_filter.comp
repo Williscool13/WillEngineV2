@@ -12,8 +12,20 @@ layout (set = 1, binding = 1) uniform sampler2D edgeData;
 layout (r8, set = 1, binding = 2) uniform image2D filteredAO;
 layout (rgba8, set = 1, binding = 3) uniform image2D debugImage;
 
+#define XE_GTAO_OCCLUSION_TERM_SCALE            1.5f
+
+void XeGTAO_AddSample(float ssaoValue, float edgeValue, inout float sum, inout float sumWeight)
+{
+    float weight = edgeValue;
+
+    sum += (weight * ssaoValue);
+    sumWeight += weight;
+}
+
 void main() {
-    const ivec2 screenPos = ivec2(gl_GlobalInvocationID.xy);
+    // each dispatch operates on 2x1 pixels
+    //const ivec2 screenPos = ivec2(gl_GlobalInvocationID.xy);
+    const ivec2 screenPos = ivec2(gl_GlobalInvocationID.xy) * ivec2(2, 1);
 
     if (screenPos.x > sceneData.renderTargetSize.x || screenPos.y > sceneData.renderTargetSize.y) {
         return;
@@ -21,26 +33,103 @@ void main() {
 
     vec2 uv = (vec2(screenPos) + 0.5) * sceneData.texelSize;
 
-    float blurAmount = pushConstants.denoiseBlurBeta / 5.0f;
+    // if final apply use below (see, using multiple denoise passes)
+    float blurAmount = pushConstants.isFinalDenoisePass == 1 ? pushConstants.denoiseBlurBeta : pushConstants.denoiseBlurBeta / 5.0f;
+
     float diagWeight = 0.85 * 0.5;
 
-    // each dispatch operates on 2x1 pixels
+    float aoTerm[2];// pixel pixCoordBase and pixel pixCoordBase + int2( 1, 0 )
+    vec4 edgesC_LRTB[2];
+    float weightTL[2];
+    float weightTR[2];
+    float weightBL[2];
+    float weightBR[2];
 
-    vec4 edges = XeGTAO_UnpackEdges(texture(edgeData, uv).r);
-    float minEdge = min(min(edges.x, edges.y), min(edges.z, edges.w));
 
-    if (pushConstants.debug == 5){
-        imageStore(debugImage, screenPos, vec4(vec3(minEdge), 1.0f));
-        return;
-    }
 
-    if (pushConstants.debug == 5) {
-        imageStore(debugImage, screenPos, vec4(edges.xyz, 1.0f));
-        return;
-        if (screenPos.x % 2 == 0 && screenPos.y %2 == 0){
-            imageStore(debugImage, screenPos, vec4(vec3(1.0f), 1.0f));
-        } else {
-            imageStore(debugImage, screenPos, vec4(vec3(0.5f), 1.0f));
+    vec4 edgesQ0 = textureGatherOffset(edgeData, uv, ivec2(0, 0), 0);
+    vec4 edgesQ1 = textureGatherOffset(edgeData, uv, ivec2(2, 0), 0);
+    vec4 edgesQ2 = textureGatherOffset(edgeData, uv, ivec2(1, 2), 0);
+
+    vec4 visQ0 = textureGatherOffset(rawAO, uv, ivec2(0, 0), 0);
+    vec4 visQ1 = textureGatherOffset(rawAO, uv, ivec2(2, 0), 0);
+    vec4 visQ2 = textureGatherOffset(rawAO, uv, ivec2(0, 2), 0);
+    vec4 visQ3 = textureGatherOffset(rawAO, uv, ivec2(2, 2), 0);
+
+    for (int side = 0; side < 2; side++)
+    {
+        const ivec2 sideScreenPos = ivec2(screenPos.x + side, screenPos.y);
+
+        vec4 edgesL_LRTB  = XeGTAO_UnpackEdges(side == 0 ? edgesQ0.x : edgesQ0.y);
+        vec4 edgesT_LRTB  = XeGTAO_UnpackEdges(side == 0 ? edgesQ0.z : edgesQ1.w);
+        vec4 edgesR_LRTB  = XeGTAO_UnpackEdges(side == 0 ? edgesQ1.x : edgesQ1.y);
+        vec4 edgesB_LRTB  = XeGTAO_UnpackEdges(side == 0 ? edgesQ2.w : edgesQ2.z);
+
+        edgesC_LRTB[side]     = XeGTAO_UnpackEdges(side==0 ? edgesQ0.y : edgesQ1.x);
+
+        // Edges aren't perfectly symmetrical: edge detection algorithm does not guarantee that a left edge on the right pixel will match the right edge on the left pixel (although
+        // they will match in majority of cases). This line further enforces the symmetricity, creating a slightly sharper blur. Works real nice with TAA.
+        edgesC_LRTB[side] *= vec4(edgesL_LRTB.y, edgesR_LRTB.x, edgesT_LRTB.w, edgesB_LRTB.z);
+
+        // this allows some small amount of AO leaking from neighbours if there are 3 or 4 edges; this reduces both spatial and temporal aliasing
+        const float leak_threshold = 2.5;
+        const float leak_strength = 0.5;
+        float edginess = (clamp(4.0 - leak_threshold - dot(edgesC_LRTB[side], vec4(1.0, 1.0, 1.0, 1.0)), 0.0, 1.0) / (4-leak_threshold)) * leak_strength;
+        edgesC_LRTB[side] = clamp(edgesC_LRTB[side] + edginess, 0.0, 1.0);
+
+        // for diagonals; used by first and second pass
+        weightTL[side] = diagWeight * (edgesC_LRTB[side].x * edgesL_LRTB.z + edgesC_LRTB[side].z * edgesT_LRTB.x);
+        weightTR[side] = diagWeight * (edgesC_LRTB[side].z * edgesT_LRTB.y + edgesC_LRTB[side].y * edgesR_LRTB.z);
+        weightBL[side] = diagWeight * (edgesC_LRTB[side].w * edgesB_LRTB.x + edgesC_LRTB[side].x * edgesL_LRTB.w);
+        weightBR[side] = diagWeight * (edgesC_LRTB[side].y * edgesR_LRTB.w + edgesC_LRTB[side].w * edgesB_LRTB.y);
+
+        // first pass
+        float ssaoValue     = side==0 ? visQ0[1] : visQ1[0];
+        float ssaoValueL    = side==0 ? visQ0[0] : visQ0[1];
+        float ssaoValueT    = side==0 ? visQ0[2] : visQ1[3];
+        float ssaoValueR    = side==0 ? visQ1[0] : visQ1[1];
+        float ssaoValueB    = side==0 ? visQ2[2] : visQ3[3];
+        float ssaoValueTL   = side==0 ? visQ0[3] : visQ0[2];
+        float ssaoValueBR   = side==0 ? visQ3[3] : visQ3[2];
+        float ssaoValueTR   = side==0 ? visQ1[3] : visQ1[2];
+        float ssaoValueBL   = side==0 ? visQ2[3] : visQ2[2];
+
+        float sumWeight = blurAmount;
+        float sum = ssaoValue * sumWeight;
+
+        XeGTAO_AddSample(ssaoValueL, edgesC_LRTB[side].x, sum, sumWeight);
+        XeGTAO_AddSample(ssaoValueR, edgesC_LRTB[side].y, sum, sumWeight);
+        XeGTAO_AddSample(ssaoValueT, edgesC_LRTB[side].z, sum, sumWeight);
+        XeGTAO_AddSample(ssaoValueB, edgesC_LRTB[side].w, sum, sumWeight);
+
+        XeGTAO_AddSample(ssaoValueTL, weightTL[side], sum, sumWeight);
+        XeGTAO_AddSample(ssaoValueTR, weightTR[side], sum, sumWeight);
+        XeGTAO_AddSample(ssaoValueBL, weightBL[side], sum, sumWeight);
+        XeGTAO_AddSample(ssaoValueBR, weightBR[side], sum, sumWeight);
+
+        aoTerm[side] = sum / sumWeight;
+
+        // use 1 instead of occ term scale for no-final
+        float outputValue = aoTerm[side] * (pushConstants.isFinalDenoisePass == 1 ? XE_GTAO_OCCLUSION_TERM_SCALE : 1);
+
+        if (pushConstants.debug == 5){
+            imageStore(debugImage, sideScreenPos, vec4(vec3(outputValue), 1.0f));
         }
     }
+
+
+//    if (pushConstants.debug == 5){
+//        imageStore(debugImage, screenPos, vec4(vec3(minEdge), 1.0f));
+//        return;
+//    }
+//
+//    if (pushConstants.debug == 5) {
+//        imageStore(debugImage, screenPos, vec4(edges.xyz, 1.0f));
+//        return;
+//        if (screenPos.x % 2 == 0 && screenPos.y %2 == 0){
+//            imageStore(debugImage, screenPos, vec4(vec3(1.0f), 1.0f));
+//        } else {
+//            imageStore(debugImage, screenPos, vec4(vec3(0.5f), 1.0f));
+//        }
+//    }
 }

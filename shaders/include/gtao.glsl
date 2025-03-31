@@ -18,7 +18,8 @@ layout (push_constant) uniform PushConstants {
     float thinOccluderCompensation;
     float finalValuePower;
     float depthMipSamplingOffset;
-    uint noiseIndex;
+    int noiseIndex;
+    int isFinalDenoisePass;
 
     int debug;
 } pushConstants;

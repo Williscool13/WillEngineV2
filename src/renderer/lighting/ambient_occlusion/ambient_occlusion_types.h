@@ -35,6 +35,7 @@ struct GTAOPushConstants
     float finalValuePower = 2.2f;
     float depthMipSamplingOffset = 3.30f;
     uint32_t noiseIndex{0};
+    int32_t isFinalDenoisePass{1};
 
     int32_t debug{0};
 };

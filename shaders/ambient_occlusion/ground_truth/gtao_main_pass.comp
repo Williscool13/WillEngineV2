@@ -135,8 +135,10 @@ void main() {
 
     vec2 uv = (vec2(screenPos) + 0.5) * sceneData.texelSize;
 
-    vec4 valuesUL = textureGather(prefilteredDepth, screenPos * sceneData.texelSize, 0);
-    vec4 valuesBR = textureGatherOffset(prefilteredDepth, screenPos * sceneData.texelSize, ivec2(1,1), 0);
+    //vec4 valuesUL = textureGather(prefilteredDepth, screenPos * sceneData.texelSize, 0);
+    //vec4 valuesBR = textureGatherOffset(prefilteredDepth, screenPos * sceneData.texelSize, ivec2(1,1), 0);
+    vec4 valuesUL = textureGather(prefilteredDepth, uv, 0);
+    vec4 valuesBR = textureGatherOffset(prefilteredDepth, uv, ivec2(1,1), 0);
     float viewSpaceZM = valuesUL.y;
     const float viewSpaceZL = valuesUL.x;
     const float viewSpaceZR = valuesUL.z;
