@@ -296,19 +296,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                     ImGui::Spacing();
                     if (ImGui::Button("Reset to Defaults")) {
-                        gtao.effectRadius = 0.5f;
-                        gtao.effectFalloffRange = 0.615f;
-                        gtao.denoiseBlurBeta = (ambient_occlusion::GTAO_DENOISE_PASSES == 0) ? (1e4f) : (1.2f);
-                        gtao.radiusMultiplier = 1.457f;
-                        gtao.sampleDistributionPower = 2.0f;
-                        gtao.thinOccluderCompensation = 0.0f;
-                        gtao.finalValuePower = 2.2f;
-                        gtao.depthMipSamplingOffset = 3.30f;
-                        gtao.noiseIndex = 0;
-                        gtao.isFinalDenoisePass = 1;
-                        gtao.sliceCount = ambient_occlusion::XE_GTAO_SLICE_COUNT_ULTRA;
-                        gtao.stepsPerSliceCount = ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_ULTRA;
-                        gtao.debug = 0;
+                        gtao = {};
                     }
                 }
 

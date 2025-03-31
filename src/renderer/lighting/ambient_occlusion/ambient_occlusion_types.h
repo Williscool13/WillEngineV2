@@ -22,6 +22,15 @@ static constexpr float XE_GTAO_STEPS_PER_SLICE_COUNT_MEDIUM = 2.0f;
 static constexpr float XE_GTAO_STEPS_PER_SLICE_COUNT_HIGH = 3.0f;
 static constexpr float XE_GTAO_STEPS_PER_SLICE_COUNT_ULTRA = 3.0f;
 
+#ifdef NDEBUG
+#define DEFAULT_GTAO_SLICE_COUNT XE_GTAO_SLICE_COUNT_ULTRA
+#define DEFAULT_GTAO_STEPS_PER_SLICE_COUNT XE_GTAO_STEPS_PER_SLICE_COUNT_ULTRA
+#else
+#define DEFAULT_GTAO_SLICE_COUNT XE_GTAO_SLICE_COUNT_MEDIUM
+#define DEFAULT_GTAO_STEPS_PER_SLICE_COUNT XE_GTAO_STEPS_PER_SLICE_COUNT_MEDIUM
+#endif
+
+
 struct GTAOPushConstants
 {
     glm::vec2 cameraTanHalfFOV{};
@@ -46,10 +55,10 @@ struct GTAOPushConstants
     uint32_t noiseIndex{0};
     int32_t isFinalDenoisePass{1};
 
-    float sliceCount{XE_GTAO_SLICE_COUNT_ULTRA};
-    float stepsPerSliceCount{XE_GTAO_STEPS_PER_SLICE_COUNT_ULTRA};
+    float sliceCount{DEFAULT_GTAO_SLICE_COUNT};
+    float stepsPerSliceCount{DEFAULT_GTAO_STEPS_PER_SLICE_COUNT};
 
-    int32_t debug{0};
+    int32_t debug{4};
 };
 
 struct GTAODrawInfo

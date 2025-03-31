@@ -87,7 +87,7 @@ vec3 cheapReconstructViewSpacePosition(vec2 uv, float viewspaceDepth)
 {
     vec3 ret;
     ret.xy = (pushConstants.ndcToViewMul * uv.xy + pushConstants.ndcToViewAdd) * viewspaceDepth;
-    //ret.y = -ret.y;
+    ret.y = -ret.y;
     ret.z = -viewspaceDepth;
     return ret;
 }
@@ -149,14 +149,12 @@ void main() {
     // Per Intel: Move center pixel slightly towards camera to avoid imprecision artifacts due to depth buffer imprecision; offset depends on depth texture format used
     viewSpaceZM = viewSpaceZM * 0.998f;
 
-    //vec3 vPos = cheapReconstructViewSpacePosition(uv, viewSpaceZM);
-    vec4 vPosAlt = reconstructViewSpacePosition(uv, viewSpaceZM);
-    vec3 vPos = vPosAlt.xyz;
+    vec3 vPos = cheapReconstructViewSpacePosition(uv, viewSpaceZM);
     vec3 viewVec = normalize(-vPos);
 
     // debug world pos
     if (pushConstants.debug == 3){
-        vec3 worldPos = (sceneData.invView * vPosAlt).xyz;
+        vec3 worldPos = (sceneData.invView * vec4(vPos, 1.0f)).xyz;
         imageStore(debugImage, screenPos, vec4(worldPos / 1000.0f, 1.0f));
     }
 
@@ -284,13 +282,11 @@ void main() {
 
                 vec2 sampleScreenPos0 = uv + sampleOffset;
                 float  SZ0 = textureLod(prefilteredDepth, sampleScreenPos0, mipLevel).r;
-                //vec3 samplePos0 = cheapReconstructViewSpacePosition(sampleScreenPos0, SZ0);
-                vec3 samplePos0 = reconstructViewSpacePosition(sampleScreenPos0, SZ0).xyz;
+                vec3 samplePos0 = cheapReconstructViewSpacePosition(sampleScreenPos0, SZ0);
 
                 vec2 sampleScreenPos1 = uv - sampleOffset;
                 float  SZ1 = textureLod(prefilteredDepth, sampleScreenPos1, mipLevel).r;
-                //vec3 samplePos1 = cheapReconstructViewSpacePosition(sampleScreenPos1, SZ1);
-                vec3 samplePos1 = reconstructViewSpacePosition(sampleScreenPos1, SZ1).xyz;
+                vec3 samplePos1 = cheapReconstructViewSpacePosition(sampleScreenPos1, SZ1);
 
                 vec3 sampleDelta0     = (samplePos0 - vec3(vPos));// using lpfloat for sampleDelta causes precision issues
                 vec3 sampleDelta1     = (samplePos1 - vec3(vPos));// using lpfloat for sampleDelta causes precision issues
