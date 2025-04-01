@@ -11,10 +11,10 @@ namespace post_process
 {
 enum class PostProcessType : uint32_t
 {
-    None = 0,
+    None = 0x00000000,
     Tonemapping = 1 << 0,
     Sharpening = 1 << 1,
-    ALL = Tonemapping | Sharpening
+    ALL = 0xFFFFFFFF
 };
 
 }

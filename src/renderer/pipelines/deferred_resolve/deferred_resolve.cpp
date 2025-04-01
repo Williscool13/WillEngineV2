@@ -4,12 +4,16 @@
 
 #include "deferred_resolve.h"
 
+#include <array>
+
 #include "volk/volk.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/resource_manager.h"
 
-will_engine::deferred_resolve::DeferredResolvePipeline::DeferredResolvePipeline(ResourceManager& resourceManager, VkDescriptorSetLayout environmentIBLLayout,
-                                                                                VkDescriptorSetLayout cascadeUniformLayout, VkDescriptorSetLayout cascadeSamplerLayout)
+will_engine::deferred_resolve::DeferredResolvePipeline::DeferredResolvePipeline(ResourceManager& resourceManager,
+                                                                                VkDescriptorSetLayout environmentIBLLayout,
+                                                                                VkDescriptorSetLayout cascadeUniformLayout,
+                                                                                VkDescriptorSetLayout cascadeSamplerLayout)
     : resourceManager(resourceManager)
 {
     VkPushConstantRange pushConstants = {};
@@ -76,6 +80,11 @@ void will_engine::deferred_resolve::DeferredResolvePipeline::setupDescriptorBuff
     velocityTarget.imageView = drawInfo.velocityTarget;
     velocityTarget.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+    VkDescriptorImageInfo aoTarget = {};
+    aoTarget.sampler = drawInfo.sampler;
+    aoTarget.imageView = drawInfo.aoTarget;
+    aoTarget.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
     VkDescriptorImageInfo drawImageTarget = {};
     drawImageTarget.imageView = drawInfo.outputTarget;
     drawImageTarget.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -85,6 +94,7 @@ void will_engine::deferred_resolve::DeferredResolvePipeline::setupDescriptorBuff
     renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, pbrDataTarget, false});
     renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, depthImageTarget, false});
     renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, velocityTarget, false});
+    renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, aoTarget, false});
     renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, drawImageTarget, false});
 
     resourceManager.setupDescriptorBufferSampler(resolveDescriptorBuffer, renderTargetDescriptors, 0);
@@ -123,23 +133,23 @@ void will_engine::deferred_resolve::DeferredResolvePipeline::draw(VkCommandBuffe
     bindingInfos[4] = drawInfo.cascadeSamplerBinding;
     vkCmdBindDescriptorBuffersEXT(cmd, 5, bindingInfos);
 
-    constexpr VkDeviceSize zeroOffset{0};
-    constexpr uint32_t sceneDataIndex{0};
-    constexpr uint32_t renderTargetsIndex{1};
-    constexpr uint32_t environmentIndex{2};
-    constexpr uint32_t cascadedShadowMapUniformIndex{3};
-    constexpr uint32_t cascadedShadowMapSamplerIndex{4};
+    constexpr std::array<uint32_t, 5> indices{
+        0,
+        1,
+        2,
+        3,
+        4
+    };
+    const std::array offsets{
+        drawInfo.sceneDataOffset,
+        ZERO_DEVICE_SIZE,
+        drawInfo.environmentIBLOffset,
+        drawInfo.cascadeUniformOffset,
+        ZERO_DEVICE_SIZE
+    };
 
-    const VkDeviceSize sceneDataOffset{drawInfo.sceneDataOffset};
-    const VkDeviceSize environmentOffset{drawInfo.environmentIBLOffset};
-    const VkDeviceSize cascadedShadowMapUniformOffset{drawInfo.cascadeUniformOffset};
-    constexpr VkDeviceSize cascadedShadowMapSamplerOffset{0};
 
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &renderTargetsIndex, &zeroOffset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 2, 1, &environmentIndex, &environmentOffset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 3, 1, &cascadedShadowMapUniformIndex, &cascadedShadowMapUniformOffset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 4, 1, &cascadedShadowMapSamplerIndex, &cascadedShadowMapSamplerOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 5, indices.data(), offsets.data());
 
     const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
     const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));

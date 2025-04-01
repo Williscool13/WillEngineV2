@@ -55,8 +55,10 @@ public: // Resource Creation
 
     [[nodiscard]] VkSampler createSampler(const VkSamplerCreateInfo& createInfo) const;
 
-    void destroySampler(const VkSampler& sampler) const;
+    void destroySampler(VkSampler& sampler) const;
 
+
+    [[nodiscard]] AllocatedImage createImage(const VkImageCreateInfo& createInfo) const;
 
     [[nodiscard]] AllocatedImage createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
 
@@ -64,7 +66,7 @@ public: // Resource Creation
 
     [[nodiscard]] AllocatedImage createCubemap(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
 
-    void destroyImage(const AllocatedImage& img) const;
+    void destroyImage(AllocatedImage& img) const;
 
 
     [[nodiscard]] DescriptorBufferSampler createDescriptorBufferSampler(VkDescriptorSetLayout layout, int32_t maxObjectCount) const;

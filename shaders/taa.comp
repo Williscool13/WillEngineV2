@@ -15,9 +15,6 @@ layout (set = 1, binding = 3) uniform sampler2D velocityBuffer;
 layout (rgba16f, set = 1, binding = 4) uniform image2D outputImage;
 
 layout (push_constant) uniform PushConstants {
-    vec2 texelSize;
-    int width;
-    int height;
     float blendValue;
     int debug;
 } push;
@@ -42,8 +39,8 @@ vec3 clipAABB(vec3 cMin, vec3 cMax, vec3 cAvg, vec3 color) {
 
 vec3 findClosestFragment3x3(vec2 uv)
 {
-    vec2 du = vec2(push.texelSize.x);
-    vec2 dv = vec2(push.texelSize.y);
+    vec2 du = vec2(sceneData.texelSize.x);
+    vec2 dv = vec2(sceneData.texelSize.y);
 
     vec3 topL = vec3(-1, -1, texture(depthImage, uv - dv - du).x);
     vec3 topM = vec3(0, -1, texture(depthImage, uv - dv).x);
@@ -68,15 +65,15 @@ vec3 findClosestFragment3x3(vec2 uv)
     if (botM.z > dMin.z) dMin = botM;
     if (botR.z > dMin.z) dMin = botR;
 
-    return vec3(uv + push.texelSize * dMin.xy, dMin.z);
+    return vec3(uv + sceneData.texelSize * dMin.xy, dMin.z);
 }
 
 vec3 temporalReprojection(vec2 uv, vec2 velocity) {
     vec3 currentSample = RGBToYCoCg(texture(drawImage, uv).rgb);
     vec3 historySample = RGBToYCoCg(texture(drawHistory, uv - velocity).rgb);
 
-    vec2 du = vec2(push.texelSize.x);
-    vec2 dv = vec2(push.texelSize.y);
+    vec2 du = vec2(sceneData.texelSize.x);
+    vec2 dv = vec2(sceneData.texelSize.y);
 
     // MINMAX_3X3_ROUNDED
     vec3 topL = RGBToYCoCg(texture(drawImage, uv - dv - du).rgb);
@@ -138,7 +135,7 @@ vec3 varianceClipping(vec3 color, vec2 uv) {
 
     for (int y = -1; y <= 1; y++) {
         for (int x = -1; x <= 1; x++) {
-            vec2 offset = vec2(x, y) * push.texelSize;
+            vec2 offset = vec2(x, y) * sceneData.texelSize;
             vec3 sampleRGB = texture(drawImage, uv + offset).rgb;
             vec3 sampleYCoCg = RGBToYCoCg(sampleRGB);
 
@@ -166,8 +163,8 @@ vec3 varianceClipping(vec3 color, vec2 uv) {
 }
 
 vec3 neighborhoodClamping(vec3 historyColor, vec2 uv) {
-    vec2 du = vec2(push.texelSize.x);
-    vec2 dv = vec2(push.texelSize.y);
+    vec2 du = vec2(sceneData.texelSize.x);
+    vec2 dv = vec2(sceneData.texelSize.y);
 
     // Sample current frame neighborhood
     vec3 topL = texture(drawImage, uv - dv - du).rgb;
@@ -192,10 +189,10 @@ vec3 neighborhoodClamping(vec3 historyColor, vec2 uv) {
 
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
-    if (pixel.x >= push.width || pixel.y >= push.height) {
+    if (pixel.x >= sceneData.renderTargetSize.x || pixel.y >= sceneData.renderTargetSize.y) {
         return;
     }
-    vec2 uv = (vec2(pixel) + 0.5) * push.texelSize;
+    vec2 uv = (vec2(pixel) + 0.5) * sceneData.texelSize;
 
     if (push.debug == 1) {
         // disabled

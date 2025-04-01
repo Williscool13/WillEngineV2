@@ -50,8 +50,8 @@ layout(set = 1, binding = 0) uniform bufferData
 } buffers;
 
 layout (push_constant) uniform PushConstants {
-    bool enabledFrustumCull;
-    bool shadowPass;
+    int enabledFrustumCull;
+    int shadowPass;
 } push;
 
 int checkIsVisible(mat4 mat, vec3 origin, float radius)
@@ -86,12 +86,10 @@ void main()
     uint invocationId = gl_GlobalInvocationID.x;
     if (invocationId >= buffers.commandBufferCount) { return; }
 
-
-
     uint modelMatrixId = buffers.commandBuffer.commands[invocationId].firstInstance;
     Model models = buffers.modelMatrixBuffer.models[modelMatrixId];
 
-    if (push.shadowPass){
+    if (push.shadowPass == 1){
         if (models.flags.y == 0){
             buffers.commandBuffer.commands[invocationId].instanceCount = 0;
             return;
@@ -109,9 +107,7 @@ void main()
     }
 
 
-
-
-    if (!push.enabledFrustumCull){
+    if (push.enabledFrustumCull == 0){
         buffers.commandBuffer.commands[invocationId].instanceCount = 1;
         return;
     }

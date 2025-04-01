@@ -215,7 +215,13 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
     {
         lutDescriptorBuffer = resourceManager.createDescriptorBufferSampler(lutLayout, 1);
 
-        lutImage = resourceManager.createImage(LUT_IMAGE_EXTENT, VK_FORMAT_R32G32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+        VkImageUsageFlags usage{};
+        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+        usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+        usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+
+        VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(VK_FORMAT_R32G32_SFLOAT, usage, LUT_IMAGE_EXTENT);
+        lutImage = resourceManager.createImage(imgInfo);
 
         VkDescriptorImageInfo lutDescriptorInfo{};
         lutDescriptorInfo.sampler = nullptr; // not sampled (storage)

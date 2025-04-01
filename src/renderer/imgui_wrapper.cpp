@@ -12,6 +12,7 @@
 
 
 #include "environment/environment.h"
+#include "lighting/ambient_occlusion/ground_truth/ground_truth_ambient_occlusion.h"
 #include "lighting/shadows/cascaded_shadow_map.h"
 #include "lighting/shadows/shadow_constants.h"
 #include "src/core/engine.h"
@@ -20,6 +21,7 @@
 #include "src/core/game_object/renderable.h"
 #include "src/core/scene/serializer.h"
 #include "src/util/file.h"
+#include "src/util/math_utils.h"
 
 namespace will_engine
 {
@@ -190,30 +192,175 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
     if (ImGui::Begin("Renderer")) {
         if (ImGui::BeginTabBar("RendererTabs")) {
-            if (ImGui::BeginTabItem("Shaders")) {
-                ImGui::Text("Shaders");
+            if (ImGui::BeginTabItem("Debugging")) {
                 ImGui::SetNextItemWidth(75.0f);
                 if (ImGui::Button("Hot-Reload Shaders")) {
                     engine->hotReloadShaders();
                 }
                 ImGui::Separator();
+
                 ImGui::Text("Temporal Anti-Aliasing");
                 ImGui::Checkbox("Enable TAA", &engine->bEnableTaa);
                 ImGui::DragFloat("Taa Blend Value", &engine->taaBlendValue, 0.01, 0.1f, 0.5f);
-                ImGui::EndTabItem();
-            }
+                ImGui::Separator();
 
-            if (ImGui::BeginTabItem("Pipelines")) {
                 ImGui::Text("Deferred Debug");
-                const char* deferredDebugOptions[]{"None", "Depth", "Velocity", "Albedo", "Normal", "PBR", "Shadows", "Cascade Level", "nDotL"};
+                const char* deferredDebugOptions[]{"None", "Depth", "Velocity", "Albedo", "Normal", "PBR", "Shadows", "Cascade Level", "nDotL", "AO"};
                 ImGui::Combo("Deferred Debug", &engine->deferredDebug, deferredDebugOptions, IM_ARRAYSIZE(deferredDebugOptions));
+                ImGui::Separator();
 
-                ImGui::EndTabItem();
-            }
-
-            if (ImGui::BeginTabItem("Debug View")) {
                 ImGui::Text("Frustum Cull Debug Draw");
                 ImGui::Checkbox("Enable Frustum Cull Debug Draw", &engine->bEnableDebugFrustumCullDraw);
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem("Ambient Occlusion")) {
+                ambient_occlusion::GTAOPushConstants& gtao = engine->ambientOcclusionPipeline->gtaoPush;
+                if (ImGui::CollapsingHeader("GTAO Settings")) {
+                    ImGui::Text("Effect Parameters");
+                    ImGui::Separator();
+                    ImGui::SliderFloat("Effect Radius", &gtao.effectRadius, 0.1f, 2.0f);
+                    ImGui::SliderFloat("Effect Falloff Range", &gtao.effectFalloffRange, 0.0f, 1.0f);
+
+                    ImGui::Spacing();
+                    ImGui::Text("Denoise Parameters");
+                    ImGui::Separator();
+                    float blurBeta = gtao.denoiseBlurBeta;
+                    if (ImGui::SliderFloat("Denoise Blur Beta", &blurBeta, 0.0f, 5.0f)) {
+                        if (ambient_occlusion::GTAO_DENOISE_PASSES != 0) {
+                            gtao.denoiseBlurBeta = blurBeta;
+                        }
+                    }
+                    ImGui::Checkbox("Final Denoise Pass", (bool*) &gtao.isFinalDenoisePass);
+
+                    ImGui::Spacing();
+                    ImGui::Text("Sampling Parameters");
+                    ImGui::Separator();
+                    ImGui::SliderFloat("Radius Multiplier", &gtao.radiusMultiplier, 0.1f, 3.0f);
+                    ImGui::SliderFloat("Sample Distribution Power", &gtao.sampleDistributionPower, 1.0f, 4.0f);
+                    ImGui::SliderFloat("Thin Occluder Compensation", &gtao.thinOccluderCompensation, 0.0f, 1.0f);
+                    ImGui::SliderFloat("Final Value Power", &gtao.finalValuePower, 1.0f, 4.0f);
+                    ImGui::SliderFloat("Depth Mip Sampling Offset", &gtao.depthMipSamplingOffset, 0.0f, 5.0f);
+
+                    ImGui::Spacing();
+                    ImGui::Text("Sample Count");
+                    ImGui::Separator();
+                    const char* qualityPresets[] = {"Low", "Medium", "High", "Ultra"};
+                    int slicePreset = 0;
+
+                    if (gtao.sliceCount == ambient_occlusion::XE_GTAO_SLICE_COUNT_LOW) slicePreset = 0;
+                    else if (gtao.sliceCount == ambient_occlusion::XE_GTAO_SLICE_COUNT_MEDIUM) slicePreset = 1;
+                    else if (gtao.sliceCount == ambient_occlusion::XE_GTAO_SLICE_COUNT_HIGH) slicePreset = 2;
+                    else slicePreset = 3;
+
+                    if (ImGui::Combo("Slice Count Preset", &slicePreset, qualityPresets, IM_ARRAYSIZE(qualityPresets))) {
+                        switch (slicePreset) {
+                            case 0: gtao.sliceCount = ambient_occlusion::XE_GTAO_SLICE_COUNT_LOW;
+                                break;
+                            case 1: gtao.sliceCount = ambient_occlusion::XE_GTAO_SLICE_COUNT_MEDIUM;
+                                break;
+                            case 2: gtao.sliceCount = ambient_occlusion::XE_GTAO_SLICE_COUNT_HIGH;
+                                break;
+                            case 3: gtao.sliceCount = ambient_occlusion::XE_GTAO_SLICE_COUNT_ULTRA;
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+
+                    int stepsPreset = 0;
+                    if (gtao.stepsPerSliceCount == ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_MEDIUM) stepsPreset = 1;
+                    else if (gtao.stepsPerSliceCount == ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_LOW) stepsPreset = 0;
+                    else if (gtao.stepsPerSliceCount == ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_ULTRA) stepsPreset = 3;
+                    else stepsPreset = 2;
+
+                    if (ImGui::Combo("Steps Per Slice Preset", &stepsPreset, qualityPresets, IM_ARRAYSIZE(qualityPresets))) {
+                        switch (stepsPreset) {
+                            case 0: gtao.stepsPerSliceCount = ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_LOW;
+                                break;
+                            case 1: gtao.stepsPerSliceCount = ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_MEDIUM;
+                                break;
+                            case 2: gtao.stepsPerSliceCount = ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_HIGH;
+                                break;
+                            case 3: gtao.stepsPerSliceCount = ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_ULTRA;
+                                break;
+                            default:
+                                break;
+                        }
+                    }
+
+                    ImGui::Spacing();
+                    ImGui::Text("Other Parameters");
+                    ImGui::Separator();
+                    ImGui::InputInt("Debug Mode", &gtao.debug);
+
+                    ImGui::Spacing();
+                    if (ImGui::Button("Reset to Defaults")) {
+                        gtao = {};
+                    }
+                }
+
+                if (ImGui::CollapsingHeader("GTAO Debug Preview")) {
+                    ImGui::Checkbox("Show GTAO Debug Preview", &showGtaoDebugPreview);
+
+                    if (showGtaoDebugPreview) {
+                        if (aoDebugTextureImguiId == VK_NULL_HANDLE) {
+                            if (engine->ambientOcclusionPipeline->debugImage.image != VK_NULL_HANDLE) {
+                                aoDebugTextureImguiId = ImGui_ImplVulkan_AddTexture(
+                                    engine->resourceManager->getDefaultSamplerNearest(),
+                                    engine->ambientOcclusionPipeline->debugImage.imageView,
+                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                            }
+                        }
+
+                        ImGui::BeginChild("GTAODebugPreview", ImVec2(0, 0), false, ImGuiWindowFlags_None);
+
+                        if (aoDebugTextureImguiId == VK_NULL_HANDLE) {
+                            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Debug texture not available.");
+                        }
+                        else {
+                            // Calculate best fit size
+                            float maxSize = ImGui::GetContentRegionAvail().x;
+                            maxSize = glm::min(maxSize, 1024.0f);
+
+                            VkExtent3D imageExtent = engine->ambientOcclusionPipeline->debugImage.imageExtent;
+                            float width = std::min(maxSize, static_cast<float>(imageExtent.width));
+                            float aspectRatio = static_cast<float>(imageExtent.width) / static_cast<float>(imageExtent.height);
+                            float height = width / aspectRatio;
+
+                            ImGui::Image(reinterpret_cast<ImTextureID>(aoDebugTextureImguiId), ImVec2(width, height));
+
+                            ImGui::SameLine();
+                            if (ImGui::Button("Save GTAO Debug Image")) {
+                                if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                                    const std::filesystem::path path = file::imagesSavePath / "gtao_debug.png";
+
+                                    vk_helpers::saveImageR8G8B8A8UNORM(
+                                        *engine->resourceManager,
+                                        *engine->immediate,
+                                        engine->ambientOcclusionPipeline->debugImage,
+                                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                        path.string().c_str(),
+                                        0
+                                    );
+
+                                    ImGui::OpenPopup("SaveConfirmation");
+                                }
+                            }
+
+                            if (ImGui::BeginPopupModal("SaveConfirmation", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+                                ImGui::Text("Image saved to %s/gtao_debug.png", file::imagesSavePath.string().c_str());
+                                if (ImGui::Button("OK", ImVec2(120, 0))) {
+                                    ImGui::CloseCurrentPopup();
+                                }
+                                ImGui::EndPopup();
+                            }
+                        }
+
+                        ImGui::EndChild();
+                    }
+                }
+
                 ImGui::EndTabItem();
             }
 
@@ -315,7 +462,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                         };
 
                         vk_helpers::saveImageR32F(*engine->resourceManager, *engine->immediate, engine->depthImage,
-                                                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT, path.string().c_str(), depthNormalize);
+                                                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT, path.string().c_str(),
+                                                  depthNormalize);
                     }
                     else {
                         fmt::print(" Failed to find/create image save path directory");
@@ -334,7 +482,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             return pixel;
                         };
                         vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->normalRenderTarget,
-                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
+                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(),
+                                                    unpackFunc);
                     }
                     else {
                         fmt::print(" Failed to save normal render target");
@@ -350,7 +499,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             return pixel;
                         };
                         vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->albedoRenderTarget,
-                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
+                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(),
+                                                    unpackFunc);
                     }
                     else {
                         fmt::print(" Failed to save albedo render target");
@@ -366,7 +516,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             return pixel;
                         };
                         vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->pbrRenderTarget,
-                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(), unpackFunc);
+                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(),
+                                                    unpackFunc);
                     }
                     else {
                         fmt::print(" Failed to save pbr render target");
@@ -642,7 +793,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                 gltfPath = IGFD::FileDialog::Instance()->GetFilePathName();
                                 gltfPath = file::getRelativePath(gltfPath);
 
-                                willmodelPath = std::filesystem::current_path() / "assets" / "willmodels" / gltfPath.filename().string();
+                                willmodelPath = gltfPath.parent_path() / gltfPath.filename().string();
                                 willmodelPath = file::getRelativePath(willmodelPath);
                                 willmodelPath.replace_extension(".willmodel");
                             }
@@ -704,8 +855,9 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                 Texture* randomTexture = engine->assetManager->getAnyTexture();
 
                                 currentlySelectedTexture = randomTexture->getTextureResource();
-                                currentlySelectedTextureImguiId = ImGui_ImplVulkan_AddTexture(engine->resourceManager->getDefaultSamplerLinear(), currentlySelectedTexture->getTexture().imageView,
-                                                                                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                                currentlySelectedTextureImguiId = ImGui_ImplVulkan_AddTexture(
+                                    engine->resourceManager->getDefaultSamplerLinear(), currentlySelectedTexture->getTexture().imageView,
+                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
                             }
                         }
 
@@ -722,7 +874,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             for (Texture* texture : engine->assetManager->getAllTextures()) {
                                 bool isSelected = (currentlySelectedTexture->getId() == texture->getId());
 
-                                std::string label = fmt::format("[{}] Texture ID - {}", texture->isTextureResourceLoaded() ? "LOADED" : "NOT LOADED", texture->getId());
+                                std::string label = fmt::format("[{}] Texture ID - {}", texture->isTextureResourceLoaded() ? "LOADED" : "NOT LOADED",
+                                                                texture->getId());
 
                                 if (ImGui::Selectable(label.c_str(), isSelected)) {
                                     if (currentlySelectedTextureImguiId != VK_NULL_HANDLE) {
@@ -733,8 +886,9 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                     }
 
                                     currentlySelectedTexture = texture->getTextureResource();
-                                    currentlySelectedTextureImguiId = ImGui_ImplVulkan_AddTexture(engine->resourceManager->getDefaultSamplerLinear(), currentlySelectedTexture->getTexture().imageView,
-                                                                                                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                                    currentlySelectedTextureImguiId = ImGui_ImplVulkan_AddTexture(
+                                        engine->resourceManager->getDefaultSamplerLinear(), currentlySelectedTexture->getTexture().imageView,
+                                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
                                 }
                             }
 
@@ -867,6 +1021,10 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     }
     ImGui::End();
 
+    if (ImGui::Begin("Discardable Debug")) {
+        ImGui::Text("Empty");
+    }
+    ImGui::End();
 
     if (selectedItem) {
         if (IImguiRenderable* imguiRenderable = dynamic_cast<IImguiRenderable*>(selectedItem)) {
@@ -933,19 +1091,17 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
         if (ImGui::BeginTabItem("Terrain")) {
             ImGui::Checkbox("Draw Vertex Lines Only", &engine->bDrawTerrainLines);
 
+            const auto currentTerrainComponent = selectedMap->getComponent<components::TerrainComponent>();
+            ImGui::BeginDisabled(!currentTerrainComponent);
+            if (ImGui::Button("Save Terrain as HeightMap")) {
+                const std::vector<float> heightmapData = currentTerrainComponent->getHeightMapData();
+                const std::filesystem::path path = file::imagesSavePath / "TerrainHeightMap.png";
+                vk_helpers::saveHeightmap(heightmapData, NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, path);
+            }
+            ImGui::EndDisabled();
+
             if (ImGui::BeginTabBar("Terrain Tab Bar")) {
-                auto currentTerrainComponent = selectedMap->getComponent<components::TerrainComponent>();
-
                 if (ImGui::BeginTabItem("Terrain Generation")) {
-                    ImGui::BeginDisabled(!currentTerrainComponent);
-                    if (ImGui::Button("Save Terrain as HeightMap")) {
-                        std::vector<float> heightmapData = currentTerrainComponent->getHeightMapData();
-                        std::filesystem::path path = file::imagesSavePath / "TerrainHeightMap.png";
-                        vk_helpers::saveHeightmap(heightmapData, NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, path);
-                    }
-                    ImGui::EndDisabled();
-
-
                     ImGui::Separator();
 
                     if (ImGui::CollapsingHeader("Noise Settings", ImGuiTreeNodeFlags_DefaultOpen)) {

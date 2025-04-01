@@ -100,8 +100,14 @@ void MeshRendererComponent::updateRenderImgui()
             }
             ImGui::Separator();
 
+            const bool originalVis = bIsVisible;
+            const bool originalShadow = bIsShadowCaster;
             ImGui::Checkbox("Visible", &bIsVisible);
             ImGui::Checkbox("Cast Shadows", &bIsShadowCaster);
+
+            if (bIsVisible != originalVis || bIsShadowCaster != originalShadow) {
+                dirty();
+            }
         }
     }
 }

@@ -1,0 +1,92 @@
+#version 460
+
+void main() {
+
+}
+//
+//void XeGTAO_PrefilterDepths16x16(
+//uvec2 dispatchThreadID,
+//uvec2 groupThreadID,
+//const GTAOConstants consts,
+//sampler2D sourceNDCDepth,
+//out writeonly image2D outDepth0,
+//out writeonly image2D outDepth1,
+//out writeonly image2D outDepth2,
+//out writeonly image2D outDepth3,
+//out writeonly image2D outDepth4
+//) {
+//    // MIP 0
+//    const uvec2 baseCoord = dispatchThreadID;
+//    // 2x because ao image is downsampled
+//    const uvec2 pixCoord = baseCoord * 2u;
+//
+//
+//    // todo: get width and height from sceneData
+//    vec2 uvCoord = vec2(pixCoord) * consts.ViewportPixelSize;
+//
+//    vec4 depths 4;
+//    depths4.w = texture(sourceNDCDepth, uvCoord + vec2(0.0, 0.0) * consts.ViewportPixelSize).r;
+//    depths4.z = texture(sourceNDCDepth, uvCoord + vec2(1.0, 0.0) * consts.ViewportPixelSize).r;
+//    depths4.x = texture(sourceNDCDepth, uvCoord + vec2(0.0, 1.0) * consts.ViewportPixelSize).r;
+//    depths4.y = texture(sourceNDCDepth, uvCoord + vec2(1.0, 1.0) * consts.ViewportPixelSize).r;
+//
+//    float depth0 = XeGTAO_ClampDepth(XeGTAO_ScreenSpaceToViewSpaceDepth(depths4.w, consts));
+//    float depth1 = XeGTAO_ClampDepth(XeGTAO_ScreenSpaceToViewSpaceDepth(depths4.z, consts));
+//    float depth2 = XeGTAO_ClampDepth(XeGTAO_ScreenSpaceToViewSpaceDepth(depths4.x, consts));
+//    float depth3 = XeGTAO_ClampDepth(XeGTAO_ScreenSpaceToViewSpaceDepth(depths4.y, consts));
+//
+//    imageStore(outDepth0, ivec2(pixCoord + uvec2(0, 0)), vec4(depth0, 0.0, 0.0, 0.0));
+//    imageStore(outDepth0, ivec2(pixCoord + uvec2(1, 0)), vec4(depth1, 0.0, 0.0, 0.0));
+//    imageStore(outDepth0, ivec2(pixCoord + uvec2(0, 1)), vec4(depth2, 0.0, 0.0, 0.0));
+//    imageStore(outDepth0, ivec2(pixCoord + uvec2(1, 1)), vec4(depth3, 0.0, 0.0, 0.0));
+//
+//    // MIP 1
+//    float dm1 = XeGTAO_DepthMIPFilter(depth0, depth1, depth2, depth3, consts);
+//    imageStore(outDepth1, ivec2(baseCoord), vec4(dm1, 0.0, 0.0, 0.0));
+//    g_scratchDepths[groupThreadID.x][groupThreadID.y] = dm1;
+//
+//    memoryBarrierShared();
+//    barrier();
+//
+//    // MIP 2
+//    if (all(equal(groupThreadID.xy % 2u, uvec2(0u, 0u)))) {
+//        float inTL = g_scratchDepths[groupThreadID.x+0u][groupThreadID.y+0u];
+//        float inTR = g_scratchDepths[groupThreadID.x+1u][groupThreadID.y+0u];
+//        float inBL = g_scratchDepths[groupThreadID.x+0u][groupThreadID.y+1u];
+//        float inBR = g_scratchDepths[groupThreadID.x+1u][groupThreadID.y+1u];
+//
+//        float dm2 = XeGTAO_DepthMIPFilter(inTL, inTR, inBL, inBR, consts);
+//        imageStore(outDepth2, ivec2(baseCoord / 2u), vec4(dm2, 0.0, 0.0, 0.0));
+//        g_scratchDepths[groupThreadID.x][groupThreadID.y] = dm2;
+//    }
+//
+//    memoryBarrierShared();
+//    barrier();
+//
+//    // MIP 3
+//    if (all(equal(groupThreadID.xy % 4u, uvec2(0u, 0u)))) {
+//        float inTL = g_scratchDepths[groupThreadID.x+0u][groupThreadID.y+0u];
+//        float inTR = g_scratchDepths[groupThreadID.x+2u][groupThreadID.y+0u];
+//        float inBL = g_scratchDepths[groupThreadID.x+0u][groupThreadID.y+2u];
+//        float inBR = g_scratchDepths[groupThreadID.x+2u][groupThreadID.y+2u];
+//
+//        float dm3 = XeGTAO_DepthMIPFilter(inTL, inTR, inBL, inBR, consts);
+//        imageStore(outDepth3, ivec2(baseCoord / 4u), vec4(dm3, 0.0, 0.0, 0.0));
+//        g_scratchDepths[groupThreadID.x][groupThreadID.y] = dm3;
+//    }
+//
+//    memoryBarrierShared();
+//    barrier();
+//
+//    // MIP 4
+//    if (all(equal(groupThreadID.xy % 8u, uvec2(0u, 0u)))) {
+//        float inTL = g_scratchDepths[groupThreadID.x+0u][groupThreadID.y+0u];
+//        float inTR = g_scratchDepths[groupThreadID.x+4u][groupThreadID.y+0u];
+//        float inBL = g_scratchDepths[groupThreadID.x+0u][groupThreadID.y+4u];
+//        float inBR = g_scratchDepths[groupThreadID.x+4u][groupThreadID.y+4u];
+//
+//        float dm4 = XeGTAO_DepthMIPFilter(inTL, inTR, inBL, inBR, consts);
+//        imageStore(outDepth4, ivec2(baseCoord / 8u), vec4(dm4, 0.0, 0.0, 0.0));
+//        // g_scratchDepths[groupThreadID.x][groupThreadID.y] = dm4; // commented out as in original
+//    }
+//}

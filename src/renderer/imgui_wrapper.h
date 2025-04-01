@@ -80,7 +80,10 @@ private:
     terrain::TerrainProperties terrainProperties{};
     std::array<uint32_t, terrain::MAX_TERRAIN_TEXTURE_COUNT> terrainTextures;
 
-    VkDescriptorSet currentlySelectedTextureImguiId = VK_NULL_HANDLE;
+    VkDescriptorSet currentlySelectedTextureImguiId{VK_NULL_HANDLE};
+
+    bool showGtaoDebugPreview = false;
+    VkDescriptorSet aoDebugTextureImguiId{VK_NULL_HANDLE};
 };
 }
 

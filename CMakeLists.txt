@@ -62,12 +62,6 @@ set(FASTGLTF_SOURCES
         ${FASTGLTF_DIR}/src/io.cpp
 )
 
-set(HALF_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/half)
-set(HALF_SOURCES
-        ${HALF_DIR}/half/dummy.cpp
-        ${HALF_DIR}/half/half.hpp
-)
-
 set(VK_BOOTSTRAP_SOURCES
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/vk-bootstrap/VkBootstrap.cpp
 )
@@ -247,13 +241,15 @@ set(TEMP_SOURCES
         src/renderer/assets/texture/texture_resource.cpp
         src/renderer/assets/texture/texture_resource.h
         src/renderer/assets/texture/texture_types.h
+        src/renderer/lighting/ambient_occlusion/ground_truth/ground_truth_ambient_occlusion.cpp
+        src/renderer/lighting/ambient_occlusion/ground_truth/ground_truth_ambient_occlusion.h
+        src/renderer/lighting/ambient_occlusion/ambient_occlusion_types.h
 
 )
 
 add_executable(WillEngine main.cpp
         ${IMGUI_SOURCES}
         ${FASTGLTF_SOURCES}
-        ${HALF_SOURCES}
         ${VK_BOOTSTRAP_SOURCES}
         ${VOLK_SOURCES}
         ${ENGINE_SOURCES}

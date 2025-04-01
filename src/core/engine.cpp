@@ -27,6 +27,7 @@
 #include "src/renderer/assets/render_object/render_object.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/environment/environment.h"
+#include "src/renderer/lighting/ambient_occlusion/ground_truth/ground_truth_ambient_occlusion.h"
 #include "src/renderer/lighting/shadows/cascaded_shadow_map.h"
 #include "src/renderer/pipelines/deferred_mrt/deferred_mrt.h"
 #include "src/renderer/pipelines/deferred_resolve/deferred_resolve.h"
@@ -199,10 +200,15 @@ void Engine::initRenderer()
     environmentPipeline = new environment_pipeline::EnvironmentPipeline(*resourceManager, environmentMap->getCubemapDescriptorSetLayout());
     terrainPipeline = new terrain::TerrainPipeline(*resourceManager);
     deferredMrtPipeline = new deferred_mrt::DeferredMrtPipeline(*resourceManager);
+    ambientOcclusionPipeline = new ambient_occlusion::GroundTruthAmbientOcclusionPipeline(*resourceManager);
     deferredResolvePipeline = new deferred_resolve::DeferredResolvePipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
                                                                             cascadedShadowMap->getCascadedShadowMapUniformLayout(), cascadedShadowMap->getCascadedShadowMapSamplerLayout());
     temporalAntialiasingPipeline = new temporal_antialiasing_pipeline::TemporalAntialiasingPipeline(*resourceManager);
     postProcessPipeline = new post_process_pipeline::PostProcessPipeline(*resourceManager);
+
+    ambientOcclusionPipeline->setupDepthPrefilterDescriptorBuffer(depthImage.imageView);
+    ambientOcclusionPipeline->setupAmbientOcclusionDescriptorBuffer(normalRenderTarget.imageView);
+    ambientOcclusionPipeline->setupSpatialFilteringDescriptorBuffer(depthImage.imageView, normalRenderTarget.imageView);
 
     const deferred_resolve::DeferredResolveDescriptor deferredResolveDescriptor{
         normalRenderTarget.imageView,
@@ -210,6 +216,7 @@ void Engine::initRenderer()
         pbrRenderTarget.imageView,
         depthImage.imageView,
         velocityRenderTarget.imageView,
+        ambientOcclusionPipeline->getAmbientOcclusionRenderTarget().imageView,
         drawImage.imageView,
         resourceManager->getDefaultSamplerLinear()
     };
@@ -389,6 +396,8 @@ void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverl
 
 
     pSceneData->renderTargetSize = {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
+    pSceneData->texelSize = {1.0f / RENDER_EXTENT_WIDTH, 1.0f / RENDER_EXTENT_HEIGHT};
+    pSceneData->cameraPlanes = {camera->getNearPlane(), camera->getFarPlane()};
     pSceneData->deltaTime = deltaTime;
 
 
@@ -409,8 +418,8 @@ void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverl
     pDebugSceneData->prevCameraWorldPos = glm::vec4(0.0f);
     pDebugSceneData->cameraWorldPos = glm::vec4(0.0f);
 
-
     pDebugSceneData->renderTargetSize = {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
+    pDebugSceneData->texelSize = {1.0f / RENDER_EXTENT_WIDTH, 1.0f / RENDER_EXTENT_HEIGHT};
     pDebugSceneData->deltaTime = deltaTime;
 }
 
@@ -490,7 +499,6 @@ void Engine::draw(float deltaTime)
         environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferBindingInfo(),
         environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferSize() * environmentMapIndex,
     };
-    // todo: make environment pipeline draw to the render targets rather than directly to the draw image!!!
     environmentPipeline->draw(cmd, environmentPipelineDrawInfo);
 
 
@@ -558,6 +566,18 @@ void Engine::draw(float deltaTime)
     vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    ambient_occlusion::GTAOPushConstants gtaoPush{};
+    gtaoPush.debug = gtaoDebug;
+    ambient_occlusion::GTAODrawInfo gtaoDrawInfo{
+        camera,
+        gtaoPush,
+        frameNumber,
+        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
+    };
+    ambientOcclusionPipeline->draw(cmd, gtaoDrawInfo);
+
     const deferred_resolve::DeferredResolveDrawInfo deferredResolveDrawInfo{
         deferredDebug,
         csmPcf,
@@ -592,7 +612,7 @@ void Engine::draw(float deltaTime)
 
     vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, postProcessOutputBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    postProcessPipeline->draw(cmd, post_process::PostProcessType::ALL);
+    postProcessPipeline->draw(cmd, post_process::PostProcessType::Sharpening);
 
     vk_helpers::transitionImage(cmd, postProcessOutputBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -654,6 +674,7 @@ void Engine::cleanup()
     delete environmentPipeline;
     delete terrainPipeline;
     delete deferredMrtPipeline;
+    delete ambientOcclusionPipeline;
     delete deferredResolvePipeline;
     delete temporalAntialiasingPipeline;
     delete postProcessPipeline;
@@ -939,6 +960,7 @@ void Engine::hotReloadShaders() const
     environmentPipeline->reloadShaders();
     terrainPipeline->reloadShaders();
     deferredMrtPipeline->reloadShaders();
+    ambientOcclusionPipeline->reloadShaders();
     deferredResolvePipeline->reloadShaders();
     temporalAntialiasingPipeline->reloadShaders();
     postProcessPipeline->reloadShaders();

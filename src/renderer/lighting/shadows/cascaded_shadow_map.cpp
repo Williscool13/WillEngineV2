@@ -159,8 +159,14 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
     sampler = resourceManager.createSampler(samplerCreateInfo);
 
     for (CascadeShadowMapData& cascadeShadowMapData : shadowMaps) {
-        cascadeShadowMapData.depthShadowMap = resourceManager.createImage({shadows::CASCADE_WIDTH, shadows::CASCADE_HEIGHT, 1}, shadows::CASCADE_DEPTH_FORMAT,
-                                                                          VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT);
+
+        VkImageUsageFlags usage{};
+        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+        usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
+        usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+
+        VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(shadows::CASCADE_DEPTH_FORMAT, usage, {shadows::CASCADE_WIDTH, shadows::CASCADE_HEIGHT, 1});
+        cascadeShadowMapData.depthShadowMap = resourceManager.createImage(imgInfo);
     }
 
     //
