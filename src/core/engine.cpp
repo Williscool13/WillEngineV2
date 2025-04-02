@@ -352,7 +352,7 @@ void Engine::updateGame(const float deltaTime)
     hierarchicalDeletionQueue.clear();
 }
 
-void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap) const
+void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap) const
 {
     const AllocatedBuffer& previousSceneDataBuffer = sceneDataBuffers[previousFrameOverlap];
     const AllocatedBuffer& sceneDataBuffer = sceneDataBuffers[currentFrameOverlap];
@@ -421,6 +421,9 @@ void Engine::updateRender(const float deltaTime, const int32_t currentFrameOverl
     pDebugSceneData->renderTargetSize = {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
     pDebugSceneData->texelSize = {1.0f / RENDER_EXTENT_WIDTH, 1.0f / RENDER_EXTENT_HEIGHT};
     pDebugSceneData->deltaTime = deltaTime;
+
+    vk_helpers::synchronizeUniform(cmd, sceneDataBuffer, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
+    vk_helpers::synchronizeUniform(cmd, debugSceneDataBuffer, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT, VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
 }
 
 void Engine::draw(float deltaTime)
@@ -462,7 +465,7 @@ void Engine::draw(float deltaTime)
     }
 
     // Updates Scene Data buffer
-    updateRender(deltaTime, currentFrameOverlap, previousFrameOverlap);
+    updateRender(cmd, deltaTime, currentFrameOverlap, previousFrameOverlap);
 
     // Updates Cascaded Shadow Map Properties
     cascadedShadowMap->update(mainLight, camera, currentFrameOverlap);

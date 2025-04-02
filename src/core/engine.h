@@ -114,7 +114,7 @@ public:
 
     void updateGame(float deltaTime);
 
-    void updateRender(float deltaTime, int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
+    void updateRender(VkCommandBuffer cmd, float deltaTime, int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
 
     void draw(float deltaTime);
 
