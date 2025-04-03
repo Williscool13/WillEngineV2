@@ -4,6 +4,8 @@
 
 #include "post_process_pipeline.h"
 
+#include <array>
+
 #include "volk/volk.h"
 #include "src/renderer/renderer_constants.h"
 
@@ -21,14 +23,15 @@ will_engine::post_process_pipeline::PostProcessPipeline::PostProcessPipeline(Res
     pushConstants.size = sizeof(PostProcessPushConstants);
     pushConstants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    VkDescriptorSetLayout setLayouts[1];
-    setLayouts[0] = descriptorSetLayout;
+    VkDescriptorSetLayout setLayouts[2];
+    setLayouts[0] = resourceManager.getSceneDataLayout();
+    setLayouts[1] = descriptorSetLayout;
 
     VkPipelineLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layoutInfo.pNext = nullptr;
     layoutInfo.pSetLayouts = setLayouts;
-    layoutInfo.setLayoutCount = 1;
+    layoutInfo.setLayoutCount = 2;
     layoutInfo.pPushConstantRanges = &pushConstants;
     layoutInfo.pushConstantRangeCount = 1;
 
@@ -67,7 +70,7 @@ void will_engine::post_process_pipeline::PostProcessPipeline::setupDescriptorBuf
     resourceManager.setupDescriptorBufferSampler(descriptorBuffer, descriptors, 0);
 }
 
-void will_engine::post_process_pipeline::PostProcessPipeline::draw(VkCommandBuffer cmd, post_process::PostProcessType postProcessFlags) const
+void will_engine::post_process_pipeline::PostProcessPipeline::draw(VkCommandBuffer cmd, PostProcessDrawInfo drawInfo) const
 {
     if (!descriptorBuffer.isIndexOccupied(0)) {
         fmt::print("Descriptor buffer not yet set up");
@@ -84,16 +87,19 @@ void will_engine::post_process_pipeline::PostProcessPipeline::draw(VkCommandBuff
     PostProcessPushConstants push{};
     push.width = RENDER_EXTENTS.width;
     push.height = RENDER_EXTENTS.height;
-    push.postProcessFlags = static_cast<uint32_t>(postProcessFlags);
+    push.postProcessFlags = static_cast<uint32_t>(drawInfo.postProcessFlags);
 
     vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PostProcessPushConstants), &push);
 
-    const VkDescriptorBufferBindingInfoEXT bindingInfo = descriptorBuffer.getDescriptorBufferBindingInfo();
-    vkCmdBindDescriptorBuffersEXT(cmd, 1, &bindingInfo);
+    const std::array bindingInfos{
+        drawInfo.sceneDataBinding,
+        descriptorBuffer.getDescriptorBufferBindingInfo()
+    };
+    vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos.data());
 
-    constexpr VkDeviceSize zeroOffset{0};
-    constexpr uint32_t descriptorIndex{0};
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &descriptorIndex, &zeroOffset);
+    constexpr std::array<uint32_t, 2> indices{0, 1};
+    const std::array<VkDeviceSize, 2> offsets{drawInfo.sceneDataOffset, 0};
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, indices.data(), offsets.data());
 
     const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
     const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
