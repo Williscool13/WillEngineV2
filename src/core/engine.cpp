@@ -208,7 +208,7 @@ void Engine::initRenderer()
 
     ambientOcclusionPipeline->setupDepthPrefilterDescriptorBuffer(depthImage.imageView);
     ambientOcclusionPipeline->setupAmbientOcclusionDescriptorBuffer(normalRenderTarget.imageView);
-    ambientOcclusionPipeline->setupSpatialFilteringDescriptorBuffer(depthImage.imageView, normalRenderTarget.imageView);
+    ambientOcclusionPipeline->setupSpatialFilteringDescriptorBuffer();
 
     const deferred_resolve::DeferredResolveDescriptor deferredResolveDescriptor{
         normalRenderTarget.imageView,

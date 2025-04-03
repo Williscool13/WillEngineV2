@@ -10,11 +10,6 @@ layout (location = 3) out vec2 velocityTarget;// 16 X, 16 Y
 
 layout(set = 1, binding = 0) uniform samplerCube environmentMap;
 
-
-vec3 reinhard(vec3 hdr) {
-    return hdr / (hdr + vec3(1.0));
-}
-
 void main()
 {
     vec3 direction = normalize(uv);
@@ -22,7 +17,7 @@ void main()
     vec3 envColor = textureLod(environmentMap, direction, 0).rgb;
 
     // 0 = environment map flag
-    albedoTarget = vec4(reinhard(envColor), 0.0);
+    albedoTarget = vec4(envColor, 0.0);
 
     normalTarget = vec4(-direction, 0.0f);
     pbrTarget = vec4(0.0f);
