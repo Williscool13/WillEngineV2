@@ -25,7 +25,7 @@ public:
 
     void setupAmbientOcclusionDescriptorBuffer(const VkImageView& normalsImageView);
 
-    void setupSpatialFilteringDescriptorBuffer(const VkImageView& depthImageView, const VkImageView& normalsImageView);
+    void setupSpatialFilteringDescriptorBuffer();
 
     void draw(VkCommandBuffer cmd, const GTAODrawInfo& drawInfo);
 

@@ -199,10 +199,14 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 }
                 ImGui::Separator();
 
-                ImGui::Text("Temporal Anti-Aliasing");
-                ImGui::Checkbox("Enable TAA", &engine->bEnableTaa);
-                ImGui::DragFloat("Taa Blend Value", &engine->taaBlendValue, 0.01, 0.1f, 0.5f);
-                ImGui::Separator();
+                ImGui::Checkbox("Disable Physics", &engine->bPausePhysics);
+
+
+                if (ImGui::CollapsingHeader("Temporal Antialiasing", ImGuiTreeNodeFlags_DefaultOpen)) {
+                    ImGui::Checkbox("Enable TAA", &engine->bEnableTaa);
+                    ImGui::DragFloat("Taa Blend Value", &engine->taaBlendValue, 0.01, 0.1f, 0.5f);
+                    ImGui::Checkbox("Disable Jitter", &engine->bDisableJitter);
+                }
 
                 ImGui::Text("Deferred Debug");
                 const char* deferredDebugOptions[]{"None", "Depth", "Velocity", "Albedo", "Normal", "PBR", "Shadows", "Cascade Level", "nDotL", "AO"};
@@ -211,6 +215,31 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                 ImGui::Text("Frustum Cull Debug Draw");
                 ImGui::Checkbox("Enable Frustum Cull Debug Draw", &engine->bEnableDebugFrustumCullDraw);
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem("Post-Processing")) {
+                static bool tonemapping = (engine->postProcessData & post_process::PostProcessType::Tonemapping) != post_process::PostProcessType::None;
+                if (ImGui::CollapsingHeader("Tonemapping", ImGuiTreeNodeFlags_DefaultOpen)) {
+                    if (ImGui::Checkbox("Enable Tonemapping", &tonemapping)) {
+                        if (tonemapping) {
+                            engine->postProcessData |= post_process::PostProcessType::Tonemapping;
+                        } else {
+                            engine->postProcessData &= ~post_process::PostProcessType::Tonemapping;
+                        }
+                    }
+                }
+                if (ImGui::CollapsingHeader("Sharpening", ImGuiTreeNodeFlags_DefaultOpen)) {
+                    static bool sharpening = (engine->postProcessData & post_process::PostProcessType::Sharpening) != post_process::PostProcessType::None;
+                    if (ImGui::Checkbox("Enable Sharpening", &sharpening)) {
+                        if (sharpening) {
+                            engine->postProcessData |= post_process::PostProcessType::Sharpening;
+                        } else {
+                            engine->postProcessData &= ~post_process::PostProcessType::Sharpening;
+                        }
+                    }
+                }
+
                 ImGui::EndTabItem();
             }
 

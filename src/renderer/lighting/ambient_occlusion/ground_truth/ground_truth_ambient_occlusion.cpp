@@ -332,8 +332,7 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupA
     resourceManager.setupDescriptorBufferSampler(ambientOcclusionDescriptorBuffer, imageDescriptors, 0);
 }
 
-void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupSpatialFilteringDescriptorBuffer(const VkImageView& depthImageView,
-    const VkImageView& normalsImageView)
+void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupSpatialFilteringDescriptorBuffer()
 {
     std::vector<DescriptorImageData> imageDescriptors{};
     imageDescriptors.reserve(5);
@@ -344,18 +343,6 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupS
             {depthSampler, ambientOcclusionImage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
             false
         });
-    // imageDescriptors.push_back(
-    //     {
-    //         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-    //         {depthSampler, depthImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-    //         false
-    //     });
-    // imageDescriptors.push_back(
-    //     {
-    //         VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-    //         {normalsSampler, normalsImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-    //         false
-    //     });
     imageDescriptors.push_back(
         {
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,

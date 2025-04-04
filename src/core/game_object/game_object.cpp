@@ -33,11 +33,13 @@ GameObject::GameObject(std::string gameObjectName, const uint64_t gameObjectId)
 GameObject::~GameObject()
 {
     if (!children.empty()) {
-        fmt::print("Error: GameObject destroyed with children, potentially not destroyed with ::destroy. This will result in orphaned children and null references");
+        fmt::print(
+            "Error: GameObject destroyed with children, potentially not destroyed with ::destroy. This will result in orphaned children and null references");
     }
 
     if (parent) {
-        fmt::print("Error: GameObject destroyed with a parent, potentially not destroyed with ::destroy. This will result in orphaned children and null references");
+        fmt::print(
+            "Error: GameObject destroyed with a parent, potentially not destroyed with ::destroy. This will result in orphaned children and null references");
     }
 }
 
@@ -188,7 +190,8 @@ const Transform& GameObject::getGlobalTransform()
     if (bIsGlobalTransformDirty) {
         if (transformableParent != nullptr) {
             const Transform& parentGlobal = transformableParent->getGlobalTransform();
-            const glm::vec3 globalPosition = parentGlobal.getPosition() + parentGlobal.getRotation() * (parentGlobal.getScale() * transform.getPosition());
+            const glm::vec3 globalPosition = parentGlobal.getPosition() + parentGlobal.getRotation() * (
+                                                 parentGlobal.getScale() * transform.getPosition());
             const glm::quat globalRotation = parentGlobal.getRotation() * transform.getRotation();
             const glm::vec3 globalScale = parentGlobal.getScale() * transform.getScale();
 
@@ -305,6 +308,22 @@ void GameObject::setGlobalTransform(const Transform& newGlobalTransform)
 
 void GameObject::setGlobalTransformFromPhysics(const glm::vec3& position, const glm::quat& rotation)
 {
+    const glm::vec3 pos = getPosition();
+    const glm::quat rot = getRotation();
+
+    constexpr float positionEpsilonSquared = 0.000001f;
+    constexpr float rotationEpsilon = 0.0001f;
+
+    const float posDistSquared =
+            (position.x - pos.x) * (position.x - pos.x) +
+            (position.y - pos.y) * (position.y - pos.y) +
+            (position.z - pos.z) * (position.z - pos.z);
+
+    const bool positionUnchanged = posDistSquared < positionEpsilonSquared;
+    const bool rotationUnchanged = glm::abs(dot(rotation, rot)) > (1.0f - rotationEpsilon);
+    if (positionUnchanged && rotationUnchanged) { return; }
+
+
     if (transformableParent) {
         const glm::vec3 parentPos = transformableParent->getPosition();
         const glm::quat parentRot = transformableParent->getRotation();

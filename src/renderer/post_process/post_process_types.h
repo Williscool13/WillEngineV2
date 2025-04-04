@@ -5,8 +5,6 @@
 #ifndef POST_PROCESS_TYPES_H
 #define POST_PROCESS_TYPES_H
 
-#include <vulkan/vulkan_core.h>
-
 namespace post_process
 {
 enum class PostProcessType : uint32_t
@@ -16,6 +14,26 @@ enum class PostProcessType : uint32_t
     Sharpening = 1 << 1,
     ALL = 0xFFFFFFFF
 };
+
+inline PostProcessType operator|(PostProcessType a, PostProcessType b) {
+    return static_cast<PostProcessType>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+}
+
+inline PostProcessType operator&(PostProcessType a, PostProcessType b) {
+    return static_cast<PostProcessType>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+}
+
+inline PostProcessType operator~(PostProcessType a) {
+    return static_cast<PostProcessType>(~static_cast<uint32_t>(a));
+}
+
+inline PostProcessType& operator|=(PostProcessType& a, PostProcessType b) {
+    return a = a | b;
+}
+
+inline PostProcessType& operator&=(PostProcessType& a, PostProcessType b) {
+    return a = a & b;
+}
 
 }
 

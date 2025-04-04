@@ -18,6 +18,7 @@
 #include "src/renderer/assets/asset_manager.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/lighting/directional_light.h"
+#include "src/renderer/post_process/post_process_types.h"
 
 
 class ResourceManager;
@@ -112,9 +113,11 @@ public:
 
     void run();
 
+    void updatePhysics(float deltaTime) const;
+
     void updateGame(float deltaTime);
 
-    void updateRender(float deltaTime, int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
+    void updateRender(VkCommandBuffer cmd, float deltaTime, int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
 
     void draw(float deltaTime);
 
@@ -177,6 +180,8 @@ private: // Debug
     int32_t deferredDebug{0};
     int32_t gtaoDebug{4};
     bool bDrawTerrainLines{false};
+    bool bPausePhysics{true};
+    bool bDisableJitter{false};
 
     void hotReloadShaders() const;
 
@@ -188,6 +193,8 @@ private: // Scene Data
     FreeCamera* camera{nullptr};
     DirectionalLight mainLight{glm::normalize(glm::vec3(-0.8f, -0.6f, -0.6f)), 1.0f, glm::vec3(0.0f)};
     int32_t environmentMapIndex{0};
+
+    post_process::PostProcessType postProcessData{post_process::PostProcessType::ALL};
 
     std::unordered_set<Map*> activeMaps;
     std::unordered_set<ITerrain*> activeTerrains;

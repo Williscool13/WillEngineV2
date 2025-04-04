@@ -49,9 +49,6 @@ void main() {
     outUV = uv;
     outMaterialIndex = materialIndex;
 
-    //outCurrMvpPosition = sceneData.viewProj * worldPos;
-    //outPrevMvpPosition = sceneData.prevViewProj * models.previousModelMatrix * vec4(position, 1.0);
-
     vec4 currClipPos = sceneData.viewProj * worldPos;
     vec4 prevClipPos = sceneData.prevViewProj * models.previousModelMatrix * vec4(position, 1.0);
     currClipPos.xy += currClipPos.w * sceneData.jitter.xy;

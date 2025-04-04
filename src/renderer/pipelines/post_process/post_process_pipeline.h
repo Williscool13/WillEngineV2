@@ -25,6 +25,13 @@ struct PostProcessPushConstants
     int32_t padding;
 };
 
+struct PostProcessDrawInfo
+{
+    post_process::PostProcessType postProcessFlags{post_process::PostProcessType::ALL};
+    VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
+    VkDeviceSize sceneDataOffset{0};
+};
+
 class PostProcessPipeline
 {
 public:
@@ -34,7 +41,7 @@ public:
 
     void setupDescriptorBuffer(const PostProcessDescriptor& bufferInfo);
 
-    void draw(VkCommandBuffer cmd, post_process::PostProcessType postProcessFlags) const;
+    void draw(VkCommandBuffer cmd, PostProcessDrawInfo drawInfo) const;
 
     void reloadShaders() { createPipeline(); }
 
