@@ -13,8 +13,8 @@ class HaltonSequence
 {
 public:
     // Pre-computed 16-point Halton sequence (base 2, 3)
-    static constexpr glm::vec2 HALTON_SEQUENCE[16] = {
-        {0.5,    0.33333334},
+    static constexpr std::array<glm::vec2, 16> HALTON_SEQUENCE = {
+        glm::vec2(0.5,    0.33333334),
         {0.25,   0.66666667},
         {0.75,   0.11111111},
         {0.125,  0.44444445},
