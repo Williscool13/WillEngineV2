@@ -100,7 +100,7 @@ void will_engine::terrain::TerrainPipeline::draw(VkCommandBuffer cmd, const Terr
     scissor.extent.height = RENDER_EXTENTS.height;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    TerrainPushConstants push{1.0f};
+    TerrainPushConstants push{4.0f};
     vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, 0, sizeof(TerrainPushConstants), &push);
 
     constexpr VkDeviceSize zeroOffset{0};
