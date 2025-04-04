@@ -33,14 +33,21 @@ layout (set = 2, binding = 1) uniform texture2D textures[];
 
 void main() {
     Material m = bufferAddresses.materialBufferDeviceAddress.materials[inMaterialIndex];
-    vec3 albedo = vec3(1.0f);
+    vec4 albedo = vec4(1.0f);
 
     int colorSamplerIndex = m.textureSamplerIndices.x;
     int colorImageIndex = m.textureImageIndices.x;
     if (colorSamplerIndex >= 0) {
-        albedo = texture(sampler2D(textures[nonuniformEXT(colorImageIndex)], samplers[nonuniformEXT(colorSamplerIndex)]), inUV).xyz;
+        albedo = texture(sampler2D(textures[nonuniformEXT(colorImageIndex)], samplers[nonuniformEXT(colorSamplerIndex)]), inUV);
     }
-    albedo = albedo.xyz * inColor.rgb * m.colorFactor.rgb;
+    albedo = albedo * inColor * m.colorFactor;
+
+    if (m.alphaCutoff.y == 2){
+        // 2 is "mask" blend type
+        if (albedo.w < m.alphaCutoff.x){
+            discard;
+        }
+    }
 
     int metalSamplerIndex = int(m.textureSamplerIndices.y);
     int metalImageIndex = int(m.textureImageIndices.y);
@@ -53,10 +60,9 @@ void main() {
         roughness *= metalRoughSample.g;
     }
 
-    // check cutoff if applicable
 
     normalTarget = vec4(normalize(inNormal), 0.0f);
-    albedoTarget = vec4(albedo, 1.0f);
+    albedoTarget = vec4(albedo.xyz, 1.0f);
     pbrTarget = vec4(metallic, roughness, 0.0f, 0.0f);
 
     vec2 currNdc = inCurrMvpPosition.xy / inCurrMvpPosition.w;
