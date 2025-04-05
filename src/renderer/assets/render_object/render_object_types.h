@@ -91,8 +91,6 @@ struct FrustumCullingBuffers
     VkDeviceAddress meshBoundsBuffer;
     VkDeviceAddress commandBuffer;
     uint32_t commandBufferCount;
-    VkDeviceAddress modelMatrixBuffer;
-    VkDeviceAddress meshIndicesBuffer;
     glm::vec3 padding;
 };
 

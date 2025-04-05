@@ -39,13 +39,18 @@ layout(buffer_reference, std430) buffer MeshIndexBuffer
 
 // layout (std140, set = 0, binding = 0) uniform SceneData - scene.glsl
 
-layout(set = 1, binding = 0) uniform bufferData
+layout (set = 1, binding = 0) uniform Addresses
+{
+    MaterialData materialBufferDeviceAddress;
+    PrimitiveData primitiveBufferDeviceAddress;
+    ModelData modelBufferDeviceAddress;
+} bufferAddresses;
+
+layout(set = 2, binding = 0) uniform bufferData
 {
     MeshBoundsBuffer boundsBuffer;
     CommandBuffer commandBuffer;
     uint commandBufferCount;
-    ModelData modelMatrixBuffer;
-    MeshIndexBuffer meshIndices;
     vec3 padding;
 } buffers;
 
@@ -86,8 +91,11 @@ void main()
     uint invocationId = gl_GlobalInvocationID.x;
     if (invocationId >= buffers.commandBufferCount) { return; }
 
-    uint modelMatrixId = buffers.commandBuffer.commands[invocationId].firstInstance;
-    Model models = buffers.modelMatrixBuffer.models[modelMatrixId];
+    uint primitiveId = buffers.commandBuffer.commands[invocationId].firstInstance;
+    Primitive primitive = bufferAddresses.primitiveBufferDeviceAddress.primitives[primitiveId];
+    uint modelIndex = primitive.modelIndex;
+    Model models = bufferAddresses.modelBufferDeviceAddress.models[modelIndex];
+    uint meshBoundId = primitive.boundingVolumeIndex;
 
     if (push.shadowPass == 1){
         if (models.flags.y == 0){
@@ -112,8 +120,7 @@ void main()
         return;
     }
 
-    int meshBoundIndex = buffers.meshIndices.indices[invocationId];
-    MeshBounds bounds = buffers.boundsBuffer.meshBounds[meshBoundIndex];
+    MeshBounds bounds = buffers.boundsBuffer.meshBounds[meshBoundId];
 
     vec3 position = bounds.position;
     float radius = bounds.radius;

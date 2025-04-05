@@ -130,7 +130,6 @@ private: // Buffer Data
     std::vector<AllocatedImage> images{};
 
     std::vector<VkDrawIndexedIndirectCommand> drawCommands{};
-    std::vector<uint32_t> boundingSphereIndices;
 
     AllocatedBuffer vertexBuffer{};
     AllocatedBuffer indexBuffer{};
@@ -148,7 +147,7 @@ private: // Buffer Data
 
     AllocatedBuffer meshBoundsBuffer{};
     AllocatedBuffer cullingAddressBuffers[FRAME_OVERLAP]{};
-    AllocatedBuffer boundingSphereIndicesBuffers[FRAME_OVERLAP]{};
+    //AllocatedBuffer boundingSphereIndicesBuffers[FRAME_OVERLAP]{};
     DescriptorBufferUniform frustumCullingDescriptorBuffer;
 };
 }

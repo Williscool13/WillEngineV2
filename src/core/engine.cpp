@@ -530,7 +530,7 @@ void Engine::draw(float deltaTime)
         allRenderObjects,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
-        false,
+        true,
         false
     };
     visibilityPassPipeline->draw(cmd, deferredFrustumCullDrawInfo);

@@ -72,12 +72,12 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
     AllocatedBuffer& currentPrimitiveBuffer = primitiveDataBuffers[currentFrameOverlap];
     const AllocatedBuffer& previousPrimitiveBuffer = primitiveDataBuffers[previousFrameOverlap];
 
-    // Recreate the primitive buffer and repopulate data
+    // Recreate the primitive buffer if needed
     size_t latestPrimitiveBufferSize = currentPrimitiveCount * sizeof(PrimitiveData);
     if (currentPrimitiveBuffer.info.size != latestPrimitiveBufferSize) {
         const AllocatedBuffer newPrimitiveBuffer = resourceManager.createHostRandomBuffer(latestPrimitiveBufferSize,
-                                                                                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-                                                                                         VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+                                                                                          VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+                                                                                          VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 
         // copy data from previous frame, as it is the most up to date
         const size_t sizeToCopy = glm::min(latestPrimitiveBufferSize, previousPrimitiveBuffer.info.size);
@@ -90,7 +90,6 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
         const VkDeviceAddress primitiveBufferAddress = resourceManager.getBufferAddress(currentPrimitiveBuffer);
         memcpy(static_cast<char*>(addressBuffers[currentFrameOverlap].info.pMappedData) + sizeof(VkDeviceAddress), &primitiveBufferAddress,
                sizeof(VkDeviceAddress));
-        // todo: barrier?
     }
 
     // Upload primitive data
@@ -99,12 +98,13 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
             auto mappedData = static_cast<char*>(currentPrimitiveBuffer.info.pMappedData);
             auto pPrimitiveData = reinterpret_cast<PrimitiveData*>(mappedData + sizeof(PrimitiveData) * pair.first);
 
-
-            pPrimitiveData->materialIndex = pair.second.materialIndex;
-            pPrimitiveData->instanceDataIndex = pair.second.instanceDataIndex;
-            // todo bounding volume
+            *pPrimitiveData = pair.second;
         }
-        // todo: barrier?
+        // vk_helpers::synchronizeUniform(cmd, currentPrimitiveBuffer, VK_PIPELINE_STAGE_2_HOST_BIT
+        //                                , VK_ACCESS_2_HOST_WRITE_BIT
+        //                                , VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
+        //                                  VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT
+        //                                , VK_ACCESS_2_UNIFORM_READ_BIT);
     }
 
     AllocatedBuffer& currentInstanceBuffer = modelMatrixBuffers[currentFrameOverlap];
@@ -142,10 +142,8 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
     }
 
     AllocatedBuffer& currentDrawIndirectBuffer = drawIndirectBuffers[currentFrameOverlap];
-    AllocatedBuffer& currentBoundingSphereIndicesBuffer = boundingSphereIndicesBuffers[currentFrameOverlap];
     if (drawCommands.empty()) {
         resourceManager.destroyBuffer(currentDrawIndirectBuffer);
-        resourceManager.destroyBuffer(currentBoundingSphereIndicesBuffer);
     }
     else {
         resourceManager.destroyBuffer(currentDrawIndirectBuffer);
@@ -157,20 +155,10 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
         resourceManager.copyBuffer(indirectStaging, currentDrawIndirectBuffer, drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
         resourceManager.destroyBuffer(indirectStaging);
 
-        resourceManager.destroyBuffer(currentBoundingSphereIndicesBuffer);
-        AllocatedBuffer stagingBoundingSphereIndicesBuffer = resourceManager.createStagingBuffer(boundingSphereIndices.size() * sizeof(uint32_t));
-        memcpy(stagingBoundingSphereIndicesBuffer.info.pMappedData, boundingSphereIndices.data(), boundingSphereIndices.size() * sizeof(uint32_t));
-        currentBoundingSphereIndicesBuffer = resourceManager.createDeviceBuffer(boundingSphereIndices.size() * sizeof(uint32_t));
-        resourceManager.copyBuffer(stagingBoundingSphereIndicesBuffer, currentBoundingSphereIndicesBuffer,
-                                   boundingSphereIndices.size() * sizeof(uint32_t));
-        resourceManager.destroyBuffer(stagingBoundingSphereIndicesBuffer);
-
         const FrustumCullingBuffers cullingAddresses{
             .meshBoundsBuffer = resourceManager.getBufferAddress(meshBoundsBuffer),
             .commandBuffer = resourceManager.getBufferAddress(currentDrawIndirectBuffer),
             .commandBufferCount = static_cast<uint32_t>(drawCommands.size()),
-            .modelMatrixBuffer = resourceManager.getBufferAddress(currentInstanceBuffer),
-            .meshIndicesBuffer = resourceManager.getBufferAddress(currentBoundingSphereIndicesBuffer),
             .padding = {},
         };
 
@@ -250,7 +238,6 @@ bool RenderObject::generateMesh(IRenderable* renderable, const int32_t meshIndex
 
     const std::vector<Primitive>& meshPrimitives = meshes[meshIndex].primitives;
     drawCommands.reserve(drawCommands.size() + meshPrimitives.size());
-    boundingSphereIndices.reserve(boundingSphereIndices.size() + meshPrimitives.size());
 
     for (const Primitive primitive : meshPrimitives) {
         const uint32_t primitiveIndex = getFreePrimitiveIndex();
@@ -262,8 +249,7 @@ bool RenderObject::generateMesh(IRenderable* renderable, const int32_t meshIndex
         indirectData.instanceCount = 1;
         indirectData.firstInstance = primitiveIndex;
 
-        primitiveDataMap[primitiveIndex] = {primitive.materialIndex, instanceIndex, 0, 0};
-        boundingSphereIndices.push_back(primitive.boundingSphereIndex);
+        primitiveDataMap[primitiveIndex] = {primitive.materialIndex, instanceIndex, primitive.boundingSphereIndex, 0};
     }
 
     renderable->setRenderObjectReference(this, meshIndex);
@@ -300,8 +286,6 @@ bool RenderObject::releaseInstanceIndex(IRenderable* renderable)
                 const size_t index = i - 1;
                 if (drawCommands[index].firstInstance == pair.first) {
                     drawCommands.erase(drawCommands.begin() + index);
-                    // todo figureout bounding spheres in this new structure
-                    //boundingSphereIndices.erase(boundingSphereIndices.begin() + i);
                 }
             }
         }
@@ -603,7 +587,7 @@ void RenderObject::load()
 
     // Addresses (Texture and Uniform model data)
     // todo: make address buffer for statics (dont need multiple)
-    addressesDescriptorBuffer = resourceManager.createDescriptorBufferUniform(resourceManager.getAddressesLayout(), FRAME_OVERLAP);
+    addressesDescriptorBuffer = resourceManager.createDescriptorBufferUniform(resourceManager.getRenderObjectAddressesLayout(), FRAME_OVERLAP);
     for (int32_t i = 0; i < FRAME_OVERLAP; i++) {
         constexpr size_t addressesSize = sizeof(VkDeviceAddress) * 3;
         addressBuffers[i] = resourceManager.createHostSequentialBuffer(addressesSize);
@@ -692,7 +676,6 @@ void RenderObject::unload()
         resourceManager.destroyBuffer(primitiveDataBuffers[i]);
         resourceManager.destroyBuffer(modelMatrixBuffers[i]);
         resourceManager.destroyBuffer(cullingAddressBuffers[i]);
-        resourceManager.destroyBuffer(boundingSphereIndicesBuffers[i]);
     }
 
     resourceManager.destroyDescriptorBuffer(addressesDescriptorBuffer);
@@ -700,7 +683,6 @@ void RenderObject::unload()
     resourceManager.destroyDescriptorBuffer(textureDescriptorBuffer);
 
     drawCommands.clear();
-    boundingSphereIndices.clear();
 
     materials.clear();
     vertices.clear();

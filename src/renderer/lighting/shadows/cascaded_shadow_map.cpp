@@ -173,7 +173,7 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
     {
         VkDescriptorSetLayout layouts[2];
         layouts[0] = cascadedShadowMapUniformLayout;
-        layouts[1] = resourceManager.getAddressesLayout();
+        layouts[1] = resourceManager.getRenderObjectAddressesLayout();
 
         VkPushConstantRange pushConstantRange;
         pushConstantRange.size = sizeof(CascadedShadowMapGenerationPushConstants);

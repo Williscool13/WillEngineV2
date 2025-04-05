@@ -17,7 +17,7 @@ will_engine::deferred_mrt::DeferredMrtPipeline::DeferredMrtPipeline(ResourceMana
 {
     VkDescriptorSetLayout descriptorLayout[3];
     descriptorLayout[0] = resourceManager.getSceneDataLayout();
-    descriptorLayout[1] = resourceManager.getAddressesLayout();
+    descriptorLayout[1] = resourceManager.getRenderObjectAddressesLayout();
     descriptorLayout[2] = resourceManager.getTexturesLayout();
 
 
