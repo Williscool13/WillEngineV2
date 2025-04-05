@@ -1,6 +1,7 @@
 #version 460
 #extension GL_EXT_buffer_reference: require
 
+#include "common.glsl"
 #include "scene.glsl"
 #include "structure.glsl"
 
@@ -26,15 +27,6 @@ layout (location = 3) out vec2 outUV;
 layout (location = 4) out flat uint outMaterialIndex;
 layout (location = 5) out vec4 outCurrMvpPosition;
 layout (location = 6) out vec4 outPrevMvpPosition;
-
-mat3 adjugate(mat4 m) {
-    return mat3(
-        cross(m[1].xyz, m[2].xyz),
-        cross(m[2].xyz, m[0].xyz),
-        cross(m[0].xyz, m[1].xyz)
-    );
-
-}
 
 void main() {
     Model models = bufferAddresses.modelBufferDeviceAddress.models[gl_InstanceIndex];

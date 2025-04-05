@@ -42,6 +42,14 @@ void main() {
     }
     albedo = albedo * inColor * m.colorFactor;
 
+    if (m.alphaCutoff.y == 1){
+        // 1 is "transparent"
+        // Transparent fragments should be drawn here if they turn opaque (e.g. gradual transparent to opaque effect)
+        if (albedo.w < 0.99) {
+            discard;
+        }
+    }
+
     if (m.alphaCutoff.y == 2){
         // 2 is "mask" blend type
         if (albedo.w < m.alphaCutoff.x){
