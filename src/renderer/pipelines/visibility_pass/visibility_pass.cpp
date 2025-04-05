@@ -60,24 +60,24 @@ void will_engine::visibility_pass::VisibilityPassPipeline::draw(VkCommandBuffer 
     constexpr uint32_t sceneDataIndex{0};
     constexpr uint32_t addressesIndex{1};
 
-    for (RenderObject* renderObject : drawInfo.renderObjects) {
-        if (!renderObject->canDraw()) { continue; }
-
-        VkDescriptorBufferBindingInfoEXT bindingInfo[2];
-        bindingInfo[0] = drawInfo.sceneDataBinding;
-        bindingInfo[1] = renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
-
-        VkDeviceSize sceneDataOffset = drawInfo.sceneDataOffset;
-        VkDeviceSize addressesOffset = renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap;
-
-        vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfo);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &addressesIndex, &addressesOffset);
-
-        vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(renderObject->getDrawIndirectCommandCount()) / 64.0f)), 1, 1);
-
-        vk_helpers::synchronizeUniform(cmd, renderObject->getIndirectBuffer(drawInfo.currentFrameOverlap), VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT);
-    }
+    // for (RenderObject* renderObject : drawInfo.renderObjects) {
+    //     if (!renderObject->canDraw()) { continue; }
+    //
+    //     VkDescriptorBufferBindingInfoEXT bindingInfo[2];
+    //     bindingInfo[0] = drawInfo.sceneDataBinding;
+    //     bindingInfo[1] = renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
+    //
+    //     VkDeviceSize sceneDataOffset = drawInfo.sceneDataOffset;
+    //     VkDeviceSize addressesOffset = renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap;
+    //
+    //     vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfo);
+    //     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);
+    //     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &addressesIndex, &addressesOffset);
+    //
+    //     vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(renderObject->getDrawIndirectCommandCount()) / 64.0f)), 1, 1);
+    //
+    //     vk_helpers::synchronizeUniform(cmd, renderObject->getIndirectBuffer(drawInfo.currentFrameOverlap), VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT);
+    // }
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }

@@ -166,12 +166,7 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::createPipeline()
     vertexAttributes[3].format = VK_FORMAT_R32G32_SFLOAT;
     vertexAttributes[3].offset = offsetof(Vertex, uv);
 
-    vertexAttributes[4].binding = 0;
-    vertexAttributes[4].location = 4;
-    vertexAttributes[4].format = VK_FORMAT_R32_UINT;
-    vertexAttributes[4].offset = offsetof(Vertex, materialIndex);
-
-    renderPipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 5);
+    renderPipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 4);
 
     renderPipelineBuilder.setShaders(vertShader, fragShader);
     renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);

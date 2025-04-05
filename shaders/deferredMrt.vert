@@ -10,6 +10,7 @@
 layout (set = 1, binding = 0) uniform Addresses
 {
     MaterialData materialBufferDeviceAddress;
+    PrimitiveData primitiveBufferDeviceAddress;
     ModelData modelBufferDeviceAddress;
 } bufferAddresses;
 
@@ -18,7 +19,6 @@ layout (location = 0) in vec3 position;
 layout (location = 1) in vec3 normal;
 layout (location = 2) in vec4 color;
 layout (location = 3) in vec2 uv;
-layout (location = 4) in uint materialIndex;
 
 layout (location = 0) out vec3 outPosition;
 layout (location = 1) out vec3 outNormal;
@@ -29,13 +29,14 @@ layout (location = 5) out vec4 outCurrMvpPosition;
 layout (location = 6) out vec4 outPrevMvpPosition;
 
 void main() {
-    Model models = bufferAddresses.modelBufferDeviceAddress.models[gl_InstanceIndex];
+    Primitive primitive = bufferAddresses.primitiveBufferDeviceAddress.primitives[gl_InstanceIndex];
+    uint modelIndex = primitive.modelIndex;
+    uint materialIndex = primitive.materialIndex;
+    Model models = bufferAddresses.modelBufferDeviceAddress.models[modelIndex];
 
-    // Current
     vec4 worldPos = models.currentModelMatrix * vec4(position, 1.0);
 
     outPosition = worldPos.xyz;
-    //outNormal = inverse(transpose(mat3(models.currentModelMatrix))) * normal;
     outNormal = adjugate(models.currentModelMatrix) * normal;
     outColor = color;
     outUV = uv;

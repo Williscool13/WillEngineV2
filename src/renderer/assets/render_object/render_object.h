@@ -22,7 +22,7 @@ class GameObject;
 
 struct RenderableProperties
 {
-    int32_t instanceIndex;
+    uint32_t instanceIndex;
 };
 
 /**
@@ -65,16 +65,18 @@ private:
     std::string name;
 
 private:
-    int32_t getFreeInstanceIndex();
-
-    std::unordered_set<uint32_t> freeInstanceIndices{};
-    int32_t currentInstanceCount{0};
-
-
-    /**
-     * IRenderable : updateCount map.
-     */
     std::unordered_map<IRenderable*, RenderableProperties> renderableMap;
+
+    uint32_t getFreePrimitiveIndex();
+    std::unordered_set<uint32_t> freePrimitiveIndices{};
+    uint32_t currentPrimitiveCount{0};
+
+
+    uint32_t getFreeInstanceIndex();
+    std::unordered_set<uint32_t> freeInstanceIndices{};
+    uint32_t currentInstanceCount{0};
+
+    std::unordered_map<uint32_t, PrimitiveData> primitiveDataMap{};
 
 public: // IRenderReference
     [[nodiscard]] uint32_t getId() const override { return renderObjectId; }
@@ -138,6 +140,7 @@ private: // Buffer Data
     AllocatedBuffer addressBuffers[FRAME_OVERLAP]{};
     //  the actual buffers
     AllocatedBuffer materialBuffer{};
+    AllocatedBuffer primitiveDataBuffers[FRAME_OVERLAP]{};
     AllocatedBuffer modelMatrixBuffers[FRAME_OVERLAP]{};
 
     DescriptorBufferUniform addressesDescriptorBuffer;
