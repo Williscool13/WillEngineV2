@@ -11,7 +11,6 @@ void will_engine::PipelineBuilder::clear()
     vertexInputInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
     inputAssembly = {.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO};
     rasterizer = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO};
-    colorBlendAttachment = {};
     multisampling = {.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
     pipelineLayout = {};
     depthStencil = {.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
@@ -36,11 +35,32 @@ VkPipeline will_engine::PipelineBuilder::buildPipeline(VkDevice device, VkPipeli
     colorBlending.logicOpEnable = VK_FALSE;
     colorBlending.logicOp = VK_LOGIC_OP_COPY;
     colorBlending.attachmentCount = colorAttachmentFormats.size();
+
     auto* blendAttachments = new VkPipelineColorBlendAttachmentState[colorAttachmentFormats.size()];
-    for (int i = 0; i < colorAttachmentFormats.size(); i++) {
-        blendAttachments[i] = colorBlendAttachment;
+    if (bBlendingDisabled) {
+        // all disabled
+        VkPipelineColorBlendAttachmentState colorBlendAttachment{
+            VK_FALSE,
+            VK_BLEND_FACTOR_ZERO,
+            VK_BLEND_FACTOR_ZERO,
+            VK_BLEND_OP_ADD,
+            VK_BLEND_FACTOR_ZERO,
+            VK_BLEND_FACTOR_ZERO,
+            VK_BLEND_OP_ADD,
+            VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT
+        };
+
+        for (int i = 0; i < colorAttachmentFormats.size(); i++) {
+            blendAttachments[i] = colorBlendAttachment;
+        }
+        colorBlending.pAttachments = blendAttachments;
+    } else {
+        // must have same number of color blend attachments as color attachments
+        assert(colorAttachmentFormats.size() == blendAttachmentStates.size());
+
+        colorBlending.pAttachments = blendAttachmentStates.data();
     }
-    colorBlending.pAttachments = blendAttachments;
+
 
     // (Not used in this codebase) Vertex Attribute Input
     VkPipelineVertexInputStateCreateInfo _vertexInputInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO};
@@ -215,41 +235,15 @@ void will_engine::PipelineBuilder::setupDepthStencil(VkBool32 depthTestEnable, V
     depthStencil.maxDepthBounds = maxDepthBounds;
 }
 
-void will_engine::PipelineBuilder::setupBlending(PipelineBuilder::BlendMode mode)
+void will_engine::PipelineBuilder::disableBlending()
 {
-    switch (mode) {
-        case BlendMode::ALPHA_BLEND:
-        {
-            colorBlendAttachment.colorWriteMask =
-                    VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-            colorBlendAttachment.blendEnable = VK_TRUE;
-            colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_DST_ALPHA;
-            colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
-            colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-            colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-            colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-            colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-            break;
-        }
-        case BlendMode::ADDITIVE_BLEND:
-        {
-            colorBlendAttachment.colorWriteMask =
-                    VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-            colorBlendAttachment.blendEnable = VK_TRUE;
-            colorBlendAttachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-            colorBlendAttachment.dstColorBlendFactor = VK_BLEND_FACTOR_DST_ALPHA;
-            colorBlendAttachment.colorBlendOp = VK_BLEND_OP_ADD;
-            colorBlendAttachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-            colorBlendAttachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-            colorBlendAttachment.alphaBlendOp = VK_BLEND_OP_ADD;
-            break;
-        }
-        case BlendMode::NO_BLEND:
-            colorBlendAttachment.colorWriteMask =
-                    VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-            colorBlendAttachment.blendEnable = VK_FALSE;
-            break;
-    }
+    bBlendingDisabled = true;
+}
+
+void will_engine::PipelineBuilder::setupBlending(const std::vector<VkPipelineColorBlendAttachmentState>& blendAttachmentStates)
+{
+    bBlendingDisabled = false;
+    this->blendAttachmentStates = blendAttachmentStates;
 }
 
 void will_engine::PipelineBuilder::setupPipelineLayout(VkPipelineLayout pipelineLayout)

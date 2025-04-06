@@ -205,7 +205,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 }
                 float color[3] = {engine->mainLight.color.x, engine->mainLight.color.y, engine->mainLight.color.z};
                 if (ImGui::DragFloat3("Color", color, 0.1)) {
-                    engine->mainLight.color = glm::vec3(color[0],color[1],color[2]);
+                    engine->mainLight.color = glm::vec3(color[0], color[1], color[2]);
                 }
                 ImGui::DragFloat("Intensity", &engine->mainLight.intensity, 0.05f, 0.0f, 5.0f);
 
@@ -231,22 +231,26 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     ImGui::Checkbox("Disable Jitter", &engine->bDisableJitter);
                 }
 
-                static bool tonemapping = (engine->postProcessData & post_process::PostProcessType::Tonemapping) != post_process::PostProcessType::None;
+                static bool tonemapping = (engine->postProcessData & post_process::PostProcessType::Tonemapping) !=
+                                          post_process::PostProcessType::None;
                 if (ImGui::CollapsingHeader("Tonemapping", ImGuiTreeNodeFlags_DefaultOpen)) {
                     if (ImGui::Checkbox("Enable Tonemapping", &tonemapping)) {
                         if (tonemapping) {
                             engine->postProcessData |= post_process::PostProcessType::Tonemapping;
-                        } else {
+                        }
+                        else {
                             engine->postProcessData &= ~post_process::PostProcessType::Tonemapping;
                         }
                     }
                 }
                 if (ImGui::CollapsingHeader("Sharpening", ImGuiTreeNodeFlags_DefaultOpen)) {
-                    static bool sharpening = (engine->postProcessData & post_process::PostProcessType::Sharpening) != post_process::PostProcessType::None;
+                    static bool sharpening = (engine->postProcessData & post_process::PostProcessType::Sharpening) !=
+                                             post_process::PostProcessType::None;
                     if (ImGui::Checkbox("Enable Sharpening", &sharpening)) {
                         if (sharpening) {
                             engine->postProcessData |= post_process::PostProcessType::Sharpening;
-                        } else {
+                        }
+                        else {
                             engine->postProcessData &= ~post_process::PostProcessType::Sharpening;
                         }
                     }
@@ -256,7 +260,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     if (ImGui::Checkbox("Enable FXAA", &fxaa)) {
                         if (fxaa) {
                             engine->postProcessData |= post_process::PostProcessType::FXAA;
-                        } else {
+                        }
+                        else {
                             engine->postProcessData &= ~post_process::PostProcessType::FXAA;
                         }
                     }
@@ -1071,7 +1076,61 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::End();
 
     if (ImGui::Begin("Discardable Debug")) {
-        ImGui::Text("Empty");
+        if (transparentDebugTextureImguiId == VK_NULL_HANDLE) {
+            if (engine->transparentPipeline->debugImage.image != VK_NULL_HANDLE) {
+                transparentDebugTextureImguiId = ImGui_ImplVulkan_AddTexture(
+                    engine->resourceManager->getDefaultSamplerNearest(),
+                    engine->transparentPipeline->debugImage.imageView,
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            }
+        }
+
+        ImGui::BeginChild("TransparentDebugPreview", ImVec2(0, 0), false, ImGuiWindowFlags_None);
+
+        if (transparentDebugTextureImguiId == VK_NULL_HANDLE) {
+            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Debug texture not available.");
+        }
+        else {
+            // Calculate best fit size
+            float maxSize = ImGui::GetContentRegionAvail().x;
+            maxSize = glm::min(maxSize, 1024.0f);
+
+            VkExtent3D imageExtent = engine->transparentPipeline->debugImage.imageExtent;
+            float width = std::min(maxSize, static_cast<float>(imageExtent.width));
+            float aspectRatio = static_cast<float>(imageExtent.width) / static_cast<float>(imageExtent.height);
+            float height = width / aspectRatio;
+
+            ImGui::Image(reinterpret_cast<ImTextureID>(transparentDebugTextureImguiId), ImVec2(width, height));
+
+            ImGui::SameLine();
+            if (ImGui::Button("Save Transparency Debug Image")) {
+                if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                    const std::filesystem::path path = file::imagesSavePath / "transparent_debug.png";
+
+                    vk_helpers::saveImageRGBA16SFLOAT(
+                        *engine->resourceManager,
+                        *engine->immediate,
+                        engine->ambientOcclusionPipeline->debugImage,
+                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                        VK_IMAGE_ASPECT_COLOR_BIT,
+                        path.string().c_str(),
+                        false
+                    );
+
+                    ImGui::OpenPopup("SaveConfirmation");
+                }
+            }
+
+            if (ImGui::BeginPopupModal("SaveConfirmation", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::Text("Image saved to %s/gtao_debug.png", file::imagesSavePath.string().c_str());
+                if (ImGui::Button("OK", ImVec2(120, 0))) {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
+
+            ImGui::EndChild();
+        }
     }
     ImGui::End();
 

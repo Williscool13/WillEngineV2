@@ -209,6 +209,7 @@ void Engine::initRenderer()
                                                                             cascadedShadowMap->getCascadedShadowMapUniformLayout(),
                                                                             cascadedShadowMap->getCascadedShadowMapSamplerLayout());
     temporalAntialiasingPipeline = new temporal_antialiasing_pipeline::TemporalAntialiasingPipeline(*resourceManager);
+    transparentPipeline = new transparent_pipeline::TransparentPipeline(*resourceManager);
     postProcessPipeline = new post_process_pipeline::PostProcessPipeline(*resourceManager);
 
     ambientOcclusionPipeline->setupDepthPrefilterDescriptorBuffer(depthImage.imageView);
@@ -501,6 +502,7 @@ void Engine::draw(float deltaTime)
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
         false,
         true,
+        true,
     };
     visibilityPassPipeline->draw(cmd, csmFrustumCullDrawInfo);
 
@@ -540,7 +542,8 @@ void Engine::draw(float deltaTime)
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
         true,
-        false
+        false,
+        true,
     };
     visibilityPassPipeline->draw(cmd, deferredFrustumCullDrawInfo);
 
@@ -592,6 +595,15 @@ void Engine::draw(float deltaTime)
         deferredMrtPipeline->draw(cmd, debugDeferredMrtDrawInfo);
     }
 
+    transparent_pipeline::TransparentDrawInfo transparentDrawInfo{
+        depthImage.imageView,
+        currentFrameOverlap,
+        allRenderObjects,
+        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
+    };
+    transparentPipeline->draw(cmd, transparentDrawInfo);
+
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -629,6 +641,8 @@ void Engine::draw(float deltaTime)
         camera->getFarPlane(),
     };
     deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);
+
+
 
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     const VkImageLayout originLayout = frameNumber == 0 ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
@@ -740,6 +754,7 @@ void Engine::cleanup()
     delete ambientOcclusionPipeline;
     delete deferredResolvePipeline;
     delete temporalAntialiasingPipeline;
+    delete transparentPipeline;
     delete postProcessPipeline;
 
     for (AllocatedBuffer sceneBuffer : sceneDataBuffers) {

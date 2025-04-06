@@ -117,7 +117,7 @@ void will_engine::basic_render::BasicRenderPipeline::createPipeline()
     renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     renderPipelineBuilder.disableMultisampling();
-    renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
+    renderPipelineBuilder.disableBlending();
     renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
     renderPipelineBuilder.setupRenderer({DRAW_FORMAT}, DEPTH_FORMAT);
     renderPipelineBuilder.setupPipelineLayout(pipelineLayout);

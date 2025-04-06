@@ -20,6 +20,7 @@
 #include "src/renderer/assets/asset_manager.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/lighting/directional_light.h"
+#include "src/renderer/pipelines/transparent_pipeline/transparent_pipeline.h"
 #include "src/renderer/post_process/post_process_types.h"
 
 
@@ -219,6 +220,7 @@ private: // Pipelines
     deferred_resolve::DeferredResolvePipeline* deferredResolvePipeline{nullptr};
     ambient_occlusion::GroundTruthAmbientOcclusionPipeline* ambientOcclusionPipeline{nullptr};
     temporal_antialiasing_pipeline::TemporalAntialiasingPipeline* temporalAntialiasingPipeline{nullptr};
+    transparent_pipeline::TransparentPipeline* transparentPipeline{nullptr};
     post_process_pipeline::PostProcessPipeline* postProcessPipeline{nullptr};
 
 private: // Draw Resources

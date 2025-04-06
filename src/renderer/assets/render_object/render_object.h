@@ -32,7 +32,8 @@ struct RenderableProperties
 class RenderObject final : public IRenderReference
 {
 public:
-    RenderObject(ResourceManager& resourceManager, const std::filesystem::path& willmodelPath, const std::filesystem::path& gltfFilepath, std::string name, uint32_t renderObjectId);
+    RenderObject(ResourceManager& resourceManager, const std::filesystem::path& willmodelPath, const std::filesystem::path& gltfFilepath,
+                 std::string name, uint32_t renderObjectId);
 
     ~RenderObject() override;
 
@@ -68,11 +69,13 @@ private:
     std::unordered_map<IRenderable*, RenderableProperties> renderableMap;
 
     uint32_t getFreePrimitiveIndex();
+
     std::unordered_set<uint32_t> freePrimitiveIndices{};
     uint32_t currentPrimitiveCount{0};
 
 
     uint32_t getFreeInstanceIndex();
+
     std::unordered_set<uint32_t> freeInstanceIndices{};
     uint32_t currentInstanceCount{0};
 
@@ -94,13 +97,28 @@ public: // Model Rendering API
 
     [[nodiscard]] size_t getMeshCount() const { return meshes.size(); }
     [[nodiscard]] bool canDraw() const { return currentInstanceCount != freeInstanceIndices.size(); }
+    [[nodiscard]] bool canDrawOpaque() const { return opaqueDrawCommands.size() > 0; }
+    [[nodiscard]] bool canDrawTransparent() const { return transparentDrawCommands.size() > 0; }
     [[nodiscard]] const DescriptorBufferUniform& getAddressesDescriptorBuffer() const { return addressesDescriptorBuffer; }
     [[nodiscard]] const DescriptorBufferSampler& getTextureDescriptorBuffer() const { return textureDescriptorBuffer; }
     [[nodiscard]] const DescriptorBufferUniform& getFrustumCullingAddressesDescriptorBuffer() { return frustumCullingDescriptorBuffer; }
     [[nodiscard]] const AllocatedBuffer& getVertexBuffer() const { return vertexBuffer; }
     [[nodiscard]] const AllocatedBuffer& getIndexBuffer() const { return indexBuffer; }
-    [[nodiscard]] const AllocatedBuffer& getIndirectBuffer(const int32_t currentFrameOverlap) const { return drawIndirectBuffers[currentFrameOverlap]; }
-    [[nodiscard]] size_t getDrawIndirectCommandCount() const { return opaqueDrawCommands.size(); }
+
+    [[nodiscard]] const AllocatedBuffer& getOpaqueIndirectBuffer(const int32_t currentFrameOverlap) const
+    {
+        return opaqueDrawIndirectBuffers[currentFrameOverlap];
+    }
+
+    [[nodiscard]] size_t getOpaqueDrawIndirectCommandCount() const { return opaqueDrawCommands.size(); }
+
+    [[nodiscard]] const AllocatedBuffer& getTransparentIndirectBuffer(const int32_t currentFrameOverlap) const
+    {
+        return transparentDrawIndirectBuffers[currentFrameOverlap];
+    }
+
+    [[nodiscard]] size_t getTransparentDrawIndirectCommandCount() const { return transparentDrawCommands.size(); }
+
 
     void recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent);
 
@@ -130,10 +148,12 @@ private: // Buffer Data
     std::vector<AllocatedImage> images{};
 
     std::vector<VkDrawIndexedIndirectCommand> opaqueDrawCommands{};
+    std::vector<VkDrawIndexedIndirectCommand> transparentDrawCommands{};
 
     AllocatedBuffer vertexBuffer{};
     AllocatedBuffer indexBuffer{};
-    AllocatedBuffer drawIndirectBuffers[FRAME_OVERLAP]{};
+    AllocatedBuffer opaqueDrawIndirectBuffers[FRAME_OVERLAP]{};
+    AllocatedBuffer transparentDrawIndirectBuffers[FRAME_OVERLAP]{};
 
     // addresses
     AllocatedBuffer addressBuffers[FRAME_OVERLAP]{};
@@ -146,8 +166,8 @@ private: // Buffer Data
     DescriptorBufferSampler textureDescriptorBuffer;
 
     AllocatedBuffer meshBoundsBuffer{};
-    AllocatedBuffer cullingAddressBuffers[FRAME_OVERLAP]{};
-    //AllocatedBuffer boundingSphereIndicesBuffers[FRAME_OVERLAP]{};
+    AllocatedBuffer opaqueCullingAddressBuffers[FRAME_OVERLAP]{};
+    AllocatedBuffer transparentCullingAddressBuffers[FRAME_OVERLAP]{};
     DescriptorBufferUniform frustumCullingDescriptorBuffer;
 };
 }

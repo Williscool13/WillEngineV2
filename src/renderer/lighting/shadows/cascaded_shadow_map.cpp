@@ -42,7 +42,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createRenderObjectPipelin
     // set later during shadow pass
     pipelineBuilder.enableDepthBias(0.0f, 0, 0.0f);
     pipelineBuilder.disableMultisampling();
-    pipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
+    pipelineBuilder.disableBlending();
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_LESS_OR_EQUAL);
     pipelineBuilder.setupRenderer({}, DEPTH_FORMAT);
     pipelineBuilder.setupPipelineLayout(renderObjectPipelineLayout);
@@ -80,7 +80,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createTerrainPipeline()
     // set later during shadow pass
     pipelineBuilder.enableDepthBias(0.0f, 0, 0.0f);
     pipelineBuilder.disableMultisampling();
-    pipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
+    pipelineBuilder.disableBlending();
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_LESS_OR_EQUAL);
     pipelineBuilder.setupRenderer({}, DEPTH_FORMAT);
     pipelineBuilder.setupPipelineLayout(terrainPipelineLayout);
@@ -397,7 +397,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             constexpr VkDeviceSize zeroOffset{0};
 
             for (RenderObject* renderObject : renderObjects) {
-                if (!renderObject->canDraw()) { continue; }
+                if (!renderObject->canDrawOpaque()) { continue; }
 
                 VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];
                 constexpr uint32_t shadowDataIndex{0};
@@ -415,7 +415,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 
                 vkCmdBindVertexBuffers(cmd, 0, 1, &renderObject->getVertexBuffer().buffer, &zeroOffset);
                 vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-                vkCmdDrawIndexedIndirect(cmd, renderObject->getIndirectBuffer(currentFrameOverlap).buffer, 0, renderObject->getDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
+                vkCmdDrawIndexedIndirect(cmd, renderObject->getOpaqueIndirectBuffer(currentFrameOverlap).buffer, 0, renderObject->getOpaqueDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
             }
 
             vkCmdEndRendering(cmd);

@@ -100,10 +100,6 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
     for (RenderObject* renderObject : drawInfo.renderObjects) {
         if (!renderObject->canDraw()) { continue; }
 
-        constexpr uint32_t sceneDataIndex{0};
-        constexpr uint32_t addressIndex{1};
-        constexpr uint32_t texturesIndex{2};
-
         std::array descriptorBufferBindingInfos{
             drawInfo.sceneDataBinding,
             renderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo(),
@@ -124,8 +120,8 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
 
         vkCmdBindVertexBuffers(cmd, 0, 1, &renderObject->getVertexBuffer().buffer, &zeroOffset);
         vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexedIndirect(cmd, renderObject->getIndirectBuffer(drawInfo.currentFrameOverlap).buffer, 0,
-                                 renderObject->getDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
+        vkCmdDrawIndexedIndirect(cmd, renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap).buffer, 0,
+                                 renderObject->getOpaqueDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
     }
 
     vkCmdEndRendering(cmd);
@@ -172,7 +168,7 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::createPipeline()
     renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     renderPipelineBuilder.disableMultisampling();
-    renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
+    renderPipelineBuilder.disableBlending();
     renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
     renderPipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_FORMAT);
     renderPipelineBuilder.setupPipelineLayout(pipelineLayout);

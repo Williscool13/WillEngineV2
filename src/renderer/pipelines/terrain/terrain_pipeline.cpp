@@ -179,7 +179,7 @@ void will_engine::terrain::TerrainPipeline::createPipeline()
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_PATCH_LIST, false);
     pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     pipelineBuilder.disableMultisampling();
-    pipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
+    pipelineBuilder.disableBlending();
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
     pipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_FORMAT);
     pipelineBuilder.setupPipelineLayout(pipelineLayout);
@@ -233,7 +233,7 @@ void will_engine::terrain::TerrainPipeline::createLinePipeline()
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_PATCH_LIST, false);
     pipelineBuilder.setupRasterization(VK_POLYGON_MODE_LINE, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     pipelineBuilder.disableMultisampling();
-    pipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
+    pipelineBuilder.disableBlending();
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
     pipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_FORMAT);
     pipelineBuilder.setupPipelineLayout(pipelineLayout);
