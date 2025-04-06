@@ -686,7 +686,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                         if (ImGui::Button("Generate Full Object")) {
                                             GameObject* gob = selectedRenderObject->generateGameObject(std::string(objectName));
                                             selectedMap->addGameObject(gob);
-                                            // todo: fix add full gameobject
                                             fmt::print("Added whole gltf model to the scene\n");
                                         }
                                         ImGui::EndTabItem();
@@ -736,7 +735,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                                                 if (auto _container = dynamic_cast<IComponentContainer*>(gob)) {
                                                     auto newComponent = components::ComponentFactory::getInstance().createComponent(
-                                                        components::MeshRendererComponent::getStaticType(), "");
+                                                        components::MeshRendererComponent::getStaticType(), "Mesh Renderer");
                                                     _container->addComponent(std::move(newComponent));
                                                     if (components::MeshRendererComponent* meshRenderer = _container->getMeshRenderer()) {
                                                         selectedRenderObject->generateMesh(meshRenderer, selectedMeshIndex);

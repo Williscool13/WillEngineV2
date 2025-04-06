@@ -196,8 +196,13 @@ void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, Gam
     const auto gameObject = new GameObject();
 
     if (renderNode.meshIndex != -1) {
-        const auto renderable = dynamic_cast<IRenderable*>(gameObject);
-        generateMesh(renderable, renderNode.meshIndex);
+        IComponentContainer* _container = gameObject;
+        auto newMeshComponent = components::ComponentFactory::getInstance().createComponent(
+            components::MeshRendererComponent::getStaticType(), renderNode.name);
+        _container->addComponent(std::move(newMeshComponent));
+        if (components::MeshRendererComponent* meshRenderer = _container->getMeshRenderer()) {
+            generateMesh(meshRenderer, renderNode.meshIndex);
+        }
     }
 
     gameObject->setLocalTransform(renderNode.transform);
@@ -435,6 +440,8 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
 
     for (const fastgltf::Node& node : gltf.nodes) {
         RenderNode renderNode{};
+        renderNode.name = node.name;
+
         if (node.meshIndex.has_value()) {
             renderNode.meshIndex = static_cast<int>(*node.meshIndex);
         }

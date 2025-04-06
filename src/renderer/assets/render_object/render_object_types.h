@@ -65,6 +65,7 @@ struct BoundingSphere {
 
 struct RenderNode
 {
+    std::string name;
     Transform transform;
     std::vector<RenderNode*> children;
     RenderNode* parent;
