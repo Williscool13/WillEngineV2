@@ -346,6 +346,14 @@ bool Serializer::serializeEngineSettings(Engine* engine)
         cameraProperties["farPlane"] = camera->getFarPlane();
     }
 
+    DirectionalLight mainLight = engine->getMainLight();
+    auto direction = normalize(mainLight.getDirection());
+    auto color = mainLight.getColor();
+    auto intensity = mainLight.getIntensity();
+    rootJ["mainLight"]["direction"] = {direction.x, direction.y, direction.z};
+    rootJ["mainLight"]["color"] = {color.x, color.y, color.z};
+    rootJ["mainLight"]["intensity"] = intensity;
+
     rootJ["cameraProperties"] = cameraProperties;
 
 
@@ -414,6 +422,41 @@ bool Serializer::deserializeEngineSettings(Engine* engine)
                 }
             }
         }
+
+        if (rootJ.contains("mainLight")) {
+            auto lightJ = rootJ["mainLight"];
+            glm::vec3 direction{};
+            glm::vec3 color{};
+            float intensity{};
+
+
+            if (lightJ.contains("direction") && lightJ["direction"].is_array() && lightJ["direction"].size() == 3) {
+                direction.x = lightJ["direction"][0];
+                direction.y = lightJ["direction"][1];
+                direction.z = lightJ["direction"][2];
+            } else {
+                direction = normalize(engine->getMainLight().getDirection());
+            }
+
+            if (lightJ.contains("color") && lightJ["color"].is_array() && lightJ["color"].size() == 3) {
+                color.x = lightJ["color"][0];
+                color.y = lightJ["color"][1];
+                color.z = lightJ["color"][2];
+            } else {
+                color = engine->getMainLight().getColor();
+            }
+
+            if (lightJ.contains("intensity") && !lightJ["intensity"].is_array()) {
+                intensity = lightJ["intensity"].get<float>();
+            } else {
+                intensity = engine->getMainLight().getIntensity();
+            }
+
+
+            DirectionalLight light{direction, intensity, color};
+            engine->setMainLight(light);
+        }
+
 
         return true;
     } catch (const std::exception& e) {

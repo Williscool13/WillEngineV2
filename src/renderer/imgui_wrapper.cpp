@@ -198,6 +198,19 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     engine->hotReloadShaders();
                 }
                 ImGui::Separator();
+                ImGui::Text("Main Directional Light");
+                float direction[3] = {engine->mainLight.direction.x, engine->mainLight.direction.y, engine->mainLight.direction.z};
+                if (ImGui::DragFloat3("Direction", direction, 0.1)) {
+                    engine->mainLight.direction = glm::vec3(direction[0], direction[1], direction[2]);
+                }
+                float color[3] = {engine->mainLight.color.x, engine->mainLight.color.y, engine->mainLight.color.z};
+                if (ImGui::DragFloat3("Color", color, 0.1)) {
+                    engine->mainLight.color = glm::vec3(color[0],color[1],color[2]);
+                }
+                ImGui::DragFloat("Intensity", &engine->mainLight.intensity, 0.05f, 0.0f, 5.0f);
+
+
+                ImGui::Separator();
 
                 ImGui::Checkbox("Disable Physics", &engine->bPausePhysics);
 
@@ -441,7 +454,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             if (ImGui::BeginTabItem("Shadows")) {
                 ImGui::Text("Cascaded Shadow Map");
                 ImGui::DragInt("CSM PCF Level", &engine->csmPcf, 2, 1, 7);
-                ImGui::DragFloat3("Main Light Direction", engine->mainLight.direction, 0.1);
                 ImGui::InputFloat2("Cascade 1 Bias", shadows::CASCADE_BIAS[0]);
                 ImGui::InputFloat2("Cascade 2 Bias", shadows::CASCADE_BIAS[1]);
                 ImGui::InputFloat2("Cascade 3 Bias", shadows::CASCADE_BIAS[2]);

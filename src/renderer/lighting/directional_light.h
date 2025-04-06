@@ -25,26 +25,21 @@ public:
     DirectionalLight() = delete;
 
     DirectionalLight(const glm::vec3 direction, const float intensity, const glm::vec3 color = {1.0f, 1.0f, 1.0f})
-        : intensity(intensity), color(color)
-    {
-        const glm::vec<3, float> normDirection = normalize(direction);
-        this->direction[0] = normDirection.x;
-        this->direction[1] = normDirection.y;
-        this->direction[2] = normDirection.z;
-    }
+        : direction(normalize(direction)), intensity(intensity), color(color)
+    {}
 
     ~DirectionalLight() = default;
 
-    [[nodiscard]] glm::vec3 getDirection() const { return glm::vec3(direction[0], direction[1], direction[2]); }
+    [[nodiscard]] glm::vec3 getDirection() const { return direction; }
     [[nodiscard]] float getIntensity() const { return intensity; }
     [[nodiscard]] glm::vec3 getColor() const { return color; }
 
-    DirectionalLightData getData() const { return {glm::vec3(direction[0], direction[1], direction[2]), intensity, color}; }
+    DirectionalLightData getData() const { return {direction, intensity, color}; }
 
     friend void ImguiWrapper::imguiInterface(Engine* engine);
 
 private:
-    float direction[3]{};
+    glm::vec3 direction{};
     float intensity{};
     glm::vec3 color{};
 };

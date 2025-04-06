@@ -130,7 +130,7 @@ void main() {
         shadowFactor = 1.0f;
     }
 
-    float indirectAttenuation = mix(0.5, 1.0, shadowFactor);
+    float indirectAttenuation = mix(0.35, 1.0, shadowFactor);
 
     // IBL REFLECTIONS
     vec3 irradiance = DiffuseIrradiance(environmentDiffuseAndSpecular, N);
@@ -138,11 +138,10 @@ void main() {
 
     vec3 reflectionSpecular = SpecularReflection(environmentDiffuseAndSpecular, lut, V, N, roughness, F) * indirectAttenuation;
 
-    //vec3 ambient = (kD * reflectionDiffuse + reflectionSpecular);
     float ao = texture(aoBuffer, uv).r;
     vec3  ambient = (kD * reflectionDiffuse + reflectionSpecular) * ao;
 
-    vec3 finalColor = (diffuse + specular) * nDotL * shadowFactor;
+    vec3 finalColor = (diffuse + specular) * nDotL * shadowFactor * shadowCascadeData.directionalLightData.intensity * shadowCascadeData.directionalLightData.color;
     finalColor += ambient;
 
     imageStore(outputImage, screenPos, vec4(finalColor, albedo.w));

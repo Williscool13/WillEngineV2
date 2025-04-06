@@ -294,7 +294,9 @@ void Engine::run()
             continue;
         }
 
+#ifndef NDEBUG
         imguiWrapper->imguiInterface(this);
+#endif
 
         const float deltaTime = Time::Get().getDeltaTime();
         profiler.beginTimer("3Total");
@@ -371,10 +373,10 @@ void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int3
     const auto pPreviousSceneData = static_cast<SceneData*>(previousSceneDataBuffer.info.pMappedData);
 
     const bool bIsFrameZero = frameNumber == 0;
-    glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(bIsFrameZero ? frameNumber : frameNumber - 1) * 2.0f - 1.0f;
+    glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(bIsFrameZero ? frameNumber : frameNumber - 1) - 0.5f;
     prevJitter.x /= RENDER_EXTENT_WIDTH;
     prevJitter.y /= RENDER_EXTENT_HEIGHT;
-    glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber) * 2.0f - 1.0f;
+    glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber) - 0.5f;
     currentJitter.x /= RENDER_EXTENT_WIDTH;
     currentJitter.y /= RENDER_EXTENT_HEIGHT;
     if (bDisableJitter) {
