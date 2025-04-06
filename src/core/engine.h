@@ -10,6 +10,8 @@
 #include <glm/glm.hpp>
 
 #include "engine_types.h"
+#include "camera/camera.h"
+#include "camera/free_camera.h"
 #include "scene/serializer.h"
 #include "src/core/profiler/profiler.h"
 #include "src/renderer/imgui_wrapper.h"
@@ -184,6 +186,9 @@ private: // Debug
     bool bDisableJitter{false};
 
     void hotReloadShaders() const;
+
+public:
+    Camera* getCamera() const { return camera; }
 
 private: // Scene Data
     DescriptorBufferUniform sceneDataDescriptorBuffer;

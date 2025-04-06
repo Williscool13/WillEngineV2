@@ -187,46 +187,25 @@ GameObject* RenderObject::generateGameObject(const std::string& gameObjectName)
         recursiveGenerateGameObject(renderNodes[rootNode], superRoot);
     }
 
-    //uploadCullingBufferData();
     dirty();
     return superRoot;
 }
 
 void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent)
 {
-    // const auto gameObject = new GameObject();
-    //
-    // if (renderNode.meshIndex != -1) {
-    //     // InstanceIndex is used to know which model matrix to use form the model matrix array
-    //     // All primitives in a mesh use the same model matrix
-    //     const std::vector<Primitive>& meshPrimitives = meshes[renderNode.meshIndex].primitives;
-    //     gameObject->setName(meshes[renderNode.meshIndex].name);
-    //     drawCommands.reserve(drawCommands.size() + meshPrimitives.size());
-    //
-    //     const int32_t instanceIndex = getFreeInstanceIndex();
-    //
-    //     for (const Primitive primitive : meshPrimitives) {
-    //         drawCommands.emplace_back();
-    //         VkDrawIndexedIndirectCommand& indirectData = drawCommands.back();
-    //         indirectData.firstIndex = primitive.firstIndex;
-    //         indirectData.indexCount = primitive.indexCount;
-    //         indirectData.vertexOffset = primitive.vertexOffset;
-    //         indirectData.instanceCount = 1;
-    //         indirectData.firstInstance = instanceIndex;
-    //
-    //         boundingSphereIndices.push_back(primitive.boundingSphereIndex);
-    //     }
-    //
-    //     // gameObject->setRenderObjectReference(this, renderNode.meshIndex);
-    //     // gameObject->setRenderFramesToUpdate(FRAME_OVERLAP + 1);
-    // }
-    //
-    // gameObject->setLocalTransform(renderNode.transform);
-    // parent->addChild(gameObject);
-    //
-    // for (const auto& child : renderNode.children) {
-    //     recursiveGenerateGameObject(*child, gameObject);
-    // }
+    const auto gameObject = new GameObject();
+
+    if (renderNode.meshIndex != -1) {
+        const auto renderable = dynamic_cast<IRenderable*>(gameObject);
+        generateMesh(renderable, renderNode.meshIndex);
+    }
+
+    gameObject->setLocalTransform(renderNode.transform);
+    parent->addChild(gameObject);
+
+    for (const auto& child : renderNode.children) {
+        recursiveGenerateGameObject(*child, gameObject);
+    }
 }
 
 bool RenderObject::generateMesh(IRenderable* renderable, const int32_t meshIndex)

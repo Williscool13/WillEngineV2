@@ -174,6 +174,8 @@ void Engine::init()
     profiler.addTimer("2Render");
     profiler.addTimer("3Total");
 
+    Serializer::deserializeEngineSettings(this);
+
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     fmt::print("Finished Initialization in {} seconds\n", static_cast<float>(elapsed.count()) / 1000000.0f);
@@ -712,6 +714,8 @@ void Engine::cleanup()
 {
     fmt::print("----------------------------------------\n");
     fmt::print("Cleaning up {}\n", ENGINE_NAME);
+
+    Serializer::serializeEngineSettings(this);
 
     vkDeviceWaitIdle(context->device);
 
