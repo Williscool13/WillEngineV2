@@ -158,7 +158,10 @@ void Engine::init()
     cascadedShadowMap = new cascaded_shadows::CascadedShadowMap(*resourceManager);
     startupProfiler.endTimer("7Load CSM");
 
+#ifndef NDEBUG
     imguiWrapper = new ImguiWrapper(*context, {window, swapchainImageFormat});
+#endif
+
 
 
     startupProfiler.beginTimer("8Init Renderer");
@@ -277,7 +280,9 @@ void Engine::run()
                 fmt::print("Window resized, resize requested\n");
             }
 
+#ifndef NDEBUG
             ImguiWrapper::handleInput(e);
+#endif
             input.processEvent(e);
         }
 
@@ -663,6 +668,8 @@ void Engine::draw(float deltaTime)
                                 VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::copyImageToImage(cmd, postProcessOutputBuffer.image, swapchainImages[swapchainImageIndex], RENDER_EXTENTS, swapchainExtent);
 
+
+#ifndef NDEBUG
     // draw ImGui into Swapchain Image
     vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -670,6 +677,11 @@ void Engine::draw(float deltaTime)
 
     vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
+#else
+    vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_ASPECT_COLOR_BIT);
+#endif
+
 
     // End Command Buffer Recording
     VK_CHECK(vkEndCommandBuffer(cmd));
@@ -736,7 +748,9 @@ void Engine::cleanup()
     resourceManager->destroyBuffer(debugSceneDataBuffer);
     sceneDataDescriptorBuffer.destroy(context->allocator);
 
+#ifndef NDEBUG
     delete imguiWrapper;
+#endif
 
     for (const FrameData& frame : frames) {
         vkDestroyCommandPool(context->device, frame._commandPool, nullptr);

@@ -142,23 +142,23 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
     }
 
     AllocatedBuffer& currentDrawIndirectBuffer = drawIndirectBuffers[currentFrameOverlap];
-    if (drawCommands.empty()) {
+    if (opaqueDrawCommands.empty()) {
         resourceManager.destroyBuffer(currentDrawIndirectBuffer);
     }
     else {
         resourceManager.destroyBuffer(currentDrawIndirectBuffer);
-        AllocatedBuffer indirectStaging = resourceManager.createStagingBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-        memcpy(indirectStaging.info.pMappedData, drawCommands.data(), drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-        currentDrawIndirectBuffer = resourceManager.createDeviceBuffer(drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand),
+        AllocatedBuffer indirectStaging = resourceManager.createStagingBuffer(opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+        memcpy(indirectStaging.info.pMappedData, opaqueDrawCommands.data(), opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+        currentDrawIndirectBuffer = resourceManager.createDeviceBuffer(opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand),
                                                                        VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
 
-        resourceManager.copyBuffer(indirectStaging, currentDrawIndirectBuffer, drawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+        resourceManager.copyBuffer(indirectStaging, currentDrawIndirectBuffer, opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
         resourceManager.destroyBuffer(indirectStaging);
 
         const FrustumCullingBuffers cullingAddresses{
             .meshBoundsBuffer = resourceManager.getBufferAddress(meshBoundsBuffer),
             .commandBuffer = resourceManager.getBufferAddress(currentDrawIndirectBuffer),
-            .commandBufferCount = static_cast<uint32_t>(drawCommands.size()),
+            .commandBufferCount = static_cast<uint32_t>(opaqueDrawCommands.size()),
             .padding = {},
         };
 
@@ -193,6 +193,7 @@ GameObject* RenderObject::generateGameObject(const std::string& gameObjectName)
 
 void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent)
 {
+    // todo: preferably RenderObject does not directly reference GameObject. Try using a static factory
     const auto gameObject = new GameObject();
 
     if (renderNode.meshIndex != -1) {
@@ -221,12 +222,12 @@ bool RenderObject::generateMesh(IRenderable* renderable, const int32_t meshIndex
     const uint32_t instanceIndex = getFreeInstanceIndex();
 
     const std::vector<Primitive>& meshPrimitives = meshes[meshIndex].primitives;
-    drawCommands.reserve(drawCommands.size() + meshPrimitives.size());
+    opaqueDrawCommands.reserve(opaqueDrawCommands.size() + meshPrimitives.size());
 
     for (const Primitive primitive : meshPrimitives) {
         const uint32_t primitiveIndex = getFreePrimitiveIndex();
-        drawCommands.emplace_back();
-        VkDrawIndexedIndirectCommand& indirectData = drawCommands.back();
+        opaqueDrawCommands.emplace_back();
+        VkDrawIndexedIndirectCommand& indirectData = opaqueDrawCommands.back();
         indirectData.firstIndex = primitive.firstIndex;
         indirectData.indexCount = primitive.indexCount;
         indirectData.vertexOffset = primitive.vertexOffset;
@@ -266,10 +267,10 @@ bool RenderObject::releaseInstanceIndex(IRenderable* renderable)
 
             freePrimitiveIndices.insert(pair.first);
 
-            for (size_t i = drawCommands.size(); i > 0; --i) {
+            for (size_t i = opaqueDrawCommands.size(); i > 0; --i) {
                 const size_t index = i - 1;
-                if (drawCommands[index].firstInstance == pair.first) {
-                    drawCommands.erase(drawCommands.begin() + index);
+                if (opaqueDrawCommands[index].firstInstance == pair.first) {
+                    opaqueDrawCommands.erase(opaqueDrawCommands.begin() + index);
                 }
             }
         }
@@ -668,7 +669,7 @@ void RenderObject::unload()
     resourceManager.destroyDescriptorBuffer(frustumCullingDescriptorBuffer);
     resourceManager.destroyDescriptorBuffer(textureDescriptorBuffer);
 
-    drawCommands.clear();
+    opaqueDrawCommands.clear();
 
     materials.clear();
     vertices.clear();

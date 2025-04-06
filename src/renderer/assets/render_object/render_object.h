@@ -100,7 +100,7 @@ public: // Model Rendering API
     [[nodiscard]] const AllocatedBuffer& getVertexBuffer() const { return vertexBuffer; }
     [[nodiscard]] const AllocatedBuffer& getIndexBuffer() const { return indexBuffer; }
     [[nodiscard]] const AllocatedBuffer& getIndirectBuffer(const int32_t currentFrameOverlap) const { return drawIndirectBuffers[currentFrameOverlap]; }
-    [[nodiscard]] size_t getDrawIndirectCommandCount() const { return drawCommands.size(); }
+    [[nodiscard]] size_t getDrawIndirectCommandCount() const { return opaqueDrawCommands.size(); }
 
     void recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent);
 
@@ -129,7 +129,7 @@ private: // Buffer Data
     std::vector<VkSampler> samplers{};
     std::vector<AllocatedImage> images{};
 
-    std::vector<VkDrawIndexedIndirectCommand> drawCommands{};
+    std::vector<VkDrawIndexedIndirectCommand> opaqueDrawCommands{};
 
     AllocatedBuffer vertexBuffer{};
     AllocatedBuffer indexBuffer{};
