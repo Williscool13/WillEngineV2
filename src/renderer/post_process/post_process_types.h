@@ -12,6 +12,7 @@ enum class PostProcessType : uint32_t
     None = 0x00000000,
     Tonemapping = 1 << 0,
     Sharpening = 1 << 1,
+    FXAA = 1 << 2,
     ALL = 0xFFFFFFFF
 };
 

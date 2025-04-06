@@ -201,13 +201,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                 ImGui::Checkbox("Disable Physics", &engine->bPausePhysics);
 
-
-                if (ImGui::CollapsingHeader("Temporal Antialiasing", ImGuiTreeNodeFlags_DefaultOpen)) {
-                    ImGui::Checkbox("Enable TAA", &engine->bEnableTaa);
-                    ImGui::DragFloat("Taa Blend Value", &engine->taaBlendValue, 0.01, 0.1f, 0.5f);
-                    ImGui::Checkbox("Disable Jitter", &engine->bDisableJitter);
-                }
-
                 ImGui::Text("Deferred Debug");
                 const char* deferredDebugOptions[]{"None", "Depth", "Velocity", "Albedo", "Normal", "PBR", "Shadows", "Cascade Level", "nDotL", "AO"};
                 ImGui::Combo("Deferred Debug", &engine->deferredDebug, deferredDebugOptions, IM_ARRAYSIZE(deferredDebugOptions));
@@ -219,6 +212,12 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             }
 
             if (ImGui::BeginTabItem("Post-Processing")) {
+                if (ImGui::CollapsingHeader("Temporal Antialiasing", ImGuiTreeNodeFlags_DefaultOpen)) {
+                    ImGui::Checkbox("Enable TAA", &engine->bEnableTaa);
+                    ImGui::DragFloat("Taa Blend Value", &engine->taaBlendValue, 0.01, 0.1f, 0.5f);
+                    ImGui::Checkbox("Disable Jitter", &engine->bDisableJitter);
+                }
+
                 static bool tonemapping = (engine->postProcessData & post_process::PostProcessType::Tonemapping) != post_process::PostProcessType::None;
                 if (ImGui::CollapsingHeader("Tonemapping", ImGuiTreeNodeFlags_DefaultOpen)) {
                     if (ImGui::Checkbox("Enable Tonemapping", &tonemapping)) {
@@ -236,6 +235,16 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             engine->postProcessData |= post_process::PostProcessType::Sharpening;
                         } else {
                             engine->postProcessData &= ~post_process::PostProcessType::Sharpening;
+                        }
+                    }
+                }
+                if (ImGui::CollapsingHeader("FXAA", ImGuiTreeNodeFlags_DefaultOpen)) {
+                    static bool fxaa = (engine->postProcessData & post_process::PostProcessType::FXAA) != post_process::PostProcessType::None;
+                    if (ImGui::Checkbox("Enable FXAA", &fxaa)) {
+                        if (fxaa) {
+                            engine->postProcessData |= post_process::PostProcessType::FXAA;
+                        } else {
+                            engine->postProcessData &= ~post_process::PostProcessType::FXAA;
                         }
                     }
                 }

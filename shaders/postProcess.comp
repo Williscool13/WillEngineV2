@@ -1,6 +1,8 @@
 #version 460
 
+#include "common.glsl"
 #include "scene.glsl"
+#include "fxaa.glsl"
 
 layout (local_size_x = 16, local_size_y = 16) in;
 
@@ -14,13 +16,6 @@ layout (push_constant) uniform PushConstants {
     uint flags;
 } push;
 
-vec3 linearToSRGB(vec3 linearRGB) {
-    return mix(
-        12.92 * linearRGB,
-        1.055 * pow(linearRGB, vec3(1.0 / 2.4)) - 0.055,
-        step(0.0031308, linearRGB)
-    );
-}
 
 vec3 sharpen(vec3 centerColor, vec2 texelSize, vec2 uv) {
     // Sample neighboring pixels
@@ -29,24 +24,18 @@ vec3 sharpen(vec3 centerColor, vec2 texelSize, vec2 uv) {
     vec3 e = texture(inputImage, uv + vec2(texelSize.x, 0)).rgb;
     vec3 w = texture(inputImage, uv + vec2(-texelSize.x, 0)).rgb;
 
-    float sharpenStrength = 0.5; // Adjust this value
+    if ((push.flags & 1) != 0) {
+        n = aces(n);
+        s = aces(s);
+        e = aces(e);
+        w = aces(w);
+    }
+
+    float sharpenStrength = 0.5;// Adjust this value
     vec3 sharpened = centerColor * (1.0 + 4.0 * sharpenStrength) - (n + s + e + w) * sharpenStrength;
-    return max(vec3(0.0), sharpened); // Prevent negative values
+    return max(vec3(0.0), sharpened);// Prevent negative values
 }
 
-
-vec3 reinhardTonemap(vec3 v) {
-    return v / (1.0f + v);
-}
-
-vec3 aces(vec3 x) {
-    float a = 2.51f;
-    float b = 0.03f;
-    float c = 2.43f;
-    float d = 0.59f;
-    float e = 0.14f;
-    return clamp((x * (a * x + b)) / (x * (c * x + d) + e), 0.0, 1.0);
-}
 
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
@@ -62,16 +51,23 @@ void main() {
     uv += sceneData.jitter.xy / 2.0f;
 
     vec3 color = texture(inputImage, uv).rgb;
-    vec2 texelSize = 1.0 / vec2(push.width, push.height);
-
-    if ((push.flags & 2) != 0) {
-        color = sharpen(color, texelSize, uv);
-    }
 
     if ((push.flags & 1) != 0) {
         //color = reinhardTonemap(color);
         color = aces(color);
     }
+
+    if ((push.flags & 4) != 0) {
+        bool tonemapActive = (push.flags & 1) != 0;
+        color = FXAA_Apply(color, inputImage, uv, sceneData.texelSize, tonemapActive);
+    }
+
+    if ((push.flags & 2) != 0) {
+        color = sharpen(color, sceneData.texelSize, uv);
+    }
+
+
+
 
     imageStore(outputImage, pixel, vec4(color, 1.0));
 }

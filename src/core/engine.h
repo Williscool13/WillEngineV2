@@ -194,7 +194,7 @@ private: // Scene Data
     DirectionalLight mainLight{glm::normalize(glm::vec3(-0.8f, -0.6f, -0.6f)), 1.0f, glm::vec3(0.0f)};
     int32_t environmentMapIndex{0};
 
-    post_process::PostProcessType postProcessData{post_process::PostProcessType::ALL};
+    post_process::PostProcessType postProcessData{post_process::PostProcessType::Tonemapping | post_process::PostProcessType::Sharpening};
 
     std::unordered_set<Map*> activeMaps;
     std::unordered_set<ITerrain*> activeTerrains;
