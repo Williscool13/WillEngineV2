@@ -13,20 +13,31 @@
 
 namespace will_engine::transparent_pipeline
 {
-TransparentPipeline::TransparentPipeline(ResourceManager& resourceManager): resourceManager(resourceManager)
+TransparentPipeline::TransparentPipeline(ResourceManager& resourceManager,
+                                         VkDescriptorSetLayout environmentIBLLayout,
+                                         VkDescriptorSetLayout cascadeUniformLayout,
+                                         VkDescriptorSetLayout cascadeSamplerLayout): resourceManager(resourceManager)
 {
-    VkDescriptorSetLayout descriptorLayout[3];
+    VkDescriptorSetLayout descriptorLayout[6];
     descriptorLayout[0] = resourceManager.getSceneDataLayout();
     descriptorLayout[1] = resourceManager.getRenderObjectAddressesLayout();
     descriptorLayout[2] = resourceManager.getTexturesLayout();
+    descriptorLayout[3] = environmentIBLLayout;
+    descriptorLayout[4] = cascadeUniformLayout;
+    descriptorLayout[5] = cascadeSamplerLayout;
+
+    VkPushConstantRange pushConstants = {};
+    pushConstants.offset = 0;
+    pushConstants.size = sizeof(TransparentsPushConstants);
+    pushConstants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
 
     VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
     layoutInfo.pSetLayouts = descriptorLayout;
     layoutInfo.pNext = nullptr;
-    layoutInfo.setLayoutCount = 3;
-    layoutInfo.pPushConstantRanges = nullptr;
-    layoutInfo.pushConstantRangeCount = 0;
+    layoutInfo.setLayoutCount = 6;
+    layoutInfo.pPushConstantRanges = &pushConstants;
+    layoutInfo.pushConstantRangeCount = 1;
 
     accumulationPipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
@@ -103,6 +114,11 @@ void TransparentPipeline::draw(VkCommandBuffer cmd, const TransparentDrawInfo& d
     vkCmdBeginRendering(cmd, &renderInfo);
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, accumulationPipeline);
 
+    TransparentsPushConstants pushConstants = {};
+    pushConstants.bEnabled = drawInfo.enabled;
+
+    vkCmdPushConstants(cmd, accumulationPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(TransparentsPushConstants), &pushConstants);
+
     //  Viewport
     VkViewport viewport = {};
     viewport.x = 0;
@@ -128,19 +144,24 @@ void TransparentPipeline::draw(VkCommandBuffer cmd, const TransparentDrawInfo& d
             drawInfo.sceneDataBinding,
             renderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo(),
             renderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo(),
+            drawInfo.environmentIBLBinding,
+            drawInfo.cascadeUniformBinding,
+            drawInfo.cascadeSamplerBinding,
         };
+        vkCmdBindDescriptorBuffersEXT(cmd, 6, descriptorBufferBindingInfos.data());
 
-        vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptorBufferBindingInfos.data());
-
-        constexpr std::array<uint32_t, 3> indices{0, 1, 2};
+        constexpr std::array<uint32_t, 6> indices{0, 1, 2, 3, 4, 5};
 
         std::array offsets{
             drawInfo.sceneDataOffset,
             renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
+            ZERO_DEVICE_SIZE,
+            drawInfo.environmentIBLOffset,
+            drawInfo.cascadeUniformOffset,
             ZERO_DEVICE_SIZE
         };
 
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, accumulationPipelineLayout, 0, 3, indices.data(), offsets.data());
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, accumulationPipelineLayout, 0, 6, indices.data(), offsets.data());
 
         vkCmdBindVertexBuffers(cmd, 0, 1, &renderObject->getVertexBuffer().buffer, &zeroOffset);
         vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);

@@ -100,7 +100,7 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
     {
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        cascadedShadowMapUniformLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT),
+        cascadedShadowMapUniformLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT),
                                                                                    VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
 
@@ -108,7 +108,7 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
     {
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, shadows::SHADOW_CASCADE_COUNT);
-        cascadedShadowMapSamplerLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        cascadedShadowMapSamplerLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT), VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
 
     // https://github.com/diharaw/cascaded-shadow-maps

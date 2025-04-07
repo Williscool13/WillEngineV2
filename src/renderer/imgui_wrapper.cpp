@@ -1102,7 +1102,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
             ImGui::Image(reinterpret_cast<ImTextureID>(transparentDebugTextureImguiId), ImVec2(width, height));
 
-            ImGui::SameLine();
             if (ImGui::Button("Save Transparency Debug Image")) {
                 if (file::getOrCreateDirectory(file::imagesSavePath)) {
                     const std::filesystem::path path = file::imagesSavePath / "transparent_debug.png";
@@ -1110,7 +1109,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     vk_helpers::saveImageRGBA16SFLOAT(
                         *engine->resourceManager,
                         *engine->immediate,
-                        engine->ambientOcclusionPipeline->debugImage,
+                        engine->transparentPipeline->debugImage,
                         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                         VK_IMAGE_ASPECT_COLOR_BIT,
                         path.string().c_str(),

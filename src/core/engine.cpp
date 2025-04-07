@@ -163,7 +163,6 @@ void Engine::init()
 #endif
 
 
-
     startupProfiler.beginTimer("8Init Renderer");
     initRenderer();
     startupProfiler.endTimer("8Init Renderer");
@@ -209,7 +208,9 @@ void Engine::initRenderer()
                                                                             cascadedShadowMap->getCascadedShadowMapUniformLayout(),
                                                                             cascadedShadowMap->getCascadedShadowMapSamplerLayout());
     temporalAntialiasingPipeline = new temporal_antialiasing_pipeline::TemporalAntialiasingPipeline(*resourceManager);
-    transparentPipeline = new transparent_pipeline::TransparentPipeline(*resourceManager);
+    transparentPipeline = new transparent_pipeline::TransparentPipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
+                                                                        cascadedShadowMap->getCascadedShadowMapUniformLayout(),
+                                                                        cascadedShadowMap->getCascadedShadowMapSamplerLayout());
     postProcessPipeline = new post_process_pipeline::PostProcessPipeline(*resourceManager);
 
     ambientOcclusionPipeline->setupDepthPrefilterDescriptorBuffer(depthImage.imageView);
@@ -596,11 +597,17 @@ void Engine::draw(float deltaTime)
     }
 
     transparent_pipeline::TransparentDrawInfo transparentDrawInfo{
+        true,
         depthImage.imageView,
         currentFrameOverlap,
         allRenderObjects,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
+        environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo(),
+        environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferSize() * environmentMapIndex,
+        cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferBindingInfo(),
+        cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferSize() * currentFrameOverlap,
+        cascadedShadowMap->getCascadedShadowMapSamplerBuffer().getDescriptorBufferBindingInfo(),
     };
     transparentPipeline->draw(cmd, transparentDrawInfo);
 
@@ -641,7 +648,6 @@ void Engine::draw(float deltaTime)
         camera->getFarPlane(),
     };
     deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);
-
 
 
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -1046,6 +1052,7 @@ void Engine::hotReloadShaders() const
     environmentPipeline->reloadShaders();
     terrainPipeline->reloadShaders();
     deferredMrtPipeline->reloadShaders();
+    transparentPipeline->reloadShaders();
     ambientOcclusionPipeline->reloadShaders();
     deferredResolvePipeline->reloadShaders();
     temporalAntialiasingPipeline->reloadShaders();

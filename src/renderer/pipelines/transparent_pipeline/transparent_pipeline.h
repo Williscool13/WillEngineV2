@@ -14,27 +14,38 @@ class RenderObject;
 
 namespace will_engine::transparent_pipeline
 {
+struct TransparentsPushConstants
+{
+    int32_t bEnabled;
+    int32_t bReceivesShadows{true};
+};
 
 struct TransparentDrawInfo
 {
-    VkImageView depthTarget;
+    bool enabled{true};
+    VkImageView depthTarget{VK_NULL_HANDLE};
     int32_t currentFrameOverlap{0};
     const std::vector<RenderObject*>& renderObjects{};
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};
+    VkDescriptorBufferBindingInfoEXT environmentIBLBinding{};
+    VkDeviceSize environmentIBLOffset{0};
+    VkDescriptorBufferBindingInfoEXT cascadeUniformBinding{};
+    VkDeviceSize cascadeUniformOffset{0};
+    VkDescriptorBufferBindingInfoEXT cascadeSamplerBinding{};
 };
 
-class TransparentPipeline {
-
+class TransparentPipeline
+{
 public:
-    explicit TransparentPipeline(ResourceManager& resourceManager);
+    explicit TransparentPipeline(ResourceManager& resourceManager, VkDescriptorSetLayout environmentIBLLayout,
+                                 VkDescriptorSetLayout cascadeUniformLayout, VkDescriptorSetLayout cascadeSamplerLayout);
 
     ~TransparentPipeline();
 
     void draw(VkCommandBuffer cmd, const TransparentDrawInfo& drawInfo) const;
 
-    void hotReload() { createAccumulationPipeline(); }
-
+    void reloadShaders() { createAccumulationPipeline(); }
 
 private:
     ResourceManager& resourceManager;
@@ -53,13 +64,11 @@ private:
     AllocatedImage revealageImage{};
 
 
-
     void createAccumulationPipeline();
 
     // todo: remove
     friend void ImguiWrapper::imguiInterface(Engine* engine);
 };
-
 }
 
 #endif //TRANSPARENT_PIPELINE_H
