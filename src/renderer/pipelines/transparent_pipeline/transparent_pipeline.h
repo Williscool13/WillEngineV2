@@ -20,7 +20,7 @@ struct TransparentsPushConstants
     int32_t bReceivesShadows{true};
 };
 
-struct TransparentDrawInfo
+struct TransparentAccumulateDrawInfo
 {
     bool enabled{true};
     VkImageView depthTarget{VK_NULL_HANDLE};
@@ -35,6 +35,11 @@ struct TransparentDrawInfo
     VkDescriptorBufferBindingInfoEXT cascadeSamplerBinding{};
 };
 
+struct TransparentCompositeDrawInfo
+{
+    VkImageView opaqueImage;
+};
+
 class TransparentPipeline
 {
 public:
@@ -43,9 +48,15 @@ public:
 
     ~TransparentPipeline();
 
-    void draw(VkCommandBuffer cmd, const TransparentDrawInfo& drawInfo) const;
+    void drawAccumulate(VkCommandBuffer cmd, const TransparentAccumulateDrawInfo& drawInfo) const;
 
-    void reloadShaders() { createAccumulationPipeline(); }
+    void drawComposite(VkCommandBuffer cmd, const TransparentCompositeDrawInfo& drawInfo) const;
+
+    void reloadShaders()
+    {
+        createAccumulationPipeline();
+        createCompositePipeline();
+    }
 
 private:
     ResourceManager& resourceManager;
@@ -59,12 +70,17 @@ private:
     VkPipelineLayout accumulationPipelineLayout{VK_NULL_HANDLE};
     VkPipeline accumulationPipeline{VK_NULL_HANDLE};
 
-
     const VkFormat revealageImageFormat{VK_FORMAT_R16_SFLOAT};
     AllocatedImage revealageImage{};
 
+    VkDescriptorSetLayout compositeDescriptorSetLayout{VK_NULL_HANDLE};
+    VkPipelineLayout compositePipelineLayout{VK_NULL_HANDLE};
+    VkPipeline compositePipeline{VK_NULL_HANDLE};
+    DescriptorBufferSampler compositeDescriptorBuffer;
 
     void createAccumulationPipeline();
+
+    void createCompositePipeline();
 
     // todo: remove
     friend void ImguiWrapper::imguiInterface(Engine* engine);

@@ -596,7 +596,7 @@ void Engine::draw(float deltaTime)
         deferredMrtPipeline->draw(cmd, debugDeferredMrtDrawInfo);
     }
 
-    transparent_pipeline::TransparentDrawInfo transparentDrawInfo{
+    transparent_pipeline::TransparentAccumulateDrawInfo transparentDrawInfo{
         true,
         depthImage.imageView,
         currentFrameOverlap,
@@ -609,7 +609,7 @@ void Engine::draw(float deltaTime)
         cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferSize() * currentFrameOverlap,
         cascadedShadowMap->getCascadedShadowMapSamplerBuffer().getDescriptorBufferBindingInfo(),
     };
-    transparentPipeline->draw(cmd, transparentDrawInfo);
+    transparentPipeline->drawAccumulate(cmd, transparentDrawInfo);
 
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
@@ -663,13 +663,23 @@ void Engine::draw(float deltaTime)
     };
     temporalAntialiasingPipeline->draw(cmd, taaDrawInfo);
 
+    // Copy to TAA History
     vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, historyBuffer.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::copyImageToImage(cmd, taaResolveTarget.image, historyBuffer.image, RENDER_EXTENTS, RENDER_EXTENTS);
 
-    vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+
+    vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL,
+                                VK_IMAGE_ASPECT_COLOR_BIT);
+    transparent_pipeline::TransparentCompositeDrawInfo compositeDrawInfo{
+        taaResolveTarget.imageView
+    };
+    transparentPipeline->drawComposite(cmd, compositeDrawInfo);
+
+
+    vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, postProcessOutputBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -688,6 +698,8 @@ void Engine::draw(float deltaTime)
                                 VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::copyImageToImage(cmd, postProcessOutputBuffer.image, swapchainImages[swapchainImageIndex], RENDER_EXTENTS, swapchainExtent);
 
+    vk_helpers::transitionImage(cmd, postProcessOutputBuffer.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
+                                VK_IMAGE_ASPECT_COLOR_BIT);
 
 #ifndef NDEBUG
     // draw ImGui into Swapchain Image
@@ -988,6 +1000,7 @@ void Engine::createDrawResources()
         taaResolveUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
         taaResolveUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         taaResolveUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
+        taaResolveUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; // Transparent Blending (Remove if blending to a different image)
 
         const VkImageCreateInfo taaResolveImageInfo = vk_helpers::imageCreateInfo(taaResolveTarget.imageFormat, taaResolveUsages, imageExtent);
 

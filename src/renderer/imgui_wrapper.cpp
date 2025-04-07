@@ -1130,6 +1130,34 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
             ImGui::EndChild();
         }
+
+        if (postProcessOutputImguiId == VK_NULL_HANDLE) {
+            if (engine->postProcessOutputBuffer.imageView != VK_NULL_HANDLE) {
+                postProcessOutputImguiId = ImGui_ImplVulkan_AddTexture(
+                    engine->resourceManager->getDefaultSamplerNearest(),
+                    engine->postProcessOutputBuffer.imageView,
+                    VK_IMAGE_LAYOUT_GENERAL);
+            }
+        }
+
+        ImGui::Separator();
+
+        if (postProcessOutputImguiId == VK_NULL_HANDLE) {
+            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Debug texture not available.");
+        }
+        else {
+            // Calculate best fit size
+            float maxSize = ImGui::GetContentRegionAvail().x;
+            maxSize = glm::min(maxSize, 1024.0f);
+
+            VkExtent3D imageExtent = engine->postProcessOutputBuffer.imageExtent;
+            float width = std::min(maxSize, static_cast<float>(imageExtent.width));
+            float aspectRatio = static_cast<float>(imageExtent.width) / static_cast<float>(imageExtent.height);
+            float height = width / aspectRatio;
+
+            ImGui::Image(reinterpret_cast<ImTextureID>(postProcessOutputImguiId), ImVec2(width, height));
+        }
+
     }
     ImGui::End();
 

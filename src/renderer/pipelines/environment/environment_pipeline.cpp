@@ -39,7 +39,9 @@ void will_engine::environment_pipeline::EnvironmentPipeline::draw(VkCommandBuffe
     label.pLabelName = "Environment Map";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
-    VkClearValue clearValue = {0.0f, 0.0f};
+    VkClearValue clearValue = {};
+    clearValue.color = {0.0f, 0.0f, 0.0f, 1.0f};
+    clearValue.depthStencil = {0.0f, 0};
 
     VkRenderingAttachmentInfo normalAttachment = vk_helpers::attachmentInfo(drawInfo.normalTarget, drawInfo.bClearColor ? &clearValue : nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     VkRenderingAttachmentInfo albedoAttachment = vk_helpers::attachmentInfo(drawInfo.albedoTarget, drawInfo.bClearColor ? &clearValue : nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);

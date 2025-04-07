@@ -46,7 +46,9 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
     label.pLabelName = "Deferred MRT Pass (Render Objects)";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
-    VkClearValue clearValue = {0.0f, 0.0f};
+    VkClearValue clearValue = {};
+    clearValue.color = {0.0f, 0.0f, 0.0f, 1.0f};
+    clearValue.depthStencil = {0.0f, 0};
 
     VkRenderingAttachmentInfo normalAttachment = vk_helpers::attachmentInfo(drawInfo.normalTarget, drawInfo.bClearColor ? &clearValue : nullptr,
                                                                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);

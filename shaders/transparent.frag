@@ -145,20 +145,9 @@ void main() {
     accumulationTarget = vec4(finalColor * albedo.a * weight, albedo.a * weight);
     revealageTarget = albedo.a;
 
-    debugTarget = vec4(finalColor, albedo.a);
+    const float EPSILON = 0.00001f;
+    vec3 averageColor = accumulationTarget.rgb / max(accumulationTarget.a, EPSILON);
+    vec4 c = vec4(averageColor, 1.0f - revealageTarget);
 
-    //    int metalSamplerIndex = int(m.textureSamplerIndices.y);
-    //    int metalImageIndex = int(m.textureImageIndices.y);
-    //
-    //    float metallic = m.metalRoughFactors.x;
-    //    float roughness = m.metalRoughFactors.y;
-    //    if (metalSamplerIndex >= 0) {
-    //        vec4 metalRoughSample = texture(sampler2D(textures[nonuniformEXT(metalImageIndex)], samplers[nonuniformEXT(metalSamplerIndex)]), inUV);
-    //        metallic *= metalRoughSample.b;
-    //        roughness *= metalRoughSample.g;
-    //    }
-
-
-    //    normalTarget = vec4(normalize(inNormal), 0.0f);
-    //    albedoTarget = vec4(albedo.xyz, 1.0f);
+    debugTarget = c;
 }

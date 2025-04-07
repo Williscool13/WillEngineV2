@@ -51,6 +51,7 @@ VulkanContext::VulkanContext(SDL_Window* window, bool useValidationLayers)
     otherFeatures.samplerAnisotropy = VK_TRUE;
     otherFeatures.tessellationShader = VK_TRUE;
     otherFeatures.fillModeNonSolid = VK_TRUE;
+    otherFeatures.independentBlend = VK_TRUE;
 
     // Descriptor Buffer Extension
     VkPhysicalDeviceDescriptorBufferFeaturesEXT descriptorBufferFeatures = {};

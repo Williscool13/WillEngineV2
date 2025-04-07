@@ -50,7 +50,8 @@ void main() {
     // Unjitter
     uv += sceneData.jitter.xy / 2.0f;
 
-    vec3 color = texture(inputImage, uv).rgb;
+    vec4 fullColor = texture(inputImage, uv);
+    vec3 color = fullColor.rgb;
 
     if ((push.flags & 1) != 0) {
         //color = reinhardTonemap(color);
@@ -69,5 +70,5 @@ void main() {
 
 
 
-    imageStore(outputImage, pixel, vec4(color, 1.0));
+    imageStore(outputImage, pixel, vec4(color, fullColor.a));
 }
