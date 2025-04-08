@@ -131,19 +131,30 @@ void main() {
         shadowFactor = 1.0f;
     }
 
-    float indirectAttenuation = mix(0.35, 1.0, shadowFactor);
+//    float indirectAttenuation = mix(0.35, 1.0, shadowFactor);
+//
+//    // IBL REFLECTIONS
+//    vec3 irradiance = DiffuseIrradiance(environmentDiffuseAndSpecular, N);
+//    vec3 reflectionDiffuse = irradiance * albedo.xyz * indirectAttenuation;
+//
+//    vec3 reflectionSpecular = SpecularReflection(environmentDiffuseAndSpecular, lut, V, N, roughness, F) * indirectAttenuation;
+//
+//    float ao = hasTransparent ? 1.0f : texture(aoBuffer, uv).r;
+//    vec3  ambient = (kD * reflectionDiffuse + reflectionSpecular) * ao;
+//
+//    vec3 finalColor = (diffuse + specular) * nDotL * shadowFactor * shadowCascadeData.directionalLightData.intensity * shadowCascadeData.directionalLightData.color;
+//    finalColor += ambient;
+    // Direct lighting with shadows
+    vec3 directLight = (diffuse + specular) * nDotL * shadowFactor * shadowCascadeData.directionalLightData.intensity * shadowCascadeData.directionalLightData.color;
 
-    // IBL REFLECTIONS
+    // IBL Reflections
     vec3 irradiance = DiffuseIrradiance(environmentDiffuseAndSpecular, N);
-    vec3 reflectionDiffuse = irradiance * albedo.xyz * indirectAttenuation;
-
-    vec3 reflectionSpecular = SpecularReflection(environmentDiffuseAndSpecular, lut, V, N, roughness, F) * indirectAttenuation;
+    vec3 reflectionDiffuse = irradiance * albedo.xyz;
+    vec3 reflectionSpecular = SpecularReflection(environmentDiffuseAndSpecular, lut, V, N, roughness, F);
 
     float ao = hasTransparent ? 1.0f : texture(aoBuffer, uv).r;
-    vec3  ambient = (kD * reflectionDiffuse + reflectionSpecular) * ao;
-
-    vec3 finalColor = (diffuse + specular) * nDotL * shadowFactor * shadowCascadeData.directionalLightData.intensity * shadowCascadeData.directionalLightData.color;
-    finalColor += ambient;
+    vec3 ambient = (kD * reflectionDiffuse + reflectionSpecular) * ao;
+    vec3 finalColor = directLight + ambient;
 
     imageStore(outputImage, screenPos, vec4(finalColor, albedo.w));
 

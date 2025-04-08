@@ -116,19 +116,16 @@ void main() {
         shadowFactor = 1.0f;
     }
 
-    float indirectAttenuation = mix(0.35, 1.0, shadowFactor);
+    vec3 directLight = (diffuse + specular) * nDotL * shadowFactor * shadowCascadeData.directionalLightData.intensity * shadowCascadeData.directionalLightData.color;
 
-    // IBL REFLECTIONS
+    // IBL Reflections
     vec3 irradiance = DiffuseIrradiance(environmentDiffuseAndSpecular, N);
-    vec3 reflectionDiffuse = irradiance * albedo.xyz * indirectAttenuation;
-
-    vec3 reflectionSpecular = SpecularReflection(environmentDiffuseAndSpecular, lut, V, N, roughness, F) * indirectAttenuation;
+    vec3 reflectionDiffuse = irradiance * albedo.xyz;
+    vec3 reflectionSpecular = SpecularReflection(environmentDiffuseAndSpecular, lut, V, N, roughness, F);
 
     float ao = 1.0f;
-    vec3  ambient = (kD * reflectionDiffuse + reflectionSpecular) * ao;
-
-    vec3 finalColor = (diffuse + specular) * nDotL * shadowFactor * shadowCascadeData.directionalLightData.intensity * shadowCascadeData.directionalLightData.color;
-    finalColor += ambient;
+    vec3 ambient = (kD * reflectionDiffuse + reflectionSpecular) * ao;
+    vec3 finalColor = directLight + ambient;
 
     float z = gl_FragCoord.z;
     // inverted depth buffer
@@ -139,7 +136,6 @@ void main() {
     float alphaWeight = clamp(albedo.a * 10.0, 0.01, 1.0);
     float depthWeight = clamp(pow(invZ / 200.0, 4.0), 0.01, 1.0);
 
-    // Final weight calculation - you can adjust this formula for your needs
     float weight = clamp(pow(alphaWeight, 3.0) * 1.0 / (0.001 + depthWeight), 0.01, 3000.0);
 
     // RGB = Color * Alpha * Weight, A = Alpha * Weight
