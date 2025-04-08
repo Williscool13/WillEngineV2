@@ -43,4 +43,8 @@ float rgb2luma(vec3 rgb){
     return dot(rgb, luma);
 }
 
+bool nearlyEqual(float a, float b, float epsilon) {
+    return abs(a - b) <= epsilon;
+}
+
 #endif // COMMON_GLSL

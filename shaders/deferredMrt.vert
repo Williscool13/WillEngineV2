@@ -25,8 +25,9 @@ layout (location = 1) out vec3 outNormal;
 layout (location = 2) out vec4 outColor;
 layout (location = 3) out vec2 outUV;
 layout (location = 4) out flat uint outMaterialIndex;
-layout (location = 5) out vec4 outCurrMvpPosition;
-layout (location = 6) out vec4 outPrevMvpPosition;
+layout (location = 5) out flat uint inBHasTransparent;
+layout (location = 6) out vec4 outCurrMvpPosition;
+layout (location = 7) out vec4 outPrevMvpPosition;
 
 void main() {
     Primitive primitive = bufferAddresses.primitiveBufferDeviceAddress.primitives[gl_InstanceIndex];
@@ -41,6 +42,7 @@ void main() {
     outColor = color;
     outUV = uv;
     outMaterialIndex = materialIndex;
+    inBHasTransparent = primitive.bHasTransparent;
 
     vec4 currClipPos = sceneData.viewProj * worldPos;
     vec4 prevClipPos = sceneData.prevViewProj * models.previousModelMatrix * vec4(position, 1.0);

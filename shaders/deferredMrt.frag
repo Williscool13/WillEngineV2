@@ -2,8 +2,10 @@
 #extension GL_EXT_buffer_reference: require
 #extension GL_EXT_nonuniform_qualifier: enable
 
+#include "common.glsl"
 #include "scene.glsl"
 #include "structure.glsl"
+#include "transparent.glsl"
 
 
 // world space
@@ -12,8 +14,9 @@ layout (location = 1) in vec3 inNormal;
 layout (location = 2) in vec4 inColor;
 layout (location = 3) in vec2 inUV;
 layout (location = 4) in flat uint inMaterialIndex;
-layout (location = 5) in vec4 inCurrMvpPosition;
-layout (location = 6) in vec4 inPrevMvpPosition;
+layout (location = 5) in flat uint inBHasTransparent;
+layout (location = 6) in vec4 inCurrMvpPosition;
+layout (location = 7) in vec4 inPrevMvpPosition;
 
 layout (location = 0) out vec4 normalTarget;// 10,10,10, (2 unused)
 layout (location = 1) out vec4 albedoTarget;// 10,10,10, (2 -> 0 = environment Map, 1 = renderObject)
@@ -42,10 +45,9 @@ void main() {
     }
     albedo = albedo * inColor * m.colorFactor;
 
-    if (m.alphaCutoff.y == 1){
-        // 1 is "transparent"
-        // Transparent fragments should be drawn here if they turn opaque (e.g. gradual transparent to opaque effect)
-        if (albedo.w < 0.99) {
+    if (m.alphaCutoff.y == 1) {
+        // Draw only if alpha is close enough to 1
+        if (albedo.w <= 1.0 - TRANSPARENT_ALPHA_EPSILON) {
             discard;
         }
     }
@@ -71,7 +73,7 @@ void main() {
 
     normalTarget = vec4(normalize(inNormal), 0.0f);
     albedoTarget = vec4(albedo.xyz, 1.0f);
-    pbrTarget = vec4(metallic, roughness, 0.0f, 0.0f);
+    pbrTarget = vec4(metallic, roughness, 0.0f, inBHasTransparent);
 
     vec2 currNdc = inCurrMvpPosition.xy / inCurrMvpPosition.w;
     vec2 prevNdc = inPrevMvpPosition.xy / inPrevMvpPosition.w;

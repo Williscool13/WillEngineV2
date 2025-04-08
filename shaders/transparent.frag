@@ -2,12 +2,14 @@
 #extension GL_EXT_buffer_reference: require
 #extension GL_EXT_nonuniform_qualifier: enable
 
+#include "common.glsl"
 #include "scene.glsl"
 #include "structure.glsl"
 #include "pbr.glsl"
 #include "environment.glsl"
 #include "lights.glsl"
 #include "shadows.glsl"
+#include "transparent.glsl"
 
 // world space
 layout (location = 0) in vec3 inPosition;
@@ -61,10 +63,9 @@ void main() {
     }
     albedo = albedo * inColor * m.colorFactor;
 
-    if (m.alphaCutoff.y == 1){
-        // 1 is "transparent"
-        // Transparent fragments will be drawn in the opaque pass if alpha too high
-        if (albedo.w >= 0.99) {
+    if (m.alphaCutoff.y == 1) {
+        // Draw only if alpha is sufficiently less than 1
+        if (albedo.w > 1.0 - TRANSPARENT_ALPHA_EPSILON) {
             discard;
         }
     }

@@ -93,6 +93,7 @@ void main() {
     float roughness = pbrData.g;
     float metallic = pbrData.r;
     float emissive = pbrData.b;
+    bool hasTransparent = pbrData.a == 1;
 
 
     vec3 N = normalize(normal);
@@ -138,7 +139,7 @@ void main() {
 
     vec3 reflectionSpecular = SpecularReflection(environmentDiffuseAndSpecular, lut, V, N, roughness, F) * indirectAttenuation;
 
-    float ao = texture(aoBuffer, uv).r;
+    float ao = hasTransparent ? 1.0f : texture(aoBuffer, uv).r;
     vec3  ambient = (kD * reflectionDiffuse + reflectionSpecular) * ao;
 
     vec3 finalColor = (diffuse + specular) * nDotL * shadowFactor * shadowCascadeData.directionalLightData.intensity * shadowCascadeData.directionalLightData.color;

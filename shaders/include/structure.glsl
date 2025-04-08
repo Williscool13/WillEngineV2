@@ -6,7 +6,7 @@ struct Primitive
     uint materialIndex;
     uint modelIndex;
     uint boundingVolumeIndex;
-    uint padding;
+    uint bHasTransparent;
 };
 
 struct Model

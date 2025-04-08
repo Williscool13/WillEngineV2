@@ -122,20 +122,17 @@ void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentA
     vk_helpers::transitionImage(cmd, debugImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
 
-    VkClearValue clearValue;
-    clearValue.color = {{0.0f, 0.0f, 0.0f, 1.0f}};
-    clearValue.depthStencil.depth = 1.0f;
-    clearValue.depthStencil.stencil = 0;
-    VkClearValue revealageClearValue;
-    revealageClearValue.color = {{1.0f, 1.0f, 1.0f, 1.0f}};
-    revealageClearValue.depthStencil.depth = 1.0f;
-    revealageClearValue.depthStencil.stencil = 0;
 
-    VkRenderingAttachmentInfo accumulationAttachment = vk_helpers::attachmentInfo(accumulationImage.imageView, &clearValue,
+    constexpr VkClearValue colorClear = {.color = {0.0f, 0.0f, 0.0f, 0.0f}};
+    constexpr VkClearValue revealageClear = {.color = {1.0f, 1.0f, 1.0f, 1.0f}};
+
+
+
+    VkRenderingAttachmentInfo accumulationAttachment = vk_helpers::attachmentInfo(accumulationImage.imageView, &colorClear,
                                                                                   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo revealageAttachment = vk_helpers::attachmentInfo(revealageImage.imageView, &revealageClearValue,
+    VkRenderingAttachmentInfo revealageAttachment = vk_helpers::attachmentInfo(revealageImage.imageView, &revealageClear,
                                                                                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo debugAttachment = vk_helpers::attachmentInfo(debugImage.imageView, &clearValue,
+    VkRenderingAttachmentInfo debugAttachment = vk_helpers::attachmentInfo(debugImage.imageView, &colorClear,
                                                                            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthTarget, nullptr,
@@ -358,7 +355,7 @@ void TransparentPipeline::createAccumulationPipeline()
                                               VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
     pipelineBuilder.setupBlending(blendAttachmentStates);
-    pipelineBuilder.enableDepthTest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
+    pipelineBuilder.enableDepthTest(false, VK_COMPARE_OP_GREATER);
     pipelineBuilder.setupRenderer({accumulationImageFormat, revealageImageFormat, debugImageFormat}, DEPTH_FORMAT);
     pipelineBuilder.setupPipelineLayout(accumulationPipelineLayout);
 

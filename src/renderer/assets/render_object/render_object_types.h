@@ -77,7 +77,7 @@ struct PrimitiveData
     uint32_t materialIndex;
     uint32_t instanceDataIndex;
     uint32_t boundingVolumeIndex;
-    uint32_t padding;
+    uint32_t bHasTransparent;
 };
 
 struct InstanceData

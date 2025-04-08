@@ -236,7 +236,7 @@ private: // Draw Resources
      */
     AllocatedImage albedoRenderTarget{};
     /**
-     * 8 Metallic, 8 Roughness, 8 emission (unused), 8 Unused
+     * 8 Metallic, 8 Roughness, 8 emission (unused), 8 Is Transparent
      */
     AllocatedImage pbrRenderTarget{};
     /**

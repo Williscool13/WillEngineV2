@@ -275,7 +275,7 @@ bool RenderObject::generateMesh(IRenderable* renderable, const int32_t meshIndex
             transparentIndirectData.firstInstance = primitiveIndex;
         }
 
-        primitiveDataMap[primitiveIndex] = {primitive.materialIndex, instanceIndex, primitive.boundingSphereIndex, 0};
+        primitiveDataMap[primitiveIndex] = {primitive.materialIndex, instanceIndex, primitive.boundingSphereIndex, primitive.bHasTransparent ? 1u : 0u};
     }
 
     renderable->setRenderObjectReference(this, meshIndex);
