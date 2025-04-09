@@ -89,6 +89,7 @@ private:
 
     GTAOPushConstants gtaoPush{};
 
+    // todo: remove
     friend void ImguiWrapper::imguiInterface(Engine* engine);
 };
 }

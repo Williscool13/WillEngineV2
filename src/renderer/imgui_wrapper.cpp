@@ -197,16 +197,23 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Hot-Reload Shaders")) {
                     engine->hotReloadShaders();
                 }
+                ImGui::Checkbox("Enable Transparent Primitives", &engine->bRenderTransparents);
+                ImGui::Separator();
+                ImGui::Text("Main Directional Light");
+                float direction[3] = {engine->mainLight.direction.x, engine->mainLight.direction.y, engine->mainLight.direction.z};
+                if (ImGui::DragFloat3("Direction", direction, 0.1)) {
+                    engine->mainLight.direction = glm::vec3(direction[0], direction[1], direction[2]);
+                }
+                float color[3] = {engine->mainLight.color.x, engine->mainLight.color.y, engine->mainLight.color.z};
+                if (ImGui::DragFloat3("Color", color, 0.1)) {
+                    engine->mainLight.color = glm::vec3(color[0], color[1], color[2]);
+                }
+                ImGui::DragFloat("Intensity", &engine->mainLight.intensity, 0.05f, 0.0f, 5.0f);
+
+
                 ImGui::Separator();
 
                 ImGui::Checkbox("Disable Physics", &engine->bPausePhysics);
-
-
-                if (ImGui::CollapsingHeader("Temporal Antialiasing", ImGuiTreeNodeFlags_DefaultOpen)) {
-                    ImGui::Checkbox("Enable TAA", &engine->bEnableTaa);
-                    ImGui::DragFloat("Taa Blend Value", &engine->taaBlendValue, 0.01, 0.1f, 0.5f);
-                    ImGui::Checkbox("Disable Jitter", &engine->bDisableJitter);
-                }
 
                 ImGui::Text("Deferred Debug");
                 const char* deferredDebugOptions[]{"None", "Depth", "Velocity", "Albedo", "Normal", "PBR", "Shadows", "Cascade Level", "nDotL", "AO"};
@@ -219,23 +226,44 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             }
 
             if (ImGui::BeginTabItem("Post-Processing")) {
-                static bool tonemapping = (engine->postProcessData & post_process::PostProcessType::Tonemapping) != post_process::PostProcessType::None;
+                if (ImGui::CollapsingHeader("Temporal Antialiasing", ImGuiTreeNodeFlags_DefaultOpen)) {
+                    ImGui::Checkbox("Enable TAA", &engine->bEnableTaa);
+                    ImGui::DragFloat("Taa Blend Value", &engine->taaBlendValue, 0.01, 0.1f, 0.5f);
+                    ImGui::Checkbox("Disable Jitter", &engine->bDisableJitter);
+                }
+
+                static bool tonemapping = (engine->postProcessData & post_process::PostProcessType::Tonemapping) !=
+                                          post_process::PostProcessType::None;
                 if (ImGui::CollapsingHeader("Tonemapping", ImGuiTreeNodeFlags_DefaultOpen)) {
                     if (ImGui::Checkbox("Enable Tonemapping", &tonemapping)) {
                         if (tonemapping) {
                             engine->postProcessData |= post_process::PostProcessType::Tonemapping;
-                        } else {
+                        }
+                        else {
                             engine->postProcessData &= ~post_process::PostProcessType::Tonemapping;
                         }
                     }
                 }
                 if (ImGui::CollapsingHeader("Sharpening", ImGuiTreeNodeFlags_DefaultOpen)) {
-                    static bool sharpening = (engine->postProcessData & post_process::PostProcessType::Sharpening) != post_process::PostProcessType::None;
+                    static bool sharpening = (engine->postProcessData & post_process::PostProcessType::Sharpening) !=
+                                             post_process::PostProcessType::None;
                     if (ImGui::Checkbox("Enable Sharpening", &sharpening)) {
                         if (sharpening) {
                             engine->postProcessData |= post_process::PostProcessType::Sharpening;
-                        } else {
+                        }
+                        else {
                             engine->postProcessData &= ~post_process::PostProcessType::Sharpening;
+                        }
+                    }
+                }
+                if (ImGui::CollapsingHeader("FXAA", ImGuiTreeNodeFlags_DefaultOpen)) {
+                    static bool fxaa = (engine->postProcessData & post_process::PostProcessType::FXAA) != post_process::PostProcessType::None;
+                    if (ImGui::Checkbox("Enable FXAA", &fxaa)) {
+                        if (fxaa) {
+                            engine->postProcessData |= post_process::PostProcessType::FXAA;
+                        }
+                        else {
+                            engine->postProcessData &= ~post_process::PostProcessType::FXAA;
                         }
                     }
                 }
@@ -432,7 +460,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             if (ImGui::BeginTabItem("Shadows")) {
                 ImGui::Text("Cascaded Shadow Map");
                 ImGui::DragInt("CSM PCF Level", &engine->csmPcf, 2, 1, 7);
-                ImGui::DragFloat3("Main Light Direction", engine->mainLight.direction, 0.1);
                 ImGui::InputFloat2("Cascade 1 Bias", shadows::CASCADE_BIAS[0]);
                 ImGui::InputFloat2("Cascade 2 Bias", shadows::CASCADE_BIAS[1]);
                 ImGui::InputFloat2("Cascade 3 Bias", shadows::CASCADE_BIAS[2]);
@@ -677,7 +704,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                         if (ImGui::Button("Generate Full Object")) {
                                             GameObject* gob = selectedRenderObject->generateGameObject(std::string(objectName));
                                             selectedMap->addGameObject(gob);
-                                            // todo: fix add full gameobject
                                             fmt::print("Added whole gltf model to the scene\n");
                                         }
                                         ImGui::EndTabItem();
@@ -727,7 +753,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                                                 if (auto _container = dynamic_cast<IComponentContainer*>(gob)) {
                                                     auto newComponent = components::ComponentFactory::getInstance().createComponent(
-                                                        components::MeshRendererComponent::getStaticType(), "");
+                                                        components::MeshRendererComponent::getStaticType(), "Mesh Renderer");
                                                     _container->addComponent(std::move(newComponent));
                                                     if (components::MeshRendererComponent* meshRenderer = _container->getMeshRenderer()) {
                                                         selectedRenderObject->generateMesh(meshRenderer, selectedMeshIndex);
@@ -1051,7 +1077,88 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::End();
 
     if (ImGui::Begin("Discardable Debug")) {
-        ImGui::Text("Empty");
+        if (transparentDebugTextureImguiId == VK_NULL_HANDLE) {
+            if (engine->transparentPipeline->debugImage.image != VK_NULL_HANDLE) {
+                transparentDebugTextureImguiId = ImGui_ImplVulkan_AddTexture(
+                    engine->resourceManager->getDefaultSamplerNearest(),
+                    engine->transparentPipeline->debugImage.imageView,
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+            }
+        }
+
+        ImGui::BeginChild("TransparentDebugPreview", ImVec2(0, 0), false, ImGuiWindowFlags_None);
+
+        if (transparentDebugTextureImguiId == VK_NULL_HANDLE) {
+            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Debug texture not available.");
+        }
+        else {
+            // Calculate best fit size
+            float maxSize = ImGui::GetContentRegionAvail().x;
+            maxSize = glm::min(maxSize, 1024.0f);
+
+            VkExtent3D imageExtent = engine->transparentPipeline->debugImage.imageExtent;
+            float width = std::min(maxSize, static_cast<float>(imageExtent.width));
+            float aspectRatio = static_cast<float>(imageExtent.width) / static_cast<float>(imageExtent.height);
+            float height = width / aspectRatio;
+
+            ImGui::Image(reinterpret_cast<ImTextureID>(transparentDebugTextureImguiId), ImVec2(width, height));
+
+            if (ImGui::Button("Save Transparency Debug Image")) {
+                if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                    const std::filesystem::path path = file::imagesSavePath / "transparent_debug.png";
+
+                    vk_helpers::saveImageRGBA16SFLOAT(
+                        *engine->resourceManager,
+                        *engine->immediate,
+                        engine->transparentPipeline->debugImage,
+                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                        VK_IMAGE_ASPECT_COLOR_BIT,
+                        path.string().c_str(),
+                        false
+                    );
+
+                    ImGui::OpenPopup("SaveConfirmation");
+                }
+            }
+
+            if (ImGui::BeginPopupModal("SaveConfirmation", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
+                ImGui::Text("Image saved to %s/gtao_debug.png", file::imagesSavePath.string().c_str());
+                if (ImGui::Button("OK", ImVec2(120, 0))) {
+                    ImGui::CloseCurrentPopup();
+                }
+                ImGui::EndPopup();
+            }
+
+            ImGui::EndChild();
+        }
+
+        if (postProcessOutputImguiId == VK_NULL_HANDLE) {
+            if (engine->postProcessOutputBuffer.imageView != VK_NULL_HANDLE) {
+                postProcessOutputImguiId = ImGui_ImplVulkan_AddTexture(
+                    engine->resourceManager->getDefaultSamplerNearest(),
+                    engine->postProcessOutputBuffer.imageView,
+                    VK_IMAGE_LAYOUT_GENERAL);
+            }
+        }
+
+        ImGui::Separator();
+
+        if (postProcessOutputImguiId == VK_NULL_HANDLE) {
+            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Debug texture not available.");
+        }
+        else {
+            // Calculate best fit size
+            float maxSize = ImGui::GetContentRegionAvail().x;
+            maxSize = glm::min(maxSize, 1024.0f);
+
+            VkExtent3D imageExtent = engine->postProcessOutputBuffer.imageExtent;
+            float width = std::min(maxSize, static_cast<float>(imageExtent.width));
+            float aspectRatio = static_cast<float>(imageExtent.width) / static_cast<float>(imageExtent.height);
+            float height = width / aspectRatio;
+
+            ImGui::Image(reinterpret_cast<ImTextureID>(postProcessOutputImguiId), ImVec2(width, height));
+        }
+
     }
     ImGui::End();
 

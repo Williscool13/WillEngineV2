@@ -28,6 +28,7 @@ struct VisibilityPassDrawInfo
     VkDeviceSize sceneDataOffset{0};
     bool bEnableFrustumCulling{};
     bool bIsShadowPass{};
+    bool bIsOpaque{};
 };
 
 class VisibilityPassPipeline

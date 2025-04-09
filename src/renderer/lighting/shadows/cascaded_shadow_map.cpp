@@ -42,7 +42,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createRenderObjectPipelin
     // set later during shadow pass
     pipelineBuilder.enableDepthBias(0.0f, 0, 0.0f);
     pipelineBuilder.disableMultisampling();
-    pipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
+    pipelineBuilder.disableBlending();
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_LESS_OR_EQUAL);
     pipelineBuilder.setupRenderer({}, DEPTH_FORMAT);
     pipelineBuilder.setupPipelineLayout(renderObjectPipelineLayout);
@@ -80,7 +80,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createTerrainPipeline()
     // set later during shadow pass
     pipelineBuilder.enableDepthBias(0.0f, 0, 0.0f);
     pipelineBuilder.disableMultisampling();
-    pipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
+    pipelineBuilder.disableBlending();
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_LESS_OR_EQUAL);
     pipelineBuilder.setupRenderer({}, DEPTH_FORMAT);
     pipelineBuilder.setupPipelineLayout(terrainPipelineLayout);
@@ -100,15 +100,20 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
     {
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        cascadedShadowMapUniformLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT),
-                                                                                   VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        cascadedShadowMapUniformLayout = resourceManager.createDescriptorSetLayout(
+            layoutBuilder,
+            static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT),
+            VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
 
     // (Sampler) Shadow Map Layout - Used by deferred resolve
     {
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, shadows::SHADOW_CASCADE_COUNT);
-        cascadedShadowMapSamplerLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        cascadedShadowMapSamplerLayout = resourceManager.createDescriptorSetLayout(
+            layoutBuilder,
+            static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT),
+            VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
 
     // https://github.com/diharaw/cascaded-shadow-maps
@@ -159,13 +164,14 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
     sampler = resourceManager.createSampler(samplerCreateInfo);
 
     for (CascadeShadowMapData& cascadeShadowMapData : shadowMaps) {
-
         VkImageUsageFlags usage{};
         usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
         usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
         usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
-        VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(shadows::CASCADE_DEPTH_FORMAT, usage, {shadows::CASCADE_WIDTH, shadows::CASCADE_HEIGHT, 1});
+        VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(shadows::CASCADE_DEPTH_FORMAT, usage, {
+                                                                    shadows::CASCADE_WIDTH, shadows::CASCADE_HEIGHT, 1
+                                                                });
         cascadeShadowMapData.depthShadowMap = resourceManager.createImage(imgInfo);
     }
 
@@ -173,7 +179,7 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
     {
         VkDescriptorSetLayout layouts[2];
         layouts[0] = cascadedShadowMapUniformLayout;
-        layouts[1] = resourceManager.getAddressesLayout();
+        layouts[1] = resourceManager.getRenderObjectAddressesLayout();
 
         VkPushConstantRange pushConstantRange;
         pushConstantRange.size = sizeof(CascadedShadowMapGenerationPushConstants);
@@ -214,7 +220,9 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
 
     std::vector<DescriptorImageData> textureDescriptors;
     for (const CascadeShadowMapData& shadowMapData : shadowMaps) {
-        const VkDescriptorImageInfo imageInfo{.sampler = sampler, .imageView = shadowMapData.depthShadowMap.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL};
+        const VkDescriptorImageInfo imageInfo{
+            .sampler = sampler, .imageView = shadowMapData.depthShadowMap.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+        };
         textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imageInfo, false});
     }
     cascadedShadowMapDescriptorBufferSampler = resourceManager.createDescriptorBufferSampler(cascadedShadowMapSamplerLayout, 1);
@@ -257,7 +265,8 @@ will_engine::cascaded_shadows::CascadedShadowMap::~CascadedShadowMap()
     resourceManager.destroyPipelineLayout(terrainPipelineLayout);
 }
 
-void will_engine::cascaded_shadows::CascadedShadowMap::update(const DirectionalLight& mainLight, const Camera* camera, const int32_t currentFrameOverlap)
+void will_engine::cascaded_shadows::CascadedShadowMap::update(const DirectionalLight& mainLight, const Camera* camera,
+                                                              const int32_t currentFrameOverlap)
 {
     for (CascadeShadowMapData& shadowData : shadowMaps) {
         shadowData.lightViewProj = getLightSpaceMatrix(mainLight.getDirection(), camera, shadowData.split.nearPlane, shadowData.split.farPlane);
@@ -281,15 +290,22 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
     label.pLabelName = "Shadow Pass";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
-    constexpr VkClearValue clearValue = {1.0f, 1.0f};
+    constexpr VkClearValue clearValue = {
+        .depthStencil = {
+            1.0f,
+            0u
+        }
+    };
 
     for (const CascadeShadowMapData& cascadeShadowMapData : shadowMaps) {
-        vk_helpers::transitionImage(cmd, cascadeShadowMapData.depthShadowMap.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+        vk_helpers::transitionImage(cmd, cascadeShadowMapData.depthShadowMap.image, VK_IMAGE_LAYOUT_UNDEFINED,
+                                    VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
 
 
         // Terrain
         {
-            VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(cascadeShadowMapData.depthShadowMap.imageView, &clearValue, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+            VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(cascadeShadowMapData.depthShadowMap.imageView, &clearValue,
+                                                                                   VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
             VkRenderingInfo renderInfo{};
             renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -305,12 +321,14 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             vkCmdBeginRendering(cmd, &renderInfo);
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, terrainPipeline);
 
-            vkCmdSetDepthBias(cmd, shadows::CASCADE_BIAS[cascadeShadowMapData.cascadeLevel][0], 0.0f, shadows::CASCADE_BIAS[cascadeShadowMapData.cascadeLevel][1]);
+            vkCmdSetDepthBias(cmd, shadows::CASCADE_BIAS[cascadeShadowMapData.cascadeLevel][0], 0.0f,
+                              shadows::CASCADE_BIAS[cascadeShadowMapData.cascadeLevel][1]);
 
             CascadedShadowMapGenerationPushConstants pushConstants{};
             pushConstants.cascadeIndex = cascadeShadowMapData.cascadeLevel;
             pushConstants.tessLevel = 1;
-            vkCmdPushConstants(cmd, terrainPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, 0, sizeof(CascadedShadowMapGenerationPushConstants), &pushConstants);
+            vkCmdPushConstants(cmd, terrainPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, 0,
+                               sizeof(CascadedShadowMapGenerationPushConstants), &pushConstants);
 
             //  Viewport
             VkViewport viewport = {};
@@ -342,7 +360,8 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
                 vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
 
                 const VkDeviceSize shadowDataOffset{cascadedShadowMapDescriptorBufferUniform.getDescriptorBufferSize() * currentFrameOverlap};
-                vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, terrainPipelineLayout, 0, 1, &shadowDataIndex, &shadowDataOffset);
+                vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, terrainPipelineLayout, 0, 1, &shadowDataIndex,
+                                                   &shadowDataOffset);
 
                 VkBuffer vertexBuffer = terrainChunk->getVertexBuffer().buffer;
                 vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer, &zeroOffset);
@@ -355,7 +374,8 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 
         // Render Objects
         {
-            VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(cascadeShadowMapData.depthShadowMap.imageView, nullptr, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+            VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(cascadeShadowMapData.depthShadowMap.imageView, nullptr,
+                                                                                   VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
             VkRenderingInfo renderInfo{};
             renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -371,11 +391,13 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             vkCmdBeginRendering(cmd, &renderInfo);
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObjectPipeline);
 
-            vkCmdSetDepthBias(cmd, shadows::CASCADE_BIAS[cascadeShadowMapData.cascadeLevel][0], 0.0f, shadows::CASCADE_BIAS[cascadeShadowMapData.cascadeLevel][1]);
+            vkCmdSetDepthBias(cmd, shadows::CASCADE_BIAS[cascadeShadowMapData.cascadeLevel][0], 0.0f,
+                              shadows::CASCADE_BIAS[cascadeShadowMapData.cascadeLevel][1]);
 
             CascadedShadowMapGenerationPushConstants pushConstants{};
             pushConstants.cascadeIndex = cascadeShadowMapData.cascadeLevel;
-            vkCmdPushConstants(cmd, renderObjectPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(CascadedShadowMapGenerationPushConstants), &pushConstants);
+            vkCmdPushConstants(cmd, renderObjectPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(CascadedShadowMapGenerationPushConstants),
+                               &pushConstants);
 
             //  Viewport
             VkViewport viewport = {};
@@ -397,7 +419,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             constexpr VkDeviceSize zeroOffset{0};
 
             for (RenderObject* renderObject : renderObjects) {
-                if (!renderObject->canDraw()) { continue; }
+                if (!renderObject->canDrawOpaque()) { continue; }
 
                 VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];
                 constexpr uint32_t shadowDataIndex{0};
@@ -409,19 +431,23 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 
                 const VkDeviceSize shadowDataOffset{cascadedShadowMapDescriptorBufferUniform.getDescriptorBufferSize() * currentFrameOverlap};
                 const VkDeviceSize addressOffset{renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * currentFrameOverlap};
-                vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObjectPipelineLayout, 0, 1, &shadowDataIndex, &shadowDataOffset);
-                vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObjectPipelineLayout, 1, 1, &addressIndex, &addressOffset);
+                vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObjectPipelineLayout, 0, 1, &shadowDataIndex,
+                                                   &shadowDataOffset);
+                vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObjectPipelineLayout, 1, 1, &addressIndex,
+                                                   &addressOffset);
 
 
                 vkCmdBindVertexBuffers(cmd, 0, 1, &renderObject->getVertexBuffer().buffer, &zeroOffset);
                 vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-                vkCmdDrawIndexedIndirect(cmd, renderObject->getIndirectBuffer(currentFrameOverlap).buffer, 0, renderObject->getDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
+                vkCmdDrawIndexedIndirect(cmd, renderObject->getOpaqueIndirectBuffer(currentFrameOverlap).buffer, 0,
+                                         renderObject->getOpaqueDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
             }
 
             vkCmdEndRendering(cmd);
         }
 
-        vk_helpers::transitionImage(cmd, cascadeShadowMapData.depthShadowMap.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+        vk_helpers::transitionImage(cmd, cascadeShadowMapData.depthShadowMap.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
     }
 
 
@@ -429,11 +455,13 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 }
 
 
-glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 lightDirection, const Camera* camera, float cascadeNear, float cascadeFar, bool reversedDepth)
+glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 lightDirection, const Camera* camera,
+                                                                                float cascadeNear, float cascadeFar, bool reversedDepth)
 {
     constexpr int32_t numberOfCorners = 8;
     glm::vec3 corners[numberOfCorners];
-    render_utils::getPerspectiveFrustumCornersWorldSpace(cascadeNear, cascadeFar, camera->getFov(), camera->getAspectRatio(), camera->getPosition(), camera->getForwardWS(), corners);
+    render_utils::getPerspectiveFrustumCornersWorldSpace(cascadeNear, cascadeFar, camera->getFov(), camera->getAspectRatio(), camera->getPosition(),
+                                                         camera->getForwardWS(), corners);
 
     // Alternative more expensive way to calculate corners
     // auto viewMatrix = camera->getViewMatrix();

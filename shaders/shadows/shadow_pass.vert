@@ -15,6 +15,7 @@ layout (std140, set = 0, binding = 0) uniform ShadowCascadeData {
 layout (set = 1, binding = 0) uniform Addresses
 {
     MaterialData materialBufferDeviceAddress;
+    PrimitiveData primitiveBufferDeviceAddress;
     ModelData modelBufferDeviceAddress;
 } bufferAddresses;
 
@@ -25,6 +26,8 @@ layout (push_constant) uniform PushConstants {
 } push;
 
 void main() {
-    Model models = bufferAddresses.modelBufferDeviceAddress.models[gl_InstanceIndex];
+    Primitive primitive = bufferAddresses.primitiveBufferDeviceAddress.primitives[gl_InstanceIndex];
+    uint modelIndex = primitive.modelIndex;
+    Model models = bufferAddresses.modelBufferDeviceAddress.models[modelIndex];
     gl_Position = shadowCascadeData.lightViewProj[push.cascadeIndex] * models.currentModelMatrix * vec4(position, 1.0);
 }

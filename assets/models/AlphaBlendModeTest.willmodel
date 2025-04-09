@@ -1,0 +1,8 @@
+{
+    "renderObject": {
+        "gltfPath": "assets\\models\\AlphaBlendModeTest.glb",
+        "id": 6331695,
+        "name": "AlphaBlendModeTest"
+    },
+    "version": 1
+}

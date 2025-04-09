@@ -18,7 +18,8 @@ namespace will_engine
 class Camera
 {
 public:
-    explicit Camera(float fov = 1.308996939f, float aspect = RENDER_EXTENT_WIDTH / RENDER_EXTENT_HEIGHT, float nearPlane = 1000.0f, float farPlane = 0.1f);
+    explicit Camera(float fov = 1.308996939f, float aspect = RENDER_EXTENT_WIDTH / RENDER_EXTENT_HEIGHT, float nearPlane = 1000.0f,
+                    float farPlane = 0.1f);
 
     virtual ~Camera() = default;
 
@@ -48,7 +49,23 @@ public:
 
     glm::vec3 getRightWS() const;
 
+    virtual void update(float deltaTime) = 0;
 
+
+    CameraProperties getCameraProperties() const
+    {
+        return {
+            cachedFov, cachedAspect, cachedNear, cachedFar, cachedViewMatrix, cachedProjMatrix, transform.getPosition(), getForwardWS(), getRightWS(),
+            getUpWS()
+        };
+    }
+
+    void setProjectionProperties(float fov = 1.308996939f, float aspect = RENDER_EXTENT_WIDTH / RENDER_EXTENT_HEIGHT, float nearPlane = 1000.0f,
+                                 float farPlane = 0.1f);
+
+    void setCameraTransform(glm::vec3 position, glm::quat rotation);
+
+protected:
     /**
      * Updates the projection matrix. FOV is in degrees and converted to radians in this function
      * @param fov
@@ -64,15 +81,6 @@ public:
     virtual void updateViewMatrix();
 
     void updateViewProjMatrix();
-
-    virtual void update(float deltaTime) = 0;
-
-    CameraProperties getCameraProperties() const
-    {
-        return {cachedFov, cachedAspect, cachedNear, cachedFar, cachedViewMatrix, cachedProjMatrix, transform.getPosition(), getForwardWS(), getRightWS(), getUpWS()};
-    }
-
-    void setCameraTransform(glm::vec3 position, glm::quat rotation);
 
 protected:
     Transform transform;

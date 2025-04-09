@@ -44,11 +44,11 @@ public:
 
     ~Environment();
 
-    void loadEnvironment(const char* name, const char* path, int environmentMapIndex = 0);
+    void loadEnvironment(const char* name, const char* path, int32_t environmentMapIndex = 0);
 
 private:
     std::unordered_map<int32_t, const char*> activeEnvironmentMapNames{};
-    EnvironmentMapData environmentMaps[10]{
+    EnvironmentMapData environmentMaps[11]{
         {"", VK_NULL_HANDLE, VK_NULL_HANDLE},
         {"", VK_NULL_HANDLE, VK_NULL_HANDLE},
         {"", VK_NULL_HANDLE, VK_NULL_HANDLE},

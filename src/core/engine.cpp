@@ -16,6 +16,7 @@
 #include "camera/free_camera.h"
 #include "game_object/game_object.h"
 #include "scene/serializer.h"
+#include "src/engine_constants.h"
 #include "src/core/input.h"
 #include "src/core/time.h"
 #include "src/physics/physics.h"
@@ -146,19 +147,20 @@ void Engine::init()
 
     const std::filesystem::path envMapSource = "assets/environments";
 
-    startupProfiler.beginTimer("5Load Environment 0");
-    environmentMap->loadEnvironment("Overcast Sky", (envMapSource / "kloofendal_overcast_puresky_4k.hdr").string().c_str(), 0);
-    startupProfiler.endTimer("5Load Environment 0");
-
-    startupProfiler.beginTimer("6Load Environment 1");
+    startupProfiler.beginTimer("5Load Environment");
+    environmentMap->loadEnvironment("Overcast Sky", (envMapSource / "kloofendal_overcast_puresky_4k.hdr").string().c_str(), 2);
     environmentMap->loadEnvironment("Wasteland", (envMapSource / "wasteland_clouds_puresky_4k.hdr").string().c_str(), 1);
-    startupProfiler.endTimer("6Load Environment 1");
+    environmentMap->loadEnvironment("Belfast Sunset", (envMapSource / "belfast_sunset_puresky_4k.hdr").string().c_str(), 0);
+    environmentMap->loadEnvironment("Rogland Clear Night", (envMapSource / "rogland_clear_night_4k.hdr").string().c_str(), 4);
+    startupProfiler.endTimer("5Load Environment");
 
     startupProfiler.beginTimer("7Load CSM");
     cascadedShadowMap = new cascaded_shadows::CascadedShadowMap(*resourceManager);
     startupProfiler.endTimer("7Load CSM");
 
-    imguiWrapper = new ImguiWrapper(*context, {window, swapchainImageFormat});
+    if (engine_constants::useImgui) {
+        imguiWrapper = new ImguiWrapper(*context, {window, swapchainImageFormat});
+    }
 
 
     startupProfiler.beginTimer("8Init Renderer");
@@ -173,6 +175,8 @@ void Engine::init()
     profiler.addTimer("1Game");
     profiler.addTimer("2Render");
     profiler.addTimer("3Total");
+
+    Serializer::deserializeEngineSettings(this);
 
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
@@ -204,6 +208,9 @@ void Engine::initRenderer()
                                                                             cascadedShadowMap->getCascadedShadowMapUniformLayout(),
                                                                             cascadedShadowMap->getCascadedShadowMapSamplerLayout());
     temporalAntialiasingPipeline = new temporal_antialiasing_pipeline::TemporalAntialiasingPipeline(*resourceManager);
+    transparentPipeline = new transparent_pipeline::TransparentPipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
+                                                                        cascadedShadowMap->getCascadedShadowMapUniformLayout(),
+                                                                        cascadedShadowMap->getCascadedShadowMapSamplerLayout());
     postProcessPipeline = new post_process_pipeline::PostProcessPipeline(*resourceManager);
 
     ambientOcclusionPipeline->setupDepthPrefilterDescriptorBuffer(depthImage.imageView);
@@ -275,7 +282,10 @@ void Engine::run()
                 fmt::print("Window resized, resize requested\n");
             }
 
-            ImguiWrapper::handleInput(e);
+            if (engine_constants::useImgui) {
+                ImguiWrapper::handleInput(e);
+            }
+
             input.processEvent(e);
         }
 
@@ -292,7 +302,9 @@ void Engine::run()
             continue;
         }
 
-        imguiWrapper->imguiInterface(this);
+        if (engine_constants::useImgui) {
+            imguiWrapper->imguiInterface(this);
+        }
 
         const float deltaTime = Time::Get().getDeltaTime();
         profiler.beginTimer("3Total");
@@ -369,10 +381,10 @@ void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int3
     const auto pPreviousSceneData = static_cast<SceneData*>(previousSceneDataBuffer.info.pMappedData);
 
     const bool bIsFrameZero = frameNumber == 0;
-    glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(bIsFrameZero ? frameNumber : frameNumber - 1) * 2.0f - 1.0f;
+    glm::vec2 prevJitter = HaltonSequence::getJitterHardcoded(bIsFrameZero ? frameNumber : frameNumber - 1) - 0.5f;
     prevJitter.x /= RENDER_EXTENT_WIDTH;
     prevJitter.y /= RENDER_EXTENT_HEIGHT;
-    glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber) * 2.0f - 1.0f;
+    glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber) - 0.5f;
     currentJitter.x /= RENDER_EXTENT_WIDTH;
     currentJitter.y /= RENDER_EXTENT_HEIGHT;
     if (bDisableJitter) {
@@ -492,6 +504,7 @@ void Engine::draw(float deltaTime)
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
         false,
         true,
+        true,
     };
     visibilityPassPipeline->draw(cmd, csmFrustumCullDrawInfo);
 
@@ -531,7 +544,8 @@ void Engine::draw(float deltaTime)
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
         true,
-        false
+        false,
+        true,
     };
     visibilityPassPipeline->draw(cmd, deferredFrustumCullDrawInfo);
 
@@ -583,6 +597,21 @@ void Engine::draw(float deltaTime)
         deferredMrtPipeline->draw(cmd, debugDeferredMrtDrawInfo);
     }
 
+    transparent_pipeline::TransparentAccumulateDrawInfo transparentDrawInfo{
+        true,
+        depthImage.imageView,
+        currentFrameOverlap,
+        allRenderObjects,
+        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
+        environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo(),
+        environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferSize() * environmentMapIndex,
+        cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferBindingInfo(),
+        cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferSize() * currentFrameOverlap,
+        cascadedShadowMap->getCascadedShadowMapSamplerBuffer().getDescriptorBufferBindingInfo(),
+    };
+    transparentPipeline->drawAccumulate(cmd, transparentDrawInfo);
+
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -621,7 +650,14 @@ void Engine::draw(float deltaTime)
     };
     deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);
 
-    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    transparent_pipeline::TransparentCompositeDrawInfo compositeDrawInfo{
+        drawImage.imageView
+    };
+    transparentPipeline->drawComposite(cmd, compositeDrawInfo);
+
+    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                VK_IMAGE_ASPECT_COLOR_BIT);
     const VkImageLayout originLayout = frameNumber == 0 ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     vk_helpers::transitionImage(cmd, historyBuffer.image, originLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -634,6 +670,7 @@ void Engine::draw(float deltaTime)
     };
     temporalAntialiasingPipeline->draw(cmd, taaDrawInfo);
 
+    // Copy to TAA History
     vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, historyBuffer.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
@@ -659,13 +696,20 @@ void Engine::draw(float deltaTime)
                                 VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::copyImageToImage(cmd, postProcessOutputBuffer.image, swapchainImages[swapchainImageIndex], RENDER_EXTENTS, swapchainExtent);
 
-    // draw ImGui into Swapchain Image
-    vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    imguiWrapper->drawImgui(cmd, swapchainImageViews[swapchainImageIndex], swapchainExtent);
-
-    vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+    vk_helpers::transitionImage(cmd, postProcessOutputBuffer.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
+
+    if (engine_constants::useImgui) {
+        vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        imguiWrapper->drawImgui(cmd, swapchainImageViews[swapchainImageIndex], swapchainExtent);
+
+        vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                                    VK_IMAGE_ASPECT_COLOR_BIT);
+    } else {
+        vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                                    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_ASPECT_COLOR_BIT);
+    }
 
     // End Command Buffer Recording
     VK_CHECK(vkEndCommandBuffer(cmd));
@@ -713,6 +757,8 @@ void Engine::cleanup()
     fmt::print("----------------------------------------\n");
     fmt::print("Cleaning up {}\n", ENGINE_NAME);
 
+    Serializer::serializeEngineSettings(this);
+
     vkDeviceWaitIdle(context->device);
 
     delete visibilityPassPipeline;
@@ -722,6 +768,7 @@ void Engine::cleanup()
     delete ambientOcclusionPipeline;
     delete deferredResolvePipeline;
     delete temporalAntialiasingPipeline;
+    delete transparentPipeline;
     delete postProcessPipeline;
 
     for (AllocatedBuffer sceneBuffer : sceneDataBuffers) {
@@ -730,7 +777,9 @@ void Engine::cleanup()
     resourceManager->destroyBuffer(debugSceneDataBuffer);
     sceneDataDescriptorBuffer.destroy(context->allocator);
 
+#ifndef NDEBUG
     delete imguiWrapper;
+#endif
 
     for (const FrameData& frame : frames) {
         vkDestroyCommandPool(context->device, frame._commandPool, nullptr);
@@ -1011,6 +1060,7 @@ void Engine::hotReloadShaders() const
     environmentPipeline->reloadShaders();
     terrainPipeline->reloadShaders();
     deferredMrtPipeline->reloadShaders();
+    transparentPipeline->reloadShaders();
     ambientOcclusionPipeline->reloadShaders();
     deferredResolvePipeline->reloadShaders();
     temporalAntialiasingPipeline->reloadShaders();

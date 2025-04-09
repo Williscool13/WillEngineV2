@@ -6,7 +6,7 @@
     },
     "metadata": {
         "name": "sampleScene",
-        "created": "2025-03-23 16:02:52",
+        "created": "2025-04-06 11:32:54",
         "formatVersion": 1
     },
     "rootComponents": {
@@ -350,6 +350,309 @@
                         "componentName": "MeshRendererComponent"
                     }
                 }
+            },
+            {
+                "id": 7,
+                "name": "GameObject_7",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": 70.80000305175781,
+                        "z": 0.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "children": [
+                    {
+                        "id": 8,
+                        "name": "GameObject_8",
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 1.0
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "components": {
+                            "MeshRendererComponent": {
+                                "renderReference": 6331695,
+                                "renderMeshIndex": 2,
+                                "renderIsVisible": true,
+                                "renderIsShadowCaster": true,
+                                "componentName": "Bed"
+                            }
+                        }
+                    },
+                    {
+                        "id": 9,
+                        "name": "GameObject_9",
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.4090209901332855
+                            },
+                            "rotation": {
+                                "x": -0.47185850143432617,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.8816744089126587
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "components": {
+                            "MeshRendererComponent": {
+                                "renderReference": 6331695,
+                                "renderMeshIndex": 7,
+                                "renderIsVisible": true,
+                                "renderIsShadowCaster": true,
+                                "componentName": "DecalBlend"
+                            }
+                        }
+                    },
+                    {
+                        "id": 10,
+                        "name": "GameObject_10",
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.4090207517147064
+                            },
+                            "rotation": {
+                                "x": -0.47185850143432617,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.8816744089126587
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "components": {
+                            "MeshRendererComponent": {
+                                "renderReference": 6331695,
+                                "renderMeshIndex": 5,
+                                "renderIsVisible": true,
+                                "renderIsShadowCaster": true,
+                                "componentName": "DecalOpaque"
+                            }
+                        }
+                    },
+                    {
+                        "id": 11,
+                        "name": "GameObject_11",
+                        "transform": {
+                            "position": {
+                                "x": 0.5,
+                                "y": 1.068150520324707,
+                                "z": 0.004999999888241291
+                            },
+                            "rotation": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 1.0
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "components": {
+                            "MeshRendererComponent": {
+                                "renderReference": 6331695,
+                                "renderMeshIndex": 4,
+                                "renderIsVisible": true,
+                                "renderIsShadowCaster": true,
+                                "componentName": "GreenArrows"
+                            }
+                        }
+                    },
+                    {
+                        "id": 12,
+                        "name": "GameObject_12",
+                        "transform": {
+                            "position": {
+                                "x": -1.5,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 1.0
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "components": {
+                            "MeshRendererComponent": {
+                                "renderReference": 6331695,
+                                "renderMeshIndex": 3,
+                                "renderIsVisible": true,
+                                "renderIsShadowCaster": true,
+                                "componentName": "TestBlend"
+                            }
+                        }
+                    },
+                    {
+                        "id": 13,
+                        "name": "GameObject_13",
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 1.0
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "components": {
+                            "MeshRendererComponent": {
+                                "renderReference": 6331695,
+                                "renderMeshIndex": 0,
+                                "renderIsVisible": true,
+                                "renderIsShadowCaster": true,
+                                "componentName": "TestCutoff25"
+                            }
+                        }
+                    },
+                    {
+                        "id": 14,
+                        "name": "GameObject_14",
+                        "transform": {
+                            "position": {
+                                "x": 3.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 1.0
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "components": {
+                            "MeshRendererComponent": {
+                                "renderReference": 6331695,
+                                "renderMeshIndex": 1,
+                                "renderIsVisible": true,
+                                "renderIsShadowCaster": true,
+                                "componentName": "TestCutoff75"
+                            }
+                        }
+                    },
+                    {
+                        "id": 15,
+                        "name": "GameObject_15",
+                        "transform": {
+                            "position": {
+                                "x": 1.5,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 1.0
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "components": {
+                            "MeshRendererComponent": {
+                                "renderReference": 6331695,
+                                "renderMeshIndex": 8,
+                                "renderIsVisible": true,
+                                "renderIsShadowCaster": true,
+                                "componentName": "TestCutoffDefault"
+                            }
+                        }
+                    },
+                    {
+                        "id": 16,
+                        "name": "GameObject_16",
+                        "transform": {
+                            "position": {
+                                "x": -3.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 1.0
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "components": {
+                            "MeshRendererComponent": {
+                                "renderReference": 6331695,
+                                "renderMeshIndex": 6,
+                                "renderIsVisible": true,
+                                "renderIsShadowCaster": true,
+                                "componentName": "TestOpaque"
+                            }
+                        }
+                    }
+                ]
             }
         ]
     }

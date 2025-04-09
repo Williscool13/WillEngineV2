@@ -79,7 +79,8 @@ public:
                            , float minDepthBounds, float maxDepthBounds);
 
 
-    void setupBlending(PipelineBuilder::BlendMode mode);
+    void disableBlending();
+    void setupBlending(const std::vector<VkPipelineColorBlendAttachmentState>& blendAttachmentStates);
 
     void setupPipelineLayout(VkPipelineLayout pipelineLayout);
 
@@ -112,7 +113,6 @@ private:
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     VkPipelineRasterizationStateCreateInfo rasterizer{};
     VkPipelineMultisampleStateCreateInfo multisampling{};
-    VkPipelineColorBlendAttachmentState colorBlendAttachment{};
     VkPipelineRenderingCreateInfo renderInfo{};
     VkPipelineDepthStencilStateCreateInfo depthStencil{};
 
@@ -124,6 +124,8 @@ private:
 
     // keep to avoid dangling pointer for color attachment (referenced by pointer)
     std::vector<VkFormat> colorAttachmentFormats;
+    bool bBlendingDisabled{true};
+    std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates{};
 };
 }
 

@@ -10,6 +10,8 @@
 #include <glm/glm.hpp>
 
 #include "engine_types.h"
+#include "camera/camera.h"
+#include "camera/free_camera.h"
 #include "scene/serializer.h"
 #include "src/core/profiler/profiler.h"
 #include "src/renderer/imgui_wrapper.h"
@@ -18,6 +20,7 @@
 #include "src/renderer/assets/asset_manager.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/lighting/directional_light.h"
+#include "src/renderer/pipelines/transparent_pipeline/transparent_pipeline.h"
 #include "src/renderer/post_process/post_process_types.h"
 
 
@@ -182,8 +185,14 @@ private: // Debug
     bool bDrawTerrainLines{false};
     bool bPausePhysics{true};
     bool bDisableJitter{false};
+    bool bRenderTransparents{true};
 
     void hotReloadShaders() const;
+
+public:
+    Camera* getCamera() const { return camera; }
+    DirectionalLight getMainLight() const { return mainLight; }
+    void setMainLight(const DirectionalLight& newLight) { mainLight = newLight; }
 
 private: // Scene Data
     DescriptorBufferUniform sceneDataDescriptorBuffer;
@@ -191,10 +200,10 @@ private: // Scene Data
     AllocatedBuffer debugSceneDataBuffer{};
 
     FreeCamera* camera{nullptr};
-    DirectionalLight mainLight{glm::normalize(glm::vec3(-0.8f, -0.6f, -0.6f)), 1.0f, glm::vec3(0.0f)};
-    int32_t environmentMapIndex{0};
+    DirectionalLight mainLight{glm::normalize(glm::vec3(-0.8f, -0.6f, -0.6f)), 1.5f, glm::vec3(1.0f)};
+    int32_t environmentMapIndex{1};
 
-    post_process::PostProcessType postProcessData{post_process::PostProcessType::ALL};
+    post_process::PostProcessType postProcessData{post_process::PostProcessType::Tonemapping | post_process::PostProcessType::Sharpening};
 
     std::unordered_set<Map*> activeMaps;
     std::unordered_set<ITerrain*> activeTerrains;
@@ -212,6 +221,7 @@ private: // Pipelines
     deferred_resolve::DeferredResolvePipeline* deferredResolvePipeline{nullptr};
     ambient_occlusion::GroundTruthAmbientOcclusionPipeline* ambientOcclusionPipeline{nullptr};
     temporal_antialiasing_pipeline::TemporalAntialiasingPipeline* temporalAntialiasingPipeline{nullptr};
+    transparent_pipeline::TransparentPipeline* transparentPipeline{nullptr};
     post_process_pipeline::PostProcessPipeline* postProcessPipeline{nullptr};
 
 private: // Draw Resources
@@ -227,7 +237,7 @@ private: // Draw Resources
      */
     AllocatedImage albedoRenderTarget{};
     /**
-     * 8 Metallic, 8 Roughness, 8 emission (unused), 8 Unused
+     * 8 Metallic, 8 Roughness, 8 emission (unused), 8 Is Transparent
      */
     AllocatedImage pbrRenderTarget{};
     /**

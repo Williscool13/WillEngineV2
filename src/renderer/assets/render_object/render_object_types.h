@@ -37,7 +37,6 @@ struct Vertex
     glm::vec3 normal{1.0f, 0.0f, 0.0f};
     glm::vec4 color{1.0f};
     glm::vec2 uv{0,0};
-    glm::uint32_t materialIndex{0};
 };
 
 struct Primitive
@@ -47,6 +46,7 @@ struct Primitive
     int32_t vertexOffset{0};
     bool bHasTransparent{false};
     uint32_t boundingSphereIndex{0};
+    uint32_t materialIndex{0};
 };
 
 struct Mesh
@@ -65,10 +65,19 @@ struct BoundingSphere {
 
 struct RenderNode
 {
+    std::string name;
     Transform transform;
     std::vector<RenderNode*> children;
     RenderNode* parent;
     int32_t meshIndex{-1};
+};
+
+struct PrimitiveData
+{
+    uint32_t materialIndex;
+    uint32_t instanceDataIndex;
+    uint32_t boundingVolumeIndex;
+    uint32_t bHasTransparent;
 };
 
 struct InstanceData
@@ -83,8 +92,6 @@ struct FrustumCullingBuffers
     VkDeviceAddress meshBoundsBuffer;
     VkDeviceAddress commandBuffer;
     uint32_t commandBufferCount;
-    VkDeviceAddress modelMatrixBuffer;
-    VkDeviceAddress meshIndicesBuffer;
     glm::vec3 padding;
 };
 

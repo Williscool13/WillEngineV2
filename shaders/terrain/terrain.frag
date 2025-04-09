@@ -73,7 +73,7 @@ void main() {
     // Apply vertex color modulation
     color *= inColor;
 
-    albedoTarget = color;
+    albedoTarget = vec4(color.xyz, 1.0);
 
     // Adjust PBR properties based on the dominant material
     float roughness = mix(0.8, 0.9, rockWeight) + mix(0.0, -0.3, sandWeight); // Rocks rougher, sand smoother

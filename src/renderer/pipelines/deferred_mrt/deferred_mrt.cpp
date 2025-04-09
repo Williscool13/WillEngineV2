@@ -17,7 +17,7 @@ will_engine::deferred_mrt::DeferredMrtPipeline::DeferredMrtPipeline(ResourceMana
 {
     VkDescriptorSetLayout descriptorLayout[3];
     descriptorLayout[0] = resourceManager.getSceneDataLayout();
-    descriptorLayout[1] = resourceManager.getAddressesLayout();
+    descriptorLayout[1] = resourceManager.getRenderObjectAddressesLayout();
     descriptorLayout[2] = resourceManager.getTexturesLayout();
 
 
@@ -46,17 +46,18 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
     label.pLabelName = "Deferred MRT Pass (Render Objects)";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
-    VkClearValue clearValue = {0.0f, 0.0f};
+    constexpr VkClearValue colorClear = {.color = {0.0f, 0.0f, 0.0f, 0.0f}};
+    constexpr VkClearValue depthClear = {.depthStencil = {0.0f, 0u}};
 
-    VkRenderingAttachmentInfo normalAttachment = vk_helpers::attachmentInfo(drawInfo.normalTarget, drawInfo.bClearColor ? &clearValue : nullptr,
+    VkRenderingAttachmentInfo normalAttachment = vk_helpers::attachmentInfo(drawInfo.normalTarget, drawInfo.bClearColor ? &colorClear : nullptr,
                                                                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo albedoAttachment = vk_helpers::attachmentInfo(drawInfo.albedoTarget, drawInfo.bClearColor ? &clearValue : nullptr,
+    VkRenderingAttachmentInfo albedoAttachment = vk_helpers::attachmentInfo(drawInfo.albedoTarget, drawInfo.bClearColor ? &colorClear : nullptr,
                                                                             VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo pbrAttachment = vk_helpers::attachmentInfo(drawInfo.pbrTarget, drawInfo.bClearColor ? &clearValue : nullptr,
+    VkRenderingAttachmentInfo pbrAttachment = vk_helpers::attachmentInfo(drawInfo.pbrTarget, drawInfo.bClearColor ? &colorClear : nullptr,
                                                                          VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo velocityAttachment = vk_helpers::attachmentInfo(drawInfo.velocityTarget, drawInfo.bClearColor ? &clearValue : nullptr,
+    VkRenderingAttachmentInfo velocityAttachment = vk_helpers::attachmentInfo(drawInfo.velocityTarget, drawInfo.bClearColor ? &colorClear : nullptr,
                                                                               VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthTarget, drawInfo.bClearColor ? &clearValue : nullptr,
+    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthTarget, drawInfo.bClearColor ? &depthClear : nullptr,
                                                                            VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
     VkRenderingInfo renderInfo{};
@@ -100,10 +101,6 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
     for (RenderObject* renderObject : drawInfo.renderObjects) {
         if (!renderObject->canDraw()) { continue; }
 
-        constexpr uint32_t sceneDataIndex{0};
-        constexpr uint32_t addressIndex{1};
-        constexpr uint32_t texturesIndex{2};
-
         std::array descriptorBufferBindingInfos{
             drawInfo.sceneDataBinding,
             renderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo(),
@@ -124,8 +121,8 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
 
         vkCmdBindVertexBuffers(cmd, 0, 1, &renderObject->getVertexBuffer().buffer, &zeroOffset);
         vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexedIndirect(cmd, renderObject->getIndirectBuffer(drawInfo.currentFrameOverlap).buffer, 0,
-                                 renderObject->getDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
+        vkCmdDrawIndexedIndirect(cmd, renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap).buffer, 0,
+                                 renderObject->getOpaqueDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
     }
 
     vkCmdEndRendering(cmd);
@@ -166,18 +163,13 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::createPipeline()
     vertexAttributes[3].format = VK_FORMAT_R32G32_SFLOAT;
     vertexAttributes[3].offset = offsetof(Vertex, uv);
 
-    vertexAttributes[4].binding = 0;
-    vertexAttributes[4].location = 4;
-    vertexAttributes[4].format = VK_FORMAT_R32_UINT;
-    vertexAttributes[4].offset = offsetof(Vertex, materialIndex);
-
-    renderPipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 5);
+    renderPipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 4);
 
     renderPipelineBuilder.setShaders(vertShader, fragShader);
     renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     renderPipelineBuilder.disableMultisampling();
-    renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
+    renderPipelineBuilder.disableBlending();
     renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
     renderPipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_FORMAT);
     renderPipelineBuilder.setupPipelineLayout(pipelineLayout);

@@ -62,6 +62,11 @@ void will_engine::Camera::updateViewProjMatrix()
     cachedViewProjMatrix = cachedProjMatrix * cachedViewMatrix;
 }
 
+void will_engine::Camera::setProjectionProperties(const float fov, const float aspect, const float nearPlane, const float farPlane)
+{
+    updateProjMatrix(fov, aspect, nearPlane, farPlane);
+}
+
 void will_engine::Camera::setCameraTransform(const glm::vec3 position, const glm::quat rotation)
 {
     transform.setPosition(position);

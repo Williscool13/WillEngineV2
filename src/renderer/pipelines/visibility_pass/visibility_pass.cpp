@@ -4,6 +4,7 @@
 
 #include "visibility_pass.h"
 
+#include <array>
 #include <ranges>
 
 #include "volk/volk.h"
@@ -13,9 +14,10 @@
 will_engine::visibility_pass::VisibilityPassPipeline::VisibilityPassPipeline(ResourceManager& resourceManager)
     : resourceManager(resourceManager)
 {
-    VkDescriptorSetLayout layouts[2];
+    VkDescriptorSetLayout layouts[3];
     layouts[0] = resourceManager.getSceneDataLayout();
-    layouts[1] = resourceManager.getFrustumCullLayout();
+    layouts[1] = resourceManager.getRenderObjectAddressesLayout();
+    layouts[2] = resourceManager.getFrustumCullLayout();
 
     VkPushConstantRange pushConstantRange;
     pushConstantRange.size = sizeof(VisibilityPassPushConstants);
@@ -24,7 +26,7 @@ will_engine::visibility_pass::VisibilityPassPipeline::VisibilityPassPipeline(Res
 
     VkPipelineLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    layoutInfo.setLayoutCount = 2;
+    layoutInfo.setLayoutCount = 3;
     layoutInfo.pSetLayouts = layouts;
     layoutInfo.pPushConstantRanges = &pushConstantRange;
     layoutInfo.pushConstantRangeCount = 1;
@@ -56,27 +58,33 @@ void will_engine::visibility_pass::VisibilityPassPipeline::draw(VkCommandBuffer 
 
     vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VisibilityPassPushConstants), &pushConstants);
 
-
-    constexpr uint32_t sceneDataIndex{0};
-    constexpr uint32_t addressesIndex{1};
-
     for (RenderObject* renderObject : drawInfo.renderObjects) {
-        if (!renderObject->canDraw()) { continue; }
+        if (drawInfo.bIsOpaque) {
+            if (!renderObject->canDrawOpaque()) { continue; }
+        } else {
+            if (!renderObject->canDrawTransparent()) { continue; }
+        }
 
-        VkDescriptorBufferBindingInfoEXT bindingInfo[2];
-        bindingInfo[0] = drawInfo.sceneDataBinding;
-        bindingInfo[1] = renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
+        std::array bindings{
+            drawInfo.sceneDataBinding,
+            renderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo(),
+            renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferBindingInfo()
+        };
+        vkCmdBindDescriptorBuffersEXT(cmd, 3, bindings.data());
 
-        VkDeviceSize sceneDataOffset = drawInfo.sceneDataOffset;
-        VkDeviceSize addressesOffset = renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap;
+        std::array offsets{
+            drawInfo.sceneDataOffset,
+            renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
+            renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap
+        };
 
-        vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfo);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 1, 1, &addressesIndex, &addressesOffset);
+        constexpr std::array<uint32_t, 3> indices{0, 1, 2};
 
-        vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(renderObject->getDrawIndirectCommandCount()) / 64.0f)), 1, 1);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 3, indices.data(), offsets.data());
 
-        vk_helpers::synchronizeUniform(cmd, renderObject->getIndirectBuffer(drawInfo.currentFrameOverlap), VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT);
+        vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(renderObject->getOpaqueDrawIndirectCommandCount()) / 64.0f)), 1, 1);
+
+        vk_helpers::synchronizeUniform(cmd, renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap), VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT);
     }
 
     vkCmdEndDebugUtilsLabelEXT(cmd);

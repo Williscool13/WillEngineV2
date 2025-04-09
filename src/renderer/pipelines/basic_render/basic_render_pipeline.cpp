@@ -15,7 +15,8 @@ will_engine::basic_render::BasicRenderPipeline::BasicRenderPipeline(ResourceMana
 {
     DescriptorLayoutBuilder layoutBuilder;
     layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    samplerDescriptorLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_FRAGMENT_BIT, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    samplerDescriptorLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_FRAGMENT_BIT,
+                                                                        VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     samplerDescriptorBuffer = resourceManager.createDescriptorBufferSampler(samplerDescriptorLayout, 1);
 
     VkPushConstantRange renderPushConstantRange{};
@@ -61,9 +62,12 @@ void will_engine::basic_render::BasicRenderPipeline::setupDescriptors(const Rend
 void will_engine::basic_render::BasicRenderPipeline::draw(VkCommandBuffer cmd, const RenderDrawInfo& drawInfo) const
 {
     if (drawInfo.drawImage == VK_NULL_HANDLE || drawInfo.depthImage == VK_NULL_HANDLE) { return; }
-    constexpr VkClearValue clearValue = {0.0f, 0};
-    const VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawInfo.drawImage, &clearValue, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    const VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthImage, &clearValue, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    constexpr VkClearValue colorClear = {.color = {0.0f, 0.0f, 0.0f, 0.0f}};
+    constexpr VkClearValue depthClear = {.depthStencil = {0.0f, 0u}};
+    const VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(drawInfo.drawImage, &colorClear,
+                                                                                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    const VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthImage, &depthClear,
+                                                                                 VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
     const VkRenderingInfo renderInfo = vk_helpers::renderingInfo(drawInfo.renderExtent, &colorAttachment, &depthAttachment);
 
     vkCmdBeginRendering(cmd, &renderInfo);
@@ -117,7 +121,7 @@ void will_engine::basic_render::BasicRenderPipeline::createPipeline()
     renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     renderPipelineBuilder.disableMultisampling();
-    renderPipelineBuilder.setupBlending(PipelineBuilder::BlendMode::NO_BLEND);
+    renderPipelineBuilder.disableBlending();
     renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
     renderPipelineBuilder.setupRenderer({DRAW_FORMAT}, DEPTH_FORMAT);
     renderPipelineBuilder.setupPipelineLayout(pipelineLayout);
@@ -126,5 +130,4 @@ void will_engine::basic_render::BasicRenderPipeline::createPipeline()
 
     resourceManager.destroyShaderModule(vertShader);
     resourceManager.destroyShaderModule(fragShader);
-
 }

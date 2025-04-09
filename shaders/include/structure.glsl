@@ -1,5 +1,14 @@
 #extension GL_EXT_buffer_reference : require
 
+
+struct Primitive
+{
+    uint materialIndex;
+    uint modelIndex;
+    uint boundingVolumeIndex;
+    uint bHasTransparent;
+};
+
 struct Model
 {
     mat4 currentModelMatrix;
@@ -14,6 +23,11 @@ struct Material
     ivec4 textureImageIndices;
     ivec4 textureSamplerIndices;
     vec4 alphaCutoff;
+};
+
+layout (buffer_reference, std430) readonly buffer PrimitiveData
+{
+    Primitive primitives[];
 };
 
 layout (buffer_reference, std430) readonly buffer ModelData
