@@ -266,6 +266,9 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
     // sample cubemap
     cubemapDescriptorBuffer = resourceManager.createDescriptorBufferSampler(cubemapSamplerLayout, MAX_ENVIRONMENT_MAPS);
     diffSpecMapDescriptorBuffer = resourceManager.createDescriptorBufferSampler(environmentIBLLayout, MAX_ENVIRONMENT_MAPS);
+
+    environmentMaps[0] = {"Blank Environment"};
+    activeEnvironmentMapNames.insert({0, "Blank Environment"});
 }
 
 will_engine::environment::Environment::~Environment()
@@ -303,7 +306,7 @@ will_engine::environment::Environment::~Environment()
     resourceManager.destroyDescriptorSetLayout(environmentIBLLayout);
 }
 
-void will_engine::environment::Environment::loadEnvironment(const char* name, const char* path, int environmentMapIndex)
+void will_engine::environment::Environment::loadEnvironment(const char* name, const char* path, int32_t environmentMapIndex)
 {
     auto start = std::chrono::system_clock::now();
     std::filesystem::path cubemapPath{path};
@@ -311,13 +314,14 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
     EnvironmentMapData newEnvMapData{};
     newEnvMapData.sourcePath = cubemapPath.string();
 
+    environmentMapIndex += 1;
     if (environmentMapIndex >= MAX_ENVIRONMENT_MAPS || environmentMapIndex < 0) {
         environmentMapIndex = glm::clamp(environmentMapIndex, 0, MAX_ENVIRONMENT_MAPS - 1);
         fmt::print("Environment map index out of range ({}). Clamping to 0 - {}\n", environmentMapIndex, MAX_ENVIRONMENT_MAPS - 1);
     }
 
     AllocatedImage equiImage;
-    int width, height, channels;
+    int32_t width, height, channels;
     if (float* imageData = stbi_loadf(newEnvMapData.sourcePath.c_str(), &width, &height, &channels, 4)) {
         equiImage = resourceManager.createImage(imageData, width * height * 4 * sizeof(float), VkExtent3D{static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1},
                                                 VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, true);
@@ -403,7 +407,7 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
     specDiffCubemap.allocatedImage = newEnvMapData.specDiffCubemap;
     specDiffCubemap.cubemapImageViews = std::vector<CubemapImageView>(ENVIRONMENT_MAP_MIP_COUNT);
 
-    for (int i = 0; i < ENVIRONMENT_MAP_MIP_COUNT; i++) {
+    for (int32_t i = 0; i < ENVIRONMENT_MAP_MIP_COUNT; i++) {
         CubemapImageView cubemapImageView{};
         VkImageViewCreateInfo viewInfo = vk_helpers::cubemapViewCreateInfo(newEnvMapData.specDiffCubemap.imageFormat, newEnvMapData.specDiffCubemap.image, VK_IMAGE_ASPECT_COLOR_BIT);
         viewInfo.subresourceRange.baseMipLevel = i;
@@ -469,7 +473,7 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
             vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
             vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToSpecularPipelineLayout, 0, 1, &_cubemapIndex, &sampleOffset);
 
-            for (int i = 0; i < SPECULAR_PREFILTERED_MIP_LEVELS; i++) {
+            for (int32_t i = 0; i < SPECULAR_PREFILTERED_MIP_LEVELS; i++) {
                 const CubemapImageView& current = specDiffCubemap.cubemapImageViews[i];
 
                 VkDeviceSize irradiancemap_offset = cubemapStorageDescriptorBuffer.getDescriptorBufferSize() * current.descriptorBufferIndex;

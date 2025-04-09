@@ -246,6 +246,7 @@ set(TEMP_SOURCES
         src/renderer/lighting/ambient_occlusion/ambient_occlusion_types.h
         src/renderer/pipelines/transparent_pipeline/transparent_pipeline.cpp
         src/renderer/pipelines/transparent_pipeline/transparent_pipeline.h
+        src/engine_constants.h
 
 )
 

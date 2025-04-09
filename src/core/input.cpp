@@ -7,6 +7,7 @@
 #include <fmt/format.h>
 
 #include "imgui.h"
+#include "src/engine_constants.h"
 
 namespace will_engine
 {
@@ -110,13 +111,8 @@ void Input::processEvent(const SDL_Event& event)
 void Input::updateFocus(const Uint32 sdlWindowFlags)
 {
     windowInputFocus = (sdlWindowFlags & SDL_WINDOW_INPUT_FOCUS) != 0;
-#ifndef NDEBUG
-    const bool isTyping = ImGui::GetIO().WantTextInput;
-    const bool isPopupActive = ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopup);
-#else
-    const bool isTyping = false;
-    const bool isPopupActive = false;
-#endif
+    const bool isTyping = engine_constants::useImgui ? ImGui::GetIO().WantTextInput : false;
+    const bool isPopupActive = engine_constants::useImgui ? ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopup) : false;
 
     if (windowInputFocus && !isTyping && !isPopupActive && isKeyPressed(SDLK_F)) {
         inFocus = !inFocus;

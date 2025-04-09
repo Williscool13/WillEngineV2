@@ -16,6 +16,7 @@
 #include "camera/free_camera.h"
 #include "game_object/game_object.h"
 #include "scene/serializer.h"
+#include "src/engine_constants.h"
 #include "src/core/input.h"
 #include "src/core/time.h"
 #include "src/physics/physics.h"
@@ -146,21 +147,20 @@ void Engine::init()
 
     const std::filesystem::path envMapSource = "assets/environments";
 
-    startupProfiler.beginTimer("5Load Environment 0");
-    environmentMap->loadEnvironment("Overcast Sky", (envMapSource / "kloofendal_overcast_puresky_4k.hdr").string().c_str(), 0);
-    startupProfiler.endTimer("5Load Environment 0");
-
-    startupProfiler.beginTimer("6Load Environment 1");
+    startupProfiler.beginTimer("5Load Environment");
+    environmentMap->loadEnvironment("Overcast Sky", (envMapSource / "kloofendal_overcast_puresky_4k.hdr").string().c_str(), 2);
     environmentMap->loadEnvironment("Wasteland", (envMapSource / "wasteland_clouds_puresky_4k.hdr").string().c_str(), 1);
-    startupProfiler.endTimer("6Load Environment 1");
+    environmentMap->loadEnvironment("Belfast Sunset", (envMapSource / "belfast_sunset_puresky_4k.hdr").string().c_str(), 0);
+    environmentMap->loadEnvironment("Rogland Clear Night", (envMapSource / "rogland_clear_night_4k.hdr").string().c_str(), 4);
+    startupProfiler.endTimer("5Load Environment");
 
     startupProfiler.beginTimer("7Load CSM");
     cascadedShadowMap = new cascaded_shadows::CascadedShadowMap(*resourceManager);
     startupProfiler.endTimer("7Load CSM");
 
-#ifndef NDEBUG
-    imguiWrapper = new ImguiWrapper(*context, {window, swapchainImageFormat});
-#endif
+    if (engine_constants::useImgui) {
+        imguiWrapper = new ImguiWrapper(*context, {window, swapchainImageFormat});
+    }
 
 
     startupProfiler.beginTimer("8Init Renderer");
@@ -282,9 +282,10 @@ void Engine::run()
                 fmt::print("Window resized, resize requested\n");
             }
 
-#ifndef NDEBUG
-            ImguiWrapper::handleInput(e);
-#endif
+            if (engine_constants::useImgui) {
+                ImguiWrapper::handleInput(e);
+            }
+
             input.processEvent(e);
         }
 
@@ -301,9 +302,9 @@ void Engine::run()
             continue;
         }
 
-#ifndef NDEBUG
-        imguiWrapper->imguiInterface(this);
-#endif
+        if (engine_constants::useImgui) {
+            imguiWrapper->imguiInterface(this);
+        }
 
         const float deltaTime = Time::Get().getDeltaTime();
         profiler.beginTimer("3Total");
@@ -655,7 +656,8 @@ void Engine::draw(float deltaTime)
     };
     transparentPipeline->drawComposite(cmd, compositeDrawInfo);
 
-    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                VK_IMAGE_ASPECT_COLOR_BIT);
     const VkImageLayout originLayout = frameNumber == 0 ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     vk_helpers::transitionImage(cmd, historyBuffer.image, originLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -697,19 +699,17 @@ void Engine::draw(float deltaTime)
     vk_helpers::transitionImage(cmd, postProcessOutputBuffer.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
 
-#ifndef NDEBUG
-    // draw ImGui into Swapchain Image
-    vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    if (engine_constants::useImgui) {
+        vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    imguiWrapper->drawImgui(cmd, swapchainImageViews[swapchainImageIndex], swapchainExtent);
+        imguiWrapper->drawImgui(cmd, swapchainImageViews[swapchainImageIndex], swapchainExtent);
 
-    vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
-#else
-    vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                                    VK_IMAGE_ASPECT_COLOR_BIT);
+    } else {
+        vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                     VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_ASPECT_COLOR_BIT);
-#endif
-
+    }
 
     // End Command Buffer Recording
     VK_CHECK(vkEndCommandBuffer(cmd));

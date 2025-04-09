@@ -185,6 +185,7 @@ private: // Debug
     bool bDrawTerrainLines{false};
     bool bPausePhysics{true};
     bool bDisableJitter{false};
+    bool bRenderTransparents{true};
 
     void hotReloadShaders() const;
 
@@ -200,7 +201,7 @@ private: // Scene Data
 
     FreeCamera* camera{nullptr};
     DirectionalLight mainLight{glm::normalize(glm::vec3(-0.8f, -0.6f, -0.6f)), 1.5f, glm::vec3(1.0f)};
-    int32_t environmentMapIndex{0};
+    int32_t environmentMapIndex{1};
 
     post_process::PostProcessType postProcessData{post_process::PostProcessType::Tonemapping | post_process::PostProcessType::Sharpening};
 

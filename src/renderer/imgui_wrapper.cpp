@@ -197,6 +197,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Hot-Reload Shaders")) {
                     engine->hotReloadShaders();
                 }
+                ImGui::Checkbox("Enable Transparent Primitives", &engine->bRenderTransparents);
                 ImGui::Separator();
                 ImGui::Text("Main Directional Light");
                 float direction[3] = {engine->mainLight.direction.x, engine->mainLight.direction.y, engine->mainLight.direction.z};
