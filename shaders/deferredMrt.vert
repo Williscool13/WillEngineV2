@@ -20,12 +20,12 @@ layout (location = 1) in vec3 normal;
 layout (location = 2) in vec4 color;
 layout (location = 3) in vec2 uv;
 
-layout (location = 0) out vec3 outPosition;
-layout (location = 1) out vec3 outNormal;
+layout (location = 0) out vec3 outViewPosition;
+layout (location = 1) out vec3 outViewNormal;
 layout (location = 2) out vec4 outColor;
 layout (location = 3) out vec2 outUV;
 layout (location = 4) out flat uint outMaterialIndex;
-layout (location = 5) out flat uint inBHasTransparent;
+layout (location = 5) out flat uint outHasTransparent;
 layout (location = 6) out vec4 outCurrMvpPosition;
 layout (location = 7) out vec4 outPrevMvpPosition;
 
@@ -35,16 +35,16 @@ void main() {
     uint materialIndex = primitive.materialIndex;
     Model models = bufferAddresses.modelBufferDeviceAddress.models[modelIndex];
 
-    vec4 worldPos = models.currentModelMatrix * vec4(position, 1.0);
+    vec4 viewPos = sceneData.view * models.currentModelMatrix * vec4(position, 1.0);
 
-    outPosition = worldPos.xyz;
-    outNormal = adjugate(models.currentModelMatrix) * normal;
+    outViewPosition = viewPos.xyz;
+    outViewNormal = mat3(sceneData.view) * adjugate(models.currentModelMatrix) * normal;
     outColor = color;
     outUV = uv;
     outMaterialIndex = materialIndex;
-    inBHasTransparent = primitive.bHasTransparent;
+    outHasTransparent = primitive.bHasTransparent;
 
-    vec4 currClipPos = sceneData.viewProj * worldPos;
+    vec4 currClipPos = sceneData.proj * viewPos;
     vec4 prevClipPos = sceneData.prevViewProj * models.previousModelMatrix * vec4(position, 1.0);
     currClipPos.xy += currClipPos.w * sceneData.jitter.xy;
     prevClipPos.xy += prevClipPos.w * sceneData.jitter.zw;

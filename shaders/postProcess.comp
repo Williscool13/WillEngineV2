@@ -54,8 +54,8 @@ void main() {
     vec3 color = fullColor.rgb;
 
     if ((push.flags & 1) != 0) {
-        //color = reinhardTonemap(color);
         color = aces(color);
+        //color = aces(color);
     }
 
     if ((push.flags & 4) != 0) {
@@ -66,9 +66,6 @@ void main() {
     if ((push.flags & 2) != 0) {
         color = sharpen(color, sceneData.texelSize, uv);
     }
-
-
-
 
     imageStore(outputImage, pixel, vec4(color, fullColor.a));
 }

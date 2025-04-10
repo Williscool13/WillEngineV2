@@ -12,8 +12,8 @@
 #include "transparent.glsl"
 
 // world space
-layout (location = 0) in vec3 inPosition;
-layout (location = 1) in vec3 inNormal;
+layout (location = 0) in vec3 inViewPosition;
+layout (location = 1) in vec3 inViewNormal;
 layout (location = 2) in vec4 inColor;
 layout (location = 3) in vec2 inUV;
 layout (location = 4) in flat uint inMaterialIndex;
@@ -81,10 +81,11 @@ void main() {
         roughness *= metalRoughSample.g;
     }
 
-    vec3 N = normalize(inNormal);
-    vec3 V = normalize(sceneData.cameraPos.xyz - inPosition);
+    vec3 N = normalize(inViewNormal);
+    vec3 V = normalize(-inViewPosition);
 
-    vec3 L = normalize(-shadowCascadeData.directionalLightData.direction); // for point lights, light.pos - inPosition
+    // for point lights, light.pos - inPosition
+    vec3 L = normalize(mat3(sceneData.view) * normalize(-shadowCascadeData.directionalLightData.direction));
     vec3 H = normalize(V + L);
 
     // SPECULAR
@@ -107,9 +108,10 @@ void main() {
 
     // SHADOWS
     float offset = 0.05f;
-    float normalOffsetScale = max(offset, dot(inNormal, L) * offset);
-    vec3 offsetPosition = inPosition + inNormal * normalOffsetScale;
-    float _tempShadowFactor = getShadowFactorBlend(1, inPosition, sceneData.view, shadowCascadeData.cascadeSplits, shadowCascadeData.lightViewProj, shadowMapSampler, shadowCascadeData.nearShadowPlane, shadowCascadeData.farShadowPlane);
+    float normalOffsetScale = max(offset, dot(N, L) * offset);
+    vec3 offsetPosition = inViewPosition + N * normalOffsetScale;
+    vec4 worldPosition = sceneData.invView * vec4(offsetPosition, 1.0f);
+    float _tempShadowFactor = getShadowFactorBlend(1, worldPosition.xyz, abs(inViewPosition.z), shadowCascadeData.cascadeSplits, shadowCascadeData.lightViewProj, shadowMapSampler, shadowCascadeData.nearShadowPlane, shadowCascadeData.farShadowPlane);
     float shadowFactor = clamp(smoothstep(-0.15f, 0.5f, dot(N, L)) * _tempShadowFactor, 0, 1);
 
     if (pushConstants.receiveShadows == 0) {
@@ -119,9 +121,10 @@ void main() {
     vec3 directLight = (diffuse + specular) * nDotL * shadowFactor * shadowCascadeData.directionalLightData.intensity * shadowCascadeData.directionalLightData.color;
 
     // IBL Reflections
-    vec3 irradiance = DiffuseIrradiance(environmentDiffuseAndSpecular, N);
+    vec3 worldN = normalize(mat3(sceneData.invView) * N);
+    vec3 irradiance = DiffuseIrradiance(environmentDiffuseAndSpecular, worldN);
     vec3 reflectionDiffuse = irradiance * albedo.xyz;
-    vec3 reflectionSpecular = SpecularReflection(environmentDiffuseAndSpecular, lut, V, N, roughness, F);
+    vec3 reflectionSpecular = SpecularReflection(environmentDiffuseAndSpecular, lut, V, N, sceneData.invView, roughness, F0);
 
     float ao = 1.0f;
     vec3 ambient = (kD * reflectionDiffuse + reflectionSpecular) * ao;

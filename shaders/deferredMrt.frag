@@ -9,12 +9,12 @@
 
 
 // world space
-layout (location = 0) in vec3 inPosition;
-layout (location = 1) in vec3 inNormal;
+layout (location = 0) in vec3 inViewPosition;
+layout (location = 1) in vec3 inViewNormal;
 layout (location = 2) in vec4 inColor;
 layout (location = 3) in vec2 inUV;
 layout (location = 4) in flat uint inMaterialIndex;
-layout (location = 5) in flat uint inBHasTransparent;
+layout (location = 5) in flat uint inHasTransparent;
 layout (location = 6) in vec4 inCurrMvpPosition;
 layout (location = 7) in vec4 inPrevMvpPosition;
 
@@ -71,9 +71,9 @@ void main() {
     }
 
 
-    normalTarget = vec4(normalize(inNormal), 0.0f);
+    normalTarget = vec4(normalize(inViewNormal), 0.0f);
     albedoTarget = vec4(albedo.xyz, 1.0f);
-    pbrTarget = vec4(metallic, roughness, 0.0f, inBHasTransparent);
+    pbrTarget = vec4(metallic, roughness, 0.0f, inHasTransparent);
 
     vec2 currNdc = inCurrMvpPosition.xy / inCurrMvpPosition.w;
     vec2 prevNdc = inPrevMvpPosition.xy / inPrevMvpPosition.w;

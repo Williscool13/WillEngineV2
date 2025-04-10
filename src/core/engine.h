@@ -194,6 +194,9 @@ public:
     DirectionalLight getMainLight() const { return mainLight; }
     void setMainLight(const DirectionalLight& newLight) { mainLight = newLight; }
 
+    int32_t getCurrentEnvironmentMapIndex() const { return environmentMapIndex; }
+    void setCurrentEnvironmentMapIndex(const int32_t index) { environmentMapIndex = index; }
+
 private: // Scene Data
     DescriptorBufferUniform sceneDataDescriptorBuffer;
     AllocatedBuffer sceneDataBuffers[FRAME_OVERLAP]{};
@@ -229,7 +232,7 @@ private: // Draw Resources
     AllocatedImage depthImage{};
 
     /**
-     * 8.8.8 Normals - 8 unused
+     * 8.8.8 View Normals - 8 unused
      */
     AllocatedImage normalRenderTarget{};
     /**
