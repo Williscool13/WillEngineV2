@@ -124,7 +124,7 @@ void main() {
     vec3 worldN = normalize(mat3(sceneData.invView) * N);
     vec3 irradiance = DiffuseIrradiance(environmentDiffuseAndSpecular, worldN);
     vec3 reflectionDiffuse = irradiance * albedo.xyz;
-    vec3 reflectionSpecular = SpecularReflection(environmentDiffuseAndSpecular, lut, V, N, sceneData.invView, roughness, F0);
+    vec3 reflectionSpecular = SpecularReflection(environmentDiffuseAndSpecular, lut, V, N, sceneData.invView, roughness, F);
 
     float ao = 1.0f;
     vec3 ambient = (kD * reflectionDiffuse + reflectionSpecular) * ao;
