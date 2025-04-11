@@ -13,7 +13,7 @@ static constexpr float LAMBDA = 0.8f;
 static constexpr float OVERLAP = 1.05f;
 static constexpr uint32_t SHADOW_CASCADE_COUNT = 4;
 static constexpr float CASCADE_NEAR_PLANE = 0.1f;
-static constexpr float CASCADE_FAR_PLANE = 1000.0f;
+static constexpr float CASCADE_FAR_PLANE = 400.0f;
 extern float CASCADE_BIAS[SHADOW_CASCADE_COUNT][2];
 static constexpr int32_t CASCADE_WIDTH{2048};
 static constexpr int32_t CASCADE_HEIGHT{2048};
