@@ -1,0 +1,15 @@
+#version 460
+
+#include "scene.glsl"
+
+layout(local_size_x = 64) in;
+
+
+void main() {
+    const ivec2 screenPos = ivec2(gl_GlobalInvocationID.xy) * ivec2(2, 1);
+    if (screenPos.x > sceneData.renderTargetSize.x || screenPos.y > sceneData.renderTargetSize.y) {
+        return;
+    }
+
+
+}

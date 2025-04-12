@@ -406,11 +406,9 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
 
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, depthPrefilterPipelineLayout, 0, 2, indices.data(), offsets.data());
 
+        // shader only operates on 8,8 work groups, mip 0 will operate on 2x2 texels
         auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
         auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
-        // shader only operates on 8,8 work groups, mip 0 will operate on 2x2 texels
-        // x = x / 2 + 1;
-        // y = y / 2 + 1;
         vkCmdDispatch(cmd, x, y, 1);
     }
 
