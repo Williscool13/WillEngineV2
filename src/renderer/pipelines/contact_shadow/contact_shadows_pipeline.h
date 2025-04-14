@@ -5,16 +5,52 @@
 #ifndef CONTACT_SHADOWS_H
 #define CONTACT_SHADOWS_H
 
+#include <volk/volk.h>
+
+#include "src/renderer/vk_types.h"
+#include "src/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
+
+namespace will_engine
+{
 class ResourceManager;
+}
 
 namespace will_engine::contact_shadows_pipeline
 {
+struct ContactShadowsDrawInfo;
 
 class ContactShadowsPipeline {
 public:
-    ContactShadowsPipeline(ResourceManager& resourceManager);
+    explicit ContactShadowsPipeline(ResourceManager& resourceManager);
+
+    ~ContactShadowsPipeline();
+
+    void draw(VkCommandBuffer cmd, const ContactShadowsDrawInfo& drawInfo);
+
+    void reloadShaders()
+    {
+        createPipeline();
+    }
+
+    AllocatedImage getContactShadowRenderTarget() const { return contactShadowImage; }
 
 private:
+    void createPipeline();
+
+private:
+    VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};
+    VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
+    VkPipeline pipeline{VK_NULL_HANDLE};
+
+    VkFormat contactShadowFormat{VK_FORMAT_R8_UNORM};
+    AllocatedImage contactShadowImage{VK_NULL_HANDLE};
+
+    DescriptorBufferSampler descriptorBufferSampler;
+
+private: // Debug
+    VkFormat debugFormat{VK_FORMAT_R8G8B8A8_SINT};
+    AllocatedImage debugImage{VK_NULL_HANDLE};
+
     ResourceManager& resourceManager;
 };
 
