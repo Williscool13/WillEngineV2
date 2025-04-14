@@ -2,15 +2,14 @@
 // Created by William on 2025-01-24.
 //
 
-#include "deferred_mrt.h"
+#include "deferred_mrt_pipeline.h"
 
 #include <array>
-#include <ranges>
 
-#include "volk/volk.h"
-
+#include "deferred_mrt_pipeline_types.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/resource_manager.h"
+#include "src/renderer/assets/render_object/render_object.h"
 #include "src/renderer/assets/render_object/render_object_types.h"
 
 will_engine::deferred_mrt::DeferredMrtPipeline::DeferredMrtPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
@@ -101,7 +100,7 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
     for (RenderObject* renderObject : drawInfo.renderObjects) {
         if (!renderObject->canDraw()) { continue; }
 
-        std::array descriptorBufferBindingInfos{
+        std::array<VkDescriptorBufferBindingInfoEXT, 3> descriptorBufferBindingInfos{
             drawInfo.sceneDataBinding,
             renderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo(),
             renderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo(),
@@ -111,7 +110,7 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
 
         constexpr std::array<uint32_t, 3> indices{0, 1, 2};
 
-        std::array offsets{
+        std::array<VkDeviceSize, 3> offsets{
             drawInfo.sceneDataOffset,
             renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
             ZERO_DEVICE_SIZE

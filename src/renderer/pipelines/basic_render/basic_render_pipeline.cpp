@@ -4,14 +4,15 @@
 
 #include "basic_render_pipeline.h"
 
-#include "volk/volk.h"
+#include "basic_render_pipeline_types.h"
 #include "src/renderer/renderer_constants.h"
+#include "src/renderer/resource_manager.h"
 #include "src/renderer/vk_descriptors.h"
 #include "src/renderer/vk_helpers.h"
 #include "src/renderer/vk_pipelines.h"
 
 
-will_engine::basic_render::BasicRenderPipeline::BasicRenderPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
+will_engine::basic_render_pipeline::BasicRenderPipeline::BasicRenderPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
     DescriptorLayoutBuilder layoutBuilder;
     layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
@@ -37,7 +38,7 @@ will_engine::basic_render::BasicRenderPipeline::BasicRenderPipeline(ResourceMana
     createPipeline();
 }
 
-will_engine::basic_render::BasicRenderPipeline::~BasicRenderPipeline()
+will_engine::basic_render_pipeline::BasicRenderPipeline::~BasicRenderPipeline()
 {
     resourceManager.destroyPipeline(pipeline);
     resourceManager.destroyPipelineLayout(pipelineLayout);
@@ -45,7 +46,7 @@ will_engine::basic_render::BasicRenderPipeline::~BasicRenderPipeline()
     resourceManager.destroyDescriptorBuffer(samplerDescriptorBuffer);
 }
 
-void will_engine::basic_render::BasicRenderPipeline::setupDescriptors(const RenderDescriptorInfo& descriptorInfo)
+void will_engine::basic_render_pipeline::BasicRenderPipeline::setupDescriptors(const RenderDescriptorInfo& descriptorInfo)
 {
     std::vector<will_engine::DescriptorImageData> imageDescriptor;
     imageDescriptor.reserve(1);
@@ -59,7 +60,7 @@ void will_engine::basic_render::BasicRenderPipeline::setupDescriptors(const Rend
     resourceManager.setupDescriptorBufferSampler(samplerDescriptorBuffer, imageDescriptor, 0);
 }
 
-void will_engine::basic_render::BasicRenderPipeline::draw(VkCommandBuffer cmd, const RenderDrawInfo& drawInfo) const
+void will_engine::basic_render_pipeline::BasicRenderPipeline::draw(VkCommandBuffer cmd, const RenderDrawInfo& drawInfo) const
 {
     if (drawInfo.drawImage == VK_NULL_HANDLE || drawInfo.depthImage == VK_NULL_HANDLE) { return; }
     constexpr VkClearValue colorClear = {.color = {0.0f, 0.0f, 0.0f, 0.0f}};
@@ -102,7 +103,6 @@ void will_engine::basic_render::BasicRenderPipeline::draw(VkCommandBuffer cmd, c
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &imageBufferIndex, &ZERO_DEVICE_SIZE);
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &sceneDataIndex, &sceneDataOffset);
 
-    const float time = static_cast<float>(SDL_GetTicks()) / 1000.0f;
     RenderPushConstant push{};
     push.currentFrame = drawInfo.currentFrame;
     vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(RenderPushConstant), &push);
@@ -110,7 +110,7 @@ void will_engine::basic_render::BasicRenderPipeline::draw(VkCommandBuffer cmd, c
     vkCmdEndRendering(cmd);
 }
 
-void will_engine::basic_render::BasicRenderPipeline::createPipeline()
+void will_engine::basic_render_pipeline::BasicRenderPipeline::createPipeline()
 {
     resourceManager.destroyPipeline(pipeline);
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/basic/vertex.vert");

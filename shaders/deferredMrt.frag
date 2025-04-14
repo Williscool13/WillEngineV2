@@ -45,6 +45,8 @@ void main() {
     }
     albedo = albedo * inColor * m.colorFactor;
 
+    // Look into custom shaders specifically for these? More draw commands vs branching...
+    // 1 is transparent blend type
     if (m.alphaCutoff.y == 1) {
         // Draw only if alpha is close enough to 1
         if (albedo.w <= 1.0 - TRANSPARENT_ALPHA_EPSILON) {
@@ -52,6 +54,7 @@ void main() {
         }
     }
 
+    // 2 is "mask" (cutout) blend type
     if (m.alphaCutoff.y == 2){
         // 2 is "mask" blend type
         if (albedo.w < m.alphaCutoff.x){

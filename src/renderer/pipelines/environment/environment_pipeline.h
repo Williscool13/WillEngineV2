@@ -4,27 +4,17 @@
 
 #ifndef ENVIRONMENT_PIPELINE_H
 #define ENVIRONMENT_PIPELINE_H
-#include <vulkan/vulkan_core.h>
 
-#include "src/renderer/resource_manager.h"
+#include <volk/volk.h>
 
+namespace will_engine
+{
+class ResourceManager;
+}
 
 namespace will_engine::environment_pipeline
 {
-struct EnvironmentDrawInfo
-{
-    bool bClearColor{false};
-    VkImageView normalTarget{VK_NULL_HANDLE};
-    VkImageView albedoTarget{VK_NULL_HANDLE};
-    VkImageView pbrTarget{VK_NULL_HANDLE};
-    VkImageView velocityTarget{VK_NULL_HANDLE};
-    VkImageView depthTarget{VK_NULL_HANDLE};
-    VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
-    VkDeviceSize sceneDataOffset;
-    VkDescriptorBufferBindingInfoEXT environmentMapBinding{};
-    VkDeviceSize environmentMapOffset;
-};
-
+struct EnvironmentDrawInfo;
 
 class EnvironmentPipeline
 {

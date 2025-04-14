@@ -4,41 +4,22 @@
 
 #ifndef TRANSPARENT_PIPELINE_H
 #define TRANSPARENT_PIPELINE_H
-#include "src/renderer/imgui_wrapper.h"
-#include "src/renderer/resource_manager.h"
+
+#include <volk/volk.h>
+
+#include "src/renderer/vk_types.h"
+#include "src/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
 
 namespace will_engine
 {
+class ResourceManager;
 class RenderObject;
 }
 
 namespace will_engine::transparent_pipeline
 {
-struct TransparentsPushConstants
-{
-    int32_t bEnabled;
-    int32_t bReceivesShadows{true};
-};
-
-struct TransparentAccumulateDrawInfo
-{
-    bool enabled{true};
-    VkImageView depthTarget{VK_NULL_HANDLE};
-    int32_t currentFrameOverlap{0};
-    const std::vector<RenderObject*>& renderObjects{};
-    VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
-    VkDeviceSize sceneDataOffset{0};
-    VkDescriptorBufferBindingInfoEXT environmentIBLBinding{};
-    VkDeviceSize environmentIBLOffset{0};
-    VkDescriptorBufferBindingInfoEXT cascadeUniformBinding{};
-    VkDeviceSize cascadeUniformOffset{0};
-    VkDescriptorBufferBindingInfoEXT cascadeSamplerBinding{};
-};
-
-struct TransparentCompositeDrawInfo
-{
-    VkImageView opaqueImage;
-};
+struct TransparentCompositeDrawInfo;
+struct TransparentAccumulateDrawInfo;
 
 class TransparentPipeline
 {
@@ -82,8 +63,6 @@ private:
 
     void createCompositePipeline();
 
-    // todo: remove
-    friend void ImguiWrapper::imguiInterface(Engine* engine);
 };
 }
 

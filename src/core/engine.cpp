@@ -28,13 +28,20 @@
 #include "src/renderer/environment/environment.h"
 #include "src/renderer/lighting/ambient_occlusion/ground_truth/ground_truth_ambient_occlusion.h"
 #include "src/renderer/lighting/shadows/cascaded_shadow_map.h"
-#include "src/renderer/pipelines/deferred_mrt/deferred_mrt.h"
-#include "src/renderer/pipelines/deferred_resolve/deferred_resolve.h"
+#include "src/renderer/pipelines/deferred_mrt/deferred_mrt_pipeline.h"
+#include "src/renderer/pipelines/deferred_mrt/deferred_mrt_pipeline_types.h"
+#include "src/renderer/pipelines/deferred_resolve/deferred_resolve_pipeline.h"
+#include "src/renderer/pipelines/deferred_resolve/deferred_resolve_pipeline_types.h"
 #include "src/renderer/pipelines/environment/environment_pipeline.h"
-#include "src/renderer/pipelines/visibility_pass/visibility_pass.h"
+#include "src/renderer/pipelines/environment/environment_pipeline_types.h"
+#include "src/renderer/pipelines/visibility_pass/visibility_pass_pipeline.h"
 #include "src/renderer/pipelines/post_process/post_process_pipeline.h"
 #include "src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h"
+#include "src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline_types.h"
 #include "src/renderer/pipelines/terrain/terrain_pipeline.h"
+#include "src/renderer/pipelines/terrain/terrain_pipeline_types.h"
+#include "src/renderer/pipelines/transparent_pipeline/transparent_pipeline_types.h"
+#include "src/renderer/pipelines/visibility_pass/visibility_pass_pipeline_types.h"
 #include "src/util/file.h"
 #include "src/util/halton.h"
 
@@ -199,7 +206,7 @@ void Engine::initRenderer()
     sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = debugSceneDataBuffer, .allocSize = sizeof(SceneData)};
     sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData, FRAME_OVERLAP);
 
-    visibilityPassPipeline = new visibility_pass::VisibilityPassPipeline(*resourceManager);
+    visibilityPassPipeline = new visibility_pass_pipeline::VisibilityPassPipeline(*resourceManager);
     environmentPipeline = new environment_pipeline::EnvironmentPipeline(*resourceManager, environmentMap->getCubemapDescriptorSetLayout());
     terrainPipeline = new terrain::TerrainPipeline(*resourceManager);
     deferredMrtPipeline = new deferred_mrt::DeferredMrtPipeline(*resourceManager);
@@ -497,7 +504,7 @@ void Engine::draw(float deltaTime)
     // Updates Cascaded Shadow Map Properties
     cascadedShadowMap->update(mainLight, camera, currentFrameOverlap);
 
-    visibility_pass::VisibilityPassDrawInfo csmFrustumCullDrawInfo{
+    visibility_pass_pipeline::VisibilityPassDrawInfo csmFrustumCullDrawInfo{
         currentFrameOverlap,
         allRenderObjects,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
@@ -538,7 +545,7 @@ void Engine::draw(float deltaTime)
     environmentPipeline->draw(cmd, environmentPipelineDrawInfo);
 
 
-    visibility_pass::VisibilityPassDrawInfo deferredFrustumCullDrawInfo{
+    visibility_pass_pipeline::VisibilityPassDrawInfo deferredFrustumCullDrawInfo{
         currentFrameOverlap,
         allRenderObjects,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),

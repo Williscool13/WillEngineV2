@@ -5,22 +5,19 @@
 #ifndef BASIC_COMPUTE_PIPELINE_H
 #define BASIC_COMPUTE_PIPELINE_H
 
-#include "src/renderer/resource_manager.h"
-#include "src/renderer/vulkan_context.h"
+#include <volk/volk.h>
+
 #include "src/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
 
+namespace will_engine
+{
+class ResourceManager;
+}
 
-namespace will_engine::basic_compute
+namespace will_engine::basic_compute_pipeline
 {
-struct ComputeDescriptorInfo
-{
-    VkImageView inputImage;
-};
-
-struct ComputeDrawInfo
-{
-    VkExtent2D renderExtent;
-};
+struct ComputeDrawInfo;
+struct ComputeDescriptorInfo;
 
 class BasicComputePipeline
 {

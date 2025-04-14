@@ -4,9 +4,11 @@
 
 #include "terrain_pipeline.h"
 
-#include <volk/volk.h>
-
-#include "src/renderer/renderer_constants.h"
+#include "terrain_pipeline_types.h"
+#include "src/core/game_object/terrain.h"
+#include "src/renderer/resource_manager.h"
+#include "src/renderer/vk_helpers.h"
+#include "src/renderer/vk_pipelines.h"
 #include "src/renderer/terrain/terrain_chunk.h"
 #include "src/renderer/terrain/terrain_types.h"
 

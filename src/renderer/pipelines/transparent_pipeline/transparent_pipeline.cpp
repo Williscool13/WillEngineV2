@@ -5,9 +5,13 @@
 #include "transparent_pipeline.h"
 
 #include <array>
-#include <volk/volk.h>
 
+#include "transparent_pipeline_types.h"
 #include "src/renderer/renderer_constants.h"
+#include "src/renderer/resource_manager.h"
+#include "src/renderer/vk_descriptors.h"
+#include "src/renderer/vk_helpers.h"
+#include "src/renderer/vk_pipelines.h"
 #include "src/renderer/assets/render_object/render_object.h"
 #include "src/renderer/assets/render_object/render_object_types.h"
 
@@ -125,7 +129,6 @@ void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentA
 
     constexpr VkClearValue colorClear = {.color = {0.0f, 0.0f, 0.0f, 0.0f}};
     constexpr VkClearValue revealageClear = {.color = {1.0f, 1.0f, 1.0f, 1.0f}};
-
 
 
     VkRenderingAttachmentInfo accumulationAttachment = vk_helpers::attachmentInfo(accumulationImage.imageView, &colorClear,

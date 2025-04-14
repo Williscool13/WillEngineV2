@@ -2,13 +2,14 @@
 // Created by William on 2025-01-25.
 //
 
-#include "deferred_resolve.h"
+#include "deferred_resolve_pipeline.h"
 
 #include <array>
 
-#include "volk/volk.h"
+#include "deferred_resolve_pipeline_types.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/resource_manager.h"
+
 
 will_engine::deferred_resolve::DeferredResolvePipeline::DeferredResolvePipeline(ResourceManager& resourceManager,
                                                                                 VkDescriptorSetLayout environmentIBLLayout,
@@ -133,13 +134,7 @@ void will_engine::deferred_resolve::DeferredResolvePipeline::draw(VkCommandBuffe
     bindingInfos[4] = drawInfo.cascadeSamplerBinding;
     vkCmdBindDescriptorBuffersEXT(cmd, 5, bindingInfos);
 
-    constexpr std::array<uint32_t, 5> indices{
-        0,
-        1,
-        2,
-        3,
-        4
-    };
+    constexpr std::array<uint32_t, 5> indices{0, 1, 2, 3, 4};
     const std::array offsets{
         drawInfo.sceneDataOffset,
         ZERO_DEVICE_SIZE,

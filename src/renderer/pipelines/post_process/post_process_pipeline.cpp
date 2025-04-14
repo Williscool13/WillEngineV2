@@ -5,9 +5,12 @@
 #include "post_process_pipeline.h"
 
 #include <array>
+#include <fmt/format.h>
 
-#include "volk/volk.h"
+#include "post_process_pipeline_types.h"
 #include "src/renderer/renderer_constants.h"
+#include "src/renderer/resource_manager.h"
+#include "src/renderer/vk_descriptors.h"
 
 will_engine::post_process_pipeline::PostProcessPipeline::PostProcessPipeline(ResourceManager& resourceManager)
     : resourceManager(resourceManager)
@@ -16,7 +19,8 @@ will_engine::post_process_pipeline::PostProcessPipeline::PostProcessPipeline(Res
     layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // taa resolve image
     layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // post process result
 
-    descriptorSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    descriptorSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT,
+                                                                    VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
     VkPushConstantRange pushConstants{};
     pushConstants.offset = 0;

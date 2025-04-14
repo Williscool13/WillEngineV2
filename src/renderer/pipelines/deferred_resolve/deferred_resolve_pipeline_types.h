@@ -1,14 +1,11 @@
 //
-// Created by William on 2025-01-25.
+// Created by William on 2025-04-14.
 //
 
-#ifndef DEFERRED_RESOLVE_H
-#define DEFERRED_RESOLVE_H
-#include <vulkan/vulkan_core.h>
+#ifndef DEFERRED_RESOLVE_TYPES_H
+#define DEFERRED_RESOLVE_TYPES_H
 
-#include "src/renderer/resource_manager.h"
-#include "src/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
-
+#include <volk/volk.h>
 
 namespace will_engine::deferred_resolve
 {
@@ -50,33 +47,6 @@ struct DeferredResolveDrawInfo
     float nearPlane{1000.0f};
     float farPlane{0.1f};
 };
-
-class DeferredResolvePipeline
-{
-public:
-    explicit DeferredResolvePipeline(ResourceManager& resourceManager, VkDescriptorSetLayout environmentIBLLayout, VkDescriptorSetLayout cascadeUniformLayout,
-                                     VkDescriptorSetLayout cascadeSamplerLayout);
-
-    ~DeferredResolvePipeline();
-
-    void setupDescriptorBuffer(const DeferredResolveDescriptor& drawInfo);
-
-    void draw(VkCommandBuffer cmd, const DeferredResolveDrawInfo& drawInfo) const;
-
-    void reloadShaders() { createPipeline(); }
-
-private:
-    void createPipeline();
-
-private:
-    ResourceManager& resourceManager;
-
-    VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
-    VkPipeline pipeline{VK_NULL_HANDLE};
-
-    DescriptorBufferSampler resolveDescriptorBuffer;
-};
 }
 
-
-#endif //DEFERRED_RESOLVE_H
+#endif //DEFERRED_RESOLVE_TYPES_H

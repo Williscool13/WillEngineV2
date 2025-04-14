@@ -4,34 +4,20 @@
 
 #ifndef TEMPORAL_ANTIALIASING_PIPELINE_H
 #define TEMPORAL_ANTIALIASING_PIPELINE_H
-#include "src/renderer/resource_manager.h"
 
+#include <volk/volk.h>
+
+#include "src/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
+
+namespace will_engine
+{
+class ResourceManager;
+}
 
 namespace will_engine::temporal_antialiasing_pipeline
 {
-struct TemporalAntialiasingPushConstants
-{
-    float blendValue;
-    int32_t taaDebug;
-};
-
-struct TemporalAntialiasingDescriptor
-{
-    VkImageView drawImage;
-    VkImageView historyBuffer;
-    VkImageView depthBuffer;
-    VkImageView velocityBuffer;
-    VkImageView outputTarget;
-    VkSampler sampler;
-};
-
-struct TemporalAntialiasingDrawInfo
-{
-    float blendValue{};
-    int32_t debugMode{};
-    VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
-    VkDeviceSize sceneDataOffset{0};
-};
+struct TemporalAntialiasingDrawInfo;
+struct TemporalAntialiasingDescriptor;
 
 class TemporalAntialiasingPipeline
 {

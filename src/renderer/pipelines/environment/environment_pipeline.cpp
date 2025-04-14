@@ -4,9 +4,11 @@
 
 #include "environment_pipeline.h"
 
-#include "volk/volk.h"
+#include "environment_pipeline_types.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/resource_manager.h"
+#include "src/renderer/vk_helpers.h"
+#include "src/renderer/vk_pipelines.h"
 
 will_engine::environment_pipeline::EnvironmentPipeline::EnvironmentPipeline(ResourceManager& resourceManager, VkDescriptorSetLayout environmentMapLayout) : resourceManager(resourceManager)
 {

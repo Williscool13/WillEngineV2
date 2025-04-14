@@ -4,15 +4,12 @@
 
 #include "basic_compute_pipeline.h"
 
-#include <volk/volk.h>
-
+#include "basic_compute_pipeline_types.h"
 #include "src/renderer/renderer_constants.h"
+#include "src/renderer/resource_manager.h"
 #include "src/renderer/vk_descriptors.h"
-#include "src/renderer/vk_helpers.h"
-#include "src/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
-#include "src/renderer/descriptor_buffer/descriptor_buffer_types.h"
 
-namespace will_engine::basic_compute
+namespace will_engine::basic_compute_pipeline
 {
 BasicComputePipeline::BasicComputePipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
 
@@ -57,7 +54,7 @@ void BasicComputePipeline::setupDescriptors(const ComputeDescriptorInfo& descrip
     resourceManager.setupDescriptorBufferSampler(samplerDescriptorBuffer, imageDescriptor, 0);
 }
 
-void BasicComputePipeline::draw(VkCommandBuffer cmd, ComputeDrawInfo drawInfo) const
+void BasicComputePipeline::draw(VkCommandBuffer cmd, const ComputeDrawInfo drawInfo) const
 {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
 

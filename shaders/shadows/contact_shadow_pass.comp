@@ -4,6 +4,54 @@
 
 layout(local_size_x = 64) in;
 
+// layout (std140, set = 0, binding = 0) uniform SceneData - scene.glsl
+
+layout (set = 1, binding = 0) uniform sampler2D depthImage;
+layout (r16f, set = 1, binding = 1) uniform image2D outDepth0;
+layout (r16f, set = 1, binding = 2) uniform image2D outDepth1;
+layout (r16f, set = 1, binding = 3) uniform image2D outDepth2;
+layout (r16f, set = 1, binding = 4) uniform image2D outDepth3;
+layout (r16f, set = 1, binding = 5) uniform image2D outDepth4;
+layout (rgba8, set = 1, binding = 6) uniform image2D debugImage;
+
+#define SAMPLE_COUNT 60
+
+// samples requires for hard shadow
+#define HARD_SHADOW_SAMPLES 4
+// shadow fade at shadow edges
+#define FADE_OUT_SAMPLES 8
+
+layout (push_constant) uniform PushConstants {
+    float surfaceThickness;
+    float bilinearThreshold;
+    vec2 cameraTanHalfFOV;
+
+    vec2 ndcToViewMul;
+    vec2 ndcToViewAdd;
+
+    vec2 ndcToViewMul_x_PixelSize;
+
+    float depthLinearizeMult;
+    float depthLinearizeAdd;
+
+    float effectRadius;
+    float effectFalloffRange;
+    float denoiseBlurBeta;
+
+    float radiusMultiplier;
+    float sampleDistributionPower;
+    float thinOccluderCompensation;
+    float finalValuePower;
+    float depthMipSamplingOffset;
+    int noiseIndex;
+    int isFinalDenoisePass;
+
+    float sliceCount;
+    float stepsPerSliceCount;
+
+    int debug;
+} pushConstants;
+
 
 void main() {
     const ivec2 screenPos = ivec2(gl_GlobalInvocationID.xy) * ivec2(2, 1);

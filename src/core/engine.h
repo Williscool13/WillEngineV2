@@ -20,8 +20,8 @@
 #include "src/renderer/assets/asset_manager.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/lighting/directional_light.h"
+#include "src/renderer/pipelines/post_process/post_process_pipeline_types.h"
 #include "src/renderer/pipelines/transparent_pipeline/transparent_pipeline.h"
-#include "src/renderer/post_process/post_process_types.h"
 
 
 class ResourceManager;
@@ -64,7 +64,7 @@ namespace deferred_mrt
     class DeferredMrtPipeline;
 }
 
-namespace visibility_pass
+namespace visibility_pass_pipeline
 {
     class VisibilityPassPipeline;
 }
@@ -206,7 +206,7 @@ private: // Scene Data
     DirectionalLight mainLight{glm::normalize(glm::vec3(-0.8f, -0.6f, -0.6f)), 1.5f, glm::vec3(1.0f)};
     int32_t environmentMapIndex{1};
 
-    post_process::PostProcessType postProcessData{post_process::PostProcessType::Tonemapping | post_process::PostProcessType::Sharpening};
+    post_process_pipeline::PostProcessType postProcessData{post_process_pipeline::PostProcessType::Tonemapping | post_process_pipeline::PostProcessType::Sharpening};
 
     std::unordered_set<Map*> activeMaps;
     std::unordered_set<ITerrain*> activeTerrains;
@@ -217,7 +217,7 @@ private: // Scene Data
     std::vector<IHierarchical*> hierarchicalDeletionQueue{};
 
 private: // Pipelines
-    visibility_pass::VisibilityPassPipeline* visibilityPassPipeline{nullptr};
+    visibility_pass_pipeline::VisibilityPassPipeline* visibilityPassPipeline{nullptr};
     environment_pipeline::EnvironmentPipeline* environmentPipeline{nullptr};
     terrain::TerrainPipeline* terrainPipeline{nullptr};
     deferred_mrt::DeferredMrtPipeline* deferredMrtPipeline{nullptr};

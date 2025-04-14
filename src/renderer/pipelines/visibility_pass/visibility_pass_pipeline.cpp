@@ -2,16 +2,17 @@
 // Created by William on 2025-01-26.
 //
 
-#include "visibility_pass.h"
+#include "visibility_pass_pipeline.h"
 
 #include <array>
-#include <ranges>
+#include <cmath>
 
-#include "volk/volk.h"
-
+#include "visibility_pass_pipeline_types.h"
+#include "src/renderer/resource_manager.h"
+#include "src/renderer/vk_helpers.h"
 #include "src/renderer/assets/render_object/render_object.h"
 
-will_engine::visibility_pass::VisibilityPassPipeline::VisibilityPassPipeline(ResourceManager& resourceManager)
+will_engine::visibility_pass_pipeline::VisibilityPassPipeline::VisibilityPassPipeline(ResourceManager& resourceManager)
     : resourceManager(resourceManager)
 {
     VkDescriptorSetLayout layouts[3];
@@ -36,13 +37,13 @@ will_engine::visibility_pass::VisibilityPassPipeline::VisibilityPassPipeline(Res
     createPipeline();
 }
 
-will_engine::visibility_pass::VisibilityPassPipeline::~VisibilityPassPipeline()
+will_engine::visibility_pass_pipeline::VisibilityPassPipeline::~VisibilityPassPipeline()
 {
     resourceManager.destroyPipeline(pipeline);
     resourceManager.destroyPipelineLayout(pipelineLayout);
 }
 
-void will_engine::visibility_pass::VisibilityPassPipeline::draw(VkCommandBuffer cmd, const VisibilityPassDrawInfo& drawInfo) const
+void will_engine::visibility_pass_pipeline::VisibilityPassPipeline::draw(VkCommandBuffer cmd, const VisibilityPassDrawInfo& drawInfo) const
 {
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
@@ -61,7 +62,8 @@ void will_engine::visibility_pass::VisibilityPassPipeline::draw(VkCommandBuffer 
     for (RenderObject* renderObject : drawInfo.renderObjects) {
         if (drawInfo.bIsOpaque) {
             if (!renderObject->canDrawOpaque()) { continue; }
-        } else {
+        }
+        else {
             if (!renderObject->canDrawTransparent()) { continue; }
         }
 
@@ -84,14 +86,16 @@ void will_engine::visibility_pass::VisibilityPassPipeline::draw(VkCommandBuffer 
 
         vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(renderObject->getOpaqueDrawIndirectCommandCount()) / 64.0f)), 1, 1);
 
-        vk_helpers::synchronizeUniform(cmd, renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap), VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT);
+        vk_helpers::synchronizeUniform(cmd, renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap),
+                                       VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT,
+                                       VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT);
     }
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }
 
 
-void will_engine::visibility_pass::VisibilityPassPipeline::createPipeline()
+void will_engine::visibility_pass_pipeline::VisibilityPassPipeline::createPipeline()
 {
     resourceManager.destroyPipeline(pipeline);
     VkShaderModule computeShader = resourceManager.createShaderModule("shaders/visibility_pass.comp");
