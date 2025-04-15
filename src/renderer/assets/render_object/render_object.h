@@ -12,7 +12,6 @@
 #include "src/core/game_object/renderable.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/resource_manager.h"
-#include "src/renderer/pipelines/basic_compute/basic_compute_pipeline.h"
 
 
 namespace will_engine

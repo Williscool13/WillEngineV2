@@ -33,7 +33,8 @@ struct ContactShadowsPushConstants
 
 struct ContactShadowsDrawInfo
 {
-
+    VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
+    VkDeviceSize sceneDataOffset{0};
 };
 }
 

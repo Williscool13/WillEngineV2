@@ -7,7 +7,6 @@
 #include <array>
 #include <fmt/format.h>
 
-#include "post_process_pipeline_types.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/resource_manager.h"
 #include "src/renderer/vk_descriptors.h"

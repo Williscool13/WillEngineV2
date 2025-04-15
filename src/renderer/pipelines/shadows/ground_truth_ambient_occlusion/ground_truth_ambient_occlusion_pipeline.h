@@ -9,7 +9,7 @@
 
 #include "src/renderer/imgui_wrapper.h"
 #include "src/renderer/resource_manager.h"
-#include "src/renderer/lighting/ambient_occlusion/ambient_occlusion_types.h"
+#include "ambient_occlusion_types.h"
 
 
 namespace will_engine::ambient_occlusion

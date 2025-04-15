@@ -7,6 +7,7 @@
 
 #include <volk/volk.h>
 
+#include "src/renderer/imgui_wrapper.h"
 #include "src/renderer/vk_types.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
 
@@ -25,6 +26,8 @@ public:
 
     ~ContactShadowsPipeline();
 
+    void setupDescriptorBuffer(const VkImageView& depthImageView);
+
     void draw(VkCommandBuffer cmd, const ContactShadowsDrawInfo& drawInfo);
 
     void reloadShaders()
@@ -42,6 +45,8 @@ private:
     VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
     VkPipeline pipeline{VK_NULL_HANDLE};
 
+    VkSampler depthSampler{VK_NULL_HANDLE};
+
     VkFormat contactShadowFormat{VK_FORMAT_R8_UNORM};
     AllocatedImage contactShadowImage{VK_NULL_HANDLE};
 
@@ -52,6 +57,10 @@ private: // Debug
     AllocatedImage debugImage{VK_NULL_HANDLE};
 
     ResourceManager& resourceManager;
+
+private:
+    //todo: remove
+    friend void ImguiWrapper::imguiInterface(Engine* engine);
 };
 
 }

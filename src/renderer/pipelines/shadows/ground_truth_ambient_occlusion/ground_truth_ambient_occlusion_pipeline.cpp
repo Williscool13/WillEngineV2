@@ -2,13 +2,13 @@
 // Created by William on 2025-03-23.
 //
 
-#include "ground_truth_ambient_occlusion.h"
+#include "ground_truth_ambient_occlusion_pipeline.h"
 
 #include <volk/volk.h>
 
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/vk_descriptors.h"
-#include "src/renderer/lighting/ambient_occlusion/ambient_occlusion_types.h"
+#include "ambient_occlusion_types.h"
 
 will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruthAmbientOcclusionPipeline(
     ResourceManager& resourceManager) : resourceManager(resourceManager)
@@ -370,6 +370,8 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
     label.pLabelName = "GT Ambient Occlusion";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
+    gtaoPush.debug = drawInfo.pushConstants.debug;
+
     glm::mat4 projMatrix = drawInfo.camera->getProjMatrix();
     gtaoPush.depthLinearizeMult = -projMatrix[3][2];
     gtaoPush.depthLinearizeAdd = projMatrix[2][2];
@@ -390,7 +392,7 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
 
     vk_helpers::transitionImage(cmd, debugImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    vk_helpers::clearColorImage(cmd, depthPrefilterImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+    vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, depthPrefilterImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
     // Depth Prefilter
     {
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, depthPrefilterPipeline);
@@ -406,9 +408,9 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
 
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, depthPrefilterPipelineLayout, 0, 2, indices.data(), offsets.data());
 
-        // shader only operates on 8,8 work groups, mip 0 will operate on 2x2 texels
-        auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
-        auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
+        // shader only operates on 8,8 work groups, mip 0 will operate on 2x2 texels, so its 16x16 as expected
+        const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
+        const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
         vkCmdDispatch(cmd, x, y, 1);
     }
 

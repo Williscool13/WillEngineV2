@@ -7,6 +7,7 @@
 
 #include <volk/volk.h>
 
+#include "temporal_antialiasing_pipeline_types.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
 
 namespace will_engine
@@ -16,9 +17,6 @@ class ResourceManager;
 
 namespace will_engine::temporal_antialiasing_pipeline
 {
-struct TemporalAntialiasingDrawInfo;
-struct TemporalAntialiasingDescriptor;
-
 class TemporalAntialiasingPipeline
 {
 public:

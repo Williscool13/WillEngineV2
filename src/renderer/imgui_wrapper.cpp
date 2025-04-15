@@ -12,10 +12,10 @@
 
 
 #include "environment/environment.h"
-#include "lighting/ambient_occlusion/ground_truth/ground_truth_ambient_occlusion.h"
-#include "lighting/shadows/cascaded_shadow_map.h"
-#include "lighting/shadows/shadow_constants.h"
-#include "pipelines/post_process/post_process_pipeline_types.h"
+#include "pipelines/post/post_process/post_process_pipeline_types.h"
+#include "pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h"
+#include "pipelines/shadows/ground_truth_ambient_occlusion/ambient_occlusion_types.h"
+#include "pipelines/shadows/ground_truth_ambient_occlusion/ground_truth_ambient_occlusion_pipeline.h"
 #include "src/core/engine.h"
 #include "src/core/time.h"
 #include "src/core/camera/free_camera.h"
@@ -198,7 +198,15 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Hot-Reload Shaders")) {
                     engine->hotReloadShaders();
                 }
-                ImGui::Checkbox("Enable Transparent Primitives", &engine->bRenderTransparents);
+                ImGui::Checkbox("Disable Transparent Primitives", &engine->bHideTransparents);
+                bool aoDisabled = engine->gtaoDebug == -1;
+                if (ImGui::Checkbox("Disable GTAO", &aoDisabled)) {
+                    if (aoDisabled) {
+                        engine->gtaoDebug = -1;
+                    } else {
+                        engine->gtaoDebug = 0;
+                    }
+                }
                 ImGui::Separator();
                 ImGui::Text("Main Directional Light");
                 float direction[3] = {engine->mainLight.direction.x, engine->mainLight.direction.y, engine->mainLight.direction.z};
@@ -210,7 +218,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     engine->mainLight.color = glm::vec3(color[0], color[1], color[2]);
                 }
                 ImGui::DragFloat("Intensity", &engine->mainLight.intensity, 0.05f, 0.0f, 5.0f);
-
 
                 ImGui::Separator();
 
@@ -350,7 +357,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     ImGui::Spacing();
                     ImGui::Text("Other Parameters");
                     ImGui::Separator();
-                    ImGui::InputInt("Debug Mode", &gtao.debug);
+                    ImGui::InputInt("Debug Mode", &engine->gtaoDebug);
 
                     ImGui::Spacing();
                     if (ImGui::Button("Reset to Defaults")) {

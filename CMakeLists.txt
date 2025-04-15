@@ -156,31 +156,31 @@ set(RENDERER_SOURCES
         src/renderer/environment/environment.h
         src/renderer/environment/environment_constants.h
         src/renderer/environment/environment_types.h
-        src/renderer/pipelines/deferred_mrt/deferred_mrt_pipeline.cpp
-        src/renderer/pipelines/deferred_mrt/deferred_mrt_pipeline.h
-        src/renderer/pipelines/deferred_mrt/deferred_mrt_pipeline_types.h
-        src/renderer/pipelines/deferred_resolve/deferred_resolve_pipeline.cpp
-        src/renderer/pipelines/deferred_resolve/deferred_resolve_pipeline.h
-        src/renderer/pipelines/deferred_resolve/deferred_resolve_pipeline_types.h
-        src/renderer/pipelines/environment/environment_pipeline.cpp
-        src/renderer/pipelines/environment/environment_pipeline.h
-        src/renderer/pipelines/post_process/post_process_pipeline.cpp
-        src/renderer/pipelines/post_process/post_process_pipeline.h
+        src/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline.cpp
+        src/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline.h
+        src/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline_types.h
+        src/renderer/pipelines/geometry/deferred_resolve/deferred_resolve_pipeline.cpp
+        src/renderer/pipelines/geometry/deferred_resolve/deferred_resolve_pipeline.h
+        src/renderer/pipelines/geometry/deferred_resolve/deferred_resolve_pipeline_types.h
+        src/renderer/pipelines/geometry/environment/environment_pipeline.cpp
+        src/renderer/pipelines/geometry/environment/environment_pipeline.h
+        src/renderer/pipelines/post/post_process/post_process_pipeline.cpp
+        src/renderer/pipelines/post/post_process/post_process_pipeline.h
         src/renderer/pipelines/visibility_pass/visibility_pass_pipeline.cpp
         src/renderer/pipelines/visibility_pass/visibility_pass_pipeline.h
-        src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.cpp
-        src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h
-        src/renderer/pipelines/basic_compute/basic_compute_pipeline.cpp
-        src/renderer/pipelines/basic_compute/basic_compute_pipeline.h
-        src/renderer/pipelines/basic_render/basic_render_pipeline.cpp
-        src/renderer/pipelines/basic_render/basic_render_pipeline.h
+        src/renderer/pipelines/post/temporal_antialiasing/temporal_antialiasing_pipeline.cpp
+        src/renderer/pipelines/post/temporal_antialiasing/temporal_antialiasing_pipeline.h
+        src/renderer/pipelines/basic/basic_compute/basic_compute_pipeline.cpp
+        src/renderer/pipelines/basic/basic_compute/basic_compute_pipeline.h
+        src/renderer/pipelines/basic/basic_render/basic_render_pipeline.cpp
+        src/renderer/pipelines/basic/basic_render/basic_render_pipeline.h
         src/renderer/lighting/directional_light.h
         src/renderer/lighting/directional_light.cpp
-        src/renderer/lighting/shadows/cascaded_shadow_map.cpp
-        src/renderer/lighting/shadows/cascaded_shadow_map.h
-        src/renderer/lighting/shadows/shadow_constants.cpp
-        src/renderer/lighting/shadows/shadow_constants.h
-        src/renderer/lighting/shadows/shadow_types.h
+        src/renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.cpp
+        src/renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h
+        src/renderer/pipelines/shadows/cascaded_shadow_map/shadow_constants.cpp
+        src/renderer/pipelines/shadows/cascaded_shadow_map/shadow_constants.h
+        src/renderer/pipelines/shadows/cascaded_shadow_map/shadow_types.h
         src/renderer/descriptor_buffer/descriptor_buffer.cpp
         src/renderer/descriptor_buffer/descriptor_buffer.h
         src/renderer/descriptor_buffer/descriptor_buffer_sampler.cpp
@@ -223,8 +223,8 @@ set(TEMP_SOURCES
         src/util/noise_utils.h
         src/renderer/terrain/terrain_chunk.cpp
         src/renderer/terrain/terrain_chunk.h
-        src/renderer/pipelines/terrain/terrain_pipeline.cpp
-        src/renderer/pipelines/terrain/terrain_pipeline.h
+        src/renderer/pipelines/geometry/terrain/terrain_pipeline.cpp
+        src/renderer/pipelines/geometry/terrain/terrain_pipeline.h
         src/core/scene/map.cpp
         src/core/scene/map.h
         src/core/game_object/terrain.h
@@ -242,23 +242,23 @@ set(TEMP_SOURCES
         src/renderer/assets/texture/texture_resource.cpp
         src/renderer/assets/texture/texture_resource.h
         src/renderer/assets/texture/texture_types.h
-        src/renderer/lighting/ambient_occlusion/ground_truth/ground_truth_ambient_occlusion.cpp
-        src/renderer/lighting/ambient_occlusion/ground_truth/ground_truth_ambient_occlusion.h
-        src/renderer/lighting/ambient_occlusion/ambient_occlusion_types.h
-        src/renderer/pipelines/transparent_pipeline/transparent_pipeline.cpp
-        src/renderer/pipelines/transparent_pipeline/transparent_pipeline.h
+        src/renderer/pipelines/shadows/ground_truth_ambient_occlusion/ground_truth_ambient_occlusion_pipeline.cpp
+        src/renderer/pipelines/shadows/ground_truth_ambient_occlusion/ground_truth_ambient_occlusion_pipeline.h
+        src/renderer/pipelines/shadows/ground_truth_ambient_occlusion/ambient_occlusion_types.h
+        src/renderer/pipelines/geometry/transparent_pipeline/transparent_pipeline.cpp
+        src/renderer/pipelines/geometry/transparent_pipeline/transparent_pipeline.h
         src/engine_constants.h
-        src/renderer/pipelines/contact_shadow/contact_shadows_pipeline.cpp
-        src/renderer/pipelines/contact_shadow/contact_shadows_pipeline.h
-        src/renderer/pipelines/contact_shadow/contact_shadows_pipeline_types.h
+        src/renderer/pipelines/shadows/contact_shadow/contact_shadows_pipeline.cpp
+        src/renderer/pipelines/shadows/contact_shadow/contact_shadows_pipeline.h
+        src/renderer/pipelines/shadows/contact_shadow/contact_shadows_pipeline_types.h
 
-        src/renderer/pipelines/environment/environment_pipeline_types.h
-        src/renderer/pipelines/basic_render/basic_render_pipeline_types.h
-        src/renderer/pipelines/post_process/post_process_pipeline_types.h
-        src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline_types.h
-        src/renderer/pipelines/terrain/terrain_pipeline_types.h
-        src/renderer/pipelines/transparent_pipeline/transparent_pipeline_types.h
-        src/renderer/pipelines/basic_compute/basic_compute_pipeline_types.h
+        src/renderer/pipelines/geometry/environment/environment_pipeline_types.h
+        src/renderer/pipelines/basic/basic_render/basic_render_pipeline_types.h
+        src/renderer/pipelines/post/post_process/post_process_pipeline_types.h
+        src/renderer/pipelines/post/temporal_antialiasing/temporal_antialiasing_pipeline_types.h
+        src/renderer/pipelines/geometry/terrain/terrain_pipeline_types.h
+        src/renderer/pipelines/geometry/transparent_pipeline/transparent_pipeline_types.h
+        src/renderer/pipelines/basic/basic_compute/basic_compute_pipeline_types.h
         src/renderer/pipelines/visibility_pass/visibility_pass_pipeline_types.h
 
 )

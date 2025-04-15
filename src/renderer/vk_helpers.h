@@ -80,7 +80,7 @@ namespace vk_helpers
      */
     VkDeviceSize getAlignedSize(VkDeviceSize value, VkDeviceSize alignment);
 
-    void clearColorImage(VkCommandBuffer cmd, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout,
+    void clearColorImage(VkCommandBuffer cmd, VkImageAspectFlagBits aspectFlag, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout,
                          VkClearColorValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f});
 
     void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);

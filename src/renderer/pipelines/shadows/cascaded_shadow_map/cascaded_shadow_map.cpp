@@ -9,7 +9,6 @@
 #include "volk/volk.h"
 #include "src/core/camera/camera.h"
 #include "src/renderer/renderer_constants.h"
-#include "src/renderer/pipelines/terrain/terrain_pipeline.h"
 #include "src/renderer/assets/render_object/render_object_types.h"
 #include "src/renderer/terrain/terrain_chunk.h"
 #include "src/util/math_constants.h"

@@ -265,7 +265,7 @@ VkDeviceSize will_engine::vk_helpers::getAlignedSize(const VkDeviceSize value, V
     return (value + alignment - 1) & ~(alignment - 1);
 }
 
-void will_engine::vk_helpers::clearColorImage(VkCommandBuffer cmd, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout, VkClearColorValue clearColor)
+void will_engine::vk_helpers::clearColorImage(VkCommandBuffer cmd, VkImageAspectFlagBits aspectFlag, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout, VkClearColorValue clearColor)
 {
     transitionImage(cmd, image, srcLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     constexpr VkImageSubresourceRange range{
