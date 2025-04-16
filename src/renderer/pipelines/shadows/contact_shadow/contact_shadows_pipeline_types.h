@@ -10,10 +10,28 @@
 
 namespace will_engine::contact_shadows_pipeline
 {
+
+static constexpr int32_t CONTACT_SHADOW_WAVE_COUNT = 64;
+
 enum class ContactShadowsDebugMode : int32_t
 {
     NONE = 0,
 };
+
+struct DispatchData
+{
+    int32_t WaveCount[3];					// Compute Shader Dispatch(X,Y,Z) wave counts X/Y/Z
+    int32_t WaveOffset_Shader[2];			// This value is passed in to shader. It will be different for each dispatch
+};
+
+struct DispatchList
+{
+    float LightCoordinate_Shader[4];	    // This value is passed in to shader, this will be the same value for all dispatches for this light
+
+    DispatchData Dispatch[8];			    // List of dispatches (max count is 8)
+    int32_t DispatchCount;					// Number of compute dispatches written to the list
+};
+
 
 struct ContactShadowsPushConstants
 {
@@ -29,6 +47,9 @@ struct ContactShadowsPushConstants
     int32_t bUseEarlyOut{0};
 
     ContactShadowsDebugMode debugMode{ContactShadowsDebugMode::NONE};
+
+    glm::ivec2 waveOffset{0};
+    glm::vec4 lightCoordinate{0.0f};
 };
 
 struct ContactShadowsDrawInfo

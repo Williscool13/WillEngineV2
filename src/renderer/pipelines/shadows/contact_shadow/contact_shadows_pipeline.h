@@ -7,19 +7,20 @@
 
 #include <volk/volk.h>
 
+#include "contact_shadows_pipeline_types.h"
 #include "src/renderer/imgui_wrapper.h"
 #include "src/renderer/vk_types.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
 
+
 namespace will_engine
 {
-class ResourceManager;
+class Camera;
+class DirectionalLight;
 }
 
 namespace will_engine::contact_shadows_pipeline
 {
-struct ContactShadowsDrawInfo;
-
 class ContactShadowsPipeline {
 public:
     explicit ContactShadowsPipeline(ResourceManager& resourceManager);
@@ -39,6 +40,11 @@ public:
 
 private:
     void createPipeline();
+
+    static static DispatchList buildDispatchList(const Camera* camera, const DirectionalLight& mainLight);
+
+    static int32_t bend_min(const int32_t a, const int32_t b) { return a > b ? b : a; }
+    static int32_t bend_max(const int32_t a, const int32_t b) { return a > b ? a : b; }
 
 private:
     VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};

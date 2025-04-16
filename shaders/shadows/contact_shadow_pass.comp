@@ -2,7 +2,9 @@
 
 #include "scene.glsl"
 
-layout(local_size_x = 64) in;
+#define WAVE_SIZE 64
+
+layout(local_size_x = WAVE_SIZE) in;
 
 // layout (std140, set = 0, binding = 0) uniform SceneData - scene.glsl
 
@@ -22,23 +24,83 @@ layout (push_constant) uniform PushConstants {
     float bilinearThreshold;
     float shadowContrast;
     int bIgnoreEdgePixels;
+
     int bUsePrecisionOffset;
     int bBilinearSamplingOffsetMode;
-
     vec2 depthBounds;
-    int bUseEarlyOut;
 
+    int bUseEarlyOut;
     int debugMode;
+    ivec2 waveOffset;
+    vec4 lightCoordinate;
+
 } pushConstants;
 
 
+void ComputeWavefrontExtents(ivec2 waveOffset, vec4 lightCoordinate, ivec3 inGroupID, uint inGroupThreadID,
+out vec2 outDeltaXY, out vec2 outPixelXY, out float outPixelDistance, out bool outMajorAxisX)
+{
+    ivec2 xy = inGroupID.yz * WAVE_SIZE + waveOffset.xy;
+
+    // Integer light position / fractional component
+    vec2 light_xy = floor(lightCoordinate.xy) + 0.5;
+    vec2 light_xy_fraction = lightCoordinate.xy - light_xy;
+    bool reverse_direction = lightCoordinate.w > 0.0;
+
+    ivec2 sign_xy = ivec2(sign(vec2(xy)));
+    bool horizontal = abs(xy.x + sign_xy.y) < abs(xy.y - sign_xy.x);
+
+    ivec2 axis;
+    axis.x = horizontal ? (+sign_xy.y) : (0);
+    axis.y = horizontal ? (0) : (-sign_xy.x);
+
+    // Apply wave offset
+    xy = axis * int(inGroupID.x) + xy;
+    vec2 xy_f = vec2(xy);
+
+    // For interpolation to the light center, we only really care about the larger of the two axis
+    bool x_axis_major = abs(xy_f.x) > abs(xy_f.y);
+    float major_axis = x_axis_major ? xy_f.x : xy_f.y;
+
+    float major_axis_start = abs(major_axis);
+    float major_axis_end = abs(major_axis) - float(WAVE_SIZE);
+
+    float ma_light_frac = x_axis_major ? light_xy_fraction.x : light_xy_fraction.y;
+    ma_light_frac = major_axis > 0.0 ? -ma_light_frac : ma_light_frac;
+
+    // Back in to screen direction
+    vec2 start_xy = xy_f + light_xy;
+
+    // For the very inner most ring, we need to interpolate to a pixel centered UV,
+    // so the UV->pixel rounding doesn't skip output pixels
+    vec2 end_xy = mix(lightCoordinate.xy, start_xy,
+    (major_axis_end + ma_light_frac) / (major_axis_start + ma_light_frac));
+
+    // The major axis should be a round number
+    vec2 xy_delta = (start_xy - end_xy);
+
+    // Inverse the read order when reverse direction is true
+    float thread_step = float(inGroupThreadID ^ (reverse_direction ? 0u : (WAVE_SIZE - 1u)));
+
+    vec2 pixel_xy = mix(start_xy, end_xy, thread_step / float(WAVE_SIZE));
+    float pixel_distance = major_axis_start - thread_step + ma_light_frac;
+
+    outPixelXY = pixel_xy;
+    outPixelDistance = pixel_distance;
+    outDeltaXY = xy_delta;
+    outMajorAxisX = x_axis_major;
+}
+
 void main() {
-    const ivec2 screenPos = ivec2(gl_GlobalInvocationID.xy) * ivec2(2, 1);
-    if (screenPos.x > sceneData.renderTargetSize.x || screenPos.y > sceneData.renderTargetSize.y) {
-        return;
-    }
+    vec2 xy_delta;
+    vec2 pixel_xy;
+    float pixel_distance;
+    bool x_axis_major;
+
+    ComputeWavefrontExtents(pushConstants.waveOffset, pushConstants.lightCoordinate, ivec3(gl_WorkGroupID), gl_LocalInvocationID.x,
+                                xy_delta, pixel_xy, pixel_distance, x_axis_major);
 
 
-    imageStore(debugImage, screenPos, vec4(1.0f, 0.0f, 0.0f, 1.0f));
-    imageStore(contactShadow, screenPos, vec4(0.7f));
+    imageStore(debugImage, ivec2(pixel_xy), vec4(1.0f, 0.0f, 0.0f, 1.0f));
+    imageStore(contactShadow, ivec2(pixel_xy), vec4(0.7f));
 }

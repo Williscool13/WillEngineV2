@@ -85,7 +85,7 @@ private:
     bool showGtaoDebugPreview = false;
     VkDescriptorSet aoDebugTextureImguiId{VK_NULL_HANDLE};
 
-    VkDescriptorSet postProcessOutputImguiId{VK_NULL_HANDLE};
+    VkDescriptorSet contactShadowsOutputImguiId{VK_NULL_HANDLE};
 };
 }
 
