@@ -121,24 +121,32 @@ void ContactShadowsPipeline::draw(VkCommandBuffer cmd, const ContactShadowsDrawI
     vk_helpers::transitionImage(cmd, debugImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, contactShadowImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
-    ContactShadowsPushConstants push{};
-
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-    vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ContactShadowsPushConstants), &push);
 
-    VkDescriptorBufferBindingInfoEXT bindingInfos[2] = {};
-    bindingInfos[0] = drawInfo.sceneDataBinding;
-    bindingInfos[1] = descriptorBufferSampler.getDescriptorBufferBindingInfo();
-    vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos);
+    ContactShadowsPushConstants push{};
+    push.debugMode = static_cast<ContactShadowsDebugMode>(drawInfo.debug);
 
-    constexpr std::array<uint32_t, 2> indices{0, 1};
-    const std::array offsets{drawInfo.sceneDataOffset, ZERO_DEVICE_SIZE};
+    const DispatchList dispatchList = buildDispatchList(drawInfo.camera, drawInfo.light);
 
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, indices.data(), offsets.data());
+    push.lightCoordinate = glm::vec4(dispatchList.LightCoordinate_Shader[0], dispatchList.LightCoordinate_Shader[1], dispatchList.LightCoordinate_Shader[2], dispatchList.LightCoordinate_Shader[3]);
+    for (int32_t i = 0; i < dispatchList.DispatchCount; ++i) {
+        push.waveOffset = glm::ivec2(dispatchList.Dispatch[i].WaveOffset_Shader[0], dispatchList.Dispatch[i].WaveOffset_Shader[1]);
 
+        vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ContactShadowsPushConstants), &push);
 
-    const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH * RENDER_EXTENT_HEIGHT / static_cast<float>(CONTACT_SHADOW_WAVE_COUNT)));
-    vkCmdDispatch(cmd, x, 1, 1);
+        VkDescriptorBufferBindingInfoEXT bindingInfos[2] = {};
+        bindingInfos[0] = drawInfo.sceneDataBinding;
+        bindingInfos[1] = descriptorBufferSampler.getDescriptorBufferBindingInfo();
+        vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos);
+
+        constexpr std::array<uint32_t, 2> indices{0, 1};
+        const std::array offsets{drawInfo.sceneDataOffset, ZERO_DEVICE_SIZE};
+
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, indices.data(), offsets.data());
+
+        const int32_t* waveCount = dispatchList.Dispatch[i].WaveCount;
+        vkCmdDispatch(cmd, waveCount[0], waveCount[1], waveCount[2]);
+    }
 }
 
 void ContactShadowsPipeline::createPipeline()
@@ -173,7 +181,7 @@ DispatchList ContactShadowsPipeline::buildDispatchList(const Camera* camera, con
     // Floating point division in the shader has a practical limit for precision when the light is *very* far off screen (~1m pixels+)
     // So when computing the light XY coordinate, use an adjusted w value to handle these extreme values
     float xy_light_w = lightProjection[3];
-    const float FP_limit = 0.000002f * static_cast<float>(CONTACT_SHADOW_WAVE_COUNT);
+    const float FP_limit = 0.000002f * static_cast<float>(CONTACT_SHADOW_WAVE_SIZE);
 
     if (xy_light_w >= 0 && xy_light_w < FP_limit) xy_light_w = FP_limit;
     else if (xy_light_w < 0 && xy_light_w > -FP_limit) xy_light_w = -FP_limit;
@@ -206,10 +214,10 @@ DispatchList ContactShadowsPipeline::buildDispatchList(const Camera* camera, con
         // Bounds relative to the quadrant
         const int bounds[4] =
         {
-            bend_max(0, ((q & 1) ? biased_bounds[0] : -biased_bounds[2])) / CONTACT_SHADOW_WAVE_COUNT,
-            bend_max(0, ((q & 2) ? biased_bounds[1] : -biased_bounds[3])) / CONTACT_SHADOW_WAVE_COUNT,
-            bend_max(0, (((q & 1) ? biased_bounds[2] : -biased_bounds[0]) + CONTACT_SHADOW_WAVE_COUNT * (vertical ? 1 : 2) - 1)) / CONTACT_SHADOW_WAVE_COUNT,
-            bend_max(0, (((q & 2) ? biased_bounds[3] : -biased_bounds[1]) + CONTACT_SHADOW_WAVE_COUNT * (vertical ? 2 : 1) - 1)) / CONTACT_SHADOW_WAVE_COUNT,
+            bend_max(0, ((q & 1) ? biased_bounds[0] : -biased_bounds[2])) / CONTACT_SHADOW_WAVE_SIZE,
+            bend_max(0, ((q & 2) ? biased_bounds[1] : -biased_bounds[3])) / CONTACT_SHADOW_WAVE_SIZE,
+            bend_max(0, (((q & 1) ? biased_bounds[2] : -biased_bounds[0]) + CONTACT_SHADOW_WAVE_SIZE * (vertical ? 1 : 2) - 1)) / CONTACT_SHADOW_WAVE_SIZE,
+            bend_max(0, (((q & 2) ? biased_bounds[3] : -biased_bounds[1]) + CONTACT_SHADOW_WAVE_SIZE * (vertical ? 2 : 1) - 1)) / CONTACT_SHADOW_WAVE_SIZE,
         };
 
         if ((bounds[2] - bounds[0]) > 0 && (bounds[3] - bounds[1]) > 0) {
@@ -218,7 +226,7 @@ DispatchList ContactShadowsPipeline::buildDispatchList(const Camera* camera, con
 
             DispatchData& disp = result.Dispatch[result.DispatchCount++];
 
-            disp.WaveCount[0] = CONTACT_SHADOW_WAVE_COUNT;
+            disp.WaveCount[0] = CONTACT_SHADOW_WAVE_SIZE;
             disp.WaveCount[1] = bounds[2] - bounds[0];
             disp.WaveCount[2] = bounds[3] - bounds[1];
             disp.WaveOffset_Shader[0] = ((q & 1) ? bounds[0] : -bounds[2]) + bias_x;
@@ -231,7 +239,7 @@ DispatchList ContactShadowsPipeline::buildDispatchList(const Camera* camera, con
             if (q == 2) axis_delta = -biased_bounds[0] - biased_bounds[3];
             if (q == 3) axis_delta = -biased_bounds[2] + biased_bounds[3];
 
-            axis_delta = (axis_delta + CONTACT_SHADOW_WAVE_COUNT - 1) / CONTACT_SHADOW_WAVE_COUNT;
+            axis_delta = (axis_delta + CONTACT_SHADOW_WAVE_SIZE - 1) / CONTACT_SHADOW_WAVE_SIZE;
 
             if (axis_delta > 0) {
                 DispatchData& disp2 = result.Dispatch[result.DispatchCount++];
@@ -283,8 +291,8 @@ DispatchList ContactShadowsPipeline::buildDispatchList(const Camera* camera, con
 
     // Scale the shader values by the wave count, the shader expects this
     for (int i = 0; i < result.DispatchCount; i++) {
-        result.Dispatch[i].WaveOffset_Shader[0] *= CONTACT_SHADOW_WAVE_COUNT;
-        result.Dispatch[i].WaveOffset_Shader[1] *= CONTACT_SHADOW_WAVE_COUNT;
+        result.Dispatch[i].WaveOffset_Shader[0] *= CONTACT_SHADOW_WAVE_SIZE;
+        result.Dispatch[i].WaveOffset_Shader[1] *= CONTACT_SHADOW_WAVE_SIZE;
     }
 
     return result;

@@ -644,6 +644,9 @@ void Engine::draw(float deltaTime)
     ambientOcclusionPipeline->draw(cmd, gtaoDrawInfo);
 
     contact_shadows_pipeline::ContactShadowsDrawInfo contactDrawInfo{
+        camera,
+        mainLight,
+        contactShadowDebug,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
     };

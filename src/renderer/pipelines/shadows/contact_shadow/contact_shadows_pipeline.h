@@ -41,7 +41,7 @@ public:
 private:
     void createPipeline();
 
-    static static DispatchList buildDispatchList(const Camera* camera, const DirectionalLight& mainLight);
+    static DispatchList buildDispatchList(const Camera* camera, const DirectionalLight& mainLight);
 
     static int32_t bend_min(const int32_t a, const int32_t b) { return a > b ? b : a; }
     static int32_t bend_max(const int32_t a, const int32_t b) { return a > b ? a : b; }
@@ -59,7 +59,7 @@ private:
     DescriptorBufferSampler descriptorBufferSampler;
 
 private: // Debug
-    VkFormat debugFormat{VK_FORMAT_R8G8B8A8_SINT};
+    VkFormat debugFormat{VK_FORMAT_R8G8B8A8_UNORM};
     AllocatedImage debugImage{VK_NULL_HANDLE};
 
     ResourceManager& resourceManager;

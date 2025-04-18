@@ -182,6 +182,7 @@ private: // Debug
     int32_t csmPcf{1};
     int32_t deferredDebug{0};
     int32_t gtaoDebug{4};
+    int32_t contactShadowDebug{0};
     bool bDrawTerrainLines{false};
     bool bPausePhysics{true};
     bool bDisableJitter{false};

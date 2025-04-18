@@ -8,14 +8,20 @@
 #include <glm/glm.hpp>
 #include <volk/volk.h>
 
+#include "src/core/camera/camera.h"
+#include "src/renderer/lighting/directional_light.h"
+
 namespace will_engine::contact_shadows_pipeline
 {
 
-static constexpr int32_t CONTACT_SHADOW_WAVE_COUNT = 64;
+static constexpr int32_t CONTACT_SHADOW_WAVE_SIZE = 64;
 
 enum class ContactShadowsDebugMode : int32_t
 {
     NONE = 0,
+    EDGE = 1,
+    INVOCATION_ID = 2,
+    WORK_GROUP_ID = 3
 };
 
 struct DispatchData
@@ -54,6 +60,9 @@ struct ContactShadowsPushConstants
 
 struct ContactShadowsDrawInfo
 {
+    Camera* camera;
+    DirectionalLight light;
+    int32_t debug;
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};
 };
