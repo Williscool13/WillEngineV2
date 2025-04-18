@@ -1086,6 +1086,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
     if (ImGui::Begin("Discardable Debug")) {
         ImGui::SliderInt("Contact Shadow Debug", &engine->contactShadowDebug, 0, 3);
+        ImGui::InputFloat("Blinear Threshold", &engine->bilinearThreshold);
 
         if (contactShadowsOutputImguiId == VK_NULL_HANDLE) {
             if (engine->contactShadowsPipeline->debugImage.imageView != VK_NULL_HANDLE) {

@@ -43,9 +43,9 @@ struct ContactShadowsPushConstants
 {
     float surfaceThickness{0.005};
     float bilinearThreshold{0.02};
-    float shadowContrast{4};
+    float shadowContrast{2};
 
-    int32_t bIgnoreEdgePixels{0};
+    int32_t bIgnoreEdgePixels{1};
     int32_t bUsePrecisionOffset{0};
     int32_t bBilinearSamplingOffsetMode{0};
 
@@ -63,6 +63,7 @@ struct ContactShadowsDrawInfo
     Camera* camera;
     DirectionalLight light;
     int32_t debug;
+    float v;
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};
 };

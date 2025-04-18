@@ -125,6 +125,7 @@ void ContactShadowsPipeline::draw(VkCommandBuffer cmd, const ContactShadowsDrawI
 
     ContactShadowsPushConstants push{};
     push.debugMode = static_cast<ContactShadowsDebugMode>(drawInfo.debug);
+    push.bilinearThreshold = drawInfo.v;
 
     const DispatchList dispatchList = buildDispatchList(drawInfo.camera, drawInfo.light);
 

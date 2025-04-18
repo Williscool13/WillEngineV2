@@ -647,6 +647,7 @@ void Engine::draw(float deltaTime)
         camera,
         mainLight,
         contactShadowDebug,
+        bilinearThreshold,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
     };
@@ -1082,6 +1083,7 @@ void Engine::hotReloadShaders() const
     deferredMrtPipeline->reloadShaders();
     transparentPipeline->reloadShaders();
     ambientOcclusionPipeline->reloadShaders();
+    contactShadowsPipeline->reloadShaders();
     deferredResolvePipeline->reloadShaders();
     temporalAntialiasingPipeline->reloadShaders();
     postProcessPipeline->reloadShaders();

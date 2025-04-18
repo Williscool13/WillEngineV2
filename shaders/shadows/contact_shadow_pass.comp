@@ -22,10 +22,14 @@ layout (rgba8, set = 1, binding = 2) uniform image2D debugImage;
 // shadow fade at shadow edges
 #define FADE_OUT_SAMPLES 8
 
-#define FAR_DEPTH_VALUE 0
+// Main camera depth bounds
 #define NEAR_DEPTH_VALUE 1
+#define FAR_DEPTH_VALUE 0
 
+// Light VP dpeth bounds
 #define DEPTH_BOUNDS vec2(0, 1)
+
+#define USE_HALF_PIXEL_OFFSET 1
 
 layout (push_constant) uniform PushConstants {
     float surfaceThickness;
@@ -123,11 +127,8 @@ void main() {
     float pixel_distance;
     bool x_axis_major;
 
-
-
     ComputeWavefrontExtents(pushConstants.waveOffset, pushConstants.lightCoordinate, ivec3(gl_WorkGroupID), gl_LocalInvocationID.x,
     xy_delta, pixel_xy, pixel_distance, x_axis_major);
-
 
     // Read in the depth values
     float sampling_depth[READ_COUNT];
@@ -156,25 +157,17 @@ void main() {
         vec2 depths;
         float bilinear = fract(minor_axis) - 0.5;
 
-        //#if USE_HALF_PIXEL_OFFSET
-        //read_xy += 0.5;
-        //#endif
-
-        //#if USE_UV_PIXEL_BIAS
-        //float bias = bilinear > 0 ? 1 : -1;
-        //vec2 offset_xy = float2(x_axis_major ? 0 : bias, x_axis_major ? bias : 0);
+        #if USE_HALF_PIXEL_OFFSET
+        read_xy += 0.5;
+        #endif
 
         // HLSL enforces that a pixel offset is a compile-time constant, which isn't strictly required (and can sometimes be a bit faster)
         // So this fallback will use a manual uv offset instead
-        //depths.x = inParameters.DepthTexture.SampleLevel(inParameters.PointBorderSampler, read_xy * inParameters.InvDepthTextureSize, 0);
-        //depths.y = inParameters.DepthTexture.SampleLevel(inParameters.PointBorderSampler, (read_xy + offset_xy) * inParameters.InvDepthTextureSize, 0);
-        //#else
         int bias = bilinear > 0 ? 1 : -1;
-        ivec2 offset_xy = ivec2(x_axis_major ? 0 : bias, x_axis_major ? bias : 0);
+        vec2 offset_xy = vec2(x_axis_major ? 0 : bias, x_axis_major ? bias : 0);
 
         depths.x = textureLod(depthImage, read_xy * sceneData.texelSize, 0).r;
         depths.y = textureLod(depthImage, (read_xy + offset_xy) * sceneData.texelSize, 0).r;
-        //#endif
 
         // Depth thresholds (bilinear/shadow thickness) are based on a fractional ratio of the difference between sampled depth and the far clip depth
         depth_thickness_scale[i] = abs(FAR_DEPTH_VALUE - depths.x);
@@ -183,7 +176,9 @@ void main() {
         bool use_point_filter = abs(depths.x - depths.y) > depth_thickness_scale[i] * pushConstants.bilinearThreshold;
 
         // Store for debug output when inParameters.DebugOutputEdgeMask is true
-        if (i == 0) is_edge = use_point_filter;
+        if (i == 0) {
+            is_edge = use_point_filter;
+        }
 
         if (pushConstants.bilinearSamplingOffsetMode == 1)
         {
@@ -282,12 +277,12 @@ void main() {
         return;
     }
 
-
     float start_depth = sampling_depth[0];
 
     // lerp away from far depth by a tiny fraction?
-    if (pushConstants.bUsePrecisionOffset == 1)
-    start_depth = mix(start_depth, FAR_DEPTH_VALUE, -1.0 / 0xFFFF);
+    if (pushConstants.bUsePrecisionOffset == 1){
+        start_depth = mix(start_depth, FAR_DEPTH_VALUE, -1.0 / 0xFFFF);
+    }
 
     // perspective correct the depth
     start_depth = (start_depth - pushConstants.lightCoordinate.z) / sample_distance[0];
@@ -357,14 +352,14 @@ void main() {
     {
         switch (pushConstants.debugMode){
             case 1:
-                result = is_edge ? 1 : 0;
-                break;
+            result = is_edge ? 1 : 0;
+            break;
             case 2:
-                result = (gl_LocalInvocationID.x / float(WAVE_SIZE));
-                break;
+            result = (gl_LocalInvocationID.x / float(WAVE_SIZE));
+            break;
             case 3:
-                result = fract(ivec3(gl_WorkGroupID).x / float(WAVE_SIZE));
-                break;
+            result = fract(ivec3(gl_WorkGroupID).x / float(WAVE_SIZE));
+            break;
         }
 
         imageStore(debugImage, ivec2(write_xy), vec4(vec3(result), 1.0f));
