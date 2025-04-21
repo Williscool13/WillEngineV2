@@ -188,6 +188,8 @@ private: // Debug
     bool bDisableJitter{false};
     bool bHideTransparents{true};
     bool bEnableGTAO{true};
+    bool bEnableShadows{true};
+    bool bEnableContactShadows{true};
 
     void hotReloadShaders() const;
 

@@ -666,6 +666,8 @@ void Engine::draw(float deltaTime)
         cascadedShadowMap->getCascadedShadowMapSamplerBuffer().getDescriptorBufferBindingInfo(),
         camera->getNearPlane(),
         camera->getFarPlane(),
+        bEnableShadows,
+        bEnableContactShadows
     };
     deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);
 

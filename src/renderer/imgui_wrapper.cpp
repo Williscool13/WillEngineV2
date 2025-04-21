@@ -207,6 +207,9 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                         engine->gtaoDebug = 0;
                     }
                 }
+                ImGui::Checkbox("Enable Shadows", &engine->bEnableShadows);
+                ImGui::Checkbox("Enable Contact Shadows", &engine->bEnableContactShadows);
+
                 ImGui::Separator();
                 ImGui::Text("Main Directional Light");
                 float direction[3] = {engine->mainLight.direction.x, engine->mainLight.direction.y, engine->mainLight.direction.z};
