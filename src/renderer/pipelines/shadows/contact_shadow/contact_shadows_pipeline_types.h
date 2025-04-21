@@ -50,9 +50,10 @@ struct ContactShadowsPushConstants
     int32_t bBilinearSamplingOffsetMode{0};
 
     glm::vec2 depthBounds{0, 1};
-    int32_t bUseEarlyOut{0};
+    int32_t bUseEarlyOut{1};
 
-    ContactShadowsDebugMode debugMode{ContactShadowsDebugMode::NONE};
+    //ContactShadowsDebugMode debugMode{ContactShadowsDebugMode::NONE};
+    int32_t debugMode{0};
 
     glm::ivec2 waveOffset{0};
     glm::vec4 lightCoordinate{0.0f};
@@ -62,8 +63,7 @@ struct ContactShadowsDrawInfo
 {
     Camera* camera;
     DirectionalLight light;
-    int32_t debug;
-    float v;
+    ContactShadowsPushConstants push;
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};
 };

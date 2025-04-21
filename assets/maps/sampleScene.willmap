@@ -6,7 +6,7 @@
     },
     "metadata": {
         "name": "sampleScene",
-        "created": "2025-04-06 11:32:54",
+        "created": "2025-04-21 21:26:24",
         "formatVersion": 1
     },
     "rootComponents": {
@@ -236,7 +236,7 @@
                 "transform": {
                     "position": {
                         "x": 0.0,
-                        "y": 41.5,
+                        "y": 38.79999923706055,
                         "z": 0.0
                     },
                     "rotation": {
@@ -262,7 +262,7 @@
                     "RigidBodyComponent": {
                         "properties": {
                             "isActive": true,
-                            "motionType": 1,
+                            "motionType": 2,
                             "layer": 1,
                             "shapeType": 0,
                             "shapeParams": {
@@ -653,6 +653,96 @@
                         }
                     }
                 ]
+            },
+            {
+                "id": 15,
+                "name": "GameObject_15",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": 37.70000076293945,
+                        "z": 0.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 20.0,
+                        "y": 0.20000000298023224,
+                        "z": 20.0
+                    }
+                },
+                "components": {
+                    "MeshRendererComponent": {
+                        "renderReference": 3129368917,
+                        "renderMeshIndex": 1,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "Mesh Renderer"
+                    },
+                    "RigidBodyComponent": {
+                        "properties": {
+                            "isActive": true,
+                            "motionType": 1,
+                            "layer": 0,
+                            "shapeType": 1,
+                            "shapeParams": {
+                                "x": 10.0,
+                                "y": 0.10000000149011612,
+                                "z": 10.0
+                            }
+                        },
+                        "componentName": "New RigidBodyComponent"
+                    }
+                }
+            },
+            {
+                "id": 16,
+                "name": "GameObject_16",
+                "transform": {
+                    "position": {
+                        "x": -7.5,
+                        "y": 38.79999923706055,
+                        "z": 0.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "components": {
+                    "MeshRendererComponent": {
+                        "renderReference": 3129368917,
+                        "renderMeshIndex": 0,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "Mesh Renderer"
+                    },
+                    "RigidBodyComponent": {
+                        "properties": {
+                            "isActive": true,
+                            "motionType": 2,
+                            "layer": 1,
+                            "shapeType": 0,
+                            "shapeParams": {
+                                "x": 1.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            }
+                        },
+                        "componentName": "New RigidBodyComponent"
+                    }
+                }
             }
         ]
     }

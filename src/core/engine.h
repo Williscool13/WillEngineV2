@@ -182,8 +182,7 @@ private: // Debug
     int32_t csmPcf{1};
     int32_t deferredDebug{0};
     int32_t gtaoDebug{4};
-    int32_t contactShadowDebug{0};
-    float bilinearThreshold{0.2f};
+    contact_shadows_pipeline::ContactShadowsPushConstants sssPush;
     bool bDrawTerrainLines{false};
     bool bPausePhysics{true};
     bool bDisableJitter{false};

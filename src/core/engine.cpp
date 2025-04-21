@@ -646,11 +646,11 @@ void Engine::draw(float deltaTime)
     contact_shadows_pipeline::ContactShadowsDrawInfo contactDrawInfo{
         camera,
         mainLight,
-        contactShadowDebug,
-        bilinearThreshold,
+        sssPush,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
     };
+
     contactShadowsPipeline->draw(cmd, contactDrawInfo);
 
     const deferred_resolve::DeferredResolveDrawInfo deferredResolveDrawInfo{

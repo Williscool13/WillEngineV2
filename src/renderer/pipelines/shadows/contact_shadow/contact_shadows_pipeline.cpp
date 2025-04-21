@@ -123,9 +123,7 @@ void ContactShadowsPipeline::draw(VkCommandBuffer cmd, const ContactShadowsDrawI
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
 
-    ContactShadowsPushConstants push{};
-    push.debugMode = static_cast<ContactShadowsDebugMode>(drawInfo.debug);
-    push.bilinearThreshold = drawInfo.v;
+    ContactShadowsPushConstants push{drawInfo.push};
 
     const DispatchList dispatchList = buildDispatchList(drawInfo.camera, drawInfo.light);
 
@@ -177,7 +175,7 @@ DispatchList ContactShadowsPipeline::buildDispatchList(const Camera* camera, con
 {
     DispatchList result = {};
 
-    glm::vec4 lightProjection = camera->getViewProjMatrix() * glm::vec4(mainLight.getDirection(), 0.0f);
+    glm::vec4 lightProjection = camera->getViewProjMatrix() * glm::vec4(-mainLight.getDirection(), 0.0f);
 
     // Floating point division in the shader has a practical limit for precision when the light is *very* far off screen (~1m pixels+)
     // So when computing the light XY coordinate, use an adjusted w value to handle these extreme values

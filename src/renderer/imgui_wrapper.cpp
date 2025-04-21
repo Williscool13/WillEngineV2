@@ -1085,8 +1085,16 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::End();
 
     if (ImGui::Begin("Discardable Debug")) {
-        ImGui::SliderInt("Contact Shadow Debug", &engine->contactShadowDebug, 0, 3);
-        ImGui::InputFloat("Blinear Threshold", &engine->bilinearThreshold);
+        ImGui::InputFloat("Blinear Threshold", &engine->sssPush.bilinearThreshold);
+        ImGui::InputFloat("Surface Thickness", &engine->sssPush.surfaceThickness);
+        ImGui::InputFloat("Shadow Contrast", &engine->sssPush.shadowContrast);
+
+        ImGui::SliderInt("Contact Shadow Debug", &engine->sssPush.debugMode, 0, 4);
+
+        ImGui::SliderInt("Ignore Edge Pixels", &engine->sssPush.bIgnoreEdgePixels, 0, 1);
+        ImGui::SliderInt("Use Precision Offset", &engine->sssPush.bUsePrecisionOffset, 0, 1);
+        ImGui::SliderInt("Bilinear Offset Sampling Mode", &engine->sssPush.bBilinearSamplingOffsetMode, 0, 1);
+
 
         if (contactShadowsOutputImguiId == VK_NULL_HANDLE) {
             if (engine->contactShadowsPipeline->debugImage.imageView != VK_NULL_HANDLE) {

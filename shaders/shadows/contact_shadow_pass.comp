@@ -166,8 +166,14 @@ void main() {
         int bias = bilinear > 0 ? 1 : -1;
         vec2 offset_xy = vec2(x_axis_major ? 0 : bias, x_axis_major ? bias : 0);
 
-        depths.x = textureLod(depthImage, read_xy * sceneData.texelSize, 0).r;
-        depths.y = textureLod(depthImage, (read_xy + offset_xy) * sceneData.texelSize, 0).r;
+        vec2 read_xy_one = read_xy * sceneData.texelSize;
+        read_xy_one.y = 1 - read_xy_one.y;
+        vec2 read_xy_two = (read_xy + offset_xy) * sceneData.texelSize;
+        read_xy_two.y = 1 - read_xy_two.y;
+        //depths.x = textureLod(depthImage, read_xy * sceneData.texelSize, 0).r;
+        depths.x = textureLod(depthImage, read_xy_one, 0).r;
+        //depths.y = textureLod(depthImage, (read_xy + offset_xy) * sceneData.texelSize, 0).r;
+        depths.y = textureLod(depthImage, read_xy_two, 0).r;
 
         // Depth thresholds (bilinear/shadow thickness) are based on a fractional ratio of the difference between sampled depth and the far clip depth
         depth_thickness_scale[i] = abs(FAR_DEPTH_VALUE - depths.x);
@@ -209,7 +215,7 @@ void main() {
     }
 
     // Using early out, and no debug mode is enabled?
-    //    if (pushConstants.bUseEarlyOut == 1 && (inParameters.DebugOutputWaveIndex == false && inParameters.DebugOutputThreadIndex == false && inParameters.DebugOutputEdgeMask == false))
+    //    if (pushConstants.bUseEarlyOut == 1 && pushConstants.debugMode == 0)
     //    {
     //        // read the depth of the pixel we are shadowing, and early-out
     //        // The compiler will typically rearrange this code to put it directly after the first depth read
@@ -360,6 +366,9 @@ void main() {
             case 3:
             result = fract(ivec3(gl_WorkGroupID).x / float(WAVE_SIZE));
             break;
+            case 4:
+            imageStore(debugImage, ivec2(write_xy), vec4(vec3(pixel_distance * sceneData.texelSize.x), 1.0f));
+            return;
         }
 
         imageStore(debugImage, ivec2(write_xy), vec4(vec3(result), 1.0f));
