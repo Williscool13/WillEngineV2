@@ -17,8 +17,9 @@ layout (set = 1, binding = 2) uniform sampler2D pbrRenderTarget;
 layout (set = 1, binding = 3) uniform sampler2D depthBuffer;
 layout (set = 1, binding = 4) uniform sampler2D velocityBuffer;// velocity buffer is not actually used in this deferred resolve
 layout (set = 1, binding = 5) uniform sampler2D aoBuffer;
+layout (set = 1, binding = 6) uniform sampler2D contactShadowBuffer;
 
-layout (rgba16f, set = 1, binding = 6) uniform image2D outputImage;
+layout (rgba16f, set = 1, binding = 7) uniform image2D outputImage;
 
 layout (set = 2, binding = 0) uniform samplerCube environmentDiffuseAndSpecular;
 layout (set = 2, binding = 1) uniform sampler2D lut;
@@ -192,5 +193,10 @@ void main() {
         float ao = texture(aoBuffer, uv).r;
         imageStore(outputImage, screenPos, vec4(vec3(ao), 1.0f));
         break;
+        case 10:
+        float contactShadow = texture(contactShadowBuffer, uv).r;
+        imageStore(outputImage, screenPos, vec4(vec3(contactShadow), 1.0f));
+        break;
+
     }
 }

@@ -224,7 +224,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 ImGui::Checkbox("Disable Physics", &engine->bPausePhysics);
 
                 ImGui::Text("Deferred Debug");
-                const char* deferredDebugOptions[]{"None", "Depth", "Velocity", "Albedo", "Normal", "PBR", "Shadows", "Cascade Level", "nDotL", "AO"};
+                const char* deferredDebugOptions[]{"None", "Depth", "Velocity", "Albedo", "Normal", "PBR", "Shadows", "Cascade Level", "nDotL", "AO", "Contact Shadows"};
                 ImGui::Combo("Deferred Debug", &engine->deferredDebug, deferredDebugOptions, IM_ARRAYSIZE(deferredDebugOptions));
                 ImGui::Separator();
 
@@ -1089,7 +1089,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         ImGui::InputFloat("Surface Thickness", &engine->sssPush.surfaceThickness);
         ImGui::InputFloat("Shadow Contrast", &engine->sssPush.shadowContrast);
 
-        ImGui::SliderInt("Contact Shadow Debug", &engine->sssPush.debugMode, 0, 4);
+        ImGui::SliderInt("Contact Shadow Debug", &engine->sssPush.debugMode, 0, 3);
 
         ImGui::SliderInt("Ignore Edge Pixels", &engine->sssPush.bIgnoreEdgePixels, 0, 1);
         ImGui::SliderInt("Use Precision Offset", &engine->sssPush.bUsePrecisionOffset, 0, 1);

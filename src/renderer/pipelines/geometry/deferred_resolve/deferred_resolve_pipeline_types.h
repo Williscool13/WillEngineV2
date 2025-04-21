@@ -17,6 +17,7 @@ struct DeferredResolveDescriptor
     VkImageView depthTarget;
     VkImageView velocityTarget;
     VkImageView aoTarget;
+    VkImageView contactShadowsTarget;
     VkImageView outputTarget;
 
     VkSampler sampler;

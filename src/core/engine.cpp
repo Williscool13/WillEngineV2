@@ -232,6 +232,7 @@ void Engine::initRenderer()
         depthImage.imageView,
         velocityRenderTarget.imageView,
         ambientOcclusionPipeline->getAmbientOcclusionRenderTarget().imageView,
+        contactShadowsPipeline->getContactShadowRenderTarget().imageView,
         drawImage.imageView,
         resourceManager->getDefaultSamplerLinear()
     };

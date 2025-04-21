@@ -54,7 +54,7 @@ will_engine::deferred_resolve::DeferredResolvePipeline::~DeferredResolvePipeline
 void will_engine::deferred_resolve::DeferredResolvePipeline::setupDescriptorBuffer(const DeferredResolveDescriptor& drawInfo)
 {
     std::vector<DescriptorImageData> renderTargetDescriptors;
-    renderTargetDescriptors.reserve(6);
+    renderTargetDescriptors.reserve(8);
 
     VkDescriptorImageInfo normalTarget = {};
     normalTarget.sampler = drawInfo.sampler;
@@ -86,6 +86,11 @@ void will_engine::deferred_resolve::DeferredResolvePipeline::setupDescriptorBuff
     aoTarget.imageView = drawInfo.aoTarget;
     aoTarget.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
+    VkDescriptorImageInfo contactShadow = {};
+    contactShadow.sampler = drawInfo.sampler;
+    contactShadow.imageView = drawInfo.contactShadowsTarget;
+    contactShadow.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+
     VkDescriptorImageInfo drawImageTarget = {};
     drawImageTarget.imageView = drawInfo.outputTarget;
     drawImageTarget.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
@@ -96,6 +101,7 @@ void will_engine::deferred_resolve::DeferredResolvePipeline::setupDescriptorBuff
     renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, depthImageTarget, false});
     renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, velocityTarget, false});
     renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, aoTarget, false});
+    renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, contactShadow, false});
     renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, drawImageTarget, false});
 
     resourceManager.setupDescriptorBufferSampler(resolveDescriptorBuffer, renderTargetDescriptors, 0);

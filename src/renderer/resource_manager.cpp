@@ -122,7 +122,8 @@ will_engine::ResourceManager::ResourceManager(const VulkanContext& context, Imme
         layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // Depth
         layoutBuilder.addBinding(4, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // Velocity
         layoutBuilder.addBinding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // AO
-        layoutBuilder.addBinding(6, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // Output
+        layoutBuilder.addBinding(6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // Screen Space Contact Shadows
+        layoutBuilder.addBinding(7, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // Output
 
         renderTargetsLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
