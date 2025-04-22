@@ -14,104 +14,6 @@
 #include "src/util/math_constants.h"
 #include "src/util/render_utils.h"
 
-
-void will_engine::cascaded_shadows::CascadedShadowMap::createRenderObjectPipeline()
-{
-    resourceManager.destroyPipeline(renderObjectPipeline);
-
-    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.vert");
-    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.frag");
-
-    PipelineBuilder pipelineBuilder;
-    VkVertexInputBindingDescription mainBinding{};
-    mainBinding.binding = 0;
-    mainBinding.stride = sizeof(Vertex);
-    mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    VkVertexInputAttributeDescription vertexAttributes[1];
-    vertexAttributes[0].binding = 0;
-    vertexAttributes[0].location = 0;
-    vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertexAttributes[0].offset = offsetof(Vertex, position);
-
-    pipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 1);
-
-    pipelineBuilder.setShaders(vertShader, fragShader);
-    pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-    pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
-    // set later during shadow pass
-    pipelineBuilder.enableDepthBias(0.0f, 0, 0.0f);
-    pipelineBuilder.disableMultisampling();
-    pipelineBuilder.disableBlending();
-    pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_LESS_OR_EQUAL);
-    pipelineBuilder.setupRenderer({}, DEPTH_FORMAT);
-    pipelineBuilder.setupPipelineLayout(renderObjectPipelineLayout);
-
-    renderObjectPipeline = resourceManager.createRenderPipeline(pipelineBuilder, {VK_DYNAMIC_STATE_DEPTH_BIAS});
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
-}
-
-void will_engine::cascaded_shadows::CascadedShadowMap::createTerrainPipeline()
-{
-    resourceManager.destroyPipeline(terrainPipeline);
-
-    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/shadows/terrain_shadow_pass.vert");
-    VkShaderModule tescShader = resourceManager.createShaderModule("shaders/shadows/terrain_shadow_pass.tesc");
-    VkShaderModule teseShader = resourceManager.createShaderModule("shaders/shadows/terrain_shadow_pass.tese");
-    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.frag");
-
-    PipelineBuilder pipelineBuilder;
-    VkVertexInputBindingDescription mainBinding{};
-    mainBinding.binding = 0;
-    mainBinding.stride = sizeof(terrain::TerrainVertex);
-    mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    VkVertexInputAttributeDescription vertexAttributes[1];
-    vertexAttributes[0].binding = 0;
-    vertexAttributes[0].location = 0;
-    vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertexAttributes[0].offset = offsetof(terrain::TerrainVertex, position);
-
-    pipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 1);
-
-    pipelineBuilder.setShaders(vertShader, tescShader, teseShader, fragShader);
-    pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_PATCH_LIST, false);
-    pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
-    // set later during shadow pass
-    pipelineBuilder.enableDepthBias(0.0f, 0, 0.0f);
-    pipelineBuilder.disableMultisampling();
-    pipelineBuilder.disableBlending();
-    pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_LESS_OR_EQUAL);
-    pipelineBuilder.setupRenderer({}, DEPTH_FORMAT);
-    pipelineBuilder.setupPipelineLayout(terrainPipelineLayout);
-    pipelineBuilder.setupTessellation(4);
-
-    terrainPipeline = resourceManager.createRenderPipeline(pipelineBuilder, {VK_DYNAMIC_STATE_DEPTH_BIAS});
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(tescShader);
-    resourceManager.destroyShaderModule(teseShader);
-    resourceManager.destroyShaderModule(fragShader);
-}
-
-void will_engine::cascaded_shadows::CascadedShadowMap::generateSplits() {
-    const float ratio = csmProperties.cascadeFarPlane / csmProperties.cascadeNearPlane;
-    shadowMaps[0].split.nearPlane = csmProperties.cascadeNearPlane;
-
-    for (size_t i = 1; i < SHADOW_CASCADE_COUNT; i++) {
-        const float si = static_cast<float>(i) / static_cast<float>(SHADOW_CASCADE_COUNT);
-
-        const float uniformTerm = csmProperties.cascadeNearPlane + (csmProperties.cascadeFarPlane - csmProperties.cascadeNearPlane) * si;
-        const float logTerm = csmProperties.cascadeNearPlane * std::pow(ratio, si);
-        const float nearValue = csmProperties.splitLambda * logTerm + (1.0f - csmProperties.splitLambda) * uniformTerm;
-
-        const float farValue = nearValue * csmProperties.splitOverlap;
-
-        shadowMaps[i].split.nearPlane = nearValue;
-        shadowMaps[i - 1].split.farPlane = farValue;
-    }
-
-    shadowMaps[SHADOW_CASCADE_COUNT - 1].split.farPlane = csmProperties.cascadeFarPlane;
-}
-
 will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceManager& resourceManager)
     : resourceManager(resourceManager)
 {
@@ -140,7 +42,7 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
 
     generateSplits();
 
-    fmt::print("Shadow Map: (Splits) {} - ", shadowMaps[0].split.nearPlane);
+    fmt::print("Shadow Map: (Splits) ");
     for (int32_t i = 0; i < SHADOW_CASCADE_COUNT; ++i) {
         fmt::print("{} - ", shadowMaps[i].split.nearPlane);
     }
@@ -515,4 +417,102 @@ glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(
     }
 
     return lightProj * lightView;
+}
+
+
+void will_engine::cascaded_shadows::CascadedShadowMap::createRenderObjectPipeline()
+{
+    resourceManager.destroyPipeline(renderObjectPipeline);
+
+    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.vert");
+    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.frag");
+
+    PipelineBuilder pipelineBuilder;
+    VkVertexInputBindingDescription mainBinding{};
+    mainBinding.binding = 0;
+    mainBinding.stride = sizeof(Vertex);
+    mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    VkVertexInputAttributeDescription vertexAttributes[1];
+    vertexAttributes[0].binding = 0;
+    vertexAttributes[0].location = 0;
+    vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    vertexAttributes[0].offset = offsetof(Vertex, position);
+
+    pipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 1);
+
+    pipelineBuilder.setShaders(vertShader, fragShader);
+    pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
+    // set later during shadow pass
+    pipelineBuilder.enableDepthBias(0.0f, 0, 0.0f);
+    pipelineBuilder.disableMultisampling();
+    pipelineBuilder.disableBlending();
+    pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_LESS_OR_EQUAL);
+    pipelineBuilder.setupRenderer({}, DEPTH_FORMAT);
+    pipelineBuilder.setupPipelineLayout(renderObjectPipelineLayout);
+
+    renderObjectPipeline = resourceManager.createRenderPipeline(pipelineBuilder, {VK_DYNAMIC_STATE_DEPTH_BIAS});
+    resourceManager.destroyShaderModule(vertShader);
+    resourceManager.destroyShaderModule(fragShader);
+}
+
+void will_engine::cascaded_shadows::CascadedShadowMap::createTerrainPipeline()
+{
+    resourceManager.destroyPipeline(terrainPipeline);
+
+    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/shadows/terrain_shadow_pass.vert");
+    VkShaderModule tescShader = resourceManager.createShaderModule("shaders/shadows/terrain_shadow_pass.tesc");
+    VkShaderModule teseShader = resourceManager.createShaderModule("shaders/shadows/terrain_shadow_pass.tese");
+    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.frag");
+
+    PipelineBuilder pipelineBuilder;
+    VkVertexInputBindingDescription mainBinding{};
+    mainBinding.binding = 0;
+    mainBinding.stride = sizeof(terrain::TerrainVertex);
+    mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    VkVertexInputAttributeDescription vertexAttributes[1];
+    vertexAttributes[0].binding = 0;
+    vertexAttributes[0].location = 0;
+    vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    vertexAttributes[0].offset = offsetof(terrain::TerrainVertex, position);
+
+    pipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 1);
+
+    pipelineBuilder.setShaders(vertShader, tescShader, teseShader, fragShader);
+    pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_PATCH_LIST, false);
+    pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
+    // set later during shadow pass
+    pipelineBuilder.enableDepthBias(0.0f, 0, 0.0f);
+    pipelineBuilder.disableMultisampling();
+    pipelineBuilder.disableBlending();
+    pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_LESS_OR_EQUAL);
+    pipelineBuilder.setupRenderer({}, DEPTH_FORMAT);
+    pipelineBuilder.setupPipelineLayout(terrainPipelineLayout);
+    pipelineBuilder.setupTessellation(4);
+
+    terrainPipeline = resourceManager.createRenderPipeline(pipelineBuilder, {VK_DYNAMIC_STATE_DEPTH_BIAS});
+    resourceManager.destroyShaderModule(vertShader);
+    resourceManager.destroyShaderModule(tescShader);
+    resourceManager.destroyShaderModule(teseShader);
+    resourceManager.destroyShaderModule(fragShader);
+}
+
+void will_engine::cascaded_shadows::CascadedShadowMap::generateSplits() {
+    const float ratio = csmProperties.cascadeFarPlane / csmProperties.cascadeNearPlane;
+    shadowMaps[0].split.nearPlane = csmProperties.cascadeNearPlane;
+
+    for (size_t i = 1; i < SHADOW_CASCADE_COUNT; i++) {
+        const float si = static_cast<float>(i) / static_cast<float>(SHADOW_CASCADE_COUNT);
+
+        const float uniformTerm = csmProperties.cascadeNearPlane + (csmProperties.cascadeFarPlane - csmProperties.cascadeNearPlane) * si;
+        const float logTerm = csmProperties.cascadeNearPlane * std::pow(ratio, si);
+        const float nearValue = csmProperties.splitLambda * logTerm + (1.0f - csmProperties.splitLambda) * uniformTerm;
+
+        const float farValue = nearValue * csmProperties.splitOverlap;
+
+        shadowMaps[i].split.nearPlane = nearValue;
+        shadowMaps[i - 1].split.farPlane = farValue;
+    }
+
+    shadowMaps[SHADOW_CASCADE_COUNT - 1].split.farPlane = csmProperties.cascadeFarPlane;
 }

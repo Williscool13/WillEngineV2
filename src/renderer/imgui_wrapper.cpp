@@ -163,23 +163,31 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
 
             if (ImGui::BeginTabItem("Startup")) {
-                ImGui::Columns(2, "StartupTimers");
+                const auto& entries = engine->startupProfiler.getEntries();
 
-                ImGui::Text("Operation");
-                ImGui::NextColumn();
-                ImGui::Text("Time (ms)");
-                ImGui::NextColumn();
+                ImGui::Columns(2, "StartupProfilerColumns", true);
+                ImGui::SetColumnWidth(0, 400);
+                ImGui::Text("Entry Name"); ImGui::NextColumn();
+                ImGui::Text("Time Diff (ms)"); ImGui::NextColumn();
                 ImGui::Separator();
 
-                for (const auto& [name, timer] : engine->startupProfiler.getTimers()) {
-                    std::string_view nameView = name;
-                    if (!nameView.empty()) {
-                        nameView.remove_prefix(1);
-                    }
+                if (entries.empty()) {
+                    ImGui::Text("No profiling data available");
+                    ImGui::Columns(1);
+                    return;
+                }
 
-                    ImGui::Text("%s", nameView.data());
+                for (size_t i = 0; i < entries.size(); i++) {
+                    ImGui::Text("%s", entries[i].name.c_str());
                     ImGui::NextColumn();
-                    ImGui::Text("%.2f", timer.getAverageTime());
+
+                    if (i == 0) {
+                        ImGui::Text("0.00");
+                    } else {
+                        auto diff = std::chrono::duration_cast<std::chrono::microseconds>(
+                            entries[i].time - entries[i-1].time).count() / 1000.0f;
+                        ImGui::Text("%.2f", diff);
+                    }
                     ImGui::NextColumn();
                 }
 

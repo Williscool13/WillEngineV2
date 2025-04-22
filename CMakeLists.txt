@@ -96,8 +96,6 @@ set(CORE_SOURCES
         src/core/engine_types.h
         src/core/transform.h
         src/core/transform.cpp
-        src/core/identifier/identifier_manager.cpp
-        src/core/identifier/identifier_manager.h
         src/core/game_object/game_object.h
         src/core/game_object/game_object.cpp
         src/core/game_object/transformable.h
@@ -112,7 +110,6 @@ set(CORE_SOURCES
         src/core/game_object/components/component_factory.h
         src/core/game_object/components/rigid_body_component.h
         src/core/game_object/components/rigid_body_component.cpp
-        src/core/identifier/identifiable.h
         src/core/camera/camera.cpp
         src/core/camera/camera.h
         src/core/camera/camera_types.h

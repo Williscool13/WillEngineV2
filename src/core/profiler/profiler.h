@@ -8,6 +8,32 @@
 
 #include "src/util/profiling_utils.h"
 
+namespace will_engine
+{
+struct StartupProfilerEntry
+{
+    std::string name;
+    std::chrono::steady_clock::time_point time{};
+};
+}
+
+class StartupProfiler
+{
+public:
+    void addEntry(const std::string& name)
+    {
+        entries.push_back({std::move(name), std::chrono::steady_clock::now()});
+    }
+
+    const std::vector<will_engine::StartupProfilerEntry>& getEntries()
+    {
+        return entries;
+    }
+
+
+private:
+    std::vector<will_engine::StartupProfilerEntry> entries;
+};
 
 class Profiler
 {

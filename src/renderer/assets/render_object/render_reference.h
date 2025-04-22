@@ -7,8 +7,6 @@
 
 #include <glm/glm.hpp>
 
-#include "src/core/identifier/identifiable.h"
-
 namespace will_engine
 {
 class IRenderable;

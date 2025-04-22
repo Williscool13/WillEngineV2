@@ -27,7 +27,7 @@ struct CascadedShadowMapProperties
     float splitOverlap = 1.05f;
 
     float cascadeNearPlane{0.1f};
-    float cascadeFarPlane{400.0f};
+    float cascadeFarPlane{100.0f};
 
     std::array<cascaded_shadows::CascadeBias, SHADOW_CASCADE_COUNT> cascadeBias{
         CascadeBias(500.0f, 0.7f),
@@ -36,8 +36,11 @@ struct CascadedShadowMapProperties
         {300.0f, 1.0f},
     };
 
+    /**
+     * Don't modify from defaults, csm not set up to react to that
+     */
     std::array<VkExtent3D, SHADOW_CASCADE_COUNT> cascadeExtents{
-        VkExtent3D(1024, 1024, 1),
+        VkExtent3D(2048, 2048, 1),
         {2048, 2048, 1},
         {2048, 2048, 1},
         {2048, 2048, 1}

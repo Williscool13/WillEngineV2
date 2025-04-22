@@ -11,8 +11,6 @@
 #include <Jolt/Jolt.h>
 #include <Jolt/Physics/Body/BodyCreationSettings.h>
 
-#include "identifier/identifier_manager.h"
-
 #include "camera/free_camera.h"
 #include "game_object/game_object.h"
 #include "scene/serializer.h"
@@ -71,6 +69,7 @@ void Engine::init()
     instance = this;
     fmt::print("----------------------------------------\n");
     fmt::print("Initializing {}\n", ENGINE_NAME);
+    startupProfiler.addEntry("Start");
     const auto start = std::chrono::system_clock::now();
 
 
@@ -89,23 +88,17 @@ void Engine::init()
 
     Input::Get().init(window);
 
-    startupProfiler.addTimer("0Context");
-    startupProfiler.addTimer("1Immediate");
-    startupProfiler.addTimer("2ResourceManager");
-    startupProfiler.addTimer("3Physics");
-    startupProfiler.addTimer("4Environment");
-    startupProfiler.addTimer("5Load Environment 0");
-    startupProfiler.addTimer("6Load Environment 1");
-    startupProfiler.addTimer("7Load CSM");
-    startupProfiler.addTimer("8Init Renderer");
-    startupProfiler.addTimer("9Init Game");
+    startupProfiler.addEntry("Windowing");
 
-    startupProfiler.beginTimer("0Context");
+
     context = new VulkanContext(window, USE_VALIDATION_LAYERS);
-    startupProfiler.endTimer("0Context");
+
+    startupProfiler.addEntry("Vulkan Context");
 
     createSwapchain(windowExtent.width, windowExtent.height);
     createDrawResources();
+
+    startupProfiler.addEntry("Swapchain/Draw Resources");
 
     // Command Pools
     const VkCommandPoolCreateInfo commandPoolInfo = vk_helpers::commandPoolCreateInfo(context->graphicsQueueFamily,
@@ -126,56 +119,43 @@ void Engine::init()
         VK_CHECK(vkCreateSemaphore(context->device, &semaphoreCreateInfo, nullptr, &frame._renderSemaphore));
     }
 
+    startupProfiler.addEntry("Command Pool and Sync Structures");
 
-    startupProfiler.beginTimer("1Immediate");
     immediate = new ImmediateSubmitter(*context);
-    startupProfiler.endTimer("1Immediate");
-
-    startupProfiler.beginTimer("2ResourceManager");
     resourceManager = new ResourceManager(*context, *immediate);
-    startupProfiler.endTimer("2ResourceManager");
-
     assetManager = new AssetManager(*resourceManager);
+    physics = new physics::Physics();
+    physics::Physics::set(physics);
+    startupProfiler.addEntry("Immediate, ResourceM, AssetM, Physics");
 
-    identifierManager = new identifier::IdentifierManager();
-    identifier::IdentifierManager::Set(identifierManager);
-
-    startupProfiler.beginTimer("3Physics");
-    physics::Physics::set(new physics::Physics());
-    startupProfiler.endTimer("3Physics");
-
-    startupProfiler.beginTimer("4Environment");
     environmentMap = new environment::Environment(*resourceManager, *immediate);
-    startupProfiler.endTimer("4Environment");
+    startupProfiler.addEntry("Environment");
 
     auto& factory = components::ComponentFactory::getInstance();
     factory.registerComponents();
 
     const std::filesystem::path envMapSource = "assets/environments";
 
-    startupProfiler.beginTimer("5Load Environment");
     environmentMap->loadEnvironment("Overcast Sky", (envMapSource / "kloofendal_overcast_puresky_4k.hdr").string().c_str(), 2);
     // environmentMap->loadEnvironment("Wasteland", (envMapSource / "wasteland_clouds_puresky_4k.hdr").string().c_str(), 1);
     // environmentMap->loadEnvironment("Belfast Sunset", (envMapSource / "belfast_sunset_puresky_4k.hdr").string().c_str(), 0);
     // environmentMap->loadEnvironment("Rogland Clear Night", (envMapSource / "rogland_clear_night_4k.hdr").string().c_str(), 4);
-    startupProfiler.endTimer("5Load Environment");
+    startupProfiler.addEntry("Load Environments");
 
 
     cascadedShadowMap = new cascaded_shadows::CascadedShadowMap(*resourceManager);
     csmProperties = cascadedShadowMap->getCascadedShadowMapProperties();
+    startupProfiler.addEntry("CSM");
 
     if (engine_constants::useImgui) {
         imguiWrapper = new ImguiWrapper(*context, {window, swapchainImageFormat});
     }
 
 
-    startupProfiler.beginTimer("8Init Renderer");
     initRenderer();
-    startupProfiler.endTimer("8Init Renderer");
 
-    startupProfiler.beginTimer("9Init Game");
     initGame();
-    startupProfiler.endTimer("9Init Game");
+    startupProfiler.addEntry("Init Game");
 
     profiler.addTimer("0Physics");
     profiler.addTimer("1Game");
@@ -206,19 +186,29 @@ void Engine::initRenderer()
     sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData, FRAME_OVERLAP);
 
     visibilityPassPipeline = new visibility_pass_pipeline::VisibilityPassPipeline(*resourceManager);
+    startupProfiler.addEntry("Init Vis Pass");
     environmentPipeline = new environment_pipeline::EnvironmentPipeline(*resourceManager, environmentMap->getCubemapDescriptorSetLayout());
+    startupProfiler.addEntry("Init Environment Pass");
     terrainPipeline = new terrain::TerrainPipeline(*resourceManager);
+    startupProfiler.addEntry("Init Terrain Pass");
     deferredMrtPipeline = new deferred_mrt::DeferredMrtPipeline(*resourceManager);
+    startupProfiler.addEntry("Init Deffered MRT Pass");
     ambientOcclusionPipeline = new ambient_occlusion::GroundTruthAmbientOcclusionPipeline(*resourceManager);
+    startupProfiler.addEntry("Init GTAO Pass");
     contactShadowsPipeline = new contact_shadows_pipeline::ContactShadowsPipeline(*resourceManager);
+    startupProfiler.addEntry("Init SSS Pass");
     deferredResolvePipeline = new deferred_resolve::DeferredResolvePipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
                                                                             cascadedShadowMap->getCascadedShadowMapUniformLayout(),
                                                                             cascadedShadowMap->getCascadedShadowMapSamplerLayout());
+    startupProfiler.addEntry("Init Deferred Resolve Pass");
     temporalAntialiasingPipeline = new temporal_antialiasing_pipeline::TemporalAntialiasingPipeline(*resourceManager);
+    startupProfiler.addEntry("Init TAA Pass");
     transparentPipeline = new transparent_pipeline::TransparentPipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
                                                                         cascadedShadowMap->getCascadedShadowMapUniformLayout(),
                                                                         cascadedShadowMap->getCascadedShadowMapSamplerLayout());
+    startupProfiler.addEntry("Init Transparent Pass");
     postProcessPipeline = new post_process_pipeline::PostProcessPipeline(*resourceManager);
+    startupProfiler.addEntry("Init PP Pass");
 
     ambientOcclusionPipeline->setupDepthPrefilterDescriptorBuffer(depthImage.imageView);
     ambientOcclusionPipeline->setupAmbientOcclusionDescriptorBuffer(normalRenderTarget.imageView);
@@ -846,7 +836,6 @@ void Engine::cleanup()
     delete physics::Physics::get();
     delete immediate;
     delete resourceManager;
-    delete identifierManager;
 
     vkDestroySwapchainKHR(context->device, swapchain, nullptr);
     for (const VkImageView swapchainImageView : swapchainImageViews) {

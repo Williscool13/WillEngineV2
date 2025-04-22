@@ -153,16 +153,17 @@ private:
     SDL_Window* window{nullptr};
 
     VulkanContext* context{nullptr};
-    ImmediateSubmitter* immediate = nullptr;
-    ResourceManager* resourceManager = nullptr;
-    identifier::IdentifierManager* identifierManager = nullptr;
+    ImmediateSubmitter* immediate{nullptr};
+    ResourceManager* resourceManager{nullptr};
+    AssetManager* assetManager{nullptr};
+    physics::Physics* physics{nullptr};
 
     environment::Environment* environmentMap{nullptr};
 
     terrain::TerrainManager* terrainManager{nullptr};
     ImguiWrapper* imguiWrapper = nullptr;
 
-    Profiler startupProfiler{};
+    StartupProfiler startupProfiler{};
     Profiler profiler{};
 
 private: // Rendering
@@ -220,7 +221,7 @@ private: // Scene Data
     std::unordered_set<Map*> activeMaps;
     std::unordered_set<ITerrain*> activeTerrains;
 
-    AssetManager* assetManager{nullptr};
+
 
     std::vector<IHierarchical*> hierarchalBeginQueue{};
     std::vector<IHierarchical*> hierarchicalDeletionQueue{};

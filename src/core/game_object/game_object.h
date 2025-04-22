@@ -15,7 +15,6 @@
 #include "transformable.h"
 #include "src/core/transform.h"
 #include "src/core/game_object/components/component.h"
-#include "src/core/identifier/identifiable.h"
 #include "src/util/math_constants.h"
 
 namespace will_engine::components
@@ -31,12 +30,11 @@ class RenderObject;
 
 class GameObject : public ITransformable,
                    public IHierarchical,
-                   public IIdentifiable,
                    public IImguiRenderable,
                    public IComponentContainer
 {
 public:
-    explicit GameObject(std::string gameObjectName = "", uint64_t gameObjectId = INDEX64_NONE);
+    explicit GameObject(std::string gameObjectName = "");
 
     ~GameObject() override;
 
@@ -46,12 +44,14 @@ protected:
     bool bHasBegunPlay{false};
 
 public: // IIdentifiable
-    void setId(const uint64_t identifier) override { gameObjectId = identifier; }
+    void setId(const uint64_t identifier) { gameObjectId = identifier; }
 
-    uint64_t getId() const override { return gameObjectId; }
+    uint64_t getId() const { return gameObjectId; }
 
 private: // IIdentifiable
     uint64_t gameObjectId{};
+
+    static uint64_t runningTallyId;
 
 public: // IHierarchical
     void beginPlay() override;
