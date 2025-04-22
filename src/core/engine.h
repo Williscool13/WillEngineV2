@@ -22,7 +22,9 @@
 #include "src/renderer/lighting/directional_light.h"
 #include "src/renderer/pipelines/post/post_process/post_process_pipeline_types.h"
 #include "src/renderer/pipelines/geometry/transparent_pipeline/transparent_pipeline.h"
+#include "src/renderer/pipelines/shadows/cascaded_shadow_map/shadow_types.h"
 #include "src/renderer/pipelines/shadows/contact_shadow/contact_shadows_pipeline.h"
+#include "src/renderer/pipelines/shadows/ground_truth_ambient_occlusion/ambient_occlusion_types.h"
 
 
 class ResourceManager;
@@ -175,14 +177,17 @@ private: // Rendering
 
     void createDrawResources();
 
+private: // Rendering Properties
+    contact_shadows_pipeline::ContactShadowsPushConstants sssPush;
+    ambient_occlusion::GTAOPushConstants gtaoPush;
+    cascaded_shadows::CascadedShadowMapProperties csmProperties;
+
 private: // Debug
     bool bEnableTaa{true};
     float taaBlendValue{0.1f};
     bool bEnableDebugFrustumCullDraw{false};
     int32_t csmPcf{1};
     int32_t deferredDebug{0};
-    int32_t gtaoDebug{4};
-    contact_shadows_pipeline::ContactShadowsPushConstants sssPush;
     bool bDrawTerrainLines{false};
     bool bPausePhysics{true};
     bool bDisableJitter{false};

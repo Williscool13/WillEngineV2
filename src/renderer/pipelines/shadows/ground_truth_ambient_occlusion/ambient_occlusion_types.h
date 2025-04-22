@@ -64,7 +64,7 @@ struct GTAOPushConstants
 struct GTAODrawInfo
 {
     Camera* camera{nullptr};
-    GTAOPushConstants pushConstants{};
+    GTAOPushConstants& push;
     int32_t currentFrame{};
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};

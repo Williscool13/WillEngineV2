@@ -89,7 +89,6 @@ void Engine::init()
 
     Input::Get().init(window);
 
-
     startupProfiler.addTimer("0Context");
     startupProfiler.addTimer("1Immediate");
     startupProfiler.addTimer("2ResourceManager");
@@ -163,6 +162,7 @@ void Engine::init()
 
 
     cascadedShadowMap = new cascaded_shadows::CascadedShadowMap(*resourceManager);
+    csmProperties = cascadedShadowMap->getCascadedShadowMapProperties();
 
     if (engine_constants::useImgui) {
         imguiWrapper = new ImguiWrapper(*context, {window, swapchainImageFormat});
@@ -633,8 +633,6 @@ void Engine::draw(float deltaTime)
                                 VK_IMAGE_ASPECT_DEPTH_BIT);
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    ambient_occlusion::GTAOPushConstants gtaoPush{};
-    gtaoPush.debug = gtaoDebug;
     ambient_occlusion::GTAODrawInfo gtaoDrawInfo{
         camera,
         gtaoPush,

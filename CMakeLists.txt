@@ -12,6 +12,14 @@ add_definitions(-DJPH_DEBUG_RENDERER)
 add_definitions(-DJPH_ENABLE_ASSERTS=1)
 add_definitions(-DJPH_ENABLE_ASSERT_MESSAGES=1)
 
+# #if WILL_ENGINE_DEBUG
+# ##endif
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_definitions(-DWILL_ENGINE_DEBUG=1)
+elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
+    add_definitions(-DWILL_ENGINE_RELEASE=1)
+endif ()
+
 # Vulkan
 find_package(Vulkan REQUIRED)
 
@@ -178,8 +186,6 @@ set(RENDERER_SOURCES
         src/renderer/lighting/directional_light.cpp
         src/renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.cpp
         src/renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h
-        src/renderer/pipelines/shadows/cascaded_shadow_map/shadow_constants.cpp
-        src/renderer/pipelines/shadows/cascaded_shadow_map/shadow_constants.h
         src/renderer/pipelines/shadows/cascaded_shadow_map/shadow_types.h
         src/renderer/descriptor_buffer/descriptor_buffer.cpp
         src/renderer/descriptor_buffer/descriptor_buffer.h

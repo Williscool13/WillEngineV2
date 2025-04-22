@@ -92,6 +92,26 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createTerrainPipeline()
     resourceManager.destroyShaderModule(fragShader);
 }
 
+void will_engine::cascaded_shadows::CascadedShadowMap::generateSplits() {
+    const float ratio = csmProperties.cascadeFarPlane / csmProperties.cascadeNearPlane;
+    shadowMaps[0].split.nearPlane = csmProperties.cascadeNearPlane;
+
+    for (size_t i = 1; i < SHADOW_CASCADE_COUNT; i++) {
+        const float si = static_cast<float>(i) / static_cast<float>(SHADOW_CASCADE_COUNT);
+
+        const float uniformTerm = csmProperties.cascadeNearPlane + (csmProperties.cascadeFarPlane - csmProperties.cascadeNearPlane) * si;
+        const float logTerm = csmProperties.cascadeNearPlane * std::pow(ratio, si);
+        const float nearValue = csmProperties.splitLambda * logTerm + (1.0f - csmProperties.splitLambda) * uniformTerm;
+
+        const float farValue = nearValue * csmProperties.splitOverlap;
+
+        shadowMaps[i].split.nearPlane = nearValue;
+        shadowMaps[i - 1].split.farPlane = farValue;
+    }
+
+    shadowMaps[SHADOW_CASCADE_COUNT - 1].split.farPlane = csmProperties.cascadeFarPlane;
+}
+
 will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceManager& resourceManager)
     : resourceManager(resourceManager)
 {
@@ -108,7 +128,7 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
     // (Sampler) Shadow Map Layout - Used by deferred resolve
     {
         DescriptorLayoutBuilder layoutBuilder;
-        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, shadows::SHADOW_CASCADE_COUNT);
+        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, SHADOW_CASCADE_COUNT);
         cascadedShadowMapSamplerLayout = resourceManager.createDescriptorSetLayout(
             layoutBuilder,
             static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT),
@@ -118,28 +138,13 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
     // https://github.com/diharaw/cascaded-shadow-maps
     // Practical Split Scheme: https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch10.html
 
-    constexpr float ratio = shadows::CASCADE_FAR_PLANE / shadows::CASCADE_NEAR_PLANE;
-    shadowMaps[0].split.nearPlane = shadows::CASCADE_NEAR_PLANE;
+    generateSplits();
 
     fmt::print("Shadow Map: (Splits) {} - ", shadowMaps[0].split.nearPlane);
-
-    for (size_t i = 1; i < shadows::SHADOW_CASCADE_COUNT; i++) {
-        const float si = static_cast<float>(i) / static_cast<float>(shadows::SHADOW_CASCADE_COUNT);
-
-        const float uniformTerm = shadows::CASCADE_NEAR_PLANE + (shadows::CASCADE_FAR_PLANE - shadows::CASCADE_NEAR_PLANE) * si;
-        const float logTerm = shadows::CASCADE_NEAR_PLANE * std::pow(ratio, si);
-        const float nearValue = shadows::LAMBDA * logTerm + (1.0f - shadows::LAMBDA) * uniformTerm;
-
-        const float farValue = nearValue * shadows::OVERLAP;
-
-        shadowMaps[i].split.nearPlane = nearValue;
-        shadowMaps[i - 1].split.farPlane = farValue;
-
+    for (int32_t i = 0; i < SHADOW_CASCADE_COUNT; ++i) {
         fmt::print("{} - ", shadowMaps[i].split.nearPlane);
     }
-
-    shadowMaps[shadows::SHADOW_CASCADE_COUNT - 1].split.farPlane = shadows::CASCADE_FAR_PLANE;
-    fmt::print("{}\n", shadowMaps[shadows::SHADOW_CASCADE_COUNT - 1].split.farPlane);
+    fmt::print("{}\n", shadowMaps[SHADOW_CASCADE_COUNT - 1].split.farPlane);
 
 
     VkSamplerCreateInfo samplerCreateInfo = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
@@ -162,15 +167,14 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
 
     sampler = resourceManager.createSampler(samplerCreateInfo);
 
-    for (CascadeShadowMapData& cascadeShadowMapData : shadowMaps) {
+    for (int32_t i = 0; i < SHADOW_CASCADE_COUNT; ++i) {
+        CascadeShadowMapData& cascadeShadowMapData = shadowMaps[i];
         VkImageUsageFlags usage{};
         usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
         usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
         usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
-        VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(shadows::CASCADE_DEPTH_FORMAT, usage, {
-                                                                    shadows::CASCADE_WIDTH, shadows::CASCADE_HEIGHT, 1
-                                                                });
+        VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(CASCADE_DEPTH_FORMAT, usage, csmProperties.cascadeExtents[i]);
         cascadeShadowMapData.depthShadowMap = resourceManager.createImage(imgInfo);
     }
 
@@ -238,8 +242,8 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
 
         // These don't actually change, but I leave them here in case there are plans to make them dynamic in the future.
         const auto data = static_cast<CascadeShadowData*>(cascadedShadowMapDatas[i].info.pMappedData);
-        data->nearShadowPlane = shadows::CASCADE_NEAR_PLANE;
-        data->farShadowPlane = shadows::CASCADE_FAR_PLANE;
+        data->nearShadowPlane = csmProperties.cascadeNearPlane;
+        data->farShadowPlane = csmProperties.cascadeFarPlane;
     }
 }
 
@@ -268,13 +272,13 @@ void will_engine::cascaded_shadows::CascadedShadowMap::update(const DirectionalL
                                                               const int32_t currentFrameOverlap)
 {
     for (CascadeShadowMapData& shadowData : shadowMaps) {
-        shadowData.lightViewProj = getLightSpaceMatrix(mainLight.getDirection(), camera, shadowData.split.nearPlane, shadowData.split.farPlane);
+        shadowData.lightViewProj = getLightSpaceMatrix(shadowData.cascadeLevel, mainLight.getDirection(), camera, shadowData.split.nearPlane, shadowData.split.farPlane);
     }
 
     const AllocatedBuffer& currentCascadeShadowMapData = cascadedShadowMapDatas[currentFrameOverlap];
     if (currentCascadeShadowMapData.buffer == VK_NULL_HANDLE) { return; }
     const auto data = static_cast<CascadeShadowData*>(currentCascadeShadowMapData.info.pMappedData);
-    for (size_t i = 0; i < shadows::SHADOW_CASCADE_COUNT; i++) {
+    for (size_t i = 0; i < SHADOW_CASCADE_COUNT; i++) {
         data->cascadeSplits[i] = shadowMaps[i].split;
         data->lightViewProj[i] = shadowMaps[i].lightViewProj;
     }
@@ -296,7 +300,11 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
         }
     };
 
-    for (const CascadeShadowMapData& cascadeShadowMapData : shadowMaps) {
+    for (int32_t i{0}; i < SHADOW_CASCADE_COUNT; i++) {
+        CascadeShadowMapData& cascadeShadowMapData = shadowMaps[i];
+        VkExtent3D cascadeExtents = csmProperties.cascadeExtents[i];
+        CascadeBias cascadeBias = csmProperties.cascadeBias[i];
+
         vk_helpers::transitionImage(cmd, cascadeShadowMapData.depthShadowMap.image, VK_IMAGE_LAYOUT_UNDEFINED,
                                     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
 
@@ -310,7 +318,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
             renderInfo.pNext = nullptr;
 
-            renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, {shadows::CASCADE_WIDTH, shadows::CASCADE_HEIGHT}};
+            renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, {cascadeExtents.width, cascadeExtents.height}};
             renderInfo.layerCount = 1;
             renderInfo.colorAttachmentCount = 0;
             renderInfo.pColorAttachments = nullptr;
@@ -320,8 +328,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             vkCmdBeginRendering(cmd, &renderInfo);
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, terrainPipeline);
 
-            vkCmdSetDepthBias(cmd, shadows::CASCADE_BIAS[cascadeShadowMapData.cascadeLevel][0], 0.0f,
-                              shadows::CASCADE_BIAS[cascadeShadowMapData.cascadeLevel][1]);
+            vkCmdSetDepthBias(cmd, cascadeBias.linearBias, 0.0f, cascadeBias.slopedBias);
 
             CascadedShadowMapGenerationPushConstants pushConstants{};
             pushConstants.cascadeIndex = cascadeShadowMapData.cascadeLevel;
@@ -333,8 +340,8 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             VkViewport viewport = {};
             viewport.x = 0;
             viewport.y = 0;
-            viewport.width = shadows::CASCADE_WIDTH;
-            viewport.height = shadows::CASCADE_HEIGHT;
+            viewport.width = cascadeExtents.width;
+            viewport.height = cascadeExtents.height;
             viewport.minDepth = 0.f;
             viewport.maxDepth = 1.f;
             vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -342,8 +349,8 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             VkRect2D scissor = {};
             scissor.offset.x = 0;
             scissor.offset.y = 0;
-            scissor.extent.width = shadows::CASCADE_WIDTH;
-            scissor.extent.height = shadows::CASCADE_HEIGHT;
+            scissor.extent.width = cascadeExtents.width;
+            scissor.extent.height = cascadeExtents.height;
             vkCmdSetScissor(cmd, 0, 1, &scissor);
 
             constexpr VkDeviceSize zeroOffset{0};
@@ -380,7 +387,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
             renderInfo.pNext = nullptr;
 
-            renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, {shadows::CASCADE_WIDTH, shadows::CASCADE_HEIGHT}};
+            renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, {cascadeExtents.width, cascadeExtents.height}};
             renderInfo.layerCount = 1;
             renderInfo.colorAttachmentCount = 0;
             renderInfo.pColorAttachments = nullptr;
@@ -390,8 +397,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             vkCmdBeginRendering(cmd, &renderInfo);
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObjectPipeline);
 
-            vkCmdSetDepthBias(cmd, shadows::CASCADE_BIAS[cascadeShadowMapData.cascadeLevel][0], 0.0f,
-                              shadows::CASCADE_BIAS[cascadeShadowMapData.cascadeLevel][1]);
+            vkCmdSetDepthBias(cmd, cascadeBias.linearBias, 0.0f, cascadeBias.slopedBias);
 
             CascadedShadowMapGenerationPushConstants pushConstants{};
             pushConstants.cascadeIndex = cascadeShadowMapData.cascadeLevel;
@@ -402,8 +408,8 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             VkViewport viewport = {};
             viewport.x = 0;
             viewport.y = 0;
-            viewport.width = shadows::CASCADE_WIDTH;
-            viewport.height = shadows::CASCADE_HEIGHT;
+            viewport.width = cascadeExtents.width;
+            viewport.height = cascadeExtents.height;
             viewport.minDepth = 0.f;
             viewport.maxDepth = 1.f;
             vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -411,8 +417,8 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             VkRect2D scissor = {};
             scissor.offset.x = 0;
             scissor.offset.y = 0;
-            scissor.extent.width = shadows::CASCADE_WIDTH;
-            scissor.extent.height = shadows::CASCADE_HEIGHT;
+            scissor.extent.width = cascadeExtents.width;
+            scissor.extent.height = cascadeExtents.height;
             vkCmdSetScissor(cmd, 0, 1, &scissor);
 
             constexpr VkDeviceSize zeroOffset{0};
@@ -454,8 +460,9 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 }
 
 
-glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(const glm::vec3 lightDirection, const Camera* camera,
-                                                                                float cascadeNear, float cascadeFar, bool reversedDepth)
+glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(int32_t cascadeLevel, const glm::vec3 lightDirection,
+                                                                                const Camera* camera, float cascadeNear, float cascadeFar,
+                                                                                bool reversedDepth) const
 {
     constexpr int32_t numberOfCorners = 8;
     glm::vec3 corners[numberOfCorners];
@@ -484,8 +491,8 @@ glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(
 
     float radius = std::sqrt(maxDistanceSquared);
 
-    assert(shadows::CASCADE_HEIGHT == shadows::CASCADE_WIDTH);
-    float texelsPerUnit = shadows::CASCADE_WIDTH / glm::max(radius * 2.0f, 1.0f);
+    VkExtent3D cascadeExtents = csmProperties.cascadeExtents[cascadeLevel];
+    float texelsPerUnit = cascadeExtents.width / glm::max(radius * 2.0f, 1.0f);
 
     const glm::mat4 scaleMatrix = scale(glm::mat4(1.0f), glm::vec3(texelsPerUnit));
     glm::mat4 view = glm::lookAt(-lightDirection, glm::vec3(0.0f), GLOBAL_UP);
