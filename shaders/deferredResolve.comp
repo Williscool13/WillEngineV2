@@ -153,6 +153,7 @@ void main() {
         ao = texture(aoBuffer, uv).r;
     }
     vec3 ambient = (kD * reflectionDiffuse + reflectionSpecular) * ao;
+    ambient *= mix(0.4, 1.0, min(shadowFactor, nDotL));
     vec3 finalColor = directLight + ambient;
 
     imageStore(outputImage, screenPos, vec4(finalColor, albedo.w));

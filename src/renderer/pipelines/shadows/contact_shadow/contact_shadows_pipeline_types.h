@@ -42,7 +42,7 @@ struct DispatchList
 struct ContactShadowsPushConstants
 {
     float surfaceThickness{0.005};
-    float bilinearThreshold{0.02};
+    float bilinearThreshold{0.05};
     float shadowContrast{2};
 
     int32_t bIgnoreEdgePixels{1};
