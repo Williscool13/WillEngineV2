@@ -12,9 +12,10 @@
 
 
 #include "environment/environment.h"
-#include "lighting/ambient_occlusion/ground_truth/ground_truth_ambient_occlusion.h"
-#include "lighting/shadows/cascaded_shadow_map.h"
-#include "lighting/shadows/shadow_constants.h"
+#include "pipelines/post/post_process/post_process_pipeline_types.h"
+#include "pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h"
+#include "pipelines/shadows/ground_truth_ambient_occlusion/ambient_occlusion_types.h"
+#include "pipelines/shadows/ground_truth_ambient_occlusion/ground_truth_ambient_occlusion_pipeline.h"
 #include "src/core/engine.h"
 #include "src/core/time.h"
 #include "src/core/camera/free_camera.h"
@@ -197,7 +198,18 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Hot-Reload Shaders")) {
                     engine->hotReloadShaders();
                 }
-                ImGui::Checkbox("Enable Transparent Primitives", &engine->bRenderTransparents);
+                ImGui::Checkbox("Disable Transparent Primitives", &engine->bHideTransparents);
+                bool aoDisabled = engine->gtaoDebug == -1;
+                if (ImGui::Checkbox("Disable GTAO", &aoDisabled)) {
+                    if (aoDisabled) {
+                        engine->gtaoDebug = -1;
+                    } else {
+                        engine->gtaoDebug = 0;
+                    }
+                }
+                ImGui::Checkbox("Enable Shadows", &engine->bEnableShadows);
+                ImGui::Checkbox("Enable Contact Shadows", &engine->bEnableContactShadows);
+
                 ImGui::Separator();
                 ImGui::Text("Main Directional Light");
                 float direction[3] = {engine->mainLight.direction.x, engine->mainLight.direction.y, engine->mainLight.direction.z};
@@ -210,13 +222,12 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 }
                 ImGui::DragFloat("Intensity", &engine->mainLight.intensity, 0.05f, 0.0f, 5.0f);
 
-
                 ImGui::Separator();
 
                 ImGui::Checkbox("Disable Physics", &engine->bPausePhysics);
 
                 ImGui::Text("Deferred Debug");
-                const char* deferredDebugOptions[]{"None", "Depth", "Velocity", "Albedo", "Normal", "PBR", "Shadows", "Cascade Level", "nDotL", "AO"};
+                const char* deferredDebugOptions[]{"None", "Depth", "Velocity", "Albedo", "Normal", "PBR", "Shadows", "Cascade Level", "nDotL", "AO", "Contact Shadows"};
                 ImGui::Combo("Deferred Debug", &engine->deferredDebug, deferredDebugOptions, IM_ARRAYSIZE(deferredDebugOptions));
                 ImGui::Separator();
 
@@ -232,38 +243,38 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     ImGui::Checkbox("Disable Jitter", &engine->bDisableJitter);
                 }
 
-                static bool tonemapping = (engine->postProcessData & post_process::PostProcessType::Tonemapping) !=
-                                          post_process::PostProcessType::None;
+                static bool tonemapping = (engine->postProcessData & post_process_pipeline::PostProcessType::Tonemapping) !=
+                                          post_process_pipeline::PostProcessType::None;
                 if (ImGui::CollapsingHeader("Tonemapping", ImGuiTreeNodeFlags_DefaultOpen)) {
                     if (ImGui::Checkbox("Enable Tonemapping", &tonemapping)) {
                         if (tonemapping) {
-                            engine->postProcessData |= post_process::PostProcessType::Tonemapping;
+                            engine->postProcessData |= post_process_pipeline::PostProcessType::Tonemapping;
                         }
                         else {
-                            engine->postProcessData &= ~post_process::PostProcessType::Tonemapping;
+                            engine->postProcessData &= ~post_process_pipeline::PostProcessType::Tonemapping;
                         }
                     }
                 }
                 if (ImGui::CollapsingHeader("Sharpening", ImGuiTreeNodeFlags_DefaultOpen)) {
-                    static bool sharpening = (engine->postProcessData & post_process::PostProcessType::Sharpening) !=
-                                             post_process::PostProcessType::None;
+                    static bool sharpening = (engine->postProcessData & post_process_pipeline::PostProcessType::Sharpening) !=
+                                             post_process_pipeline::PostProcessType::None;
                     if (ImGui::Checkbox("Enable Sharpening", &sharpening)) {
                         if (sharpening) {
-                            engine->postProcessData |= post_process::PostProcessType::Sharpening;
+                            engine->postProcessData |= post_process_pipeline::PostProcessType::Sharpening;
                         }
                         else {
-                            engine->postProcessData &= ~post_process::PostProcessType::Sharpening;
+                            engine->postProcessData &= ~post_process_pipeline::PostProcessType::Sharpening;
                         }
                     }
                 }
                 if (ImGui::CollapsingHeader("FXAA", ImGuiTreeNodeFlags_DefaultOpen)) {
-                    static bool fxaa = (engine->postProcessData & post_process::PostProcessType::FXAA) != post_process::PostProcessType::None;
+                    static bool fxaa = (engine->postProcessData & post_process_pipeline::PostProcessType::FXAA) != post_process_pipeline::PostProcessType::None;
                     if (ImGui::Checkbox("Enable FXAA", &fxaa)) {
                         if (fxaa) {
-                            engine->postProcessData |= post_process::PostProcessType::FXAA;
+                            engine->postProcessData |= post_process_pipeline::PostProcessType::FXAA;
                         }
                         else {
-                            engine->postProcessData &= ~post_process::PostProcessType::FXAA;
+                            engine->postProcessData &= ~post_process_pipeline::PostProcessType::FXAA;
                         }
                     }
                 }
@@ -349,7 +360,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     ImGui::Spacing();
                     ImGui::Text("Other Parameters");
                     ImGui::Separator();
-                    ImGui::InputInt("Debug Mode", &gtao.debug);
+                    ImGui::InputInt("Debug Mode", &engine->gtaoDebug);
 
                     ImGui::Spacing();
                     if (ImGui::Button("Reset to Defaults")) {
@@ -1077,18 +1088,27 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::End();
 
     if (ImGui::Begin("Discardable Debug")) {
-        if (transparentDebugTextureImguiId == VK_NULL_HANDLE) {
-            if (engine->transparentPipeline->debugImage.image != VK_NULL_HANDLE) {
-                transparentDebugTextureImguiId = ImGui_ImplVulkan_AddTexture(
+        ImGui::InputFloat("Blinear Threshold", &engine->sssPush.bilinearThreshold);
+        ImGui::InputFloat("Surface Thickness", &engine->sssPush.surfaceThickness);
+        ImGui::InputFloat("Shadow Contrast", &engine->sssPush.shadowContrast);
+
+        ImGui::SliderInt("Contact Shadow Debug", &engine->sssPush.debugMode, 0, 3);
+
+        ImGui::SliderInt("Ignore Edge Pixels", &engine->sssPush.bIgnoreEdgePixels, 0, 1);
+        ImGui::SliderInt("Use Precision Offset", &engine->sssPush.bUsePrecisionOffset, 0, 1);
+        ImGui::SliderInt("Bilinear Offset Sampling Mode", &engine->sssPush.bBilinearSamplingOffsetMode, 0, 1);
+
+
+        if (contactShadowsOutputImguiId == VK_NULL_HANDLE) {
+            if (engine->contactShadowsPipeline->debugImage.imageView != VK_NULL_HANDLE) {
+                contactShadowsOutputImguiId = ImGui_ImplVulkan_AddTexture(
                     engine->resourceManager->getDefaultSamplerNearest(),
-                    engine->transparentPipeline->debugImage.imageView,
-                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+                    engine->contactShadowsPipeline->debugImage.imageView,
+                    VK_IMAGE_LAYOUT_GENERAL);
             }
         }
 
-        ImGui::BeginChild("TransparentDebugPreview", ImVec2(0, 0), false, ImGuiWindowFlags_None);
-
-        if (transparentDebugTextureImguiId == VK_NULL_HANDLE) {
+        if (contactShadowsOutputImguiId == VK_NULL_HANDLE) {
             ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Debug texture not available.");
         }
         else {
@@ -1096,25 +1116,24 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             float maxSize = ImGui::GetContentRegionAvail().x;
             maxSize = glm::min(maxSize, 1024.0f);
 
-            VkExtent3D imageExtent = engine->transparentPipeline->debugImage.imageExtent;
+            VkExtent3D imageExtent = engine->contactShadowsPipeline->debugImage.imageExtent;
             float width = std::min(maxSize, static_cast<float>(imageExtent.width));
             float aspectRatio = static_cast<float>(imageExtent.width) / static_cast<float>(imageExtent.height);
             float height = width / aspectRatio;
 
-            ImGui::Image(reinterpret_cast<ImTextureID>(transparentDebugTextureImguiId), ImVec2(width, height));
+            ImGui::Image(reinterpret_cast<ImTextureID>(contactShadowsOutputImguiId), ImVec2(width, height));
 
-            if (ImGui::Button("Save Transparency Debug Image")) {
+            if (ImGui::Button("Save SCSS Debug Image")) {
                 if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                    const std::filesystem::path path = file::imagesSavePath / "transparent_debug.png";
+                    const std::filesystem::path path = file::imagesSavePath / "scss_debug.png";
 
-                    vk_helpers::saveImageRGBA16SFLOAT(
+                    vk_helpers::saveImageR8G8B8A8UNORM(
                         *engine->resourceManager,
                         *engine->immediate,
-                        engine->transparentPipeline->debugImage,
-                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                        VK_IMAGE_ASPECT_COLOR_BIT,
+                        engine->contactShadowsPipeline->debugImage,
+                        VK_IMAGE_LAYOUT_GENERAL,
                         path.string().c_str(),
-                        false
+                        0
                     );
 
                     ImGui::OpenPopup("SaveConfirmation");
@@ -1128,37 +1147,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 }
                 ImGui::EndPopup();
             }
-
-            ImGui::EndChild();
         }
-
-        if (postProcessOutputImguiId == VK_NULL_HANDLE) {
-            if (engine->postProcessOutputBuffer.imageView != VK_NULL_HANDLE) {
-                postProcessOutputImguiId = ImGui_ImplVulkan_AddTexture(
-                    engine->resourceManager->getDefaultSamplerNearest(),
-                    engine->postProcessOutputBuffer.imageView,
-                    VK_IMAGE_LAYOUT_GENERAL);
-            }
-        }
-
-        ImGui::Separator();
-
-        if (postProcessOutputImguiId == VK_NULL_HANDLE) {
-            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Debug texture not available.");
-        }
-        else {
-            // Calculate best fit size
-            float maxSize = ImGui::GetContentRegionAvail().x;
-            maxSize = glm::min(maxSize, 1024.0f);
-
-            VkExtent3D imageExtent = engine->postProcessOutputBuffer.imageExtent;
-            float width = std::min(maxSize, static_cast<float>(imageExtent.width));
-            float aspectRatio = static_cast<float>(imageExtent.width) / static_cast<float>(imageExtent.height);
-            float height = width / aspectRatio;
-
-            ImGui::Image(reinterpret_cast<ImTextureID>(postProcessOutputImguiId), ImVec2(width, height));
-        }
-
     }
     ImGui::End();
 

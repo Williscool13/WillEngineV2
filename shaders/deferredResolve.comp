@@ -17,8 +17,9 @@ layout (set = 1, binding = 2) uniform sampler2D pbrRenderTarget;
 layout (set = 1, binding = 3) uniform sampler2D depthBuffer;
 layout (set = 1, binding = 4) uniform sampler2D velocityBuffer;// velocity buffer is not actually used in this deferred resolve
 layout (set = 1, binding = 5) uniform sampler2D aoBuffer;
+layout (set = 1, binding = 6) uniform sampler2D contactShadowBuffer;
 
-layout (rgba16f, set = 1, binding = 6) uniform image2D outputImage;
+layout (rgba16f, set = 1, binding = 7) uniform image2D outputImage;
 
 layout (set = 2, binding = 0) uniform samplerCube environmentDiffuseAndSpecular;
 layout (set = 2, binding = 1) uniform sampler2D lut;
@@ -46,6 +47,7 @@ layout (push_constant) uniform PushConstants {
     int height;
     int debug;
     int disableShadows;
+    int disableContactShadows;
     int pcfLevel;
     float nearPlane;
     float farPlane;
@@ -59,14 +61,11 @@ vec3 reconstructPosition(vec2 uv, float ndcDepth) {
     vec4 positionVS = sceneData.invProjection * vec4(ndc, ndcDepth, 1.0);
     positionVS /= positionVS.w;
 
-    // Transform to world-space
-    vec4 positionWS = sceneData.invView * positionVS;
-
-    return positionWS.xyz;
+    return positionVS.xyz;
 }
 
 void main() {
-    // All calculations are done in World Space unless explicitly declared otherwise
+    // All calculations are done in View Space unless explicitly declared otherwise
     ivec2 screenPos = ivec2(gl_GlobalInvocationID.xy);
     if (screenPos.x > pushConstants.width || screenPos.y > pushConstants.height) {
         return;
@@ -86,9 +85,9 @@ void main() {
         return;
     }
     float depth = texture(depthBuffer, uv).r;
-    vec3 normal = texture(normalRenderTarget, uv).rgb;
+    vec3 viewNormal = texture(normalRenderTarget, uv).rgb;
     vec4 pbrData = texture(pbrRenderTarget, uv);
-    vec3 position = reconstructPosition(uv, depth);
+    vec3 viewPosition = reconstructPosition(uv, depth);
 
     float roughness = pbrData.g;
     float metallic = pbrData.r;
@@ -96,10 +95,11 @@ void main() {
     bool hasTransparent = pbrData.a == 1;
 
 
-    vec3 N = normalize(normal);
-    vec3 V = normalize(sceneData.cameraPos.xyz - position);
+    vec3 N = normalize(viewNormal);
+    vec3 V = normalize(-viewPosition);
 
-    vec3 L = normalize(-shadowCascadeData.directionalLightData.direction);// for point lights, light.pos - inPosition
+    // for point lights, light.pos - inPosition
+    vec3 L = normalize(mat3(sceneData.view) * normalize(-shadowCascadeData.directionalLightData.direction));
     vec3 H = normalize(V + L);
 
     // SPECULAR
@@ -122,28 +122,38 @@ void main() {
 
     // SHADOWS
     float offset = 0.05f;
-    float normalOffsetScale = max(offset, dot(normal, L) * offset);
-    vec3 offsetPosition = position + normal * normalOffsetScale;
-    float _tempShadowFactor = getShadowFactorBlend(pushConstants.pcfLevel, position, sceneData.view, shadowCascadeData.cascadeSplits, shadowCascadeData.lightViewProj, shadowMapSampler, shadowCascadeData.nearShadowPlane, shadowCascadeData.farShadowPlane);
-    float shadowFactor = clamp(smoothstep(-0.15f, 0.5f, dot(N, L)) * _tempShadowFactor, 0, 1);
+    float normalOffsetScale = max(offset, dot(N, L) * offset);
+    vec3 offsetPosition = viewPosition + N * normalOffsetScale;
+    vec4 worldPosition = sceneData.invView * vec4(offsetPosition, 1.0f);
+    //float _tempShadowFactor = getShadowFactorBlend(pushConstants.pcfLevel, worldPosition.xyz, abs(viewPosition.z), shadowCascadeData.cascadeSplits, shadowCascadeData.lightViewProj, shadowMapSampler, shadowCascadeData.nearShadowPlane, shadowCascadeData.farShadowPlane);
+    //float shadowFactor = clamp(smoothstep(-0.15f, 0.5f, dot(N, L)) * _tempShadowFactor, 0, 1);
 
-    if (pushConstants.disableShadows == 1) {
+    float shadowFactor = getShadowFactorBlend(pushConstants.pcfLevel, worldPosition.xyz, abs(viewPosition.z), shadowCascadeData.cascadeSplits, shadowCascadeData.lightViewProj, shadowMapSampler, shadowCascadeData.nearShadowPlane, shadowCascadeData.farShadowPlane);
+    if (pushConstants.disableShadows == 1){
         shadowFactor = 1.0f;
     }
+    float contactShadow = texture(contactShadowBuffer, uv).r;
+    if (pushConstants.disableContactShadows == 1){
+        contactShadow = 1.0f;
+    }
+
+    shadowFactor = min(shadowFactor, contactShadow);
 
     // Direct lighting with shadows
     vec3 directLight = (diffuse + specular) * nDotL * shadowFactor * shadowCascadeData.directionalLightData.intensity * shadowCascadeData.directionalLightData.color;
 
     // IBL Reflections
-    vec3 irradiance = DiffuseIrradiance(environmentDiffuseAndSpecular, N);
+    vec3 worldN = normalize(mat3(sceneData.invView) * N);
+    vec3 irradiance = DiffuseIrradiance(environmentDiffuseAndSpecular, worldN);
     vec3 reflectionDiffuse = irradiance * albedo.xyz;
-    vec3 reflectionSpecular = SpecularReflection(environmentDiffuseAndSpecular, lut, V, N, roughness, F);
+    vec3 reflectionSpecular = SpecularReflection(environmentDiffuseAndSpecular, lut, V, N, sceneData.invView, roughness, F);
 
     float ao = 1.0f;
     if (!hasTransparent) {
         ao = texture(aoBuffer, uv).r;
     }
     vec3 ambient = (kD * reflectionDiffuse + reflectionSpecular) * ao;
+    ambient *= mix(0.4, 1.0, min(shadowFactor, nDotL));
     vec3 finalColor = directLight + ambient;
 
     imageStore(outputImage, screenPos, vec4(finalColor, albedo.w));
@@ -166,7 +176,7 @@ void main() {
         imageStore(outputImage, screenPos, albedo);
         break;
         case 4:
-        imageStore(outputImage, screenPos, vec4(normal, 1.0f));
+        imageStore(outputImage, screenPos, vec4(worldN * 0.5f + 0.5f, 1.0f));
         break;
         case 5:
         imageStore(outputImage, screenPos, pbrData);
@@ -175,7 +185,7 @@ void main() {
         imageStore(outputImage, screenPos, vec4(vec3(shadowFactor), 1.0f));
         break;
         case 7:
-        float viewDepth = getViewSpaceDepth(position, sceneData.view);
+        float viewDepth = abs(viewPosition.z);
         int cascadeLevel = selectCascadeLevel(viewDepth, shadowCascadeData.cascadeSplits);
         float value = viewDepth - shadowCascadeData.cascadeSplits[cascadeLevel].nearPlane;
         float diff = value / (shadowCascadeData.cascadeSplits[cascadeLevel].farPlane - shadowCascadeData.cascadeSplits[cascadeLevel].nearPlane);
@@ -192,5 +202,10 @@ void main() {
         float ao = texture(aoBuffer, uv).r;
         imageStore(outputImage, screenPos, vec4(vec3(ao), 1.0f));
         break;
+        case 10:
+        float contactShadow = texture(contactShadowBuffer, uv).r;
+        imageStore(outputImage, screenPos, vec4(vec3(contactShadow), 1.0f));
+        break;
+
     }
 }

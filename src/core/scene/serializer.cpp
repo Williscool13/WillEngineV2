@@ -356,6 +356,8 @@ bool Serializer::serializeEngineSettings(Engine* engine)
 
     rootJ["cameraProperties"] = cameraProperties;
 
+    rootJ["environmentMapIndex"] = engine->getCurrentEnvironmentMapIndex();
+
 
     const std::filesystem::path filepath = {"assets/settings.willengine"};
 
@@ -455,6 +457,10 @@ bool Serializer::deserializeEngineSettings(Engine* engine)
 
             DirectionalLight light{direction, intensity, color};
             engine->setMainLight(light);
+        }
+
+        if (rootJ.contains("environmentMapIndex")) {
+            engine->setCurrentEnvironmentMapIndex(rootJ["environmentMapIndex"]);
         }
 
 

@@ -1,4 +1,7 @@
 #version 450
+
+#include "scene.glsl"
+
 layout (location = 0) in vec3 uv;
 layout (location = 1) in vec4 inCurrMvpPosition;
 layout (location = 2) in vec4 inPrevMvpPosition;
@@ -7,6 +10,8 @@ layout (location = 0) out vec4 normalTarget;// 10,10,10, (2 unused)
 layout (location = 1) out vec4 albedoTarget;// 10,10,10, (2 -> 0 = environment Map, 1 = renderObject)
 layout (location = 2) out vec4 pbrTarget;// 8 metallic, 8 roughness, 8 emissive (unused), 8 unused
 layout (location = 3) out vec2 velocityTarget;// 16 X, 16 Y
+
+// layout (std140, set = 0, binding = 0) uniform SceneData - scene.glsl
 
 layout(set = 1, binding = 0) uniform samplerCube environmentMap;
 
@@ -19,7 +24,8 @@ void main()
     // 0 = environment map flag
     albedoTarget = vec4(envColor, 0.0);
 
-    normalTarget = vec4(-direction, 0.0f);
+    vec3 normal = mat3(sceneData.view) * -direction;
+    normalTarget = vec4(normal, 0.0f);
     pbrTarget = vec4(0.0f);
 
     vec2 currNdc = inCurrMvpPosition.xy / inCurrMvpPosition.w;

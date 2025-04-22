@@ -69,7 +69,7 @@ std::vector<will_engine::Texture*> will_engine::AssetManager::getAllTextures()
 
     std::ranges::transform(textures, std::back_inserter(result), [](const auto& pair) { return pair.second.get(); });
 
-    return std::move(result);
+    return result;
 }
 
 will_engine::Texture* will_engine::AssetManager::getAnyTexture() const

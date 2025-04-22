@@ -1,3 +1,6 @@
+#ifndef PBR_GLSL
+#define PBR_GLSL
+
 vec3 Lambert(vec3 kD, vec3 albedo)
 {
     return kD * albedo / 3.14159265359;
@@ -53,3 +56,5 @@ vec3 F_SCHLICK(vec3 V, vec3 H, vec3 F0){
     // unreal optimized
     return F0 + (1 - F0) * pow(2, FRESNEL_POWER_UNREAL(V, H));
 }
+
+#endif // PBR_GLSL

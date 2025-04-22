@@ -1,5 +1,6 @@
 #version 460
 
+#include "common.glsl"
 #include "scene.glsl"
 #include "gtao.glsl"
 
@@ -102,15 +103,6 @@ vec4 reconstructViewSpacePosition(vec2 uv, float viewDepth) {
     return positionVS;
 }
 
-mat3 adjugate(mat4 m) {
-    return mat3(
-    cross(m[1].xyz, m[2].xyz),
-    cross(m[2].xyz, m[0].xyz),
-    cross(m[0].xyz, m[1].xyz)
-    );
-
-}
-
 void main() {
     if (pushConstants.debug == -1){
         return;
@@ -129,8 +121,8 @@ void main() {
     vec4 valuesBR = textureGatherOffset(prefilteredDepth, gatherCenter, ivec2(1, 1), 0);
     float viewSpaceZM = valuesUL.y;
     const float viewSpaceZL = valuesUL.x;
-    const float viewSpaceZR = valuesUL.z;
-    const float viewSpaceZT = valuesBR.z;
+    const float viewSpaceZT = valuesUL.z;
+    const float viewSpaceZR = valuesBR.z;
     const float viewSpaceZB = valuesBR.x;
 
     vec4 edges  = XE_GTAO_CalculateDepthEdges(viewSpaceZM, viewSpaceZL, viewSpaceZR, viewSpaceZT, viewSpaceZB);
@@ -139,8 +131,7 @@ void main() {
 
 
     // Get view space normal by sampling normal buffer and converting from world to view (code not relevant)
-    vec3 worldNormal = texture(normalBuffer, uv).rgb;
-    vec3 viewNormal = adjugate(sceneData.view) * worldNormal;
+    vec3 viewNormal = texture(normalBuffer, uv).rgb;
 
     if (pushConstants.debug == 2){
         imageStore(debugImage, screenPos, vec4(viewNormal, 1.0f));

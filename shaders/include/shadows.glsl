@@ -28,10 +28,7 @@ int getCascadeLevel(vec3 worldPos, mat4 viewMatrix, CascadeSplit cascadeSplits[4
     return selectCascadeLevel(viewDepth, cascadeSplits);
 }
 
-float getShadowFactorBlend(int pcfLevel, vec3 worldPos, mat4 sceneViewMatrix, CascadeSplit[4] splits, mat4[4] lightMatrices, sampler2DShadow[4] shadowMaps, float cascadeNearPlane, float cascadeFarPlane) {
-    vec4 viewPos = sceneViewMatrix * vec4(worldPos, 1.0);
-    float viewSpaceDepth = abs(viewPos.z);
-
+float getShadowFactorBlend(int pcfLevel, vec3 worldPos, float viewSpaceDepth, CascadeSplit[4] splits, mat4[4] lightMatrices, sampler2DShadow[4] shadowMaps, float cascadeNearPlane, float cascadeFarPlane) {
     if (viewSpaceDepth < cascadeNearPlane) {
         // Too close = shadowed
         return 0.0f;

@@ -26,15 +26,22 @@
 #include "src/renderer/assets/render_object/render_object.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/environment/environment.h"
-#include "src/renderer/lighting/ambient_occlusion/ground_truth/ground_truth_ambient_occlusion.h"
-#include "src/renderer/lighting/shadows/cascaded_shadow_map.h"
-#include "src/renderer/pipelines/deferred_mrt/deferred_mrt.h"
-#include "src/renderer/pipelines/deferred_resolve/deferred_resolve.h"
-#include "src/renderer/pipelines/environment/environment_pipeline.h"
-#include "src/renderer/pipelines/visibility_pass/visibility_pass.h"
-#include "src/renderer/pipelines/post_process/post_process_pipeline.h"
-#include "src/renderer/pipelines/temporal_antialiasing_pipeline/temporal_antialiasing_pipeline.h"
-#include "src/renderer/pipelines/terrain/terrain_pipeline.h"
+#include "../renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h"
+#include "src/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline.h"
+#include "src/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline_types.h"
+#include "src/renderer/pipelines/geometry/deferred_resolve/deferred_resolve_pipeline.h"
+#include "src/renderer/pipelines/geometry/deferred_resolve/deferred_resolve_pipeline_types.h"
+#include "src/renderer/pipelines/geometry/environment/environment_pipeline.h"
+#include "src/renderer/pipelines/geometry/environment/environment_pipeline_types.h"
+#include "src/renderer/pipelines/geometry/terrain/terrain_pipeline.h"
+#include "src/renderer/pipelines/geometry/terrain/terrain_pipeline_types.h"
+#include "src/renderer/pipelines/geometry/transparent_pipeline/transparent_pipeline_types.h"
+#include "src/renderer/pipelines/post/post_process/post_process_pipeline.h"
+#include "src/renderer/pipelines/post/temporal_antialiasing/temporal_antialiasing_pipeline.h"
+#include "src/renderer/pipelines/shadows/contact_shadow/contact_shadows_pipeline_types.h"
+#include "src/renderer/pipelines/shadows/ground_truth_ambient_occlusion/ground_truth_ambient_occlusion_pipeline.h"
+#include "src/renderer/pipelines/visibility_pass/visibility_pass_pipeline.h"
+#include "src/renderer/pipelines/visibility_pass/visibility_pass_pipeline_types.h"
 #include "src/util/file.h"
 #include "src/util/halton.h"
 
@@ -149,14 +156,13 @@ void Engine::init()
 
     startupProfiler.beginTimer("5Load Environment");
     environmentMap->loadEnvironment("Overcast Sky", (envMapSource / "kloofendal_overcast_puresky_4k.hdr").string().c_str(), 2);
-    environmentMap->loadEnvironment("Wasteland", (envMapSource / "wasteland_clouds_puresky_4k.hdr").string().c_str(), 1);
-    environmentMap->loadEnvironment("Belfast Sunset", (envMapSource / "belfast_sunset_puresky_4k.hdr").string().c_str(), 0);
-    environmentMap->loadEnvironment("Rogland Clear Night", (envMapSource / "rogland_clear_night_4k.hdr").string().c_str(), 4);
+    // environmentMap->loadEnvironment("Wasteland", (envMapSource / "wasteland_clouds_puresky_4k.hdr").string().c_str(), 1);
+    // environmentMap->loadEnvironment("Belfast Sunset", (envMapSource / "belfast_sunset_puresky_4k.hdr").string().c_str(), 0);
+    // environmentMap->loadEnvironment("Rogland Clear Night", (envMapSource / "rogland_clear_night_4k.hdr").string().c_str(), 4);
     startupProfiler.endTimer("5Load Environment");
 
-    startupProfiler.beginTimer("7Load CSM");
+
     cascadedShadowMap = new cascaded_shadows::CascadedShadowMap(*resourceManager);
-    startupProfiler.endTimer("7Load CSM");
 
     if (engine_constants::useImgui) {
         imguiWrapper = new ImguiWrapper(*context, {window, swapchainImageFormat});
@@ -199,11 +205,12 @@ void Engine::initRenderer()
     sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = debugSceneDataBuffer, .allocSize = sizeof(SceneData)};
     sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData, FRAME_OVERLAP);
 
-    visibilityPassPipeline = new visibility_pass::VisibilityPassPipeline(*resourceManager);
+    visibilityPassPipeline = new visibility_pass_pipeline::VisibilityPassPipeline(*resourceManager);
     environmentPipeline = new environment_pipeline::EnvironmentPipeline(*resourceManager, environmentMap->getCubemapDescriptorSetLayout());
     terrainPipeline = new terrain::TerrainPipeline(*resourceManager);
     deferredMrtPipeline = new deferred_mrt::DeferredMrtPipeline(*resourceManager);
     ambientOcclusionPipeline = new ambient_occlusion::GroundTruthAmbientOcclusionPipeline(*resourceManager);
+    contactShadowsPipeline = new contact_shadows_pipeline::ContactShadowsPipeline(*resourceManager);
     deferredResolvePipeline = new deferred_resolve::DeferredResolvePipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
                                                                             cascadedShadowMap->getCascadedShadowMapUniformLayout(),
                                                                             cascadedShadowMap->getCascadedShadowMapSamplerLayout());
@@ -216,6 +223,7 @@ void Engine::initRenderer()
     ambientOcclusionPipeline->setupDepthPrefilterDescriptorBuffer(depthImage.imageView);
     ambientOcclusionPipeline->setupAmbientOcclusionDescriptorBuffer(normalRenderTarget.imageView);
     ambientOcclusionPipeline->setupSpatialFilteringDescriptorBuffer();
+    contactShadowsPipeline->setupDescriptorBuffer(depthImage.imageView);
 
     const deferred_resolve::DeferredResolveDescriptor deferredResolveDescriptor{
         normalRenderTarget.imageView,
@@ -224,6 +232,7 @@ void Engine::initRenderer()
         depthImage.imageView,
         velocityRenderTarget.imageView,
         ambientOcclusionPipeline->getAmbientOcclusionRenderTarget().imageView,
+        contactShadowsPipeline->getContactShadowRenderTarget().imageView,
         drawImage.imageView,
         resourceManager->getDefaultSamplerLinear()
     };
@@ -497,7 +506,7 @@ void Engine::draw(float deltaTime)
     // Updates Cascaded Shadow Map Properties
     cascadedShadowMap->update(mainLight, camera, currentFrameOverlap);
 
-    visibility_pass::VisibilityPassDrawInfo csmFrustumCullDrawInfo{
+    visibility_pass_pipeline::VisibilityPassDrawInfo csmFrustumCullDrawInfo{
         currentFrameOverlap,
         allRenderObjects,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
@@ -510,7 +519,7 @@ void Engine::draw(float deltaTime)
 
     cascadedShadowMap->draw(cmd, allRenderObjects, activeTerrains, currentFrameOverlap);
 
-    vk_helpers::clearColorImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
                                 VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -538,7 +547,7 @@ void Engine::draw(float deltaTime)
     environmentPipeline->draw(cmd, environmentPipelineDrawInfo);
 
 
-    visibility_pass::VisibilityPassDrawInfo deferredFrustumCullDrawInfo{
+    visibility_pass_pipeline::VisibilityPassDrawInfo deferredFrustumCullDrawInfo{
         currentFrameOverlap,
         allRenderObjects,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
@@ -635,6 +644,16 @@ void Engine::draw(float deltaTime)
     };
     ambientOcclusionPipeline->draw(cmd, gtaoDrawInfo);
 
+    contact_shadows_pipeline::ContactShadowsDrawInfo contactDrawInfo{
+        camera,
+        mainLight,
+        sssPush,
+        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
+    };
+
+    contactShadowsPipeline->draw(cmd, contactDrawInfo);
+
     const deferred_resolve::DeferredResolveDrawInfo deferredResolveDrawInfo{
         deferredDebug,
         csmPcf,
@@ -647,6 +666,8 @@ void Engine::draw(float deltaTime)
         cascadedShadowMap->getCascadedShadowMapSamplerBuffer().getDescriptorBufferBindingInfo(),
         camera->getNearPlane(),
         camera->getFarPlane(),
+        bEnableShadows,
+        bEnableContactShadows
     };
     deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);
 
@@ -654,7 +675,9 @@ void Engine::draw(float deltaTime)
     transparent_pipeline::TransparentCompositeDrawInfo compositeDrawInfo{
         drawImage.imageView
     };
-    transparentPipeline->drawComposite(cmd, compositeDrawInfo);
+    if (!bHideTransparents) {
+        transparentPipeline->drawComposite(cmd, compositeDrawInfo);
+    }
 
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
@@ -766,6 +789,7 @@ void Engine::cleanup()
     delete terrainPipeline;
     delete deferredMrtPipeline;
     delete ambientOcclusionPipeline;
+    delete contactShadowsPipeline;
     delete deferredResolvePipeline;
     delete temporalAntialiasingPipeline;
     delete transparentPipeline;
@@ -1062,6 +1086,7 @@ void Engine::hotReloadShaders() const
     deferredMrtPipeline->reloadShaders();
     transparentPipeline->reloadShaders();
     ambientOcclusionPipeline->reloadShaders();
+    contactShadowsPipeline->reloadShaders();
     deferredResolvePipeline->reloadShaders();
     temporalAntialiasingPipeline->reloadShaders();
     postProcessPipeline->reloadShaders();
