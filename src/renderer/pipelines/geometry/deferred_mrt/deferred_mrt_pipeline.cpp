@@ -155,17 +155,17 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::createPipeline()
     vertexAttributes[0].offset = offsetof(VertexPosition, position);
 
     vertexAttributes[1].binding = 1;
-    vertexAttributes[1].location = 0;
+    vertexAttributes[1].location = 1;
     vertexAttributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
     vertexAttributes[1].offset = offsetof(VertexProperty, normal);
 
     vertexAttributes[2].binding = 1;
-    vertexAttributes[2].location = 1;
+    vertexAttributes[2].location = 2;
     vertexAttributes[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
     vertexAttributes[2].offset = offsetof(VertexProperty, color);
 
     vertexAttributes[3].binding = 1;
-    vertexAttributes[3].location = 2;
+    vertexAttributes[3].location = 3;
     vertexAttributes[3].format = VK_FORMAT_R32G32_SFLOAT;
     vertexAttributes[3].offset = offsetof(VertexProperty, uv);
 

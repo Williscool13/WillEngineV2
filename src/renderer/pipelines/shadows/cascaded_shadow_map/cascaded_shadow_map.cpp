@@ -344,7 +344,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
                                                    &addressOffset);
 
 
-                vkCmdBindVertexBuffers(cmd, 0, 1, &renderObject->getVertexBuffer().buffer, &zeroOffset);
+                vkCmdBindVertexBuffers(cmd, 0, 1, &renderObject->getPositionVertexBuffer().buffer, &zeroOffset);
                 vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
                 vkCmdDrawIndexedIndirect(cmd, renderObject->getOpaqueIndirectBuffer(currentFrameOverlap).buffer, 0,
                                          renderObject->getOpaqueDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
@@ -430,13 +430,13 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createRenderObjectPipelin
     PipelineBuilder pipelineBuilder;
     VkVertexInputBindingDescription mainBinding{};
     mainBinding.binding = 0;
-    mainBinding.stride = sizeof(Vertex);
+    mainBinding.stride = sizeof(VertexPosition);
     mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
     VkVertexInputAttributeDescription vertexAttributes[1];
     vertexAttributes[0].binding = 0;
     vertexAttributes[0].location = 0;
     vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertexAttributes[0].offset = offsetof(Vertex, position);
+    vertexAttributes[0].offset = offsetof(VertexPosition, position);
 
     pipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 1);
 

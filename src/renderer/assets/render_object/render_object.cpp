@@ -482,10 +482,8 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
 
             boundingSpheres.emplace_back(primitiveVertexPositions);
 
-            size_t vertexCount = primitiveVertexPositions.size();
-
             primitiveData.firstIndex = static_cast<uint32_t>(indices.size());
-            primitiveData.vertexOffset = static_cast<int32_t>(vertexCount);
+            primitiveData.vertexOffset = static_cast<int32_t>(vertexPositions.size());
             primitiveData.indexCount = static_cast<uint32_t>(primitiveIndices.size());
             primitiveData.boundingSphereIndex = static_cast<uint32_t>(boundingSpheres.size() - 1);
 
@@ -629,7 +627,7 @@ void RenderObject::load()
 
     uint64_t vertexPropertiesSize = vertexCount * sizeof(VertexProperty);
     AllocatedBuffer vertexPropertiesStaging = resourceManager.createStagingBuffer(vertexPropertiesSize);
-    memcpy(vertexPropertiesStaging.info.pMappedData, vertexPositions.data(), vertexPropertiesSize);
+    memcpy(vertexPropertiesStaging.info.pMappedData, vertexProperties.data(), vertexPropertiesSize);
     vertexPropertyBuffer = resourceManager.createDeviceBuffer(vertexPropertiesSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     resourceManager.copyBuffer(vertexPropertiesStaging, vertexPropertyBuffer, vertexPropertiesSize);
     resourceManager.destroyBuffer(vertexPropertiesStaging);
