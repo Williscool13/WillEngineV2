@@ -31,7 +31,12 @@ struct MaterialProperties
     glm::vec4 alphaCutoff{1.0f, 0.0f, 0.0f, 0.0f}; // x: alpha cutoff, y: alpha mode, z: padding, w: padding
 };
 
-struct Vertex
+struct VertexPosition
+{
+    glm::vec3 position{0.0f};
+};
+
+struct VertexProperty
 {
     glm::vec3 position;
     glm::vec3 normal{1.0f, 0.0f, 0.0f};
@@ -57,7 +62,7 @@ struct Mesh
 
 struct BoundingSphere {
     BoundingSphere() = default;
-    explicit BoundingSphere(const std::vector<Vertex>& vertices);
+    explicit BoundingSphere(const std::vector<VertexPosition>& vertices);
 
     glm::vec3 center{};
     float radius{};

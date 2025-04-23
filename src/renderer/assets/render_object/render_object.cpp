@@ -177,9 +177,11 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
     else {
         resourceManager.destroyBuffer(currentTransparentDrawIndirectBuffer);
         AllocatedBuffer indirectStaging = resourceManager.createStagingBuffer(transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-        memcpy(indirectStaging.info.pMappedData, transparentDrawCommands.data(), transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-        currentTransparentDrawIndirectBuffer = resourceManager.createDeviceBuffer(transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand),
-                                                                             VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+        memcpy(indirectStaging.info.pMappedData, transparentDrawCommands.data(),
+               transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+        currentTransparentDrawIndirectBuffer = resourceManager.createDeviceBuffer(
+            transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand),
+            VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
 
         resourceManager.copyBuffer(indirectStaging, currentTransparentDrawIndirectBuffer,
                                    transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
@@ -275,7 +277,9 @@ bool RenderObject::generateMesh(IRenderable* renderable, const int32_t meshIndex
             transparentIndirectData.firstInstance = primitiveIndex;
         }
 
-        primitiveDataMap[primitiveIndex] = {primitive.materialIndex, instanceIndex, primitive.boundingSphereIndex, primitive.bHasTransparent ? 1u : 0u};
+        primitiveDataMap[primitiveIndex] = {
+            primitive.materialIndex, instanceIndex, primitive.boundingSphereIndex, primitive.bHasTransparent ? 1u : 0u
+        };
     }
 
     renderable->setRenderObjectReference(this, meshIndex);
@@ -413,8 +417,8 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
         for (fastgltf::Primitive& p : mesh.primitives) {
             Primitive primitiveData{};
 
-
-            std::vector<Vertex> primitiveVertices{};
+            std::vector<VertexPosition> primitiveVertexPositions{};
+            std::vector<VertexProperty> primitiveVertexProperties{};
             std::vector<uint32_t> primitiveIndices{};
 
             if (p.materialIndex.has_value()) {
@@ -434,12 +438,16 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
             // POSITION (REQUIRED)
             const fastgltf::Attribute* positionIt = p.findAttribute("POSITION");
             const fastgltf::Accessor& posAccessor = gltf.accessors[positionIt->accessorIndex];
-            primitiveVertices.resize(posAccessor.count);
+            primitiveVertexPositions.resize(posAccessor.count);
+            primitiveVertexProperties.resize(posAccessor.count);
 
             fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, posAccessor, [&](fastgltf::math::fvec3 v, const size_t index) {
-                Vertex newVertex{};
-                newVertex.position = {v.x(), v.y(), v.z()};
-                primitiveVertices[index] = newVertex;
+                VertexPosition newVertexPos{};
+                newVertexPos.position = {v.x(), v.y(), v.z()};
+                primitiveVertexPositions[index] = newVertexPos;
+
+                const VertexProperty newVertexProp{};
+                primitiveVertexProperties[index] = newVertexProp;
             });
 
 
@@ -448,7 +456,7 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
             if (normals != p.attributes.end()) {
                 fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, gltf.accessors[normals->accessorIndex],
                                                                           [&](fastgltf::math::fvec3 n, const size_t index) {
-                                                                              primitiveVertices[index].normal = {n.x(), n.y(), n.z()};
+                                                                              primitiveVertexProperties[index].normal = {n.x(), n.y(), n.z()};
                                                                           });
             }
 
@@ -457,7 +465,7 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
             if (uvs != p.attributes.end()) {
                 fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(gltf, gltf.accessors[uvs->accessorIndex],
                                                                           [&](fastgltf::math::fvec2 uv, const size_t index) {
-                                                                              primitiveVertices[index].uv = {uv.x(), uv.y()};
+                                                                              primitiveVertexProperties[index].uv = {uv.x(), uv.y()};
                                                                           });
             }
 
@@ -466,20 +474,23 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
             if (colors != p.attributes.end()) {
                 fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec4>(gltf, gltf.accessors[colors->accessorIndex],
                                                                           [&](fastgltf::math::fvec4 color, const size_t index) {
-                                                                              primitiveVertices[index].color = {
+                                                                              primitiveVertexProperties[index].color = {
                                                                                   color.x(), color.y(), color.z(), color.w()
                                                                               };
                                                                           });
             }
 
-            boundingSpheres.emplace_back(primitiveVertices);
+            boundingSpheres.emplace_back(primitiveVertexPositions);
+
+            size_t vertexCount = primitiveVertexPositions.size();
 
             primitiveData.firstIndex = static_cast<uint32_t>(indices.size());
-            primitiveData.vertexOffset = static_cast<int32_t>(vertices.size());
+            primitiveData.vertexOffset = static_cast<int32_t>(vertexCount);
             primitiveData.indexCount = static_cast<uint32_t>(primitiveIndices.size());
             primitiveData.boundingSphereIndex = static_cast<uint32_t>(boundingSpheres.size() - 1);
 
-            vertices.insert(vertices.end(), primitiveVertices.begin(), primitiveVertices.end());
+            vertexPositions.insert(vertexPositions.end(), primitiveVertexPositions.begin(), primitiveVertexPositions.end());
+            vertexProperties.insert(vertexProperties.end(), primitiveVertexProperties.begin(), primitiveVertexProperties.end());
             indices.insert(indices.end(), primitiveIndices.begin(), primitiveIndices.end());
             meshData.primitives.push_back(primitiveData);
         }
@@ -607,12 +618,21 @@ void RenderObject::load()
     resourceManager.copyBuffer(materialStaging, materialBuffer, materials.size() * sizeof(MaterialProperties));
     resourceManager.destroyBuffer(materialStaging);
 
+    size_t vertexCount = vertexPositions.size();
+    uint64_t vertexPositionSize = vertexCount * sizeof(VertexPosition);
 
-    AllocatedBuffer vertexStaging = resourceManager.createStagingBuffer(vertices.size() * sizeof(Vertex));
-    memcpy(vertexStaging.info.pMappedData, vertices.data(), vertices.size() * sizeof(Vertex));
-    vertexBuffer = resourceManager.createDeviceBuffer(vertices.size() * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-    resourceManager.copyBuffer(vertexStaging, vertexBuffer, vertices.size() * sizeof(Vertex));
-    resourceManager.destroyBuffer(vertexStaging);
+    AllocatedBuffer vertexPositionStaging = resourceManager.createStagingBuffer(vertexPositionSize);
+    memcpy(vertexPositionStaging.info.pMappedData, vertexPositions.data(), vertexPositionSize);
+    vertexPositionBuffer = resourceManager.createDeviceBuffer(vertexPositionSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    resourceManager.copyBuffer(vertexPositionStaging, vertexPositionBuffer, vertexPositionSize);
+    resourceManager.destroyBuffer(vertexPositionStaging);
+
+    uint64_t vertexPropertiesSize = vertexCount * sizeof(VertexProperty);
+    AllocatedBuffer vertexPropertiesStaging = resourceManager.createStagingBuffer(vertexPropertiesSize);
+    memcpy(vertexPropertiesStaging.info.pMappedData, vertexPositions.data(), vertexPropertiesSize);
+    vertexPropertyBuffer = resourceManager.createDeviceBuffer(vertexPropertiesSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    resourceManager.copyBuffer(vertexPropertiesStaging, vertexPropertyBuffer, vertexPropertiesSize);
+    resourceManager.destroyBuffer(vertexPropertiesStaging);
 
     AllocatedBuffer indexStaging = resourceManager.createStagingBuffer(indices.size() * sizeof(uint32_t));
     memcpy(indexStaging.info.pMappedData, indices.data(), indices.size() * sizeof(uint32_t));
@@ -711,7 +731,8 @@ void RenderObject::unload()
         resourceManager.destroySampler(sampler);
     }
 
-    resourceManager.destroyBuffer(vertexBuffer);
+    resourceManager.destroyBuffer(vertexPositionBuffer);
+    resourceManager.destroyBuffer(vertexPropertyBuffer);
     resourceManager.destroyBuffer(indexBuffer);
 
     resourceManager.destroyBuffer(materialBuffer);
@@ -736,7 +757,8 @@ void RenderObject::unload()
     transparentDrawCommands.clear();
 
     materials.clear();
-    vertices.clear();
+    vertexPositions.clear();
+    vertexProperties.clear();
     indices.clear();
     meshes.clear();
     boundingSpheres.clear();

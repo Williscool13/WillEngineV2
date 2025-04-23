@@ -118,7 +118,9 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
 
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 3, indices.data(), offsets.data());
 
-        vkCmdBindVertexBuffers(cmd, 0, 1, &renderObject->getVertexBuffer().buffer, &zeroOffset);
+        const VkBuffer vertexBuffers[2] = {renderObject->getPositionVertexBuffer().buffer, renderObject->getPropertyVertexBuffer().buffer};
+        constexpr VkDeviceSize vertexOffsets[2] = {0, 0};
+        vkCmdBindVertexBuffers(cmd, 0, 2, vertexBuffers, vertexOffsets);
         vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexedIndirect(cmd, renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap).buffer, 0,
                                  renderObject->getOpaqueDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
@@ -136,33 +138,40 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::createPipeline()
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/deferredMrt.frag");
 
     PipelineBuilder renderPipelineBuilder;
-    VkVertexInputBindingDescription mainBinding{};
-    mainBinding.binding = 0;
-    mainBinding.stride = sizeof(Vertex);
-    mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    VkVertexInputBindingDescription positionBinding{};
+    positionBinding.binding = 0;
+    positionBinding.stride = sizeof(VertexPosition);
+    positionBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-    VkVertexInputAttributeDescription vertexAttributes[5];
+    VkVertexInputBindingDescription propertyBinding{};
+    propertyBinding.binding = 1;
+    propertyBinding.stride = sizeof(VertexProperty);
+    propertyBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    VkVertexInputAttributeDescription vertexAttributes[4];
     vertexAttributes[0].binding = 0;
     vertexAttributes[0].location = 0;
     vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertexAttributes[0].offset = offsetof(Vertex, position);
+    vertexAttributes[0].offset = offsetof(VertexPosition, position);
 
-    vertexAttributes[1].binding = 0;
-    vertexAttributes[1].location = 1;
+    vertexAttributes[1].binding = 1;
+    vertexAttributes[1].location = 0;
     vertexAttributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertexAttributes[1].offset = offsetof(Vertex, normal);
+    vertexAttributes[1].offset = offsetof(VertexProperty, normal);
 
-    vertexAttributes[2].binding = 0;
-    vertexAttributes[2].location = 2;
+    vertexAttributes[2].binding = 1;
+    vertexAttributes[2].location = 1;
     vertexAttributes[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-    vertexAttributes[2].offset = offsetof(Vertex, color);
+    vertexAttributes[2].offset = offsetof(VertexProperty, color);
 
-    vertexAttributes[3].binding = 0;
-    vertexAttributes[3].location = 3;
+    vertexAttributes[3].binding = 1;
+    vertexAttributes[3].location = 2;
     vertexAttributes[3].format = VK_FORMAT_R32G32_SFLOAT;
-    vertexAttributes[3].offset = offsetof(Vertex, uv);
+    vertexAttributes[3].offset = offsetof(VertexProperty, uv);
 
-    renderPipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 4);
+    const VkVertexInputBindingDescription vertexBindings[2] = {positionBinding, propertyBinding};
+
+    renderPipelineBuilder.setupVertexInput(vertexBindings, 2, vertexAttributes, 4);
 
     renderPipelineBuilder.setShaders(vertShader, fragShader);
     renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
