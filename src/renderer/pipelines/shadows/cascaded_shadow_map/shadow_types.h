@@ -45,6 +45,16 @@ struct CascadedShadowMapProperties
         {2048, 2048, 1},
         {2048, 2048, 1}
     };
+
+    bool useManualSplit{true};
+
+    std::array<float, SHADOW_CASCADE_COUNT + 1> manualCascadeSplits{
+        0.1,
+        4,
+        25,
+        100,
+        400,
+    };
 };
 
 struct CascadeSplit

@@ -547,6 +547,11 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             needRegenerateSplit = true;
                         }
 
+                        if (ImGui::Checkbox("Manual Splits", &engine->csmProperties.useManualSplit)) {
+                            needUpdateCsmProperties = true;
+                            needRegenerateSplit = true;
+                        }
+
                         if (needUpdateCsmProperties) {
                             engine->cascadedShadowMap->setCascadedShadowMapProperties(engine->csmProperties);
                         }

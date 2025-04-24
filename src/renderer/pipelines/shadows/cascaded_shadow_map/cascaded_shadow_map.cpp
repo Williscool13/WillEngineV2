@@ -37,9 +37,6 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
             VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
 
-    // https://github.com/diharaw/cascaded-shadow-maps
-    // Practical Split Scheme: https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch10.html
-
     generateSplits();
 
     fmt::print("Shadow Map: (Splits) ");
@@ -174,7 +171,8 @@ void will_engine::cascaded_shadows::CascadedShadowMap::update(const DirectionalL
                                                               const int32_t currentFrameOverlap)
 {
     for (CascadeShadowMapData& shadowData : shadowMaps) {
-        shadowData.lightViewProj = getLightSpaceMatrix(shadowData.cascadeLevel, mainLight.getDirection(), camera, shadowData.split.nearPlane, shadowData.split.farPlane);
+        shadowData.lightViewProj = getLightSpaceMatrix(shadowData.cascadeLevel, mainLight.getDirection(), camera, shadowData.split.nearPlane,
+                                                       shadowData.split.farPlane);
     }
 
     const AllocatedBuffer& currentCascadeShadowMapData = cascadedShadowMapDatas[currentFrameOverlap];
@@ -185,6 +183,9 @@ void will_engine::cascaded_shadows::CascadedShadowMap::update(const DirectionalL
         data->lightViewProj[i] = shadowMaps[i].lightViewProj;
     }
     data->directionalLightData = mainLight.getData();
+
+    data->nearShadowPlane = shadowMaps[0].split.nearPlane;
+    data->farShadowPlane = shadowMaps[SHADOW_CASCADE_COUNT - 1].split.farPlane;
 }
 
 void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects,
@@ -410,7 +411,7 @@ glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(
     glm::vec3 eye = frustumCenter - (lightDirection * radius * 2.0f);
 
     glm::mat4 lightView = lookAt(eye, frustumCenter, GLOBAL_UP);
-    constexpr float zMult = 6.0f;
+    constexpr float zMult = 10.0f;
     glm::mat4 lightProj = glm::ortho(-radius, radius, -radius, radius, -radius * zMult, radius * zMult);
     if (reversedDepth) {
         lightProj = glm::ortho(-radius, radius, -radius, radius, radius * zMult, -radius * zMult);
@@ -497,22 +498,34 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createTerrainPipeline()
     resourceManager.destroyShaderModule(fragShader);
 }
 
-void will_engine::cascaded_shadows::CascadedShadowMap::generateSplits() {
-    const float ratio = csmProperties.cascadeFarPlane / csmProperties.cascadeNearPlane;
-    shadowMaps[0].split.nearPlane = csmProperties.cascadeNearPlane;
-
-    for (size_t i = 1; i < SHADOW_CASCADE_COUNT; i++) {
-        const float si = static_cast<float>(i) / static_cast<float>(SHADOW_CASCADE_COUNT);
-
-        const float uniformTerm = csmProperties.cascadeNearPlane + (csmProperties.cascadeFarPlane - csmProperties.cascadeNearPlane) * si;
-        const float logTerm = csmProperties.cascadeNearPlane * std::pow(ratio, si);
-        const float nearValue = csmProperties.splitLambda * logTerm + (1.0f - csmProperties.splitLambda) * uniformTerm;
-
-        const float farValue = nearValue * csmProperties.splitOverlap;
-
-        shadowMaps[i].split.nearPlane = nearValue;
-        shadowMaps[i - 1].split.farPlane = farValue;
+void will_engine::cascaded_shadows::CascadedShadowMap::generateSplits()
+{
+    if (csmProperties.useManualSplit) {
+        for (int32_t i = 0; i < SHADOW_CASCADE_COUNT; ++i) {
+            shadowMaps[i].split.nearPlane = csmProperties.manualCascadeSplits[i];
+            shadowMaps[i].split.farPlane = csmProperties.manualCascadeSplits[i + 1];
+        }
     }
+    else {
+        // https://github.com/diharaw/cascaded-shadow-maps
+        // Practical Split Scheme: https://developer.nvidia.com/gpugems/GPUGems3/gpugems3_ch10.html
 
-    shadowMaps[SHADOW_CASCADE_COUNT - 1].split.farPlane = csmProperties.cascadeFarPlane;
+        const float ratio = csmProperties.cascadeFarPlane / csmProperties.cascadeNearPlane;
+        shadowMaps[0].split.nearPlane = csmProperties.cascadeNearPlane;
+
+        for (size_t i = 1; i < SHADOW_CASCADE_COUNT; i++) {
+            const float si = static_cast<float>(i) / static_cast<float>(SHADOW_CASCADE_COUNT);
+
+            const float uniformTerm = csmProperties.cascadeNearPlane + (csmProperties.cascadeFarPlane - csmProperties.cascadeNearPlane) * si;
+            const float logTerm = csmProperties.cascadeNearPlane * std::pow(ratio, si);
+            const float nearValue = csmProperties.splitLambda * logTerm + (1.0f - csmProperties.splitLambda) * uniformTerm;
+
+            const float farValue = nearValue * csmProperties.splitOverlap;
+
+            shadowMaps[i].split.nearPlane = nearValue;
+            shadowMaps[i - 1].split.farPlane = farValue;
+        }
+
+        shadowMaps[SHADOW_CASCADE_COUNT - 1].split.farPlane = csmProperties.cascadeFarPlane;
+    }
 }
