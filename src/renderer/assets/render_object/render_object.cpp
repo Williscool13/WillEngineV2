@@ -29,7 +29,7 @@ RenderObject::~RenderObject()
     unload();
 }
 
-void RenderObject::update(const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
+void RenderObject::update(VkCommandBuffer cmd, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
 {
     if (!bIsLoaded) { return; }
     updateBuffers(currentFrameOverlap, previousFrameOverlap);
@@ -37,9 +37,9 @@ void RenderObject::update(const int32_t currentFrameOverlap, const int32_t previ
     for (const std::pair renderablePair : renderableMap) {
         IRenderable* renderable = renderablePair.first;
         if (renderable->getRenderFramesToUpdate() > 0) {
-            const int32_t instanceIndex = renderablePair.second.instanceIndex;
+            const uint32_t instanceIndex = renderablePair.second.instanceIndex;
 
-            if (instanceIndex < 0 || instanceIndex >= currentInstanceCount) {
+            if (instanceIndex >= currentInstanceCount) {
                 fmt::print("Instance from renderable is not a valid index");
                 continue;
             }
@@ -61,6 +61,9 @@ void RenderObject::update(const int32_t currentFrameOverlap, const int32_t previ
             currentModel->flags[1] = renderable->isShadowCaster();
 
             renderable->setRenderFramesToUpdate(renderable->getRenderFramesToUpdate() - 1);
+
+            vk_helpers::synchronizeUniform(cmd, currentFrameModelMatrix, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
+                                   VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
         }
     }
 }

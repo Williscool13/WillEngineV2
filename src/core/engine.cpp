@@ -481,7 +481,7 @@ void Engine::draw(float deltaTime)
 
     // Update Render Object Buffers and Model Matrices
     for (RenderObject* renderObject : allRenderObjects) {
-        renderObject->update(currentFrameOverlap, previousFrameOverlap);
+        renderObject->update(cmd, currentFrameOverlap, previousFrameOverlap);
     }
 
     for (ITerrain* terrain : activeTerrains) {

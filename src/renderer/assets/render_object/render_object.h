@@ -36,7 +36,7 @@ public:
 
     ~RenderObject() override;
 
-    void update(int32_t currentFrameOverlap, int32_t previousFrameOverlap);
+    void update(VkCommandBuffer cmd, int32_t currentFrameOverlap, int32_t previousFrameOverlap);
 
     bool updateBuffers(int32_t currentFrameOverlap, int32_t previousFrameOverlap);
 
