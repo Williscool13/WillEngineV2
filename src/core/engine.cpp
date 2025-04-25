@@ -316,7 +316,7 @@ void Engine::run()
         updateGame(deltaTime);
         profiler.endTimer("1Game");
 
-        draw(deltaTime);
+        render(deltaTime);
         profiler.endTimer("3Total");
     }
 }
@@ -452,7 +452,7 @@ void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int3
                                    VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
 }
 
-void Engine::draw(float deltaTime)
+void Engine::render(float deltaTime)
 {
     // GPU -> VPU sync (fence)
     VK_CHECK(vkWaitForFences(context->device, 1, &getCurrentFrame()._renderFence, true, 1000000000));
@@ -467,6 +467,12 @@ void Engine::draw(float deltaTime)
         return;
     }
 
+    int32_t currentFrameOverlap = getCurrentFrameOverlap();
+    int32_t previousFrameOverlap = getPreviousFrameOverlap();
+
+    // Destroy all resources queued to be destroyed on this frame (from FRAME_OVERLAP frames ago)
+    resourceManager->update(currentFrameOverlap);
+
     VkCommandBuffer cmd = getCurrentFrame()._mainCommandBuffer;
     VK_CHECK(vkResetCommandBuffer(cmd, 0));
     const VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
@@ -474,8 +480,7 @@ void Engine::draw(float deltaTime)
 
     profiler.beginTimer("2Render");
 
-    int32_t currentFrameOverlap = getCurrentFrameOverlap();
-    int32_t previousFrameOverlap = getPreviousFrameOverlap();
+
 
     std::vector<RenderObject*> allRenderObjects = assetManager->getAllRenderObjects();
 
@@ -787,7 +792,7 @@ void Engine::cleanup()
         resourceManager->destroyBuffer(sceneBuffer);
     }
     resourceManager->destroyBuffer(debugSceneDataBuffer);
-    sceneDataDescriptorBuffer.destroy(context->allocator);
+    resourceManager->destroyDescriptorBuffer(sceneDataDescriptorBuffer);
 
 #ifndef NDEBUG
     delete imguiWrapper;

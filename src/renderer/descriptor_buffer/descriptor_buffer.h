@@ -27,8 +27,6 @@ public:
 
     DescriptorBuffer(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int32_t maxObjectCount = 10);
 
-    void destroy(VmaAllocator allocator);
-
     void freeDescriptorBufferIndex(int32_t index);
 
     void freeAllDescriptorBufferIndices();
@@ -39,13 +37,14 @@ public:
 
     bool isIndexOccupied(const int32_t index) const { return freeIndices.contains(index); }
 
+    AllocatedBuffer& getBuffer() { return mainBuffer; }
+
 protected:
     /**
      * The underlying VkBuffer for this descriptor buffer
      */
-    AllocatedBuffer descriptorBuffer{VK_NULL_HANDLE};
-    VkDeviceAddress descriptorBufferGpuAddress{};
-    VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};
+    AllocatedBuffer mainBuffer{VK_NULL_HANDLE};
+    VkDeviceAddress mainBufferGpuAddress{};
 
     /**
      * The size of 1 descriptor set
@@ -57,7 +56,7 @@ protected:
     VkDeviceSize descriptorBufferOffset{};
 
 
-    std::unordered_set<int> freeIndices;
+    std::unordered_set<int32_t> freeIndices;
     /**
      * Must be specified when this descriptor buffer is created.
      * \n Total descriptor buffer size will be offset + size * maxObjectCount

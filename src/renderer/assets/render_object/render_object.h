@@ -151,11 +151,10 @@ private: // Buffer Data
     std::vector<VkDrawIndexedIndirectCommand> opaqueDrawCommands{};
     std::vector<VkDrawIndexedIndirectCommand> transparentDrawCommands{};
 
-    AllocatedBuffer vertexPositionBuffer{};
-
     /**
-     * The other vertex properties
+     * Split vertex Position and Properties to improve GPU cache performance for passes that only need position (shadow pass, depth prepass), assuming these passes don't need the other properties of course
      */
+    AllocatedBuffer vertexPositionBuffer{};
     AllocatedBuffer vertexPropertyBuffer{};
     AllocatedBuffer indexBuffer{};
     AllocatedBuffer opaqueDrawIndirectBuffers[FRAME_OVERLAP]{};

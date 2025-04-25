@@ -63,7 +63,7 @@ void RenderObject::update(VkCommandBuffer cmd, const int32_t currentFrameOverlap
             renderable->setRenderFramesToUpdate(renderable->getRenderFramesToUpdate() - 1);
 
             vk_helpers::synchronizeUniform(cmd, currentFrameModelMatrix, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
-                                   VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
+                                           VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
         }
     }
 }
@@ -85,7 +85,7 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
         // copy data from previous frame, as it is the most up to date
         const size_t sizeToCopy = glm::min(latestPrimitiveBufferSize, previousPrimitiveBuffer.info.size);
         if (sizeToCopy > 0) {
-            resourceManager.copyBuffer(previousPrimitiveBuffer, newPrimitiveBuffer, sizeToCopy);
+            resourceManager.copyBufferImmediate(previousPrimitiveBuffer, newPrimitiveBuffer, sizeToCopy);
         }
         resourceManager.destroyBuffer(currentPrimitiveBuffer);
         currentPrimitiveBuffer = newPrimitiveBuffer;
@@ -122,7 +122,7 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
         // copy data from previous frame, as it is the most up to date
         const size_t sizeToCopy = glm::min(currentInstanceCount * sizeof(InstanceData), previousInstanceBuffer.info.size);
         if (sizeToCopy > 0) {
-            resourceManager.copyBuffer(previousInstanceBuffer, newInstanceBuffer, sizeToCopy);
+            resourceManager.copyBufferImmediate(previousInstanceBuffer, newInstanceBuffer, sizeToCopy);
         }
         resourceManager.destroyBuffer(currentInstanceBuffer);
         currentInstanceBuffer = newInstanceBuffer;
@@ -145,19 +145,17 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
     }
 
     AllocatedBuffer& currentOpaqueDrawIndirectBuffer = opaqueDrawIndirectBuffers[currentFrameOverlap];
-    if (opaqueDrawCommands.empty()) {
-        resourceManager.destroyBuffer(currentOpaqueDrawIndirectBuffer);
-    }
-    else {
+    resourceManager.destroyBuffer(currentOpaqueDrawIndirectBuffer);
+    if (!opaqueDrawCommands.empty()) {
         resourceManager.destroyBuffer(currentOpaqueDrawIndirectBuffer);
         AllocatedBuffer indirectStaging = resourceManager.createStagingBuffer(opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
         memcpy(indirectStaging.info.pMappedData, opaqueDrawCommands.data(), opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
         currentOpaqueDrawIndirectBuffer = resourceManager.createDeviceBuffer(opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand),
                                                                              VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
 
-        resourceManager.copyBuffer(indirectStaging, currentOpaqueDrawIndirectBuffer,
+        resourceManager.copyBufferImmediate(indirectStaging, currentOpaqueDrawIndirectBuffer,
                                    opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-        resourceManager.destroyBuffer(indirectStaging);
+        resourceManager.destroyBufferImmediate(indirectStaging);
 
         const FrustumCullingBuffers cullingAddresses{
             .meshBoundsBuffer = resourceManager.getBufferAddress(meshBoundsBuffer),
@@ -169,16 +167,14 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
         const auto currentCullingAddressBuffers = opaqueCullingAddressBuffers[currentFrameOverlap];
         AllocatedBuffer stagingCullingAddressesBuffer = resourceManager.createStagingBuffer(sizeof(FrustumCullingBuffers));
         memcpy(stagingCullingAddressesBuffer.info.pMappedData, &cullingAddresses, sizeof(FrustumCullingBuffers));
-        resourceManager.copyBuffer(stagingCullingAddressesBuffer, currentCullingAddressBuffers, sizeof(FrustumCullingBuffers));
-        resourceManager.destroyBuffer(stagingCullingAddressesBuffer);
+        resourceManager.copyBufferImmediate(stagingCullingAddressesBuffer, currentCullingAddressBuffers, sizeof(FrustumCullingBuffers));
+        resourceManager.destroyBufferImmediate(stagingCullingAddressesBuffer);
     }
 
     AllocatedBuffer& currentTransparentDrawIndirectBuffer = transparentDrawIndirectBuffers[currentFrameOverlap];
-    if (transparentDrawCommands.empty()) {
-        resourceManager.destroyBuffer(currentTransparentDrawIndirectBuffer);
-    }
-    else {
-        resourceManager.destroyBuffer(currentTransparentDrawIndirectBuffer);
+    resourceManager.destroyBuffer(currentTransparentDrawIndirectBuffer);
+
+    if (!transparentDrawCommands.empty()) {
         AllocatedBuffer indirectStaging = resourceManager.createStagingBuffer(transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
         memcpy(indirectStaging.info.pMappedData, transparentDrawCommands.data(),
                transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
@@ -186,9 +182,9 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
             transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand),
             VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
 
-        resourceManager.copyBuffer(indirectStaging, currentTransparentDrawIndirectBuffer,
+        resourceManager.copyBufferImmediate(indirectStaging, currentTransparentDrawIndirectBuffer,
                                    transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-        resourceManager.destroyBuffer(indirectStaging);
+        resourceManager.destroyBufferImmediate(indirectStaging);
 
         const FrustumCullingBuffers cullingAddresses{
             .meshBoundsBuffer = resourceManager.getBufferAddress(meshBoundsBuffer),
@@ -200,8 +196,8 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
         const auto currentCullingAddressBuffers = transparentCullingAddressBuffers[currentFrameOverlap];
         AllocatedBuffer stagingCullingAddressesBuffer = resourceManager.createStagingBuffer(sizeof(FrustumCullingBuffers));
         memcpy(stagingCullingAddressesBuffer.info.pMappedData, &cullingAddresses, sizeof(FrustumCullingBuffers));
-        resourceManager.copyBuffer(stagingCullingAddressesBuffer, currentCullingAddressBuffers, sizeof(FrustumCullingBuffers));
-        resourceManager.destroyBuffer(stagingCullingAddressesBuffer);
+        resourceManager.copyBufferImmediate(stagingCullingAddressesBuffer, currentCullingAddressBuffers, sizeof(FrustumCullingBuffers));
+        resourceManager.destroyBufferImmediate(stagingCullingAddressesBuffer);
     }
 
     bufferFramesToUpdate--;
@@ -616,8 +612,8 @@ void RenderObject::load()
     AllocatedBuffer materialStaging = resourceManager.createStagingBuffer(materials.size() * sizeof(MaterialProperties));
     memcpy(materialStaging.info.pMappedData, materials.data(), materials.size() * sizeof(MaterialProperties));
     materialBuffer = resourceManager.createDeviceBuffer(materials.size() * sizeof(MaterialProperties));
-    resourceManager.copyBuffer(materialStaging, materialBuffer, materials.size() * sizeof(MaterialProperties));
-    resourceManager.destroyBuffer(materialStaging);
+    resourceManager.copyBufferImmediate(materialStaging, materialBuffer, materials.size() * sizeof(MaterialProperties));
+    resourceManager.destroyBufferImmediate(materialStaging);
 
     size_t vertexCount = vertexPositions.size();
     uint64_t vertexPositionSize = vertexCount * sizeof(VertexPosition);
@@ -625,21 +621,21 @@ void RenderObject::load()
     AllocatedBuffer vertexPositionStaging = resourceManager.createStagingBuffer(vertexPositionSize);
     memcpy(vertexPositionStaging.info.pMappedData, vertexPositions.data(), vertexPositionSize);
     vertexPositionBuffer = resourceManager.createDeviceBuffer(vertexPositionSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-    resourceManager.copyBuffer(vertexPositionStaging, vertexPositionBuffer, vertexPositionSize);
-    resourceManager.destroyBuffer(vertexPositionStaging);
+    resourceManager.copyBufferImmediate(vertexPositionStaging, vertexPositionBuffer, vertexPositionSize);
+    resourceManager.destroyBufferImmediate(vertexPositionStaging);
 
     uint64_t vertexPropertiesSize = vertexCount * sizeof(VertexProperty);
     AllocatedBuffer vertexPropertiesStaging = resourceManager.createStagingBuffer(vertexPropertiesSize);
     memcpy(vertexPropertiesStaging.info.pMappedData, vertexProperties.data(), vertexPropertiesSize);
     vertexPropertyBuffer = resourceManager.createDeviceBuffer(vertexPropertiesSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-    resourceManager.copyBuffer(vertexPropertiesStaging, vertexPropertyBuffer, vertexPropertiesSize);
-    resourceManager.destroyBuffer(vertexPropertiesStaging);
+    resourceManager.copyBufferImmediate(vertexPropertiesStaging, vertexPropertyBuffer, vertexPropertiesSize);
+    resourceManager.destroyBufferImmediate(vertexPropertiesStaging);
 
     AllocatedBuffer indexStaging = resourceManager.createStagingBuffer(indices.size() * sizeof(uint32_t));
     memcpy(indexStaging.info.pMappedData, indices.data(), indices.size() * sizeof(uint32_t));
     indexBuffer = resourceManager.createDeviceBuffer(indices.size() * sizeof(uint32_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-    resourceManager.copyBuffer(indexStaging, indexBuffer, indices.size() * sizeof(uint32_t));
-    resourceManager.destroyBuffer(indexStaging);
+    resourceManager.copyBufferImmediate(indexStaging, indexBuffer, indices.size() * sizeof(uint32_t));
+    resourceManager.destroyBufferImmediate(indexStaging);
 
     // Addresses (Texture and Uniform model data)
     // todo: make address buffer for statics (dont need multiple)
@@ -692,8 +688,8 @@ void RenderObject::load()
     AllocatedBuffer meshBoundsStaging = resourceManager.createStagingBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
     memcpy(meshBoundsStaging.info.pMappedData, boundingSpheres.data(), sizeof(BoundingSphere) * boundingSpheres.size());
     meshBoundsBuffer = resourceManager.createDeviceBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
-    resourceManager.copyBuffer(meshBoundsStaging, meshBoundsBuffer, sizeof(BoundingSphere) * boundingSpheres.size());
-    resourceManager.destroyBuffer(meshBoundsStaging);
+    resourceManager.copyBufferImmediate(meshBoundsStaging, meshBoundsBuffer, sizeof(BoundingSphere) * boundingSpheres.size());
+    resourceManager.destroyBufferImmediate(meshBoundsStaging);
 
 
     bIsLoaded = true;

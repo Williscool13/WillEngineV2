@@ -29,8 +29,8 @@ TerrainChunk::TerrainChunk(ResourceManager& resourceManager, const std::vector<f
         vertexBufferSize,
         VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
     );
-    resourceManager.copyBuffer(stagingBuffer, vertexBuffer, vertexBufferSize);
-    resourceManager.destroyBuffer(stagingBuffer);
+    resourceManager.copyBufferImmediate(stagingBuffer, vertexBuffer, vertexBufferSize);
+    resourceManager.destroyBufferImmediate(stagingBuffer);
 
     const size_t indexBufferSize = indices.size() * sizeof(uint32_t);
     stagingBuffer = resourceManager.createStagingBuffer(indexBufferSize);
@@ -40,8 +40,8 @@ TerrainChunk::TerrainChunk(ResourceManager& resourceManager, const std::vector<f
         indexBufferSize,
         VK_BUFFER_USAGE_INDEX_BUFFER_BIT
     );
-    resourceManager.copyBuffer(stagingBuffer, indexBuffer, indexBufferSize);
-    resourceManager.destroyBuffer(stagingBuffer);
+    resourceManager.copyBufferImmediate(stagingBuffer, indexBuffer, indexBufferSize);
+    resourceManager.destroyBufferImmediate(stagingBuffer);
 
     for (int i{0}; i < FRAME_OVERLAP; i++) {
         terrainUniformBuffers[i] = resourceManager.createHostSequentialBuffer(sizeof(TerrainProperties));
@@ -88,8 +88,8 @@ TerrainChunk::~TerrainChunk()
     resourceManager.destroyBuffer(vertexBuffer);
     resourceManager.destroyBuffer(indexBuffer);
 
-    for (AllocatedBuffer buffer : terrainUniformBuffers) {
-        resourceManager.destroyBuffer(buffer);
+    for (AllocatedBuffer terrainUniformBuffer : terrainUniformBuffers) {
+        resourceManager.destroyBuffer(terrainUniformBuffer);
     }
 
     resourceManager.destroyDescriptorBuffer(textureDescriptorBuffer);

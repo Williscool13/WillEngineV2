@@ -22,9 +22,9 @@ will_engine::DescriptorBufferUniform::DescriptorBufferUniform(const VulkanContex
     VmaAllocationCreateInfo vmaAllocInfo = {};
     vmaAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
     vmaAllocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    VK_CHECK(vmaCreateBuffer(context.allocator, &bufferInfo, &vmaAllocInfo, &descriptorBuffer.buffer, &descriptorBuffer.allocation, &descriptorBuffer.info));
+    VK_CHECK(vmaCreateBuffer(context.allocator, &bufferInfo, &vmaAllocInfo, &mainBuffer.buffer, &mainBuffer.allocation, &mainBuffer.info));
 
-    descriptorBufferGpuAddress = vk_helpers::getDeviceAddress(context.device, descriptorBuffer.buffer);
+    mainBufferGpuAddress = vk_helpers::getDeviceAddress(context.device, mainBuffer.buffer);
 }
 
 int32_t will_engine::DescriptorBufferUniform::setupData(VkDevice device, const std::vector<DescriptorUniformData>& uniformBuffers, int32_t index)
@@ -68,7 +68,7 @@ int32_t will_engine::DescriptorBufferUniform::setupData(VkDevice device, const s
         // at index 0, should be -> (pointer) + (baseOffset + 0 * uniformBufferSize) + (descriptorBufferIndex * descriptorBufferSize)
         // at index 1, should be -> (pointer) + (baseOffset + 1 * uniformBufferSize) + (descriptorBufferIndex * descriptorBufferSize)
         // at index 2, should be -> (pointer) + (baseOffset + 2 * uniformBufferSize) + (descriptorBufferIndex * descriptorBufferSize)
-        char* buffer_ptr_offset = static_cast<char*>(descriptorBuffer.info.pMappedData) + accum_offset + descriptorBufferIndex *
+        char* buffer_ptr_offset = static_cast<char*>(mainBuffer.info.pMappedData) + accum_offset + descriptorBufferIndex *
                                   descriptorBufferSize;
 
         vkGetDescriptorEXT(device, &descriptorGetInfo, deviceDescriptorBufferProperties.uniformBufferDescriptorSize, buffer_ptr_offset);

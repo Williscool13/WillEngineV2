@@ -125,7 +125,7 @@ public:
 
     void updateRender(VkCommandBuffer cmd, float deltaTime, int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
 
-    void draw(float deltaTime);
+    void render(float deltaTime);
 
     /**
      * Cleans up vulkan resources when application has exited. Destroys resources in opposite order of initialization

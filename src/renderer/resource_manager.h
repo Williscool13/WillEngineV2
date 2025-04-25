@@ -4,9 +4,11 @@
 
 #ifndef RESOURCE_MANAGER_H
 #define RESOURCE_MANAGER_H
+#include <array>
 #include <filesystem>
 #include <fstream>
 
+#include "renderer_constants.h"
 #include "vk_descriptors.h"
 #include "vk_pipelines.h"
 #include "vk_types.h"
@@ -22,6 +24,29 @@ namespace will_engine
 {
 class ImmediateSubmitter;
 
+struct DestructorBufferData
+{
+    VkBuffer buffer{VK_NULL_HANDLE};
+    VmaAllocation allocation{VK_NULL_HANDLE};
+};
+
+struct DestructorImageData
+{
+    VkImage image{VK_NULL_HANDLE};
+    VmaAllocation allocation{VK_NULL_HANDLE};
+};
+
+struct DestructionQueue
+{
+    std::vector<DestructorBufferData> bufferQueue;
+    std::vector<DestructorImageData> imageQueue;
+    std::vector<VkImageView> imageViewQueue;
+    std::vector<VkSampler> samplerQueue;
+    std::vector<VkPipeline> pipelineQueue;
+    std::vector<VkPipelineLayout> pipelineLayoutQueue;
+    std::vector<VkDescriptorSetLayout> descriptorSetLayoutQueue;
+};
+
 class ResourceManager
 {
 public:
@@ -31,7 +56,24 @@ public:
 
     ~ResourceManager();
 
-public: // Resource Creation
+public:
+    /**
+     * Meant to be called every frame, should be called before
+     * @param currentFrameOverlap The current frame overlap used to know which deletion queue to flush.
+     */
+    void update(int32_t currentFrameOverlap);
+
+    /**
+     * Meant to be called when the program is finished on the cleanup step.
+     */
+    void flushDestructionQueue();
+
+private:
+    std::array<DestructionQueue, FRAME_OVERLAP> destructionQueues;
+
+    int32_t lastKnownFrameOverlap{0};
+
+public: // VkBuffer
     [[nodiscard]] AllocatedBuffer createBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) const;
 
     AllocatedBuffer createHostSequentialBuffer(size_t allocSize) const;
@@ -44,63 +86,83 @@ public: // Resource Creation
 
     [[nodiscard]] AllocatedBuffer createReceivingBuffer(size_t allocSize) const;
 
-    void copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, VkDeviceSize size) const;
+    /**
+     * Immediately destroys the buffer, typically used to destroy staging/upload buffers if the buffers in question are immediately used and synchronized using `ImmediateSubmitter`
+     * \n should not be used otherwise, as the buffer may be destroyed before it is used.
+     * @param buffer
+     */
+    void destroyBufferImmediate(AllocatedBuffer& buffer) const;
 
-    void copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, VkDeviceSize size, VkDeviceSize offset) const;
+    void destroyBuffer(AllocatedBuffer& buffer);
+
+public: // VkBuffer Helpers
+    void copyBufferImmediate(const AllocatedBuffer& src, const AllocatedBuffer& dst, VkDeviceSize size) const;
+
+    void copyBufferImmediate(const AllocatedBuffer& src, const AllocatedBuffer& dst, VkDeviceSize size, VkDeviceSize offset) const;
 
     [[nodiscard]] VkDeviceAddress getBufferAddress(const AllocatedBuffer& buffer) const;
 
-    void destroyBuffer(AllocatedBuffer& buffer) const;
-
-
+public: // Samplers
     [[nodiscard]] VkSampler createSampler(const VkSamplerCreateInfo& createInfo) const;
 
-    void destroySampler(VkSampler& sampler) const;
+    void destroySampler(VkSampler sampler);
 
-
+public: // VkImage and VkImageView
     [[nodiscard]] AllocatedImage createImage(const VkImageCreateInfo& createInfo) const;
 
     [[nodiscard]] AllocatedImage createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
 
-    [[nodiscard]] AllocatedImage createImage(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
+    [[nodiscard]] AllocatedImage createImage(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,
+                                             bool mipmapped = false) const;
 
     [[nodiscard]] AllocatedImage createCubemap(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
 
-    void destroyImage(AllocatedImage& img) const;
+    void destroyImage(AllocatedImage& image);
 
-
+public: // Descriptor Buffer
     [[nodiscard]] DescriptorBufferSampler createDescriptorBufferSampler(VkDescriptorSetLayout layout, int32_t maxObjectCount) const;
 
-    int32_t setupDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer, const std::vector<will_engine::DescriptorImageData>& imageBuffers, int index = -1) const;
+    int32_t setupDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer, const std::vector<will_engine::DescriptorImageData>& imageBuffers,
+                                         int index = -1) const;
 
     [[nodiscard]] DescriptorBufferUniform createDescriptorBufferUniform(VkDescriptorSetLayout layout, int32_t maxObjectCount) const;
 
-    int32_t setupDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer, const std::vector<will_engine::DescriptorUniformData>& uniformBuffers, int index = -1) const;
+    int32_t setupDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer,
+                                         const std::vector<will_engine::DescriptorUniformData>& uniformBuffers, int index = -1) const;
 
-    void destroyDescriptorBuffer(DescriptorBuffer& descriptorBuffer) const;
+    void destroyDescriptorBuffer(DescriptorBuffer& descriptorBuffer);
 
+public: // Shader Module
     VkShaderModule createShaderModule(const std::filesystem::path& path) const;
 
+    /**
+     * As far as I know shader modules don't need to defer destroyed, since it's used to construct the pipeline (without `ImmediateSubmitter`)
+     * @param shaderModule
+     */
     void destroyShaderModule(VkShaderModule& shaderModule) const;
 
-
+public: // Pipeline Layout
     VkPipelineLayout createPipelineLayout(const VkPipelineLayoutCreateInfo& createInfo) const;
 
-    void destroyPipelineLayout(VkPipelineLayout& pipelineLayout) const;
+    void destroyPipelineLayout(VkPipelineLayout pipelineLayout);
 
+public: // Pipelines
     VkPipeline createRenderPipeline(PipelineBuilder& builder, const std::vector<VkDynamicState>& additionalDynamicStates = {}) const;
 
     VkPipeline createComputePipeline(const VkComputePipelineCreateInfo& pipelineInfo) const;
 
-    void destroyPipeline(VkPipeline& pipeline) const;
+    void destroyPipeline(VkPipeline pipeline);
 
-    VkDescriptorSetLayout createDescriptorSetLayout(DescriptorLayoutBuilder& layoutBuilder, VkShaderStageFlagBits shaderStageFlags, VkDescriptorSetLayoutCreateFlagBits layoutCreateFlags) const;
+public: // Descriptor Set Layout
+    VkDescriptorSetLayout createDescriptorSetLayout(DescriptorLayoutBuilder& layoutBuilder, VkShaderStageFlagBits shaderStageFlags,
+                                                    VkDescriptorSetLayoutCreateFlagBits layoutCreateFlags) const;
 
-    void destroyDescriptorSetLayout(VkDescriptorSetLayout& descriptorSetLayout) const;
+    void destroyDescriptorSetLayout(VkDescriptorSetLayout descriptorSetLayout);
 
+public: // Image View
     VkImageView createImageView(const VkImageViewCreateInfo& viewInfo) const;
 
-    void destroyImageView(VkImageView& imageView) const;
+    void destroyImageView(VkImageView imageView);
 
 public:
     [[nodiscard]] VkSampler getDefaultSamplerLinear() const { return defaultSamplerLinear; }
@@ -155,7 +217,8 @@ class CustomIncluder final : public shaderc::CompileOptions::IncluderInterface
 public:
     explicit CustomIncluder(const std::vector<std::string>& includePaths) : includePaths(includePaths) {}
 
-    shaderc_include_result* GetInclude(const char* requestedSource, shaderc_include_type type, const char* requestingSource, size_t includeDepth) override
+    shaderc_include_result* GetInclude(const char* requestedSource, shaderc_include_type type, const char* requestingSource,
+                                       size_t includeDepth) override
     {
         std::string resolvedPath;
         for (const auto& path : includePaths) {
