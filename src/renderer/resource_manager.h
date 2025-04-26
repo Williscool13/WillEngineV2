@@ -112,7 +112,8 @@ public: // VkBuffer Helpers
     void copyBufferImmediate(const AllocatedBuffer& src, const AllocatedBuffer& dst, VkDeviceSize size, VkDeviceSize offset) const;
 
     /**
-     *
+     * Copy buffer immediate should generally only be used during asset initialization.
+     * \n For updates within the frame loop, use \code vk_helpers::copyBuffer\endcode
      * @param bufferCopyInfos
      */
     void copyBufferImmediate(std::span<BufferCopyInfo> bufferCopyInfos) const;

@@ -336,7 +336,8 @@ bool RenderObject::releaseInstanceIndex(IRenderable* renderable)
     return true;
 }
 
-bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
+bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath, std::vector<MaterialProperties>& materials,
+                             std::vector<VertexPosition>& vertexPositions, std::vector<VertexProperty>& vertexProperties, std::vector<uint32_t>& indices)
 {
     auto start = std::chrono::system_clock::now();
 
@@ -586,7 +587,12 @@ void RenderObject::load()
     for (int32_t i = 0; i < 10; ++i) { freePrimitiveIndices.insert(i); }
     currentMaxPrimitiveCount = freePrimitiveIndices.size();
 
-    if (!parseGltf(gltfPath)) { return; }
+    std::vector<MaterialProperties> materials{};
+    std::vector<VertexPosition> vertexPositions{};
+    std::vector<VertexProperty> vertexProperties{};
+    std::vector<uint32_t> indices{};
+
+    if (!parseGltf(gltfPath, materials, vertexPositions, vertexProperties, indices)) { return; }
 
     std::vector<DescriptorImageData> textureDescriptors;
     for (const VkSampler sampler : samplers) {
@@ -761,10 +767,6 @@ void RenderObject::unload()
     opaqueDrawCommands.clear();
     transparentDrawCommands.clear();
 
-    materials.clear();
-    vertexPositions.clear();
-    vertexProperties.clear();
-    indices.clear();
     meshes.clear();
     boundingSpheres.clear();
     renderNodes.clear();

@@ -115,8 +115,8 @@ public: // Model Rendering API
     [[nodiscard]] const DescriptorBufferUniform& getAddressesDescriptorBuffer() const { return addressesDescriptorBuffer; }
     [[nodiscard]] const DescriptorBufferSampler& getTextureDescriptorBuffer() const { return textureDescriptorBuffer; }
     [[nodiscard]] const DescriptorBufferUniform& getFrustumCullingAddressesDescriptorBuffer() { return frustumCullingDescriptorBuffer; }
-    [[nodiscard]] const  AllocatedBuffer& getPositionVertexBuffer() const { return vertexPositionBuffer; }
-    [[nodiscard]] const  AllocatedBuffer& getPropertyVertexBuffer() const { return vertexPropertyBuffer; }
+    [[nodiscard]] const AllocatedBuffer& getPositionVertexBuffer() const { return vertexPositionBuffer; }
+    [[nodiscard]] const AllocatedBuffer& getPropertyVertexBuffer() const { return vertexPropertyBuffer; }
     [[nodiscard]] const AllocatedBuffer& getIndexBuffer() const { return indexBuffer; }
 
     [[nodiscard]] const AllocatedBuffer& getOpaqueIndirectBuffer(const int32_t currentFrameOverlap) const
@@ -144,15 +144,12 @@ public: // Model Rendering API
     bool generateMesh(IRenderable* renderable, int32_t meshIndex);
 
 private: // Model Parsing
-    bool parseGltf(const std::filesystem::path& gltfFilepath);
+    bool parseGltf(const std::filesystem::path& gltfFilepath, std::vector<MaterialProperties>& materials,
+                   std::vector<VertexPosition>& vertexPositions, std::vector<VertexProperty>& vertexProperties, std::vector<uint32_t>& indices);
 
 private: // Model Data
     ResourceManager& resourceManager;
 
-    std::vector<MaterialProperties> materials{};
-    std::vector<VertexPosition> vertexPositions;
-    std::vector<VertexProperty> vertexProperties;
-    std::vector<uint32_t> indices;
     std::vector<Mesh> meshes{};
     std::vector<BoundingSphere> boundingSpheres{};
     std::vector<RenderNode> renderNodes{};
