@@ -73,7 +73,7 @@ struct GTAODrawInfo
 
 struct GTAOSettings
 {
-    bool bEnableGTAO{true};
+    bool bEnabled{true};
     GTAOPushConstants pushConstants{};
 };
 

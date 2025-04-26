@@ -375,8 +375,8 @@ bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag 
     if (hasFlag(engineSettings, EngineSettingsTypeFlag::AMBIENT_OCCLUSION_SETTINGS)) {
         ordered_json aoSettings;
 
-        ambient_occlusion::GTAOSettings settings = engine->getAOSettings();
-        aoSettings["enabled"] = settings.bEnableGTAO;
+        ambient_occlusion::GTAOSettings settings = engine->getAoSettings();
+        aoSettings["enabled"] = settings.bEnabled;
 
         aoSettings["properties"]["effect_radius"] = settings.pushConstants.effectRadius;
         aoSettings["properties"]["effect_falloff_range"] = settings.pushConstants.effectFalloffRange;
@@ -391,6 +391,61 @@ bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag 
 
         rootJ["aoSettings"] = aoSettings;
     }
+
+    if (hasFlag(engineSettings, EngineSettingsTypeFlag::SCREEN_SPACE_SHADOWS_SETTINGS)) {
+        ordered_json sssSettings;
+
+        contact_shadows_pipeline::ContactShadowSettings settings = engine->getSssSettings();
+        sssSettings["enabled"] = settings.bEnabled;
+
+        sssSettings["properties"]["surfaceThickness"] = settings.pushConstants.surfaceThickness;
+        sssSettings["properties"]["bilinearThreshold"] = settings.pushConstants.bilinearThreshold;
+        sssSettings["properties"]["shadowContrast"] = settings.pushConstants.shadowContrast;
+        sssSettings["properties"]["ignoreEdgePixels"] = settings.pushConstants.bIgnoreEdgePixels;
+        sssSettings["properties"]["usePrecisionOffset"] = settings.pushConstants.bUsePrecisionOffset;
+        sssSettings["properties"]["bilinearSamplingOffsetMode"] = settings.pushConstants.bBilinearSamplingOffsetMode;
+
+        rootJ["sssSettings"] = sssSettings;
+    }
+
+    if (hasFlag(engineSettings, EngineSettingsTypeFlag::CASCADED_SHADOW_MAP_SETTINGS)) {
+        ordered_json csmSettings;
+
+        cascaded_shadows::CascadedShadowMapSettings settings = engine->getCsmSettings();
+        csmSettings["enabled"] = settings.bEnabled;
+
+        csmSettings["properties"]["pcfLevel"] = settings.pcfLevel;
+        csmSettings["properties"]["splitLambda"] = settings.splitLambda;
+        csmSettings["properties"]["splitOverlap"] = settings.splitOverlap;
+        csmSettings["properties"]["cascadeNearPlane"] = settings.cascadeNearPlane;
+        csmSettings["properties"]["cascadeFarPlane"] = settings.cascadeFarPlane;
+
+        ordered_json cascadeBiasArray = ordered_json::array();
+        for (const auto& bias : settings.cascadeBias) {
+            ordered_json biasObj;
+            biasObj["constant"] = bias.constant;
+            biasObj["slope"] = bias.slope;
+            cascadeBiasArray.push_back(biasObj);
+        }
+        csmSettings["properties"]["cascadeBias"] = cascadeBiasArray;
+
+        ordered_json cascadeExtentsArray = ordered_json::array();
+        for (const auto& extent : settings.cascadeExtents) {
+            ordered_json extentObj;
+            extentObj["width"] = extent.width;
+            extentObj["height"] = extent.height;
+            extentObj["depth"] = extent.depth;
+            cascadeExtentsArray.push_back(extentObj);
+        }
+        csmSettings["properties"]["cascadeExtents"] = cascadeExtentsArray;
+
+        csmSettings["properties"]["useManualSplit"] = settings.useManualSplit;
+        csmSettings["properties"]["manualCascadeSplits"] = settings.manualCascadeSplits;
+
+        rootJ["csmSettings"] = csmSettings;
+    }
+
+    if (hasFlag(engineSettings, EngineSettingsTypeFlag::TEMPORAL_ANTIALIASING_SETTINGS)) {}
 
 
     const std::filesystem::path filepath = {"assets/settings.willengine"};
@@ -513,10 +568,10 @@ bool Serializer::deserializeEngineSettings(Engine* engine, EngineSettingsTypeFla
         if (hasFlag(engineSettings, EngineSettingsTypeFlag::AMBIENT_OCCLUSION_SETTINGS)) {
             if (rootJ.contains("aoSettings")) {
                 ordered_json aoSettings = rootJ["aoSettings"];
-                ambient_occlusion::GTAOSettings settings = engine->getAOSettings();
+                ambient_occlusion::GTAOSettings settings = engine->getAoSettings();
 
                 if (aoSettings.contains("enabled")) {
-                    settings.bEnableGTAO = aoSettings["enabled"].get<bool>();
+                    settings.bEnabled = aoSettings["enabled"].get<bool>();
                 }
 
                 if (aoSettings.contains("properties")) {
@@ -564,12 +619,134 @@ bool Serializer::deserializeEngineSettings(Engine* engine, EngineSettingsTypeFla
                 }
 
 
-                engine->setAOSettings(settings);
+                engine->setAoSettings(settings);
             }
         }
 
+        if (hasFlag(engineSettings, EngineSettingsTypeFlag::SCREEN_SPACE_SHADOWS_SETTINGS)) {
+            if (rootJ.contains("sssSettings")) {
+                ordered_json sssSettings = rootJ["sssSettings"];
+                contact_shadows_pipeline::ContactShadowSettings settings = engine->getSssSettings();
+
+                if (sssSettings.contains("enabled")) {
+                    settings.bEnabled = sssSettings["enabled"].get<bool>();
+                }
+
+                if (sssSettings.contains("properties")) {
+                    ordered_json properties = sssSettings["properties"];
+
+                    if (properties.contains("surfaceThickness")) {
+                        settings.pushConstants.surfaceThickness = properties["surfaceThickness"].get<float>();
+                    }
+
+                    if (properties.contains("bilinearThreshold")) {
+                        settings.pushConstants.bilinearThreshold = properties["bilinearThreshold"].get<float>();
+                    }
+
+                    if (properties.contains("shadowContrast")) {
+                        settings.pushConstants.shadowContrast = properties["shadowContrast"].get<float>();
+                    }
+
+                    if (properties.contains("ignoreEdgePixels")) {
+                        settings.pushConstants.bIgnoreEdgePixels = properties["ignoreEdgePixels"].get<int32_t>();
+                    }
+
+                    if (properties.contains("usePrecisionOffset")) {
+                        settings.pushConstants.bUsePrecisionOffset = properties["usePrecisionOffset"].get<int32_t>();
+                    }
+
+                    if (properties.contains("bilinearSamplingOffsetMode")) {
+                        settings.pushConstants.bBilinearSamplingOffsetMode = properties["bilinearSamplingOffsetMode"].get<int32_t>();
+                    }
+                }
+
+
+                engine->setSssSettings(settings);
+            }
+        }
+
+        if (rootJ.contains("csmSettings")) {
+            ordered_json csmSettings = rootJ["csmSettings"];
+            cascaded_shadows::CascadedShadowMapSettings settings = engine->getCsmSettings();
+
+            if (csmSettings.contains("enabled")) {
+                settings.bEnabled = csmSettings["enabled"].get<bool>();
+            }
+
+            if (csmSettings.contains("properties")) {
+                auto properties = csmSettings["properties"];
+
+                if (properties.contains("pcfLevel")) {
+                    settings.pcfLevel = properties["pcfLevel"].get<int32_t>();
+                }
+
+                if (properties.contains("splitLambda")) {
+                    settings.splitLambda = properties["splitLambda"].get<float>();
+                }
+
+                if (properties.contains("splitOverlap")) {
+                    settings.splitOverlap = properties["splitOverlap"].get<float>();
+                }
+
+                if (properties.contains("cascadeNearPlane")) {
+                    settings.cascadeNearPlane = properties["cascadeNearPlane"].get<float>();
+                }
+
+                if (properties.contains("cascadeFarPlane")) {
+                    settings.cascadeFarPlane = properties["cascadeFarPlane"].get<float>();
+                }
+
+                if (properties.contains("cascadeBias") && properties["cascadeBias"].is_array()) {
+                    auto biasArray = properties["cascadeBias"];
+                    for (size_t i = 0; i < std::min(biasArray.size(), settings.cascadeBias.size()); i++) {
+                        auto biasObj = biasArray[i];
+                        if (biasObj.contains("constant")) {
+                            settings.cascadeBias[i].constant = biasObj["constant"].get<float>();
+                        }
+
+                        if (biasObj.contains("slope")) {
+                            settings.cascadeBias[i].slope = biasObj["slope"].get<float>();
+                        }
+
+                    }
+                }
+
+                if (properties.contains("cascadeExtents") && properties["cascadeExtents"].is_array()) {
+                    auto extentsArray = properties["cascadeExtents"];
+                    for (size_t i = 0; i < std::min(extentsArray.size(), settings.cascadeExtents.size()); i++) {
+                        auto extentObj = extentsArray[i];
+                        if (extentObj.contains("width")) {
+                            settings.cascadeExtents[i].width = extentObj["width"].get<uint32_t>();
+                        }
+                        if (extentObj.contains("height")) {
+                            settings.cascadeExtents[i].height = extentObj["height"].get<uint32_t>();
+                        }
+                        if (extentObj.contains("depth")) {
+                            settings.cascadeExtents[i].depth = extentObj["depth"].get<uint32_t>();
+                        }
+                    }
+                }
+
+                if (properties.contains("useManualSplit")) {
+                    settings.useManualSplit = properties["useManualSplit"].get<bool>();
+                }
+
+                if (properties.contains("manualCascadeSplits") && properties["manualCascadeSplits"].is_array()) {
+                    auto splitsArray = properties["manualCascadeSplits"];
+                    for (size_t i = 0; i < std::min(splitsArray.size(), settings.manualCascadeSplits.size()); i++) {
+                        settings.manualCascadeSplits[i] = splitsArray[i].get<float>();
+                    }
+                }
+            }
+
+            engine->setCsmSettings(settings);
+        }
+
         return true;
-    } catch (const std::exception& e) {
+    } catch
+    (const std::exception&
+        e
+    ) {
         fmt::print("Error deserializing engine settings: {}\n", e.what());
         return false;
     }

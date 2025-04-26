@@ -6,15 +6,15 @@
     },
     "cameraSettings": {
         "position": [
-            -118.98358154296875,
-            172.6697540283203,
-            -53.94145202636719
+            -3.5752112865448,
+            77.89178466796875,
+            -2.0525176525115967
         ],
         "rotation": [
-            -0.06408169120550156,
-            -0.9074703454971313,
-            -0.15023335814476013,
-            0.3870672583580017
+            0.12966889142990112,
+            0.5945084095001221,
+            0.09788811206817627,
+            -0.7875046730041504
         ],
         "fov": 1.3089969158172607,
         "aspectRatio": 1.4861111640930176,
@@ -52,6 +52,75 @@
             "depth_mip_sampling_offset": 3.299999952316284,
             "slice_count": 2.0,
             "steps_per_slice_count": 2.0
+        }
+    },
+    "sssSettings": {
+        "enabled": true,
+        "properties": {
+            "surfaceThickness": 0.004999999888241291,
+            "bilinearThreshold": 0.05000000074505806,
+            "shadowContrast": 2.0,
+            "ignoreEdgePixels": 1,
+            "usePrecisionOffset": 0,
+            "bilinearSamplingOffsetMode": 0
+        }
+    },
+    "csmSettings": {
+        "enabled": true,
+        "properties": {
+            "pcfLevel": 1,
+            "splitLambda": 0.800000011920929,
+            "splitOverlap": 1.0499999523162842,
+            "cascadeNearPlane": 0.10000000149011612,
+            "cascadeFarPlane": 100.0,
+            "cascadeBias": [
+                {
+                    "constant": 500.0,
+                    "slope": 0.699999988079071
+                },
+                {
+                    "constant": 500.0,
+                    "slope": 0.6000000238418579
+                },
+                {
+                    "constant": 600.0,
+                    "slope": 1.0
+                },
+                {
+                    "constant": 300.0,
+                    "slope": 1.0
+                }
+            ],
+            "cascadeExtents": [
+                {
+                    "width": 2048,
+                    "height": 2048,
+                    "depth": 1
+                },
+                {
+                    "width": 2048,
+                    "height": 2048,
+                    "depth": 1
+                },
+                {
+                    "width": 2048,
+                    "height": 2048,
+                    "depth": 1
+                },
+                {
+                    "width": 2048,
+                    "height": 2048,
+                    "depth": 1
+                }
+            ],
+            "useManualSplit": false,
+            "manualCascadeSplits": [
+                0.10000000149011612,
+                4.0,
+                25.0,
+                100.0,
+                400.0
+            ]
         }
     }
 }

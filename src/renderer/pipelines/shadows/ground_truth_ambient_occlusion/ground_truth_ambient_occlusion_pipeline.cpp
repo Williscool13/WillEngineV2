@@ -216,6 +216,7 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
         VkImageUsageFlags usage{};
         usage |= VK_IMAGE_USAGE_STORAGE_BIT;
         usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+        usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
         VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(ambientOcclusionFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
         denoisedFinalAO = resourceManager.createImage(imgInfo);

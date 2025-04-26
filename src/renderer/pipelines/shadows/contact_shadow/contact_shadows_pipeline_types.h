@@ -16,14 +16,6 @@ namespace will_engine::contact_shadows_pipeline
 
 static constexpr int32_t CONTACT_SHADOW_WAVE_SIZE = 64;
 
-enum class ContactShadowsDebugMode : int32_t
-{
-    NONE = 0,
-    EDGE = 1,
-    INVOCATION_ID = 2,
-    WORK_GROUP_ID = 3
-};
-
 struct DispatchData
 {
     int32_t WaveCount[3];					// Compute Shader Dispatch(X,Y,Z) wave counts X/Y/Z
@@ -50,9 +42,11 @@ struct ContactShadowsPushConstants
     int32_t bBilinearSamplingOffsetMode{0};
 
     glm::vec2 depthBounds{0, 1};
+    /**
+     * Doesn't do anything.
+     */
     int32_t bUseEarlyOut{1};
 
-    //ContactShadowsDebugMode debugMode{ContactShadowsDebugMode::NONE};
     int32_t debugMode{0};
 
     glm::ivec2 waveOffset{0};

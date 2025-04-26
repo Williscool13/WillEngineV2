@@ -338,7 +338,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::BeginTabBar("Settings Tab")) {
                     if (ImGui::BeginTabItem("General")) {
                         ImGui::Checkbox("Enable TAA", &engine->taaSettings.bEnabled);
-                        ImGui::Checkbox("Enable GTAO", &engine->gtaoSettings.bEnableGTAO);
+                        ImGui::Checkbox("Enable GTAO", &engine->gtaoSettings.bEnabled);
                         ImGui::Checkbox("Enable Shadows", &engine->bEnableShadows);
                         ImGui::DragInt("Shadows PCF Level", &engine->csmSettings.pcfLevel, 2, 1, 5);
                         ImGui::Checkbox("Enable Contact Shadows", &engine->bEnableContactShadows);
@@ -505,13 +505,13 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             ImGui::Text(fmt::format("Cascade {}:", i).c_str());
                             ImGui::SameLine();
                             ImGui::SetNextItemWidth(100);
-                            if (ImGui::DragFloat(fmt::format("##linear{}", i).c_str(), &engine->csmSettings.cascadeBias[i].linearBias, 0.001f, 0.0f,
+                            if (ImGui::DragFloat(fmt::format("##linear{}", i).c_str(), &engine->csmSettings.cascadeBias[i].constant, 0.001f, 0.0f,
                                                  1.0f, "%.3f")) {
                                 needUpdateCsmProperties = true;
                             }
                             ImGui::SameLine();
                             ImGui::SetNextItemWidth(100);
-                            if (ImGui::DragFloat(fmt::format("##slope{}", i).c_str(), &engine->csmSettings.cascadeBias[i].slopedBias, 0.001f, 0.0f,
+                            if (ImGui::DragFloat(fmt::format("##slope{}", i).c_str(), &engine->csmSettings.cascadeBias[i].slope, 0.001f, 0.0f,
                                                  1.0f, "%.3f")) {
                                 needUpdateCsmProperties = true;
                             }

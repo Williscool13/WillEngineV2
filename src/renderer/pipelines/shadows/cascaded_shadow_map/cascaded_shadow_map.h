@@ -39,7 +39,7 @@ public:
 
     void update(const DirectionalLight& mainLight, const Camera* camera, int32_t currentFrameOverlap);
 
-    void draw(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects, const std::unordered_set<ITerrain*>& terrains, int32_t currentFrameOverlap);
+    void draw(VkCommandBuffer cmd, CascadedShadowMapDrawInfo drawInfo);
 
     /**
      *
@@ -80,15 +80,15 @@ public: // Debug
 
     AllocatedImage getShadowMap(const int32_t cascadeLevel) const
     {
-        if (cascadeLevel >= cascaded_shadows::SHADOW_CASCADE_COUNT || cascadeLevel < 0) {
+        if (cascadeLevel >= SHADOW_CASCADE_COUNT || cascadeLevel < 0) {
             return shadowMaps[0].depthShadowMap;
         }
         return shadowMaps[cascadeLevel].depthShadowMap;
     }
 
-    cascaded_shadows::CascadeShadowMapData getCascadedShadowMapData(const int32_t cascadeLevel) const
+    CascadeShadowMapData getCascadedShadowMapData(const int32_t cascadeLevel) const
     {
-        if (cascadeLevel >= cascaded_shadows::SHADOW_CASCADE_COUNT || cascadeLevel < 0) {
+        if (cascadeLevel >= SHADOW_CASCADE_COUNT || cascadeLevel < 0) {
             return shadowMaps[0];
         }
         return shadowMaps[cascadeLevel];
@@ -97,8 +97,8 @@ public: // Debug
 private:
     ResourceManager& resourceManager;
 
-    std::array<cascaded_shadows::CascadeShadowMapData, cascaded_shadows::SHADOW_CASCADE_COUNT> shadowMaps{
-        cascaded_shadows::CascadeShadowMapData(0, {}, {VK_NULL_HANDLE}, {}),
+    std::array<CascadeShadowMapData, SHADOW_CASCADE_COUNT> shadowMaps{
+        CascadeShadowMapData(0, {}, {VK_NULL_HANDLE}, {}),
         {1, {}, {VK_NULL_HANDLE}, {}},
         {2, {}, {VK_NULL_HANDLE}, {}},
         {3, {}, {VK_NULL_HANDLE}, {}},
@@ -121,7 +121,7 @@ private:
     DescriptorBufferUniform cascadedShadowMapDescriptorBufferUniform;
 
 private:
-    cascaded_shadows::CascadedShadowMapSettings csmProperties{};
+    CascadedShadowMapSettings csmProperties{};
 };
 }
 

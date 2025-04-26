@@ -144,7 +144,9 @@ void Engine::init()
 
 
     cascadedShadowMap = new cascaded_shadows::CascadedShadowMap(*resourceManager);
-    csmSettings = cascadedShadowMap->getCascadedShadowMapProperties();
+    cascadedShadowMap->setCascadedShadowMapProperties(csmSettings);
+    cascadedShadowMap->generateSplits();
+
     startupProfiler.addEntry("CSM");
 
     if (engine_constants::useImgui) {
@@ -512,7 +514,15 @@ void Engine::render(float deltaTime)
     };
     visibilityPassPipeline->draw(cmd, csmFrustumCullDrawInfo);
 
-    cascadedShadowMap->draw(cmd, allRenderObjects, activeTerrains, currentFrameOverlap);
+
+    cascaded_shadows::CascadedShadowMapDrawInfo csmDrawInfo{
+        csmSettings.bEnabled,
+        currentFrameOverlap,
+        allRenderObjects,
+        activeTerrains,
+    };
+
+    cascadedShadowMap->draw(cmd, csmDrawInfo);
 
     vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
@@ -630,7 +640,7 @@ void Engine::render(float deltaTime)
 
     ambient_occlusion::GTAODrawInfo gtaoDrawInfo{
         camera,
-        gtaoSettings.bEnableGTAO,
+        gtaoSettings.bEnabled,
         gtaoSettings.pushConstants,
         frameNumber,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
@@ -1067,6 +1077,15 @@ void Engine::createDrawResources()
         VkImageViewCreateInfo rview_info = vk_helpers::imageviewCreateInfo(postProcessOutputBuffer.imageFormat, postProcessOutputBuffer.image,
                                                                            VK_IMAGE_ASPECT_COLOR_BIT);
         VK_CHECK(vkCreateImageView(context->device, &rview_info, nullptr, &postProcessOutputBuffer.imageView));
+    }
+}
+
+void Engine::setCsmSettings(const cascaded_shadows::CascadedShadowMapSettings& settings)
+{
+    csmSettings = settings;
+    if (cascadedShadowMap) {
+        cascadedShadowMap->setCascadedShadowMapProperties(csmSettings);
+        cascadedShadowMap->generateSplits();
     }
 }
 

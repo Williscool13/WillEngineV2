@@ -72,6 +72,7 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
         usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
         usage |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
         usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
         VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(CASCADE_DEPTH_FORMAT, usage, csmProperties.cascadeExtents[i]);
         cascadeShadowMapData.depthShadowMap = resourceManager.createImage(imgInfo);
@@ -188,8 +189,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::update(const DirectionalL
     data->farShadowPlane = shadowMaps[SHADOW_CASCADE_COUNT - 1].split.farPlane;
 }
 
-void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd, const std::vector<RenderObject*>& renderObjects,
-                                                            const std::unordered_set<ITerrain*>& terrains, const int32_t currentFrameOverlap)
+void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd, CascadedShadowMapDrawInfo drawInfo)
 {
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
@@ -207,6 +207,11 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
         CascadeShadowMapData& cascadeShadowMapData = shadowMaps[i];
         VkExtent3D cascadeExtents = csmProperties.cascadeExtents[i];
         CascadeBias cascadeBias = csmProperties.cascadeBias[i];
+
+        if (!drawInfo.bEnabled) {
+            vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_DEPTH_BIT, cascadeShadowMapData.depthShadowMap.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, {0.0f, 0.0f});
+            continue;
+        }
 
         vk_helpers::transitionImage(cmd, cascadeShadowMapData.depthShadowMap.image, VK_IMAGE_LAYOUT_UNDEFINED,
                                     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -231,7 +236,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             vkCmdBeginRendering(cmd, &renderInfo);
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, terrainPipeline);
 
-            vkCmdSetDepthBias(cmd, cascadeBias.linearBias, 0.0f, cascadeBias.slopedBias);
+            vkCmdSetDepthBias(cmd, cascadeBias.constant, 0.0f, cascadeBias.slope);
 
             CascadedShadowMapGenerationPushConstants pushConstants{};
             pushConstants.cascadeIndex = cascadeShadowMapData.cascadeLevel;
@@ -258,7 +263,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 
             constexpr VkDeviceSize zeroOffset{0};
 
-            for (ITerrain* terrain : terrains) {
+            for (ITerrain* terrain : drawInfo.terrains) {
                 terrain::TerrainChunk* terrainChunk = terrain->getTerrainChunk();
                 if (!terrainChunk) { continue; }
 
@@ -268,7 +273,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 
                 vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
 
-                const VkDeviceSize shadowDataOffset{cascadedShadowMapDescriptorBufferUniform.getDescriptorBufferSize() * currentFrameOverlap};
+                const VkDeviceSize shadowDataOffset{cascadedShadowMapDescriptorBufferUniform.getDescriptorBufferSize() * drawInfo.currentFrameOverlap};
                 vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, terrainPipelineLayout, 0, 1, &shadowDataIndex,
                                                    &shadowDataOffset);
 
@@ -300,7 +305,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             vkCmdBeginRendering(cmd, &renderInfo);
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObjectPipeline);
 
-            vkCmdSetDepthBias(cmd, cascadeBias.linearBias, 0.0f, cascadeBias.slopedBias);
+            vkCmdSetDepthBias(cmd, cascadeBias.constant, 0.0f, cascadeBias.slope);
 
             CascadedShadowMapGenerationPushConstants pushConstants{};
             pushConstants.cascadeIndex = cascadeShadowMapData.cascadeLevel;
@@ -326,7 +331,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 
             constexpr VkDeviceSize zeroOffset{0};
 
-            for (RenderObject* renderObject : renderObjects) {
+            for (RenderObject* renderObject : drawInfo.renderObjects) {
                 if (!renderObject->canDrawOpaque()) { continue; }
 
                 VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];
@@ -337,8 +342,8 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 
                 vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
 
-                const VkDeviceSize shadowDataOffset{cascadedShadowMapDescriptorBufferUniform.getDescriptorBufferSize() * currentFrameOverlap};
-                const VkDeviceSize addressOffset{renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * currentFrameOverlap};
+                const VkDeviceSize shadowDataOffset{cascadedShadowMapDescriptorBufferUniform.getDescriptorBufferSize() * drawInfo.currentFrameOverlap};
+                const VkDeviceSize addressOffset{renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap};
                 vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObjectPipelineLayout, 0, 1, &shadowDataIndex,
                                                    &shadowDataOffset);
                 vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObjectPipelineLayout, 1, 1, &addressIndex,
@@ -347,7 +352,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 
                 vkCmdBindVertexBuffers(cmd, 0, 1, &renderObject->getPositionVertexBuffer().buffer, &zeroOffset);
                 vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-                vkCmdDrawIndexedIndirect(cmd, renderObject->getOpaqueIndirectBuffer(currentFrameOverlap).buffer, 0,
+                vkCmdDrawIndexedIndirect(cmd, renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap).buffer, 0,
                                          renderObject->getOpaqueDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
             }
 

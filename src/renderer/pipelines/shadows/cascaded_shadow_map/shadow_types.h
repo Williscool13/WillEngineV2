@@ -10,6 +10,11 @@
 #include "src/renderer/vk_types.h"
 #include "src/renderer/lighting/directional_light.h"
 
+namespace will_engine
+{
+class RenderObject;
+}
+
 namespace will_engine::cascaded_shadows
 {
 static inline constexpr uint32_t SHADOW_CASCADE_COUNT{4};
@@ -17,12 +22,13 @@ static inline VkFormat CASCADE_DEPTH_FORMAT{VK_FORMAT_D32_SFLOAT};
 
 struct CascadeBias
 {
-    float linearBias{0.0f};
-    float slopedBias{0.0f};
+    float constant{0.0f};
+    float slope{0.0f};
 };
 
 struct CascadedShadowMapSettings
 {
+    bool bEnabled{true};
     int32_t pcfLevel{1};
 
     float splitLambda = 0.8f;
@@ -88,6 +94,14 @@ struct CascadeShadowData
     float nearShadowPlane;
     float farShadowPlane;
     glm::vec2 pad;
+};
+
+struct CascadedShadowMapDrawInfo
+{
+    bool bEnabled{true};
+    int32_t currentFrameOverlap{};
+    std::vector<RenderObject*>& renderObjects;
+    std::unordered_set<ITerrain*>& terrains;
 };
 }
 #endif //SHADOW_TYPES_H

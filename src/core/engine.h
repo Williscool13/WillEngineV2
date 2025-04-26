@@ -187,9 +187,14 @@ private: // Engine Settings
     temporal_antialiasing_pipeline::TemporalAntialiasingSettings taaSettings{};
 
 public:
-    ambient_occlusion::GTAOSettings getAOSettings() const { return gtaoSettings; }
-    void setAOSettings(const ambient_occlusion::GTAOSettings& settings) { gtaoSettings = settings; }
+    ambient_occlusion::GTAOSettings getAoSettings() const { return gtaoSettings; }
+    void setAoSettings(const ambient_occlusion::GTAOSettings& settings) { gtaoSettings = settings; }
 
+    contact_shadows_pipeline::ContactShadowSettings getSssSettings() const { return sssSettings; }
+    void setSssSettings(const contact_shadows_pipeline::ContactShadowSettings& settings) { sssSettings = settings; }
+
+    cascaded_shadows::CascadedShadowMapSettings getCsmSettings() const { return csmSettings; }
+    void setCsmSettings(const cascaded_shadows::CascadedShadowMapSettings& settings);
 
 private: // Debug
     bool bEnableDebugFrustumCullDraw{false};
