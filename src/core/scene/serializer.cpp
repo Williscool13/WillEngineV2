@@ -320,7 +320,7 @@ std::optional<TextureInfo> Serializer::loadWillTexture(const std::filesystem::pa
     }
 }
 
-bool Serializer::serializeEngineSettings(Engine* engine)
+bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag engineSettings)
 {
     ordered_json rootJ;
     if (engine == nullptr) {
@@ -330,33 +330,67 @@ bool Serializer::serializeEngineSettings(Engine* engine)
 
     rootJ["version"] = EngineVersion::current();
 
+    if (hasFlag(engineSettings, EngineSettingsTypeFlag::GENERAL_SETTINGS)) {}
 
-    ordered_json cameraProperties;
-    const auto& camera = engine->getCamera();
-    if (camera) {
-        glm::vec3 position = camera->getTransform().getPosition();
-        cameraProperties["position"] = {position.x, position.y, position.z};
+    if (hasFlag(engineSettings, EngineSettingsTypeFlag::CAMERA_SETTINGS)) {
+        ordered_json cameraSettings;
+        const auto& camera = engine->getCamera();
+        if (camera) {
+            glm::vec3 position = camera->getTransform().getPosition();
+            cameraSettings["position"] = {position.x, position.y, position.z};
 
-        glm::quat rotation = camera->getTransform().getRotation();
-        cameraProperties["rotation"] = {rotation.x, rotation.y, rotation.z, rotation.w};
+            glm::quat rotation = camera->getTransform().getRotation();
+            cameraSettings["rotation"] = {rotation.x, rotation.y, rotation.z, rotation.w};
 
-        cameraProperties["fov"] = camera->getFov();
-        cameraProperties["aspectRatio"] = camera->getAspectRatio();
-        cameraProperties["nearPlane"] = camera->getNearPlane();
-        cameraProperties["farPlane"] = camera->getFarPlane();
+            cameraSettings["fov"] = camera->getFov();
+            cameraSettings["aspectRatio"] = camera->getAspectRatio();
+            cameraSettings["nearPlane"] = camera->getNearPlane();
+            cameraSettings["farPlane"] = camera->getFarPlane();
+        }
+
+        rootJ["cameraSettings"] = cameraSettings;
     }
 
-    DirectionalLight mainLight = engine->getMainLight();
-    auto direction = normalize(mainLight.getDirection());
-    auto color = mainLight.getColor();
-    auto intensity = mainLight.getIntensity();
-    rootJ["mainLight"]["direction"] = {direction.x, direction.y, direction.z};
-    rootJ["mainLight"]["color"] = {color.x, color.y, color.z};
-    rootJ["mainLight"]["intensity"] = intensity;
+    if (hasFlag(engineSettings, EngineSettingsTypeFlag::LIGHT_SETTINGS)) {
+        ordered_json lightSettings;
+        DirectionalLight mainLight = engine->getMainLight();
+        auto direction = normalize(mainLight.getDirection());
+        auto color = mainLight.getColor();
+        auto intensity = mainLight.getIntensity();
+        lightSettings["mainLight"]["direction"] = {direction.x, direction.y, direction.z};
+        lightSettings["mainLight"]["color"] = {color.x, color.y, color.z};
+        lightSettings["mainLight"]["intensity"] = intensity;
 
-    rootJ["cameraProperties"] = cameraProperties;
+        rootJ["lightSettings"] = lightSettings;
+    }
 
-    rootJ["environmentMapIndex"] = engine->getCurrentEnvironmentMapIndex();
+    if (hasFlag(engineSettings, EngineSettingsTypeFlag::ENVIRONMENT_SETTINGS)) {
+        ordered_json environmentSettings;
+
+        environmentSettings["environmentMapIndex"] = engine->getCurrentEnvironmentMapIndex();
+
+        rootJ["environmentSettings"] = environmentSettings;
+    }
+
+    if (hasFlag(engineSettings, EngineSettingsTypeFlag::AMBIENT_OCCLUSION_SETTINGS)) {
+        ordered_json aoSettings;
+
+        ambient_occlusion::GTAOSettings settings = engine->getAOSettings();
+        aoSettings["enabled"] = settings.bEnableGTAO;
+
+        aoSettings["properties"]["effect_radius"] = settings.pushConstants.effectRadius;
+        aoSettings["properties"]["effect_falloff_range"] = settings.pushConstants.effectFalloffRange;
+        aoSettings["properties"]["denoise_blur_beta"] = settings.pushConstants.denoiseBlurBeta;
+        aoSettings["properties"]["radius_multiplier"] = settings.pushConstants.radiusMultiplier;
+        aoSettings["properties"]["sample_distribution_power"] = settings.pushConstants.sampleDistributionPower;
+        aoSettings["properties"]["thin_occluder_compensation"] = settings.pushConstants.thinOccluderCompensation;
+        aoSettings["properties"]["final_value_power"] = settings.pushConstants.finalValuePower;
+        aoSettings["properties"]["depth_mip_sampling_offset"] = settings.pushConstants.depthMipSamplingOffset;
+        aoSettings["properties"]["slice_count"] = settings.pushConstants.sliceCount;
+        aoSettings["properties"]["steps_per_slice_count"] = settings.pushConstants.stepsPerSliceCount;
+
+        rootJ["aoSettings"] = aoSettings;
+    }
 
 
     const std::filesystem::path filepath = {"assets/settings.willengine"};
@@ -366,7 +400,7 @@ bool Serializer::serializeEngineSettings(Engine* engine)
     return true;
 }
 
-bool Serializer::deserializeEngineSettings(Engine* engine)
+bool Serializer::deserializeEngineSettings(Engine* engine, EngineSettingsTypeFlag engineSettings)
 {
     if (engine == nullptr) {
         fmt::print("Warning: engine is null\n");
@@ -389,80 +423,150 @@ bool Serializer::deserializeEngineSettings(Engine* engine)
 
         ordered_json rootJ = ordered_json::parse(file);
 
-        if (rootJ.contains("cameraProperties")) {
-            const auto& cameraJ = rootJ["cameraProperties"];
-            auto camera = engine->getCamera();
+        if (hasFlag(engineSettings, EngineSettingsTypeFlag::GENERAL_SETTINGS)) {}
 
-            if (camera) {
-                glm::vec3 position(0.0f);
-                if (cameraJ.contains("position") && cameraJ["position"].is_array() && cameraJ["position"].size() == 3) {
-                    position.x = cameraJ["position"][0];
-                    position.y = cameraJ["position"][1];
-                    position.z = cameraJ["position"][2];
-                }
+        if (hasFlag(engineSettings, EngineSettingsTypeFlag::CAMERA_SETTINGS)) {
+            if (rootJ.contains("cameraSettings")) {
+                const auto& cameraJ = rootJ["cameraSettings"];
 
-                glm::quat rotation(1.0f, 0.0f, 0.0f, 0.0f);
-                if (cameraJ.contains("rotation") && cameraJ["rotation"].is_array() && cameraJ["rotation"].size() == 4) {
-                    rotation.x = cameraJ["rotation"][0];
-                    rotation.y = cameraJ["rotation"][1];
-                    rotation.z = cameraJ["rotation"][2];
-                    rotation.w = cameraJ["rotation"][3];
-                }
+                if (Camera* camera = engine->getCamera()) {
+                    glm::vec3 position(0.0f);
+                    if (cameraJ.contains("position") && cameraJ["position"].is_array() && cameraJ["position"].size() == 3) {
+                        position.x = cameraJ["position"][0];
+                        position.y = cameraJ["position"][1];
+                        position.z = cameraJ["position"][2];
+                    }
 
-                camera->setCameraTransform(position, rotation);
+                    glm::quat rotation(1.0f, 0.0f, 0.0f, 0.0f);
+                    if (cameraJ.contains("rotation") && cameraJ["rotation"].is_array() && cameraJ["rotation"].size() == 4) {
+                        rotation.x = cameraJ["rotation"][0];
+                        rotation.y = cameraJ["rotation"][1];
+                        rotation.z = cameraJ["rotation"][2];
+                        rotation.w = cameraJ["rotation"][3];
+                    }
 
-                if (cameraJ.contains("fov") && cameraJ["fov"].is_number() &&
-                    cameraJ.contains("aspectRatio") && cameraJ["aspectRatio"].is_number() &&
-                    cameraJ.contains("nearPlane") && cameraJ["nearPlane"].is_number() &&
-                    cameraJ.contains("farPlane") && cameraJ["farPlane"].is_number()) {
-                    float fov = cameraJ["fov"];
-                    float aspectRatio = cameraJ["aspectRatio"];
-                    float nearPlane = cameraJ["nearPlane"];
-                    float farPlane = cameraJ["farPlane"];
+                    camera->setCameraTransform(position, rotation);
 
-                    camera->setProjectionProperties(fov, aspectRatio, nearPlane, farPlane);
+                    if (cameraJ.contains("fov") && cameraJ["fov"].is_number() &&
+                        cameraJ.contains("aspectRatio") && cameraJ["aspectRatio"].is_number() &&
+                        cameraJ.contains("nearPlane") && cameraJ["nearPlane"].is_number() &&
+                        cameraJ.contains("farPlane") && cameraJ["farPlane"].is_number()) {
+                        float fov = cameraJ["fov"];
+                        float aspectRatio = cameraJ["aspectRatio"];
+                        float nearPlane = cameraJ["nearPlane"];
+                        float farPlane = cameraJ["farPlane"];
+
+                        camera->setProjectionProperties(fov, aspectRatio, nearPlane, farPlane);
+                    }
                 }
             }
         }
 
-        if (rootJ.contains("mainLight")) {
-            auto lightJ = rootJ["mainLight"];
-            glm::vec3 direction{};
-            glm::vec3 color{};
-            float intensity{};
+        if (hasFlag(engineSettings, EngineSettingsTypeFlag::LIGHT_SETTINGS)) {
+            if (rootJ.contains("lightSettings")) {
+                if (rootJ["lightSettings"].contains("mainLight")) {
+                    auto lightJ = rootJ["lightSettings"]["mainLight"];
+                    glm::vec3 direction{};
+                    glm::vec3 color{};
+                    float intensity{};
 
 
-            if (lightJ.contains("direction") && lightJ["direction"].is_array() && lightJ["direction"].size() == 3) {
-                direction.x = lightJ["direction"][0];
-                direction.y = lightJ["direction"][1];
-                direction.z = lightJ["direction"][2];
-            } else {
-                direction = normalize(engine->getMainLight().getDirection());
+                    if (lightJ.contains("direction") && lightJ["direction"].is_array() && lightJ["direction"].size() == 3) {
+                        direction.x = lightJ["direction"][0];
+                        direction.y = lightJ["direction"][1];
+                        direction.z = lightJ["direction"][2];
+                    }
+                    else {
+                        direction = normalize(engine->getMainLight().getDirection());
+                    }
+
+                    if (lightJ.contains("color") && lightJ["color"].is_array() && lightJ["color"].size() == 3) {
+                        color.x = lightJ["color"][0];
+                        color.y = lightJ["color"][1];
+                        color.z = lightJ["color"][2];
+                    }
+                    else {
+                        color = engine->getMainLight().getColor();
+                    }
+
+                    if (lightJ.contains("intensity") && !lightJ["intensity"].is_array()) {
+                        intensity = lightJ["intensity"].get<float>();
+                    }
+                    else {
+                        intensity = engine->getMainLight().getIntensity();
+                    }
+
+                    DirectionalLight light{direction, intensity, color};
+                    engine->setMainLight(light);
+                }
             }
-
-            if (lightJ.contains("color") && lightJ["color"].is_array() && lightJ["color"].size() == 3) {
-                color.x = lightJ["color"][0];
-                color.y = lightJ["color"][1];
-                color.z = lightJ["color"][2];
-            } else {
-                color = engine->getMainLight().getColor();
-            }
-
-            if (lightJ.contains("intensity") && !lightJ["intensity"].is_array()) {
-                intensity = lightJ["intensity"].get<float>();
-            } else {
-                intensity = engine->getMainLight().getIntensity();
-            }
-
-
-            DirectionalLight light{direction, intensity, color};
-            engine->setMainLight(light);
         }
 
-        if (rootJ.contains("environmentMapIndex")) {
-            engine->setCurrentEnvironmentMapIndex(rootJ["environmentMapIndex"]);
+        if (hasFlag(engineSettings, EngineSettingsTypeFlag::ENVIRONMENT_SETTINGS)) {
+            if (rootJ.contains("environmentSettings")) {
+                if (rootJ["environmentSettings"].contains("environmentMapIndex")) {
+                    engine->setCurrentEnvironmentMapIndex(rootJ["environmentSettings"]["environmentMapIndex"]);
+                }
+            }
         }
 
+        if (hasFlag(engineSettings, EngineSettingsTypeFlag::AMBIENT_OCCLUSION_SETTINGS)) {
+            if (rootJ.contains("aoSettings")) {
+                ordered_json aoSettings = rootJ["aoSettings"];
+                ambient_occlusion::GTAOSettings settings = engine->getAOSettings();
+
+                if (aoSettings.contains("enabled")) {
+                    settings.bEnableGTAO = aoSettings["enabled"].get<bool>();
+                }
+
+                if (aoSettings.contains("properties")) {
+                    ordered_json aoProperties = aoSettings["properties"];
+
+                    if (aoProperties.contains("effect_radius")) {
+                        settings.pushConstants.effectRadius = aoProperties["effect_radius"].get<float>();
+                    }
+
+                    if (aoProperties.contains("effect_falloff_range")) {
+                        settings.pushConstants.effectFalloffRange = aoProperties["effect_falloff_range"].get<float>();
+                    }
+
+                    if (aoProperties.contains("denoise_blur_beta")) {
+                        settings.pushConstants.denoiseBlurBeta = aoProperties["denoise_blur_beta"].get<float>();
+                    }
+
+                    if (aoProperties.contains("radius_multiplier")) {
+                        settings.pushConstants.radiusMultiplier = aoProperties["radius_multiplier"].get<float>();
+                    }
+
+                    if (aoProperties.contains("sample_distribution_power")) {
+                        settings.pushConstants.sampleDistributionPower = aoProperties["sample_distribution_power"].get<float>();
+                    }
+
+                    if (aoProperties.contains("thin_occluder_compensation")) {
+                        settings.pushConstants.thinOccluderCompensation = aoProperties["thin_occluder_compensation"].get<float>();
+                    }
+
+                    if (aoProperties.contains("final_value_power")) {
+                        settings.pushConstants.finalValuePower = aoProperties["final_value_power"].get<float>();
+                    }
+
+                    if (aoProperties.contains("depth_mip_sampling_offset")) {
+                        settings.pushConstants.depthMipSamplingOffset = aoProperties["depth_mip_sampling_offset"].get<float>();
+                    }
+
+                    if (aoProperties.contains("slice_count")) {
+                        settings.pushConstants.sliceCount = aoProperties["slice_count"].get<float>();
+                    }
+
+                    if (aoProperties.contains("steps_per_slice_count")) {
+                        settings.pushConstants.stepsPerSliceCount = aoProperties["steps_per_slice_count"].get<float>();
+                    }
+                }
+
+
+                engine->setAOSettings(settings);
+            }
+        }
 
         return true;
     } catch (const std::exception& e) {

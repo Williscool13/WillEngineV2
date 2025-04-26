@@ -22,6 +22,7 @@
 #include "src/renderer/lighting/directional_light.h"
 #include "src/renderer/pipelines/post/post_process/post_process_pipeline_types.h"
 #include "src/renderer/pipelines/geometry/transparent_pipeline/transparent_pipeline.h"
+#include "src/renderer/pipelines/post/temporal_antialiasing/temporal_antialiasing_pipeline_types.h"
 #include "src/renderer/pipelines/shadows/cascaded_shadow_map/shadow_types.h"
 #include "src/renderer/pipelines/shadows/contact_shadow/contact_shadows_pipeline.h"
 #include "src/renderer/pipelines/shadows/ground_truth_ambient_occlusion/ambient_occlusion_types.h"
@@ -178,22 +179,25 @@ private: // Rendering
 
     void createDrawResources();
 
-private: // Rendering Properties
-    contact_shadows_pipeline::ContactShadowsPushConstants sssPush;
-    ambient_occlusion::GTAOPushConstants gtaoPush;
-    cascaded_shadows::CascadedShadowMapProperties csmProperties;
+private: // Engine Settings
+    EngineSettings engineSettings{};
+    contact_shadows_pipeline::ContactShadowSettings sssSettings{};
+    ambient_occlusion::GTAOSettings gtaoSettings{};
+    cascaded_shadows::CascadedShadowMapSettings csmSettings{};
+    temporal_antialiasing_pipeline::TemporalAntialiasingSettings taaSettings{};
+
+public:
+    ambient_occlusion::GTAOSettings getAOSettings() const { return gtaoSettings; }
+    void setAOSettings(const ambient_occlusion::GTAOSettings& settings) { gtaoSettings = settings; }
+
 
 private: // Debug
-    bool bEnableTaa{true};
-    float taaBlendValue{0.1f};
     bool bEnableDebugFrustumCullDraw{false};
-    int32_t csmPcf{1};
     int32_t deferredDebug{0};
     bool bDrawTerrainLines{false};
     bool bPausePhysics{true};
     bool bDisableJitter{false};
     bool bHideTransparents{false};
-    bool bEnableGTAO{true};
     bool bEnableShadows{true};
     bool bEnableContactShadows{true};
 
@@ -216,11 +220,12 @@ private: // Scene Data
     DirectionalLight mainLight{glm::normalize(glm::vec3(-0.8f, -0.6f, -0.6f)), 1.5f, glm::vec3(1.0f)};
     int32_t environmentMapIndex{1};
 
-    post_process_pipeline::PostProcessType postProcessData{post_process_pipeline::PostProcessType::Tonemapping | post_process_pipeline::PostProcessType::Sharpening};
+    post_process_pipeline::PostProcessType postProcessData{
+        post_process_pipeline::PostProcessType::Tonemapping | post_process_pipeline::PostProcessType::Sharpening
+    };
 
     std::unordered_set<Map*> activeMaps;
     std::unordered_set<ITerrain*> activeTerrains;
-
 
 
     std::vector<IHierarchical*> hierarchalBeginQueue{};

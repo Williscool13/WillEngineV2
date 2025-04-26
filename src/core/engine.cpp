@@ -144,7 +144,7 @@ void Engine::init()
 
 
     cascadedShadowMap = new cascaded_shadows::CascadedShadowMap(*resourceManager);
-    csmProperties = cascadedShadowMap->getCascadedShadowMapProperties();
+    csmSettings = cascadedShadowMap->getCascadedShadowMapProperties();
     startupProfiler.addEntry("CSM");
 
     if (engine_constants::useImgui) {
@@ -391,7 +391,7 @@ void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int3
         currentJitter = {};
     }
 
-    pSceneData->jitter = bEnableTaa ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
+    pSceneData->jitter = taaSettings.bEnabled ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
 
     const glm::mat4 cameraLook = glm::lookAt(glm::vec3(0), camera->getForwardWS(), glm::vec3(0, 1, 0));
 
@@ -630,7 +630,8 @@ void Engine::render(float deltaTime)
 
     ambient_occlusion::GTAODrawInfo gtaoDrawInfo{
         camera,
-        gtaoPush,
+        gtaoSettings.bEnableGTAO,
+        gtaoSettings.pushConstants,
         frameNumber,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
@@ -640,7 +641,8 @@ void Engine::render(float deltaTime)
     contact_shadows_pipeline::ContactShadowsDrawInfo contactDrawInfo{
         camera,
         mainLight,
-        sssPush,
+        sssSettings.bEnabled,
+        sssSettings.pushConstants,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
     };
@@ -649,7 +651,7 @@ void Engine::render(float deltaTime)
 
     const deferred_resolve::DeferredResolveDrawInfo deferredResolveDrawInfo{
         deferredDebug,
-        csmPcf,
+        csmSettings.pcfLevel,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
         environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo(),
@@ -679,8 +681,8 @@ void Engine::render(float deltaTime)
     vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     const temporal_antialiasing_pipeline::TemporalAntialiasingDrawInfo taaDrawInfo{
-        taaBlendValue,
-        bEnableTaa ? 0 : 1,
+        taaSettings.blendValue,
+        taaSettings.bEnabled ? 0 : 1,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
     };

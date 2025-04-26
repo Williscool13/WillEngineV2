@@ -15,6 +15,11 @@ struct FrameData
     VkSemaphore _swapchainSemaphore, _renderSemaphore;
     VkFence _renderFence;
 };
+
+struct EngineSettings
+{
+    bool saveOnExit{true};
+};
 }
 
 

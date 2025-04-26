@@ -337,19 +337,10 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             if (ImGui::BeginTabItem("Settings")) {
                 if (ImGui::BeginTabBar("Settings Tab")) {
                     if (ImGui::BeginTabItem("General")) {
-                        ImGui::Checkbox("Enable TAA", &engine->bEnableTaa);
-
-                        bool aoDisabled = engine->gtaoPush.debug == -1;
-                        if (ImGui::Checkbox("Disable GTAO", &aoDisabled)) {
-                            if (aoDisabled) {
-                                engine->gtaoPush.debug = -1;
-                            }
-                            else {
-                                engine->gtaoPush.debug = 0;
-                            }
-                        }
+                        ImGui::Checkbox("Enable TAA", &engine->taaSettings.bEnabled);
+                        ImGui::Checkbox("Enable GTAO", &engine->gtaoSettings.bEnableGTAO);
                         ImGui::Checkbox("Enable Shadows", &engine->bEnableShadows);
-                        ImGui::DragInt("Shadows PCF Level", &engine->csmPcf, 2, 1, 5);
+                        ImGui::DragInt("Shadows PCF Level", &engine->csmSettings.pcfLevel, 2, 1, 5);
                         ImGui::Checkbox("Enable Contact Shadows", &engine->bEnableContactShadows);
                         ImGui::Checkbox("Disable Transparent Primitives", &engine->bHideTransparents);
 
@@ -358,8 +349,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                     if (ImGui::BeginTabItem("Post-Processing")) {
                         if (ImGui::CollapsingHeader("Temporal Antialiasing", ImGuiTreeNodeFlags_DefaultOpen)) {
-                            ImGui::Checkbox("Enable TAA", &engine->bEnableTaa);
-                            ImGui::DragFloat("Taa Blend Value", &engine->taaBlendValue, 0.01, 0.1f, 0.5f);
+                            ImGui::Checkbox("Enable TAA", &engine->taaSettings.bEnabled);
+                            ImGui::DragFloat("Taa Blend Value", &engine->taaSettings.blendValue, 0.01, 0.1f, 0.5f);
                             ImGui::Checkbox("Disable Jitter", &engine->bDisableJitter);
                         }
 
@@ -404,7 +395,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     }
 
                     if (ImGui::BeginTabItem("Ambient Occlusion")) {
-                        ambient_occlusion::GTAOPushConstants& gtao = engine->gtaoPush;
+                        ambient_occlusion::GTAOPushConstants& gtao = engine->gtaoSettings.pushConstants;
                         const char* qualityPresets[] = {"Low", "Medium", "High", "Ultra"};
                         int slicePreset = 0;
 
@@ -490,21 +481,22 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     }
 
                     if (ImGui::BeginTabItem("Screen Space Shadows")) {
-                        ImGui::InputFloat("Surface Thickness", &engine->sssPush.surfaceThickness);
-                        ImGui::InputFloat("Blinear Threshold", &engine->sssPush.bilinearThreshold);
-                        ImGui::InputFloat("Shadow Contrast", &engine->sssPush.shadowContrast);
+                        contact_shadows_pipeline::ContactShadowsPushConstants& sssPush = engine->sssSettings.pushConstants;
+                        ImGui::InputFloat("Surface Thickness", &sssPush.surfaceThickness);
+                        ImGui::InputFloat("Blinear Threshold", &sssPush.bilinearThreshold);
+                        ImGui::InputFloat("Shadow Contrast", &sssPush.shadowContrast);
 
-                        ImGui::SliderInt("Ignore Edge Pixels", &engine->sssPush.bIgnoreEdgePixels, 0, 1);
-                        ImGui::SliderInt("Use Precision Offset", &engine->sssPush.bUsePrecisionOffset, 0, 1);
-                        ImGui::SliderInt("Bilinear Offset Sampling Mode", &engine->sssPush.bBilinearSamplingOffsetMode, 0, 1);
+                        ImGui::SliderInt("Ignore Edge Pixels", &sssPush.bIgnoreEdgePixels, 0, 1);
+                        ImGui::SliderInt("Use Precision Offset", &sssPush.bUsePrecisionOffset, 0, 1);
+                        ImGui::SliderInt("Bilinear Offset Sampling Mode", &sssPush.bBilinearSamplingOffsetMode, 0, 1);
 
-                        ImGui::SliderInt("Contact Shadow Debug", &engine->sssPush.debugMode, 0, 3);
+                        ImGui::SliderInt("Contact Shadow Debug", &sssPush.debugMode, 0, 3);
 
                         ImGui::EndTabItem();
                     }
 
                     if (ImGui::BeginTabItem("Shadows")) {
-                        ImGui::DragInt("CSM PCF Level", &engine->csmPcf, 2, 1, 5);
+                        ImGui::DragInt("CSM PCF Level", &engine->csmSettings.pcfLevel, 2, 1, 5);
 
                         bool needUpdateCsmProperties = false;
                         bool needRegenerateSplit = false;
@@ -513,13 +505,13 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             ImGui::Text(fmt::format("Cascade {}:", i).c_str());
                             ImGui::SameLine();
                             ImGui::SetNextItemWidth(100);
-                            if (ImGui::DragFloat(fmt::format("##linear{}", i).c_str(), &engine->csmProperties.cascadeBias[i].linearBias, 0.001f, 0.0f,
+                            if (ImGui::DragFloat(fmt::format("##linear{}", i).c_str(), &engine->csmSettings.cascadeBias[i].linearBias, 0.001f, 0.0f,
                                                  1.0f, "%.3f")) {
                                 needUpdateCsmProperties = true;
                             }
                             ImGui::SameLine();
                             ImGui::SetNextItemWidth(100);
-                            if (ImGui::DragFloat(fmt::format("##slope{}", i).c_str(), &engine->csmProperties.cascadeBias[i].slopedBias, 0.001f, 0.0f,
+                            if (ImGui::DragFloat(fmt::format("##slope{}", i).c_str(), &engine->csmSettings.cascadeBias[i].slopedBias, 0.001f, 0.0f,
                                                  1.0f, "%.3f")) {
                                 needUpdateCsmProperties = true;
                             }
@@ -527,33 +519,33 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                         ImGui::Separator();
 
-                        if (ImGui::InputFloat("Split Lambda", &engine->csmProperties.splitLambda)) {
+                        if (ImGui::InputFloat("Split Lambda", &engine->csmSettings.splitLambda)) {
                             needUpdateCsmProperties = true;
                             needRegenerateSplit = true;
                         }
 
-                        if (ImGui::InputFloat("Split Overlap", &engine->csmProperties.splitOverlap)) {
+                        if (ImGui::InputFloat("Split Overlap", &engine->csmSettings.splitOverlap)) {
                             needUpdateCsmProperties = true;
                             needRegenerateSplit = true;
                         }
 
-                        if (ImGui::InputFloat("Cascade Near Plane", &engine->csmProperties.cascadeNearPlane)) {
+                        if (ImGui::InputFloat("Cascade Near Plane", &engine->csmSettings.cascadeNearPlane)) {
                             needUpdateCsmProperties = true;
                             needRegenerateSplit = true;
                         }
 
-                        if (ImGui::InputFloat("Cascade Far Plane", &engine->csmProperties.cascadeFarPlane)) {
+                        if (ImGui::InputFloat("Cascade Far Plane", &engine->csmSettings.cascadeFarPlane)) {
                             needUpdateCsmProperties = true;
                             needRegenerateSplit = true;
                         }
 
-                        if (ImGui::Checkbox("Manual Splits", &engine->csmProperties.useManualSplit)) {
+                        if (ImGui::Checkbox("Manual Splits", &engine->csmSettings.useManualSplit)) {
                             needUpdateCsmProperties = true;
                             needRegenerateSplit = true;
                         }
 
                         if (needUpdateCsmProperties) {
-                            engine->cascadedShadowMap->setCascadedShadowMapProperties(engine->csmProperties);
+                            engine->cascadedShadowMap->setCascadedShadowMapProperties(engine->csmSettings);
                         }
 
                         if (needRegenerateSplit) {

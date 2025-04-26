@@ -63,10 +63,18 @@ struct ContactShadowsDrawInfo
 {
     Camera* camera;
     DirectionalLight light;
+    bool bIsEnabled{true};
     ContactShadowsPushConstants push;
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};
 };
+
+struct ContactShadowSettings
+{
+    bool bEnabled{true};
+    ContactShadowsPushConstants pushConstants{};
+};
+
 }
 
 #endif //CONTACT_SHADOW_TYPES_H

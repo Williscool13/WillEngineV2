@@ -66,12 +66,12 @@ public:
         createTerrainPipeline();
     }
 
-    void setCascadedShadowMapProperties(const CascadedShadowMapProperties& csmProperties)
+    void setCascadedShadowMapProperties(const CascadedShadowMapSettings& csmProperties)
     {
         this->csmProperties = csmProperties;
     }
 
-    CascadedShadowMapProperties getCascadedShadowMapProperties() const
+    CascadedShadowMapSettings getCascadedShadowMapProperties() const
     {
         return csmProperties;
     }
@@ -121,7 +121,7 @@ private:
     DescriptorBufferUniform cascadedShadowMapDescriptorBufferUniform;
 
 private:
-    cascaded_shadows::CascadedShadowMapProperties csmProperties{};
+    cascaded_shadows::CascadedShadowMapSettings csmProperties{};
 };
 }
 

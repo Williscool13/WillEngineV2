@@ -21,8 +21,10 @@ struct CascadeBias
     float slopedBias{0.0f};
 };
 
-struct CascadedShadowMapProperties
+struct CascadedShadowMapSettings
 {
+    int32_t pcfLevel{1};
+
     float splitLambda = 0.8f;
     float splitOverlap = 1.05f;
 

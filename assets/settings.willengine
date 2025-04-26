@@ -4,35 +4,54 @@
         "minor": 1,
         "patch": 0
     },
-    "mainLight": {
-        "direction": [
-            0.0,
-            -0.8935341835021973,
-            -0.44899535179138184
-        ],
-        "color": [
-            0.20000000298023224,
-            0.4000000059604645,
-            1.0
-        ],
-        "intensity": 1.0
-    },
-    "cameraProperties": {
+    "cameraSettings": {
         "position": [
-            -15.057120323181152,
-            101.8797607421875,
-            11.476161003112793
+            -118.98358154296875,
+            172.6697540283203,
+            -53.94145202636719
         ],
         "rotation": [
-            -0.07624651491641998,
-            -0.5115654468536377,
-            -0.04562419652938843,
-            0.8546378016471863
+            -0.06408169120550156,
+            -0.9074703454971313,
+            -0.15023335814476013,
+            0.3870672583580017
         ],
         "fov": 1.3089969158172607,
-        "aspectRatio": 1.7777777910232544,
+        "aspectRatio": 1.4861111640930176,
         "nearPlane": 1000.0,
         "farPlane": 0.10000000149011612
     },
-    "environmentMapIndex": 3
+    "lightSettings": {
+        "mainLight": {
+            "direction": [
+                -0.6859943270683289,
+                -0.5144957900047302,
+                -0.5144957900047302
+            ],
+            "color": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "intensity": 1.5
+        }
+    },
+    "environmentSettings": {
+        "environmentMapIndex": 3
+    },
+    "aoSettings": {
+        "enabled": true,
+        "properties": {
+            "effect_radius": 0.5,
+            "effect_falloff_range": 0.6150000095367432,
+            "denoise_blur_beta": 1.2000000476837158,
+            "radius_multiplier": 1.4570000171661377,
+            "sample_distribution_power": 2.0,
+            "thin_occluder_compensation": 0.0,
+            "final_value_power": 2.200000047683716,
+            "depth_mip_sampling_offset": 3.299999952316284,
+            "slice_count": 2.0,
+            "steps_per_slice_count": 2.0
+        }
+    }
 }
