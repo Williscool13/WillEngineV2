@@ -16,32 +16,32 @@
 
 namespace will_engine::terrain
 {
-TerrainChunk::TerrainChunk(ResourceManager& resourceManager, const std::vector<float>& heightMapData, int32_t width, int32_t height, TerrainConfig terrainConfig) : resourceManager(resourceManager),
-    terrainConfig(terrainConfig)
+TerrainChunk::TerrainChunk(ResourceManager& resourceManager, const std::vector<float>& heightMapData, int32_t width, int32_t height,
+                           TerrainConfig terrainConfig) : resourceManager(resourceManager),
+                                                          terrainConfig(terrainConfig)
 {
     generateMesh(width, height, heightMapData);
 
     const size_t vertexBufferSize = vertices.size() * sizeof(TerrainVertex);
-    AllocatedBuffer stagingBuffer = resourceManager.createStagingBuffer(vertexBufferSize);
-    memcpy(stagingBuffer.info.pMappedData, vertices.data(), vertexBufferSize);
-
-    vertexBuffer = resourceManager.createDeviceBuffer(
-        vertexBufferSize,
-        VK_BUFFER_USAGE_VERTEX_BUFFER_BIT
-    );
-    resourceManager.copyBufferImmediate(stagingBuffer, vertexBuffer, vertexBufferSize);
-    resourceManager.destroyBufferImmediate(stagingBuffer);
+    AllocatedBuffer vertexStagingBuffer = resourceManager.createStagingBuffer(vertexBufferSize);
+    memcpy(vertexStagingBuffer.info.pMappedData, vertices.data(), vertexBufferSize);
+    vertexBuffer = resourceManager.createDeviceBuffer(vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
     const size_t indexBufferSize = indices.size() * sizeof(uint32_t);
-    stagingBuffer = resourceManager.createStagingBuffer(indexBufferSize);
-    memcpy(stagingBuffer.info.pMappedData, indices.data(), indexBufferSize);
+    AllocatedBuffer indexStagingBuffer = resourceManager.createStagingBuffer(indexBufferSize);
+    memcpy(indexStagingBuffer.info.pMappedData, indices.data(), indexBufferSize);
+    indexBuffer = resourceManager.createDeviceBuffer(indexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
-    indexBuffer = resourceManager.createDeviceBuffer(
-        indexBufferSize,
-        VK_BUFFER_USAGE_INDEX_BUFFER_BIT
-    );
-    resourceManager.copyBufferImmediate(stagingBuffer, indexBuffer, indexBufferSize);
-    resourceManager.destroyBufferImmediate(stagingBuffer);
+    std::array<BufferCopyInfo, 2> bufferCopies = {
+        BufferCopyInfo(vertexStagingBuffer, 0, vertexBuffer, 0, vertexBufferSize),
+        {indexStagingBuffer, 0, indexBuffer, 0, indexBufferSize},
+    };
+
+    resourceManager.copyBufferImmediate(bufferCopies);
+
+    for (BufferCopyInfo bufferCopy : bufferCopies) {
+        resourceManager.destroyBufferImmediate(bufferCopy.src);
+    }
 
     for (int i{0}; i < FRAME_OVERLAP; i++) {
         terrainUniformBuffers[i] = resourceManager.createHostSequentialBuffer(sizeof(TerrainProperties));
@@ -151,7 +151,8 @@ void TerrainChunk::generateMesh(const int32_t width, const int32_t height, const
     }
 }
 
-glm::vec3 TerrainChunk::calculateNormal(const int32_t x, const int32_t z, const int32_t width, const int32_t height, const std::vector<float>& heightData)
+glm::vec3 TerrainChunk::calculateNormal(const int32_t x, const int32_t z, const int32_t width, const int32_t height,
+                                        const std::vector<float>& heightData)
 {
     const int32_t xLeft = glm::max(0, x - 1);
     const int32_t xRight = glm::min(width - 1, x + 1);

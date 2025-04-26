@@ -38,6 +38,13 @@ public:
 
     void update(VkCommandBuffer cmd, int32_t currentFrameOverlap, int32_t previousFrameOverlap);
 
+    /**
+     * Buffers only update if change to instance count/primitive count. Usually only on load, create, or destroy.
+     * \n Reasonably expensive.
+     * @param currentFrameOverlap
+     * @param previousFrameOverlap
+     * @return
+     */
     bool updateBuffers(int32_t currentFrameOverlap, int32_t previousFrameOverlap);
 
     void dirty() { bufferFramesToUpdate = FRAME_OVERLAP; }

@@ -402,6 +402,20 @@ void will_engine::ResourceManager::copyBufferImmediate(const AllocatedBuffer& sr
     });
 }
 
+void will_engine::ResourceManager::copyBufferImmediate(const std::span<BufferCopyInfo> bufferCopyInfos) const
+{
+    immediate.submit([bufferCopyInfos](const VkCommandBuffer cmd) {
+        for (const BufferCopyInfo bufferCopyInfo : bufferCopyInfos) {
+            VkBufferCopy bufferCopy{};
+            bufferCopy.dstOffset = bufferCopyInfo.dstOffset;
+            bufferCopy.srcOffset = bufferCopyInfo.srcOffset;
+            bufferCopy.size = bufferCopyInfo.size;
+
+            vkCmdCopyBuffer(cmd, bufferCopyInfo.src.buffer, bufferCopyInfo.dst.buffer, 1, &bufferCopy);
+        }
+    });
+}
+
 
 VkDeviceAddress will_engine::ResourceManager::getBufferAddress(const AllocatedBuffer& buffer) const
 {

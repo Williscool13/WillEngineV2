@@ -7,6 +7,7 @@
 #include <array>
 #include <filesystem>
 #include <fstream>
+#include <span>
 
 #include "renderer_constants.h"
 #include "vk_descriptors.h"
@@ -45,6 +46,16 @@ struct DestructionQueue
     std::vector<VkPipeline> pipelineQueue;
     std::vector<VkPipelineLayout> pipelineLayoutQueue;
     std::vector<VkDescriptorSetLayout> descriptorSetLayoutQueue;
+};
+
+
+struct BufferCopyInfo
+{
+    AllocatedBuffer src;
+    VkDeviceSize srcOffset;
+    AllocatedBuffer dst;
+    VkDeviceSize dstOffset;
+    VkDeviceSize size;
 };
 
 class ResourceManager
@@ -99,6 +110,8 @@ public: // VkBuffer Helpers
     void copyBufferImmediate(const AllocatedBuffer& src, const AllocatedBuffer& dst, VkDeviceSize size) const;
 
     void copyBufferImmediate(const AllocatedBuffer& src, const AllocatedBuffer& dst, VkDeviceSize size, VkDeviceSize offset) const;
+
+    void copyBufferImmediate(std::span<BufferCopyInfo> bufferCopyInfos) const;
 
     [[nodiscard]] VkDeviceAddress getBufferAddress(const AllocatedBuffer& buffer) const;
 

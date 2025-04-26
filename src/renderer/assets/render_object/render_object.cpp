@@ -609,33 +609,27 @@ void RenderObject::load()
     resourceManager.setupDescriptorBufferSampler(textureDescriptorBuffer, textureDescriptors, 0);
 
 
-    AllocatedBuffer materialStaging = resourceManager.createStagingBuffer(materials.size() * sizeof(MaterialProperties));
-    memcpy(materialStaging.info.pMappedData, materials.data(), materials.size() * sizeof(MaterialProperties));
-    materialBuffer = resourceManager.createDeviceBuffer(materials.size() * sizeof(MaterialProperties));
-    resourceManager.copyBufferImmediate(materialStaging, materialBuffer, materials.size() * sizeof(MaterialProperties));
-    resourceManager.destroyBufferImmediate(materialStaging);
+    const uint64_t materialBufferSize = materials.size() * sizeof(MaterialProperties);
+    AllocatedBuffer materialStaging = resourceManager.createStagingBuffer(materialBufferSize);
+    memcpy(materialStaging.info.pMappedData, materials.data(), materialBufferSize);
+    materialBuffer = resourceManager.createDeviceBuffer(materialBufferSize);
 
-    size_t vertexCount = vertexPositions.size();
-    uint64_t vertexPositionSize = vertexCount * sizeof(VertexPosition);
+    const size_t vertexCount = vertexPositions.size();
 
-    AllocatedBuffer vertexPositionStaging = resourceManager.createStagingBuffer(vertexPositionSize);
-    memcpy(vertexPositionStaging.info.pMappedData, vertexPositions.data(), vertexPositionSize);
-    vertexPositionBuffer = resourceManager.createDeviceBuffer(vertexPositionSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-    resourceManager.copyBufferImmediate(vertexPositionStaging, vertexPositionBuffer, vertexPositionSize);
-    resourceManager.destroyBufferImmediate(vertexPositionStaging);
+    const uint64_t vertexPositionBufferSize = vertexCount * sizeof(VertexPosition);
+    AllocatedBuffer vertexPositionStaging = resourceManager.createStagingBuffer(vertexPositionBufferSize);
+    memcpy(vertexPositionStaging.info.pMappedData, vertexPositions.data(), vertexPositionBufferSize);
+    vertexPositionBuffer = resourceManager.createDeviceBuffer(vertexPositionBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
-    uint64_t vertexPropertiesSize = vertexCount * sizeof(VertexProperty);
-    AllocatedBuffer vertexPropertiesStaging = resourceManager.createStagingBuffer(vertexPropertiesSize);
-    memcpy(vertexPropertiesStaging.info.pMappedData, vertexProperties.data(), vertexPropertiesSize);
-    vertexPropertyBuffer = resourceManager.createDeviceBuffer(vertexPropertiesSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-    resourceManager.copyBufferImmediate(vertexPropertiesStaging, vertexPropertyBuffer, vertexPropertiesSize);
-    resourceManager.destroyBufferImmediate(vertexPropertiesStaging);
+    const uint64_t vertexPropertiesBufferSize = vertexCount * sizeof(VertexProperty);
+    AllocatedBuffer vertexPropertiesStaging = resourceManager.createStagingBuffer(vertexPropertiesBufferSize);
+    memcpy(vertexPropertiesStaging.info.pMappedData, vertexProperties.data(), vertexPropertiesBufferSize);
+    vertexPropertyBuffer = resourceManager.createDeviceBuffer(vertexPropertiesBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
-    AllocatedBuffer indexStaging = resourceManager.createStagingBuffer(indices.size() * sizeof(uint32_t));
-    memcpy(indexStaging.info.pMappedData, indices.data(), indices.size() * sizeof(uint32_t));
-    indexBuffer = resourceManager.createDeviceBuffer(indices.size() * sizeof(uint32_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-    resourceManager.copyBufferImmediate(indexStaging, indexBuffer, indices.size() * sizeof(uint32_t));
-    resourceManager.destroyBufferImmediate(indexStaging);
+    const uint64_t indicesBufferSize = indices.size() * sizeof(uint32_t);
+    AllocatedBuffer indexStaging = resourceManager.createStagingBuffer(indicesBufferSize);
+    memcpy(indexStaging.info.pMappedData, indices.data(), indicesBufferSize);
+    indexBuffer = resourceManager.createDeviceBuffer(indicesBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
     // Addresses (Texture and Uniform model data)
     // todo: make address buffer for statics (dont need multiple)
@@ -685,12 +679,26 @@ void RenderObject::load()
         resourceManager.setupDescriptorBufferUniform(frustumCullingDescriptorBuffer, {cullingAddressesUniformData}, index);
     }
 
-    AllocatedBuffer meshBoundsStaging = resourceManager.createStagingBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
-    memcpy(meshBoundsStaging.info.pMappedData, boundingSpheres.data(), sizeof(BoundingSphere) * boundingSpheres.size());
-    meshBoundsBuffer = resourceManager.createDeviceBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
-    resourceManager.copyBufferImmediate(meshBoundsStaging, meshBoundsBuffer, sizeof(BoundingSphere) * boundingSpheres.size());
-    resourceManager.destroyBufferImmediate(meshBoundsStaging);
+    uint64_t boundingSphereBufferSize = sizeof(BoundingSphere) * boundingSpheres.size();
+    AllocatedBuffer meshBoundsStaging = resourceManager.createStagingBuffer(boundingSphereBufferSize);
+    memcpy(meshBoundsStaging.info.pMappedData, boundingSpheres.data(), boundingSphereBufferSize);
+    meshBoundsBuffer = resourceManager.createDeviceBuffer(boundingSphereBufferSize);
 
+    std::array<BufferCopyInfo, 5> bufferCopies = {
+        BufferCopyInfo(materialStaging, 0, materialBuffer, 0, materialBufferSize),
+        {vertexPositionStaging, 0, vertexPositionBuffer, 0, vertexPositionBufferSize},
+        {vertexPropertiesStaging, 0, vertexPropertyBuffer, 0, vertexPropertiesBufferSize},
+        {indexStaging, 0, indexBuffer, 0, indicesBufferSize},
+        {meshBoundsStaging, 0, meshBoundsBuffer, 0, boundingSphereBufferSize},
+    };
+
+    resourceManager.copyBufferImmediate(bufferCopies);
+
+    // Be careful, this destroys a copy of the staging buffer. Not an issue since it deletes the buffer in GPU memory.
+    // Will be dangerous if you attempt to hold onto the staging buffers outside of this load function
+    for (BufferCopyInfo bufferCopy : bufferCopies) {
+        resourceManager.destroyBufferImmediate(bufferCopy.src);
+    }
 
     bIsLoaded = true;
 }
