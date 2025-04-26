@@ -192,7 +192,7 @@ private: // Debug
     bool bDrawTerrainLines{false};
     bool bPausePhysics{true};
     bool bDisableJitter{false};
-    bool bHideTransparents{true};
+    bool bHideTransparents{false};
     bool bEnableGTAO{true};
     bool bEnableShadows{true};
     bool bEnableContactShadows{true};

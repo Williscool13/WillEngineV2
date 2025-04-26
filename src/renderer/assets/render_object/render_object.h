@@ -41,11 +41,12 @@ public:
     /**
      * Buffers only update if change to instance count/primitive count. Usually only on load, create, or destroy.
      * \n Reasonably expensive.
+     * @param cmd
      * @param currentFrameOverlap
      * @param previousFrameOverlap
      * @return
      */
-    bool updateBuffers(int32_t currentFrameOverlap, int32_t previousFrameOverlap);
+    bool updateBuffers(VkCommandBuffer cmd, int32_t currentFrameOverlap, int32_t previousFrameOverlap);
 
     void dirty() { bufferFramesToUpdate = FRAME_OVERLAP; }
 
@@ -77,13 +78,19 @@ private:
     uint32_t getFreePrimitiveIndex();
 
     std::unordered_set<uint32_t> freePrimitiveIndices{};
-    uint32_t currentPrimitiveCount{0};
+    /**
+     * The max number of primitives this render object supports at the moment. If a new primitives is made that would exceed this limit, the primitives buffer will be expanded and this value inceased.
+     */
+    uint32_t currentMaxPrimitiveCount{0};
 
 
     uint32_t getFreeInstanceIndex();
 
     std::unordered_set<uint32_t> freeInstanceIndices{};
-    uint32_t currentInstanceCount{0};
+    /**
+     * The max number of instances this render object supports at the moment. If a new instance is made that would exceed this limit, the instance buffer will be expanded
+     */
+    uint32_t currentMaxInstanceCount{0};
 
     std::unordered_map<uint32_t, PrimitiveData> primitiveDataMap{};
 
@@ -102,7 +109,7 @@ public: // Model Rendering API
     GameObject* generateGameObject(const std::string& gameObjectName = "");
 
     [[nodiscard]] size_t getMeshCount() const { return meshes.size(); }
-    [[nodiscard]] bool canDraw() const { return currentInstanceCount != freeInstanceIndices.size(); }
+    [[nodiscard]] bool canDraw() const { return freeInstanceIndices.size() != currentMaxInstanceCount; }
     [[nodiscard]] bool canDrawOpaque() const { return opaqueDrawCommands.size() > 0; }
     [[nodiscard]] bool canDrawTransparent() const { return transparentDrawCommands.size() > 0; }
     [[nodiscard]] const DescriptorBufferUniform& getAddressesDescriptorBuffer() const { return addressesDescriptorBuffer; }

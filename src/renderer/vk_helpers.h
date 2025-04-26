@@ -80,6 +80,8 @@ namespace vk_helpers
      */
     VkDeviceSize getAlignedSize(VkDeviceSize value, VkDeviceSize alignment);
 
+    void copyBuffer(VkCommandBuffer cmd, const AllocatedBuffer& src, VkDeviceSize srcOffset, const AllocatedBuffer& dst, VkDeviceSize dstOffset, VkDeviceSize size);
+
     void clearColorImage(VkCommandBuffer cmd, VkImageAspectFlagBits aspectFlag, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout,
                          VkClearColorValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f});
 
@@ -87,7 +89,8 @@ namespace vk_helpers
 
     void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageAspectFlags aspectMask, VkImageLayout targetLayout);
 
-    void synchronizeUniform(VkCommandBuffer cmd, const AllocatedBuffer& buffer, VkPipelineStageFlagBits2 srcPipelineStage, VkAccessFlagBits2 srcAccessBit, VkPipelineStageFlagBits2
+    void synchronizeUniform(VkCommandBuffer cmd, const AllocatedBuffer& buffer, VkPipelineStageFlagBits2 srcPipelineStage,
+                            VkAccessFlagBits2 srcAccessBit, VkPipelineStageFlagBits2
                             dstPipelineStage, VkAccessFlagBits2 dstAccessBit);
 
     void copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize);
@@ -130,10 +133,10 @@ namespace vk_helpers
                        const std::function<float(uint16_t)>& valueTransform, int32_t mipLevel = 0);
 
     void saveImageR8UNORM(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
-                       VkImageLayout imageLayout, const char* savePath, int32_t mipLevel = 0);
+                          VkImageLayout imageLayout, const char* savePath, int32_t mipLevel = 0);
 
     void saveImageR8G8B8A8UNORM(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
-                       VkImageLayout imageLayout, const char* savePath, int32_t mipLevel = 0);
+                                VkImageLayout imageLayout, const char* savePath, int32_t mipLevel = 0);
 
     void saveImage(const std::vector<float>& imageData, int width, int height, std::filesystem::path filename, bool overrideAlpha = true);
 

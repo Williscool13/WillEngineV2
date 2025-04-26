@@ -32,14 +32,14 @@ RenderObject::~RenderObject()
 void RenderObject::update(VkCommandBuffer cmd, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
 {
     if (!bIsLoaded) { return; }
-    updateBuffers(currentFrameOverlap, previousFrameOverlap);
+    updateBuffers(cmd, currentFrameOverlap, previousFrameOverlap);
 
     for (const std::pair renderablePair : renderableMap) {
         IRenderable* renderable = renderablePair.first;
         if (renderable->getRenderFramesToUpdate() > 0) {
             const uint32_t instanceIndex = renderablePair.second.instanceIndex;
 
-            if (instanceIndex >= currentInstanceCount) {
+            if (instanceIndex >= currentMaxInstanceCount) {
                 fmt::print("Instance from renderable is not a valid index");
                 continue;
             }
@@ -68,7 +68,7 @@ void RenderObject::update(VkCommandBuffer cmd, const int32_t currentFrameOverlap
     }
 }
 
-bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
+bool RenderObject::updateBuffers(VkCommandBuffer cmd, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
 {
     if (bufferFramesToUpdate <= 0) { return true; }
 
@@ -76,19 +76,18 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
     const AllocatedBuffer& previousPrimitiveBuffer = primitiveDataBuffers[previousFrameOverlap];
 
     // Recreate the primitive buffer if needed
-    size_t latestPrimitiveBufferSize = currentPrimitiveCount * sizeof(PrimitiveData);
+    size_t latestPrimitiveBufferSize = currentMaxPrimitiveCount * sizeof(PrimitiveData);
     if (currentPrimitiveBuffer.info.size != latestPrimitiveBufferSize) {
-        const AllocatedBuffer newPrimitiveBuffer = resourceManager.createHostRandomBuffer(latestPrimitiveBufferSize,
-                                                                                          VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-                                                                                          VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-
-        // copy data from previous frame, as it is the most up to date
-        const size_t sizeToCopy = glm::min(latestPrimitiveBufferSize, previousPrimitiveBuffer.info.size);
-        if (sizeToCopy > 0) {
-            resourceManager.copyBufferImmediate(previousPrimitiveBuffer, newPrimitiveBuffer, sizeToCopy);
-        }
         resourceManager.destroyBuffer(currentPrimitiveBuffer);
-        currentPrimitiveBuffer = newPrimitiveBuffer;
+        currentPrimitiveBuffer = resourceManager.createHostRandomBuffer(latestPrimitiveBufferSize,
+                                                                        VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+                                                                        VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+
+        // Copy as much available data as possible from "previous frame" primitive buffer
+        const size_t sizeToCopy = glm::min(latestPrimitiveBufferSize, previousPrimitiveBuffer.info.size);
+        if (currentFrameOverlap != 0 && sizeToCopy > 0) {
+            vk_helpers::copyBuffer(cmd, previousPrimitiveBuffer, 0, currentPrimitiveBuffer, 0, sizeToCopy);
+        }
 
         const VkDeviceAddress primitiveBufferAddress = resourceManager.getBufferAddress(currentPrimitiveBuffer);
         memcpy(static_cast<char*>(addressBuffers[currentFrameOverlap].info.pMappedData) + sizeof(VkDeviceAddress), &primitiveBufferAddress,
@@ -114,18 +113,19 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
     const AllocatedBuffer& previousInstanceBuffer = modelMatrixBuffers[previousFrameOverlap];
 
     // sizes don't match, need to recreate the buffer
-    if (currentInstanceBuffer.info.size != currentInstanceCount * sizeof(InstanceData)) {
-        const AllocatedBuffer newInstanceBuffer = resourceManager.createHostRandomBuffer(currentInstanceCount * sizeof(InstanceData),
-                                                                                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-                                                                                         VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-
-        // copy data from previous frame, as it is the most up to date
-        const size_t sizeToCopy = glm::min(currentInstanceCount * sizeof(InstanceData), previousInstanceBuffer.info.size);
-        if (sizeToCopy > 0) {
-            resourceManager.copyBufferImmediate(previousInstanceBuffer, newInstanceBuffer, sizeToCopy);
-        }
+    size_t latestInstanceBufferSize = currentMaxInstanceCount * sizeof(InstanceData);
+    if (currentInstanceBuffer.info.size != latestInstanceBufferSize) {
         resourceManager.destroyBuffer(currentInstanceBuffer);
-        currentInstanceBuffer = newInstanceBuffer;
+        currentInstanceBuffer = resourceManager.createHostRandomBuffer(latestInstanceBufferSize,
+                                                                       VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+                                                                       VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+
+        // Copy as much available data as possible from "previous frame" instance buffer
+        const size_t sizeToCopy = glm::min(latestInstanceBufferSize, previousInstanceBuffer.info.size);
+        if (currentFrameOverlap != 0 && sizeToCopy > 0) {
+            vk_helpers::copyBuffer(cmd, previousInstanceBuffer, 0, currentInstanceBuffer, 0, sizeToCopy);
+        }
+
 
         const VkDeviceAddress instanceBufferAddress = resourceManager.getBufferAddress(currentInstanceBuffer);
         memcpy(static_cast<char*>(addressBuffers[currentFrameOverlap].info.pMappedData) + sizeof(VkDeviceAddress) * 2, &instanceBufferAddress,
@@ -153,9 +153,9 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
         currentOpaqueDrawIndirectBuffer = resourceManager.createDeviceBuffer(opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand),
                                                                              VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
 
-        resourceManager.copyBufferImmediate(indirectStaging, currentOpaqueDrawIndirectBuffer,
-                                   opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-        resourceManager.destroyBufferImmediate(indirectStaging);
+        vk_helpers::copyBuffer(cmd, indirectStaging, 0, currentOpaqueDrawIndirectBuffer, 0,
+                               opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+        resourceManager.destroyBuffer(indirectStaging);
 
         const FrustumCullingBuffers cullingAddresses{
             .meshBoundsBuffer = resourceManager.getBufferAddress(meshBoundsBuffer),
@@ -167,8 +167,8 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
         const auto currentCullingAddressBuffers = opaqueCullingAddressBuffers[currentFrameOverlap];
         AllocatedBuffer stagingCullingAddressesBuffer = resourceManager.createStagingBuffer(sizeof(FrustumCullingBuffers));
         memcpy(stagingCullingAddressesBuffer.info.pMappedData, &cullingAddresses, sizeof(FrustumCullingBuffers));
-        resourceManager.copyBufferImmediate(stagingCullingAddressesBuffer, currentCullingAddressBuffers, sizeof(FrustumCullingBuffers));
-        resourceManager.destroyBufferImmediate(stagingCullingAddressesBuffer);
+        vk_helpers::copyBuffer(cmd, stagingCullingAddressesBuffer, 0, currentCullingAddressBuffers, 0, sizeof(FrustumCullingBuffers));
+        resourceManager.destroyBuffer(stagingCullingAddressesBuffer);
     }
 
     AllocatedBuffer& currentTransparentDrawIndirectBuffer = transparentDrawIndirectBuffers[currentFrameOverlap];
@@ -182,9 +182,9 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
             transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand),
             VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
 
-        resourceManager.copyBufferImmediate(indirectStaging, currentTransparentDrawIndirectBuffer,
-                                   transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-        resourceManager.destroyBufferImmediate(indirectStaging);
+        vk_helpers::copyBuffer(cmd, indirectStaging, 0, currentTransparentDrawIndirectBuffer, 0,
+                               transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+        resourceManager.destroyBuffer(indirectStaging);
 
         const FrustumCullingBuffers cullingAddresses{
             .meshBoundsBuffer = resourceManager.getBufferAddress(meshBoundsBuffer),
@@ -196,8 +196,8 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
         const auto currentCullingAddressBuffers = transparentCullingAddressBuffers[currentFrameOverlap];
         AllocatedBuffer stagingCullingAddressesBuffer = resourceManager.createStagingBuffer(sizeof(FrustumCullingBuffers));
         memcpy(stagingCullingAddressesBuffer.info.pMappedData, &cullingAddresses, sizeof(FrustumCullingBuffers));
-        resourceManager.copyBufferImmediate(stagingCullingAddressesBuffer, currentCullingAddressBuffers, sizeof(FrustumCullingBuffers));
-        resourceManager.destroyBufferImmediate(stagingCullingAddressesBuffer);
+        vk_helpers::copyBuffer(cmd, stagingCullingAddressesBuffer, 0, currentCullingAddressBuffers, 0, sizeof(FrustumCullingBuffers));
+        resourceManager.destroyBuffer(stagingCullingAddressesBuffer);
     }
 
     bufferFramesToUpdate--;
@@ -580,11 +580,11 @@ void RenderObject::load()
 
     freeInstanceIndices.reserve(10);
     for (int32_t i = 0; i < 10; ++i) { freeInstanceIndices.insert(i); }
-    currentInstanceCount = freeInstanceIndices.size();
+    currentMaxInstanceCount = freeInstanceIndices.size();
 
     freePrimitiveIndices.reserve(10);
     for (int32_t i = 0; i < 10; ++i) { freePrimitiveIndices.insert(i); }
-    currentPrimitiveCount = freePrimitiveIndices.size();
+    currentMaxPrimitiveCount = freePrimitiveIndices.size();
 
     if (!parseGltf(gltfPath)) { return; }
 
@@ -643,9 +643,9 @@ void RenderObject::load()
         };
         resourceManager.setupDescriptorBufferUniform(addressesDescriptorBuffer, {addressesUniformData}, i);
 
-        modelMatrixBuffers[i] = resourceManager.createHostRandomBuffer(currentInstanceCount * sizeof(InstanceData),
+        modelMatrixBuffers[i] = resourceManager.createHostRandomBuffer(currentMaxInstanceCount * sizeof(InstanceData),
                                                                        VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-        primitiveDataBuffers[i] = resourceManager.createHostRandomBuffer(currentPrimitiveCount * sizeof(PrimitiveData),
+        primitiveDataBuffers[i] = resourceManager.createHostRandomBuffer(currentMaxPrimitiveCount * sizeof(PrimitiveData),
                                                                          VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 
         const VkDeviceAddress materialBufferAddress = resourceManager.getBufferAddress(materialBuffer);
@@ -777,11 +777,11 @@ void RenderObject::unload()
 uint32_t RenderObject::getFreePrimitiveIndex()
 {
     if (freePrimitiveIndices.empty()) {
-        const size_t oldSize = currentPrimitiveCount;
-        const size_t newSize = currentPrimitiveCount + 50;
+        const size_t oldSize = currentMaxPrimitiveCount;
+        const size_t newSize = currentMaxPrimitiveCount + 50;
         freePrimitiveIndices.reserve(newSize);
         for (int32_t i = oldSize; i < newSize; ++i) { freePrimitiveIndices.insert(i); }
-        currentPrimitiveCount = newSize;
+        currentMaxPrimitiveCount = newSize;
         dirty();
     }
 
@@ -794,11 +794,11 @@ uint32_t RenderObject::getFreePrimitiveIndex()
 uint32_t RenderObject::getFreeInstanceIndex()
 {
     if (freeInstanceIndices.empty()) {
-        const size_t oldSize = currentInstanceCount;
-        const size_t newSize = currentInstanceCount + 10;
+        const size_t oldSize = currentMaxInstanceCount;
+        const size_t newSize = currentMaxInstanceCount + 10;
         freeInstanceIndices.reserve(newSize);
         for (int32_t i = oldSize; i < newSize; ++i) { freeInstanceIndices.insert(i); }
-        currentInstanceCount = newSize;
+        currentMaxInstanceCount = newSize;
         dirty();
     }
 

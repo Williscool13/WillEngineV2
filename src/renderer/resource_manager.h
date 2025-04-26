@@ -111,6 +111,10 @@ public: // VkBuffer Helpers
 
     void copyBufferImmediate(const AllocatedBuffer& src, const AllocatedBuffer& dst, VkDeviceSize size, VkDeviceSize offset) const;
 
+    /**
+     *
+     * @param bufferCopyInfos
+     */
     void copyBufferImmediate(std::span<BufferCopyInfo> bufferCopyInfos) const;
 
     [[nodiscard]] VkDeviceAddress getBufferAddress(const AllocatedBuffer& buffer) const;
