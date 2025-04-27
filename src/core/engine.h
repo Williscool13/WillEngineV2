@@ -28,6 +28,11 @@
 #include "src/renderer/pipelines/shadows/ground_truth_ambient_occlusion/ambient_occlusion_types.h"
 
 
+namespace will_engine::debug_renderer
+{
+class DebugRenderer;
+}
+
 class ResourceManager;
 class ImmediateSubmitter;
 class VulkanContext;
@@ -158,6 +163,7 @@ private:
     ResourceManager* resourceManager{nullptr};
     AssetManager* assetManager{nullptr};
     physics::Physics* physics{nullptr};
+    debug_renderer::DebugRenderer* debugRenderer{nullptr};
 
     environment::Environment* environmentMap{nullptr};
 
@@ -210,6 +216,7 @@ private: // Debug
     bool bDrawTransparents{true};
     bool bEnableShadows{true};
     bool bEnableContactShadows{true};
+    bool bDrawDebugRendering{true};
 
     void hotReloadShaders() const;
 

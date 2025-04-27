@@ -170,12 +170,12 @@ void will_engine::PipelineBuilder::setupInputAssembly(const VkPrimitiveTopology 
     inputAssembly.primitiveRestartEnable = enablePrimitiveRestart;
 }
 
-void will_engine::PipelineBuilder::setupRasterization(const VkPolygonMode polygonMode, const VkCullModeFlags cullMode, const VkFrontFace frontFace,
-                                         bool rasterizerDiscardEnable)
+void will_engine::PipelineBuilder::setupRasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace,
+                                                      float lineWidth, bool rasterizerDiscardEnable)
 {
     // Draw Mode
     rasterizer.polygonMode = polygonMode;
-    rasterizer.lineWidth = 1.0f;
+    rasterizer.lineWidth = lineWidth;
 
     // Culling
     rasterizer.cullMode = cullMode;

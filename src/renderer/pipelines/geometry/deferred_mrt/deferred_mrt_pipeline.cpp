@@ -95,7 +95,6 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
     scissor.extent.width = RENDER_EXTENTS.width;
     scissor.extent.height = RENDER_EXTENTS.height;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
-    constexpr VkDeviceSize zeroOffset{0};
 
     for (RenderObject* renderObject : drawInfo.renderObjects) {
         if (!renderObject->canDraw()) { continue; }

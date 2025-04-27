@@ -1214,55 +1214,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::End();
 
     if (ImGui::Begin("Discardable Debug")) {
-        if (contactShadowsOutputImguiId == VK_NULL_HANDLE) {
-            if (engine->contactShadowsPipeline->debugImage.imageView != VK_NULL_HANDLE) {
-                contactShadowsOutputImguiId = ImGui_ImplVulkan_AddTexture(
-                    engine->resourceManager->getDefaultSamplerNearest(),
-                    engine->contactShadowsPipeline->debugImage.imageView,
-                    VK_IMAGE_LAYOUT_GENERAL);
-            }
-        }
-
-        if (contactShadowsOutputImguiId == VK_NULL_HANDLE) {
-            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Debug texture not available.");
-        }
-        else {
-            // Calculate best fit size
-            float maxSize = ImGui::GetContentRegionAvail().x;
-            maxSize = glm::min(maxSize, 1024.0f);
-
-            VkExtent3D imageExtent = engine->contactShadowsPipeline->debugImage.imageExtent;
-            float width = std::min(maxSize, static_cast<float>(imageExtent.width));
-            float aspectRatio = static_cast<float>(imageExtent.width) / static_cast<float>(imageExtent.height);
-            float height = width / aspectRatio;
-
-            ImGui::Image(reinterpret_cast<ImTextureID>(contactShadowsOutputImguiId), ImVec2(width, height));
-
-            if (ImGui::Button("Save SCSS Debug Image")) {
-                if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                    const std::filesystem::path path = file::imagesSavePath / "scss_debug.png";
-
-                    vk_helpers::saveImageR8G8B8A8UNORM(
-                        *engine->resourceManager,
-                        *engine->immediate,
-                        engine->contactShadowsPipeline->debugImage,
-                        VK_IMAGE_LAYOUT_GENERAL,
-                        path.string().c_str(),
-                        0
-                    );
-
-                    ImGui::OpenPopup("SaveConfirmation");
-                }
-            }
-
-            if (ImGui::BeginPopupModal("SaveConfirmation", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
-                ImGui::Text("Image saved to %s/gtao_debug.png", file::imagesSavePath.string().c_str());
-                if (ImGui::Button("OK", ImVec2(120, 0))) {
-                    ImGui::CloseCurrentPopup();
-                }
-                ImGui::EndPopup();
-            }
-        }
+        ImGui::Checkbox("Draw Debug Render", &engine->bDrawDebugRendering);
     }
     ImGui::End();
 

@@ -46,7 +46,7 @@ public:
 
     void setupInputAssembly(VkPrimitiveTopology topology, bool enablePrimitiveRestart = false);
 
-    void setupRasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace, bool rasterizerDiscardEnable = false);
+    void setupRasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace, float lineWidth = 1.0f, bool rasterizerDiscardEnable = false);
 
     /**
      * Use to initialize the depth bias of the pipeline.
@@ -101,9 +101,11 @@ public:
      */
     void disableDepthTest();
 
-    VkPipelineDynamicStateCreateInfo generateDynamicStates(VkDynamicState states[], uint32_t count);
 
     void setupTessellation(int32_t controlPoints = 4);
+
+private:
+    VkPipelineDynamicStateCreateInfo generateDynamicStates(VkDynamicState states[], uint32_t count);
 
 private:
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages;

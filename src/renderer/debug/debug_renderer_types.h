@@ -6,11 +6,12 @@
 #define DEBUG_RENDERER_TYPES_H
 
 #include <glm/glm.hpp>
+#include <volk/volk.h>
 
 namespace will_engine::debug_renderer
 {
 static constexpr inline int32_t DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT = 512;
-enum class DebugRendererCategory
+enum class DebugRendererCategory : uint32_t
 {
     None = 0x00000000, // Will always be drawn
     Physics = 1 << 0,
@@ -60,6 +61,16 @@ struct DebugRendererVertex
 struct BoxInstance {
     glm::mat4 transform;  // Position + scale
     glm::vec3 color;
+    float padding;
+};
+
+struct DebugRendererDrawInfo
+{
+    int32_t currentFrameOverlap{};
+    VkImageView albedoTarget;
+    VkImageView depthTarget;
+    VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
+    VkDeviceSize sceneDataOffset{0};
 };
 }
 

@@ -6,14 +6,18 @@
 
 #include <glm/glm.hpp>
 #include <glm/ext/matrix_transform.hpp>
+#include <volk/volk.h>
 
 #include "src/renderer/resource_manager.h"
 
 
 namespace will_engine::debug_renderer
 {
+DebugRenderer* DebugRenderer::debugRenderer = nullptr;
+
 DebugRenderer::DebugRenderer(ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
+    boxInstances.reserve(DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT);
     // 8 vertices, 12 edges (24 points)
     constexpr int32_t boxVertexCount = 8;
     constexpr int32_t boxIndicesCount = 24;
@@ -45,11 +49,10 @@ DebugRenderer::DebugRenderer(ResourceManager& resourceManager) : resourceManager
     instancedVertices.insert(instancedVertices.end(), boxVertices.begin(), boxVertices.end());
     instancedIndices.insert(instancedIndices.end(), boxIndices.begin(), boxIndices.end());
 
-    boxDrawIndirect.indexCount = boxIndicesCount;
-    boxDrawIndirect.instanceCount = 0;
-    boxDrawIndirect.firstIndex = boxIndexOffset;
-    boxDrawIndirect.vertexOffset = boxVertexOffset;
-    boxDrawIndirect.firstInstance = 0;
+    boxDrawIndexedData.indexCount = boxIndicesCount;
+    boxDrawIndexedData.firstIndex = boxIndexOffset;
+    boxDrawIndexedData.vertexOffset = static_cast<int32_t>(boxVertexOffset);
+    boxDrawIndexedData.firstInstance = 0;
 
     // Vertex Buffer
     const uint64_t instancedVertexBufferSize = instancedVertices.size() * sizeof(DebugRendererVertex);
@@ -63,7 +66,7 @@ DebugRenderer::DebugRenderer(ResourceManager& resourceManager) : resourceManager
     memcpy(instancedIndexStaging.info.pMappedData, instancedIndices.data(), instancedIndexBufferSize);
     instancedIndexBuffer = resourceManager.createDeviceBuffer(instancedIndexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
-    std::array<BufferCopyInfo, 5> bufferCopies = {
+    std::array<BufferCopyInfo, 2> bufferCopies = {
         BufferCopyInfo(instancedVertexStaging, 0, instancedVertexBuffer, 0, instancedVertexBufferSize),
         {instancedIndexStaging, 0, instancedIndexBuffer, 0, instancedIndexBufferSize},
     };
@@ -73,38 +76,188 @@ DebugRenderer::DebugRenderer(ResourceManager& resourceManager) : resourceManager
         resourceManager.destroyBufferImmediate(bufferCopy.src);
     }
 
-    // Box Instance Data Buffer
-    boxInstanceBuffer = resourceManager.createHostSequentialBuffer(DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT * sizeof(BoxInstance));
-
-    // Addresses Buffer - change number to be number of instance buffers to be in the addresses buffer
-    size_t addressesBufferSize = sizeof(VkDeviceAddress) * 1;
-    addressBuffer = resourceManager.createHostSequentialBuffer(addressesBufferSize);
-    const std::array addresses = {resourceManager.getBufferAddress(boxInstanceBuffer)};
-    memcpy(addressBuffer.info.pMappedData, addresses.data(), addressesBufferSize);
-
-    // Draw indirect buffer
-    drawIndirectBuffer = resourceManager.createHostSequentialBuffer(sizeof(VkDrawIndexedIndirectCommand) * 1);
-    const std::array drawIndirectCommands = {boxDrawIndirect};
-    memcpy(drawIndirectBuffer.info.pMappedData, drawIndirectCommands.data(), sizeof(VkDrawIndexedIndirectCommand) * 1);
-
-    // todo: copy staging vertex and index into "instance real buffers"
-
-
     DescriptorLayoutBuilder layoutBuilder;
-    layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-    addressesLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_VERTEX_BIT,
-                                                                VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+    uniformLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_VERTEX_BIT,
+                                                              VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
-    addressesDescriptorBuffer = resourceManager.createDescriptorBufferUniform(addressesLayout, 1);
+    // Box Instance Data Buffer
+    constexpr uint64_t boxInstanceBufferSize = DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT * sizeof(BoxInstance);
+    boxInstanceDescriptorBuffer = resourceManager.createDescriptorBufferUniform(uniformLayout, FRAME_OVERLAP);
+    for (int32_t i = 0; i < FRAME_OVERLAP; ++i) {
+        boxInstanceBuffers[i] = resourceManager.createHostSequentialBuffer(boxInstanceBufferSize);
+        DescriptorUniformData addressesUniformData{
+            .uniformBuffer = boxInstanceBuffers[i],
+            .allocSize = boxInstanceBufferSize,
+        };
 
-    DescriptorUniformData addressesUniformData{
-        .uniformBuffer = addressBuffer,
-        .allocSize = addressesBufferSize,
-    };
-    resourceManager.setupDescriptorBufferUniform(addressesDescriptorBuffer, {addressesUniformData}, 0);
+        resourceManager.setupDescriptorBufferUniform(boxInstanceDescriptorBuffer, {addressesUniformData}, i);
+    }
+
+    VkDescriptorSetLayout descriptorLayout[2];
+    descriptorLayout[0] = resourceManager.getSceneDataLayout();
+    descriptorLayout[1] = uniformLayout;
+
+
+    VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
+    layoutInfo.pSetLayouts = descriptorLayout;
+    layoutInfo.pNext = nullptr;
+    layoutInfo.setLayoutCount = 2;
+    layoutInfo.pPushConstantRanges = nullptr;
+    layoutInfo.pushConstantRangeCount = 0;
+
+    pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+
+    createPipeline();
 }
 
-DebugRenderer::~DebugRenderer() {}
+DebugRenderer::~DebugRenderer()
+{
+    resourceManager.destroyDescriptorSetLayout(uniformLayout);
+
+    resourceManager.destroyBuffer(instancedVertexBuffer);
+    resourceManager.destroyBuffer(instancedIndexBuffer);
+
+    for (AllocatedBuffer& buffer : boxInstanceBuffers) {
+        resourceManager.destroyBuffer(buffer);
+    }
+    resourceManager.destroyDescriptorBuffer(boxInstanceDescriptorBuffer);
+
+    resourceManager.destroyPipeline(pipeline);
+    resourceManager.destroyPipelineLayout(pipelineLayout);
+}
+
+void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawInfo)
+{
+    if (boxInstances.empty()) { return; }
+
+    if (boxInstances.size() > DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT) {
+        boxInstances.resize(DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT);
+    }
+
+    // upload
+    const AllocatedBuffer& currentBoxInstanceBuffer = boxInstanceBuffers[drawInfo.currentFrameOverlap];
+    memcpy(currentBoxInstanceBuffer.info.pMappedData, boxInstances.data(), sizeof(BoxInstance) * boxInstances.size());
+
+    const VkRenderingAttachmentInfo albedoAttachment = vk_helpers::attachmentInfo(drawInfo.albedoTarget, nullptr,
+                                                                                  VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    const VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthTarget, nullptr,
+                                                                                 VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+    VkRenderingInfo renderInfo{};
+    renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    renderInfo.pNext = nullptr;
+
+    VkRenderingAttachmentInfo renderAttachments[1];
+    renderAttachments[0] = albedoAttachment;
+
+    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, RENDER_EXTENTS};
+    renderInfo.layerCount = 1;
+    renderInfo.colorAttachmentCount = 1;
+    renderInfo.pColorAttachments = renderAttachments;
+    renderInfo.pDepthAttachment = &depthAttachment;
+    renderInfo.pStencilAttachment = nullptr;
+
+    vkCmdBeginRendering(cmd, &renderInfo);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
+    vkCmdSetLineWidth(cmd, 3.0f);
+
+    //  Viewport
+    VkViewport viewport = {};
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width = RENDER_EXTENTS.width;
+    viewport.height = RENDER_EXTENTS.height;
+    viewport.minDepth = 0.f;
+    viewport.maxDepth = 1.f;
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+    //  Scissor
+    VkRect2D scissor = {};
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
+    scissor.extent.width = RENDER_EXTENTS.width;
+    scissor.extent.height = RENDER_EXTENTS.height;
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    const std::array descriptorBufferBindingInfos{
+        drawInfo.sceneDataBinding,
+        boxInstanceDescriptorBuffer.getDescriptorBufferBindingInfo()
+    };
+
+    vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfos.data());
+
+    constexpr std::array<uint32_t, 2> indices{0, 1};
+    const std::array offsets{
+        drawInfo.sceneDataOffset,
+        boxInstanceDescriptorBuffer.getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
+    };
+
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 2, indices.data(), offsets.data());
+
+    vkCmdBindVertexBuffers(cmd, 0, 1, &instancedVertexBuffer.buffer, &ZERO_DEVICE_SIZE);
+    vkCmdBindIndexBuffer(cmd, instancedIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+
+    vkCmdDrawIndexed(cmd, boxDrawIndexedData.indexCount, boxInstances.size(), boxDrawIndexedData.firstIndex
+                     , boxDrawIndexedData.vertexOffset, boxDrawIndexedData.firstInstance);
+
+    vkCmdEndRendering(cmd);
+
+    clear();
+
+}
+
+void DebugRenderer::clear()
+{
+    boxInstances.clear();
+
+    // remove anything past the defaults
+    //vertices.clear();
+    //indices.clear();
+}
+
+void DebugRenderer::createPipeline()
+{
+    resourceManager.destroyPipeline(pipeline);
+    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/debug/debug_renderer.vert");
+    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/debug/debug_renderer.frag");
+
+    PipelineBuilder renderPipelineBuilder;
+    VkVertexInputBindingDescription vertexBinding{};
+    vertexBinding.binding = 0;
+    vertexBinding.stride = sizeof(DebugRendererVertex);
+    vertexBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    VkVertexInputAttributeDescription vertexAttributes[4];
+    vertexAttributes[0].binding = 0;
+    vertexAttributes[0].location = 0;
+    vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    vertexAttributes[0].offset = offsetof(DebugRendererVertex, position);
+
+    const VkVertexInputBindingDescription vertexBindings[1] = {vertexBinding};
+
+    renderPipelineBuilder.setupVertexInput(vertexBindings, 1, vertexAttributes, 1);
+
+    renderPipelineBuilder.setShaders(vertShader, fragShader);
+    renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
+    renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_LINE, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+    renderPipelineBuilder.disableMultisampling();
+    renderPipelineBuilder.disableBlending();
+    renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+    renderPipelineBuilder.setupRenderer({ALBEDO_FORMAT}, DEPTH_FORMAT);
+    renderPipelineBuilder.setupPipelineLayout(pipelineLayout);
+    const std::vector additionalDynamicStates{VK_DYNAMIC_STATE_LINE_WIDTH};
+    pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);
+    resourceManager.destroyShaderModule(vertShader);
+    resourceManager.destroyShaderModule(fragShader);
+}
+
+void DebugRenderer::generateBuffers()
+{
+    // populate vertex and index buffers
+}
 
 void DebugRenderer::drawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec3& color)
 {}
@@ -121,22 +274,14 @@ void DebugRenderer::drawBox(const glm::vec3& center, const glm::vec3& dimensions
 {
     if (!hasFlag(activeCategories, category)) { return; }
 
-    // Create transformation matrix directly:
-    // 1. Scale from unit cube to the desired dimensions
-    // 2. Translate to the center position
     const glm::mat4 transform = glm::translate(glm::mat4(1.0f), center) *
-                          glm::scale(glm::mat4(1.0f), dimensions);
+                                glm::scale(glm::mat4(1.0f), dimensions);
 
-    // Create and add the box instance
-    BoxInstance instance;
+    BoxInstance instance{};
     instance.transform = transform;
     instance.color = color;
 
     boxInstances.push_back(instance);
-
-
-    // Update the indirect draw command
-
 }
 
 void DebugRenderer::drawBoxMinmax(const glm::vec3& min, const glm::vec3& max, const glm::vec3& color, DebugRendererCategory category)
@@ -147,34 +292,4 @@ void DebugRenderer::drawBoxMinmax(const glm::vec3& min, const glm::vec3& max, co
     std::vector<BoxInstance> boxInstances;
 }
 
-void DebugRenderer::render(VkCommandBuffer cmd)
-{
-    if (boxInstances.size() > DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT) {
-        boxInstances.resize(DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT);
-    }
-
-    boxDrawIndirect.instanceCount = boxInstances.size();
-
-    const std::array drawIndirectCommands = {boxDrawIndirect};
-    memcpy(drawIndirectBuffer.info.pMappedData, drawIndirectCommands.data(), sizeof(VkDrawIndexedIndirectCommand) * 1);
-
-    memcpy(boxInstanceBuffer.info.pMappedData, boxInstances.data(), sizeof(BoxInstance) * boxInstances.size());
-
-    // draw w/ pipeline
-}
-
-void DebugRenderer::clear()
-{
-    // remove anything past the defaults
-    vertices.clear();
-    indices.clear();
-}
-
-void DebugRenderer::createPipeline()
-{}
-
-void DebugRenderer::generateBuffers()
-{
-    // populate vertex and index buffers
-}
 }

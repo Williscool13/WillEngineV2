@@ -25,6 +25,7 @@
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/environment/environment.h"
 #include "../renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h"
+#include "src/renderer/debug/debug_renderer.h"
 #include "src/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline.h"
 #include "src/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline_types.h"
 #include "src/renderer/pipelines/geometry/deferred_resolve/deferred_resolve_pipeline.h"
@@ -126,6 +127,9 @@ void Engine::init()
     assetManager = new AssetManager(*resourceManager);
     physics = new physics::Physics();
     physics::Physics::set(physics);
+    debugRenderer = new debug_renderer::DebugRenderer(*resourceManager);
+    debug_renderer::DebugRenderer::set(debugRenderer);
+
     startupProfiler.addEntry("Immediate, ResourceM, AssetM, Physics");
 
     environmentMap = new environment::Environment(*resourceManager, *immediate);
@@ -624,6 +628,19 @@ void Engine::render(float deltaTime)
         transparentPipeline->drawAccumulate(cmd, transparentDrawInfo);
     }
 
+    if (bDrawDebugRendering) {
+        debug_renderer::DebugRendererDrawInfo debugRendererDrawInfo{
+            currentFrameOverlap,
+            albedoRenderTarget.imageView,
+            depthImage.imageView,
+            sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+            sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
+        };
+
+        debugRenderer->drawBox({0, 0, 0}, {2.0f, 2.0f, 2.0f}, {0.0f, 1.0f, 0.0f});
+        debugRenderer->draw(cmd, debugRendererDrawInfo);
+    }
+
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -850,7 +867,8 @@ void Engine::cleanup()
 
     delete cascadedShadowMap;
     delete environmentMap;
-    delete physics::Physics::get();
+    delete debugRenderer;
+    delete physics;
     delete immediate;
     delete resourceManager;
 
