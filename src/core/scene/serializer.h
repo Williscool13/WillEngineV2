@@ -217,7 +217,7 @@ enum class EngineSettingsTypeFlag : uint32_t
     CASCADED_SHADOW_MAP_SETTINGS = 1 << 7,
     TEMPORAL_ANTIALIASING_SETTINGS = 1 << 8,
     POSTPROCESS_SETTINGS = 1 << 9,
-    ALL = 0xFFFFFFFF
+    ALL_SETTINGS = 0xFFFFFFFF
 };
 
 inline EngineSettingsTypeFlag operator|(EngineSettingsTypeFlag a, EngineSettingsTypeFlag b)
@@ -268,9 +268,9 @@ public: // Textures
     static std::optional<TextureInfo> loadWillTexture(const std::filesystem::path& willtexturePath);
 
 public: // Engine Settings
-    static bool serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag engineSettings = EngineSettingsTypeFlag::ALL);
+    static bool serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag engineSettings = EngineSettingsTypeFlag::ALL_SETTINGS);
 
-    static bool deserializeEngineSettings(Engine* engine, EngineSettingsTypeFlag engineSettings = EngineSettingsTypeFlag::ALL);
+    static bool deserializeEngineSettings(Engine* engine, EngineSettingsTypeFlag engineSettings = EngineSettingsTypeFlag::ALL_SETTINGS);
 
 public: //
     static uint32_t computePathHash(const std::filesystem::path& path)

@@ -322,15 +322,42 @@ std::optional<TextureInfo> Serializer::loadWillTexture(const std::filesystem::pa
 
 bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag engineSettings)
 {
-    ordered_json rootJ;
     if (engine == nullptr) {
         fmt::print("Warning: engine is null\n");
         return false;
     }
 
+    const std::filesystem::path filepath = {"assets/settings.willengine"};
+
+    ordered_json rootJ;
+    bool fileExists = std::filesystem::exists(filepath);
+
+    if (fileExists) {
+        try {
+            std::ifstream inFile(filepath);
+            if (inFile.is_open()) {
+                inFile >> rootJ;
+                inFile.close();
+            } else {
+                fmt::print("Warning: Could not open existing settings file. Creating new file.\n");
+                fileExists = false;
+            }
+        } catch (const std::exception& e) {
+            fmt::print("Warning: Error parsing existing settings file: {}. Creating new file.\n", e.what());
+            fileExists = false;
+            rootJ = ordered_json();
+        }
+    }
+
     rootJ["version"] = EngineVersion::current();
 
-    if (hasFlag(engineSettings, EngineSettingsTypeFlag::GENERAL_SETTINGS)) {}
+    if (hasFlag(engineSettings, EngineSettingsTypeFlag::GENERAL_SETTINGS)) {
+        ordered_json _engineSettings;
+        EngineSettings mainEngineSettings = engine->getEngineSettings();
+        _engineSettings["saveOnExit"] = mainEngineSettings.saveOnExit;
+
+        rootJ["engineSettings"] = _engineSettings;
+    }
 
     if (hasFlag(engineSettings, EngineSettingsTypeFlag::CAMERA_SETTINGS)) {
         ordered_json cameraSettings;
@@ -445,13 +472,26 @@ bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag 
         rootJ["csmSettings"] = csmSettings;
     }
 
-    if (hasFlag(engineSettings, EngineSettingsTypeFlag::TEMPORAL_ANTIALIASING_SETTINGS)) {}
+    if (hasFlag(engineSettings, EngineSettingsTypeFlag::TEMPORAL_ANTIALIASING_SETTINGS)) {
+        ordered_json taaSettings;
+
+        auto settings = engine->getTaaSettings();
+        taaSettings["enabled"] = settings.bEnabled;
+
+        taaSettings["properties"]["blendValue"] = settings.blendValue;
+
+        rootJ["taaSettings"] = taaSettings;
+    }
 
 
-    const std::filesystem::path filepath = {"assets/settings.willengine"};
+    std::ofstream outFile(filepath);
+    if (!outFile.is_open()) {
+        fmt::print("Error: Could not open settings file for writing\n");
+        return false;
+    }
 
-    std::ofstream file(filepath);
-    file << rootJ.dump(4);
+    outFile << rootJ.dump(4);
+    outFile.close();
     return true;
 }
 
@@ -478,7 +518,16 @@ bool Serializer::deserializeEngineSettings(Engine* engine, EngineSettingsTypeFla
 
         ordered_json rootJ = ordered_json::parse(file);
 
-        if (hasFlag(engineSettings, EngineSettingsTypeFlag::GENERAL_SETTINGS)) {}
+        if (hasFlag(engineSettings, EngineSettingsTypeFlag::GENERAL_SETTINGS)) {
+            ordered_json _engineSettings = rootJ["engineSettings"];
+            EngineSettings mainEngineSettings = engine->getEngineSettings();
+
+            if (_engineSettings.contains("saveOnExit")) {
+                mainEngineSettings.saveOnExit = _engineSettings["saveOnExit"].get<bool>();
+            }
+
+            engine->setEngineSettings(mainEngineSettings);
+        }
 
         if (hasFlag(engineSettings, EngineSettingsTypeFlag::CAMERA_SETTINGS)) {
             if (rootJ.contains("cameraSettings")) {
@@ -665,81 +714,103 @@ bool Serializer::deserializeEngineSettings(Engine* engine, EngineSettingsTypeFla
             }
         }
 
-        if (rootJ.contains("csmSettings")) {
-            ordered_json csmSettings = rootJ["csmSettings"];
-            cascaded_shadows::CascadedShadowMapSettings settings = engine->getCsmSettings();
+        if (hasFlag(engineSettings, EngineSettingsTypeFlag::CASCADED_SHADOW_MAP_SETTINGS)) {
+            if (rootJ.contains("csmSettings")) {
+                ordered_json csmSettings = rootJ["csmSettings"];
+                cascaded_shadows::CascadedShadowMapSettings settings = engine->getCsmSettings();
 
-            if (csmSettings.contains("enabled")) {
-                settings.bEnabled = csmSettings["enabled"].get<bool>();
+                if (csmSettings.contains("enabled")) {
+                    settings.bEnabled = csmSettings["enabled"].get<bool>();
+                }
+
+                if (csmSettings.contains("properties")) {
+                    auto properties = csmSettings["properties"];
+
+                    if (properties.contains("pcfLevel")) {
+                        settings.pcfLevel = properties["pcfLevel"].get<int32_t>();
+                    }
+
+                    if (properties.contains("splitLambda")) {
+                        settings.splitLambda = properties["splitLambda"].get<float>();
+                    }
+
+                    if (properties.contains("splitOverlap")) {
+                        settings.splitOverlap = properties["splitOverlap"].get<float>();
+                    }
+
+                    if (properties.contains("cascadeNearPlane")) {
+                        settings.cascadeNearPlane = properties["cascadeNearPlane"].get<float>();
+                    }
+
+                    if (properties.contains("cascadeFarPlane")) {
+                        settings.cascadeFarPlane = properties["cascadeFarPlane"].get<float>();
+                    }
+
+                    if (properties.contains("cascadeBias") && properties["cascadeBias"].is_array()) {
+                        auto biasArray = properties["cascadeBias"];
+                        for (size_t i = 0; i < std::min(biasArray.size(), settings.cascadeBias.size()); i++) {
+                            auto biasObj = biasArray[i];
+                            if (biasObj.contains("constant")) {
+                                settings.cascadeBias[i].constant = biasObj["constant"].get<float>();
+                            }
+
+                            if (biasObj.contains("slope")) {
+                                settings.cascadeBias[i].slope = biasObj["slope"].get<float>();
+                            }
+                        }
+                    }
+
+                    if (properties.contains("cascadeExtents") && properties["cascadeExtents"].is_array()) {
+                        auto extentsArray = properties["cascadeExtents"];
+                        for (size_t i = 0; i < std::min(extentsArray.size(), settings.cascadeExtents.size()); i++) {
+                            auto extentObj = extentsArray[i];
+                            if (extentObj.contains("width")) {
+                                settings.cascadeExtents[i].width = extentObj["width"].get<uint32_t>();
+                            }
+                            if (extentObj.contains("height")) {
+                                settings.cascadeExtents[i].height = extentObj["height"].get<uint32_t>();
+                            }
+                            if (extentObj.contains("depth")) {
+                                settings.cascadeExtents[i].depth = extentObj["depth"].get<uint32_t>();
+                            }
+                        }
+                    }
+
+                    if (properties.contains("useManualSplit")) {
+                        settings.useManualSplit = properties["useManualSplit"].get<bool>();
+                    }
+
+                    if (properties.contains("manualCascadeSplits") && properties["manualCascadeSplits"].is_array()) {
+                        auto splitsArray = properties["manualCascadeSplits"];
+                        for (size_t i = 0; i < std::min(splitsArray.size(), settings.manualCascadeSplits.size()); i++) {
+                            settings.manualCascadeSplits[i] = splitsArray[i].get<float>();
+                        }
+                    }
+                }
+
+                engine->setCsmSettings(settings);
             }
+        }
 
-            if (csmSettings.contains("properties")) {
-                auto properties = csmSettings["properties"];
+        if (hasFlag(engineSettings, EngineSettingsTypeFlag::TEMPORAL_ANTIALIASING_SETTINGS)) {
+            if (rootJ.contains("taaSettings")) {
+                ordered_json taaSettings = rootJ["taaSettings"];
+                temporal_antialiasing_pipeline::TemporalAntialiasingSettings settings = engine->getTaaSettings();
 
-                if (properties.contains("pcfLevel")) {
-                    settings.pcfLevel = properties["pcfLevel"].get<int32_t>();
+                if (taaSettings.contains("enabled")) {
+                    settings.bEnabled = taaSettings["enabled"].get<bool>();
                 }
 
-                if (properties.contains("splitLambda")) {
-                    settings.splitLambda = properties["splitLambda"].get<float>();
-                }
+                if (taaSettings.contains("properties")) {
+                    auto properties = taaSettings["properties"];
 
-                if (properties.contains("splitOverlap")) {
-                    settings.splitOverlap = properties["splitOverlap"].get<float>();
-                }
-
-                if (properties.contains("cascadeNearPlane")) {
-                    settings.cascadeNearPlane = properties["cascadeNearPlane"].get<float>();
-                }
-
-                if (properties.contains("cascadeFarPlane")) {
-                    settings.cascadeFarPlane = properties["cascadeFarPlane"].get<float>();
-                }
-
-                if (properties.contains("cascadeBias") && properties["cascadeBias"].is_array()) {
-                    auto biasArray = properties["cascadeBias"];
-                    for (size_t i = 0; i < std::min(biasArray.size(), settings.cascadeBias.size()); i++) {
-                        auto biasObj = biasArray[i];
-                        if (biasObj.contains("constant")) {
-                            settings.cascadeBias[i].constant = biasObj["constant"].get<float>();
-                        }
-
-                        if (biasObj.contains("slope")) {
-                            settings.cascadeBias[i].slope = biasObj["slope"].get<float>();
-                        }
-
+                    if (properties.contains("blendValue")) {
+                        settings.blendValue = properties["blendValue"].get<float>();
                     }
                 }
 
-                if (properties.contains("cascadeExtents") && properties["cascadeExtents"].is_array()) {
-                    auto extentsArray = properties["cascadeExtents"];
-                    for (size_t i = 0; i < std::min(extentsArray.size(), settings.cascadeExtents.size()); i++) {
-                        auto extentObj = extentsArray[i];
-                        if (extentObj.contains("width")) {
-                            settings.cascadeExtents[i].width = extentObj["width"].get<uint32_t>();
-                        }
-                        if (extentObj.contains("height")) {
-                            settings.cascadeExtents[i].height = extentObj["height"].get<uint32_t>();
-                        }
-                        if (extentObj.contains("depth")) {
-                            settings.cascadeExtents[i].depth = extentObj["depth"].get<uint32_t>();
-                        }
-                    }
-                }
-
-                if (properties.contains("useManualSplit")) {
-                    settings.useManualSplit = properties["useManualSplit"].get<bool>();
-                }
-
-                if (properties.contains("manualCascadeSplits") && properties["manualCascadeSplits"].is_array()) {
-                    auto splitsArray = properties["manualCascadeSplits"];
-                    for (size_t i = 0; i < std::min(splitsArray.size(), settings.manualCascadeSplits.size()); i++) {
-                        settings.manualCascadeSplits[i] = splitsArray[i].get<float>();
-                    }
-                }
+                engine->setTaaSettings(settings);
             }
-
-            engine->setCsmSettings(settings);
         }
 
         return true;

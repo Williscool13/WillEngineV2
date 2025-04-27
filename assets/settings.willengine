@@ -4,17 +4,20 @@
         "minor": 1,
         "patch": 0
     },
+    "engineSettings": {
+        "saveOnExit": true
+    },
     "cameraSettings": {
         "position": [
-            -3.5752112865448,
-            77.89178466796875,
-            -2.0525176525115967
+            -19.169994354248047,
+            105.9618911743164,
+            36.455501556396484
         ],
         "rotation": [
-            0.12966889142990112,
-            0.5945084095001221,
-            0.09788811206817627,
-            -0.7875046730041504
+            -0.14886538684368134,
+            -0.2690022885799408,
+            -0.04212456941604614,
+            0.9506327509880066
         ],
         "fov": 1.3089969158172607,
         "aspectRatio": 1.4861111640930176,
@@ -50,8 +53,8 @@
             "thin_occluder_compensation": 0.0,
             "final_value_power": 2.200000047683716,
             "depth_mip_sampling_offset": 3.299999952316284,
-            "slice_count": 2.0,
-            "steps_per_slice_count": 2.0
+            "slice_count": 9.0,
+            "steps_per_slice_count": 3.0
         }
     },
     "sssSettings": {
@@ -113,7 +116,7 @@
                     "depth": 1
                 }
             ],
-            "useManualSplit": false,
+            "useManualSplit": true,
             "manualCascadeSplits": [
                 0.10000000149011612,
                 4.0,
@@ -121,6 +124,12 @@
                 100.0,
                 400.0
             ]
+        }
+    },
+    "taaSettings": {
+        "enabled": true,
+        "properties": {
+            "blendValue": 0.10000000149011612
         }
     }
 }

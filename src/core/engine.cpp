@@ -388,10 +388,6 @@ void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int3
     glm::vec2 currentJitter = HaltonSequence::getJitterHardcoded(frameNumber) - 0.5f;
     currentJitter.x /= RENDER_EXTENT_WIDTH;
     currentJitter.y /= RENDER_EXTENT_HEIGHT;
-    if (bDisableJitter) {
-        prevJitter = {};
-        currentJitter = {};
-    }
 
     pSceneData->jitter = taaSettings.bEnabled ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
 
@@ -624,7 +620,9 @@ void Engine::render(float deltaTime)
         cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferSize() * currentFrameOverlap,
         cascadedShadowMap->getCascadedShadowMapSamplerBuffer().getDescriptorBufferBindingInfo(),
     };
-    transparentPipeline->drawAccumulate(cmd, transparentDrawInfo);
+    if (bDrawTransparents) {
+        transparentPipeline->drawAccumulate(cmd, transparentDrawInfo);
+    }
 
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
@@ -680,7 +678,7 @@ void Engine::render(float deltaTime)
     transparent_pipeline::TransparentCompositeDrawInfo compositeDrawInfo{
         drawImage.imageView
     };
-    if (!bHideTransparents) {
+    if (bDrawTransparents) {
         transparentPipeline->drawComposite(cmd, compositeDrawInfo);
     }
 
@@ -785,7 +783,9 @@ void Engine::cleanup()
     fmt::print("----------------------------------------\n");
     fmt::print("Cleaning up {}\n", ENGINE_NAME);
 
-    Serializer::serializeEngineSettings(this);
+    if (engineSettings.saveOnExit) {
+        Serializer::serializeEngineSettings(this);
+    }
 
     vkDeviceWaitIdle(context->device);
 

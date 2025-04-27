@@ -187,6 +187,9 @@ private: // Engine Settings
     temporal_antialiasing_pipeline::TemporalAntialiasingSettings taaSettings{};
 
 public:
+    EngineSettings getEngineSettings() const { return engineSettings; }
+    void setEngineSettings(const EngineSettings& settings) { engineSettings = settings; }
+
     ambient_occlusion::GTAOSettings getAoSettings() const { return gtaoSettings; }
     void setAoSettings(const ambient_occlusion::GTAOSettings& settings) { gtaoSettings = settings; }
 
@@ -196,13 +199,15 @@ public:
     cascaded_shadows::CascadedShadowMapSettings getCsmSettings() const { return csmSettings; }
     void setCsmSettings(const cascaded_shadows::CascadedShadowMapSettings& settings);
 
+    temporal_antialiasing_pipeline::TemporalAntialiasingSettings getTaaSettings() const { return taaSettings; }
+    void setTaaSettings(const temporal_antialiasing_pipeline::TemporalAntialiasingSettings& settings) { taaSettings = settings; }
+
 private: // Debug
     bool bEnableDebugFrustumCullDraw{false};
     int32_t deferredDebug{0};
     bool bDrawTerrainLines{false};
     bool bPausePhysics{true};
-    bool bDisableJitter{false};
-    bool bHideTransparents{false};
+    bool bDrawTransparents{true};
     bool bEnableShadows{true};
     bool bEnableContactShadows{true};
 

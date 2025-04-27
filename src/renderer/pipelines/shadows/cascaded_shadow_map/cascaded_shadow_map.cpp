@@ -39,13 +39,6 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
 
     generateSplits();
 
-    fmt::print("Shadow Map: (Splits) ");
-    for (int32_t i = 0; i < SHADOW_CASCADE_COUNT; ++i) {
-        fmt::print("{} - ", shadowMaps[i].split.nearPlane);
-    }
-    fmt::print("{}\n", shadowMaps[SHADOW_CASCADE_COUNT - 1].split.farPlane);
-
-
     VkSamplerCreateInfo samplerCreateInfo = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
 
     samplerCreateInfo.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
