@@ -131,8 +131,8 @@ set(PHYSICS_SOURCES
         src/physics/physics_utils.h
         src/physics/physics_utils.cpp
         src/physics/physics_constants.h
-        src/physics/debug/debug_renderer.cpp
-        src/physics/debug/debug_renderer.h
+        src/physics/debug/jolt_debug_renderer.cpp
+        src/physics/debug/jolt_debug_renderer.h
         src/physics/physics_body.h
 )
 
@@ -263,6 +263,9 @@ set(TEMP_SOURCES
         src/renderer/pipelines/geometry/transparent_pipeline/transparent_pipeline_types.h
         src/renderer/pipelines/basic/basic_compute/basic_compute_pipeline_types.h
         src/renderer/pipelines/visibility_pass/visibility_pass_pipeline_types.h
+        src/renderer/debug/debug_renderer.cpp
+        src/renderer/debug/debug_renderer.h
+        src/renderer/debug/debug_renderer_tyoes.h
 
 )
 

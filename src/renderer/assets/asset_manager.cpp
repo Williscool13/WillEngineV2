@@ -15,14 +15,14 @@ will_engine::AssetManager::~AssetManager()
 
 void will_engine::AssetManager::scanForAll()
 {
+    fmt::print("Scanning for .willmodel and .willtexture files\n");
+
     scanForRenderObjects();
     scanForTextures();
 }
 
 void will_engine::AssetManager::scanForTextures()
 {
-    fmt::print("Scanning for .willtexture files\n");
-
     const std::vector<std::filesystem::path> willTextures = file::findWillFiles(relative(std::filesystem::current_path() / "assets"), ".willtexture");
     textures.reserve(willTextures.size());
     for (std::filesystem::path willTexture : willTextures) {
@@ -38,8 +38,6 @@ void will_engine::AssetManager::scanForTextures()
 
 void will_engine::AssetManager::scanForRenderObjects()
 {
-    fmt::print("Scanning for .willmodel files\n");
-
     const std::vector<std::filesystem::path> willModels = file::findWillFiles(relative(std::filesystem::current_path() / "assets"), ".willmodel");
     renderObjects.reserve(willModels.size());
     for (std::filesystem::path willModel : willModels) {

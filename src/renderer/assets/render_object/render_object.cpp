@@ -686,7 +686,7 @@ void RenderObject::load()
     }
 
     uint64_t boundingSphereBufferSize = sizeof(BoundingSphere) * boundingSpheres.size();
-    AllocatedBuffer meshBoundsStaging = resourceManager.createStagingBuffer(boundingSphereBufferSize);
+    const AllocatedBuffer meshBoundsStaging = resourceManager.createStagingBuffer(boundingSphereBufferSize);
     memcpy(meshBoundsStaging.info.pMappedData, boundingSpheres.data(), boundingSphereBufferSize);
     meshBoundsBuffer = resourceManager.createDeviceBuffer(boundingSphereBufferSize);
 

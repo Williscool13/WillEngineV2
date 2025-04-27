@@ -10,10 +10,12 @@
 
 namespace will_engine::physics
 {
-class DebugRendererImpl final : public JPH::DebugRenderer
+class JoltDebugRenderer final : public JPH::DebugRenderer
 {
 public:
-    ~DebugRendererImpl() override;
+    JoltDebugRenderer();
+
+    ~JoltDebugRenderer() override;
 
     void DrawLine(JPH::RVec3Arg inFrom, JPH::RVec3Arg inTo, JPH::ColorArg inColor) override;
 
