@@ -36,9 +36,17 @@ public:
 
     ~RenderObject() override;
 
-    void update(int32_t currentFrameOverlap, int32_t previousFrameOverlap);
+    void update(VkCommandBuffer cmd, int32_t currentFrameOverlap, int32_t previousFrameOverlap);
 
-    bool updateBuffers(int32_t currentFrameOverlap, int32_t previousFrameOverlap);
+    /**
+     * Buffers only update if change to instance count/primitive count. Usually only on load, create, or destroy.
+     * \n Reasonably expensive.
+     * @param cmd
+     * @param currentFrameOverlap
+     * @param previousFrameOverlap
+     * @return
+     */
+    bool updateBuffers(VkCommandBuffer cmd, int32_t currentFrameOverlap, int32_t previousFrameOverlap);
 
     void dirty() { bufferFramesToUpdate = FRAME_OVERLAP; }
 
@@ -70,13 +78,19 @@ private:
     uint32_t getFreePrimitiveIndex();
 
     std::unordered_set<uint32_t> freePrimitiveIndices{};
-    uint32_t currentPrimitiveCount{0};
+    /**
+     * The max number of primitives this render object supports at the moment. If a new primitives is made that would exceed this limit, the primitives buffer will be expanded and this value inceased.
+     */
+    uint32_t currentMaxPrimitiveCount{0};
 
 
     uint32_t getFreeInstanceIndex();
 
     std::unordered_set<uint32_t> freeInstanceIndices{};
-    uint32_t currentInstanceCount{0};
+    /**
+     * The max number of instances this render object supports at the moment. If a new instance is made that would exceed this limit, the instance buffer will be expanded
+     */
+    uint32_t currentMaxInstanceCount{0};
 
     std::unordered_map<uint32_t, PrimitiveData> primitiveDataMap{};
 
@@ -95,13 +109,14 @@ public: // Model Rendering API
     GameObject* generateGameObject(const std::string& gameObjectName = "");
 
     [[nodiscard]] size_t getMeshCount() const { return meshes.size(); }
-    [[nodiscard]] bool canDraw() const { return currentInstanceCount != freeInstanceIndices.size(); }
+    [[nodiscard]] bool canDraw() const { return freeInstanceIndices.size() != currentMaxInstanceCount; }
     [[nodiscard]] bool canDrawOpaque() const { return opaqueDrawCommands.size() > 0; }
     [[nodiscard]] bool canDrawTransparent() const { return transparentDrawCommands.size() > 0; }
     [[nodiscard]] const DescriptorBufferUniform& getAddressesDescriptorBuffer() const { return addressesDescriptorBuffer; }
     [[nodiscard]] const DescriptorBufferSampler& getTextureDescriptorBuffer() const { return textureDescriptorBuffer; }
     [[nodiscard]] const DescriptorBufferUniform& getFrustumCullingAddressesDescriptorBuffer() { return frustumCullingDescriptorBuffer; }
-    [[nodiscard]] const AllocatedBuffer& getVertexBuffer() const { return vertexBuffer; }
+    [[nodiscard]] const AllocatedBuffer& getPositionVertexBuffer() const { return vertexPositionBuffer; }
+    [[nodiscard]] const AllocatedBuffer& getPropertyVertexBuffer() const { return vertexPropertyBuffer; }
     [[nodiscard]] const AllocatedBuffer& getIndexBuffer() const { return indexBuffer; }
 
     [[nodiscard]] const AllocatedBuffer& getOpaqueIndirectBuffer(const int32_t currentFrameOverlap) const
@@ -129,14 +144,12 @@ public: // Model Rendering API
     bool generateMesh(IRenderable* renderable, int32_t meshIndex);
 
 private: // Model Parsing
-    bool parseGltf(const std::filesystem::path& gltfFilepath);
+    bool parseGltf(const std::filesystem::path& gltfFilepath, std::vector<MaterialProperties>& materials,
+                   std::vector<VertexPosition>& vertexPositions, std::vector<VertexProperty>& vertexProperties, std::vector<uint32_t>& indices);
 
 private: // Model Data
     ResourceManager& resourceManager;
 
-    std::vector<MaterialProperties> materials{};
-    std::vector<Vertex> vertices;
-    std::vector<uint32_t> indices;
     std::vector<Mesh> meshes{};
     std::vector<BoundingSphere> boundingSpheres{};
     std::vector<RenderNode> renderNodes{};
@@ -149,7 +162,11 @@ private: // Buffer Data
     std::vector<VkDrawIndexedIndirectCommand> opaqueDrawCommands{};
     std::vector<VkDrawIndexedIndirectCommand> transparentDrawCommands{};
 
-    AllocatedBuffer vertexBuffer{};
+    /**
+     * Split vertex Position and Properties to improve GPU cache performance for passes that only need position (shadow pass, depth prepass), assuming these passes don't need the other properties of course
+     */
+    AllocatedBuffer vertexPositionBuffer{};
+    AllocatedBuffer vertexPropertyBuffer{};
     AllocatedBuffer indexBuffer{};
     AllocatedBuffer opaqueDrawIndirectBuffers[FRAME_OVERLAP]{};
     AllocatedBuffer transparentDrawIndirectBuffers[FRAME_OVERLAP]{};

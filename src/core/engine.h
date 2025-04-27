@@ -22,7 +22,10 @@
 #include "src/renderer/lighting/directional_light.h"
 #include "src/renderer/pipelines/post/post_process/post_process_pipeline_types.h"
 #include "src/renderer/pipelines/geometry/transparent_pipeline/transparent_pipeline.h"
+#include "src/renderer/pipelines/post/temporal_antialiasing/temporal_antialiasing_pipeline_types.h"
+#include "src/renderer/pipelines/shadows/cascaded_shadow_map/shadow_types.h"
 #include "src/renderer/pipelines/shadows/contact_shadow/contact_shadows_pipeline.h"
+#include "src/renderer/pipelines/shadows/ground_truth_ambient_occlusion/ambient_occlusion_types.h"
 
 
 class ResourceManager;
@@ -123,7 +126,7 @@ public:
 
     void updateRender(VkCommandBuffer cmd, float deltaTime, int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
 
-    void draw(float deltaTime);
+    void render(float deltaTime);
 
     /**
      * Cleans up vulkan resources when application has exited. Destroys resources in opposite order of initialization
@@ -151,16 +154,17 @@ private:
     SDL_Window* window{nullptr};
 
     VulkanContext* context{nullptr};
-    ImmediateSubmitter* immediate = nullptr;
-    ResourceManager* resourceManager = nullptr;
-    identifier::IdentifierManager* identifierManager = nullptr;
+    ImmediateSubmitter* immediate{nullptr};
+    ResourceManager* resourceManager{nullptr};
+    AssetManager* assetManager{nullptr};
+    physics::Physics* physics{nullptr};
 
     environment::Environment* environmentMap{nullptr};
 
     terrain::TerrainManager* terrainManager{nullptr};
     ImguiWrapper* imguiWrapper = nullptr;
 
-    Profiler startupProfiler{};
+    StartupProfiler startupProfiler{};
     Profiler profiler{};
 
 private: // Rendering
@@ -175,19 +179,35 @@ private: // Rendering
 
     void createDrawResources();
 
+private: // Engine Settings
+    EngineSettings engineSettings{};
+    contact_shadows_pipeline::ContactShadowSettings sssSettings{};
+    ambient_occlusion::GTAOSettings gtaoSettings{};
+    cascaded_shadows::CascadedShadowMapSettings csmSettings{};
+    temporal_antialiasing_pipeline::TemporalAntialiasingSettings taaSettings{};
+
+public:
+    EngineSettings getEngineSettings() const { return engineSettings; }
+    void setEngineSettings(const EngineSettings& settings) { engineSettings = settings; }
+
+    ambient_occlusion::GTAOSettings getAoSettings() const { return gtaoSettings; }
+    void setAoSettings(const ambient_occlusion::GTAOSettings& settings) { gtaoSettings = settings; }
+
+    contact_shadows_pipeline::ContactShadowSettings getSssSettings() const { return sssSettings; }
+    void setSssSettings(const contact_shadows_pipeline::ContactShadowSettings& settings) { sssSettings = settings; }
+
+    cascaded_shadows::CascadedShadowMapSettings getCsmSettings() const { return csmSettings; }
+    void setCsmSettings(const cascaded_shadows::CascadedShadowMapSettings& settings);
+
+    temporal_antialiasing_pipeline::TemporalAntialiasingSettings getTaaSettings() const { return taaSettings; }
+    void setTaaSettings(const temporal_antialiasing_pipeline::TemporalAntialiasingSettings& settings) { taaSettings = settings; }
+
 private: // Debug
-    bool bEnableTaa{true};
-    float taaBlendValue{0.1f};
     bool bEnableDebugFrustumCullDraw{false};
-    int32_t csmPcf{1};
     int32_t deferredDebug{0};
-    int32_t gtaoDebug{4};
-    contact_shadows_pipeline::ContactShadowsPushConstants sssPush;
     bool bDrawTerrainLines{false};
     bool bPausePhysics{true};
-    bool bDisableJitter{false};
-    bool bHideTransparents{true};
-    bool bEnableGTAO{true};
+    bool bDrawTransparents{true};
     bool bEnableShadows{true};
     bool bEnableContactShadows{true};
 
@@ -210,12 +230,13 @@ private: // Scene Data
     DirectionalLight mainLight{glm::normalize(glm::vec3(-0.8f, -0.6f, -0.6f)), 1.5f, glm::vec3(1.0f)};
     int32_t environmentMapIndex{1};
 
-    post_process_pipeline::PostProcessType postProcessData{post_process_pipeline::PostProcessType::Tonemapping | post_process_pipeline::PostProcessType::Sharpening};
+    post_process_pipeline::PostProcessType postProcessData{
+        post_process_pipeline::PostProcessType::Tonemapping | post_process_pipeline::PostProcessType::Sharpening
+    };
 
     std::unordered_set<Map*> activeMaps;
     std::unordered_set<ITerrain*> activeTerrains;
 
-    AssetManager* assetManager{nullptr};
 
     std::vector<IHierarchical*> hierarchalBeginQueue{};
     std::vector<IHierarchical*> hierarchicalDeletionQueue{};

@@ -5,7 +5,7 @@
 
 namespace will_engine
 {
-BoundingSphere::BoundingSphere(const std::vector<Vertex>& vertices)
+BoundingSphere::BoundingSphere(const std::vector<VertexPosition>& vertices)
 {
     this->center = {0, 0, 0};
 

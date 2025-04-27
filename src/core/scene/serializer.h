@@ -204,26 +204,73 @@ inline void from_json(const json& j, TextureProperties& t)
     t = {j["mipmapped"].get<bool>()};
 }
 
+enum class EngineSettingsTypeFlag : uint32_t
+{
+    NONE = 0,
+    GENERAL_SETTINGS = 1 << 0,
+    CAMERA_SETTINGS = 1 << 1,
+    LIGHT_SETTINGS = 1 << 2,
+    ENVIRONMENT_SETTINGS = 1 << 3,
+    RENDERER_SETTINGS = 1 << 4,
+    AMBIENT_OCCLUSION_SETTINGS = 1 << 5,
+    SCREEN_SPACE_SHADOWS_SETTINGS = 1 << 6,
+    CASCADED_SHADOW_MAP_SETTINGS = 1 << 7,
+    TEMPORAL_ANTIALIASING_SETTINGS = 1 << 8,
+    POSTPROCESS_SETTINGS = 1 << 9,
+    ALL_SETTINGS = 0xFFFFFFFF
+};
+
+inline EngineSettingsTypeFlag operator|(EngineSettingsTypeFlag a, EngineSettingsTypeFlag b)
+{
+    return static_cast<EngineSettingsTypeFlag>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+}
+
+inline EngineSettingsTypeFlag operator&(EngineSettingsTypeFlag a, EngineSettingsTypeFlag b)
+{
+    return static_cast<EngineSettingsTypeFlag>(static_cast<uint32_t>(a) & static_cast<uint32_t>(b));
+}
+
+inline EngineSettingsTypeFlag& operator|=(EngineSettingsTypeFlag& a, EngineSettingsTypeFlag b)
+{
+    return a = a | b;
+}
+
+inline EngineSettingsTypeFlag& operator&=(EngineSettingsTypeFlag& a, EngineSettingsTypeFlag b)
+{
+    return a = a & b;
+}
+
+
+inline bool hasFlag(EngineSettingsTypeFlag flags, EngineSettingsTypeFlag flag)
+{
+    return (static_cast<uint32_t>(flags) & static_cast<uint32_t>(flag)) == static_cast<uint32_t>(flag);
+}
+
 class Serializer
 {
 public: // GameObjects
     static void serializeGameObject(ordered_json& j, IHierarchical* obj);
+
     static GameObject* deserializeGameObject(const ordered_json& j, IHierarchical* parent);
 
     static bool serializeMap(IHierarchical* map, ordered_json& rootJ, const std::filesystem::path& filepath);
+
     static bool deserializeMap(IHierarchical* root, ordered_json& rootJ);
 
 public: // Render Objects
     static bool generateWillModel(const std::filesystem::path& gltfPath, const std::filesystem::path& outputPath);
+
     static std::optional<RenderObjectInfo> loadWillModel(const std::filesystem::path& willmodelPath);
 
 public: // Textures
     static bool generateWillTexture(const std::filesystem::path& texturePath, const std::filesystem::path& outputPath);
+
     static std::optional<TextureInfo> loadWillTexture(const std::filesystem::path& willtexturePath);
 
 public: // Engine Settings
-    static bool serializeEngineSettings(Engine* engine);
-    static bool deserializeEngineSettings(Engine* engine);
+    static bool serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag engineSettings = EngineSettingsTypeFlag::ALL_SETTINGS);
+
+    static bool deserializeEngineSettings(Engine* engine, EngineSettingsTypeFlag engineSettings = EngineSettingsTypeFlag::ALL_SETTINGS);
 
 public: //
     static uint32_t computePathHash(const std::filesystem::path& path)

@@ -24,9 +24,9 @@ will_engine::DescriptorBufferSampler::DescriptorBufferSampler(const VulkanContex
     VmaAllocationCreateInfo vmaAllocInfo = {};
     vmaAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
     vmaAllocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    VK_CHECK(vmaCreateBuffer(context.allocator, &bufferInfo, &vmaAllocInfo, &descriptorBuffer.buffer, &descriptorBuffer.allocation, &descriptorBuffer.info));
+    VK_CHECK(vmaCreateBuffer(context.allocator, &bufferInfo, &vmaAllocInfo, &mainBuffer.buffer, &mainBuffer.allocation, &mainBuffer.info));
 
-    descriptorBufferGpuAddress = vk_helpers::getDeviceAddress(context.device, descriptorBuffer.buffer);
+    mainBufferGpuAddress = vk_helpers::getDeviceAddress(context.device, mainBuffer.buffer);
 }
 
 int32_t will_engine::DescriptorBufferSampler::setupData(VkDevice device, const std::vector<DescriptorImageData>& imageBuffers, const int32_t index /*= -1*/)
@@ -105,7 +105,7 @@ int32_t will_engine::DescriptorBufferSampler::setupData(VkDevice device, const s
                 fmt::print("DescriptorBufferImage::setup_data() called with a non-image/sampler descriptor type\n");
                 return -1;
         }
-        char* buffer_ptr_offset = static_cast<char*>(descriptorBuffer.info.pMappedData) + accumOffset + descriptorBufferIndex *
+        char* buffer_ptr_offset = static_cast<char*>(mainBuffer.info.pMappedData) + accumOffset + descriptorBufferIndex *
                                   descriptorBufferSize;
 
         vkGetDescriptorEXT(device, &image_descriptor_info, descriptor_size, buffer_ptr_offset);

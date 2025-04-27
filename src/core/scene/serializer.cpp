@@ -320,53 +320,182 @@ std::optional<TextureInfo> Serializer::loadWillTexture(const std::filesystem::pa
     }
 }
 
-bool Serializer::serializeEngineSettings(Engine* engine)
+bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag engineSettings)
 {
-    ordered_json rootJ;
     if (engine == nullptr) {
         fmt::print("Warning: engine is null\n");
         return false;
     }
 
-    rootJ["version"] = EngineVersion::current();
-
-
-    ordered_json cameraProperties;
-    const auto& camera = engine->getCamera();
-    if (camera) {
-        glm::vec3 position = camera->getTransform().getPosition();
-        cameraProperties["position"] = {position.x, position.y, position.z};
-
-        glm::quat rotation = camera->getTransform().getRotation();
-        cameraProperties["rotation"] = {rotation.x, rotation.y, rotation.z, rotation.w};
-
-        cameraProperties["fov"] = camera->getFov();
-        cameraProperties["aspectRatio"] = camera->getAspectRatio();
-        cameraProperties["nearPlane"] = camera->getNearPlane();
-        cameraProperties["farPlane"] = camera->getFarPlane();
-    }
-
-    DirectionalLight mainLight = engine->getMainLight();
-    auto direction = normalize(mainLight.getDirection());
-    auto color = mainLight.getColor();
-    auto intensity = mainLight.getIntensity();
-    rootJ["mainLight"]["direction"] = {direction.x, direction.y, direction.z};
-    rootJ["mainLight"]["color"] = {color.x, color.y, color.z};
-    rootJ["mainLight"]["intensity"] = intensity;
-
-    rootJ["cameraProperties"] = cameraProperties;
-
-    rootJ["environmentMapIndex"] = engine->getCurrentEnvironmentMapIndex();
-
-
     const std::filesystem::path filepath = {"assets/settings.willengine"};
 
-    std::ofstream file(filepath);
-    file << rootJ.dump(4);
+    ordered_json rootJ;
+    bool fileExists = std::filesystem::exists(filepath);
+
+    if (fileExists) {
+        try {
+            std::ifstream inFile(filepath);
+            if (inFile.is_open()) {
+                inFile >> rootJ;
+                inFile.close();
+            } else {
+                fmt::print("Warning: Could not open existing settings file. Creating new file.\n");
+                fileExists = false;
+            }
+        } catch (const std::exception& e) {
+            fmt::print("Warning: Error parsing existing settings file: {}. Creating new file.\n", e.what());
+            fileExists = false;
+            rootJ = ordered_json();
+        }
+    }
+
+    rootJ["version"] = EngineVersion::current();
+
+    if (hasFlag(engineSettings, EngineSettingsTypeFlag::GENERAL_SETTINGS)) {
+        ordered_json _engineSettings;
+        EngineSettings mainEngineSettings = engine->getEngineSettings();
+        _engineSettings["saveOnExit"] = mainEngineSettings.saveOnExit;
+
+        rootJ["engineSettings"] = _engineSettings;
+    }
+
+    if (hasFlag(engineSettings, EngineSettingsTypeFlag::CAMERA_SETTINGS)) {
+        ordered_json cameraSettings;
+        const auto& camera = engine->getCamera();
+        if (camera) {
+            glm::vec3 position = camera->getTransform().getPosition();
+            cameraSettings["position"] = {position.x, position.y, position.z};
+
+            glm::quat rotation = camera->getTransform().getRotation();
+            cameraSettings["rotation"] = {rotation.x, rotation.y, rotation.z, rotation.w};
+
+            cameraSettings["fov"] = camera->getFov();
+            cameraSettings["aspectRatio"] = camera->getAspectRatio();
+            cameraSettings["nearPlane"] = camera->getNearPlane();
+            cameraSettings["farPlane"] = camera->getFarPlane();
+        }
+
+        rootJ["cameraSettings"] = cameraSettings;
+    }
+
+    if (hasFlag(engineSettings, EngineSettingsTypeFlag::LIGHT_SETTINGS)) {
+        ordered_json lightSettings;
+        DirectionalLight mainLight = engine->getMainLight();
+        auto direction = normalize(mainLight.getDirection());
+        auto color = mainLight.getColor();
+        auto intensity = mainLight.getIntensity();
+        lightSettings["mainLight"]["direction"] = {direction.x, direction.y, direction.z};
+        lightSettings["mainLight"]["color"] = {color.x, color.y, color.z};
+        lightSettings["mainLight"]["intensity"] = intensity;
+
+        rootJ["lightSettings"] = lightSettings;
+    }
+
+    if (hasFlag(engineSettings, EngineSettingsTypeFlag::ENVIRONMENT_SETTINGS)) {
+        ordered_json environmentSettings;
+
+        environmentSettings["environmentMapIndex"] = engine->getCurrentEnvironmentMapIndex();
+
+        rootJ["environmentSettings"] = environmentSettings;
+    }
+
+    if (hasFlag(engineSettings, EngineSettingsTypeFlag::AMBIENT_OCCLUSION_SETTINGS)) {
+        ordered_json aoSettings;
+
+        ambient_occlusion::GTAOSettings settings = engine->getAoSettings();
+        aoSettings["enabled"] = settings.bEnabled;
+
+        aoSettings["properties"]["effect_radius"] = settings.pushConstants.effectRadius;
+        aoSettings["properties"]["effect_falloff_range"] = settings.pushConstants.effectFalloffRange;
+        aoSettings["properties"]["denoise_blur_beta"] = settings.pushConstants.denoiseBlurBeta;
+        aoSettings["properties"]["radius_multiplier"] = settings.pushConstants.radiusMultiplier;
+        aoSettings["properties"]["sample_distribution_power"] = settings.pushConstants.sampleDistributionPower;
+        aoSettings["properties"]["thin_occluder_compensation"] = settings.pushConstants.thinOccluderCompensation;
+        aoSettings["properties"]["final_value_power"] = settings.pushConstants.finalValuePower;
+        aoSettings["properties"]["depth_mip_sampling_offset"] = settings.pushConstants.depthMipSamplingOffset;
+        aoSettings["properties"]["slice_count"] = settings.pushConstants.sliceCount;
+        aoSettings["properties"]["steps_per_slice_count"] = settings.pushConstants.stepsPerSliceCount;
+
+        rootJ["aoSettings"] = aoSettings;
+    }
+
+    if (hasFlag(engineSettings, EngineSettingsTypeFlag::SCREEN_SPACE_SHADOWS_SETTINGS)) {
+        ordered_json sssSettings;
+
+        contact_shadows_pipeline::ContactShadowSettings settings = engine->getSssSettings();
+        sssSettings["enabled"] = settings.bEnabled;
+
+        sssSettings["properties"]["surfaceThickness"] = settings.pushConstants.surfaceThickness;
+        sssSettings["properties"]["bilinearThreshold"] = settings.pushConstants.bilinearThreshold;
+        sssSettings["properties"]["shadowContrast"] = settings.pushConstants.shadowContrast;
+        sssSettings["properties"]["ignoreEdgePixels"] = settings.pushConstants.bIgnoreEdgePixels;
+        sssSettings["properties"]["usePrecisionOffset"] = settings.pushConstants.bUsePrecisionOffset;
+        sssSettings["properties"]["bilinearSamplingOffsetMode"] = settings.pushConstants.bBilinearSamplingOffsetMode;
+
+        rootJ["sssSettings"] = sssSettings;
+    }
+
+    if (hasFlag(engineSettings, EngineSettingsTypeFlag::CASCADED_SHADOW_MAP_SETTINGS)) {
+        ordered_json csmSettings;
+
+        cascaded_shadows::CascadedShadowMapSettings settings = engine->getCsmSettings();
+        csmSettings["enabled"] = settings.bEnabled;
+
+        csmSettings["properties"]["pcfLevel"] = settings.pcfLevel;
+        csmSettings["properties"]["splitLambda"] = settings.splitLambda;
+        csmSettings["properties"]["splitOverlap"] = settings.splitOverlap;
+        csmSettings["properties"]["cascadeNearPlane"] = settings.cascadeNearPlane;
+        csmSettings["properties"]["cascadeFarPlane"] = settings.cascadeFarPlane;
+
+        ordered_json cascadeBiasArray = ordered_json::array();
+        for (const auto& bias : settings.cascadeBias) {
+            ordered_json biasObj;
+            biasObj["constant"] = bias.constant;
+            biasObj["slope"] = bias.slope;
+            cascadeBiasArray.push_back(biasObj);
+        }
+        csmSettings["properties"]["cascadeBias"] = cascadeBiasArray;
+
+        ordered_json cascadeExtentsArray = ordered_json::array();
+        for (const auto& extent : settings.cascadeExtents) {
+            ordered_json extentObj;
+            extentObj["width"] = extent.width;
+            extentObj["height"] = extent.height;
+            extentObj["depth"] = extent.depth;
+            cascadeExtentsArray.push_back(extentObj);
+        }
+        csmSettings["properties"]["cascadeExtents"] = cascadeExtentsArray;
+
+        csmSettings["properties"]["useManualSplit"] = settings.useManualSplit;
+        csmSettings["properties"]["manualCascadeSplits"] = settings.manualCascadeSplits;
+
+        rootJ["csmSettings"] = csmSettings;
+    }
+
+    if (hasFlag(engineSettings, EngineSettingsTypeFlag::TEMPORAL_ANTIALIASING_SETTINGS)) {
+        ordered_json taaSettings;
+
+        auto settings = engine->getTaaSettings();
+        taaSettings["enabled"] = settings.bEnabled;
+
+        taaSettings["properties"]["blendValue"] = settings.blendValue;
+
+        rootJ["taaSettings"] = taaSettings;
+    }
+
+
+    std::ofstream outFile(filepath);
+    if (!outFile.is_open()) {
+        fmt::print("Error: Could not open settings file for writing\n");
+        return false;
+    }
+
+    outFile << rootJ.dump(4);
+    outFile.close();
     return true;
 }
 
-bool Serializer::deserializeEngineSettings(Engine* engine)
+bool Serializer::deserializeEngineSettings(Engine* engine, EngineSettingsTypeFlag engineSettings)
 {
     if (engine == nullptr) {
         fmt::print("Warning: engine is null\n");
@@ -389,83 +518,306 @@ bool Serializer::deserializeEngineSettings(Engine* engine)
 
         ordered_json rootJ = ordered_json::parse(file);
 
-        if (rootJ.contains("cameraProperties")) {
-            const auto& cameraJ = rootJ["cameraProperties"];
-            auto camera = engine->getCamera();
+        if (hasFlag(engineSettings, EngineSettingsTypeFlag::GENERAL_SETTINGS)) {
+            ordered_json _engineSettings = rootJ["engineSettings"];
+            EngineSettings mainEngineSettings = engine->getEngineSettings();
 
-            if (camera) {
-                glm::vec3 position(0.0f);
-                if (cameraJ.contains("position") && cameraJ["position"].is_array() && cameraJ["position"].size() == 3) {
-                    position.x = cameraJ["position"][0];
-                    position.y = cameraJ["position"][1];
-                    position.z = cameraJ["position"][2];
-                }
+            if (_engineSettings.contains("saveOnExit")) {
+                mainEngineSettings.saveOnExit = _engineSettings["saveOnExit"].get<bool>();
+            }
 
-                glm::quat rotation(1.0f, 0.0f, 0.0f, 0.0f);
-                if (cameraJ.contains("rotation") && cameraJ["rotation"].is_array() && cameraJ["rotation"].size() == 4) {
-                    rotation.x = cameraJ["rotation"][0];
-                    rotation.y = cameraJ["rotation"][1];
-                    rotation.z = cameraJ["rotation"][2];
-                    rotation.w = cameraJ["rotation"][3];
-                }
+            engine->setEngineSettings(mainEngineSettings);
+        }
 
-                camera->setCameraTransform(position, rotation);
+        if (hasFlag(engineSettings, EngineSettingsTypeFlag::CAMERA_SETTINGS)) {
+            if (rootJ.contains("cameraSettings")) {
+                const auto& cameraJ = rootJ["cameraSettings"];
 
-                if (cameraJ.contains("fov") && cameraJ["fov"].is_number() &&
-                    cameraJ.contains("aspectRatio") && cameraJ["aspectRatio"].is_number() &&
-                    cameraJ.contains("nearPlane") && cameraJ["nearPlane"].is_number() &&
-                    cameraJ.contains("farPlane") && cameraJ["farPlane"].is_number()) {
-                    float fov = cameraJ["fov"];
-                    float aspectRatio = cameraJ["aspectRatio"];
-                    float nearPlane = cameraJ["nearPlane"];
-                    float farPlane = cameraJ["farPlane"];
+                if (Camera* camera = engine->getCamera()) {
+                    glm::vec3 position(0.0f);
+                    if (cameraJ.contains("position") && cameraJ["position"].is_array() && cameraJ["position"].size() == 3) {
+                        position.x = cameraJ["position"][0];
+                        position.y = cameraJ["position"][1];
+                        position.z = cameraJ["position"][2];
+                    }
 
-                    camera->setProjectionProperties(fov, aspectRatio, nearPlane, farPlane);
+                    glm::quat rotation(1.0f, 0.0f, 0.0f, 0.0f);
+                    if (cameraJ.contains("rotation") && cameraJ["rotation"].is_array() && cameraJ["rotation"].size() == 4) {
+                        rotation.x = cameraJ["rotation"][0];
+                        rotation.y = cameraJ["rotation"][1];
+                        rotation.z = cameraJ["rotation"][2];
+                        rotation.w = cameraJ["rotation"][3];
+                    }
+
+                    camera->setCameraTransform(position, rotation);
+
+                    if (cameraJ.contains("fov") && cameraJ["fov"].is_number() &&
+                        cameraJ.contains("aspectRatio") && cameraJ["aspectRatio"].is_number() &&
+                        cameraJ.contains("nearPlane") && cameraJ["nearPlane"].is_number() &&
+                        cameraJ.contains("farPlane") && cameraJ["farPlane"].is_number()) {
+                        float fov = cameraJ["fov"];
+                        float aspectRatio = cameraJ["aspectRatio"];
+                        float nearPlane = cameraJ["nearPlane"];
+                        float farPlane = cameraJ["farPlane"];
+
+                        camera->setProjectionProperties(fov, aspectRatio, nearPlane, farPlane);
+                    }
                 }
             }
         }
 
-        if (rootJ.contains("mainLight")) {
-            auto lightJ = rootJ["mainLight"];
-            glm::vec3 direction{};
-            glm::vec3 color{};
-            float intensity{};
+        if (hasFlag(engineSettings, EngineSettingsTypeFlag::LIGHT_SETTINGS)) {
+            if (rootJ.contains("lightSettings")) {
+                if (rootJ["lightSettings"].contains("mainLight")) {
+                    auto lightJ = rootJ["lightSettings"]["mainLight"];
+                    glm::vec3 direction{};
+                    glm::vec3 color{};
+                    float intensity{};
 
 
-            if (lightJ.contains("direction") && lightJ["direction"].is_array() && lightJ["direction"].size() == 3) {
-                direction.x = lightJ["direction"][0];
-                direction.y = lightJ["direction"][1];
-                direction.z = lightJ["direction"][2];
-            } else {
-                direction = normalize(engine->getMainLight().getDirection());
+                    if (lightJ.contains("direction") && lightJ["direction"].is_array() && lightJ["direction"].size() == 3) {
+                        direction.x = lightJ["direction"][0];
+                        direction.y = lightJ["direction"][1];
+                        direction.z = lightJ["direction"][2];
+                    }
+                    else {
+                        direction = normalize(engine->getMainLight().getDirection());
+                    }
+
+                    if (lightJ.contains("color") && lightJ["color"].is_array() && lightJ["color"].size() == 3) {
+                        color.x = lightJ["color"][0];
+                        color.y = lightJ["color"][1];
+                        color.z = lightJ["color"][2];
+                    }
+                    else {
+                        color = engine->getMainLight().getColor();
+                    }
+
+                    if (lightJ.contains("intensity") && !lightJ["intensity"].is_array()) {
+                        intensity = lightJ["intensity"].get<float>();
+                    }
+                    else {
+                        intensity = engine->getMainLight().getIntensity();
+                    }
+
+                    DirectionalLight light{direction, intensity, color};
+                    engine->setMainLight(light);
+                }
             }
-
-            if (lightJ.contains("color") && lightJ["color"].is_array() && lightJ["color"].size() == 3) {
-                color.x = lightJ["color"][0];
-                color.y = lightJ["color"][1];
-                color.z = lightJ["color"][2];
-            } else {
-                color = engine->getMainLight().getColor();
-            }
-
-            if (lightJ.contains("intensity") && !lightJ["intensity"].is_array()) {
-                intensity = lightJ["intensity"].get<float>();
-            } else {
-                intensity = engine->getMainLight().getIntensity();
-            }
-
-
-            DirectionalLight light{direction, intensity, color};
-            engine->setMainLight(light);
         }
 
-        if (rootJ.contains("environmentMapIndex")) {
-            engine->setCurrentEnvironmentMapIndex(rootJ["environmentMapIndex"]);
+        if (hasFlag(engineSettings, EngineSettingsTypeFlag::ENVIRONMENT_SETTINGS)) {
+            if (rootJ.contains("environmentSettings")) {
+                if (rootJ["environmentSettings"].contains("environmentMapIndex")) {
+                    engine->setCurrentEnvironmentMapIndex(rootJ["environmentSettings"]["environmentMapIndex"]);
+                }
+            }
         }
 
+        if (hasFlag(engineSettings, EngineSettingsTypeFlag::AMBIENT_OCCLUSION_SETTINGS)) {
+            if (rootJ.contains("aoSettings")) {
+                ordered_json aoSettings = rootJ["aoSettings"];
+                ambient_occlusion::GTAOSettings settings = engine->getAoSettings();
+
+                if (aoSettings.contains("enabled")) {
+                    settings.bEnabled = aoSettings["enabled"].get<bool>();
+                }
+
+                if (aoSettings.contains("properties")) {
+                    ordered_json aoProperties = aoSettings["properties"];
+
+                    if (aoProperties.contains("effect_radius")) {
+                        settings.pushConstants.effectRadius = aoProperties["effect_radius"].get<float>();
+                    }
+
+                    if (aoProperties.contains("effect_falloff_range")) {
+                        settings.pushConstants.effectFalloffRange = aoProperties["effect_falloff_range"].get<float>();
+                    }
+
+                    if (aoProperties.contains("denoise_blur_beta")) {
+                        settings.pushConstants.denoiseBlurBeta = aoProperties["denoise_blur_beta"].get<float>();
+                    }
+
+                    if (aoProperties.contains("radius_multiplier")) {
+                        settings.pushConstants.radiusMultiplier = aoProperties["radius_multiplier"].get<float>();
+                    }
+
+                    if (aoProperties.contains("sample_distribution_power")) {
+                        settings.pushConstants.sampleDistributionPower = aoProperties["sample_distribution_power"].get<float>();
+                    }
+
+                    if (aoProperties.contains("thin_occluder_compensation")) {
+                        settings.pushConstants.thinOccluderCompensation = aoProperties["thin_occluder_compensation"].get<float>();
+                    }
+
+                    if (aoProperties.contains("final_value_power")) {
+                        settings.pushConstants.finalValuePower = aoProperties["final_value_power"].get<float>();
+                    }
+
+                    if (aoProperties.contains("depth_mip_sampling_offset")) {
+                        settings.pushConstants.depthMipSamplingOffset = aoProperties["depth_mip_sampling_offset"].get<float>();
+                    }
+
+                    if (aoProperties.contains("slice_count")) {
+                        settings.pushConstants.sliceCount = aoProperties["slice_count"].get<float>();
+                    }
+
+                    if (aoProperties.contains("steps_per_slice_count")) {
+                        settings.pushConstants.stepsPerSliceCount = aoProperties["steps_per_slice_count"].get<float>();
+                    }
+                }
+
+
+                engine->setAoSettings(settings);
+            }
+        }
+
+        if (hasFlag(engineSettings, EngineSettingsTypeFlag::SCREEN_SPACE_SHADOWS_SETTINGS)) {
+            if (rootJ.contains("sssSettings")) {
+                ordered_json sssSettings = rootJ["sssSettings"];
+                contact_shadows_pipeline::ContactShadowSettings settings = engine->getSssSettings();
+
+                if (sssSettings.contains("enabled")) {
+                    settings.bEnabled = sssSettings["enabled"].get<bool>();
+                }
+
+                if (sssSettings.contains("properties")) {
+                    ordered_json properties = sssSettings["properties"];
+
+                    if (properties.contains("surfaceThickness")) {
+                        settings.pushConstants.surfaceThickness = properties["surfaceThickness"].get<float>();
+                    }
+
+                    if (properties.contains("bilinearThreshold")) {
+                        settings.pushConstants.bilinearThreshold = properties["bilinearThreshold"].get<float>();
+                    }
+
+                    if (properties.contains("shadowContrast")) {
+                        settings.pushConstants.shadowContrast = properties["shadowContrast"].get<float>();
+                    }
+
+                    if (properties.contains("ignoreEdgePixels")) {
+                        settings.pushConstants.bIgnoreEdgePixels = properties["ignoreEdgePixels"].get<int32_t>();
+                    }
+
+                    if (properties.contains("usePrecisionOffset")) {
+                        settings.pushConstants.bUsePrecisionOffset = properties["usePrecisionOffset"].get<int32_t>();
+                    }
+
+                    if (properties.contains("bilinearSamplingOffsetMode")) {
+                        settings.pushConstants.bBilinearSamplingOffsetMode = properties["bilinearSamplingOffsetMode"].get<int32_t>();
+                    }
+                }
+
+
+                engine->setSssSettings(settings);
+            }
+        }
+
+        if (hasFlag(engineSettings, EngineSettingsTypeFlag::CASCADED_SHADOW_MAP_SETTINGS)) {
+            if (rootJ.contains("csmSettings")) {
+                ordered_json csmSettings = rootJ["csmSettings"];
+                cascaded_shadows::CascadedShadowMapSettings settings = engine->getCsmSettings();
+
+                if (csmSettings.contains("enabled")) {
+                    settings.bEnabled = csmSettings["enabled"].get<bool>();
+                }
+
+                if (csmSettings.contains("properties")) {
+                    auto properties = csmSettings["properties"];
+
+                    if (properties.contains("pcfLevel")) {
+                        settings.pcfLevel = properties["pcfLevel"].get<int32_t>();
+                    }
+
+                    if (properties.contains("splitLambda")) {
+                        settings.splitLambda = properties["splitLambda"].get<float>();
+                    }
+
+                    if (properties.contains("splitOverlap")) {
+                        settings.splitOverlap = properties["splitOverlap"].get<float>();
+                    }
+
+                    if (properties.contains("cascadeNearPlane")) {
+                        settings.cascadeNearPlane = properties["cascadeNearPlane"].get<float>();
+                    }
+
+                    if (properties.contains("cascadeFarPlane")) {
+                        settings.cascadeFarPlane = properties["cascadeFarPlane"].get<float>();
+                    }
+
+                    if (properties.contains("cascadeBias") && properties["cascadeBias"].is_array()) {
+                        auto biasArray = properties["cascadeBias"];
+                        for (size_t i = 0; i < std::min(biasArray.size(), settings.cascadeBias.size()); i++) {
+                            auto biasObj = biasArray[i];
+                            if (biasObj.contains("constant")) {
+                                settings.cascadeBias[i].constant = biasObj["constant"].get<float>();
+                            }
+
+                            if (biasObj.contains("slope")) {
+                                settings.cascadeBias[i].slope = biasObj["slope"].get<float>();
+                            }
+                        }
+                    }
+
+                    if (properties.contains("cascadeExtents") && properties["cascadeExtents"].is_array()) {
+                        auto extentsArray = properties["cascadeExtents"];
+                        for (size_t i = 0; i < std::min(extentsArray.size(), settings.cascadeExtents.size()); i++) {
+                            auto extentObj = extentsArray[i];
+                            if (extentObj.contains("width")) {
+                                settings.cascadeExtents[i].width = extentObj["width"].get<uint32_t>();
+                            }
+                            if (extentObj.contains("height")) {
+                                settings.cascadeExtents[i].height = extentObj["height"].get<uint32_t>();
+                            }
+                            if (extentObj.contains("depth")) {
+                                settings.cascadeExtents[i].depth = extentObj["depth"].get<uint32_t>();
+                            }
+                        }
+                    }
+
+                    if (properties.contains("useManualSplit")) {
+                        settings.useManualSplit = properties["useManualSplit"].get<bool>();
+                    }
+
+                    if (properties.contains("manualCascadeSplits") && properties["manualCascadeSplits"].is_array()) {
+                        auto splitsArray = properties["manualCascadeSplits"];
+                        for (size_t i = 0; i < std::min(splitsArray.size(), settings.manualCascadeSplits.size()); i++) {
+                            settings.manualCascadeSplits[i] = splitsArray[i].get<float>();
+                        }
+                    }
+                }
+
+                engine->setCsmSettings(settings);
+            }
+        }
+
+        if (hasFlag(engineSettings, EngineSettingsTypeFlag::TEMPORAL_ANTIALIASING_SETTINGS)) {
+            if (rootJ.contains("taaSettings")) {
+                ordered_json taaSettings = rootJ["taaSettings"];
+                temporal_antialiasing_pipeline::TemporalAntialiasingSettings settings = engine->getTaaSettings();
+
+                if (taaSettings.contains("enabled")) {
+                    settings.bEnabled = taaSettings["enabled"].get<bool>();
+                }
+
+                if (taaSettings.contains("properties")) {
+                    auto properties = taaSettings["properties"];
+
+                    if (properties.contains("blendValue")) {
+                        settings.blendValue = properties["blendValue"].get<float>();
+                    }
+                }
+
+                engine->setTaaSettings(settings);
+            }
+        }
 
         return true;
-    } catch (const std::exception& e) {
+    } catch
+    (const std::exception&
+        e
+    ) {
         fmt::print("Error deserializing engine settings: {}\n", e.what());
         return false;
     }

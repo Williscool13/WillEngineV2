@@ -12,6 +12,14 @@ add_definitions(-DJPH_DEBUG_RENDERER)
 add_definitions(-DJPH_ENABLE_ASSERTS=1)
 add_definitions(-DJPH_ENABLE_ASSERT_MESSAGES=1)
 
+# #if WILL_ENGINE_DEBUG
+# ##endif
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_definitions(-DWILL_ENGINE_DEBUG=1)
+elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
+    add_definitions(-DWILL_ENGINE_RELEASE=1)
+endif ()
+
 # Vulkan
 find_package(Vulkan REQUIRED)
 
@@ -88,8 +96,6 @@ set(CORE_SOURCES
         src/core/engine_types.h
         src/core/transform.h
         src/core/transform.cpp
-        src/core/identifier/identifier_manager.cpp
-        src/core/identifier/identifier_manager.h
         src/core/game_object/game_object.h
         src/core/game_object/game_object.cpp
         src/core/game_object/transformable.h
@@ -104,7 +110,6 @@ set(CORE_SOURCES
         src/core/game_object/components/component_factory.h
         src/core/game_object/components/rigid_body_component.h
         src/core/game_object/components/rigid_body_component.cpp
-        src/core/identifier/identifiable.h
         src/core/camera/camera.cpp
         src/core/camera/camera.h
         src/core/camera/camera_types.h
@@ -178,8 +183,6 @@ set(RENDERER_SOURCES
         src/renderer/lighting/directional_light.cpp
         src/renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.cpp
         src/renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h
-        src/renderer/pipelines/shadows/cascaded_shadow_map/shadow_constants.cpp
-        src/renderer/pipelines/shadows/cascaded_shadow_map/shadow_constants.h
         src/renderer/pipelines/shadows/cascaded_shadow_map/shadow_types.h
         src/renderer/descriptor_buffer/descriptor_buffer.cpp
         src/renderer/descriptor_buffer/descriptor_buffer.h

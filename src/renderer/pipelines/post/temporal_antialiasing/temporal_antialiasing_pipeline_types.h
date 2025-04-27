@@ -9,6 +9,12 @@
 
 namespace will_engine::temporal_antialiasing_pipeline
 {
+struct TemporalAntialiasingSettings
+{
+    bool bEnabled{true};
+    float blendValue{0.1f};
+};
+
 struct TemporalAntialiasingPushConstants
 {
     float blendValue{0.1f};

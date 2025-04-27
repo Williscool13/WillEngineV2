@@ -64,11 +64,19 @@ struct GTAOPushConstants
 struct GTAODrawInfo
 {
     Camera* camera{nullptr};
-    GTAOPushConstants pushConstants{};
+    bool bEnabled{true};
+    GTAOPushConstants& push;
     int32_t currentFrame{};
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};
 };
+
+struct GTAOSettings
+{
+    bool bEnabled{true};
+    GTAOPushConstants pushConstants{};
+};
+
 }
 
 #endif //AMBIENT_OCCLUSION_TYPES_H

@@ -19,7 +19,8 @@ namespace will_engine::transparent_pipeline
 struct TransparentsPushConstants
 {
     int32_t bEnabled{true};
-    int32_t bReceivesShadows{true};
+    int32_t bDisableShadows{false};
+    int32_t bDisableContactShadows{false};
 };
 
 struct TransparentAccumulateDrawInfo

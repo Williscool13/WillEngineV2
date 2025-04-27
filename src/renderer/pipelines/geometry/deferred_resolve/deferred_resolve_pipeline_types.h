@@ -48,7 +48,7 @@ struct DeferredResolveDrawInfo
     VkDescriptorBufferBindingInfoEXT cascadeSamplerBinding{};
     float nearPlane{1000.0f};
     float farPlane{0.1f};
-    bool bEnableShadows{true};
+    bool bEnableShadowMap{true};
     bool bEnableContactShadows{true};
 };
 }

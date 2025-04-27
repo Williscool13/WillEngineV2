@@ -29,17 +29,17 @@ RenderObject::~RenderObject()
     unload();
 }
 
-void RenderObject::update(const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
+void RenderObject::update(VkCommandBuffer cmd, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
 {
     if (!bIsLoaded) { return; }
-    updateBuffers(currentFrameOverlap, previousFrameOverlap);
+    updateBuffers(cmd, currentFrameOverlap, previousFrameOverlap);
 
     for (const std::pair renderablePair : renderableMap) {
         IRenderable* renderable = renderablePair.first;
         if (renderable->getRenderFramesToUpdate() > 0) {
-            const int32_t instanceIndex = renderablePair.second.instanceIndex;
+            const uint32_t instanceIndex = renderablePair.second.instanceIndex;
 
-            if (instanceIndex < 0 || instanceIndex >= currentInstanceCount) {
+            if (instanceIndex >= currentMaxInstanceCount) {
                 fmt::print("Instance from renderable is not a valid index");
                 continue;
             }
@@ -61,11 +61,14 @@ void RenderObject::update(const int32_t currentFrameOverlap, const int32_t previ
             currentModel->flags[1] = renderable->isShadowCaster();
 
             renderable->setRenderFramesToUpdate(renderable->getRenderFramesToUpdate() - 1);
+
+            vk_helpers::synchronizeUniform(cmd, currentFrameModelMatrix, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
+                                           VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
         }
     }
 }
 
-bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
+bool RenderObject::updateBuffers(VkCommandBuffer cmd, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
 {
     if (bufferFramesToUpdate <= 0) { return true; }
 
@@ -73,19 +76,18 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
     const AllocatedBuffer& previousPrimitiveBuffer = primitiveDataBuffers[previousFrameOverlap];
 
     // Recreate the primitive buffer if needed
-    size_t latestPrimitiveBufferSize = currentPrimitiveCount * sizeof(PrimitiveData);
+    size_t latestPrimitiveBufferSize = currentMaxPrimitiveCount * sizeof(PrimitiveData);
     if (currentPrimitiveBuffer.info.size != latestPrimitiveBufferSize) {
-        const AllocatedBuffer newPrimitiveBuffer = resourceManager.createHostRandomBuffer(latestPrimitiveBufferSize,
-                                                                                          VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-                                                                                          VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-
-        // copy data from previous frame, as it is the most up to date
-        const size_t sizeToCopy = glm::min(latestPrimitiveBufferSize, previousPrimitiveBuffer.info.size);
-        if (sizeToCopy > 0) {
-            resourceManager.copyBuffer(previousPrimitiveBuffer, newPrimitiveBuffer, sizeToCopy);
-        }
         resourceManager.destroyBuffer(currentPrimitiveBuffer);
-        currentPrimitiveBuffer = newPrimitiveBuffer;
+        currentPrimitiveBuffer = resourceManager.createHostRandomBuffer(latestPrimitiveBufferSize,
+                                                                        VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+                                                                        VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+
+        // Copy as much available data as possible from "previous frame" primitive buffer
+        const size_t sizeToCopy = glm::min(latestPrimitiveBufferSize, previousPrimitiveBuffer.info.size);
+        if (currentFrameOverlap != 0 && sizeToCopy > 0) {
+            vk_helpers::copyBuffer(cmd, previousPrimitiveBuffer, 0, currentPrimitiveBuffer, 0, sizeToCopy);
+        }
 
         const VkDeviceAddress primitiveBufferAddress = resourceManager.getBufferAddress(currentPrimitiveBuffer);
         memcpy(static_cast<char*>(addressBuffers[currentFrameOverlap].info.pMappedData) + sizeof(VkDeviceAddress), &primitiveBufferAddress,
@@ -111,18 +113,19 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
     const AllocatedBuffer& previousInstanceBuffer = modelMatrixBuffers[previousFrameOverlap];
 
     // sizes don't match, need to recreate the buffer
-    if (currentInstanceBuffer.info.size != currentInstanceCount * sizeof(InstanceData)) {
-        const AllocatedBuffer newInstanceBuffer = resourceManager.createHostRandomBuffer(currentInstanceCount * sizeof(InstanceData),
-                                                                                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-                                                                                         VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-
-        // copy data from previous frame, as it is the most up to date
-        const size_t sizeToCopy = glm::min(currentInstanceCount * sizeof(InstanceData), previousInstanceBuffer.info.size);
-        if (sizeToCopy > 0) {
-            resourceManager.copyBuffer(previousInstanceBuffer, newInstanceBuffer, sizeToCopy);
-        }
+    size_t latestInstanceBufferSize = currentMaxInstanceCount * sizeof(InstanceData);
+    if (currentInstanceBuffer.info.size != latestInstanceBufferSize) {
         resourceManager.destroyBuffer(currentInstanceBuffer);
-        currentInstanceBuffer = newInstanceBuffer;
+        currentInstanceBuffer = resourceManager.createHostRandomBuffer(latestInstanceBufferSize,
+                                                                       VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+                                                                       VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+
+        // Copy as much available data as possible from "previous frame" instance buffer
+        const size_t sizeToCopy = glm::min(latestInstanceBufferSize, previousInstanceBuffer.info.size);
+        if (currentFrameOverlap != 0 && sizeToCopy > 0) {
+            vk_helpers::copyBuffer(cmd, previousInstanceBuffer, 0, currentInstanceBuffer, 0, sizeToCopy);
+        }
+
 
         const VkDeviceAddress instanceBufferAddress = resourceManager.getBufferAddress(currentInstanceBuffer);
         memcpy(static_cast<char*>(addressBuffers[currentFrameOverlap].info.pMappedData) + sizeof(VkDeviceAddress) * 2, &instanceBufferAddress,
@@ -142,18 +145,16 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
     }
 
     AllocatedBuffer& currentOpaqueDrawIndirectBuffer = opaqueDrawIndirectBuffers[currentFrameOverlap];
-    if (opaqueDrawCommands.empty()) {
-        resourceManager.destroyBuffer(currentOpaqueDrawIndirectBuffer);
-    }
-    else {
+    resourceManager.destroyBuffer(currentOpaqueDrawIndirectBuffer);
+    if (!opaqueDrawCommands.empty()) {
         resourceManager.destroyBuffer(currentOpaqueDrawIndirectBuffer);
         AllocatedBuffer indirectStaging = resourceManager.createStagingBuffer(opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
         memcpy(indirectStaging.info.pMappedData, opaqueDrawCommands.data(), opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
         currentOpaqueDrawIndirectBuffer = resourceManager.createDeviceBuffer(opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand),
                                                                              VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
 
-        resourceManager.copyBuffer(indirectStaging, currentOpaqueDrawIndirectBuffer,
-                                   opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+        vk_helpers::copyBuffer(cmd, indirectStaging, 0, currentOpaqueDrawIndirectBuffer, 0,
+                               opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
         resourceManager.destroyBuffer(indirectStaging);
 
         const FrustumCullingBuffers cullingAddresses{
@@ -166,23 +167,23 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
         const auto currentCullingAddressBuffers = opaqueCullingAddressBuffers[currentFrameOverlap];
         AllocatedBuffer stagingCullingAddressesBuffer = resourceManager.createStagingBuffer(sizeof(FrustumCullingBuffers));
         memcpy(stagingCullingAddressesBuffer.info.pMappedData, &cullingAddresses, sizeof(FrustumCullingBuffers));
-        resourceManager.copyBuffer(stagingCullingAddressesBuffer, currentCullingAddressBuffers, sizeof(FrustumCullingBuffers));
+        vk_helpers::copyBuffer(cmd, stagingCullingAddressesBuffer, 0, currentCullingAddressBuffers, 0, sizeof(FrustumCullingBuffers));
         resourceManager.destroyBuffer(stagingCullingAddressesBuffer);
     }
 
     AllocatedBuffer& currentTransparentDrawIndirectBuffer = transparentDrawIndirectBuffers[currentFrameOverlap];
-    if (transparentDrawCommands.empty()) {
-        resourceManager.destroyBuffer(currentTransparentDrawIndirectBuffer);
-    }
-    else {
-        resourceManager.destroyBuffer(currentTransparentDrawIndirectBuffer);
-        AllocatedBuffer indirectStaging = resourceManager.createStagingBuffer(transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-        memcpy(indirectStaging.info.pMappedData, transparentDrawCommands.data(), transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-        currentTransparentDrawIndirectBuffer = resourceManager.createDeviceBuffer(transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand),
-                                                                             VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+    resourceManager.destroyBuffer(currentTransparentDrawIndirectBuffer);
 
-        resourceManager.copyBuffer(indirectStaging, currentTransparentDrawIndirectBuffer,
-                                   transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+    if (!transparentDrawCommands.empty()) {
+        AllocatedBuffer indirectStaging = resourceManager.createStagingBuffer(transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+        memcpy(indirectStaging.info.pMappedData, transparentDrawCommands.data(),
+               transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+        currentTransparentDrawIndirectBuffer = resourceManager.createDeviceBuffer(
+            transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand),
+            VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+
+        vk_helpers::copyBuffer(cmd, indirectStaging, 0, currentTransparentDrawIndirectBuffer, 0,
+                               transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
         resourceManager.destroyBuffer(indirectStaging);
 
         const FrustumCullingBuffers cullingAddresses{
@@ -195,7 +196,7 @@ bool RenderObject::updateBuffers(const int32_t currentFrameOverlap, const int32_
         const auto currentCullingAddressBuffers = transparentCullingAddressBuffers[currentFrameOverlap];
         AllocatedBuffer stagingCullingAddressesBuffer = resourceManager.createStagingBuffer(sizeof(FrustumCullingBuffers));
         memcpy(stagingCullingAddressesBuffer.info.pMappedData, &cullingAddresses, sizeof(FrustumCullingBuffers));
-        resourceManager.copyBuffer(stagingCullingAddressesBuffer, currentCullingAddressBuffers, sizeof(FrustumCullingBuffers));
+        vk_helpers::copyBuffer(cmd, stagingCullingAddressesBuffer, 0, currentCullingAddressBuffers, 0, sizeof(FrustumCullingBuffers));
         resourceManager.destroyBuffer(stagingCullingAddressesBuffer);
     }
 
@@ -275,7 +276,9 @@ bool RenderObject::generateMesh(IRenderable* renderable, const int32_t meshIndex
             transparentIndirectData.firstInstance = primitiveIndex;
         }
 
-        primitiveDataMap[primitiveIndex] = {primitive.materialIndex, instanceIndex, primitive.boundingSphereIndex, primitive.bHasTransparent ? 1u : 0u};
+        primitiveDataMap[primitiveIndex] = {
+            primitive.materialIndex, instanceIndex, primitive.boundingSphereIndex, primitive.bHasTransparent ? 1u : 0u
+        };
     }
 
     renderable->setRenderObjectReference(this, meshIndex);
@@ -333,7 +336,8 @@ bool RenderObject::releaseInstanceIndex(IRenderable* renderable)
     return true;
 }
 
-bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
+bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath, std::vector<MaterialProperties>& materials,
+                             std::vector<VertexPosition>& vertexPositions, std::vector<VertexProperty>& vertexProperties, std::vector<uint32_t>& indices)
 {
     auto start = std::chrono::system_clock::now();
 
@@ -413,8 +417,8 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
         for (fastgltf::Primitive& p : mesh.primitives) {
             Primitive primitiveData{};
 
-
-            std::vector<Vertex> primitiveVertices{};
+            std::vector<VertexPosition> primitiveVertexPositions{};
+            std::vector<VertexProperty> primitiveVertexProperties{};
             std::vector<uint32_t> primitiveIndices{};
 
             if (p.materialIndex.has_value()) {
@@ -434,12 +438,16 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
             // POSITION (REQUIRED)
             const fastgltf::Attribute* positionIt = p.findAttribute("POSITION");
             const fastgltf::Accessor& posAccessor = gltf.accessors[positionIt->accessorIndex];
-            primitiveVertices.resize(posAccessor.count);
+            primitiveVertexPositions.resize(posAccessor.count);
+            primitiveVertexProperties.resize(posAccessor.count);
 
             fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, posAccessor, [&](fastgltf::math::fvec3 v, const size_t index) {
-                Vertex newVertex{};
-                newVertex.position = {v.x(), v.y(), v.z()};
-                primitiveVertices[index] = newVertex;
+                VertexPosition newVertexPos{};
+                newVertexPos.position = {v.x(), v.y(), v.z()};
+                primitiveVertexPositions[index] = newVertexPos;
+
+                const VertexProperty newVertexProp{};
+                primitiveVertexProperties[index] = newVertexProp;
             });
 
 
@@ -448,7 +456,7 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
             if (normals != p.attributes.end()) {
                 fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec3>(gltf, gltf.accessors[normals->accessorIndex],
                                                                           [&](fastgltf::math::fvec3 n, const size_t index) {
-                                                                              primitiveVertices[index].normal = {n.x(), n.y(), n.z()};
+                                                                              primitiveVertexProperties[index].normal = {n.x(), n.y(), n.z()};
                                                                           });
             }
 
@@ -457,7 +465,7 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
             if (uvs != p.attributes.end()) {
                 fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(gltf, gltf.accessors[uvs->accessorIndex],
                                                                           [&](fastgltf::math::fvec2 uv, const size_t index) {
-                                                                              primitiveVertices[index].uv = {uv.x(), uv.y()};
+                                                                              primitiveVertexProperties[index].uv = {uv.x(), uv.y()};
                                                                           });
             }
 
@@ -466,20 +474,21 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath)
             if (colors != p.attributes.end()) {
                 fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec4>(gltf, gltf.accessors[colors->accessorIndex],
                                                                           [&](fastgltf::math::fvec4 color, const size_t index) {
-                                                                              primitiveVertices[index].color = {
+                                                                              primitiveVertexProperties[index].color = {
                                                                                   color.x(), color.y(), color.z(), color.w()
                                                                               };
                                                                           });
             }
 
-            boundingSpheres.emplace_back(primitiveVertices);
+            boundingSpheres.emplace_back(primitiveVertexPositions);
 
             primitiveData.firstIndex = static_cast<uint32_t>(indices.size());
-            primitiveData.vertexOffset = static_cast<int32_t>(vertices.size());
+            primitiveData.vertexOffset = static_cast<int32_t>(vertexPositions.size());
             primitiveData.indexCount = static_cast<uint32_t>(primitiveIndices.size());
             primitiveData.boundingSphereIndex = static_cast<uint32_t>(boundingSpheres.size() - 1);
 
-            vertices.insert(vertices.end(), primitiveVertices.begin(), primitiveVertices.end());
+            vertexPositions.insert(vertexPositions.end(), primitiveVertexPositions.begin(), primitiveVertexPositions.end());
+            vertexProperties.insert(vertexProperties.end(), primitiveVertexProperties.begin(), primitiveVertexProperties.end());
             indices.insert(indices.end(), primitiveIndices.begin(), primitiveIndices.end());
             meshData.primitives.push_back(primitiveData);
         }
@@ -572,13 +581,18 @@ void RenderObject::load()
 
     freeInstanceIndices.reserve(10);
     for (int32_t i = 0; i < 10; ++i) { freeInstanceIndices.insert(i); }
-    currentInstanceCount = freeInstanceIndices.size();
+    currentMaxInstanceCount = freeInstanceIndices.size();
 
     freePrimitiveIndices.reserve(10);
     for (int32_t i = 0; i < 10; ++i) { freePrimitiveIndices.insert(i); }
-    currentPrimitiveCount = freePrimitiveIndices.size();
+    currentMaxPrimitiveCount = freePrimitiveIndices.size();
 
-    if (!parseGltf(gltfPath)) { return; }
+    std::vector<MaterialProperties> materials{};
+    std::vector<VertexPosition> vertexPositions{};
+    std::vector<VertexProperty> vertexProperties{};
+    std::vector<uint32_t> indices{};
+
+    if (!parseGltf(gltfPath, materials, vertexPositions, vertexProperties, indices)) { return; }
 
     std::vector<DescriptorImageData> textureDescriptors;
     for (const VkSampler sampler : samplers) {
@@ -601,24 +615,27 @@ void RenderObject::load()
     resourceManager.setupDescriptorBufferSampler(textureDescriptorBuffer, textureDescriptors, 0);
 
 
-    AllocatedBuffer materialStaging = resourceManager.createStagingBuffer(materials.size() * sizeof(MaterialProperties));
-    memcpy(materialStaging.info.pMappedData, materials.data(), materials.size() * sizeof(MaterialProperties));
-    materialBuffer = resourceManager.createDeviceBuffer(materials.size() * sizeof(MaterialProperties));
-    resourceManager.copyBuffer(materialStaging, materialBuffer, materials.size() * sizeof(MaterialProperties));
-    resourceManager.destroyBuffer(materialStaging);
+    const uint64_t materialBufferSize = materials.size() * sizeof(MaterialProperties);
+    AllocatedBuffer materialStaging = resourceManager.createStagingBuffer(materialBufferSize);
+    memcpy(materialStaging.info.pMappedData, materials.data(), materialBufferSize);
+    materialBuffer = resourceManager.createDeviceBuffer(materialBufferSize);
 
+    const size_t vertexCount = vertexPositions.size();
 
-    AllocatedBuffer vertexStaging = resourceManager.createStagingBuffer(vertices.size() * sizeof(Vertex));
-    memcpy(vertexStaging.info.pMappedData, vertices.data(), vertices.size() * sizeof(Vertex));
-    vertexBuffer = resourceManager.createDeviceBuffer(vertices.size() * sizeof(Vertex), VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-    resourceManager.copyBuffer(vertexStaging, vertexBuffer, vertices.size() * sizeof(Vertex));
-    resourceManager.destroyBuffer(vertexStaging);
+    const uint64_t vertexPositionBufferSize = vertexCount * sizeof(VertexPosition);
+    AllocatedBuffer vertexPositionStaging = resourceManager.createStagingBuffer(vertexPositionBufferSize);
+    memcpy(vertexPositionStaging.info.pMappedData, vertexPositions.data(), vertexPositionBufferSize);
+    vertexPositionBuffer = resourceManager.createDeviceBuffer(vertexPositionBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
-    AllocatedBuffer indexStaging = resourceManager.createStagingBuffer(indices.size() * sizeof(uint32_t));
-    memcpy(indexStaging.info.pMappedData, indices.data(), indices.size() * sizeof(uint32_t));
-    indexBuffer = resourceManager.createDeviceBuffer(indices.size() * sizeof(uint32_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
-    resourceManager.copyBuffer(indexStaging, indexBuffer, indices.size() * sizeof(uint32_t));
-    resourceManager.destroyBuffer(indexStaging);
+    const uint64_t vertexPropertiesBufferSize = vertexCount * sizeof(VertexProperty);
+    AllocatedBuffer vertexPropertiesStaging = resourceManager.createStagingBuffer(vertexPropertiesBufferSize);
+    memcpy(vertexPropertiesStaging.info.pMappedData, vertexProperties.data(), vertexPropertiesBufferSize);
+    vertexPropertyBuffer = resourceManager.createDeviceBuffer(vertexPropertiesBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+
+    const uint64_t indicesBufferSize = indices.size() * sizeof(uint32_t);
+    AllocatedBuffer indexStaging = resourceManager.createStagingBuffer(indicesBufferSize);
+    memcpy(indexStaging.info.pMappedData, indices.data(), indicesBufferSize);
+    indexBuffer = resourceManager.createDeviceBuffer(indicesBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
     // Addresses (Texture and Uniform model data)
     // todo: make address buffer for statics (dont need multiple)
@@ -632,9 +649,9 @@ void RenderObject::load()
         };
         resourceManager.setupDescriptorBufferUniform(addressesDescriptorBuffer, {addressesUniformData}, i);
 
-        modelMatrixBuffers[i] = resourceManager.createHostRandomBuffer(currentInstanceCount * sizeof(InstanceData),
+        modelMatrixBuffers[i] = resourceManager.createHostRandomBuffer(currentMaxInstanceCount * sizeof(InstanceData),
                                                                        VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-        primitiveDataBuffers[i] = resourceManager.createHostRandomBuffer(currentPrimitiveCount * sizeof(PrimitiveData),
+        primitiveDataBuffers[i] = resourceManager.createHostRandomBuffer(currentMaxPrimitiveCount * sizeof(PrimitiveData),
                                                                          VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 
         const VkDeviceAddress materialBufferAddress = resourceManager.getBufferAddress(materialBuffer);
@@ -668,12 +685,26 @@ void RenderObject::load()
         resourceManager.setupDescriptorBufferUniform(frustumCullingDescriptorBuffer, {cullingAddressesUniformData}, index);
     }
 
-    AllocatedBuffer meshBoundsStaging = resourceManager.createStagingBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
-    memcpy(meshBoundsStaging.info.pMappedData, boundingSpheres.data(), sizeof(BoundingSphere) * boundingSpheres.size());
-    meshBoundsBuffer = resourceManager.createDeviceBuffer(sizeof(BoundingSphere) * boundingSpheres.size());
-    resourceManager.copyBuffer(meshBoundsStaging, meshBoundsBuffer, sizeof(BoundingSphere) * boundingSpheres.size());
-    resourceManager.destroyBuffer(meshBoundsStaging);
+    uint64_t boundingSphereBufferSize = sizeof(BoundingSphere) * boundingSpheres.size();
+    AllocatedBuffer meshBoundsStaging = resourceManager.createStagingBuffer(boundingSphereBufferSize);
+    memcpy(meshBoundsStaging.info.pMappedData, boundingSpheres.data(), boundingSphereBufferSize);
+    meshBoundsBuffer = resourceManager.createDeviceBuffer(boundingSphereBufferSize);
 
+    std::array<BufferCopyInfo, 5> bufferCopies = {
+        BufferCopyInfo(materialStaging, 0, materialBuffer, 0, materialBufferSize),
+        {vertexPositionStaging, 0, vertexPositionBuffer, 0, vertexPositionBufferSize},
+        {vertexPropertiesStaging, 0, vertexPropertyBuffer, 0, vertexPropertiesBufferSize},
+        {indexStaging, 0, indexBuffer, 0, indicesBufferSize},
+        {meshBoundsStaging, 0, meshBoundsBuffer, 0, boundingSphereBufferSize},
+    };
+
+    resourceManager.copyBufferImmediate(bufferCopies);
+
+    // Be careful, this destroys a copy of the staging buffer. Not an issue since it deletes the buffer in GPU memory.
+    // Will be dangerous if you attempt to hold onto the staging buffers outside of this load function
+    for (BufferCopyInfo bufferCopy : bufferCopies) {
+        resourceManager.destroyBufferImmediate(bufferCopy.src);
+    }
 
     bIsLoaded = true;
 }
@@ -711,7 +742,8 @@ void RenderObject::unload()
         resourceManager.destroySampler(sampler);
     }
 
-    resourceManager.destroyBuffer(vertexBuffer);
+    resourceManager.destroyBuffer(vertexPositionBuffer);
+    resourceManager.destroyBuffer(vertexPropertyBuffer);
     resourceManager.destroyBuffer(indexBuffer);
 
     resourceManager.destroyBuffer(materialBuffer);
@@ -735,9 +767,6 @@ void RenderObject::unload()
     opaqueDrawCommands.clear();
     transparentDrawCommands.clear();
 
-    materials.clear();
-    vertices.clear();
-    indices.clear();
     meshes.clear();
     boundingSpheres.clear();
     renderNodes.clear();
@@ -750,11 +779,11 @@ void RenderObject::unload()
 uint32_t RenderObject::getFreePrimitiveIndex()
 {
     if (freePrimitiveIndices.empty()) {
-        const size_t oldSize = currentPrimitiveCount;
-        const size_t newSize = currentPrimitiveCount + 50;
+        const size_t oldSize = currentMaxPrimitiveCount;
+        const size_t newSize = currentMaxPrimitiveCount + 50;
         freePrimitiveIndices.reserve(newSize);
         for (int32_t i = oldSize; i < newSize; ++i) { freePrimitiveIndices.insert(i); }
-        currentPrimitiveCount = newSize;
+        currentMaxPrimitiveCount = newSize;
         dirty();
     }
 
@@ -767,11 +796,11 @@ uint32_t RenderObject::getFreePrimitiveIndex()
 uint32_t RenderObject::getFreeInstanceIndex()
 {
     if (freeInstanceIndices.empty()) {
-        const size_t oldSize = currentInstanceCount;
-        const size_t newSize = currentInstanceCount + 10;
+        const size_t oldSize = currentMaxInstanceCount;
+        const size_t newSize = currentMaxInstanceCount + 10;
         freeInstanceIndices.reserve(newSize);
         for (int32_t i = oldSize; i < newSize; ++i) { freeInstanceIndices.insert(i); }
-        currentInstanceCount = newSize;
+        currentMaxInstanceCount = newSize;
         dirty();
     }
 

@@ -11,15 +11,16 @@
 #include "components/rigid_body_component.h"
 #include "src/core/engine.h"
 #include "src/core/time.h"
-#include "src/core/identifier/identifier_manager.h"
 
 namespace will_engine
 {
-GameObject::GameObject(std::string gameObjectName, const uint64_t gameObjectId)
+uint64_t GameObject::runningTallyId = 0;
+
+GameObject::GameObject(std::string gameObjectName)
 {
-    GameObject::setId(identifier::IdentifierManager::Get()->registerIdentifier(gameObjectId));
+    setId(runningTallyId++);
     if (gameObjectName.empty()) {
-        this->gameObjectName = "GameObject_" + std::to_string(GameObject::getId());
+        this->gameObjectName = "GameObject_" + std::to_string(getId());
     }
     else {
         this->gameObjectName = std::move(gameObjectName);

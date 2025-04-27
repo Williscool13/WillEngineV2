@@ -79,7 +79,9 @@ will_engine::ResourceManager::ResourceManager(const VulkanContext& context, Imme
     // Empty (WIP/unused)
     {
         DescriptorLayoutBuilder layoutBuilder;
-        emptyDescriptorSetLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT, nullptr,
+        emptyDescriptorSetLayout = layoutBuilder.build(context.device,
+                                                       VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
+                                                       nullptr,
                                                        VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
 
@@ -89,21 +91,24 @@ will_engine::ResourceManager::ResourceManager(const VulkanContext& context, Imme
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
         sceneDataLayout = layoutBuilder.build(
             context.device,
-            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT | VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, nullptr,
+            VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT |
+            VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, nullptr,
             VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
     // Frustum Cull Layout
     {
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        frustumCullLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        frustumCullLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr,
+                                                VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
 
     // Render Object Addresses
     {
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        addressesLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        addressesLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT,
+                                              nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
 
     // Render Object Textures
@@ -111,7 +116,8 @@ will_engine::ResourceManager::ResourceManager(const VulkanContext& context, Imme
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_SAMPLER, render_object_constants::MAX_SAMPLER_COUNT);
         layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, render_object_constants::MAX_IMAGES_COUNT);
-        texturesLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        texturesLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr,
+                                             VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
     // Render Targets
     {
@@ -125,7 +131,8 @@ will_engine::ResourceManager::ResourceManager(const VulkanContext& context, Imme
         layoutBuilder.addBinding(6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // Screen Space Contact Shadows
         layoutBuilder.addBinding(7, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // Output
 
-        renderTargetsLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        renderTargetsLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_COMPUTE_BIT, nullptr,
+                                                  VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
 
     // Terrain Textures
@@ -133,14 +140,27 @@ will_engine::ResourceManager::ResourceManager(const VulkanContext& context, Imme
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, terrain::MAX_TERRAIN_TEXTURE_COUNT);
 
-        terrainTexturesLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        terrainTexturesLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr,
+                                                    VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
     }
     // Terrain Uniform
     {
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
 
-        terrainUniformLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        terrainUniformLayout = layoutBuilder.build(context.device, VK_SHADER_STAGE_FRAGMENT_BIT, nullptr,
+                                                   VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    }
+
+    for (int32_t i = 0; i < FRAME_OVERLAP; ++i) {
+        // 100 is quite large but each of these is just a handle so shouldn't be a problem (some of them are 2x handles)
+        destructionQueues[i].bufferQueue.reserve(100);
+        destructionQueues[i].imageQueue.reserve(100);
+        destructionQueues[i].imageViewQueue.reserve(100);
+        destructionQueues[i].samplerQueue.reserve(100);
+        destructionQueues[i].pipelineQueue.reserve(100);
+        destructionQueues[i].pipelineLayoutQueue.reserve(100);
+        destructionQueues[i].descriptorSetLayoutQueue.reserve(100);
     }
 }
 
@@ -150,20 +170,111 @@ will_engine::ResourceManager::~ResourceManager()
 
     destroyImage(whiteImage);
     destroyImage(errorCheckerboardImage);
-    vkDestroySampler(context.device, defaultSamplerNearest, nullptr);
-    vkDestroySampler(context.device, defaultSamplerLinear, nullptr);
-    vkDestroySampler(context.device, defaultSamplerMipMappedLinear, nullptr);
-    vkDestroyDescriptorSetLayout(context.device, emptyDescriptorSetLayout, nullptr);
-    vkDestroyDescriptorSetLayout(context.device, sceneDataLayout, nullptr);
-    vkDestroyDescriptorSetLayout(context.device, frustumCullLayout, nullptr);
-    vkDestroyDescriptorSetLayout(context.device, addressesLayout, nullptr);
-    vkDestroyDescriptorSetLayout(context.device, texturesLayout, nullptr);
-    vkDestroyDescriptorSetLayout(context.device, renderTargetsLayout, nullptr);
-    vkDestroyDescriptorSetLayout(context.device, terrainTexturesLayout, nullptr);
-    vkDestroyDescriptorSetLayout(context.device, terrainUniformLayout, nullptr);
+    destroySampler(defaultSamplerNearest);
+    destroySampler(defaultSamplerLinear);
+    destroySampler(defaultSamplerMipMappedLinear);
+    destroyDescriptorSetLayout(emptyDescriptorSetLayout);
+    destroyDescriptorSetLayout(sceneDataLayout);
+    destroyDescriptorSetLayout(frustumCullLayout);
+    destroyDescriptorSetLayout(addressesLayout);
+    destroyDescriptorSetLayout(texturesLayout);
+    destroyDescriptorSetLayout(renderTargetsLayout);
+    destroyDescriptorSetLayout(terrainTexturesLayout);
+    destroyDescriptorSetLayout(terrainUniformLayout);
+
+    flushDestructionQueue();
 }
 
-AllocatedBuffer will_engine::ResourceManager::createBuffer(const size_t allocSize, const VkBufferUsageFlags usage, const VmaMemoryUsage memoryUsage) const
+void will_engine::ResourceManager::update(int32_t currentFrameOverlap)
+{
+    if (currentFrameOverlap < 0 || currentFrameOverlap >= FRAME_OVERLAP) {
+        return;
+    }
+
+    DestructionQueue& currentDeletionQueue = destructionQueues[currentFrameOverlap];
+
+    for (const DestructorBufferData& buffer : currentDeletionQueue.bufferQueue) {
+        vmaDestroyBuffer(context.allocator, buffer.buffer, buffer.allocation);
+    }
+
+    for (const VkImageView imageView : currentDeletionQueue.imageViewQueue) {
+        vkDestroyImageView(context.device, imageView, nullptr);
+    }
+
+    for (const DestructorImageData& image : currentDeletionQueue.imageQueue) {
+        vmaDestroyImage(context.allocator, image.image, image.allocation);
+    }
+
+    for (const VkSampler sampler : currentDeletionQueue.samplerQueue) {
+        vkDestroySampler(context.device, sampler, nullptr);
+    }
+
+    for (const VkPipeline pipeline : currentDeletionQueue.pipelineQueue) {
+        vkDestroyPipeline(context.device, pipeline, nullptr);
+    }
+
+    for (const VkPipelineLayout pipelineLayout : currentDeletionQueue.pipelineLayoutQueue) {
+        vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
+    }
+
+    for (const VkDescriptorSetLayout setLayout : currentDeletionQueue.descriptorSetLayoutQueue) {
+        vkDestroyDescriptorSetLayout(context.device, setLayout, nullptr);
+    }
+
+    currentDeletionQueue.bufferQueue.clear();
+    currentDeletionQueue.imageQueue.clear();
+    currentDeletionQueue.imageViewQueue.clear();
+    currentDeletionQueue.samplerQueue.clear();
+    currentDeletionQueue.pipelineQueue.clear();
+    currentDeletionQueue.pipelineLayoutQueue.clear();
+    currentDeletionQueue.descriptorSetLayoutQueue.clear();
+
+    lastKnownFrameOverlap = currentFrameOverlap;
+}
+
+void will_engine::ResourceManager::flushDestructionQueue()
+{
+    for (int32_t i = 0; i < FRAME_OVERLAP; ++i) {
+        for (const DestructorBufferData& buffer : destructionQueues[i].bufferQueue) {
+            vmaDestroyBuffer(context.allocator, buffer.buffer, buffer.allocation);
+        }
+
+        for (const VkImageView imageView : destructionQueues[i].imageViewQueue) {
+            vkDestroyImageView(context.device, imageView, nullptr);
+        }
+
+        for (const DestructorImageData& image : destructionQueues[i].imageQueue) {
+            vmaDestroyImage(context.allocator, image.image, image.allocation);
+        }
+
+        for (const VkSampler sampler : destructionQueues[i].samplerQueue) {
+            vkDestroySampler(context.device, sampler, nullptr);
+        }
+
+        for (const VkPipeline pipeline : destructionQueues[i].pipelineQueue) {
+            vkDestroyPipeline(context.device, pipeline, nullptr);
+        }
+
+        for (const VkPipelineLayout pipelineLayout : destructionQueues[i].pipelineLayoutQueue) {
+            vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
+        }
+
+        for (const VkDescriptorSetLayout setLayout : destructionQueues[i].descriptorSetLayoutQueue) {
+            vkDestroyDescriptorSetLayout(context.device, setLayout, nullptr);
+        }
+
+        destructionQueues[i].bufferQueue.clear();
+        destructionQueues[i].imageQueue.clear();
+        destructionQueues[i].imageViewQueue.clear();
+        destructionQueues[i].samplerQueue.clear();
+        destructionQueues[i].pipelineQueue.clear();
+        destructionQueues[i].pipelineLayoutQueue.clear();
+        destructionQueues[i].descriptorSetLayoutQueue.clear();
+    }
+}
+
+AllocatedBuffer will_engine::ResourceManager::createBuffer(const size_t allocSize, const VkBufferUsageFlags usage,
+                                                           const VmaMemoryUsage memoryUsage) const
 {
     VkBufferCreateInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     bufferInfo.pNext = nullptr;
@@ -266,7 +377,7 @@ AllocatedBuffer will_engine::ResourceManager::createReceivingBuffer(const size_t
     return createBuffer(allocSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT, VMA_MEMORY_USAGE_GPU_TO_CPU);
 }
 
-void will_engine::ResourceManager::copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, const VkDeviceSize size) const
+void will_engine::ResourceManager::copyBufferImmediate(const AllocatedBuffer& src, const AllocatedBuffer& dst, const VkDeviceSize size) const
 {
     immediate.submit([&](VkCommandBuffer cmd) {
         VkBufferCopy vertexCopy{};
@@ -278,7 +389,8 @@ void will_engine::ResourceManager::copyBuffer(const AllocatedBuffer& src, const 
     });
 }
 
-void will_engine::ResourceManager::copyBuffer(const AllocatedBuffer& src, const AllocatedBuffer& dst, const VkDeviceSize size, const VkDeviceSize offset) const
+void will_engine::ResourceManager::copyBufferImmediate(const AllocatedBuffer& src, const AllocatedBuffer& dst, const VkDeviceSize size,
+                                                       const VkDeviceSize offset) const
 {
     immediate.submit([&](VkCommandBuffer cmd) {
         VkBufferCopy vertexCopy{};
@@ -287,6 +399,20 @@ void will_engine::ResourceManager::copyBuffer(const AllocatedBuffer& src, const 
         vertexCopy.size = size;
 
         vkCmdCopyBuffer(cmd, src.buffer, dst.buffer, 1, &vertexCopy);
+    });
+}
+
+void will_engine::ResourceManager::copyBufferImmediate(const std::span<BufferCopyInfo> bufferCopyInfos) const
+{
+    immediate.submit([bufferCopyInfos](const VkCommandBuffer cmd) {
+        for (const BufferCopyInfo bufferCopyInfo : bufferCopyInfos) {
+            VkBufferCopy bufferCopy{};
+            bufferCopy.dstOffset = bufferCopyInfo.dstOffset;
+            bufferCopy.srcOffset = bufferCopyInfo.srcOffset;
+            bufferCopy.size = bufferCopyInfo.size;
+
+            vkCmdCopyBuffer(cmd, bufferCopyInfo.src.buffer, bufferCopyInfo.dst.buffer, 1, &bufferCopy);
+        }
     });
 }
 
@@ -299,11 +425,20 @@ VkDeviceAddress will_engine::ResourceManager::getBufferAddress(const AllocatedBu
     return srcPtr;
 }
 
-void will_engine::ResourceManager::destroyBuffer(AllocatedBuffer& buffer) const
+void will_engine::ResourceManager::destroyBufferImmediate(AllocatedBuffer& buffer) const
 {
     if (buffer.buffer == VK_NULL_HANDLE) { return; }
     vmaDestroyBuffer(context.allocator, buffer.buffer, buffer.allocation);
     buffer.buffer = VK_NULL_HANDLE;
+    buffer.allocation = VK_NULL_HANDLE;
+}
+
+void will_engine::ResourceManager::destroyBuffer(AllocatedBuffer& buffer)
+{
+    if (buffer.buffer == VK_NULL_HANDLE) { return; }
+    destructionQueues[lastKnownFrameOverlap].bufferQueue.push_back({buffer.buffer, buffer.allocation});
+    buffer.buffer = VK_NULL_HANDLE;
+    buffer.allocation = VK_NULL_HANDLE;
 }
 
 VkSampler will_engine::ResourceManager::createSampler(const VkSamplerCreateInfo& createInfo) const
@@ -312,7 +447,6 @@ VkSampler will_engine::ResourceManager::createSampler(const VkSamplerCreateInfo&
     vkCreateSampler(context.device, &createInfo, nullptr, &newSampler);
     return newSampler;
 }
-
 
 AllocatedImage will_engine::ResourceManager::createImage(const VkImageCreateInfo& createInfo) const
 {
@@ -338,7 +472,8 @@ AllocatedImage will_engine::ResourceManager::createImage(const VkImageCreateInfo
     return newImage;
 }
 
-AllocatedImage will_engine::ResourceManager::createImage(const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped) const
+AllocatedImage will_engine::ResourceManager::createImage(const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage,
+                                                         const bool mipmapped) const
 {
     AllocatedImage newImage{};
     newImage.imageFormat = format;
@@ -367,7 +502,8 @@ AllocatedImage will_engine::ResourceManager::createImage(const VkExtent3D size, 
     return newImage;
 }
 
-AllocatedImage will_engine::ResourceManager::createImage(const void* data, const size_t dataSize, const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped) const
+AllocatedImage will_engine::ResourceManager::createImage(const void* data, const size_t dataSize, const VkExtent3D size, const VkFormat format,
+                                                         const VkImageUsageFlags usage, const bool mipmapped) const
 {
     const size_t data_size = dataSize;
     AllocatedBuffer uploadbuffer = createBuffer(data_size, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
@@ -397,16 +533,18 @@ AllocatedImage will_engine::ResourceManager::createImage(const void* data, const
             vk_helpers::generateMipmaps(cmd, newImage.image, VkExtent2D{newImage.imageExtent.width, newImage.imageExtent.height});
         }
         else {
-            vk_helpers::transitionImage(cmd, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+            vk_helpers::transitionImage(cmd, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                        VK_IMAGE_ASPECT_COLOR_BIT);
         }
     });
 
-    destroyBuffer(uploadbuffer);
+    destroyBufferImmediate(uploadbuffer);
 
     return newImage;
 }
 
-AllocatedImage will_engine::ResourceManager::createCubemap(const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped) const
+AllocatedImage will_engine::ResourceManager::createCubemap(const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage,
+                                                           const bool mipmapped) const
 {
     AllocatedImage newImage{};
     newImage.imageFormat = format;
@@ -430,46 +568,50 @@ AllocatedImage will_engine::ResourceManager::createCubemap(const VkExtent3D size
     return newImage;
 }
 
-void will_engine::ResourceManager::destroyImage(AllocatedImage& img) const
+void will_engine::ResourceManager::destroyImage(AllocatedImage& image)
 {
-    vkDestroyImageView(context.device, img.imageView, nullptr);
-    vmaDestroyImage(context.allocator, img.image, img.allocation);
-    img.image = VK_NULL_HANDLE;
-    img.imageView = VK_NULL_HANDLE;
-    img.allocation = VK_NULL_HANDLE;
-    img.imageExtent = {};
-    img.imageFormat = {};
+    destructionQueues[lastKnownFrameOverlap].imageQueue.push_back({image.image, image.allocation});
+    destructionQueues[lastKnownFrameOverlap].imageViewQueue.push_back(image.imageView);
+    image.image = VK_NULL_HANDLE;
+    image.imageView = VK_NULL_HANDLE;
+    image.allocation = VK_NULL_HANDLE;
+    image.imageExtent = {};
+    image.imageFormat = {};
 }
 
-void will_engine::ResourceManager::destroySampler(VkSampler& sampler) const
+void will_engine::ResourceManager::destroySampler(VkSampler sampler)
 {
-    vkDestroySampler(context.device, sampler, nullptr);
+    destructionQueues[lastKnownFrameOverlap].samplerQueue.push_back(sampler);
     sampler = VK_NULL_HANDLE;
 }
 
-will_engine::DescriptorBufferSampler will_engine::ResourceManager::createDescriptorBufferSampler(VkDescriptorSetLayout layout, int32_t maxObjectCount) const
+will_engine::DescriptorBufferSampler will_engine::ResourceManager::createDescriptorBufferSampler(
+    VkDescriptorSetLayout layout, int32_t maxObjectCount) const
 {
     return DescriptorBufferSampler(context, layout, maxObjectCount);
 }
 
-int32_t will_engine::ResourceManager::setupDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer, const std::vector<DescriptorImageData>& imageBuffers, const int index) const
+int32_t will_engine::ResourceManager::setupDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer,
+                                                                   const std::vector<DescriptorImageData>& imageBuffers, const int index) const
 {
     return descriptorBuffer.setupData(context.device, imageBuffers, index);
 }
 
-will_engine::DescriptorBufferUniform will_engine::ResourceManager::createDescriptorBufferUniform(VkDescriptorSetLayout layout, int32_t maxObjectCount) const
+will_engine::DescriptorBufferUniform will_engine::ResourceManager::createDescriptorBufferUniform(
+    VkDescriptorSetLayout layout, int32_t maxObjectCount) const
 {
     return DescriptorBufferUniform(context, layout, maxObjectCount);
 }
 
-int32_t will_engine::ResourceManager::setupDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer, const std::vector<DescriptorUniformData>& uniformBuffers, const int index) const
+int32_t will_engine::ResourceManager::setupDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer,
+                                                                   const std::vector<DescriptorUniformData>& uniformBuffers, const int index) const
 {
     return descriptorBuffer.setupData(context.device, uniformBuffers, index);
 }
 
-void will_engine::ResourceManager::destroyDescriptorBuffer(DescriptorBuffer& descriptorBuffer) const
+void will_engine::ResourceManager::destroyDescriptorBuffer(DescriptorBuffer& descriptorBuffer)
 {
-    descriptorBuffer.destroy(context.allocator);
+    destroyBuffer(descriptorBuffer.getBuffer());
 }
 
 VkShaderModule will_engine::ResourceManager::createShaderModule(const std::filesystem::path& path) const
@@ -565,14 +707,15 @@ VkPipelineLayout will_engine::ResourceManager::createPipelineLayout(const VkPipe
     return pipelineLayout;
 }
 
-void will_engine::ResourceManager::destroyPipelineLayout(VkPipelineLayout& pipelineLayout) const
+void will_engine::ResourceManager::destroyPipelineLayout(VkPipelineLayout pipelineLayout)
 {
     if (pipelineLayout == VK_NULL_HANDLE) { return; }
-    vkDestroyPipelineLayout(context.device, pipelineLayout, nullptr);
+    destructionQueues[lastKnownFrameOverlap].pipelineLayoutQueue.push_back(pipelineLayout);
     pipelineLayout = VK_NULL_HANDLE;
 }
 
-VkPipeline will_engine::ResourceManager::createRenderPipeline(PipelineBuilder& builder, const std::vector<VkDynamicState>& additionalDynamicStates) const
+VkPipeline will_engine::ResourceManager::createRenderPipeline(PipelineBuilder& builder,
+                                                              const std::vector<VkDynamicState>& additionalDynamicStates) const
 {
     const VkPipeline pipeline = builder.buildPipeline(context.device, VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT, additionalDynamicStates);
     return pipeline;
@@ -585,23 +728,24 @@ VkPipeline will_engine::ResourceManager::createComputePipeline(const VkComputePi
     return computePipeline;
 }
 
-void will_engine::ResourceManager::destroyPipeline(VkPipeline& pipeline) const
+void will_engine::ResourceManager::destroyPipeline(VkPipeline pipeline)
 {
     if (pipeline == VK_NULL_HANDLE) { return; }
-    vkDestroyPipeline(context.device, pipeline, nullptr);
+    destructionQueues[lastKnownFrameOverlap].pipelineQueue.push_back(pipeline);
     pipeline = VK_NULL_HANDLE;
 }
 
-VkDescriptorSetLayout will_engine::ResourceManager::createDescriptorSetLayout(DescriptorLayoutBuilder& layoutBuilder, const VkShaderStageFlagBits shaderStageFlags,
-                                                                 const VkDescriptorSetLayoutCreateFlagBits layoutCreateFlags) const
+VkDescriptorSetLayout will_engine::ResourceManager::createDescriptorSetLayout(DescriptorLayoutBuilder& layoutBuilder,
+                                                                              const VkShaderStageFlagBits shaderStageFlags,
+                                                                              const VkDescriptorSetLayoutCreateFlagBits layoutCreateFlags) const
 {
     return layoutBuilder.build(context.device, shaderStageFlags, nullptr, layoutCreateFlags);
 }
 
-void will_engine::ResourceManager::destroyDescriptorSetLayout(VkDescriptorSetLayout& descriptorSetLayout) const
+void will_engine::ResourceManager::destroyDescriptorSetLayout(VkDescriptorSetLayout descriptorSetLayout)
 {
     if (descriptorSetLayout == VK_NULL_HANDLE) { return; }
-    vkDestroyDescriptorSetLayout(context.device, descriptorSetLayout, nullptr);
+    destructionQueues[lastKnownFrameOverlap].descriptorSetLayoutQueue.push_back(descriptorSetLayout);
     descriptorSetLayout = VK_NULL_HANDLE;
 }
 
@@ -612,9 +756,9 @@ VkImageView will_engine::ResourceManager::createImageView(const VkImageViewCreat
     return imageView;
 }
 
-void will_engine::ResourceManager::destroyImageView(VkImageView& imageView) const
+void will_engine::ResourceManager::destroyImageView(VkImageView imageView)
 {
     if (imageView == VK_NULL_HANDLE) { return; }
-    vkDestroyImageView(context.device, imageView, nullptr);
+    destructionQueues[lastKnownFrameOverlap].imageViewQueue.push_back(imageView);
     imageView = VK_NULL_HANDLE;
 }

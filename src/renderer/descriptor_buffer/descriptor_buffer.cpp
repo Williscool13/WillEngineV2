@@ -24,9 +24,6 @@ will_engine::DescriptorBuffer::DescriptorBuffer(const VulkanContext& context, Vk
         devicePropertiesRetrieved = true;
     }
 
-    this->descriptorSetLayout = descriptorSetLayout;
-
-
     // Get size per Descriptor Set
     vkGetDescriptorSetLayoutSizeEXT(context.device, descriptorSetLayout, &descriptorBufferSize);
     descriptorBufferSize = vk_helpers::getAlignedSize(descriptorBufferSize, deviceDescriptorBufferProperties.descriptorBufferOffsetAlignment);
@@ -37,13 +34,6 @@ will_engine::DescriptorBuffer::DescriptorBuffer(const VulkanContext& context, Vk
     for (int32_t i = 0; i < maxObjectCount; i++) { freeIndices.insert(i); }
 
     this->maxObjectCount = maxObjectCount;
-}
-
-void will_engine::DescriptorBuffer::destroy(const VmaAllocator allocator)
-{
-    if (descriptorBuffer.buffer == VK_NULL_HANDLE) { return; }
-    vmaDestroyBuffer(allocator, descriptorBuffer.buffer, descriptorBuffer.allocation);
-    descriptorBuffer = {VK_NULL_HANDLE};
 }
 
 void will_engine::DescriptorBuffer::freeDescriptorBufferIndex(const int32_t index)
@@ -60,7 +50,7 @@ VkDescriptorBufferBindingInfoEXT will_engine::DescriptorBuffer::getDescriptorBuf
 {
     VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info{};
     descriptor_buffer_binding_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_BUFFER_BINDING_INFO_EXT;
-    descriptor_buffer_binding_info.address = descriptorBufferGpuAddress;
+    descriptor_buffer_binding_info.address = mainBufferGpuAddress;
     descriptor_buffer_binding_info.usage = getBufferUsageFlags();
 
     return descriptor_buffer_binding_info;

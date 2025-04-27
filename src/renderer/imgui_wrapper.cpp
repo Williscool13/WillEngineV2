@@ -163,23 +163,34 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
 
             if (ImGui::BeginTabItem("Startup")) {
-                ImGui::Columns(2, "StartupTimers");
+                const auto& entries = engine->startupProfiler.getEntries();
 
-                ImGui::Text("Operation");
+                ImGui::Columns(2, "StartupProfilerColumns", true);
+                ImGui::SetColumnWidth(0, 400);
+                ImGui::Text("Entry Name");
                 ImGui::NextColumn();
-                ImGui::Text("Time (ms)");
+                ImGui::Text("Time Diff (ms)");
                 ImGui::NextColumn();
                 ImGui::Separator();
 
-                for (const auto& [name, timer] : engine->startupProfiler.getTimers()) {
-                    std::string_view nameView = name;
-                    if (!nameView.empty()) {
-                        nameView.remove_prefix(1);
-                    }
+                if (entries.empty()) {
+                    ImGui::Text("No profiling data available");
+                    ImGui::Columns(1);
+                    return;
+                }
 
-                    ImGui::Text("%s", nameView.data());
+                for (size_t i = 0; i < entries.size(); i++) {
+                    ImGui::Text("%s", entries[i].name.c_str());
                     ImGui::NextColumn();
-                    ImGui::Text("%.2f", timer.getAverageTime());
+
+                    if (i == 0) {
+                        ImGui::Text("0.00");
+                    }
+                    else {
+                        auto diff = std::chrono::duration_cast<std::chrono::microseconds>(
+                                        entries[i].time - entries[i - 1].time).count() / 1000.0f;
+                        ImGui::Text("%.2f", diff);
+                    }
                     ImGui::NextColumn();
                 }
 
@@ -191,58 +202,116 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     }
     ImGui::End();
 
-    if (ImGui::Begin("Renderer")) {
-        if (ImGui::BeginTabBar("RendererTabs")) {
-            if (ImGui::BeginTabItem("Debugging")) {
-                ImGui::SetNextItemWidth(75.0f);
-                if (ImGui::Button("Hot-Reload Shaders")) {
-                    engine->hotReloadShaders();
+
+    if (ImGui::Begin("Settings Window")) {
+        if (ImGui::BeginTabBar("Settings Tab")) {
+            if (ImGui::BeginTabItem("General")) {
+                ImGui::SetNextItemWidth(-1.0f);
+                if (ImGui::Button("Save All Settings")) {
+                    Serializer::serializeEngineSettings(engine, EngineSettingsTypeFlag::ALL_SETTINGS);
                 }
-                ImGui::Checkbox("Disable Transparent Primitives", &engine->bHideTransparents);
-                bool aoDisabled = engine->gtaoDebug == -1;
-                if (ImGui::Checkbox("Disable GTAO", &aoDisabled)) {
-                    if (aoDisabled) {
-                        engine->gtaoDebug = -1;
-                    } else {
-                        engine->gtaoDebug = 0;
-                    }
+
+                ImGui::Separator();
+
+                bool anySettingChanged = false;
+                if (ImGui::Checkbox("Save Settings On Exit", &engine->engineSettings.saveOnExit)) {
+                    anySettingChanged = true;
                 }
+
+                if (anySettingChanged) {
+                    Serializer::serializeEngineSettings(engine, EngineSettingsTypeFlag::GENERAL_SETTINGS);
+                }
+                ImGui::Text("General settings above are always auto-saved");
+
+
+                ImGui::Separator();
+
+                ImGui::Text("Shortcuts");
+                ImGui::Checkbox("Enable TAA", &engine->taaSettings.bEnabled);
+                ImGui::Checkbox("Enable GTAO", &engine->gtaoSettings.bEnabled);
                 ImGui::Checkbox("Enable Shadows", &engine->bEnableShadows);
                 ImGui::Checkbox("Enable Contact Shadows", &engine->bEnableContactShadows);
+                ImGui::Checkbox("Enable Transparent Primitives", &engine->bDrawTransparents);
+                ImGui::DragInt("Shadows PCF Level", &engine->csmSettings.pcfLevel, 2, 1, 5);
 
-                ImGui::Separator();
-                ImGui::Text("Main Directional Light");
-                float direction[3] = {engine->mainLight.direction.x, engine->mainLight.direction.y, engine->mainLight.direction.z};
-                if (ImGui::DragFloat3("Direction", direction, 0.1)) {
-                    engine->mainLight.direction = glm::vec3(direction[0], direction[1], direction[2]);
+
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem("Camera")) {
+                ImGui::SetNextItemWidth(-1.0f);
+                if (ImGui::Button("Save Camera Settings")) {
+                    Serializer::serializeEngineSettings(engine, EngineSettingsTypeFlag::CAMERA_SETTINGS);
                 }
-                float color[3] = {engine->mainLight.color.x, engine->mainLight.color.y, engine->mainLight.color.z};
-                if (ImGui::DragFloat3("Color", color, 0.1)) {
-                    engine->mainLight.color = glm::vec3(color[0], color[1], color[2]);
+
+                if (ImGui::Button("Reset Camera Position and Rotation")) {
+                    engine->camera->setCameraTransform({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 0.0f});
                 }
-                ImGui::DragFloat("Intensity", &engine->mainLight.intensity, 0.05f, 0.0f, 5.0f);
 
-                ImGui::Separator();
+                if (ImGui::CollapsingHeader("Camera Properties", ImGuiTreeNodeFlags_DefaultOpen)) {
+                    ImGui::Indent();
 
-                ImGui::Checkbox("Disable Physics", &engine->bPausePhysics);
+                    glm::vec3 position = engine->camera->getTransform().getPosition();
+                    ImGui::Text("Position: X: %.3f, Y: %.3f, Z: %.3f", position.x, position.y, position.z);
 
-                ImGui::Text("Deferred Debug");
-                const char* deferredDebugOptions[]{"None", "Depth", "Velocity", "Albedo", "Normal", "PBR", "Shadows", "Cascade Level", "nDotL", "AO", "Contact Shadows"};
-                ImGui::Combo("Deferred Debug", &engine->deferredDebug, deferredDebugOptions, IM_ARRAYSIZE(deferredDebugOptions));
-                ImGui::Separator();
+                    glm::vec3 forward = engine->camera->getForwardWS();
+                    glm::vec3 up = engine->camera->getUpWS();
+                    glm::vec3 right = engine->camera->getRightWS();
 
-                ImGui::Text("Frustum Cull Debug Draw");
-                ImGui::Checkbox("Enable Frustum Cull Debug Draw", &engine->bEnableDebugFrustumCullDraw);
+                    ImGui::Text("Forward: X: %.3f, Y: %.3f, Z: %.3f", forward.x, forward.y, forward.z);
+                    ImGui::Text("Up: X: %.3f, Y: %.3f, Z: %.3f", up.x, up.y, up.z);
+                    ImGui::Text("Right: X: %.3f, Y: %.3f, Z: %.3f", right.x, right.y, right.z);
+
+                    ImGui::Separator();
+                    float fov = glm::degrees(engine->camera->getFov());
+                    float aspect = engine->camera->getAspectRatio();
+                    float nearPlane = engine->camera->getNearPlane();
+                    float farPlane = engine->camera->getFarPlane();
+
+                    ImGui::Text("FOV: %.2f°", fov);
+                    ImGui::Text("Aspect Ratio: %.3f", aspect);
+                    ImGui::Text("Near Plane: %.3f", nearPlane);
+                    ImGui::Text("Far Plane: %.3f", farPlane);
+
+                    ImGui::Unindent();
+                }
+
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem("Lights")) {
+                ImGui::SetNextItemWidth(-1.0f);
+                if (ImGui::Button("Save Light Settings")) {
+                    Serializer::serializeEngineSettings(engine, EngineSettingsTypeFlag::LIGHT_SETTINGS);
+                }
+
+                if (ImGui::CollapsingHeader("Main Directional Light", ImGuiTreeNodeFlags_DefaultOpen)) {
+                    float direction[3] = {engine->mainLight.direction.x, engine->mainLight.direction.y, engine->mainLight.direction.z};
+                    if (ImGui::DragFloat3("Direction", direction, 0.1)) {
+                        engine->mainLight.direction = glm::vec3(direction[0], direction[1], direction[2]);
+                    }
+                    float color[3] = {engine->mainLight.color.x, engine->mainLight.color.y, engine->mainLight.color.z};
+                    if (ImGui::DragFloat3("Color", color, 0.1)) {
+                        engine->mainLight.color = glm::vec3(color[0], color[1], color[2]);
+                    }
+                    ImGui::DragFloat("Intensity", &engine->mainLight.intensity, 0.05f, 0.0f, 5.0f);
+                }
+
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem("Temporal Anti-Aliasing")) {
+                ImGui::SetNextItemWidth(-1.0f);
+                if (ImGui::Button("Save TAA Settings")) {
+                    Serializer::serializeEngineSettings(engine, EngineSettingsTypeFlag::TEMPORAL_ANTIALIASING_SETTINGS);
+                }
+                ImGui::Checkbox("Enable TAA", &engine->taaSettings.bEnabled);
+                ImGui::DragFloat("Taa Blend Value", &engine->taaSettings.blendValue, 0.01, 0.1f, 0.5f);
+
                 ImGui::EndTabItem();
             }
 
             if (ImGui::BeginTabItem("Post-Processing")) {
-                if (ImGui::CollapsingHeader("Temporal Antialiasing", ImGuiTreeNodeFlags_DefaultOpen)) {
-                    ImGui::Checkbox("Enable TAA", &engine->bEnableTaa);
-                    ImGui::DragFloat("Taa Blend Value", &engine->taaBlendValue, 0.01, 0.1f, 0.5f);
-                    ImGui::Checkbox("Disable Jitter", &engine->bDisableJitter);
-                }
-
                 static bool tonemapping = (engine->postProcessData & post_process_pipeline::PostProcessType::Tonemapping) !=
                                           post_process_pipeline::PostProcessType::None;
                 if (ImGui::CollapsingHeader("Tonemapping", ImGuiTreeNodeFlags_DefaultOpen)) {
@@ -268,7 +337,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     }
                 }
                 if (ImGui::CollapsingHeader("FXAA", ImGuiTreeNodeFlags_DefaultOpen)) {
-                    static bool fxaa = (engine->postProcessData & post_process_pipeline::PostProcessType::FXAA) != post_process_pipeline::PostProcessType::None;
+                    static bool fxaa = (engine->postProcessData & post_process_pipeline::PostProcessType::FXAA) !=
+                                       post_process_pipeline::PostProcessType::None;
                     if (ImGui::Checkbox("Enable FXAA", &fxaa)) {
                         if (fxaa) {
                             engine->postProcessData |= post_process_pipeline::PostProcessType::FXAA;
@@ -283,157 +353,216 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             }
 
             if (ImGui::BeginTabItem("Ambient Occlusion")) {
-                ambient_occlusion::GTAOPushConstants& gtao = engine->ambientOcclusionPipeline->gtaoPush;
-                if (ImGui::CollapsingHeader("GTAO Settings")) {
-                    ImGui::Text("Effect Parameters");
-                    ImGui::Separator();
-                    ImGui::SliderFloat("Effect Radius", &gtao.effectRadius, 0.1f, 2.0f);
-                    ImGui::SliderFloat("Effect Falloff Range", &gtao.effectFalloffRange, 0.0f, 1.0f);
+                ImGui::SetNextItemWidth(-1.0f);
+                if (ImGui::Button("Save AO Settings")) {
+                    Serializer::serializeEngineSettings(engine, EngineSettingsTypeFlag::AMBIENT_OCCLUSION_SETTINGS);
+                }
 
-                    ImGui::Spacing();
-                    ImGui::Text("Denoise Parameters");
-                    ImGui::Separator();
-                    float blurBeta = gtao.denoiseBlurBeta;
-                    if (ImGui::SliderFloat("Denoise Blur Beta", &blurBeta, 0.0f, 5.0f)) {
-                        if (ambient_occlusion::GTAO_DENOISE_PASSES != 0) {
-                            gtao.denoiseBlurBeta = blurBeta;
-                        }
-                    }
-                    ImGui::Checkbox("Final Denoise Pass", (bool*) &gtao.isFinalDenoisePass);
+                ambient_occlusion::GTAOPushConstants& gtao = engine->gtaoSettings.pushConstants;
+                const char* qualityPresets[] = {"Low", "Medium", "High", "Ultra"};
+                int slicePreset = 0;
 
-                    ImGui::Spacing();
-                    ImGui::Text("Sampling Parameters");
-                    ImGui::Separator();
-                    ImGui::SliderFloat("Radius Multiplier", &gtao.radiusMultiplier, 0.1f, 3.0f);
-                    ImGui::SliderFloat("Sample Distribution Power", &gtao.sampleDistributionPower, 1.0f, 4.0f);
-                    ImGui::SliderFloat("Thin Occluder Compensation", &gtao.thinOccluderCompensation, 0.0f, 1.0f);
-                    ImGui::SliderFloat("Final Value Power", &gtao.finalValuePower, 1.0f, 4.0f);
-                    ImGui::SliderFloat("Depth Mip Sampling Offset", &gtao.depthMipSamplingOffset, 0.0f, 5.0f);
+                if (gtao.sliceCount == ambient_occlusion::XE_GTAO_SLICE_COUNT_LOW) slicePreset = 0;
+                else if (gtao.sliceCount == ambient_occlusion::XE_GTAO_SLICE_COUNT_MEDIUM) slicePreset = 1;
+                else if (gtao.sliceCount == ambient_occlusion::XE_GTAO_SLICE_COUNT_HIGH) slicePreset = 2;
+                else slicePreset = 3;
 
-                    ImGui::Spacing();
-                    ImGui::Text("Sample Count");
-                    ImGui::Separator();
-                    const char* qualityPresets[] = {"Low", "Medium", "High", "Ultra"};
-                    int slicePreset = 0;
-
-                    if (gtao.sliceCount == ambient_occlusion::XE_GTAO_SLICE_COUNT_LOW) slicePreset = 0;
-                    else if (gtao.sliceCount == ambient_occlusion::XE_GTAO_SLICE_COUNT_MEDIUM) slicePreset = 1;
-                    else if (gtao.sliceCount == ambient_occlusion::XE_GTAO_SLICE_COUNT_HIGH) slicePreset = 2;
-                    else slicePreset = 3;
-
-                    if (ImGui::Combo("Slice Count Preset", &slicePreset, qualityPresets, IM_ARRAYSIZE(qualityPresets))) {
-                        switch (slicePreset) {
-                            case 0: gtao.sliceCount = ambient_occlusion::XE_GTAO_SLICE_COUNT_LOW;
-                                break;
-                            case 1: gtao.sliceCount = ambient_occlusion::XE_GTAO_SLICE_COUNT_MEDIUM;
-                                break;
-                            case 2: gtao.sliceCount = ambient_occlusion::XE_GTAO_SLICE_COUNT_HIGH;
-                                break;
-                            case 3: gtao.sliceCount = ambient_occlusion::XE_GTAO_SLICE_COUNT_ULTRA;
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-
-                    int stepsPreset = 0;
-                    if (gtao.stepsPerSliceCount == ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_MEDIUM) stepsPreset = 1;
-                    else if (gtao.stepsPerSliceCount == ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_LOW) stepsPreset = 0;
-                    else if (gtao.stepsPerSliceCount == ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_ULTRA) stepsPreset = 3;
-                    else stepsPreset = 2;
-
-                    if (ImGui::Combo("Steps Per Slice Preset", &stepsPreset, qualityPresets, IM_ARRAYSIZE(qualityPresets))) {
-                        switch (stepsPreset) {
-                            case 0: gtao.stepsPerSliceCount = ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_LOW;
-                                break;
-                            case 1: gtao.stepsPerSliceCount = ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_MEDIUM;
-                                break;
-                            case 2: gtao.stepsPerSliceCount = ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_HIGH;
-                                break;
-                            case 3: gtao.stepsPerSliceCount = ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_ULTRA;
-                                break;
-                            default:
-                                break;
-                        }
-                    }
-
-                    ImGui::Spacing();
-                    ImGui::Text("Other Parameters");
-                    ImGui::Separator();
-                    ImGui::InputInt("Debug Mode", &engine->gtaoDebug);
-
-                    ImGui::Spacing();
-                    if (ImGui::Button("Reset to Defaults")) {
-                        gtao = {};
+                if (ImGui::Combo("Slice Count Preset", &slicePreset, qualityPresets, IM_ARRAYSIZE(qualityPresets))) {
+                    switch (slicePreset) {
+                        case 0: gtao.sliceCount = ambient_occlusion::XE_GTAO_SLICE_COUNT_LOW;
+                            break;
+                        case 1: gtao.sliceCount = ambient_occlusion::XE_GTAO_SLICE_COUNT_MEDIUM;
+                            break;
+                        case 2: gtao.sliceCount = ambient_occlusion::XE_GTAO_SLICE_COUNT_HIGH;
+                            break;
+                        case 3: gtao.sliceCount = ambient_occlusion::XE_GTAO_SLICE_COUNT_ULTRA;
+                            break;
+                        default:
+                            break;
                     }
                 }
 
-                if (ImGui::CollapsingHeader("GTAO Debug Preview")) {
-                    ImGui::Checkbox("Show GTAO Debug Preview", &showGtaoDebugPreview);
+                int stepsPreset = 0;
+                if (gtao.stepsPerSliceCount == ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_MEDIUM) stepsPreset = 1;
+                else if (gtao.stepsPerSliceCount == ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_LOW) stepsPreset = 0;
+                else if (gtao.stepsPerSliceCount == ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_ULTRA) stepsPreset = 3;
+                else stepsPreset = 2;
 
-                    if (showGtaoDebugPreview) {
-                        if (aoDebugTextureImguiId == VK_NULL_HANDLE) {
-                            if (engine->ambientOcclusionPipeline->debugImage.image != VK_NULL_HANDLE) {
-                                aoDebugTextureImguiId = ImGui_ImplVulkan_AddTexture(
-                                    engine->resourceManager->getDefaultSamplerNearest(),
-                                    engine->ambientOcclusionPipeline->debugImage.imageView,
-                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-                            }
-                        }
-
-                        ImGui::BeginChild("GTAODebugPreview", ImVec2(0, 0), false, ImGuiWindowFlags_None);
-
-                        if (aoDebugTextureImguiId == VK_NULL_HANDLE) {
-                            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Debug texture not available.");
-                        }
-                        else {
-                            // Calculate best fit size
-                            float maxSize = ImGui::GetContentRegionAvail().x;
-                            maxSize = glm::min(maxSize, 1024.0f);
-
-                            VkExtent3D imageExtent = engine->ambientOcclusionPipeline->debugImage.imageExtent;
-                            float width = std::min(maxSize, static_cast<float>(imageExtent.width));
-                            float aspectRatio = static_cast<float>(imageExtent.width) / static_cast<float>(imageExtent.height);
-                            float height = width / aspectRatio;
-
-                            ImGui::Image(reinterpret_cast<ImTextureID>(aoDebugTextureImguiId), ImVec2(width, height));
-
-                            ImGui::SameLine();
-                            if (ImGui::Button("Save GTAO Debug Image")) {
-                                if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                                    const std::filesystem::path path = file::imagesSavePath / "gtao_debug.png";
-
-                                    vk_helpers::saveImageR8G8B8A8UNORM(
-                                        *engine->resourceManager,
-                                        *engine->immediate,
-                                        engine->ambientOcclusionPipeline->debugImage,
-                                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                        path.string().c_str(),
-                                        0
-                                    );
-
-                                    ImGui::OpenPopup("SaveConfirmation");
-                                }
-                            }
-
-                            if (ImGui::BeginPopupModal("SaveConfirmation", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
-                                ImGui::Text("Image saved to %s/gtao_debug.png", file::imagesSavePath.string().c_str());
-                                if (ImGui::Button("OK", ImVec2(120, 0))) {
-                                    ImGui::CloseCurrentPopup();
-                                }
-                                ImGui::EndPopup();
-                            }
-                        }
-
-                        ImGui::EndChild();
+                if (ImGui::Combo("Steps Per Slice Preset", &stepsPreset, qualityPresets, IM_ARRAYSIZE(qualityPresets))) {
+                    switch (stepsPreset) {
+                        case 0: gtao.stepsPerSliceCount = ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_LOW;
+                            break;
+                        case 1: gtao.stepsPerSliceCount = ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_MEDIUM;
+                            break;
+                        case 2: gtao.stepsPerSliceCount = ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_HIGH;
+                            break;
+                        case 3: gtao.stepsPerSliceCount = ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_ULTRA;
+                            break;
+                        default:
+                            break;
                     }
                 }
+
+                ImGui::Separator();
+
+                ImGui::SliderFloat("Effect Radius", &gtao.effectRadius, 0.1f, 2.0f);
+                ImGui::SliderFloat("Effect Falloff Range", &gtao.effectFalloffRange, 0.0f, 1.0f);
+
+                ImGui::Spacing();
+                ImGui::Text("Denoise Parameters");
+                ImGui::Separator();
+                float blurBeta = gtao.denoiseBlurBeta;
+                if (ImGui::SliderFloat("Denoise Blur Beta", &blurBeta, 0.0f, 5.0f)) {
+                    if (ambient_occlusion::GTAO_DENOISE_PASSES != 0) {
+                        gtao.denoiseBlurBeta = blurBeta;
+                    }
+                }
+                ImGui::Checkbox("Final Denoise Pass", (bool*) &gtao.isFinalDenoisePass);
+
+                ImGui::Spacing();
+                ImGui::Text("Sampling Parameters");
+                ImGui::Separator();
+                ImGui::SliderFloat("Radius Multiplier", &gtao.radiusMultiplier, 0.1f, 3.0f);
+                ImGui::SliderFloat("Sample Distribution Power", &gtao.sampleDistributionPower, 1.0f, 4.0f);
+                ImGui::SliderFloat("Thin Occluder Compensation", &gtao.thinOccluderCompensation, 0.0f, 1.0f);
+                ImGui::SliderFloat("Final Value Power", &gtao.finalValuePower, 1.0f, 4.0f);
+                ImGui::SliderFloat("Depth Mip Sampling Offset", &gtao.depthMipSamplingOffset, 0.0f, 5.0f);
+
+                ImGui::Spacing();
+
+
+                ImGui::Spacing();
+                ImGui::Text("Other Parameters");
+                ImGui::Separator();
+                ImGui::InputInt("Debug Mode", &gtao.debug);
+
+                ImGui::Spacing();
+                if (ImGui::Button("Reset to Defaults")) {
+                    gtao = {};
+                }
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem("Screen Space Shadows")) {
+                ImGui::SetNextItemWidth(-1.0f);
+                if (ImGui::Button("Save SSS Settings")) {
+                    Serializer::serializeEngineSettings(engine, EngineSettingsTypeFlag::SCREEN_SPACE_SHADOWS_SETTINGS);
+                }
+                contact_shadows_pipeline::ContactShadowsPushConstants& sssPush = engine->sssSettings.pushConstants;
+                ImGui::InputFloat("Surface Thickness", &sssPush.surfaceThickness);
+                ImGui::InputFloat("Blinear Threshold", &sssPush.bilinearThreshold);
+                ImGui::InputFloat("Shadow Contrast", &sssPush.shadowContrast);
+
+                ImGui::SliderInt("Ignore Edge Pixels", &sssPush.bIgnoreEdgePixels, 0, 1);
+                ImGui::SliderInt("Use Precision Offset", &sssPush.bUsePrecisionOffset, 0, 1);
+                ImGui::SliderInt("Bilinear Offset Sampling Mode", &sssPush.bBilinearSamplingOffsetMode, 0, 1);
+
+                ImGui::SliderInt("Contact Shadow Debug", &sssPush.debugMode, 0, 3);
 
                 ImGui::EndTabItem();
             }
 
-            if (ImGui::BeginTabItem("Environment")) {
-                ImGui::Text("Environment Map");
+            if (ImGui::BeginTabItem("Shadows")) {
+                ImGui::SetNextItemWidth(-1.0f);
+                if (ImGui::Button("Save CSM Settings")) {
+                    Serializer::serializeEngineSettings(engine, EngineSettingsTypeFlag::CASCADED_SHADOW_MAP_SETTINGS);
+                }
+
+                ImGui::DragInt("CSM PCF Level", &engine->csmSettings.pcfLevel, 2, 1, 5);
+
+                bool needUpdateCsmProperties = false;
+                bool needRegenerateSplit = false;
+
+                for (int32_t i = 0; i < cascaded_shadows::SHADOW_CASCADE_COUNT; ++i) {
+                    ImGui::Text(fmt::format("Cascade {}:", i).c_str());
+                    ImGui::SameLine();
+                    ImGui::SetNextItemWidth(100);
+                    if (ImGui::DragFloat(fmt::format("##linear{}", i).c_str(), &engine->csmSettings.cascadeBias[i].constant, 0.001f, 0.0f,
+                                         1.0f, "%.3f")) {
+                        needUpdateCsmProperties = true;
+                    }
+                    ImGui::SameLine();
+                    ImGui::SetNextItemWidth(100);
+                    if (ImGui::DragFloat(fmt::format("##slope{}", i).c_str(), &engine->csmSettings.cascadeBias[i].slope, 0.001f, 0.0f,
+                                         1.0f, "%.3f")) {
+                        needUpdateCsmProperties = true;
+                    }
+                }
+
+                ImGui::Separator();
+
+                if (ImGui::InputFloat("Split Lambda", &engine->csmSettings.splitLambda)) {
+                    needUpdateCsmProperties = true;
+                    needRegenerateSplit = true;
+                }
+
+                if (ImGui::InputFloat("Split Overlap", &engine->csmSettings.splitOverlap)) {
+                    needUpdateCsmProperties = true;
+                    needRegenerateSplit = true;
+                }
+
+                if (ImGui::InputFloat("Cascade Near Plane", &engine->csmSettings.cascadeNearPlane)) {
+                    needUpdateCsmProperties = true;
+                    needRegenerateSplit = true;
+                }
+
+                if (ImGui::InputFloat("Cascade Far Plane", &engine->csmSettings.cascadeFarPlane)) {
+                    needUpdateCsmProperties = true;
+                    needRegenerateSplit = true;
+                }
+
+                if (ImGui::Checkbox("Manual Splits", &engine->csmSettings.useManualSplit)) {
+                    needUpdateCsmProperties = true;
+                    needRegenerateSplit = true;
+                }
+
+                // todo: show auto split values, or if manual splits enabled, allow changing of manual split values
+
+                if (needUpdateCsmProperties) {
+                    engine->cascadedShadowMap->setCascadedShadowMapProperties(engine->csmSettings);
+                }
+
+                if (needRegenerateSplit) {
+                    engine->cascadedShadowMap->generateSplits();
+                }
+
+                ImGui::SetNextItemWidth(100);
+                ImGui::SliderInt("Shadow Map Level", &shadowMapDebug, 0, cascaded_shadows::SHADOW_CASCADE_COUNT - 1);
+                ImGui::SameLine();
+                if (ImGui::Button(fmt::format("Save Shadow Map", shadowMapDebug).c_str())) {
+                    if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                        std::filesystem::path path = file::imagesSavePath / fmt::format("shadowMap{}.png", shadowMapDebug);
+
+                        auto depthNormalize = [](const float depth) {
+                            return logf(1.0f + depth * 15.0f) / logf(16.0f);
+                        };
+
+                        AllocatedImage shadowMap = engine->cascadedShadowMap->getShadowMap(shadowMapDebug);
+                        if (shadowMap.image != VK_NULL_HANDLE) {
+                            vk_helpers::saveImageR32F(
+                                *engine->resourceManager,
+                                *engine->immediate,
+                                shadowMap,
+                                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                VK_IMAGE_ASPECT_DEPTH_BIT,
+                                path.string().c_str(),
+                                depthNormalize
+                            );
+                        }
+                    }
+                    else {
+                        fmt::print(" Failed to save depth map image");
+                    }
+                }
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem("Environment Map / Skybox")) {
+                ImGui::SetNextItemWidth(-1.0f);
+                if (ImGui::Button("Save Environment Map Settings")) {
+                    Serializer::serializeEngineSettings(engine, EngineSettingsTypeFlag::ENVIRONMENT_SETTINGS);
+                }
+
                 const auto& activeEnvironmentMapNames = engine->environmentMap->getActiveEnvironmentMapNames();
 
                 std::vector<std::pair<int32_t, std::string> > indexNamePairs;
@@ -461,48 +590,41 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 };
 
                 ComboData data{&indexNamePairs};
-                ImGui::SetNextItemWidth(250);
                 if (ImGui::Combo("Environment", &currentIndex, getLabel, &data, static_cast<int>(indexNamePairs.size()))) {
                     engine->environmentMapIndex = indexNamePairs[currentIndex].first;
                 }
+
                 ImGui::EndTabItem();
             }
 
-            if (ImGui::BeginTabItem("Shadows")) {
-                ImGui::Text("Cascaded Shadow Map");
-                ImGui::DragInt("CSM PCF Level", &engine->csmPcf, 2, 1, 7);
-                ImGui::InputFloat2("Cascade 1 Bias", shadows::CASCADE_BIAS[0]);
-                ImGui::InputFloat2("Cascade 2 Bias", shadows::CASCADE_BIAS[1]);
-                ImGui::InputFloat2("Cascade 3 Bias", shadows::CASCADE_BIAS[2]);
-                ImGui::InputFloat2("Cascade 4 Bias", shadows::CASCADE_BIAS[3]);
-                ImGui::SetNextItemWidth(100);
-                ImGui::SliderInt("Shadow Map Level", &shadowMapDebug, 0, shadows::SHADOW_CASCADE_COUNT - 1);
-                ImGui::SameLine();
-                if (ImGui::Button(fmt::format("Save Shadow Map", shadowMapDebug).c_str())) {
-                    if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                        std::filesystem::path path = file::imagesSavePath / fmt::format("shadowMap{}.png", shadowMapDebug);
+            ImGui::EndTabBar();
+        }
+    }
+    ImGui::End();
 
-                        auto depthNormalize = [](const float depth) {
-                            return logf(1.0f + depth * 15.0f) / logf(16.0f);
-                        };
 
-                        AllocatedImage shadowMap = engine->cascadedShadowMap->getShadowMap(shadowMapDebug);
-                        if (shadowMap.image != VK_NULL_HANDLE) {
-                            vk_helpers::saveImageR32F(
-                                *engine->resourceManager,
-                                *engine->immediate,
-                                shadowMap,
-                                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                VK_IMAGE_ASPECT_DEPTH_BIT,
-                                path.string().c_str(),
-                                depthNormalize
-                            );
-                        }
-                    }
-                    else {
-                        fmt::print(" Failed to save depth map image");
-                    }
+    if (ImGui::Begin("Renderer")) {
+        if (ImGui::BeginTabBar("RendererTabs")) {
+            if (ImGui::BeginTabItem("Debugging")) {
+                ImGui::SetNextItemWidth(75.0f);
+                if (ImGui::Button("Hot-Reload Shaders")) {
+                    engine->hotReloadShaders();
                 }
+
+
+                ImGui::Separator();
+
+                ImGui::Checkbox("Disable Physics", &engine->bPausePhysics);
+
+                ImGui::Text("Deferred Debug");
+                const char* deferredDebugOptions[]{
+                    "None", "Depth", "Velocity", "Albedo", "Normal", "PBR", "Shadows", "Cascade Level", "nDotL", "AO", "Contact Shadows"
+                };
+                ImGui::Combo("Deferred Debug", &engine->deferredDebug, deferredDebugOptions, IM_ARRAYSIZE(deferredDebugOptions));
+                ImGui::Separator();
+
+                ImGui::Text("Frustum Cull Debug Draw");
+                ImGui::Checkbox("Enable Frustum Cull Debug Draw", &engine->bEnableDebugFrustumCullDraw);
                 ImGui::EndTabItem();
             }
 
@@ -601,6 +723,10 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                         fmt::print(" Failed to find/create image save path directory");
                     }
                 }
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem("Settings")) {
                 ImGui::EndTabItem();
             }
             ImGui::EndTabBar();
@@ -1088,17 +1214,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::End();
 
     if (ImGui::Begin("Discardable Debug")) {
-        ImGui::InputFloat("Blinear Threshold", &engine->sssPush.bilinearThreshold);
-        ImGui::InputFloat("Surface Thickness", &engine->sssPush.surfaceThickness);
-        ImGui::InputFloat("Shadow Contrast", &engine->sssPush.shadowContrast);
-
-        ImGui::SliderInt("Contact Shadow Debug", &engine->sssPush.debugMode, 0, 3);
-
-        ImGui::SliderInt("Ignore Edge Pixels", &engine->sssPush.bIgnoreEdgePixels, 0, 1);
-        ImGui::SliderInt("Use Precision Offset", &engine->sssPush.bUsePrecisionOffset, 0, 1);
-        ImGui::SliderInt("Bilinear Offset Sampling Mode", &engine->sssPush.bBilinearSamplingOffsetMode, 0, 1);
-
-
         if (contactShadowsOutputImguiId == VK_NULL_HANDLE) {
             if (engine->contactShadowsPipeline->debugImage.imageView != VK_NULL_HANDLE) {
                 contactShadowsOutputImguiId = ImGui_ImplVulkan_AddTexture(

@@ -4,35 +4,132 @@
         "minor": 1,
         "patch": 0
     },
-    "mainLight": {
-        "direction": [
-            -0.005322144832462072,
-            -0.9349234104156494,
-            -0.35480964183807373
-        ],
-        "color": [
-            0.20000000298023224,
-            0.4000000059604645,
-            1.0
-        ],
-        "intensity": 50.0
+    "engineSettings": {
+        "saveOnExit": true
     },
-    "cameraProperties": {
+    "cameraSettings": {
         "position": [
-            112.34994506835938,
-            83.79894256591797,
-            -50.39910125732422
+            -19.169994354248047,
+            105.9618911743164,
+            36.455501556396484
         ],
         "rotation": [
-            -0.4555923640727997,
-            -0.2922893166542053,
-            -0.16135302186012268,
-            0.8252077102661133
+            -0.14886538684368134,
+            -0.2690022885799408,
+            -0.04212456941604614,
+            0.9506327509880066
         ],
         "fov": 1.3089969158172607,
-        "aspectRatio": 1.7777777910232544,
+        "aspectRatio": 1.4861111640930176,
         "nearPlane": 1000.0,
         "farPlane": 0.10000000149011612
     },
-    "environmentMapIndex": 3
+    "lightSettings": {
+        "mainLight": {
+            "direction": [
+                -0.6859943270683289,
+                -0.5144957900047302,
+                -0.5144957900047302
+            ],
+            "color": [
+                1.0,
+                1.0,
+                1.0
+            ],
+            "intensity": 1.5
+        }
+    },
+    "environmentSettings": {
+        "environmentMapIndex": 3
+    },
+    "aoSettings": {
+        "enabled": true,
+        "properties": {
+            "effect_radius": 0.5,
+            "effect_falloff_range": 0.6150000095367432,
+            "denoise_blur_beta": 1.2000000476837158,
+            "radius_multiplier": 1.4570000171661377,
+            "sample_distribution_power": 2.0,
+            "thin_occluder_compensation": 0.0,
+            "final_value_power": 2.200000047683716,
+            "depth_mip_sampling_offset": 3.299999952316284,
+            "slice_count": 9.0,
+            "steps_per_slice_count": 3.0
+        }
+    },
+    "sssSettings": {
+        "enabled": true,
+        "properties": {
+            "surfaceThickness": 0.004999999888241291,
+            "bilinearThreshold": 0.05000000074505806,
+            "shadowContrast": 2.0,
+            "ignoreEdgePixels": 1,
+            "usePrecisionOffset": 0,
+            "bilinearSamplingOffsetMode": 0
+        }
+    },
+    "csmSettings": {
+        "enabled": true,
+        "properties": {
+            "pcfLevel": 1,
+            "splitLambda": 0.800000011920929,
+            "splitOverlap": 1.0499999523162842,
+            "cascadeNearPlane": 0.10000000149011612,
+            "cascadeFarPlane": 100.0,
+            "cascadeBias": [
+                {
+                    "constant": 500.0,
+                    "slope": 0.699999988079071
+                },
+                {
+                    "constant": 500.0,
+                    "slope": 0.6000000238418579
+                },
+                {
+                    "constant": 600.0,
+                    "slope": 1.0
+                },
+                {
+                    "constant": 300.0,
+                    "slope": 1.0
+                }
+            ],
+            "cascadeExtents": [
+                {
+                    "width": 2048,
+                    "height": 2048,
+                    "depth": 1
+                },
+                {
+                    "width": 2048,
+                    "height": 2048,
+                    "depth": 1
+                },
+                {
+                    "width": 2048,
+                    "height": 2048,
+                    "depth": 1
+                },
+                {
+                    "width": 2048,
+                    "height": 2048,
+                    "depth": 1
+                }
+            ],
+            "useManualSplit": true,
+            "manualCascadeSplits": [
+                0.10000000149011612,
+                4.0,
+                25.0,
+                100.0,
+                400.0
+            ]
+        }
+    },
+    "taaSettings": {
+        "enabled": true,
+        "properties": {
+            "blendValue": 0.10000000149011612
+        }
+    }
 }

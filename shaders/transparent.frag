@@ -49,7 +49,8 @@ layout (set = 5, binding = 0) uniform sampler2DShadow shadowMapSampler[4];
 
 layout (push_constant) uniform PushConstants {
     int enabled;
-    int receiveShadows;
+    int disableShadows;
+    int disableContactShadows;
 } pushConstants;
 
 void main() {
@@ -111,13 +112,21 @@ void main() {
     float normalOffsetScale = max(offset, dot(N, L) * offset);
     vec3 offsetPosition = inViewPosition + N * normalOffsetScale;
     vec4 worldPosition = sceneData.invView * vec4(offsetPosition, 1.0f);
-    float _tempShadowFactor = getShadowFactorBlend(1, worldPosition.xyz, abs(inViewPosition.z), shadowCascadeData.cascadeSplits, shadowCascadeData.lightViewProj, shadowMapSampler, shadowCascadeData.nearShadowPlane, shadowCascadeData.farShadowPlane);
-    float shadowFactor = clamp(smoothstep(-0.15f, 0.5f, dot(N, L)) * _tempShadowFactor, 0, 1);
 
-    if (pushConstants.receiveShadows == 0) {
+    float shadowFactor = getShadowFactorBlend(1, worldPosition.xyz, abs(inViewPosition.z), shadowCascadeData.cascadeSplits, shadowCascadeData.lightViewProj, shadowMapSampler, shadowCascadeData.nearShadowPlane, shadowCascadeData.farShadowPlane);
+    if (pushConstants.disableShadows == 1){
         shadowFactor = 1.0f;
     }
+    // todo: add contact shadow as descriptor to transparent pipeline
+    //float contactShadow = texture(contactShadowBuffer, uv).r;
+    float contactShadow = 1.0f;
+    if (pushConstants.disableContactShadows == 1){
+        contactShadow = 1.0f;
+    }
 
+    shadowFactor = min(shadowFactor, contactShadow);
+
+    // Direct lighting with shadows
     vec3 directLight = (diffuse + specular) * nDotL * shadowFactor * shadowCascadeData.directionalLightData.intensity * shadowCascadeData.directionalLightData.color;
 
     // IBL Reflections
@@ -128,6 +137,7 @@ void main() {
 
     float ao = 1.0f;
     vec3 ambient = (kD * reflectionDiffuse + reflectionSpecular) * ao;
+    ambient *= mix(0.4, 1.0, min(shadowFactor, nDotL));
     vec3 finalColor = directLight + ambient;
 
     float z = gl_FragCoord.z;

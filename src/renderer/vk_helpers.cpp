@@ -214,7 +214,8 @@ VkRenderingAttachmentInfo will_engine::vk_helpers::attachmentInfo(VkImageView vi
     return colorAttachment;
 }
 
-VkRenderingInfo will_engine::vk_helpers::renderingInfo(const VkExtent2D renderExtent, const VkRenderingAttachmentInfo* colorAttachment, const VkRenderingAttachmentInfo* depthAttachment)
+VkRenderingInfo will_engine::vk_helpers::renderingInfo(const VkExtent2D renderExtent, const VkRenderingAttachmentInfo* colorAttachment,
+                                                       const VkRenderingAttachmentInfo* depthAttachment)
 {
     VkRenderingInfo renderInfo{};
     renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -230,7 +231,8 @@ VkRenderingInfo will_engine::vk_helpers::renderingInfo(const VkExtent2D renderEx
     return renderInfo;
 }
 
-VkSubmitInfo2 will_engine::vk_helpers::submitInfo(const VkCommandBufferSubmitInfo* cmd, const VkSemaphoreSubmitInfo* signalSemaphoreInfo, const VkSemaphoreSubmitInfo* waitSemaphoreInfo)
+VkSubmitInfo2 will_engine::vk_helpers::submitInfo(const VkCommandBufferSubmitInfo* cmd, const VkSemaphoreSubmitInfo* signalSemaphoreInfo,
+                                                  const VkSemaphoreSubmitInfo* waitSemaphoreInfo)
 {
     VkSubmitInfo2 info = {};
     info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
@@ -265,7 +267,21 @@ VkDeviceSize will_engine::vk_helpers::getAlignedSize(const VkDeviceSize value, V
     return (value + alignment - 1) & ~(alignment - 1);
 }
 
-void will_engine::vk_helpers::clearColorImage(VkCommandBuffer cmd, VkImageAspectFlagBits aspectFlag, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout, VkClearColorValue clearColor)
+void will_engine::vk_helpers::copyBuffer(VkCommandBuffer cmd, const AllocatedBuffer& src, VkDeviceSize srcOffset, const AllocatedBuffer& dst,
+                                         VkDeviceSize dstOffset, VkDeviceSize size)
+{
+    if (src.buffer == VK_NULL_HANDLE) { return; }
+    if (dst.buffer == VK_NULL_HANDLE) { return; }
+    VkBufferCopy vertexCopy{};
+    vertexCopy.dstOffset = srcOffset;
+    vertexCopy.srcOffset = dstOffset;
+    vertexCopy.size = size;
+
+    vkCmdCopyBuffer(cmd, src.buffer, dst.buffer, 1, &vertexCopy);
+}
+
+void will_engine::vk_helpers::clearColorImage(VkCommandBuffer cmd, VkImageAspectFlagBits aspectFlag, VkImage image, VkImageLayout srcLayout,
+                                              VkImageLayout dstLayout, VkClearColorValue clearColor)
 {
     transitionImage(cmd, image, srcLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     constexpr VkImageSubresourceRange range{
@@ -280,7 +296,8 @@ void will_engine::vk_helpers::clearColorImage(VkCommandBuffer cmd, VkImageAspect
 }
 
 
-void will_engine::vk_helpers::transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout, VkImageAspectFlags aspectMask)
+void will_engine::vk_helpers::transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout,
+                                              VkImageAspectFlags aspectMask)
 {
     VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
     imageBarrier.pNext = nullptr;
@@ -306,7 +323,9 @@ void will_engine::vk_helpers::transitionImage(VkCommandBuffer cmd, VkImage image
     vkCmdPipelineBarrier2(cmd, &depInfo);
 }
 
-void will_engine::vk_helpers::synchronizeUniform(VkCommandBuffer cmd, const AllocatedBuffer& buffer, VkPipelineStageFlagBits2 srcPipelineStage, VkAccessFlagBits2 srcAccessBit , VkPipelineStageFlagBits2 dstPipelineStage, VkAccessFlagBits2 dstAccessBit)
+void will_engine::vk_helpers::synchronizeUniform(VkCommandBuffer cmd, const AllocatedBuffer& buffer, VkPipelineStageFlagBits2 srcPipelineStage,
+                                                 VkAccessFlagBits2 srcAccessBit, VkPipelineStageFlagBits2 dstPipelineStage,
+                                                 VkAccessFlagBits2 dstAccessBit)
 {
     VkBufferMemoryBarrier2 bufferBarrier{};
     bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
@@ -472,7 +491,8 @@ void will_engine::vk_helpers::generateMipmaps(VkCommandBuffer cmd, VkImage image
     transitionImage(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
-void will_engine::vk_helpers::generateMipmapsCubemap(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize, VkImageLayout inputLayout, VkImageLayout ouputLayout)
+void will_engine::vk_helpers::generateMipmapsCubemap(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize, VkImageLayout inputLayout,
+                                                     VkImageLayout ouputLayout)
 {
     transitionImage(cmd, image, inputLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -559,7 +579,8 @@ VkPipelineLayoutCreateInfo will_engine::vk_helpers::pipelineLayoutCreateInfo()
     return info;
 }
 
-VkPipelineShaderStageCreateInfo will_engine::vk_helpers::pipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shaderModule, const char* entry)
+VkPipelineShaderStageCreateInfo will_engine::vk_helpers::pipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shaderModule,
+                                                                                       const char* entry)
 {
     VkPipelineShaderStageCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -573,7 +594,8 @@ VkPipelineShaderStageCreateInfo will_engine::vk_helpers::pipelineShaderStageCrea
     return info;
 }
 
-void will_engine::vk_helpers::saveImageRGBA32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, const VkImageLayout imageLayout,
+void will_engine::vk_helpers::saveImageRGBA32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
+                                               const AllocatedImage& image, const VkImageLayout imageLayout,
                                                const VkImageAspectFlags aspectFlag,
                                                const char* savePath, const bool overrideAlpha)
 {
@@ -618,12 +640,13 @@ void will_engine::vk_helpers::saveImageRGBA32F(const ResourceManager& resourceMa
     stbi_write_png(savePath, image.imageExtent.width, image.imageExtent.height, 4, byteImageData, image.imageExtent.width * 4);
 
     delete[] byteImageData;
-    resourceManager.destroyBuffer(receivingBuffer);
+    resourceManager.destroyBufferImmediate(receivingBuffer);
 }
 
-void will_engine::vk_helpers::saveImageRGBA16SFLOAT(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout,
-                                       VkImageAspectFlags aspectFlag,
-                                       const char* savePath, const bool overrideAlpha)
+void will_engine::vk_helpers::saveImageRGBA16SFLOAT(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
+                                                    const AllocatedImage& image, VkImageLayout imageLayout,
+                                                    VkImageAspectFlags aspectFlag,
+                                                    const char* savePath, const bool overrideAlpha)
 {
     using half_float::half;
     constexpr int channelCount = 4;
@@ -667,11 +690,12 @@ void will_engine::vk_helpers::saveImageRGBA16SFLOAT(const ResourceManager& resou
     stbi_write_png(savePath, image.imageExtent.width, image.imageExtent.height, 4, byteImageData, image.imageExtent.width * 4);
 
     delete[] byteImageData;
-    resourceManager.destroyBuffer(receivingBuffer);
+    resourceManager.destroyBufferImmediate(receivingBuffer);
 }
 
-void will_engine::vk_helpers::savePacked32Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-                                 const char* savePath, const std::function<glm::vec4(uint32_t)>& unpackingFunction)
+void will_engine::vk_helpers::savePacked32Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
+                                              const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+                                              const char* savePath, const std::function<glm::vec4(uint32_t)>& unpackingFunction)
 {
     const size_t dataSize = image.imageExtent.width * image.imageExtent.height * sizeof(uint32_t);
     AllocatedBuffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
@@ -711,11 +735,12 @@ void will_engine::vk_helpers::savePacked32Bit(const ResourceManager& resourceMan
     stbi_write_png(savePath, image.imageExtent.width, image.imageExtent.height, 4, byteImageData, image.imageExtent.width * 4);
 
     delete[] byteImageData;
-    resourceManager.destroyBuffer(receivingBuffer);
+    resourceManager.destroyBufferImmediate(receivingBuffer);
 }
 
-void will_engine::vk_helpers::savePacked64Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-                                 const char* savePath, const std::function<glm::vec4(uint64_t)>& unpackingFunction)
+void will_engine::vk_helpers::savePacked64Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
+                                              const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+                                              const char* savePath, const std::function<glm::vec4(uint64_t)>& unpackingFunction)
 {
     const size_t dataSize = image.imageExtent.width * image.imageExtent.height * sizeof(uint64_t);
     AllocatedBuffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
@@ -755,11 +780,12 @@ void will_engine::vk_helpers::savePacked64Bit(const ResourceManager& resourceMan
     stbi_write_png(savePath, image.imageExtent.width, image.imageExtent.height, 4, byteImageData, image.imageExtent.width * 4);
 
     delete[] byteImageData;
-    resourceManager.destroyBuffer(receivingBuffer);
+    resourceManager.destroyBufferImmediate(receivingBuffer);
 }
 
-void will_engine::vk_helpers::saveImageR32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-                               const char* savePath, const std::function<float(float)>& valueTransform, int32_t mipLevel)
+void will_engine::vk_helpers::saveImageR32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
+                                            VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+                                            const char* savePath, const std::function<float(float)>& valueTransform, int32_t mipLevel)
 {
     size_t newXSize = image.imageExtent.width / static_cast<size_t>(std::pow(2, mipLevel));
     size_t newYSize = image.imageExtent.height / static_cast<size_t>(std::pow(2, mipLevel));
@@ -802,11 +828,13 @@ void will_engine::vk_helpers::saveImageR32F(const ResourceManager& resourceManag
     stbi_write_png(savePath, static_cast<int>(newXSize), static_cast<int>(newYSize), 4, byteImageData, static_cast<int>(newXSize) * 4);
 
     delete[] byteImageData;
-    resourceManager.destroyBuffer(receivingBuffer);
+    resourceManager.destroyBufferImmediate(receivingBuffer);
 }
 
-void will_engine::vk_helpers::saveImageR16F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image, VkImageLayout imageLayout,
-    VkImageAspectFlags aspectFlag, const char* savePath, const std::function<float(uint16_t)>& valueTransform, int32_t mipLevel)
+void will_engine::vk_helpers::saveImageR16F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
+                                            VkImageLayout imageLayout,
+                                            VkImageAspectFlags aspectFlag, const char* savePath, const std::function<float(uint16_t)>& valueTransform,
+                                            int32_t mipLevel)
 {
     size_t newXSize = image.imageExtent.width / static_cast<size_t>(std::pow(2, mipLevel));
     size_t newYSize = image.imageExtent.height / static_cast<size_t>(std::pow(2, mipLevel));
@@ -851,11 +879,11 @@ void will_engine::vk_helpers::saveImageR16F(const ResourceManager& resourceManag
     stbi_write_png(savePath, static_cast<int>(newXSize), static_cast<int>(newYSize), 4, byteImageData, static_cast<int>(newXSize) * 4);
 
     delete[] byteImageData;
-    resourceManager.destroyBuffer(receivingBuffer);
+    resourceManager.destroyBufferImmediate(receivingBuffer);
 }
 
 void will_engine::vk_helpers::saveImageR8UNORM(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
-    const AllocatedImage& image, VkImageLayout imageLayout, const char* savePath, int32_t mipLevel)
+                                               const AllocatedImage& image, VkImageLayout imageLayout, const char* savePath, int32_t mipLevel)
 {
     const size_t width = image.imageExtent.width / static_cast<size_t>(std::pow(2, mipLevel));
     const size_t height = image.imageExtent.height / static_cast<size_t>(std::pow(2, mipLevel));
@@ -897,11 +925,11 @@ void will_engine::vk_helpers::saveImageR8UNORM(const ResourceManager& resourceMa
     stbi_write_png(savePath, static_cast<int>(width), static_cast<int>(height), 4, byteImageData, static_cast<int>(width) * 4);
 
     delete[] byteImageData;
-    resourceManager.destroyBuffer(receivingBuffer);
+    resourceManager.destroyBufferImmediate(receivingBuffer);
 }
 
 void will_engine::vk_helpers::saveImageR8G8B8A8UNORM(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
-    const AllocatedImage& image, VkImageLayout imageLayout, const char* savePath, int32_t mipLevel)
+                                                     const AllocatedImage& image, VkImageLayout imageLayout, const char* savePath, int32_t mipLevel)
 {
     const size_t width = image.imageExtent.width / static_cast<size_t>(std::pow(2, mipLevel));
     const size_t height = image.imageExtent.height / static_cast<size_t>(std::pow(2, mipLevel));
@@ -944,10 +972,11 @@ void will_engine::vk_helpers::saveImageR8G8B8A8UNORM(const ResourceManager& reso
     stbi_write_png(savePath, static_cast<int>(width), static_cast<int>(height), 4, byteImageData, static_cast<int>(width) * 4);
 
     delete[] byteImageData;
-    resourceManager.destroyBuffer(receivingBuffer);
+    resourceManager.destroyBufferImmediate(receivingBuffer);
 }
 
-void will_engine::vk_helpers::saveImage(const std::vector<float>& imageData, int width, int height, std::filesystem::path filename, bool overrideAlpha)
+void will_engine::vk_helpers::saveImage(const std::vector<float>& imageData, int width, int height, std::filesystem::path filename,
+                                        bool overrideAlpha)
 {
     const auto byteImageData = new uint8_t[width * height * 4];
     for (size_t i = 0; i < width * height; ++i) {
