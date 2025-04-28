@@ -21,10 +21,16 @@ void Time::update()
     // Breakpoint resume case
     if (deltaTime > 1000) { deltaTime = 333; }
     lastTime = last;
+
 }
 
 float Time::getDeltaTime() const
 {
     return static_cast<float>(deltaTime) / 1000.0f;
+}
+
+float Time::getTime() const
+{
+    return static_cast<float>(lastTime) / 1000.0f;
 }
 }

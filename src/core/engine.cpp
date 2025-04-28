@@ -483,7 +483,6 @@ void Engine::render(float deltaTime)
     profiler.beginTimer("2Render");
 
 
-
     std::vector<RenderObject*> allRenderObjects = assetManager->getAllRenderObjects();
 
     // Update Render Object Buffers and Model Matrices
@@ -637,7 +636,15 @@ void Engine::render(float deltaTime)
             sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
         };
 
-        debugRenderer->drawBox({0, 0, 0}, {2.0f, 2.0f, 2.0f}, {0.0f, 1.0f, 0.0f});
+
+        for (int32_t i{0}; i < 100; i++) {
+            for (int32_t j{0}; j < 100; j++) {
+                float z = glm::sin(Time::Get().getTime() - j * 0.5f) * 2.0;
+                debugRenderer->drawBox({i, j, z}, {0.8f, 0.8f, 0.8f}, {0.0f, 0.7f, 0.1f});
+            }
+        }
+
+        debugRenderer->drawSphere({0, 0, -5}, 2.0f, {0.0f, 0.7f, 0.1f});
         debugRenderer->draw(cmd, debugRendererDrawInfo);
     }
 
@@ -744,12 +751,14 @@ void Engine::render(float deltaTime)
 
     if (engine_constants::useImgui) {
         vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+                                    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
         imguiWrapper->drawImgui(cmd, swapchainImageViews[swapchainImageIndex], swapchainExtent);
 
-        vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
                                     VK_IMAGE_ASPECT_COLOR_BIT);
-    } else {
+    }
+    else {
         vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                     VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_ASPECT_COLOR_BIT);
     }

@@ -25,14 +25,10 @@ public:
     static DebugRenderer* get() { return debugRenderer; }
     static void set(DebugRenderer* _debugRenderer) { debugRenderer = _debugRenderer; }
 
-    struct DrawIndexedData
-    {
-        uint32_t indexCount;
-        uint32_t firstIndex;
-        int32_t vertexOffset;
-        uint32_t firstInstance;
-    };
 
+    void setupBoxRendering(int32_t index);
+
+    void setupSphereRendering(int32_t index);
 
     DebugRenderer(ResourceManager& resourceManager);
 
@@ -49,14 +45,14 @@ public:
 public:
     void draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawInfo);
 
-    void clear();
-
     void reloadShaders()
     {
         createPipeline();
     }
 
 private:
+    void clear();
+
     void createPipeline();
 
     VkPipeline pipeline{VK_NULL_HANDLE};
@@ -83,17 +79,12 @@ private:
     AllocatedBuffer instancedIndexBuffer{VK_NULL_HANDLE};
 
     /**
-     * Default size is 512 instances (if vector is greater than 512, it will be truncated)
+     * 0 = box, 1 = sphere
      */
-    std::vector<BoxInstance> boxInstances;
-    std::array<AllocatedBuffer, FRAME_OVERLAP> boxInstanceBuffers{VK_NULL_HANDLE, VK_NULL_HANDLE};
-    DrawIndexedData boxDrawIndexedData{};
+    std::array<DebugRenderGroup, 4> debugRenderInstanceGroups;
 
-    /**
-     * Should only house 1x address buffer, but for "correctness" should use `FRAME_OVERLAP` number of address buffers.
-     * \n But since addresses don't change often (almost never), will forgo this
-     */
-    DescriptorBufferUniform boxInstanceDescriptorBuffer;
+
+
 
 };
 }

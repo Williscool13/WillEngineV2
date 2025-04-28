@@ -8,9 +8,25 @@
 #include <glm/glm.hpp>
 #include <volk/volk.h>
 
+#include "src/renderer/renderer_constants.h"
+#include "src/renderer/vk_types.h"
+#include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
+
 namespace will_engine::debug_renderer
 {
 static constexpr inline int32_t DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT = 512;
+static constexpr inline int32_t BOX_INSTANCE_INDEX = 0;
+static constexpr inline int32_t SPHERE_INSTANCE_INDEX = 1;
+
+struct SphereDetailLevel {
+    int32_t rings;
+    int32_t segments;
+};
+
+static constexpr inline SphereDetailLevel SPHERE_DETAIL_LOW = {4, 8};
+static constexpr inline SphereDetailLevel SPHERE_DETAIL_MEDIUM = {8, 16};
+static constexpr inline SphereDetailLevel SPHERE_DETAIL_HIGH = {16, 32};
+
 enum class DebugRendererCategory : uint32_t
 {
     None = 0x00000000, // Will always be drawn
@@ -58,10 +74,11 @@ struct DebugRendererVertex
     glm::vec3 position;
 };
 
-struct BoxInstance {
-    glm::mat4 transform;  // Position + scale
-    glm::vec3 color;
-    float padding;
+struct DebugRendererInstance
+{
+    glm::mat4 transform{1.0f}; // Position + scale
+    glm::vec3 color{0.0f, 1.0f, 0.0f};
+    float padding{0.0f};
 };
 
 struct DebugRendererDrawInfo
@@ -71,6 +88,23 @@ struct DebugRendererDrawInfo
     VkImageView depthTarget;
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};
+};
+
+struct DrawIndexedData
+{
+    uint32_t indexCount;
+    uint32_t firstIndex;
+    int32_t vertexOffset;
+    uint32_t firstInstance;
+};
+
+
+struct DebugRenderGroup
+{
+    std::vector<DebugRendererInstance> instances;
+    std::array<AllocatedBuffer, FRAME_OVERLAP> instanceBuffers{VK_NULL_HANDLE, VK_NULL_HANDLE};
+    DrawIndexedData drawIndexedData{};
+    DescriptorBufferUniform instanceDescriptorBuffer;
 };
 }
 

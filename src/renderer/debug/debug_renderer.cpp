@@ -17,42 +17,13 @@ DebugRenderer* DebugRenderer::debugRenderer = nullptr;
 
 DebugRenderer::DebugRenderer(ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
-    boxInstances.reserve(DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT);
-    // 8 vertices, 12 edges (24 points)
-    constexpr int32_t boxVertexCount = 8;
-    constexpr int32_t boxIndicesCount = 24;
-    instancedVertices.reserve(instancedVertices.size() + boxVertexCount);
-    instancedIndices.reserve(instancedIndices.size() + boxIndicesCount);
+    DescriptorLayoutBuilder layoutBuilder;
+    layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
+    uniformLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_VERTEX_BIT,
+                                                              VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
-    std::vector<DebugRendererVertex> boxVertices = {
-        {{0, 0, 0}}, // 0: near bottom left
-        {{1, 0, 0}}, // 1: near bottom right
-        {{1, 1, 0}}, // 2: near top right
-        {{0, 1, 0}}, // 3: near top left
-        {{0, 0, 1}}, // 4: far bottom left
-        {{1, 0, 1}}, // 5: far bottom right
-        {{1, 1, 1}}, // 6: far top right
-        {{0, 1, 1}} // 7: far top left
-    };
-
-    std::vector<uint32_t> boxIndices = {
-        // Near face
-        0, 1, 1, 2, 2, 3, 3, 0,
-        // Far face
-        4, 5, 5, 6, 6, 7, 7, 4,
-        // Connecting edges
-        0, 4, 1, 5, 2, 6, 3, 7
-    };
-
-    size_t boxVertexOffset = instancedVertices.size();
-    size_t boxIndexOffset = instancedIndices.size();
-    instancedVertices.insert(instancedVertices.end(), boxVertices.begin(), boxVertices.end());
-    instancedIndices.insert(instancedIndices.end(), boxIndices.begin(), boxIndices.end());
-
-    boxDrawIndexedData.indexCount = boxIndicesCount;
-    boxDrawIndexedData.firstIndex = boxIndexOffset;
-    boxDrawIndexedData.vertexOffset = static_cast<int32_t>(boxVertexOffset);
-    boxDrawIndexedData.firstInstance = 0;
+    setupBoxRendering(BOX_INSTANCE_INDEX);
+    setupSphereRendering(SPHERE_INSTANCE_INDEX);
 
     // Vertex Buffer
     const uint64_t instancedVertexBufferSize = instancedVertices.size() * sizeof(DebugRendererVertex);
@@ -76,23 +47,6 @@ DebugRenderer::DebugRenderer(ResourceManager& resourceManager) : resourceManager
         resourceManager.destroyBufferImmediate(bufferCopy.src);
     }
 
-    DescriptorLayoutBuilder layoutBuilder;
-    layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER);
-    uniformLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_VERTEX_BIT,
-                                                              VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-
-    // Box Instance Data Buffer
-    constexpr uint64_t boxInstanceBufferSize = DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT * sizeof(BoxInstance);
-    boxInstanceDescriptorBuffer = resourceManager.createDescriptorBufferUniform(uniformLayout, FRAME_OVERLAP);
-    for (int32_t i = 0; i < FRAME_OVERLAP; ++i) {
-        boxInstanceBuffers[i] = resourceManager.createHostSequentialBuffer(boxInstanceBufferSize);
-        DescriptorUniformData addressesUniformData{
-            .uniformBuffer = boxInstanceBuffers[i],
-            .allocSize = boxInstanceBufferSize,
-        };
-
-        resourceManager.setupDescriptorBufferUniform(boxInstanceDescriptorBuffer, {addressesUniformData}, i);
-    }
 
     VkDescriptorSetLayout descriptorLayout[2];
     descriptorLayout[0] = resourceManager.getSceneDataLayout();
@@ -118,10 +72,12 @@ DebugRenderer::~DebugRenderer()
     resourceManager.destroyBuffer(instancedVertexBuffer);
     resourceManager.destroyBuffer(instancedIndexBuffer);
 
-    for (AllocatedBuffer& buffer : boxInstanceBuffers) {
-        resourceManager.destroyBuffer(buffer);
+    for (DebugRenderGroup& group : debugRenderInstanceGroups) {
+        for (AllocatedBuffer& buffer : group.instanceBuffers) {
+            resourceManager.destroyBuffer(buffer);
+        }
+        resourceManager.destroyDescriptorBuffer(group.instanceDescriptorBuffer);
     }
-    resourceManager.destroyDescriptorBuffer(boxInstanceDescriptorBuffer);
 
     resourceManager.destroyPipeline(pipeline);
     resourceManager.destroyPipelineLayout(pipelineLayout);
@@ -129,15 +85,19 @@ DebugRenderer::~DebugRenderer()
 
 void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawInfo)
 {
-    if (boxInstances.empty()) { return; }
+    // Upload
+    for (DebugRenderGroup group : debugRenderInstanceGroups) {
+        if (group.instances.empty()) { continue; }
 
-    if (boxInstances.size() > DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT) {
-        boxInstances.resize(DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT);
+        if (group.instances.size() > DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT) {
+            group.instances.resize(DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT);
+            // todo: dynamic resize
+        }
+
+        AllocatedBuffer& instanceBuffer = group.instanceBuffers[drawInfo.currentFrameOverlap];
+        memcpy(instanceBuffer.info.pMappedData, group.instances.data(), sizeof(DebugRendererInstance) * group.instances.size());
     }
 
-    // upload
-    const AllocatedBuffer& currentBoxInstanceBuffer = boxInstanceBuffers[drawInfo.currentFrameOverlap];
-    memcpy(currentBoxInstanceBuffer.info.pMappedData, boxInstances.data(), sizeof(BoxInstance) * boxInstances.size());
 
     const VkRenderingAttachmentInfo albedoAttachment = vk_helpers::attachmentInfo(drawInfo.albedoTarget, nullptr,
                                                                                   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
@@ -162,7 +122,7 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     vkCmdBeginRendering(cmd, &renderInfo);
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
 
-    vkCmdSetLineWidth(cmd, 3.0f);
+    vkCmdSetLineWidth(cmd, 2.0f);
 
     //  Viewport
     VkViewport viewport = {};
@@ -181,41 +141,44 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     scissor.extent.height = RENDER_EXTENTS.height;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    const std::array descriptorBufferBindingInfos{
-        drawInfo.sceneDataBinding,
-        boxInstanceDescriptorBuffer.getDescriptorBufferBindingInfo()
-    };
-
-    vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfos.data());
-
-    constexpr std::array<uint32_t, 2> indices{0, 1};
-    const std::array offsets{
-        drawInfo.sceneDataOffset,
-        boxInstanceDescriptorBuffer.getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
-    };
-
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 2, indices.data(), offsets.data());
-
-    vkCmdBindVertexBuffers(cmd, 0, 1, &instancedVertexBuffer.buffer, &ZERO_DEVICE_SIZE);
-    vkCmdBindIndexBuffer(cmd, instancedIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+    for (DebugRenderGroup& group : debugRenderInstanceGroups) {
+        if (group.instances.empty()) { continue;; }
 
 
-    vkCmdDrawIndexed(cmd, boxDrawIndexedData.indexCount, boxInstances.size(), boxDrawIndexedData.firstIndex
-                     , boxDrawIndexedData.vertexOffset, boxDrawIndexedData.firstInstance);
+        const std::array descriptorBufferBindingInfos{
+            drawInfo.sceneDataBinding,
+            group.instanceDescriptorBuffer.getDescriptorBufferBindingInfo()
+        };
+
+        vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfos.data());
+
+        constexpr std::array<uint32_t, 2> indices{0, 1};
+        const std::array offsets{
+            drawInfo.sceneDataOffset,
+            group.instanceDescriptorBuffer.getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
+        };
+
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 2, indices.data(), offsets.data());
+
+        vkCmdBindVertexBuffers(cmd, 0, 1, &instancedVertexBuffer.buffer, &ZERO_DEVICE_SIZE);
+        vkCmdBindIndexBuffer(cmd, instancedIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+
+        vkCmdDrawIndexed(cmd, group.drawIndexedData.indexCount, group.instances.size(), group.drawIndexedData.firstIndex
+                         , group.drawIndexedData.vertexOffset, group.drawIndexedData.firstInstance);
+    }
+
 
     vkCmdEndRendering(cmd);
 
     clear();
-
 }
 
 void DebugRenderer::clear()
 {
-    boxInstances.clear();
-
-    // remove anything past the defaults
-    //vertices.clear();
-    //indices.clear();
+    for (DebugRenderGroup& group : debugRenderInstanceGroups) {
+        group.instances.clear();
+    }
 }
 
 void DebugRenderer::createPipeline()
@@ -265,31 +228,165 @@ void DebugRenderer::drawLine(const glm::vec3& start, const glm::vec3& end, const
 void DebugRenderer::drawSphere(const glm::vec3& center, float radius, const glm::vec3& color, DebugRendererCategory category)
 {
     if (!hasFlag(activeCategories, category)) { return; }
-
-
-    // add to vertices and indices
-}
-
-void DebugRenderer::drawBox(const glm::vec3& center, const glm::vec3& dimensions, const glm::vec3& color, DebugRendererCategory category)
-{
     if (!hasFlag(activeCategories, category)) { return; }
 
-    const glm::mat4 transform = glm::translate(glm::mat4(1.0f), center) *
-                                glm::scale(glm::mat4(1.0f), dimensions);
+    const glm::mat4 transform = glm::translate(glm::mat4(1.0f), center) * glm::scale(glm::mat4(1.0f), glm::vec3(radius));
 
-    BoxInstance instance{};
+    DebugRendererInstance instance{};
     instance.transform = transform;
     instance.color = color;
 
-    boxInstances.push_back(instance);
+    debugRenderInstanceGroups[SPHERE_INSTANCE_INDEX].instances.push_back(instance);
 }
 
-void DebugRenderer::drawBoxMinmax(const glm::vec3& min, const glm::vec3& max, const glm::vec3& color, DebugRendererCategory category)
+void DebugRenderer::drawBox(const glm::vec3& center, const glm::vec3& dimensions, const glm::vec3& color, const DebugRendererCategory category)
 {
     if (!hasFlag(activeCategories, category)) { return; }
 
-    // add box instance to
-    std::vector<BoxInstance> boxInstances;
+    const glm::mat4 transform = glm::translate(glm::mat4(1.0f), center) * glm::scale(glm::mat4(1.0f), dimensions);
+
+    DebugRendererInstance instance{};
+    instance.transform = transform;
+    instance.color = color;
+
+    debugRenderInstanceGroups[BOX_INSTANCE_INDEX].instances.push_back(instance);
 }
 
+void DebugRenderer::drawBoxMinmax(const glm::vec3& min, const glm::vec3& max, const glm::vec3& color, const DebugRendererCategory category)
+{
+    if (!hasFlag(activeCategories, category)) { return; }
+
+    const glm::vec3 size = max - min;
+    const glm::vec3 center = min + size * 0.5f;
+
+    drawBox(center, size, color, category);
+}
+
+
+void DebugRenderer::setupBoxRendering(const int32_t index)
+{
+    // Box Instance Data Buffer
+    constexpr uint64_t boxInstanceBufferSize = DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT * sizeof(DebugRendererInstance);
+    debugRenderInstanceGroups[index].instanceDescriptorBuffer = resourceManager.createDescriptorBufferUniform(uniformLayout, FRAME_OVERLAP);
+    for (int32_t i = 0; i < FRAME_OVERLAP; ++i) {
+        debugRenderInstanceGroups[index].instanceBuffers[i] = resourceManager.createHostSequentialBuffer(boxInstanceBufferSize);
+        DescriptorUniformData addressesUniformData{
+            .uniformBuffer = debugRenderInstanceGroups[index].instanceBuffers[i],
+            .allocSize = boxInstanceBufferSize,
+        };
+
+        resourceManager.setupDescriptorBufferUniform(debugRenderInstanceGroups[index].instanceDescriptorBuffer, {addressesUniformData}, i);
+    }
+
+
+    debugRenderInstanceGroups[index].instances.reserve(DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT);
+    // 8 vertices, 12 edges (24 points)
+    constexpr int32_t boxVertexCount = 8;
+    constexpr int32_t boxIndicesCount = 24;
+    instancedVertices.reserve(instancedVertices.size() + boxVertexCount);
+    instancedIndices.reserve(instancedIndices.size() + boxIndicesCount);
+
+    std::vector<DebugRendererVertex> boxVertices = {
+        {{0, 0, 0}}, // 0: near bottom left
+        {{1, 0, 0}}, // 1: near bottom right
+        {{1, 1, 0}}, // 2: near top right
+        {{0, 1, 0}}, // 3: near top left
+        {{0, 0, 1}}, // 4: far bottom left
+        {{1, 0, 1}}, // 5: far bottom right
+        {{1, 1, 1}}, // 6: far top right
+        {{0, 1, 1}} // 7: far top left
+    };
+
+    std::vector<uint32_t> boxIndices = {
+        // Near face
+        0, 1, 1, 2, 2, 3, 3, 0,
+        // Far face
+        4, 5, 5, 6, 6, 7, 7, 4,
+        // Connecting edges
+        0, 4, 1, 5, 2, 6, 3, 7
+    };
+
+    const size_t boxVertexOffset = instancedVertices.size();
+    const size_t boxIndexOffset = instancedIndices.size();
+    instancedVertices.insert(instancedVertices.end(), boxVertices.begin(), boxVertices.end());
+    instancedIndices.insert(instancedIndices.end(), boxIndices.begin(), boxIndices.end());
+
+    debugRenderInstanceGroups[index].drawIndexedData.indexCount = boxIndicesCount;
+    debugRenderInstanceGroups[index].drawIndexedData.firstIndex = boxIndexOffset;
+    debugRenderInstanceGroups[index].drawIndexedData.vertexOffset = static_cast<int32_t>(boxVertexOffset);
+    debugRenderInstanceGroups[index].drawIndexedData.firstInstance = 0;
+}
+
+void DebugRenderer::setupSphereRendering(const int32_t index)
+{
+    // Sphere Instance Data Buffer
+    constexpr uint64_t sphereInstanceBufferSize = DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT * sizeof(DebugRendererInstance);
+    debugRenderInstanceGroups[index].instanceDescriptorBuffer = resourceManager.createDescriptorBufferUniform(uniformLayout, FRAME_OVERLAP);
+    for (int32_t i = 0; i < FRAME_OVERLAP; ++i) {
+        debugRenderInstanceGroups[index].instanceBuffers[i] = resourceManager.createHostSequentialBuffer(sphereInstanceBufferSize);
+        DescriptorUniformData addressesUniformData{
+            .uniformBuffer = debugRenderInstanceGroups[index].instanceBuffers[i],
+            .allocSize = sphereInstanceBufferSize,
+        };
+
+        resourceManager.setupDescriptorBufferUniform(debugRenderInstanceGroups[index].instanceDescriptorBuffer, {addressesUniformData}, i);
+    }
+
+    debugRenderInstanceGroups[index].instances.reserve(DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT);
+
+    constexpr int32_t rings = SPHERE_DETAIL_MEDIUM.rings;
+    constexpr int32_t segments = SPHERE_DETAIL_MEDIUM.segments;
+    constexpr int32_t sphereVertexCount = (rings + 1) * segments;
+    constexpr int32_t sphereLineCount = rings * segments * 2; // Longitude + latitude lines
+    constexpr int32_t sphereIndicesCount = sphereLineCount * 2; // 2 indices per line
+
+    instancedVertices.reserve(instancedVertices.size() + sphereVertexCount);
+    instancedIndices.reserve(instancedIndices.size() + sphereIndicesCount);
+
+    std::vector<DebugRendererVertex> sphereVertices;
+    sphereVertices.reserve(sphereVertexCount);
+
+    for (int32_t ring = 0; ring <= rings; ++ring) {
+        float phi = glm::pi<float>() * static_cast<float>(ring) / static_cast<float>(rings);
+        for (int32_t segment = 0; segment < segments; ++segment) {
+            float theta = 2.0f * glm::pi<float>() * static_cast<float>(segment) / static_cast<float>(segments);
+
+            float x = std::sin(phi) * std::cos(theta);
+            float y = std::cos(phi);
+            float z = std::sin(phi) * std::sin(theta);
+
+            sphereVertices.push_back({{x, y, z}});
+        }
+    }
+
+    std::vector<uint32_t> sphereIndices;
+    sphereIndices.reserve(sphereIndicesCount);
+
+    for (int32_t ring = 0; ring < rings; ++ring) {
+        const int32_t ringStart = ring * segments;
+        const int32_t nextRingStart = (ring + 1) * segments;
+        for (int32_t segment = 0; segment < segments; ++segment) {
+            sphereIndices.push_back(ringStart + segment);
+            sphereIndices.push_back(nextRingStart + segment);
+        }
+    }
+
+    for (int32_t ring = 0; ring <= rings; ++ring) {
+        const int32_t ringStart = ring * segments;
+        for (int32_t segment = 0; segment < segments; ++segment) {
+            sphereIndices.push_back(ringStart + segment);
+            sphereIndices.push_back(ringStart + ((segment + 1) % segments));
+        }
+    }
+
+    const size_t sphereVertexOffset = instancedVertices.size();
+    const size_t sphereIndexOffset = instancedIndices.size();
+    instancedVertices.insert(instancedVertices.end(), sphereVertices.begin(), sphereVertices.end());
+    instancedIndices.insert(instancedIndices.end(), sphereIndices.begin(), sphereIndices.end());
+
+    debugRenderInstanceGroups[index].drawIndexedData.indexCount = sphereIndicesCount;
+    debugRenderInstanceGroups[index].drawIndexedData.firstIndex = sphereIndexOffset;
+    debugRenderInstanceGroups[index].drawIndexedData.vertexOffset = static_cast<int32_t>(sphereVertexOffset);
+    debugRenderInstanceGroups[index].drawIndexedData.firstInstance = 0;
+}
 }
