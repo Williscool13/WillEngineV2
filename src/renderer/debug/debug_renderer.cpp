@@ -113,16 +113,36 @@ void DebugRenderer::drawBoxMinMax(const glm::vec3& min, const glm::vec3& max, co
 
 void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawInfo)
 {
+    if (drawInfo.currentFrameOverlap < 0 || drawInfo.currentFrameOverlap >= FRAME_OVERLAP) { return; }
+
     // Upload
-    for (DebugRenderGroup group : debugRenderInstanceGroups) {
+    for (DebugRenderGroup& group : debugRenderInstanceGroups) {
         if (group.instances.empty()) { continue; }
 
-        if (group.instances.size() > DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT) {
-            group.instances.resize(DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT);
-            // todo: dynamic resize
+        if (group.instances.size() > group.instanceBufferSizes[drawInfo.currentFrameOverlap]) {
+            uint64_t newSize = group.instanceBufferSizes[drawInfo.currentFrameOverlap];
+            // Can potentially overflow resulting in infinite loop, but it would need to be so insanely large, cant even create a buffer that big
+            while (group.instances.size() > newSize) {
+                newSize += DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT;
+            }
+
+            resourceManager.destroyBuffer(group.instanceBuffers[drawInfo.currentFrameOverlap]);
+
+            // Don't need to copy, writing to it in the next section anyway
+            const uint64_t newBufferSize = newSize * sizeof(DebugRendererInstance);
+            group.instanceBuffers[drawInfo.currentFrameOverlap] = resourceManager.createHostSequentialBuffer(newBufferSize);
+
+            DescriptorUniformData addressesUniformData{
+                .uniformBuffer = group.instanceBuffers[drawInfo.currentFrameOverlap],
+                .allocSize = newBufferSize,
+            };
+
+            resourceManager.setupDescriptorBufferUniform(group.instanceDescriptorBuffer, {addressesUniformData}, drawInfo.currentFrameOverlap);
+
+            group.instanceBufferSizes[drawInfo.currentFrameOverlap] = newSize;
         }
 
-        AllocatedBuffer& instanceBuffer = group.instanceBuffers[drawInfo.currentFrameOverlap];
+        const AllocatedBuffer& instanceBuffer = group.instanceBuffers[drawInfo.currentFrameOverlap];
         memcpy(instanceBuffer.info.pMappedData, group.instances.data(), sizeof(DebugRendererInstance) * group.instances.size());
     }
 
@@ -294,8 +314,10 @@ void DebugRenderer::setupBoxRendering(const int32_t index)
 {
     // Box Instance Data Buffer
     constexpr uint64_t boxInstanceBufferSize = DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT * sizeof(DebugRendererInstance);
+
     debugRenderInstanceGroups[index].instanceDescriptorBuffer = resourceManager.createDescriptorBufferUniform(uniformLayout, FRAME_OVERLAP);
     for (int32_t i = 0; i < FRAME_OVERLAP; ++i) {
+        debugRenderInstanceGroups[index].instanceBufferSizes[i] = DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT;
         debugRenderInstanceGroups[index].instanceBuffers[i] = resourceManager.createHostSequentialBuffer(boxInstanceBufferSize);
         DescriptorUniformData addressesUniformData{
             .uniformBuffer = debugRenderInstanceGroups[index].instanceBuffers[i],
@@ -348,9 +370,11 @@ void DebugRenderer::setupSphereRendering(const int32_t index)
 {
     // Sphere Instance Data Buffer
     constexpr uint64_t sphereInstanceBufferSize = DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT * sizeof(DebugRendererInstance);
+
     debugRenderInstanceGroups[index].instanceDescriptorBuffer = resourceManager.createDescriptorBufferUniform(uniformLayout, FRAME_OVERLAP);
     for (int32_t i = 0; i < FRAME_OVERLAP; ++i) {
         debugRenderInstanceGroups[index].instanceBuffers[i] = resourceManager.createHostSequentialBuffer(sphereInstanceBufferSize);
+        debugRenderInstanceGroups[index].instanceBufferSizes[i] = DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT;
         DescriptorUniformData addressesUniformData{
             .uniformBuffer = debugRenderInstanceGroups[index].instanceBuffers[i],
             .allocSize = sphereInstanceBufferSize,

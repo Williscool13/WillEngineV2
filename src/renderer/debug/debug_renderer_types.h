@@ -103,8 +103,10 @@ struct DebugRenderGroup
 {
     std::vector<DebugRendererInstance> instances;
     std::array<AllocatedBuffer, FRAME_OVERLAP> instanceBuffers{VK_NULL_HANDLE, VK_NULL_HANDLE};
+    std::array<uint64_t, FRAME_OVERLAP> instanceBufferSizes{0, 0};
     DrawIndexedData drawIndexedData{};
     DescriptorBufferUniform instanceDescriptorBuffer;
+
 };
 }
 
