@@ -363,6 +363,8 @@ void Engine::updateGame(const float deltaTime)
     }
     hierarchalBeginQueue.clear();
 
+    // This is the main game update loop.
+    // Recursively updates all child gameobjects of each map
     for (Map* map : activeMaps) {
         map->update(deltaTime);
     }
@@ -378,6 +380,18 @@ void Engine::updateGame(const float deltaTime)
         delete hierarchical;
     }
     hierarchicalDeletionQueue.clear();
+
+
+    for (int32_t i{0}; i < 100; i++) {
+        for (int32_t j{0}; j < 100; j++) {
+            float z = glm::sin(Time::Get().getTime() - j * 0.5f) * 2.0;
+            debug_renderer::DebugRenderer::drawBox({i, j, z}, {0.8f, 0.8f, 0.8f}, {0.0f, 0.7f, 0.1f});
+        }
+    }
+
+    debug_renderer::DebugRenderer::drawSphere({0, 0, -5}, 1.0f, {0.0f, 0.7f, 0.1f});
+
+
 }
 
 void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap) const
@@ -639,15 +653,6 @@ void Engine::render(float deltaTime)
             sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
         };
 
-
-        for (int32_t i{0}; i < 100; i++) {
-            for (int32_t j{0}; j < 100; j++) {
-                float z = glm::sin(Time::Get().getTime() - j * 0.5f) * 2.0;
-                debugRenderer->drawBox({i, j, z}, {0.8f, 0.8f, 0.8f}, {0.0f, 0.7f, 0.1f});
-            }
-        }
-
-        debugRenderer->drawSphere({0, 0, -5}, 1.0f, {0.0f, 0.7f, 0.1f});
         debugRenderer->draw(cmd, debugRendererDrawInfo);
     }
 #endif

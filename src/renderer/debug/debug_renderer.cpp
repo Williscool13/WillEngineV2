@@ -83,6 +83,34 @@ DebugRenderer::~DebugRenderer()
     resourceManager.destroyPipelineLayout(pipelineLayout);
 }
 
+void DebugRenderer::drawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec3& color)
+{
+    DebugRenderer* inst = get();
+    if (!inst) { return; }
+    inst->drawLineImpl(start, end, color);
+}
+
+void DebugRenderer::drawSphere(const glm::vec3& center, float radius, const glm::vec3& color, DebugRendererCategory category)
+{
+    DebugRenderer* inst = get();
+    if (!inst) { return; }
+    inst->drawSphereImpl(center, radius, color, category);
+}
+
+void DebugRenderer::drawBox(const glm::vec3& center, const glm::vec3& dimensions, const glm::vec3& color, DebugRendererCategory category)
+{
+    DebugRenderer* inst = get();
+    if (!inst) { return; }
+    inst->drawBoxImpl(center, dimensions, color, category);
+}
+
+void DebugRenderer::drawBoxMinMax(const glm::vec3& min, const glm::vec3& max, const glm::vec3& color, DebugRendererCategory category)
+{
+    DebugRenderer* inst = get();
+    if (!inst) { return; }
+    inst->drawBoxMinMaxImpl(min, max, color, category);
+}
+
 void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawInfo)
 {
     // Upload
@@ -222,12 +250,11 @@ void DebugRenderer::generateBuffers()
     // populate vertex and index buffers
 }
 
-void DebugRenderer::drawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec3& color)
+void DebugRenderer::drawLineImpl(const glm::vec3& start, const glm::vec3& end, const glm::vec3& color)
 {}
 
-void DebugRenderer::drawSphere(const glm::vec3& center, float radius, const glm::vec3& color, DebugRendererCategory category)
+void DebugRenderer::drawSphereImpl(const glm::vec3& center, const float radius, const glm::vec3& color, DebugRendererCategory category)
 {
-    if (!hasFlag(activeCategories, category)) { return; }
     if (!hasFlag(activeCategories, category)) { return; }
 
     const glm::mat4 transform = glm::translate(glm::mat4(1.0f), center) * glm::scale(glm::mat4(1.0f), glm::vec3(radius));
@@ -239,7 +266,7 @@ void DebugRenderer::drawSphere(const glm::vec3& center, float radius, const glm:
     debugRenderInstanceGroups[SPHERE_INSTANCE_INDEX].instances.push_back(instance);
 }
 
-void DebugRenderer::drawBox(const glm::vec3& center, const glm::vec3& dimensions, const glm::vec3& color, const DebugRendererCategory category)
+void DebugRenderer::drawBoxImpl(const glm::vec3& center, const glm::vec3& dimensions, const glm::vec3& color, const DebugRendererCategory category)
 {
     if (!hasFlag(activeCategories, category)) { return; }
 
@@ -252,14 +279,14 @@ void DebugRenderer::drawBox(const glm::vec3& center, const glm::vec3& dimensions
     debugRenderInstanceGroups[BOX_INSTANCE_INDEX].instances.push_back(instance);
 }
 
-void DebugRenderer::drawBoxMinmax(const glm::vec3& min, const glm::vec3& max, const glm::vec3& color, const DebugRendererCategory category)
+void DebugRenderer::drawBoxMinMaxImpl(const glm::vec3& min, const glm::vec3& max, const glm::vec3& color, const DebugRendererCategory category)
 {
     if (!hasFlag(activeCategories, category)) { return; }
 
     const glm::vec3 size = max - min;
     const glm::vec3 center = min + size * 0.5f;
 
-    drawBox(center, size, color, category);
+    drawBoxImpl(center, size, color, category);
 }
 
 
