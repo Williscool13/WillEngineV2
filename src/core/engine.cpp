@@ -127,8 +127,10 @@ void Engine::init()
     assetManager = new AssetManager(*resourceManager);
     physics = new physics::Physics();
     physics::Physics::set(physics);
+#if WILL_ENGINE_DEBUG
     debugRenderer = new debug_renderer::DebugRenderer(*resourceManager);
     debug_renderer::DebugRenderer::set(debugRenderer);
+#endif
 
     startupProfiler.addEntry("Immediate, ResourceM, AssetM, Physics");
 
@@ -627,6 +629,7 @@ void Engine::render(float deltaTime)
         transparentPipeline->drawAccumulate(cmd, transparentDrawInfo);
     }
 
+#if WILL_ENGINE_DEBUG
     if (bDrawDebugRendering) {
         debug_renderer::DebugRendererDrawInfo debugRendererDrawInfo{
             currentFrameOverlap,
@@ -644,9 +647,10 @@ void Engine::render(float deltaTime)
             }
         }
 
-        debugRenderer->drawSphere({0, 0, -5}, 2.0f, {0.0f, 0.7f, 0.1f});
+        debugRenderer->drawSphere({0, 0, -5}, 1.0f, {0.0f, 0.7f, 0.1f});
         debugRenderer->draw(cmd, debugRendererDrawInfo);
     }
+#endif
 
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
@@ -876,7 +880,9 @@ void Engine::cleanup()
 
     delete cascadedShadowMap;
     delete environmentMap;
+#if WILL_ENGINE_DEBUG
     delete debugRenderer;
+#endif
     delete physics;
     delete immediate;
     delete resourceManager;
