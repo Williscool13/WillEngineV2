@@ -382,14 +382,15 @@ void Engine::updateGame(const float deltaTime)
     hierarchicalDeletionQueue.clear();
 
 
+    constexpr glm::vec3 offset{-100,100,0};
     for (int32_t i{0}; i < 100; i++) {
         for (int32_t j{0}; j < 100; j++) {
             float z = glm::sin(Time::Get().getTime() - j * 0.5f) * 2.0;
-            debug_renderer::DebugRenderer::drawBox({i, j, z}, {0.8f, 0.8f, 0.8f}, {0.0f, 0.7f, 0.1f});
+            debug_renderer::DebugRenderer::drawBox(offset + glm::vec3(i, j, z), {0.8f, 0.8f, 0.8f}, {0.0f, 0.7f, 0.1f});
         }
     }
 
-    debug_renderer::DebugRenderer::drawSphere({0, 0, -5}, 1.0f, {0.0f, 0.7f, 0.1f});
+    debug_renderer::DebugRenderer::drawSphere({-50, 40, 0}, 1.0f, {0.0f, 0.7f, 0.1f});
 
     debug_renderer::DebugRenderer::drawLine({0, 0, 0}, {0, 100, 0}, {1, 0, 0});
 }

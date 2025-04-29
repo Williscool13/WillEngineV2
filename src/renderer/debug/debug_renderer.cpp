@@ -199,28 +199,29 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     renderInfo.pStencilAttachment = nullptr;
 
     vkCmdBeginRendering(cmd, &renderInfo);
+
+    vkCmdSetLineWidth(cmd, 2.0f);
+
+    //  Viewport
+    VkViewport viewport = {};
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width = RENDER_EXTENTS.width;
+    viewport.height = RENDER_EXTENTS.height;
+    viewport.minDepth = 0.f;
+    viewport.maxDepth = 1.f;
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+    //  Scissor
+    VkRect2D scissor = {};
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
+    scissor.extent.width = RENDER_EXTENTS.width;
+    scissor.extent.height = RENDER_EXTENTS.height;
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
     // Instanced rendering
     {
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, instancedLinePipeline);
-
-        vkCmdSetLineWidth(cmd, 2.0f);
-
-        //  Viewport
-        VkViewport viewport = {};
-        viewport.x = 0;
-        viewport.y = 0;
-        viewport.width = RENDER_EXTENTS.width;
-        viewport.height = RENDER_EXTENTS.height;
-        viewport.minDepth = 0.f;
-        viewport.maxDepth = 1.f;
-        vkCmdSetViewport(cmd, 0, 1, &viewport);
-        //  Scissor
-        VkRect2D scissor = {};
-        scissor.offset.x = 0;
-        scissor.offset.y = 0;
-        scissor.extent.width = RENDER_EXTENTS.width;
-        scissor.extent.height = RENDER_EXTENTS.height;
-        vkCmdSetScissor(cmd, 0, 1, &scissor);
 
         for (DebugRenderGroup& group : debugRenderInstanceGroups) {
             if (group.instances.empty()) { continue;; }
@@ -253,26 +254,6 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     // Line Rendering
     if (lineVertices.size() > 0) {
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, linePipeline);
-
-        vkCmdSetLineWidth(cmd, 2.0f);
-
-        //  Viewport
-        VkViewport viewport = {};
-        viewport.x = 0;
-        viewport.y = 0;
-        viewport.width = RENDER_EXTENTS.width;
-        viewport.height = RENDER_EXTENTS.height;
-        viewport.minDepth = 0.f;
-        viewport.maxDepth = 1.f;
-        vkCmdSetViewport(cmd, 0, 1, &viewport);
-        //  Scissor
-        VkRect2D scissor = {};
-        scissor.offset.x = 0;
-        scissor.offset.y = 0;
-        scissor.extent.width = RENDER_EXTENTS.width;
-        scissor.extent.height = RENDER_EXTENTS.height;
-        vkCmdSetScissor(cmd, 0, 1, &scissor);
-
         AllocatedBuffer& currentLineVertexBuffer = lineVertexBuffers[drawInfo.currentFrameOverlap];
         vkCmdBindVertexBuffers(cmd, 0, 1, &currentLineVertexBuffer.buffer, &ZERO_DEVICE_SIZE);
         vkCmdDraw(cmd, lineVertices.size(), 1, 0, 0);
