@@ -292,12 +292,12 @@ AllocatedBuffer will_engine::ResourceManager::createBuffer(const size_t allocSiz
     return newBuffer;
 }
 
-AllocatedBuffer will_engine::ResourceManager::createHostSequentialBuffer(const size_t allocSize) const
+AllocatedBuffer will_engine::ResourceManager::createHostSequentialBuffer(const size_t allocSize, const VkBufferUsageFlags additionalUsages) const
 {
     const VkBufferCreateInfo bufferInfo{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .size = allocSize,
-        .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | additionalUsages,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE
     };
 

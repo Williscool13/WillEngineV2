@@ -69,6 +69,12 @@ inline bool hasFlag(DebugRendererCategory flags, DebugRendererCategory flag)
     return (static_cast<uint32_t>(flags) & static_cast<uint32_t>(flag)) == static_cast<uint32_t>(flag);
 }
 
+struct DebugRendererVertexFull
+{
+    glm::vec3 position;
+    glm::vec3 color;
+};
+
 struct DebugRendererVertex
 {
     glm::vec3 position;

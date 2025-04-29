@@ -18,6 +18,12 @@ class ResourceManager;
 
 namespace will_engine::debug_renderer
 {
+
+struct DebugRendererPushConstant
+{
+    int32_t bInstanced{false};
+};
+
 class DebugRenderer
 {
 public:
@@ -29,6 +35,8 @@ public:
     void setupBoxRendering(int32_t index);
 
     void setupSphereRendering(int32_t index);
+
+    void setupLineRendering();
 
     DebugRenderer(ResourceManager& resourceManager);
 
@@ -65,21 +73,26 @@ private:
 
     void createPipeline();
 
-    VkPipeline pipeline{VK_NULL_HANDLE};
-    VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
+    VkPipelineLayout instancedPipelineLayout{VK_NULL_HANDLE};
+    VkPipelineLayout normalPipelineLayout{VK_NULL_HANDLE};
+    VkPipeline instancedLinePipeline{VK_NULL_HANDLE};
+
+
+    /**
+     * Full refers to vertex format. Also refers to the lack of vertex color in the vertex data
+     */
+    VkPipeline linePipeline{VK_NULL_HANDLE};
+    VkPipeline trianglePipeline{VK_NULL_HANDLE};
 
 private:
     ResourceManager& resourceManager;
-    void generateBuffers();
 
     DebugRendererCategory activeCategories{DebugRendererCategory::ALL};
 
     // for custom debug draws from Jolt. For primitives use the instanced draws instead.
-    // std::vector<DebugRendererVertex> vertices{};
-    // std::vector<uint32_t> indices{};
-    // AllocatedBuffer vertexBuffer{VK_NULL_HANDLE};
-    // AllocatedBuffer indexBuffer{VK_NULL_HANDLE};
-
+    std::vector<DebugRendererVertexFull> lineVertices{};
+    std::array<int64_t, FRAME_OVERLAP> lineVertexBuffersSizes{0, 0};
+    std::array<AllocatedBuffer, FRAME_OVERLAP> lineVertexBuffers{VK_NULL_HANDLE, VK_NULL_HANDLE};
 
     VkDescriptorSetLayout uniformLayout{VK_NULL_HANDLE};
 

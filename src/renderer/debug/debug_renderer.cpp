@@ -24,6 +24,7 @@ DebugRenderer::DebugRenderer(ResourceManager& resourceManager) : resourceManager
 
     setupBoxRendering(BOX_INSTANCE_INDEX);
     setupSphereRendering(SPHERE_INSTANCE_INDEX);
+    setupLineRendering();
 
     // Vertex Buffer
     const uint64_t instancedVertexBufferSize = instancedVertices.size() * sizeof(DebugRendererVertex);
@@ -48,19 +49,21 @@ DebugRenderer::DebugRenderer(ResourceManager& resourceManager) : resourceManager
     }
 
 
-    VkDescriptorSetLayout descriptorLayout[2];
+    std::array<VkDescriptorSetLayout, 2> descriptorLayout;
     descriptorLayout[0] = resourceManager.getSceneDataLayout();
     descriptorLayout[1] = uniformLayout;
 
-
     VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
-    layoutInfo.pSetLayouts = descriptorLayout;
+    layoutInfo.pSetLayouts = descriptorLayout.data();
     layoutInfo.pNext = nullptr;
     layoutInfo.setLayoutCount = 2;
     layoutInfo.pPushConstantRanges = nullptr;
     layoutInfo.pushConstantRangeCount = 0;
 
-    pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+    instancedPipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+
+    layoutInfo.setLayoutCount = 1;
+    normalPipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
     createPipeline();
 }
@@ -79,8 +82,15 @@ DebugRenderer::~DebugRenderer()
         resourceManager.destroyDescriptorBuffer(group.instanceDescriptorBuffer);
     }
 
-    resourceManager.destroyPipeline(pipeline);
-    resourceManager.destroyPipelineLayout(pipelineLayout);
+    for (AllocatedBuffer& buffer : lineVertexBuffers) {
+        resourceManager.destroyBuffer(buffer);
+    }
+
+    resourceManager.destroyPipelineLayout(instancedPipelineLayout);
+    resourceManager.destroyPipelineLayout(normalPipelineLayout);
+    resourceManager.destroyPipeline(instancedLinePipeline);
+    resourceManager.destroyPipeline(linePipeline);
+    resourceManager.destroyPipeline(trianglePipeline);
 }
 
 void DebugRenderer::drawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec3& color)
@@ -119,6 +129,8 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     for (DebugRenderGroup& group : debugRenderInstanceGroups) {
         if (group.instances.empty()) { continue; }
 
+        AllocatedBuffer& instanceBuffer = group.instanceBuffers[drawInfo.currentFrameOverlap];
+
         if (group.instances.size() > group.instanceBufferSizes[drawInfo.currentFrameOverlap]) {
             uint64_t newSize = group.instanceBufferSizes[drawInfo.currentFrameOverlap];
             // Can potentially overflow resulting in infinite loop, but it would need to be so insanely large, cant even create a buffer that big
@@ -126,14 +138,14 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
                 newSize += DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT;
             }
 
-            resourceManager.destroyBuffer(group.instanceBuffers[drawInfo.currentFrameOverlap]);
+            resourceManager.destroyBuffer(instanceBuffer);
 
             // Don't need to copy, writing to it in the next section anyway
             const uint64_t newBufferSize = newSize * sizeof(DebugRendererInstance);
-            group.instanceBuffers[drawInfo.currentFrameOverlap] = resourceManager.createHostSequentialBuffer(newBufferSize);
+            instanceBuffer = resourceManager.createHostSequentialBuffer(newBufferSize);
 
             DescriptorUniformData addressesUniformData{
-                .uniformBuffer = group.instanceBuffers[drawInfo.currentFrameOverlap],
+                .uniformBuffer = instanceBuffer,
                 .allocSize = newBufferSize,
             };
 
@@ -142,8 +154,27 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
             group.instanceBufferSizes[drawInfo.currentFrameOverlap] = newSize;
         }
 
-        const AllocatedBuffer& instanceBuffer = group.instanceBuffers[drawInfo.currentFrameOverlap];
         memcpy(instanceBuffer.info.pMappedData, group.instances.data(), sizeof(DebugRendererInstance) * group.instances.size());
+    }
+
+    // Upload Vertex Line Data
+    {
+        AllocatedBuffer& lineVertexBuffer = lineVertexBuffers[drawInfo.currentFrameOverlap];
+
+        if (lineVertices.size() > lineVertexBuffersSizes[drawInfo.currentFrameOverlap]) {
+            int64_t newSize = lineVertexBuffersSizes[drawInfo.currentFrameOverlap];
+            while (lineVertices.size() > newSize) {
+                newSize += DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT;
+            }
+
+            resourceManager.destroyBuffer(lineVertexBuffer);
+
+            const uint64_t newBufferSize = newSize * sizeof(DebugRendererVertexFull);
+            lineVertexBuffer = resourceManager.createHostSequentialBuffer(newBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+            lineVertexBuffersSizes[drawInfo.currentFrameOverlap] = newSize;
+        }
+
+        memcpy(lineVertexBuffer.info.pMappedData, lineVertices.data(), sizeof(DebugRendererVertexFull) * lineVertices.size());
     }
 
 
@@ -168,54 +199,84 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     renderInfo.pStencilAttachment = nullptr;
 
     vkCmdBeginRendering(cmd, &renderInfo);
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    // Instanced rendering
+    {
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, instancedLinePipeline);
 
-    vkCmdSetLineWidth(cmd, 2.0f);
+        vkCmdSetLineWidth(cmd, 2.0f);
 
-    //  Viewport
-    VkViewport viewport = {};
-    viewport.x = 0;
-    viewport.y = 0;
-    viewport.width = RENDER_EXTENTS.width;
-    viewport.height = RENDER_EXTENTS.height;
-    viewport.minDepth = 0.f;
-    viewport.maxDepth = 1.f;
-    vkCmdSetViewport(cmd, 0, 1, &viewport);
-    //  Scissor
-    VkRect2D scissor = {};
-    scissor.offset.x = 0;
-    scissor.offset.y = 0;
-    scissor.extent.width = RENDER_EXTENTS.width;
-    scissor.extent.height = RENDER_EXTENTS.height;
-    vkCmdSetScissor(cmd, 0, 1, &scissor);
+        //  Viewport
+        VkViewport viewport = {};
+        viewport.x = 0;
+        viewport.y = 0;
+        viewport.width = RENDER_EXTENTS.width;
+        viewport.height = RENDER_EXTENTS.height;
+        viewport.minDepth = 0.f;
+        viewport.maxDepth = 1.f;
+        vkCmdSetViewport(cmd, 0, 1, &viewport);
+        //  Scissor
+        VkRect2D scissor = {};
+        scissor.offset.x = 0;
+        scissor.offset.y = 0;
+        scissor.extent.width = RENDER_EXTENTS.width;
+        scissor.extent.height = RENDER_EXTENTS.height;
+        vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    for (DebugRenderGroup& group : debugRenderInstanceGroups) {
-        if (group.instances.empty()) { continue;; }
-
-
-        const std::array descriptorBufferBindingInfos{
-            drawInfo.sceneDataBinding,
-            group.instanceDescriptorBuffer.getDescriptorBufferBindingInfo()
-        };
-
-        vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfos.data());
-
-        constexpr std::array<uint32_t, 2> indices{0, 1};
-        const std::array offsets{
-            drawInfo.sceneDataOffset,
-            group.instanceDescriptorBuffer.getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
-        };
-
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 2, indices.data(), offsets.data());
-
-        vkCmdBindVertexBuffers(cmd, 0, 1, &instancedVertexBuffer.buffer, &ZERO_DEVICE_SIZE);
-        vkCmdBindIndexBuffer(cmd, instancedIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+        for (DebugRenderGroup& group : debugRenderInstanceGroups) {
+            if (group.instances.empty()) { continue;; }
 
 
-        vkCmdDrawIndexed(cmd, group.drawIndexedData.indexCount, group.instances.size(), group.drawIndexedData.firstIndex
-                         , group.drawIndexedData.vertexOffset, group.drawIndexedData.firstInstance);
+            const std::array descriptorBufferBindingInfos{
+                drawInfo.sceneDataBinding,
+                group.instanceDescriptorBuffer.getDescriptorBufferBindingInfo()
+            };
+
+            vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfos.data());
+
+            constexpr std::array<uint32_t, 2> indices{0, 1};
+            const std::array offsets{
+                drawInfo.sceneDataOffset,
+                group.instanceDescriptorBuffer.getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
+            };
+
+            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, instancedPipelineLayout, 0, 2, indices.data(), offsets.data());
+
+            vkCmdBindVertexBuffers(cmd, 0, 1, &instancedVertexBuffer.buffer, &ZERO_DEVICE_SIZE);
+            vkCmdBindIndexBuffer(cmd, instancedIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+
+            vkCmdDrawIndexed(cmd, group.drawIndexedData.indexCount, group.instances.size(), group.drawIndexedData.firstIndex
+                             , group.drawIndexedData.vertexOffset, group.drawIndexedData.firstInstance);
+        }
     }
 
+    // Line Rendering
+    if (lineVertices.size() > 0) {
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, linePipeline);
+
+        vkCmdSetLineWidth(cmd, 2.0f);
+
+        //  Viewport
+        VkViewport viewport = {};
+        viewport.x = 0;
+        viewport.y = 0;
+        viewport.width = RENDER_EXTENTS.width;
+        viewport.height = RENDER_EXTENTS.height;
+        viewport.minDepth = 0.f;
+        viewport.maxDepth = 1.f;
+        vkCmdSetViewport(cmd, 0, 1, &viewport);
+        //  Scissor
+        VkRect2D scissor = {};
+        scissor.offset.x = 0;
+        scissor.offset.y = 0;
+        scissor.extent.width = RENDER_EXTENTS.width;
+        scissor.extent.height = RENDER_EXTENTS.height;
+        vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+        AllocatedBuffer& currentLineVertexBuffer = lineVertexBuffers[drawInfo.currentFrameOverlap];
+        vkCmdBindVertexBuffers(cmd, 0, 1, &currentLineVertexBuffer.buffer, &ZERO_DEVICE_SIZE);
+        vkCmdDraw(cmd, lineVertices.size(), 1, 0, 0);
+    }
 
     vkCmdEndRendering(cmd);
 
@@ -227,51 +288,97 @@ void DebugRenderer::clear()
     for (DebugRenderGroup& group : debugRenderInstanceGroups) {
         group.instances.clear();
     }
+    lineVertices.clear();
 }
 
 void DebugRenderer::createPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
-    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/debug/debug_renderer.vert");
-    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/debug/debug_renderer.frag");
+    resourceManager.destroyPipeline(instancedLinePipeline);
+    resourceManager.destroyPipeline(trianglePipeline);
+    resourceManager.destroyPipeline(linePipeline);
 
-    PipelineBuilder renderPipelineBuilder;
-    VkVertexInputBindingDescription vertexBinding{};
-    vertexBinding.binding = 0;
-    vertexBinding.stride = sizeof(DebugRendererVertex);
-    vertexBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    // Instanced Pipeline
+    {
+        VkShaderModule vertShader = resourceManager.createShaderModule("shaders/debug/debug_renderer_instanced.vert");
+        VkShaderModule fragShader = resourceManager.createShaderModule("shaders/debug/debug_renderer_instanced.frag");
 
-    VkVertexInputAttributeDescription vertexAttributes[4];
-    vertexAttributes[0].binding = 0;
-    vertexAttributes[0].location = 0;
-    vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertexAttributes[0].offset = offsetof(DebugRendererVertex, position);
+        PipelineBuilder renderPipelineBuilder;
+        VkVertexInputBindingDescription vertexBinding{};
+        vertexBinding.binding = 0;
+        vertexBinding.stride = sizeof(DebugRendererVertex);
+        vertexBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
 
-    const VkVertexInputBindingDescription vertexBindings[1] = {vertexBinding};
+        std::array<VkVertexInputAttributeDescription, 1> vertexAttributes;
+        vertexAttributes[0].binding = 0;
+        vertexAttributes[0].location = 0;
+        vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+        vertexAttributes[0].offset = offsetof(DebugRendererVertex, position);
 
-    renderPipelineBuilder.setupVertexInput(vertexBindings, 1, vertexAttributes, 1);
+        renderPipelineBuilder.setupVertexInput(&vertexBinding, 1, vertexAttributes.data(), 1);
 
-    renderPipelineBuilder.setShaders(vertShader, fragShader);
-    renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
-    renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_LINE, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
-    renderPipelineBuilder.disableMultisampling();
-    renderPipelineBuilder.disableBlending();
-    renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    renderPipelineBuilder.setupRenderer({ALBEDO_FORMAT}, DEPTH_FORMAT);
-    renderPipelineBuilder.setupPipelineLayout(pipelineLayout);
-    const std::vector additionalDynamicStates{VK_DYNAMIC_STATE_LINE_WIDTH};
-    pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
-}
+        renderPipelineBuilder.setShaders(vertShader, fragShader);
+        renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_LINE_LIST); // line so that we don't see diagonals on quads
+        renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_LINE, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+        renderPipelineBuilder.disableMultisampling();
+        renderPipelineBuilder.disableBlending();
+        renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+        renderPipelineBuilder.setupRenderer({ALBEDO_FORMAT}, DEPTH_FORMAT);
+        renderPipelineBuilder.setupPipelineLayout(instancedPipelineLayout);
+        const std::vector additionalDynamicStates{VK_DYNAMIC_STATE_LINE_WIDTH};
+        instancedLinePipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);
 
-void DebugRenderer::generateBuffers()
-{
-    // populate vertex and index buffers
+        resourceManager.destroyShaderModule(vertShader);
+        resourceManager.destroyShaderModule(fragShader);
+    }
+
+    // Line Vertex Pipeline
+    {
+        VkShaderModule vertShader = resourceManager.createShaderModule("shaders/debug/debug_renderer.vert");
+        VkShaderModule fragShader = resourceManager.createShaderModule("shaders/debug/debug_renderer.frag");
+
+        PipelineBuilder renderPipelineBuilder;
+        VkVertexInputBindingDescription vertexBinding{};
+        vertexBinding.binding = 0;
+        vertexBinding.stride = sizeof(DebugRendererVertexFull);
+        vertexBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+        std::array<VkVertexInputAttributeDescription, 2> vertexAttributes;
+        vertexAttributes[0].binding = 0;
+        vertexAttributes[0].location = 0;
+        vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+        vertexAttributes[0].offset = offsetof(DebugRendererVertexFull, position);
+
+        vertexAttributes[1].binding = 0;
+        vertexAttributes[1].location = 1;
+        vertexAttributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+        vertexAttributes[1].offset = offsetof(DebugRendererVertexFull, color);
+
+        renderPipelineBuilder.setupVertexInput(&vertexBinding, 1, vertexAttributes.data(), 2);
+
+        renderPipelineBuilder.setShaders(vertShader, fragShader);
+        renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
+        renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_LINE, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+        renderPipelineBuilder.disableMultisampling();
+        renderPipelineBuilder.disableBlending();
+        renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+        renderPipelineBuilder.setupRenderer({ALBEDO_FORMAT}, DEPTH_FORMAT);
+        renderPipelineBuilder.setupPipelineLayout(normalPipelineLayout);
+        const std::vector additionalDynamicStates{VK_DYNAMIC_STATE_LINE_WIDTH};
+        linePipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);
+
+        resourceManager.destroyShaderModule(vertShader);
+        resourceManager.destroyShaderModule(fragShader);
+    }
+
+    //renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+    //trianglePipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);
 }
 
 void DebugRenderer::drawLineImpl(const glm::vec3& start, const glm::vec3& end, const glm::vec3& color)
-{}
+{
+    lineVertices.push_back({start, color});
+    lineVertices.push_back({end, color});
+}
 
 void DebugRenderer::drawSphereImpl(const glm::vec3& center, const float radius, const glm::vec3& color, DebugRendererCategory category)
 {
@@ -309,7 +416,6 @@ void DebugRenderer::drawBoxMinMaxImpl(const glm::vec3& min, const glm::vec3& max
     drawBoxImpl(center, size, color, category);
 }
 
-
 void DebugRenderer::setupBoxRendering(const int32_t index)
 {
     // Box Instance Data Buffer
@@ -336,14 +442,14 @@ void DebugRenderer::setupBoxRendering(const int32_t index)
     instancedIndices.reserve(instancedIndices.size() + boxIndicesCount);
 
     std::vector<DebugRendererVertex> boxVertices = {
-        {{0, 0, 0}}, // 0: near bottom left
-        {{1, 0, 0}}, // 1: near bottom right
-        {{1, 1, 0}}, // 2: near top right
-        {{0, 1, 0}}, // 3: near top left
-        {{0, 0, 1}}, // 4: far bottom left
-        {{1, 0, 1}}, // 5: far bottom right
-        {{1, 1, 1}}, // 6: far top right
-        {{0, 1, 1}} // 7: far top left
+        {{-0.5, -0.5, -0.5}}, // 0: near bottom left
+        {{ 0.5, -0.5, -0.5}}, // 1: near bottom right
+        {{ 0.5,  0.5, -0.5}}, // 2: near top right
+        {{-0.5,  0.5, -0.5}}, // 3: near top left
+        {{-0.5, -0.5,  0.5}}, // 4: far bottom left
+        {{ 0.5, -0.5,  0.5}}, // 5: far bottom right
+        {{ 0.5,  0.5,  0.5}}, // 6: far top right
+        {{-0.5,  0.5,  0.5}}  // 7: far top left
     };
 
     std::vector<uint32_t> boxIndices = {
@@ -439,5 +545,14 @@ void DebugRenderer::setupSphereRendering(const int32_t index)
     debugRenderInstanceGroups[index].drawIndexedData.firstIndex = sphereIndexOffset;
     debugRenderInstanceGroups[index].drawIndexedData.vertexOffset = static_cast<int32_t>(sphereVertexOffset);
     debugRenderInstanceGroups[index].drawIndexedData.firstInstance = 0;
+}
+
+void DebugRenderer::setupLineRendering()
+{
+    constexpr uint64_t vertexBufferSize = DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT * sizeof(DebugRendererVertexFull);
+    for (int32_t i{0}; i < FRAME_OVERLAP; i++) {
+        lineVertexBuffersSizes[i] = DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT;
+        lineVertexBuffers[i] = resourceManager.createHostSequentialBuffer(vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    }
 }
 }

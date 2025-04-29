@@ -87,7 +87,7 @@ private:
 public: // VkBuffer
     [[nodiscard]] AllocatedBuffer createBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage) const;
 
-    AllocatedBuffer createHostSequentialBuffer(size_t allocSize) const;
+    AllocatedBuffer createHostSequentialBuffer(size_t allocSize, VkBufferUsageFlags additionalUsages = 0) const;
 
     AllocatedBuffer createHostRandomBuffer(size_t allocSize, VkBufferUsageFlags additionalUsages = 0) const;
 
