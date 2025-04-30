@@ -24,6 +24,8 @@ public:
 
     static glm::mat4 toGLM(const JPH::Mat44& mat);
 
+    static glm::vec3 toGLM(JPH::ColorArg inColor);
+
     static JPH::Vec3 toJolt(const glm::vec3& v);
 
     static JPH::Quat toJolt(const glm::quat& q);

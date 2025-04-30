@@ -4,15 +4,20 @@
 
 #include "jolt_debug_renderer.h"
 
+#include "src/physics/physics_utils.h"
+#include "src/renderer/debug/debug_renderer.h"
+
+
 will_engine::physics::JoltDebugRenderer::JoltDebugRenderer()
 {
     Initialize();
 }
 
 will_engine::physics::JoltDebugRenderer::~JoltDebugRenderer() {}
-void will_engine::physics::JoltDebugRenderer::DrawLine(JPH::RVec3Arg inFrom, JPH::RVec3Arg inTo, JPH::ColorArg inColor)
+
+void will_engine::physics::JoltDebugRenderer::DrawLine(JPH::RVec3Arg inFrom, JPH::RVec3Arg inTo, const JPH::ColorArg inColor)
 {
-    // Implement this
+    debug_renderer::DebugRenderer::drawLine(PhysicsUtils::toGLM(inFrom), PhysicsUtils::toGLM(inTo), PhysicsUtils::toGLM(inColor));
 }
 
 void will_engine::physics::JoltDebugRenderer::DrawTriangle(JPH::RVec3Arg inV1, JPH::RVec3Arg inV2, JPH::RVec3Arg inV3, JPH::ColorArg inColor,
@@ -39,7 +44,6 @@ void will_engine::physics::JoltDebugRenderer::DrawGeometry(JPH::RMat44Arg inMode
                                                            JPH::ColorArg inModelColor, const GeometryRef& inGeometry, ECullMode inCullMode,
                                                            ECastShadow inCastShadow, EDrawMode inDrawMode)
 {
-
     // Implement This
 }
 

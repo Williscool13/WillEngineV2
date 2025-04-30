@@ -2,11 +2,15 @@
 // Created by William on 2024-12-26.
 //
 
-#ifndef DEBUG_RENDERER_H
-#define DEBUG_RENDERER_H
+#ifndef JOLT_DEBUG_RENDERER_H
+#define JOLT_DEBUG_RENDERER_H
 
 #include <src/physics/physics.h>
-#include <Jolt/Renderer/DebugRenderer.h>
+
+namespace will_engine::debug_renderer
+{
+class DebugRenderer;
+}
 
 namespace will_engine::physics
 {
@@ -32,4 +36,4 @@ public:
 };
 }
 
-#endif //DEBUG_RENDERER_H
+#endif //JOLT_DEBUG_RENDERER_H
