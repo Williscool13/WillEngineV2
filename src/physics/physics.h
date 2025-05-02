@@ -18,7 +18,9 @@
 
 #include "physics_types.h"
 #include "physics_body.h"
+#ifdef JPH_DEBUG_RENDERER
 #include "debug/jolt_debug_renderer.h"
+#endif // JPH_DEBUG_RENDERER
 
 class GameObject;
 
