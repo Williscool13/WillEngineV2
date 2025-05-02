@@ -14,6 +14,7 @@
 #include "camera/free_camera.h"
 #include "scene/serializer.h"
 #include "src/core/profiler/profiler.h"
+#include "src/physics/debug/jolt_debug_renderer.h"
 #include "src/renderer/imgui_wrapper.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/vk_types.h"

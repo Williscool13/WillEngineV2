@@ -5,7 +5,14 @@
 #ifndef JOLT_DEBUG_RENDERER_H
 #define JOLT_DEBUG_RENDERER_H
 
-#include <src/physics/physics.h>
+#include <Jolt/Jolt.h>
+#include <Jolt/Renderer/DebugRenderer.h>
+
+#ifndef JPH_DEBUG_RENDERER
+    #error This file should only be included when JPH_DEBUG_RENDERER is defined
+#endif // !JPH_DEBUG_RENDERER
+
+
 
 namespace will_engine::debug_renderer
 {

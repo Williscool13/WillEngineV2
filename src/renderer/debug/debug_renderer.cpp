@@ -382,15 +382,13 @@ void DebugRenderer::createPipeline()
         const std::vector additionalDynamicStates{VK_DYNAMIC_STATE_LINE_WIDTH};
         linePipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);
 
-        renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+        //renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
         renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
         trianglePipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);
 
         resourceManager.destroyShaderModule(vertShader);
         resourceManager.destroyShaderModule(fragShader);
     }
-
-
 }
 
 void DebugRenderer::drawLineImpl(const glm::vec3& start, const glm::vec3& end, const glm::vec3& color)
@@ -469,13 +467,13 @@ void DebugRenderer::setupBoxRendering(const int32_t index)
 
     std::vector<DebugRendererVertex> boxVertices = {
         {{-0.5, -0.5, -0.5}}, // 0: near bottom left
-        {{ 0.5, -0.5, -0.5}}, // 1: near bottom right
-        {{ 0.5,  0.5, -0.5}}, // 2: near top right
-        {{-0.5,  0.5, -0.5}}, // 3: near top left
-        {{-0.5, -0.5,  0.5}}, // 4: far bottom left
-        {{ 0.5, -0.5,  0.5}}, // 5: far bottom right
-        {{ 0.5,  0.5,  0.5}}, // 6: far top right
-        {{-0.5,  0.5,  0.5}}  // 7: far top left
+        {{0.5, -0.5, -0.5}}, // 1: near bottom right
+        {{0.5, 0.5, -0.5}}, // 2: near top right
+        {{-0.5, 0.5, -0.5}}, // 3: near top left
+        {{-0.5, -0.5, 0.5}}, // 4: far bottom left
+        {{0.5, -0.5, 0.5}}, // 5: far bottom right
+        {{0.5, 0.5, 0.5}}, // 6: far top right
+        {{-0.5, 0.5, 0.5}} // 7: far top left
     };
 
     std::vector<uint32_t> boxIndices = {
@@ -589,6 +587,5 @@ void DebugRenderer::setupTriangleRendering()
         triangleVertexBufferSizes[i] = DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT;
         triangleVertexBuffers[i] = resourceManager.createHostSequentialBuffer(vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     }
-
 }
 }

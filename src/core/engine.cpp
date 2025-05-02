@@ -331,11 +331,11 @@ void Engine::run()
 
 void Engine::updatePhysics(const float deltaTime) const
 {
-    if (bPausePhysics) {
-        return;
+    if (!bPausePhysics) {
+        physics::Physics::get()->update(deltaTime);
     }
 
-    physics::Physics::get()->update(deltaTime);
+    physics::Physics::get()->drawDebug();
 }
 
 void Engine::updateGame(const float deltaTime)

@@ -21,6 +21,7 @@
 #include "src/core/camera/free_camera.h"
 #include "src/core/game_object/renderable.h"
 #include "src/core/scene/serializer.h"
+#include "src/physics/physics.h"
 #include "src/util/file.h"
 #include "src/util/math_utils.h"
 
@@ -1222,6 +1223,14 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         if (IImguiRenderable* imguiRenderable = dynamic_cast<IImguiRenderable*>(selectedItem)) {
             imguiRenderable->selectedRenderImgui();
         }
+
+        if (auto gameObject = dynamic_cast<GameObject*>(selectedItem)) {
+            if (components::RigidBodyComponent* rb = gameObject->getRigidbody()) {
+                if (rb->hasRigidBody()) {
+                    physics::Physics::get()->drawDebug(rb->getPhysicsBodyId());
+                }
+            }
+        }
     }
 
     ImGui::Render();
@@ -1429,7 +1438,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
     if (destroy) {
         selectedMap->destroy();
         selectMap(nullptr);
-        selectedItem = nullptr;
+        deselectItem();
     }
 }
 
@@ -1452,7 +1461,7 @@ void ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const i
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
     if (ImGui::Button("X")) {
         if (selectedItem == obj) {
-            selectedItem = nullptr;
+            deselectItem();
         }
         obj->destroy();
     }
@@ -1484,7 +1493,12 @@ void ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const i
     }
 
     if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
-        selectedItem = (obj == selectedItem) ? nullptr : obj;
+        if (obj == selectedItem) {
+            deselectItem();
+        }
+        else {
+            selectItem(obj);
+        }
     }
     ImGui::NextColumn();
 
@@ -1620,5 +1634,25 @@ int ImguiWrapper::getIndexInVector(const IHierarchical* obj, const std::vector<I
     }
 
     return -1;
+}
+
+void ImguiWrapper::selectItem(IHierarchical* hierarchical)
+{
+    if (selectedItem != nullptr) {
+        deselectItem();
+    }
+    selectedItem = hierarchical;
+}
+
+void ImguiWrapper::deselectItem()
+{
+    if (const auto gameObject = dynamic_cast<GameObject*>(selectedItem)) {
+        if (const components::RigidBodyComponent* rb = gameObject->getRigidbody()) {
+            if (rb->hasRigidBody()) {
+                physics::Physics::get()->stopDrawDebug(rb->getPhysicsBodyId());
+            }
+        }
+    }
+    selectedItem = nullptr;
 }
 }

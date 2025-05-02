@@ -18,6 +18,7 @@
 
 #include "physics_types.h"
 #include "physics_body.h"
+#include "debug/jolt_debug_renderer.h"
 
 class GameObject;
 
@@ -72,9 +73,11 @@ public:
     PhysicsObject* getPhysicsObject(JPH::BodyID bodyId);
 
 public:
-    JPH::BodyID setupRigidbody(IPhysicsBody* physicsBody, JPH::EShapeSubType shapeType, glm::vec3 shapeParams, JPH::EMotionType motion, JPH::ObjectLayer layer);
+    JPH::BodyID setupRigidbody(IPhysicsBody* physicsBody, JPH::EShapeSubType shapeType, glm::vec3 shapeParams, JPH::EMotionType motion,
+                               JPH::ObjectLayer layer);
 
-    JPH::BodyID setupRigidbody(IPhysicsBody* physicsBody, JPH::HeightFieldShapeSettings& heightFieldShapeSettings, JPH::EMotionType motion, JPH::ObjectLayer layer);
+    JPH::BodyID setupRigidbody(IPhysicsBody* physicsBody, JPH::HeightFieldShapeSettings& heightFieldShapeSettings, JPH::EMotionType motion,
+                               JPH::ObjectLayer layer);
 
     void releaseRigidbody(IPhysicsBody* physicsBody);
 
@@ -96,10 +99,13 @@ public:
 
     void setMotionType(const IPhysicsBody* body, JPH::EMotionType motionType, JPH::EActivation activation) const;
 
+    void drawDebug();
+
 public: // Serialization
     PhysicsProperties serializeProperties(const IPhysicsBody* physicsBody) const;
 
     bool deserializeProperties(IPhysicsBody* physicsBody, const PhysicsProperties& properties);
+
 private:
     // Core systems
     JPH::PhysicsSystem* physicsSystem = nullptr;
@@ -128,6 +134,54 @@ private:
     JPH::ShapeRefC unitSphereShape = nullptr;
     JPH::ShapeRefC unitCapsuleShape = nullptr;
     JPH::ShapeRefC unitCylinderShape = nullptr;
+
+
+public: // Debug
+    void drawDebug(JPH::BodyID bodyId) const;
+    void stopDrawDebug(JPH::BodyID bodyId) const;
+
+private: // Debug
+#ifdef JPH_DEBUG_RENDERER
+    class JoltDebugDrawFilter final : public JPH::BodyDrawFilter
+    {
+    public:
+        ~JoltDebugDrawFilter() override = default;
+
+        bool ShouldDraw(const JPH::Body& inBody) const override
+        {
+            return !bodiesToDraw.empty() && std::ranges::find(bodiesToDraw, inBody.GetID()) != bodiesToDraw.end();
+        }
+
+        void AddBody(const JPH::BodyID bodyId)
+        {
+            if (std::ranges::find(bodiesToDraw, bodyId) == bodiesToDraw.end()) {
+                bodiesToDraw.push_back(bodyId);
+            }
+        }
+
+        void RemoveBody(const JPH::BodyID bodyId)
+        {
+            const auto it = std::ranges::find(bodiesToDraw, bodyId);
+            if (it != bodiesToDraw.end()) {
+                bodiesToDraw.erase(it);
+            }
+        }
+
+        void Clear()
+        {
+            bodiesToDraw.clear();
+        }
+
+    private:
+        std::vector<JPH::BodyID> bodiesToDraw;
+    };
+
+
+    JoltDebugDrawFilter* joltDebugDrawFilter{nullptr};
+    JoltDebugRenderer* joltDebugRenderer{nullptr};
+#endif
+
+public:
 };
 }
 

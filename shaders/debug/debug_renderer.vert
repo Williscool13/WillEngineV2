@@ -17,5 +17,6 @@ struct Instance{
 
 void main() {
     gl_Position = sceneData.viewProj * vec4(inPosition, 1.0);
+    gl_Position.xy += gl_Position.w * sceneData.jitter.xy;
     outColor = inColor;
 }

@@ -4,11 +4,11 @@ project(WillEngine)
 set(CMAKE_CXX_STANDARD 20)
 
 add_definitions(-DVK_NO_PROTOTYPES)
+
 add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE)
 add_definitions(-DGLM_ENABLE_EXPERIMENTAL)
-add_definitions(-DJPH_DEBUG_RENDERER)
+
 #add_definitions(-DJPH_PROFILE_ENABLED=0)
-#add_definitions(-DJPH_DEBUG_RENDERER=0)
 add_definitions(-DJPH_ENABLE_ASSERTS=1)
 add_definitions(-DJPH_ENABLE_ASSERT_MESSAGES=1)
 
@@ -16,6 +16,7 @@ add_definitions(-DJPH_ENABLE_ASSERT_MESSAGES=1)
 # ##endif
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_definitions(-DWILL_ENGINE_DEBUG=1)
+    add_definitions(-DJPH_DEBUG_RENDERER)
 elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
     add_definitions(-DWILL_ENGINE_RELEASE=1)
 endif ()
@@ -265,7 +266,7 @@ set(TEMP_SOURCES
         src/renderer/pipelines/visibility_pass/visibility_pass_pipeline_types.h
         src/renderer/debug/debug_renderer.cpp
         src/renderer/debug/debug_renderer.h
-        src/renderer/debug/debug_renderer_tyoes.h
+        src/renderer/debug/debug_renderer_types.h
 
 )
 

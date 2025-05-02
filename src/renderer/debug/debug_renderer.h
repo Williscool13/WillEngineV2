@@ -24,6 +24,9 @@ struct DebugRendererPushConstant
     int32_t bInstanced{false};
 };
 
+/**
+ * Note: Debug rendering doesn't write to the velocity buffer, so do not contribute to the velocity buffer. As a result, no TAA is expected.
+ */
 class DebugRenderer
 {
 public:

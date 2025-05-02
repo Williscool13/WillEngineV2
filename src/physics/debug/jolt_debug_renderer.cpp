@@ -2,6 +2,8 @@
 // Created by William on 2024-12-26.
 //
 
+#ifdef JPH_DEBUG_RENDERER
+
 #include "jolt_debug_renderer.h"
 
 #include "src/physics/physics_utils.h"
@@ -23,11 +25,13 @@ void will_engine::physics::JoltDebugRenderer::DrawLine(JPH::RVec3Arg inFrom, JPH
 void will_engine::physics::JoltDebugRenderer::DrawTriangle(JPH::RVec3Arg inV1, JPH::RVec3Arg inV2, JPH::RVec3Arg inV3, JPH::ColorArg inColor,
                                                            ECastShadow inCastShadow)
 {
-    // Implement this
+    debug_renderer::DebugRenderer::drawTriangle(PhysicsUtils::toGLM(inV1), PhysicsUtils::toGLM(inV2), PhysicsUtils::toGLM(inV3),
+                                                PhysicsUtils::toGLM(inColor));
 }
 
 JPH::DebugRenderer::Batch will_engine::physics::JoltDebugRenderer::CreateTriangleBatch(const Triangle* inTriangles, int inTriangleCount)
 {
+    // Copied from JPH::DebugRendererSimple
     const auto batch = new BatchImpl;
     if (inTriangles == nullptr || inTriangleCount == 0)
         return batch;
@@ -46,9 +50,8 @@ JPH::DebugRenderer::Batch will_engine::physics::JoltDebugRenderer::CreateTriangl
 
     // Convert indexed triangle list to triangle list
     batch->mTriangles.resize(inIndexCount / 3);
-    for (size_t t = 0; t < batch->mTriangles.size(); ++t)
-    {
-        Triangle &triangle = batch->mTriangles[t];
+    for (size_t t = 0; t < batch->mTriangles.size(); ++t) {
+        Triangle& triangle = batch->mTriangles[t];
         triangle.mV[0] = inVertices[inIndices[t * 3 + 0]];
         triangle.mV[1] = inVertices[inIndices[t * 3 + 1]];
         triangle.mV[2] = inVertices[inIndices[t * 3 + 2]];
@@ -67,21 +70,19 @@ void will_engine::physics::JoltDebugRenderer::DrawGeometry(JPH::RMat44Arg inMode
 
     // Copied from JPH::DebugRendererSimple
     // Figure out which LOD to use (default to LOD 0)
-    const LOD *lod = inGeometry->mLODs.data();
+    const LOD* lod = inGeometry->mLODs.data();
     if (mCameraPosSet)
         lod = &inGeometry->GetLOD(JPH::Vec3(mCameraPos), inWorldSpaceBounds, inLODScaleSq);
 
     // Draw the batch
-    const BatchImpl *batch = static_cast<const BatchImpl *>(lod->mTriangleBatch.GetPtr());
-    for (const Triangle &triangle : batch->mTriangles)
-    {
+    const BatchImpl* batch = static_cast<const BatchImpl*>(lod->mTriangleBatch.GetPtr());
+    for (const Triangle& triangle : batch->mTriangles) {
         const JPH::RVec3 v0 = inModelMatrix * JPH::Vec3(triangle.mV[0].mPosition);
         const JPH::RVec3 v1 = inModelMatrix * JPH::Vec3(triangle.mV[1].mPosition);
         const JPH::RVec3 v2 = inModelMatrix * JPH::Vec3(triangle.mV[2].mPosition);
         const JPH::Color color = inModelColor * triangle.mV[0].mColor;
 
-        switch (inDrawMode)
-        {
+        switch (inDrawMode) {
             case EDrawMode::Wireframe:
                 DrawLine(v0, v1, color);
                 DrawLine(v1, v2, color);
@@ -100,3 +101,5 @@ void will_engine::physics::JoltDebugRenderer::DrawText3D(JPH::RVec3Arg inPositio
 {
     // Do not implement this
 }
+
+#endif // JPH_DEBUG_RENDERER
