@@ -277,6 +277,11 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     ImGui::Unindent();
                 }
 
+                if (ImGui::Button("Hard-Reset All Camera Settings")) {
+                    delete engine->camera;
+                    engine->camera = new FreeCamera();
+                }
+
                 ImGui::EndTabItem();
             }
 
@@ -717,7 +722,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save Post Process Resolve Target")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         std::filesystem::path path = file::imagesSavePath / "postProcesResolve.png";
-                        vk_helpers::saveImageRGBA16SFLOAT(*engine->resourceManager, *engine->immediate, engine->postProcessOutputBuffer,
+                        vk_helpers::saveImageRGBA16SFLOAT(*engine->resourceManager, *engine->immediate, engine->finalImageBuffer,
                                                           VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str());
                     }
                     else {

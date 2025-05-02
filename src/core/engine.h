@@ -5,7 +5,6 @@
 #ifndef ENGINE_H
 #define ENGINE_H
 
-#include <unordered_map>
 #include <vulkan/vulkan_core.h>
 #include <glm/glm.hpp>
 
@@ -39,6 +38,11 @@ class VulkanContext;
 
 namespace will_engine
 {
+namespace debug_pipeline
+{
+    class DebugPipeline;
+}
+
 namespace ambient_occlusion
 {
     class GroundTruthAmbientOcclusionPipeline;
@@ -163,7 +167,10 @@ private:
     ResourceManager* resourceManager{nullptr};
     AssetManager* assetManager{nullptr};
     physics::Physics* physics{nullptr};
+#if WILL_ENGINE_DEBUG
     debug_renderer::DebugRenderer* debugRenderer{nullptr};
+    debug_pipeline::DebugPipeline* debugPipeline{nullptr};
+#endif
 
     environment::Environment* environmentMap{nullptr};
 
@@ -294,7 +301,7 @@ private: // Draw Resources
      * A copy of the previous TAA Resolve Buffer
      */
     AllocatedImage historyBuffer{};
-    AllocatedImage postProcessOutputBuffer{};
+    AllocatedImage finalImageBuffer{};
 
 private: // Swapchain
     VkSwapchainKHR swapchain{};

@@ -205,9 +205,8 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     }
 
 
-    const VkRenderingAttachmentInfo albedoAttachment = vk_helpers::attachmentInfo(drawInfo.albedoTarget, nullptr,
+    const VkRenderingAttachmentInfo imageAttachment = vk_helpers::attachmentInfo(drawInfo.imageTarget, nullptr,
                                                                                   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-
     const VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthTarget, nullptr,
                                                                                  VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
@@ -216,7 +215,7 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     renderInfo.pNext = nullptr;
 
     VkRenderingAttachmentInfo renderAttachments[1];
-    renderAttachments[0] = albedoAttachment;
+    renderAttachments[0] = imageAttachment;
 
     renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, RENDER_EXTENTS};
     renderInfo.layerCount = 1;
@@ -227,7 +226,7 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
 
     vkCmdBeginRendering(cmd, &renderInfo);
 
-    vkCmdSetLineWidth(cmd, 2.0f);
+    vkCmdSetLineWidth(cmd, 1.0f);
 
     //  Viewport
     VkViewport viewport = {};
@@ -281,6 +280,13 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     // Line Rendering
     if (!lineVertices.empty()) {
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, linePipeline);
+
+        const std::array descriptorBufferBindingInfos{drawInfo.sceneDataBinding};
+        constexpr std::array<uint32_t, 1> indices{};
+        const std::array offsets{drawInfo.sceneDataOffset};
+        vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfos.data());
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, normalPipelineLayout, 0, 1, indices.data(), offsets.data());
+
         AllocatedBuffer& currentLineVertexBuffer = lineVertexBuffers[drawInfo.currentFrameOverlap];
         vkCmdBindVertexBuffers(cmd, 0, 1, &currentLineVertexBuffer.buffer, &ZERO_DEVICE_SIZE);
         vkCmdDraw(cmd, lineVertices.size(), 1, 0, 0);
@@ -288,6 +294,13 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
 
     if (!triangleVertices.empty()) {
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, trianglePipeline);
+
+        const std::array descriptorBufferBindingInfos{drawInfo.sceneDataBinding};
+        constexpr std::array<uint32_t, 1> indices{};
+        const std::array offsets{drawInfo.sceneDataOffset};
+        vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfos.data());
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, normalPipelineLayout, 0, 1, indices.data(), offsets.data());
+
         AllocatedBuffer& currentTriangleVertexBuffer = triangleVertexBuffers[drawInfo.currentFrameOverlap];
         vkCmdBindVertexBuffers(cmd, 0, 1, &currentTriangleVertexBuffer.buffer, &ZERO_DEVICE_SIZE);
         vkCmdDraw(cmd, triangleVertices.size(), 1, 0, 0);
@@ -337,7 +350,7 @@ void DebugRenderer::createPipeline()
         renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_LINE, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
         renderPipelineBuilder.disableMultisampling();
         renderPipelineBuilder.disableBlending();
-        renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+        renderPipelineBuilder.enableDepthTest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
         renderPipelineBuilder.setupRenderer({ALBEDO_FORMAT}, DEPTH_FORMAT);
         renderPipelineBuilder.setupPipelineLayout(instancedPipelineLayout);
         const std::vector additionalDynamicStates{VK_DYNAMIC_STATE_LINE_WIDTH};
@@ -376,7 +389,7 @@ void DebugRenderer::createPipeline()
         renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_LINE, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
         renderPipelineBuilder.disableMultisampling();
         renderPipelineBuilder.disableBlending();
-        renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+        renderPipelineBuilder.enableDepthTest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
         renderPipelineBuilder.setupRenderer({ALBEDO_FORMAT}, DEPTH_FORMAT);
         renderPipelineBuilder.setupPipelineLayout(normalPipelineLayout);
         const std::vector additionalDynamicStates{VK_DYNAMIC_STATE_LINE_WIDTH};

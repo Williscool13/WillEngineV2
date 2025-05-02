@@ -26,6 +26,7 @@
 #include "src/renderer/environment/environment.h"
 #include "../renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h"
 #include "src/renderer/debug/debug_renderer.h"
+#include "src/renderer/pipelines/debug/debug_pipeline.h"
 #include "src/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline.h"
 #include "src/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline_types.h"
 #include "src/renderer/pipelines/geometry/deferred_resolve/deferred_resolve_pipeline.h"
@@ -130,6 +131,8 @@ void Engine::init()
 #if WILL_ENGINE_DEBUG
     debugRenderer = new debug_renderer::DebugRenderer(*resourceManager);
     debug_renderer::DebugRenderer::set(debugRenderer);
+    debugPipeline = new debug_pipeline::DebugPipeline(*resourceManager);
+    debugPipeline->setupDescriptorBuffer(finalImageBuffer.imageView);
 #endif
 
     startupProfiler.addEntry("Immediate, ResourceM, AssetM, Physics");
@@ -249,7 +252,7 @@ void Engine::initRenderer()
 
     const post_process_pipeline::PostProcessDescriptor postProcessDescriptor{
         taaResolveTarget.imageView,
-        postProcessOutputBuffer.imageView,
+        finalImageBuffer.imageView,
         resourceManager->getDefaultSamplerLinear()
     };
     postProcessPipeline->setupDescriptorBuffer(postProcessDescriptor);
@@ -382,7 +385,7 @@ void Engine::updateGame(const float deltaTime)
     hierarchicalDeletionQueue.clear();
 
 
-    constexpr glm::vec3 offset{-100,100,0};
+    constexpr glm::vec3 offset{-100, 100, 0};
     for (int32_t i{0}; i < 100; i++) {
         for (int32_t j{0}; j < 100; j++) {
             float z = glm::sin(Time::Get().getTime() - j * 0.5f) * 2.0;
@@ -394,7 +397,7 @@ void Engine::updateGame(const float deltaTime)
 
     debug_renderer::DebugRenderer::drawLine({0, 0, 0}, {0, 100, 0}, {1, 0, 0});
 
-    debug_renderer::DebugRenderer::drawTriangle({0,0,0}, {1,0,0}, {0,1,0}, {0,1,0});
+    debug_renderer::DebugRenderer::drawTriangle({0, 0, 0}, {1, 0, 0}, {0, 1, 0}, {0, 1, 0});
 }
 
 void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap) const
@@ -646,20 +649,6 @@ void Engine::render(float deltaTime)
         transparentPipeline->drawAccumulate(cmd, transparentDrawInfo);
     }
 
-#if WILL_ENGINE_DEBUG
-    if (bDrawDebugRendering) {
-        debug_renderer::DebugRendererDrawInfo debugRendererDrawInfo{
-            currentFrameOverlap,
-            albedoRenderTarget.imageView,
-            depthImage.imageView,
-            sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
-            sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
-        };
-
-        debugRenderer->draw(cmd, debugRendererDrawInfo);
-    }
-#endif
-
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
@@ -741,7 +730,7 @@ void Engine::render(float deltaTime)
 
     vk_helpers::transitionImage(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, postProcessOutputBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::transitionImage(cmd, finalImageBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
 
     const post_process_pipeline::PostProcessDrawInfo postProcessDrawInfo{
@@ -752,13 +741,39 @@ void Engine::render(float deltaTime)
 
     postProcessPipeline->draw(cmd, postProcessDrawInfo);
 
-    vk_helpers::transitionImage(cmd, postProcessOutputBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+#if WILL_ENGINE_DEBUG
+    if (bDrawDebugRendering) {
+        vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT,  debugPipeline->getDebugTarget().image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, {0.0f, 0.0f, 0.0f, 0.0f});
+        vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+                                    VK_IMAGE_ASPECT_DEPTH_BIT);
+
+
+
+        debug_renderer::DebugRendererDrawInfo debugRendererDrawInfo{
+            currentFrameOverlap,
+            debugPipeline->getDebugTarget().imageView,
+            depthImage.imageView,
+            sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+            sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
+        };
+
+        debugRenderer->draw(cmd, debugRendererDrawInfo);
+
+        vk_helpers::transitionImage(cmd, debugPipeline->getDebugTarget().image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                            VK_IMAGE_ASPECT_COLOR_BIT);
+
+        // Composite all draws in the debug image into the final image
+        debugPipeline->draw(cmd);
+    }
+#endif
+    vk_helpers::transitionImage(cmd, finalImageBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
+
     vk_helpers::transitionImage(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::copyImageToImage(cmd, postProcessOutputBuffer.image, swapchainImages[swapchainImageIndex], RENDER_EXTENTS, swapchainExtent);
+    vk_helpers::copyImageToImage(cmd, finalImageBuffer.image, swapchainImages[swapchainImageIndex], RENDER_EXTENTS, swapchainExtent);
 
-    vk_helpers::transitionImage(cmd, postProcessOutputBuffer.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
+    vk_helpers::transitionImage(cmd, finalImageBuffer.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
 
     if (engine_constants::useImgui) {
@@ -844,9 +859,10 @@ void Engine::cleanup()
     resourceManager->destroyBuffer(debugSceneDataBuffer);
     resourceManager->destroyDescriptorBuffer(sceneDataDescriptorBuffer);
 
-#ifndef NDEBUG
-    delete imguiWrapper;
-#endif
+    if (engine_constants::useImgui) {
+        delete imguiWrapper;
+    }
+
 
     for (const FrameData& frame : frames) {
         vkDestroyCommandPool(context->device, frame._commandPool, nullptr);
@@ -865,7 +881,7 @@ void Engine::cleanup()
     resourceManager->destroyImage(velocityRenderTarget);
     resourceManager->destroyImage(taaResolveTarget);
     resourceManager->destroyImage(historyBuffer);
-    resourceManager->destroyImage(postProcessOutputBuffer);
+    resourceManager->destroyImage(finalImageBuffer);
 
     for (Map* map : activeMaps) {
         map->destroy();
@@ -890,6 +906,7 @@ void Engine::cleanup()
     delete environmentMap;
 #if WILL_ENGINE_DEBUG
     delete debugRenderer;
+    delete debugPipeline;
 #endif
     delete physics;
     delete immediate;
@@ -1099,25 +1116,26 @@ void Engine::createDrawResources()
             historyBuffer.imageFormat, historyBuffer.image, VK_IMAGE_ASPECT_COLOR_BIT);
         VK_CHECK(vkCreateImageView(context->device, &historyBufferImageViewInfo, nullptr, &historyBuffer.imageView));
     }
-    // Post Process Resolve
+    // Final Image
     {
-        postProcessOutputBuffer.imageFormat = DRAW_FORMAT;
+        finalImageBuffer.imageFormat = DRAW_FORMAT;
         constexpr VkExtent3D imageExtent = {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1};
-        postProcessOutputBuffer.imageExtent = imageExtent;
+        finalImageBuffer.imageExtent = imageExtent;
         VkImageUsageFlags usageFlags{};
+        usageFlags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         usageFlags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         usageFlags |= VK_IMAGE_USAGE_SAMPLED_BIT;
-        const VkImageCreateInfo imageCreateInfo = vk_helpers::imageCreateInfo(postProcessOutputBuffer.imageFormat, usageFlags, imageExtent);
+        const VkImageCreateInfo imageCreateInfo = vk_helpers::imageCreateInfo(finalImageBuffer.imageFormat, usageFlags, imageExtent);
 
         VmaAllocationCreateInfo imageAllocationInfo = {};
         imageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         imageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vmaCreateImage(context->allocator, &imageCreateInfo, &imageAllocationInfo, &postProcessOutputBuffer.image,
-                       &postProcessOutputBuffer.allocation, nullptr);
+        vmaCreateImage(context->allocator, &imageCreateInfo, &imageAllocationInfo, &finalImageBuffer.image,
+                       &finalImageBuffer.allocation, nullptr);
 
-        VkImageViewCreateInfo rview_info = vk_helpers::imageviewCreateInfo(postProcessOutputBuffer.imageFormat, postProcessOutputBuffer.image,
+        VkImageViewCreateInfo rview_info = vk_helpers::imageviewCreateInfo(finalImageBuffer.imageFormat, finalImageBuffer.image,
                                                                            VK_IMAGE_ASPECT_COLOR_BIT);
-        VK_CHECK(vkCreateImageView(context->device, &rview_info, nullptr, &postProcessOutputBuffer.imageView));
+        VK_CHECK(vkCreateImageView(context->device, &rview_info, nullptr, &finalImageBuffer.imageView));
     }
 }
 

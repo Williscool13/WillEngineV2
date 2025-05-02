@@ -1,0 +1,31 @@
+#version 460
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+layout(binding = 0) uniform sampler2D debugImage;
+layout(binding = 1, rgba16) uniform image2D finalImage;
+
+layout (push_constant) uniform PushConstants {
+    vec2 bounds;
+} push;
+
+
+void main() {
+    ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThan(pixelCoord, ivec2(push.bounds)))) {
+        return;
+    }
+    vec2 uv = (vec2(pixelCoord) + 0.5) / push.bounds;
+    vec4 mainColor = imageLoad(finalImage, pixelCoord);
+
+    // todo: debugUv also needs to be unjittered
+    vec2 debugUv = uv;
+    debugUv.y = 1 - debugUv.y;
+    vec4 debugColor = texture(debugImage, debugUv);
+
+
+
+    vec4 finalColor = mix(mainColor, debugColor, debugColor.a);
+
+    imageStore(finalImage, pixelCoord, finalColor);
+}

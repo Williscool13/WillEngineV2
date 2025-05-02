@@ -21,7 +21,7 @@ void main()
     direction.y = -direction.y;
     vec3 envColor = textureLod(environmentMap, direction, 0).rgb;
 
-    // 0 = environment map flag
+    // 0 = "do not calculate lighting" flag
     albedoTarget = vec4(envColor, 0.0);
 
     vec3 normal = mat3(sceneData.view) * -direction;

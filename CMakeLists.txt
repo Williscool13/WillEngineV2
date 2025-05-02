@@ -267,6 +267,8 @@ set(TEMP_SOURCES
         src/renderer/debug/debug_renderer.cpp
         src/renderer/debug/debug_renderer.h
         src/renderer/debug/debug_renderer_types.h
+        src/renderer/pipelines/debug/debug_pipeline.cpp
+        src/renderer/pipelines/debug/debug_pipeline.h
 
 )
 
