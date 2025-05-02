@@ -38,12 +38,16 @@ public:
 
     void setupLineRendering();
 
-    DebugRenderer(ResourceManager& resourceManager);
+    void setupTriangleRendering();
+
+    explicit DebugRenderer(ResourceManager& resourceManager);
 
     ~DebugRenderer();
 
 public:
     static void drawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec3& color);
+
+    static void drawTriangle(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& color);
 
     static void drawSphere(const glm::vec3& center, float radius, const glm::vec3& color, DebugRendererCategory category = DebugRendererCategory::General);
 
@@ -53,6 +57,8 @@ public:
 
 private:
     void drawLineImpl(const glm::vec3& start, const glm::vec3& end, const glm::vec3& color);
+
+    void drawTriangleImpl(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& color);
 
     void drawSphereImpl(const glm::vec3& center, float radius, const glm::vec3& color, DebugRendererCategory category = DebugRendererCategory::General);
 
@@ -91,8 +97,12 @@ private:
 
     // for custom debug draws from Jolt. For primitives use the instanced draws instead.
     std::vector<DebugRendererVertexFull> lineVertices{};
-    std::array<int64_t, FRAME_OVERLAP> lineVertexBuffersSizes{0, 0};
+    std::array<int64_t, FRAME_OVERLAP> lineVertexBufferSizes{0, 0};
     std::array<AllocatedBuffer, FRAME_OVERLAP> lineVertexBuffers{VK_NULL_HANDLE, VK_NULL_HANDLE};
+
+    std::vector<DebugRendererVertexFull> triangleVertices{};
+    std::array<int64_t, FRAME_OVERLAP> triangleVertexBufferSizes{0, 0};
+    std::array<AllocatedBuffer, FRAME_OVERLAP> triangleVertexBuffers{VK_NULL_HANDLE, VK_NULL_HANDLE};
 
     VkDescriptorSetLayout uniformLayout{VK_NULL_HANDLE};
 

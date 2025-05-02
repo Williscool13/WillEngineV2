@@ -393,6 +393,8 @@ void Engine::updateGame(const float deltaTime)
     debug_renderer::DebugRenderer::drawSphere({-50, 40, 0}, 1.0f, {0.0f, 0.7f, 0.1f});
 
     debug_renderer::DebugRenderer::drawLine({0, 0, 0}, {0, 100, 0}, {1, 0, 0});
+
+    debug_renderer::DebugRenderer::drawTriangle({0,0,0}, {1,0,0}, {0,1,0}, {0,1,0});
 }
 
 void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap) const

@@ -29,10 +29,29 @@ public:
 
     Batch CreateTriangleBatch(const Vertex* inVertices, int inVertexCount, const JPH::uint32* inIndices, int inIndexCount) override;
 
-    void DrawGeometry(JPH::RMat44Arg inModelMatrix, const JPH::AABox& inWorldSpaceBounds, float inLODScaleSq, JPH::ColorArg inModelColor, const GeometryRef& inGeometry, ECullMode inCullMode,
+    void DrawGeometry(JPH::RMat44Arg inModelMatrix, const JPH::AABox& inWorldSpaceBounds, float inLODScaleSq, JPH::ColorArg inModelColor,
+                      const GeometryRef& inGeometry, ECullMode inCullMode,
                       ECastShadow inCastShadow, EDrawMode inDrawMode) override;
 
     void DrawText3D(JPH::RVec3Arg inPosition, const JPH::string_view& inString, JPH::ColorArg inColor, float inHeight) override;
+
+    class BatchImpl final : public JPH::RefTargetVirtual
+    {
+    public:
+        JPH_OVERRIDE_NEW_DELETE
+
+        virtual void AddRef() override { ++mRefCount; }
+        virtual void Release() override { if (--mRefCount == 0) delete this; }
+
+        JPH::Array<Triangle> mTriangles;
+
+    private:
+        std::atomic<uint32_t> mRefCount = 0;
+    };
+
+    /// Last provided camera position
+    JPH::RVec3 mCameraPos;
+    bool mCameraPosSet = false;
 };
 }
 

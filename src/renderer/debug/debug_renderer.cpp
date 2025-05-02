@@ -85,6 +85,9 @@ DebugRenderer::~DebugRenderer()
     for (AllocatedBuffer& buffer : lineVertexBuffers) {
         resourceManager.destroyBuffer(buffer);
     }
+    for (AllocatedBuffer& buffer : triangleVertexBuffers) {
+        resourceManager.destroyBuffer(buffer);
+    }
 
     resourceManager.destroyPipelineLayout(instancedPipelineLayout);
     resourceManager.destroyPipelineLayout(normalPipelineLayout);
@@ -98,6 +101,13 @@ void DebugRenderer::drawLine(const glm::vec3& start, const glm::vec3& end, const
     DebugRenderer* inst = get();
     if (!inst) { return; }
     inst->drawLineImpl(start, end, color);
+}
+
+void DebugRenderer::drawTriangle(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& color)
+{
+    DebugRenderer* inst = get();
+    if (!inst) { return; }
+    inst->drawTriangleImpl(v1, v2, v3, color);
 }
 
 void DebugRenderer::drawSphere(const glm::vec3& center, float radius, const glm::vec3& color, DebugRendererCategory category)
@@ -157,12 +167,12 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
         memcpy(instanceBuffer.info.pMappedData, group.instances.data(), sizeof(DebugRendererInstance) * group.instances.size());
     }
 
-    // Upload Vertex Line Data
+    // Upload Vertex Data
     {
         AllocatedBuffer& lineVertexBuffer = lineVertexBuffers[drawInfo.currentFrameOverlap];
 
-        if (lineVertices.size() > lineVertexBuffersSizes[drawInfo.currentFrameOverlap]) {
-            int64_t newSize = lineVertexBuffersSizes[drawInfo.currentFrameOverlap];
+        if (lineVertices.size() > lineVertexBufferSizes[drawInfo.currentFrameOverlap]) {
+            int64_t newSize = lineVertexBufferSizes[drawInfo.currentFrameOverlap];
             while (lineVertices.size() > newSize) {
                 newSize += DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT;
             }
@@ -171,10 +181,27 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
 
             const uint64_t newBufferSize = newSize * sizeof(DebugRendererVertexFull);
             lineVertexBuffer = resourceManager.createHostSequentialBuffer(newBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
-            lineVertexBuffersSizes[drawInfo.currentFrameOverlap] = newSize;
+            lineVertexBufferSizes[drawInfo.currentFrameOverlap] = newSize;
         }
 
         memcpy(lineVertexBuffer.info.pMappedData, lineVertices.data(), sizeof(DebugRendererVertexFull) * lineVertices.size());
+
+        AllocatedBuffer& triangleVertexBuffer = triangleVertexBuffers[drawInfo.currentFrameOverlap];
+
+        if (triangleVertices.size() > triangleVertexBufferSizes[drawInfo.currentFrameOverlap]) {
+            int64_t newSize = triangleVertexBufferSizes[drawInfo.currentFrameOverlap];
+            while (triangleVertices.size() > newSize) {
+                newSize += DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT;
+            }
+
+            resourceManager.destroyBuffer(triangleVertexBuffer);
+
+            const uint64_t newBufferSize = newSize * sizeof(DebugRendererVertexFull);
+            triangleVertexBuffer = resourceManager.createHostSequentialBuffer(newBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+            triangleVertexBufferSizes[drawInfo.currentFrameOverlap] = newSize;
+        }
+
+        memcpy(triangleVertexBuffer.info.pMappedData, triangleVertices.data(), sizeof(DebugRendererVertexFull) * triangleVertices.size());
     }
 
 
@@ -252,11 +279,18 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     }
 
     // Line Rendering
-    if (lineVertices.size() > 0) {
+    if (!lineVertices.empty()) {
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, linePipeline);
         AllocatedBuffer& currentLineVertexBuffer = lineVertexBuffers[drawInfo.currentFrameOverlap];
         vkCmdBindVertexBuffers(cmd, 0, 1, &currentLineVertexBuffer.buffer, &ZERO_DEVICE_SIZE);
         vkCmdDraw(cmd, lineVertices.size(), 1, 0, 0);
+    }
+
+    if (!triangleVertices.empty()) {
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, trianglePipeline);
+        AllocatedBuffer& currentTriangleVertexBuffer = triangleVertexBuffers[drawInfo.currentFrameOverlap];
+        vkCmdBindVertexBuffers(cmd, 0, 1, &currentTriangleVertexBuffer.buffer, &ZERO_DEVICE_SIZE);
+        vkCmdDraw(cmd, triangleVertices.size(), 1, 0, 0);
     }
 
     vkCmdEndRendering(cmd);
@@ -270,6 +304,7 @@ void DebugRenderer::clear()
         group.instances.clear();
     }
     lineVertices.clear();
+    triangleVertices.clear();
 }
 
 void DebugRenderer::createPipeline()
@@ -347,18 +382,28 @@ void DebugRenderer::createPipeline()
         const std::vector additionalDynamicStates{VK_DYNAMIC_STATE_LINE_WIDTH};
         linePipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);
 
+        renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+        renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
+        trianglePipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);
+
         resourceManager.destroyShaderModule(vertShader);
         resourceManager.destroyShaderModule(fragShader);
     }
 
-    //renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-    //trianglePipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);
+
 }
 
 void DebugRenderer::drawLineImpl(const glm::vec3& start, const glm::vec3& end, const glm::vec3& color)
 {
     lineVertices.push_back({start, color});
     lineVertices.push_back({end, color});
+}
+
+void DebugRenderer::drawTriangleImpl(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& color)
+{
+    triangleVertices.push_back({v1, color});
+    triangleVertices.push_back({v2, color});
+    triangleVertices.push_back({v3, color});
 }
 
 void DebugRenderer::drawSphereImpl(const glm::vec3& center, const float radius, const glm::vec3& color, DebugRendererCategory category)
@@ -532,8 +577,18 @@ void DebugRenderer::setupLineRendering()
 {
     constexpr uint64_t vertexBufferSize = DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT * sizeof(DebugRendererVertexFull);
     for (int32_t i{0}; i < FRAME_OVERLAP; i++) {
-        lineVertexBuffersSizes[i] = DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT;
+        lineVertexBufferSizes[i] = DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT;
         lineVertexBuffers[i] = resourceManager.createHostSequentialBuffer(vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
     }
+}
+
+void DebugRenderer::setupTriangleRendering()
+{
+    constexpr uint64_t vertexBufferSize = DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT * sizeof(DebugRendererVertexFull);
+    for (int32_t i{0}; i < FRAME_OVERLAP; i++) {
+        triangleVertexBufferSizes[i] = DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT;
+        triangleVertexBuffers[i] = resourceManager.createHostSequentialBuffer(vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    }
+
 }
 }
