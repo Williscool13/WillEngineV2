@@ -1,6 +1,7 @@
 #version 460
 #extension GL_EXT_nonuniform_qualifier: enable
 
+#include "common.glsl"
 #include "scene.glsl"
 #include "pbr.glsl"
 #include "environment.glsl"
@@ -86,6 +87,8 @@ void main() {
     }
     float depth = texture(depthBuffer, uv).r;
     vec3 viewNormal = texture(normalRenderTarget, uv).rgb;
+    viewNormal = unpackNormal(viewNormal);
+
     vec4 pbrData = texture(pbrRenderTarget, uv);
     vec3 viewPosition = reconstructPosition(uv, depth);
 

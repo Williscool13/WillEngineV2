@@ -21,6 +21,5 @@ layout(std140, set = 1, binding = 0) readonly buffer InstanceBuffer {
 void main() {
     Instance instance = instances.instances[gl_InstanceIndex];
     gl_Position = sceneData.viewProj * instance.transform * vec4(inPosition, 1.0);
-    gl_Position.xy += gl_Position.w * sceneData.jitter.xy;
     outColor = instance.color;
 }

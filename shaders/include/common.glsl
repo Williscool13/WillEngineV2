@@ -47,4 +47,20 @@ bool nearlyEqual(float a, float b, float epsilon) {
     return abs(a - b) <= epsilon;
 }
 
+vec3 unpackNormal(vec3 packedNormal) {
+    #ifdef REMAP_NORMALS
+    return packedNormal * 2.0 - 1.0;
+    #else
+    return packedNormal;
+    #endif
+}
+
+vec3 packNormal(vec3 normal) {
+    #ifdef REMAP_NORMALS
+    return normal * 0.5 + 0.5;
+    #else
+    return normal;
+    #endif
+}
+
 #endif // COMMON_GLSL

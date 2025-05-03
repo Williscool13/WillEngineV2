@@ -1,5 +1,6 @@
 #version 450
 
+#include "common.glsl"
 #include "scene.glsl"
 
 layout (location = 0) in vec3 uv;
@@ -24,8 +25,7 @@ void main()
     // 0 = "do not calculate lighting" flag
     albedoTarget = vec4(envColor, 0.0);
 
-    vec3 normal = mat3(sceneData.view) * -direction;
-    normalTarget = vec4(normal, 0.0f);
+    normalTarget = vec4(packNormal(mat3(sceneData.view) * -direction), 0.0f);
     pbrTarget = vec4(0.0f);
 
     vec2 currNdc = inCurrMvpPosition.xy / inCurrMvpPosition.w;

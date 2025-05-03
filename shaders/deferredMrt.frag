@@ -73,8 +73,7 @@ void main() {
         roughness *= metalRoughSample.g;
     }
 
-
-    normalTarget = vec4(normalize(inViewNormal), 0.0f);
+    normalTarget = vec4(packNormal(normalize(inViewNormal)), 0.0f);
     albedoTarget = vec4(albedo.xyz, 1.0f);
     pbrTarget = vec4(metallic, roughness, 0.0f, inHasTransparent);
 

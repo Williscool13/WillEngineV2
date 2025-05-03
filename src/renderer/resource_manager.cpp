@@ -668,6 +668,12 @@ VkShaderModule will_engine::ResourceManager::createShaderModule(const std::files
 
     std::vector<std::string> include_paths = {"shaders/include"};
     options.SetIncluder(std::make_unique<CustomIncluder>(include_paths));
+
+    // Macros
+    if (NORMAL_REMAP) {
+        options.AddMacroDefinition("REMAP_NORMALS");
+    }
+
     auto result = compiler.CompileGlslToSpv(source, kind, "shader", options);
 
     if (result.GetCompilationStatus() != shaderc_compilation_status_success) {
