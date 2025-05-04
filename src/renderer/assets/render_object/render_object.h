@@ -99,6 +99,8 @@ public: // IRenderReference
 
     bool releaseInstanceIndex(IRenderable* renderable) override;
 
+    std::optional<std::reference_wrapper<const Mesh>> getMeshData(int32_t meshIndex) override;;
+
 private: // IRenderReference
     /**
      * Hash of the file path
@@ -115,9 +117,9 @@ public: // Model Rendering API
     [[nodiscard]] const DescriptorBufferUniform& getAddressesDescriptorBuffer() const { return addressesDescriptorBuffer; }
     [[nodiscard]] const DescriptorBufferSampler& getTextureDescriptorBuffer() const { return textureDescriptorBuffer; }
     [[nodiscard]] const DescriptorBufferUniform& getFrustumCullingAddressesDescriptorBuffer() { return frustumCullingDescriptorBuffer; }
-    [[nodiscard]] const AllocatedBuffer& getPositionVertexBuffer() const { return vertexPositionBuffer; }
-    [[nodiscard]] const AllocatedBuffer& getPropertyVertexBuffer() const { return vertexPropertyBuffer; }
-    [[nodiscard]] const AllocatedBuffer& getIndexBuffer() const { return indexBuffer; }
+    [[nodiscard]] const AllocatedBuffer& getPositionVertexBuffer() const override { return vertexPositionBuffer; }
+    [[nodiscard]] const AllocatedBuffer& getPropertyVertexBuffer() const override { return vertexPropertyBuffer; }
+    [[nodiscard]] const AllocatedBuffer& getIndexBuffer() const override { return indexBuffer; }
 
     [[nodiscard]] const AllocatedBuffer& getOpaqueIndirectBuffer(const int32_t currentFrameOverlap) const
     {

@@ -2,13 +2,13 @@
 // Created by William on 2025-05-02.
 //
 
-#include "debug_pipeline.h"
+#include "debug_composite_pipeline.h"
 
 #include "volk/volk.h"
 
 namespace will_engine::debug_pipeline
 {
-DebugPipeline::DebugPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
+DebugCompositePipeline::DebugCompositePipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
     DescriptorLayoutBuilder layoutBuilder;
     layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // Debug output (flipped image!)
@@ -22,14 +22,15 @@ DebugPipeline::DebugPipeline(ResourceManager& resourceManager) : resourceManager
     pushConstants.size = sizeof(DebugPushConstant);
     pushConstants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    VkDescriptorSetLayout setLayouts[1];
-    setLayouts[0] = descriptorSetLayout;
+    std::array<VkDescriptorSetLayout, 2> setLayouts;
+    setLayouts[0] = resourceManager.getSceneDataLayout();
+    setLayouts[1] = descriptorSetLayout;
 
     VkPipelineLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layoutInfo.pNext = nullptr;
-    layoutInfo.pSetLayouts = setLayouts;
-    layoutInfo.setLayoutCount = 1;
+    layoutInfo.pSetLayouts = setLayouts.data();
+    layoutInfo.setLayoutCount = 2;
     layoutInfo.pPushConstantRanges = &pushConstants;
     layoutInfo.pushConstantRangeCount = 1;
 
@@ -49,7 +50,7 @@ DebugPipeline::DebugPipeline(ResourceManager& resourceManager) : resourceManager
     debugTarget = resourceManager.createImage(imageCreateInfo);
 }
 
-DebugPipeline::~DebugPipeline()
+DebugCompositePipeline::~DebugCompositePipeline()
 {
     resourceManager.destroyPipeline(pipeline);
     resourceManager.destroyPipelineLayout(pipelineLayout);
@@ -58,7 +59,7 @@ DebugPipeline::~DebugPipeline()
     resourceManager.destroyImage(debugTarget);
 }
 
-void DebugPipeline::setupDescriptorBuffer(VkImageView finalImageView)
+void DebugCompositePipeline::setupDescriptorBuffer(VkImageView finalImageView)
 {
     std::vector<DescriptorImageData> descriptors;
     descriptors.reserve(2);
@@ -78,7 +79,7 @@ void DebugPipeline::setupDescriptorBuffer(VkImageView finalImageView)
     resourceManager.setupDescriptorBufferSampler(descriptorBuffer, descriptors, 0);
 }
 
-void DebugPipeline::draw(VkCommandBuffer cmd) const
+void DebugCompositePipeline::draw(VkCommandBuffer cmd, DebugCompositePipelineDrawInfo drawInfo) const
 {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
 
@@ -86,22 +87,25 @@ void DebugPipeline::draw(VkCommandBuffer cmd) const
     push.renderBounds = {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
     vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(DebugPushConstant), &push);
 
-    const std::array bindingInfos{descriptorBuffer.getDescriptorBufferBindingInfo()};
-    vkCmdBindDescriptorBuffersEXT(cmd, 1, bindingInfos.data());
+    const std::array bindingInfos{
+        drawInfo.sceneDataBinding,
+        descriptorBuffer.getDescriptorBufferBindingInfo()
+    };
+    vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos.data());
 
-    constexpr std::array<uint32_t, 1> indices{};
-    constexpr std::array<VkDeviceSize, 1> offsets{};
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, indices.data(), offsets.data());
+    constexpr std::array<uint32_t, 2> indices{0, 1};
+    const std::array<VkDeviceSize, 2> offsets{drawInfo.sceneDataOffset, 0};
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, indices.data(), offsets.data());
 
     const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
     const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
     vkCmdDispatch(cmd, x, y, 1);
 }
 
-void DebugPipeline::createPipeline()
+void DebugCompositePipeline::createPipeline()
 {
     resourceManager.destroyPipeline(pipeline);
-    VkShaderModule computeShader = resourceManager.createShaderModule("shaders/debug/debug_pipeline.comp");
+    VkShaderModule computeShader = resourceManager.createShaderModule("shaders/debug/debug_composite.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
     stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;

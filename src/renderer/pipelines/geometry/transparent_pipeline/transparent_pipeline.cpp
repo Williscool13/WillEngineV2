@@ -400,20 +400,9 @@ void TransparentPipeline::createCompositePipeline()
     blendAttachmentStates[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
                                               VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
-    // blendAttachmentStates[0].blendEnable = VK_TRUE;
-    // blendAttachmentStates[0].srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-    // blendAttachmentStates[0].dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-    // blendAttachmentStates[0].colorBlendOp = VK_BLEND_OP_ADD;
-    // blendAttachmentStates[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    // blendAttachmentStates[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    // blendAttachmentStates[0].alphaBlendOp = VK_BLEND_OP_ADD;
-    // blendAttachmentStates[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-    //                            VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-
-
     pipelineBuilder.setupBlending(blendAttachmentStates);
     pipelineBuilder.disableDepthTest();
-    pipelineBuilder.setupRenderer({DRAW_FORMAT}, VK_FORMAT_UNDEFINED);
+    pipelineBuilder.setupRenderer({DRAW_FORMAT});
     pipelineBuilder.setupPipelineLayout(compositePipelineLayout);
 
     compositePipeline = resourceManager.createRenderPipeline(pipelineBuilder);

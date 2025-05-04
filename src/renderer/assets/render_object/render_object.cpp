@@ -102,11 +102,10 @@ bool RenderObject::updateBuffers(VkCommandBuffer cmd, const int32_t currentFrame
 
             *pPrimitiveData = pair.second;
         }
-        // vk_helpers::synchronizeUniform(cmd, currentPrimitiveBuffer, VK_PIPELINE_STAGE_2_HOST_BIT
-        //                                , VK_ACCESS_2_HOST_WRITE_BIT
-        //                                , VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT |
-        //                                  VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT
-        //                                , VK_ACCESS_2_UNIFORM_READ_BIT);
+        vk_helpers::synchronizeUniform(cmd, currentPrimitiveBuffer, VK_PIPELINE_STAGE_2_HOST_BIT
+                                       , VK_ACCESS_2_HOST_WRITE_BIT
+                                       , VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT
+                                       , VK_ACCESS_2_UNIFORM_READ_BIT);
     }
 
     AllocatedBuffer& currentInstanceBuffer = modelMatrixBuffers[currentFrameOverlap];
@@ -336,8 +335,15 @@ bool RenderObject::releaseInstanceIndex(IRenderable* renderable)
     return true;
 }
 
+std::optional<std::reference_wrapper<const Mesh> > RenderObject::getMeshData(const int32_t meshIndex)
+{
+    if (meshIndex < 0 || meshIndex >= meshes.size()) { return std::nullopt; }
+    return meshes[meshIndex];
+}
+
 bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath, std::vector<MaterialProperties>& materials,
-                             std::vector<VertexPosition>& vertexPositions, std::vector<VertexProperty>& vertexProperties, std::vector<uint32_t>& indices)
+                             std::vector<VertexPosition>& vertexPositions, std::vector<VertexProperty>& vertexProperties,
+                             std::vector<uint32_t>& indices)
 {
     auto start = std::chrono::system_clock::now();
 

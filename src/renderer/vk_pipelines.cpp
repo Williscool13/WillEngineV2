@@ -205,11 +205,11 @@ void will_engine::PipelineBuilder::setupMultisampling(VkBool32 sampleShadingEnab
     multisampling.alphaToOneEnable = alphaToOneEnable;
 }
 
-void will_engine::PipelineBuilder::setupRenderer(const std::vector<VkFormat>& colorattachmentFormat, const VkFormat depthAttachmentFormat)
+void will_engine::PipelineBuilder::setupRenderer(const std::vector<VkFormat>& colorAttachmentFormat, const VkFormat depthAttachmentFormat, const VkFormat stencilAttachmentFormat)
 {
     // Color Format
-    if (!colorattachmentFormat.empty()) {
-        colorAttachmentFormats = colorattachmentFormat;
+    if (!colorAttachmentFormat.empty()) {
+        colorAttachmentFormats = colorAttachmentFormat;
         renderInfo.colorAttachmentCount = colorAttachmentFormats.size();
         renderInfo.pColorAttachmentFormats = colorAttachmentFormats.data();
     }
@@ -217,6 +217,11 @@ void will_engine::PipelineBuilder::setupRenderer(const std::vector<VkFormat>& co
     // Depth Format
     if (depthAttachmentFormat != VK_FORMAT_UNDEFINED) {
         renderInfo.depthAttachmentFormat = depthAttachmentFormat;
+    }
+
+    // Stencil Format
+    if (stencilAttachmentFormat != VK_FORMAT_UNDEFINED) {
+        renderInfo.stencilAttachmentFormat = stencilAttachmentFormat;
     }
 }
 

@@ -99,7 +99,7 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
     for (RenderObject* renderObject : drawInfo.renderObjects) {
         if (!renderObject->canDraw()) { continue; }
 
-        std::array<VkDescriptorBufferBindingInfoEXT, 3> descriptorBufferBindingInfos{
+        std::array descriptorBufferBindingInfos{
             drawInfo.sceneDataBinding,
             renderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo(),
             renderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo(),
@@ -109,7 +109,7 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
 
         constexpr std::array<uint32_t, 3> indices{0, 1, 2};
 
-        std::array<VkDeviceSize, 3> offsets{
+        std::array offsets{
             drawInfo.sceneDataOffset,
             renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
             ZERO_DEVICE_SIZE

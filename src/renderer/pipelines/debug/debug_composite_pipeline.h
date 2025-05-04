@@ -7,7 +7,7 @@
 
 
 #ifndef WILL_ENGINE_DEBUG
-    #error This file should only be included when JPH_DEBUG_RENDERER is defined
+    #error This file should only be included when WILL_ENGINE_DEBUG is defined
 #endif // !WILL_ENGINE_DEBUG
 
 #include "src/renderer/resource_manager.h"
@@ -21,15 +21,21 @@ struct DebugPushConstant
     glm::vec2 renderBounds{RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
 };
 
-class DebugPipeline {
-public:
-    explicit DebugPipeline(ResourceManager& resourceManager);
+struct DebugCompositePipelineDrawInfo
+{
+    VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
+    VkDeviceSize sceneDataOffset{0};
+};
 
-    ~DebugPipeline();
+class DebugCompositePipeline {
+public:
+    explicit DebugCompositePipeline(ResourceManager& resourceManager);
+
+    ~DebugCompositePipeline();
 
     void setupDescriptorBuffer(VkImageView finalImageView);
 
-    void draw(VkCommandBuffer cmd) const;
+    void draw(VkCommandBuffer cmd, DebugCompositePipelineDrawInfo drawInfo) const;
 
     void reloadShaders() { createPipeline(); }
 

@@ -7,6 +7,9 @@
 
 #include <glm/glm.hpp>
 
+#include "src/renderer/vk_types.h"
+#include "render_object_types.h"
+
 namespace will_engine
 {
 class IRenderable;
@@ -26,6 +29,14 @@ public:
     [[nodiscard]] virtual uint32_t getId() const = 0;
 
     virtual bool releaseInstanceIndex(IRenderable* renderable) = 0;
+
+    virtual std::optional<std::reference_wrapper<const Mesh>> getMeshData(int32_t meshIndex) = 0;
+
+    virtual const AllocatedBuffer& getPositionVertexBuffer() const = 0;
+
+    virtual const AllocatedBuffer& getPropertyVertexBuffer() const = 0;
+
+    virtual const AllocatedBuffer& getIndexBuffer() const = 0;
 };
 }
 

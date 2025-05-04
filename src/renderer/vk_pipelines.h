@@ -60,7 +60,7 @@ public:
     void setupMultisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples, float minSampleShading, const VkSampleMask* pSampleMask,
                             VkBool32 alphaToCoverageEnable, VkBool32 alphaToOneEnable);
 
-    void setupRenderer(const std::vector<VkFormat>& colorattachmentFormat, VkFormat depthAttachmentFormat);
+    void setupRenderer(const std::vector<VkFormat>& colorAttachmentFormat, VkFormat depthAttachmentFormat = VK_FORMAT_UNDEFINED, VkFormat stencilAttachmentFormat = VK_FORMAT_UNDEFINED);
 
     /**
      * Set up the depth and stencil for this pipeline

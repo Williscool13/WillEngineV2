@@ -40,7 +40,7 @@ namespace will_engine
 {
 namespace debug_pipeline
 {
-    class DebugPipeline;
+    class DebugCompositePipeline;
 }
 
 namespace ambient_occlusion
@@ -169,7 +169,7 @@ private:
     physics::Physics* physics{nullptr};
 #if WILL_ENGINE_DEBUG
     debug_renderer::DebugRenderer* debugRenderer{nullptr};
-    debug_pipeline::DebugPipeline* debugPipeline{nullptr};
+    debug_pipeline::DebugCompositePipeline* debugPipeline{nullptr};
 #endif
 
     environment::Environment* environmentMap{nullptr};

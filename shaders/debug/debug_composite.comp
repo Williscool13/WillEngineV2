@@ -1,9 +1,13 @@
 #version 460
 
+#include "scene.glsl"
+
 layout (local_size_x = 16, local_size_y = 16) in;
 
-layout(binding = 0) uniform sampler2D debugImage;
-layout(binding = 1, rgba16) uniform image2D finalImage;
+// layout (std140, set = 0, binding = 0) uniform SceneData - scene.glsl
+
+layout(set = 1, binding = 0) uniform sampler2D debugImage;
+layout(set = 1, binding = 1, rgba16) uniform image2D finalImage;
 
 layout (push_constant) uniform PushConstants {
     vec2 bounds;
@@ -18,9 +22,10 @@ void main() {
     vec2 uv = (vec2(pixelCoord) + 0.5) / push.bounds;
     vec4 mainColor = imageLoad(finalImage, pixelCoord);
 
-    // todo: debugUv also needs to be unjittered
     vec2 debugUv = uv;
     debugUv.y = 1 - debugUv.y;
+    debugUv += sceneData.jitter.xy / 2.0f;
+
     vec4 debugColor = texture(debugImage, debugUv);
 
 

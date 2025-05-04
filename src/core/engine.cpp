@@ -25,8 +25,8 @@
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/environment/environment.h"
 #include "../renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h"
-#include "src/renderer/debug/debug_renderer.h"
-#include "src/renderer/pipelines/debug/debug_pipeline.h"
+#include "../renderer/pipelines/debug/debug_renderer.h"
+#include "src/renderer/pipelines/debug/debug_composite_pipeline.h"
 #include "src/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline.h"
 #include "src/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline_types.h"
 #include "src/renderer/pipelines/geometry/deferred_resolve/deferred_resolve_pipeline.h"
@@ -131,7 +131,7 @@ void Engine::init()
 #if WILL_ENGINE_DEBUG
     debugRenderer = new debug_renderer::DebugRenderer(*resourceManager);
     debug_renderer::DebugRenderer::set(debugRenderer);
-    debugPipeline = new debug_pipeline::DebugPipeline(*resourceManager);
+    debugPipeline = new debug_pipeline::DebugCompositePipeline(*resourceManager);
     debugPipeline->setupDescriptorBuffer(finalImageBuffer.imageView);
 #endif
 
@@ -743,10 +743,10 @@ void Engine::render(float deltaTime)
 
 #if WILL_ENGINE_DEBUG
     if (bDrawDebugRendering) {
-        vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT,  debugPipeline->getDebugTarget().image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, {0.0f, 0.0f, 0.0f, 0.0f});
+        vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, debugPipeline->getDebugTarget().image, VK_IMAGE_LAYOUT_UNDEFINED,
+                                    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, {0.0f, 0.0f, 0.0f, 0.0f});
         vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
                                     VK_IMAGE_ASPECT_DEPTH_BIT);
-
 
 
         debug_renderer::DebugRendererDrawInfo debugRendererDrawInfo{
@@ -759,11 +759,17 @@ void Engine::render(float deltaTime)
 
         debugRenderer->draw(cmd, debugRendererDrawInfo);
 
-        vk_helpers::transitionImage(cmd, debugPipeline->getDebugTarget().image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                            VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::transitionImage(cmd, debugPipeline->getDebugTarget().image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                    VK_IMAGE_ASPECT_COLOR_BIT);
+
+        debug_pipeline::DebugCompositePipelineDrawInfo drawInfo{
+            sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+            sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
+        };
 
         // Composite all draws in the debug image into the final image
-        debugPipeline->draw(cmd);
+        debugPipeline->draw(cmd, drawInfo);
     }
 #endif
     vk_helpers::transitionImage(cmd, finalImageBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,

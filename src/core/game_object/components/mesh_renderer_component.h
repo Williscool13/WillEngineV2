@@ -55,6 +55,9 @@ public:
 
     void beginDestroy() override;
 
+public:
+    void drawHighlight();
+
 public: // Serialization
     void serialize(ordered_json& j) override;
 
