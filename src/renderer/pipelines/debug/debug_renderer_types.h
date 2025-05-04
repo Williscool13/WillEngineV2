@@ -90,7 +90,7 @@ struct DebugRendererInstance
 struct DebugRendererDrawInfo
 {
     int32_t currentFrameOverlap{};
-    VkImageView imageTarget;
+    VkImageView debugTarget;
     VkImageView depthTarget;
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};

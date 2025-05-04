@@ -38,6 +38,11 @@ class VulkanContext;
 
 namespace will_engine
 {
+namespace debug_highlight_pipeline
+{
+    class DebugHighlighter;
+}
+
 namespace debug_pipeline
 {
     class DebugCompositePipeline;
@@ -169,8 +174,11 @@ private:
     physics::Physics* physics{nullptr};
 #if WILL_ENGINE_DEBUG
     debug_renderer::DebugRenderer* debugRenderer{nullptr};
+    debug_highlight_pipeline::DebugHighlighter* debugHighlighter{nullptr};
     debug_pipeline::DebugCompositePipeline* debugPipeline{nullptr};
 #endif
+    // Might be used in imgui which can be active outside of debug build
+    IHierarchical* selectedItem{nullptr};
 
     environment::Environment* environmentMap{nullptr};
 
@@ -301,6 +309,11 @@ private: // Draw Resources
      * A copy of the previous TAA Resolve Buffer
      */
     AllocatedImage historyBuffer{};
+
+#if WILL_ENGINE_DEBUG
+    AllocatedImage debugTarget{};
+#endif
+
     AllocatedImage finalImageBuffer{};
 
 private: // Swapchain

@@ -34,8 +34,8 @@ will_engine::deferred_mrt::DeferredMrtPipeline::DeferredMrtPipeline(ResourceMana
 
 will_engine::deferred_mrt::DeferredMrtPipeline::~DeferredMrtPipeline()
 {
-    resourceManager.destroyPipelineLayout(pipelineLayout);
-    resourceManager.destroyPipeline(pipeline);
+    resourceManager.destroy(pipelineLayout);
+    resourceManager.destroy(pipeline);
 }
 
 void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, const DeferredMrtDrawInfo& drawInfo) const
@@ -132,7 +132,7 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
 
 void will_engine::deferred_mrt::DeferredMrtPipeline::createPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
+    resourceManager.destroy(pipeline);
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/deferredMrt.vert");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/deferredMrt.frag");
 
@@ -182,6 +182,6 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::createPipeline()
     renderPipelineBuilder.setupPipelineLayout(pipelineLayout);
 
     pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder);
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
+    resourceManager.destroy(vertShader);
+    resourceManager.destroy(fragShader);
 }

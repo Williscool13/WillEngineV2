@@ -21,6 +21,8 @@ public:
 
     [[nodiscard]] virtual uint32_t getRenderReferenceId() const = 0;
 
+    [[nodiscard]] virtual IRenderReference* getRenderReference() const = 0;
+
     [[nodiscard]] virtual int32_t getMeshIndex() const = 0;
 
     [[nodiscard]] virtual bool& isVisible() = 0;

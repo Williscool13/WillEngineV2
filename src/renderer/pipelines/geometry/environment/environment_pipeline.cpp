@@ -30,8 +30,8 @@ will_engine::environment_pipeline::EnvironmentPipeline::EnvironmentPipeline(Reso
 
 will_engine::environment_pipeline::EnvironmentPipeline::~EnvironmentPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
-    resourceManager.destroyPipelineLayout(pipelineLayout);
+    resourceManager.destroy(pipeline);
+    resourceManager.destroy(pipelineLayout);
 }
 
 void will_engine::environment_pipeline::EnvironmentPipeline::draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& drawInfo) const
@@ -108,7 +108,7 @@ void will_engine::environment_pipeline::EnvironmentPipeline::draw(VkCommandBuffe
 
 void will_engine::environment_pipeline::EnvironmentPipeline::createPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
+    resourceManager.destroy(pipeline);
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/environment/environment.vert");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/environment/environment.frag");
 
@@ -125,6 +125,6 @@ void will_engine::environment_pipeline::EnvironmentPipeline::createPipeline()
 
     pipeline = resourceManager.createRenderPipeline(pipelineBuilder);
 
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
+    resourceManager.destroy(vertShader);
+    resourceManager.destroy(fragShader);
 }

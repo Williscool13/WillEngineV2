@@ -39,34 +39,24 @@ DebugCompositePipeline::DebugCompositePipeline(ResourceManager& resourceManager)
     createPipeline();
 
     descriptorBuffer = resourceManager.createDescriptorBufferSampler(descriptorSetLayout, 1);
-
-    // Debug Output (Gizmos, Debug Draws, etc. Output here before combined w/ final image. Goes around normal pass stuff. Expects inputs to be jittered because to test against depth buffer, fragments need to be jittered cause depth buffer is jittered)
-    constexpr VkExtent3D imageExtent = {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1};
-    VkImageUsageFlags usageFlags{};
-    usageFlags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    usageFlags |= VK_IMAGE_USAGE_SAMPLED_BIT;
-    usageFlags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-    const VkImageCreateInfo imageCreateInfo = vk_helpers::imageCreateInfo(DRAW_FORMAT, usageFlags, imageExtent);
-    debugTarget = resourceManager.createImage(imageCreateInfo);
 }
 
 DebugCompositePipeline::~DebugCompositePipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
-    resourceManager.destroyPipelineLayout(pipelineLayout);
-    resourceManager.destroyDescriptorSetLayout(descriptorSetLayout);
-    resourceManager.destroyDescriptorBuffer(descriptorBuffer);
-    resourceManager.destroyImage(debugTarget);
+    resourceManager.destroy(pipeline);
+    resourceManager.destroy(pipelineLayout);
+    resourceManager.destroy(descriptorSetLayout);
+    resourceManager.destroy(descriptorBuffer);
 }
 
-void DebugCompositePipeline::setupDescriptorBuffer(VkImageView finalImageView)
+void DebugCompositePipeline::setupDescriptorBuffer(VkImageView debugTarget, VkImageView finalImageView)
 {
     std::vector<DescriptorImageData> descriptors;
     descriptors.reserve(2);
 
     VkDescriptorImageInfo inputImage{};
     inputImage.sampler = resourceManager.getDefaultSamplerNearest();
-    inputImage.imageView = debugTarget.imageView;
+    inputImage.imageView = debugTarget;
     inputImage.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo outputImage{};
@@ -104,7 +94,7 @@ void DebugCompositePipeline::draw(VkCommandBuffer cmd, DebugCompositePipelineDra
 
 void DebugCompositePipeline::createPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
+    resourceManager.destroy(pipeline);
     VkShaderModule computeShader = resourceManager.createShaderModule("shaders/debug/debug_composite.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
@@ -122,6 +112,6 @@ void DebugCompositePipeline::createPipeline()
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     pipeline = resourceManager.createComputePipeline(pipelineInfo);
-    resourceManager.destroyShaderModule(computeShader);
+    resourceManager.destroy(computeShader);
 }
 }

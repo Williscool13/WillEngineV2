@@ -27,6 +27,7 @@
 #include "../renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h"
 #include "../renderer/pipelines/debug/debug_renderer.h"
 #include "src/renderer/pipelines/debug/debug_composite_pipeline.h"
+#include "src/renderer/pipelines/debug/debug_highlighter.h"
 #include "src/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline.h"
 #include "src/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline_types.h"
 #include "src/renderer/pipelines/geometry/deferred_resolve/deferred_resolve_pipeline.h"
@@ -98,9 +99,8 @@ void Engine::init()
     startupProfiler.addEntry("Vulkan Context");
 
     createSwapchain(windowExtent.width, windowExtent.height);
-    createDrawResources();
 
-    startupProfiler.addEntry("Swapchain/Draw Resources");
+    startupProfiler.addEntry("Swapchain");
 
     // Command Pools
     const VkCommandPoolCreateInfo commandPoolInfo = vk_helpers::commandPoolCreateInfo(context->graphicsQueueFamily,
@@ -128,11 +128,15 @@ void Engine::init()
     assetManager = new AssetManager(*resourceManager);
     physics = new physics::Physics();
     physics::Physics::set(physics);
+
+    createDrawResources();
+
 #if WILL_ENGINE_DEBUG
     debugRenderer = new debug_renderer::DebugRenderer(*resourceManager);
     debug_renderer::DebugRenderer::set(debugRenderer);
     debugPipeline = new debug_pipeline::DebugCompositePipeline(*resourceManager);
-    debugPipeline->setupDescriptorBuffer(finalImageBuffer.imageView);
+    debugPipeline->setupDescriptorBuffer(debugTarget.imageView, finalImageBuffer.imageView);
+    debugHighlighter = new debug_highlight_pipeline::DebugHighlighter(*resourceManager);
 #endif
 
     startupProfiler.addEntry("Immediate, ResourceM, AssetM, Physics");
@@ -742,8 +746,10 @@ void Engine::render(float deltaTime)
     postProcessPipeline->draw(cmd, postProcessDrawInfo);
 
 #if WILL_ENGINE_DEBUG
+    // Ensure all real rendering happens before this step, as debug draws do write to the depth buffer.
+    // This should ALWAYS be the final step before copying to swapchain
     if (bDrawDebugRendering) {
-        vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, debugPipeline->getDebugTarget().image, VK_IMAGE_LAYOUT_UNDEFINED,
+        vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, debugTarget.image, VK_IMAGE_LAYOUT_UNDEFINED,
                                     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, {0.0f, 0.0f, 0.0f, 0.0f});
         vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
                                     VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -751,7 +757,7 @@ void Engine::render(float deltaTime)
 
         debug_renderer::DebugRendererDrawInfo debugRendererDrawInfo{
             currentFrameOverlap,
-            debugPipeline->getDebugTarget().imageView,
+            debugTarget.imageView,
             depthImage.imageView,
             sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
             sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
@@ -759,7 +765,7 @@ void Engine::render(float deltaTime)
 
         debugRenderer->draw(cmd, debugRendererDrawInfo);
 
-        vk_helpers::transitionImage(cmd, debugPipeline->getDebugTarget().image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        vk_helpers::transitionImage(cmd, debugTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                     VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -860,10 +866,10 @@ void Engine::cleanup()
     delete postProcessPipeline;
 
     for (AllocatedBuffer sceneBuffer : sceneDataBuffers) {
-        resourceManager->destroyBuffer(sceneBuffer);
+        resourceManager->destroy(sceneBuffer);
     }
-    resourceManager->destroyBuffer(debugSceneDataBuffer);
-    resourceManager->destroyDescriptorBuffer(sceneDataDescriptorBuffer);
+    resourceManager->destroy(debugSceneDataBuffer);
+    resourceManager->destroy(sceneDataDescriptorBuffer);
 
     if (engine_constants::useImgui) {
         delete imguiWrapper;
@@ -879,15 +885,15 @@ void Engine::cleanup()
         vkDestroySemaphore(context->device, frame._swapchainSemaphore, nullptr);
     }
 
-    resourceManager->destroyImage(drawImage);
-    resourceManager->destroyImage(depthImage);
-    resourceManager->destroyImage(normalRenderTarget);
-    resourceManager->destroyImage(albedoRenderTarget);
-    resourceManager->destroyImage(pbrRenderTarget);
-    resourceManager->destroyImage(velocityRenderTarget);
-    resourceManager->destroyImage(taaResolveTarget);
-    resourceManager->destroyImage(historyBuffer);
-    resourceManager->destroyImage(finalImageBuffer);
+    resourceManager->destroy(drawImage);
+    resourceManager->destroy(depthImage);
+    resourceManager->destroy(normalRenderTarget);
+    resourceManager->destroy(albedoRenderTarget);
+    resourceManager->destroy(pbrRenderTarget);
+    resourceManager->destroy(velocityRenderTarget);
+    resourceManager->destroy(taaResolveTarget);
+    resourceManager->destroy(historyBuffer);
+    resourceManager->destroy(finalImageBuffer);
 
     for (Map* map : activeMaps) {
         map->destroy();
@@ -911,7 +917,9 @@ void Engine::cleanup()
     delete cascadedShadowMap;
     delete environmentMap;
 #if WILL_ENGINE_DEBUG
+    resourceManager->destroy(debugTarget);
     delete debugRenderer;
+    delete debugHighlighter;
     delete debugPipeline;
 #endif
     delete physics;
@@ -1143,6 +1151,17 @@ void Engine::createDrawResources()
                                                                            VK_IMAGE_ASPECT_COLOR_BIT);
         VK_CHECK(vkCreateImageView(context->device, &rview_info, nullptr, &finalImageBuffer.imageView));
     }
+
+#if WILL_ENGINE_DEBUG
+    // Debug Output (Gizmos, Debug Draws, etc. Output here before combined w/ final image. Goes around normal pass stuff. Expects inputs to be jittered because to test against depth buffer, fragments need to be jittered cause depth buffer is jittered)
+    constexpr VkExtent3D imageExtent = {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1};
+    VkImageUsageFlags usageFlags{};
+    usageFlags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    usageFlags |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    usageFlags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+    const VkImageCreateInfo imageCreateInfo = vk_helpers::imageCreateInfo(DRAW_FORMAT, usageFlags, imageExtent);
+    debugTarget = resourceManager->createImage(imageCreateInfo);
+#endif
 }
 
 void Engine::setCsmSettings(const cascaded_shadows::CascadedShadowMapSettings& settings)

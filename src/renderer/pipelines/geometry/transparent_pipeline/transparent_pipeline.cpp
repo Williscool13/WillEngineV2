@@ -101,15 +101,15 @@ TransparentPipeline::TransparentPipeline(ResourceManager& resourceManager,
 
 TransparentPipeline::~TransparentPipeline()
 {
-    resourceManager.destroyImage(accumulationImage);
-    resourceManager.destroyImage(revealageImage);
-    resourceManager.destroyImage(debugImage);
-    resourceManager.destroyPipelineLayout(accumulationPipelineLayout);
-    resourceManager.destroyPipeline(accumulationPipeline);
-    resourceManager.destroyDescriptorSetLayout(compositeDescriptorSetLayout);
-    resourceManager.destroyPipelineLayout(compositePipelineLayout);
-    resourceManager.destroyPipeline(compositePipeline);
-    resourceManager.destroyDescriptorBuffer(compositeDescriptorBuffer);
+    resourceManager.destroy(accumulationImage);
+    resourceManager.destroy(revealageImage);
+    resourceManager.destroy(debugImage);
+    resourceManager.destroy(accumulationPipelineLayout);
+    resourceManager.destroy(accumulationPipeline);
+    resourceManager.destroy(compositeDescriptorSetLayout);
+    resourceManager.destroy(compositePipelineLayout);
+    resourceManager.destroy(compositePipeline);
+    resourceManager.destroy(compositeDescriptorBuffer);
 }
 
 void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentAccumulateDrawInfo& drawInfo) const
@@ -297,7 +297,7 @@ void TransparentPipeline::drawComposite(VkCommandBuffer cmd, const TransparentCo
 
 void TransparentPipeline::createAccumulationPipeline()
 {
-    resourceManager.destroyPipeline(accumulationPipeline);
+    resourceManager.destroy(accumulationPipeline);
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/transparent.vert");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/transparent.frag");
 
@@ -372,13 +372,13 @@ void TransparentPipeline::createAccumulationPipeline()
     pipelineBuilder.setupPipelineLayout(accumulationPipelineLayout);
 
     accumulationPipeline = resourceManager.createRenderPipeline(pipelineBuilder);
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
+    resourceManager.destroy(vertShader);
+    resourceManager.destroy(fragShader);
 }
 
 void TransparentPipeline::createCompositePipeline()
 {
-    resourceManager.destroyPipeline(compositePipeline);
+    resourceManager.destroy(compositePipeline);
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/transparentComposite.vert");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/transparentComposite.frag");
 
@@ -406,7 +406,7 @@ void TransparentPipeline::createCompositePipeline()
     pipelineBuilder.setupPipelineLayout(compositePipelineLayout);
 
     compositePipeline = resourceManager.createRenderPipeline(pipelineBuilder);
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
+    resourceManager.destroy(vertShader);
+    resourceManager.destroy(fragShader);
 }
 }

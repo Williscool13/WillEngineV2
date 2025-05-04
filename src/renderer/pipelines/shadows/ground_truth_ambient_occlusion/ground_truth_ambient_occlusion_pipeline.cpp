@@ -226,42 +226,42 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
 will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::~GroundTruthAmbientOcclusionPipeline()
 {
     // Debug Resources
-    resourceManager.destroyImage(debugImage);
+    resourceManager.destroy(debugImage);
 
     // Depth Prefilter Resources
-    resourceManager.destroyDescriptorSetLayout(depthPrefilterSetLayout);
-    resourceManager.destroyPipelineLayout(depthPrefilterPipelineLayout);
-    resourceManager.destroyPipeline(depthPrefilterPipeline);
+    resourceManager.destroy(depthPrefilterSetLayout);
+    resourceManager.destroy(depthPrefilterPipelineLayout);
+    resourceManager.destroy(depthPrefilterPipeline);
 
     for (int32_t i = 0; i < DEPTH_PREFILTER_MIP_COUNT; ++i) {
-        resourceManager.destroyImageView(depthPrefilterImageViews[i]);
+        resourceManager.destroy(depthPrefilterImageViews[i]);
     }
 
-    resourceManager.destroyImage(depthPrefilterImage);
-    resourceManager.destroySampler(depthSampler);
+    resourceManager.destroy(depthPrefilterImage);
+    resourceManager.destroy(depthSampler);
 
-    resourceManager.destroyDescriptorBuffer(depthPrefilterDescriptorBuffer);
+    resourceManager.destroy(depthPrefilterDescriptorBuffer);
 
     // AO Resources
-    resourceManager.destroyDescriptorSetLayout(ambientOcclusionSetLayout);
-    resourceManager.destroyPipelineLayout(ambientOcclusionPipelineLayout);
-    resourceManager.destroyPipeline(ambientOcclusionPipeline);
+    resourceManager.destroy(ambientOcclusionSetLayout);
+    resourceManager.destroy(ambientOcclusionPipelineLayout);
+    resourceManager.destroy(ambientOcclusionPipeline);
 
-    resourceManager.destroySampler(depthPrefilterSampler);
-    resourceManager.destroySampler(normalsSampler);
-    resourceManager.destroyImage(ambientOcclusionImage);
-    resourceManager.destroyImage(edgeDataImage);
+    resourceManager.destroy(depthPrefilterSampler);
+    resourceManager.destroy(normalsSampler);
+    resourceManager.destroy(ambientOcclusionImage);
+    resourceManager.destroy(edgeDataImage);
 
-    resourceManager.destroyDescriptorBuffer(ambientOcclusionDescriptorBuffer);
+    resourceManager.destroy(ambientOcclusionDescriptorBuffer);
 
     // Spatial Filtering Resources
-    resourceManager.destroyDescriptorSetLayout(spatialFilteringSetLayout);
-    resourceManager.destroyPipelineLayout(spatialFilteringPipelineLayout);
-    resourceManager.destroyPipeline(spatialFilteringPipeline);
+    resourceManager.destroy(spatialFilteringSetLayout);
+    resourceManager.destroy(spatialFilteringPipelineLayout);
+    resourceManager.destroy(spatialFilteringPipeline);
 
-    resourceManager.destroyImage(denoisedFinalAO);
+    resourceManager.destroy(denoisedFinalAO);
 
-    resourceManager.destroyDescriptorBuffer(spatialFilteringDescriptorBuffer);
+    resourceManager.destroy(spatialFilteringDescriptorBuffer);
 }
 
 void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupDepthPrefilterDescriptorBuffer(const VkImageView& depthImageView)
@@ -488,7 +488,7 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::reload
 
 void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::createDepthPrefilterPipeline()
 {
-    resourceManager.destroyPipeline(depthPrefilterPipeline);
+    resourceManager.destroy(depthPrefilterPipeline);
     VkShaderModule computeShader = resourceManager.createShaderModule("shaders/ambient_occlusion/ground_truth/gtao_depth_prefilter.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
@@ -506,12 +506,12 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::create
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     depthPrefilterPipeline = resourceManager.createComputePipeline(pipelineInfo);
-    resourceManager.destroyShaderModule(computeShader);
+    resourceManager.destroy(computeShader);
 }
 
 void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::createAmbientOcclusionPipeline()
 {
-    resourceManager.destroyPipeline(ambientOcclusionPipeline);
+    resourceManager.destroy(ambientOcclusionPipeline);
     VkShaderModule computeShader = resourceManager.createShaderModule("shaders/ambient_occlusion/ground_truth/gtao_main_pass.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
@@ -529,12 +529,12 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::create
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     ambientOcclusionPipeline = resourceManager.createComputePipeline(pipelineInfo);
-    resourceManager.destroyShaderModule(computeShader);
+    resourceManager.destroy(computeShader);
 }
 
 void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::createSpatialFilteringPipeline()
 {
-    resourceManager.destroyPipeline(spatialFilteringPipeline);
+    resourceManager.destroy(spatialFilteringPipeline);
     VkShaderModule computeShader = resourceManager.createShaderModule("shaders/ambient_occlusion/ground_truth/gtao_spatial_filter.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
@@ -552,5 +552,5 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::create
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     spatialFilteringPipeline = resourceManager.createComputePipeline(pipelineInfo);
-    resourceManager.destroyShaderModule(computeShader);
+    resourceManager.destroy(computeShader);
 }

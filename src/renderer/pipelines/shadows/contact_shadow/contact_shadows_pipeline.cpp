@@ -79,15 +79,15 @@ ContactShadowsPipeline::ContactShadowsPipeline(ResourceManager& resourceManager)
 
 ContactShadowsPipeline::~ContactShadowsPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
-    resourceManager.destroyPipelineLayout(pipelineLayout);
-    resourceManager.destroyDescriptorSetLayout(descriptorSetLayout);
+    resourceManager.destroy(pipeline);
+    resourceManager.destroy(pipelineLayout);
+    resourceManager.destroy(descriptorSetLayout);
 
-    resourceManager.destroySampler(depthSampler);
+    resourceManager.destroy(depthSampler);
 
-    resourceManager.destroyImage(contactShadowImage);
-    resourceManager.destroyImage(debugImage);
-    resourceManager.destroyDescriptorBuffer(descriptorBufferSampler);
+    resourceManager.destroy(contactShadowImage);
+    resourceManager.destroy(debugImage);
+    resourceManager.destroy(descriptorBufferSampler);
 }
 
 void ContactShadowsPipeline::setupDescriptorBuffer(const VkImageView& depthImageView)
@@ -154,7 +154,7 @@ void ContactShadowsPipeline::draw(VkCommandBuffer cmd, const ContactShadowsDrawI
 
 void ContactShadowsPipeline::createPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
+    resourceManager.destroy(pipeline);
     VkShaderModule computeShader = resourceManager.createShaderModule("shaders/shadows/contact_shadow_pass.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
@@ -172,7 +172,7 @@ void ContactShadowsPipeline::createPipeline()
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     pipeline = resourceManager.createComputePipeline(pipelineInfo);
-    resourceManager.destroyShaderModule(computeShader);
+    resourceManager.destroy(computeShader);
 }
 
 DispatchList ContactShadowsPipeline::buildDispatchList(const Camera* camera, const DirectionalLight& mainLight)

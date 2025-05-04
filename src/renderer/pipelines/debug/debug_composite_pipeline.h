@@ -33,13 +33,11 @@ public:
 
     ~DebugCompositePipeline();
 
-    void setupDescriptorBuffer(VkImageView finalImageView);
+    void setupDescriptorBuffer(VkImageView debugTarget, VkImageView finalImageView);
 
     void draw(VkCommandBuffer cmd, DebugCompositePipelineDrawInfo drawInfo) const;
 
     void reloadShaders() { createPipeline(); }
-
-    const AllocatedImage& getDebugTarget() const { return debugTarget; }
 
 private:
     void createPipeline();
@@ -51,8 +49,6 @@ private:
     VkPipeline pipeline{VK_NULL_HANDLE};
     VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};
     DescriptorBufferSampler descriptorBuffer;
-
-    AllocatedImage debugTarget{};
 };
 
 }

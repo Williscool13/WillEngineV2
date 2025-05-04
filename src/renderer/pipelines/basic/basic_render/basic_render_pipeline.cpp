@@ -40,10 +40,10 @@ will_engine::basic_render_pipeline::BasicRenderPipeline::BasicRenderPipeline(Res
 
 will_engine::basic_render_pipeline::BasicRenderPipeline::~BasicRenderPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
-    resourceManager.destroyPipelineLayout(pipelineLayout);
-    resourceManager.destroyDescriptorSetLayout(samplerDescriptorLayout);
-    resourceManager.destroyDescriptorBuffer(samplerDescriptorBuffer);
+    resourceManager.destroy(pipeline);
+    resourceManager.destroy(pipelineLayout);
+    resourceManager.destroy(samplerDescriptorLayout);
+    resourceManager.destroy(samplerDescriptorBuffer);
 }
 
 void will_engine::basic_render_pipeline::BasicRenderPipeline::setupDescriptors(const RenderDescriptorInfo& descriptorInfo)
@@ -112,7 +112,7 @@ void will_engine::basic_render_pipeline::BasicRenderPipeline::draw(VkCommandBuff
 
 void will_engine::basic_render_pipeline::BasicRenderPipeline::createPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
+    resourceManager.destroy(pipeline);
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/basic/vertex.vert");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/basic/fragment.frag");
 
@@ -128,6 +128,6 @@ void will_engine::basic_render_pipeline::BasicRenderPipeline::createPipeline()
 
     pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder);
 
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
+    resourceManager.destroy(vertShader);
+    resourceManager.destroy(fragShader);
 }

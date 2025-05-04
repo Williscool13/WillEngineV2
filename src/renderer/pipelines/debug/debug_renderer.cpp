@@ -46,7 +46,7 @@ DebugRenderer::DebugRenderer(ResourceManager& resourceManager) : resourceManager
 
     resourceManager.copyBufferImmediate(bufferCopies);
     for (BufferCopyInfo bufferCopy : bufferCopies) {
-        resourceManager.destroyBufferImmediate(bufferCopy.src);
+        resourceManager.destroyImmediate(bufferCopy.src);
     }
 
 
@@ -71,30 +71,30 @@ DebugRenderer::DebugRenderer(ResourceManager& resourceManager) : resourceManager
 
 DebugRenderer::~DebugRenderer()
 {
-    resourceManager.destroyDescriptorSetLayout(uniformLayout);
+    resourceManager.destroy(uniformLayout);
 
-    resourceManager.destroyBuffer(instancedVertexBuffer);
-    resourceManager.destroyBuffer(instancedIndexBuffer);
+    resourceManager.destroy(instancedVertexBuffer);
+    resourceManager.destroy(instancedIndexBuffer);
 
     for (DebugRenderGroup& group : debugRenderInstanceGroups) {
         for (AllocatedBuffer& buffer : group.instanceBuffers) {
-            resourceManager.destroyBuffer(buffer);
+            resourceManager.destroy(buffer);
         }
-        resourceManager.destroyDescriptorBuffer(group.instanceDescriptorBuffer);
+        resourceManager.destroy(group.instanceDescriptorBuffer);
     }
 
     for (AllocatedBuffer& buffer : lineVertexBuffers) {
-        resourceManager.destroyBuffer(buffer);
+        resourceManager.destroy(buffer);
     }
     for (AllocatedBuffer& buffer : triangleVertexBuffers) {
-        resourceManager.destroyBuffer(buffer);
+        resourceManager.destroy(buffer);
     }
 
-    resourceManager.destroyPipelineLayout(instancedPipelineLayout);
-    resourceManager.destroyPipelineLayout(normalPipelineLayout);
-    resourceManager.destroyPipeline(instancedLinePipeline);
-    resourceManager.destroyPipeline(linePipeline);
-    resourceManager.destroyPipeline(trianglePipeline);
+    resourceManager.destroy(instancedPipelineLayout);
+    resourceManager.destroy(normalPipelineLayout);
+    resourceManager.destroy(instancedLinePipeline);
+    resourceManager.destroy(linePipeline);
+    resourceManager.destroy(trianglePipeline);
 }
 
 void DebugRenderer::drawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec3& color)
@@ -149,7 +149,7 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
                 newSize += DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT;
             }
 
-            resourceManager.destroyBuffer(instanceBuffer);
+            resourceManager.destroy(instanceBuffer);
 
             // Don't need to copy, writing to it in the next section anyway
             const uint64_t newBufferSize = newSize * sizeof(DebugRendererInstance);
@@ -178,7 +178,7 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
                 newSize += DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT;
             }
 
-            resourceManager.destroyBuffer(lineVertexBuffer);
+            resourceManager.destroy(lineVertexBuffer);
 
             const uint64_t newBufferSize = newSize * sizeof(DebugRendererVertexFull);
             lineVertexBuffer = resourceManager.createHostSequentialBuffer(newBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
@@ -195,7 +195,7 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
                 newSize += DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT;
             }
 
-            resourceManager.destroyBuffer(triangleVertexBuffer);
+            resourceManager.destroy(triangleVertexBuffer);
 
             const uint64_t newBufferSize = newSize * sizeof(DebugRendererVertexFull);
             triangleVertexBuffer = resourceManager.createHostSequentialBuffer(newBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
@@ -206,7 +206,7 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     }
 
 
-    const VkRenderingAttachmentInfo imageAttachment = vk_helpers::attachmentInfo(drawInfo.imageTarget, nullptr,
+    const VkRenderingAttachmentInfo imageAttachment = vk_helpers::attachmentInfo(drawInfo.debugTarget, nullptr,
                                                                                   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     const VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthTarget, nullptr,
                                                                                  VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
@@ -323,9 +323,9 @@ void DebugRenderer::clear()
 
 void DebugRenderer::createPipeline()
 {
-    resourceManager.destroyPipeline(instancedLinePipeline);
-    resourceManager.destroyPipeline(trianglePipeline);
-    resourceManager.destroyPipeline(linePipeline);
+    resourceManager.destroy(instancedLinePipeline);
+    resourceManager.destroy(trianglePipeline);
+    resourceManager.destroy(linePipeline);
 
     // Instanced Pipeline
     {
@@ -351,14 +351,14 @@ void DebugRenderer::createPipeline()
         renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_LINE, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
         renderPipelineBuilder.disableMultisampling();
         renderPipelineBuilder.disableBlending();
-        renderPipelineBuilder.enableDepthTest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
+        renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
         renderPipelineBuilder.setupRenderer({ALBEDO_FORMAT}, DEPTH_FORMAT);
         renderPipelineBuilder.setupPipelineLayout(instancedPipelineLayout);
         const std::vector additionalDynamicStates{VK_DYNAMIC_STATE_LINE_WIDTH};
         instancedLinePipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);
 
-        resourceManager.destroyShaderModule(vertShader);
-        resourceManager.destroyShaderModule(fragShader);
+        resourceManager.destroy(vertShader);
+        resourceManager.destroy(fragShader);
     }
 
     // Line Vertex Pipeline
@@ -390,7 +390,7 @@ void DebugRenderer::createPipeline()
         renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_LINE, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
         renderPipelineBuilder.disableMultisampling();
         renderPipelineBuilder.disableBlending();
-        renderPipelineBuilder.enableDepthTest(false, VK_COMPARE_OP_GREATER_OR_EQUAL);
+        renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
         renderPipelineBuilder.setupRenderer({ALBEDO_FORMAT}, DEPTH_FORMAT);
         renderPipelineBuilder.setupPipelineLayout(normalPipelineLayout);
         const std::vector additionalDynamicStates{VK_DYNAMIC_STATE_LINE_WIDTH};
@@ -400,8 +400,8 @@ void DebugRenderer::createPipeline()
         renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
         trianglePipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);
 
-        resourceManager.destroyShaderModule(vertShader);
-        resourceManager.destroyShaderModule(fragShader);
+        resourceManager.destroy(vertShader);
+        resourceManager.destroy(fragShader);
     }
 }
 

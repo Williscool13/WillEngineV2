@@ -102,9 +102,9 @@ public: // VkBuffer
      * \n should not be used otherwise, as the buffer may be destroyed before it is used.
      * @param buffer
      */
-    void destroyBufferImmediate(AllocatedBuffer& buffer) const;
+    void destroyImmediate(AllocatedBuffer& buffer) const;
 
-    void destroyBuffer(AllocatedBuffer& buffer);
+    void destroy(AllocatedBuffer& buffer);
 
 public: // VkBuffer Helpers
     void copyBufferImmediate(const AllocatedBuffer& src, const AllocatedBuffer& dst, VkDeviceSize size) const;
@@ -123,7 +123,7 @@ public: // VkBuffer Helpers
 public: // Samplers
     [[nodiscard]] VkSampler createSampler(const VkSamplerCreateInfo& createInfo) const;
 
-    void destroySampler(VkSampler sampler);
+    void destroy(VkSampler sampler);
 
 public: // VkImage and VkImageView
     [[nodiscard]] AllocatedImage createImage(const VkImageCreateInfo& createInfo) const;
@@ -135,7 +135,7 @@ public: // VkImage and VkImageView
 
     [[nodiscard]] AllocatedImage createCubemap(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
 
-    void destroyImage(AllocatedImage& image);
+    void destroy(AllocatedImage& image);
 
 public: // Descriptor Buffer
     [[nodiscard]] DescriptorBufferSampler createDescriptorBufferSampler(VkDescriptorSetLayout layout, int32_t maxObjectCount) const;
@@ -148,7 +148,7 @@ public: // Descriptor Buffer
     int32_t setupDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer,
                                          const std::vector<will_engine::DescriptorUniformData>& uniformBuffers, int index = -1) const;
 
-    void destroyDescriptorBuffer(DescriptorBuffer& descriptorBuffer);
+    void destroy(DescriptorBuffer& descriptorBuffer);
 
 public: // Shader Module
     VkShaderModule createShaderModule(const std::filesystem::path& path) const;
@@ -157,30 +157,30 @@ public: // Shader Module
      * As far as I know shader modules don't need to defer destroyed, since it's used to construct the pipeline (without `ImmediateSubmitter`)
      * @param shaderModule
      */
-    void destroyShaderModule(VkShaderModule& shaderModule) const;
+    void destroy(VkShaderModule& shaderModule) const;
 
 public: // Pipeline Layout
     VkPipelineLayout createPipelineLayout(const VkPipelineLayoutCreateInfo& createInfo) const;
 
-    void destroyPipelineLayout(VkPipelineLayout pipelineLayout);
+    void destroy(VkPipelineLayout pipelineLayout);
 
 public: // Pipelines
     VkPipeline createRenderPipeline(PipelineBuilder& builder, const std::vector<VkDynamicState>& additionalDynamicStates = {}) const;
 
     VkPipeline createComputePipeline(const VkComputePipelineCreateInfo& pipelineInfo) const;
 
-    void destroyPipeline(VkPipeline pipeline);
+    void destroy(VkPipeline pipeline);
 
 public: // Descriptor Set Layout
     VkDescriptorSetLayout createDescriptorSetLayout(DescriptorLayoutBuilder& layoutBuilder, VkShaderStageFlagBits shaderStageFlags,
                                                     VkDescriptorSetLayoutCreateFlagBits layoutCreateFlags) const;
 
-    void destroyDescriptorSetLayout(VkDescriptorSetLayout descriptorSetLayout);
+    void destroy(VkDescriptorSetLayout descriptorSetLayout);
 
 public: // Image View
     VkImageView createImageView(const VkImageViewCreateInfo& viewInfo) const;
 
-    void destroyImageView(VkImageView imageView);
+    void destroy(VkImageView imageView);
 
 public:
     [[nodiscard]] VkSampler getDefaultSamplerLinear() const { return defaultSamplerLinear; }

@@ -78,7 +78,7 @@ bool RenderObject::updateBuffers(VkCommandBuffer cmd, const int32_t currentFrame
     // Recreate the primitive buffer if needed
     size_t latestPrimitiveBufferSize = currentMaxPrimitiveCount * sizeof(PrimitiveData);
     if (currentPrimitiveBuffer.info.size != latestPrimitiveBufferSize) {
-        resourceManager.destroyBuffer(currentPrimitiveBuffer);
+        resourceManager.destroy(currentPrimitiveBuffer);
         currentPrimitiveBuffer = resourceManager.createHostRandomBuffer(latestPrimitiveBufferSize,
                                                                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
                                                                         VK_BUFFER_USAGE_TRANSFER_DST_BIT);
@@ -114,7 +114,7 @@ bool RenderObject::updateBuffers(VkCommandBuffer cmd, const int32_t currentFrame
     // sizes don't match, need to recreate the buffer
     size_t latestInstanceBufferSize = currentMaxInstanceCount * sizeof(InstanceData);
     if (currentInstanceBuffer.info.size != latestInstanceBufferSize) {
-        resourceManager.destroyBuffer(currentInstanceBuffer);
+        resourceManager.destroy(currentInstanceBuffer);
         currentInstanceBuffer = resourceManager.createHostRandomBuffer(latestInstanceBufferSize,
                                                                        VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
                                                                        VK_BUFFER_USAGE_TRANSFER_DST_BIT);
@@ -144,9 +144,9 @@ bool RenderObject::updateBuffers(VkCommandBuffer cmd, const int32_t currentFrame
     }
 
     AllocatedBuffer& currentOpaqueDrawIndirectBuffer = opaqueDrawIndirectBuffers[currentFrameOverlap];
-    resourceManager.destroyBuffer(currentOpaqueDrawIndirectBuffer);
+    resourceManager.destroy(currentOpaqueDrawIndirectBuffer);
     if (!opaqueDrawCommands.empty()) {
-        resourceManager.destroyBuffer(currentOpaqueDrawIndirectBuffer);
+        resourceManager.destroy(currentOpaqueDrawIndirectBuffer);
         AllocatedBuffer indirectStaging = resourceManager.createStagingBuffer(opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
         memcpy(indirectStaging.info.pMappedData, opaqueDrawCommands.data(), opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
         currentOpaqueDrawIndirectBuffer = resourceManager.createDeviceBuffer(opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand),
@@ -154,7 +154,7 @@ bool RenderObject::updateBuffers(VkCommandBuffer cmd, const int32_t currentFrame
 
         vk_helpers::copyBuffer(cmd, indirectStaging, 0, currentOpaqueDrawIndirectBuffer, 0,
                                opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-        resourceManager.destroyBuffer(indirectStaging);
+        resourceManager.destroy(indirectStaging);
 
         const FrustumCullingBuffers cullingAddresses{
             .meshBoundsBuffer = resourceManager.getBufferAddress(meshBoundsBuffer),
@@ -167,11 +167,11 @@ bool RenderObject::updateBuffers(VkCommandBuffer cmd, const int32_t currentFrame
         AllocatedBuffer stagingCullingAddressesBuffer = resourceManager.createStagingBuffer(sizeof(FrustumCullingBuffers));
         memcpy(stagingCullingAddressesBuffer.info.pMappedData, &cullingAddresses, sizeof(FrustumCullingBuffers));
         vk_helpers::copyBuffer(cmd, stagingCullingAddressesBuffer, 0, currentCullingAddressBuffers, 0, sizeof(FrustumCullingBuffers));
-        resourceManager.destroyBuffer(stagingCullingAddressesBuffer);
+        resourceManager.destroy(stagingCullingAddressesBuffer);
     }
 
     AllocatedBuffer& currentTransparentDrawIndirectBuffer = transparentDrawIndirectBuffers[currentFrameOverlap];
-    resourceManager.destroyBuffer(currentTransparentDrawIndirectBuffer);
+    resourceManager.destroy(currentTransparentDrawIndirectBuffer);
 
     if (!transparentDrawCommands.empty()) {
         AllocatedBuffer indirectStaging = resourceManager.createStagingBuffer(transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
@@ -183,7 +183,7 @@ bool RenderObject::updateBuffers(VkCommandBuffer cmd, const int32_t currentFrame
 
         vk_helpers::copyBuffer(cmd, indirectStaging, 0, currentTransparentDrawIndirectBuffer, 0,
                                transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-        resourceManager.destroyBuffer(indirectStaging);
+        resourceManager.destroy(indirectStaging);
 
         const FrustumCullingBuffers cullingAddresses{
             .meshBoundsBuffer = resourceManager.getBufferAddress(meshBoundsBuffer),
@@ -196,7 +196,7 @@ bool RenderObject::updateBuffers(VkCommandBuffer cmd, const int32_t currentFrame
         AllocatedBuffer stagingCullingAddressesBuffer = resourceManager.createStagingBuffer(sizeof(FrustumCullingBuffers));
         memcpy(stagingCullingAddressesBuffer.info.pMappedData, &cullingAddresses, sizeof(FrustumCullingBuffers));
         vk_helpers::copyBuffer(cmd, stagingCullingAddressesBuffer, 0, currentCullingAddressBuffers, 0, sizeof(FrustumCullingBuffers));
-        resourceManager.destroyBuffer(stagingCullingAddressesBuffer);
+        resourceManager.destroy(stagingCullingAddressesBuffer);
     }
 
     bufferFramesToUpdate--;
@@ -709,7 +709,7 @@ void RenderObject::load()
     // Be careful, this destroys a copy of the staging buffer. Not an issue since it deletes the buffer in GPU memory.
     // Will be dangerous if you attempt to hold onto the staging buffers outside of this load function
     for (BufferCopyInfo bufferCopy : bufferCopies) {
-        resourceManager.destroyBufferImmediate(bufferCopy.src);
+        resourceManager.destroyImmediate(bufferCopy.src);
     }
 
     bIsLoaded = true;
@@ -736,7 +736,7 @@ void RenderObject::unload()
             continue;
         }
 
-        resourceManager.destroyImage(image);
+        resourceManager.destroy(image);
     }
 
     for (auto& sampler : samplers) {
@@ -745,30 +745,30 @@ void RenderObject::unload()
             continue;
         }
 
-        resourceManager.destroySampler(sampler);
+        resourceManager.destroy(sampler);
     }
 
-    resourceManager.destroyBuffer(vertexPositionBuffer);
-    resourceManager.destroyBuffer(vertexPropertyBuffer);
-    resourceManager.destroyBuffer(indexBuffer);
+    resourceManager.destroy(vertexPositionBuffer);
+    resourceManager.destroy(vertexPropertyBuffer);
+    resourceManager.destroy(indexBuffer);
 
-    resourceManager.destroyBuffer(materialBuffer);
+    resourceManager.destroy(materialBuffer);
 
-    resourceManager.destroyBuffer(meshBoundsBuffer);
+    resourceManager.destroy(meshBoundsBuffer);
 
     for (int i = 0; i < FRAME_OVERLAP; ++i) {
-        resourceManager.destroyBuffer(opaqueDrawIndirectBuffers[i]);
-        resourceManager.destroyBuffer(transparentDrawIndirectBuffers[i]);
-        resourceManager.destroyBuffer(addressBuffers[i]);
-        resourceManager.destroyBuffer(primitiveDataBuffers[i]);
-        resourceManager.destroyBuffer(modelMatrixBuffers[i]);
-        resourceManager.destroyBuffer(opaqueCullingAddressBuffers[i]);
-        resourceManager.destroyBuffer(transparentCullingAddressBuffers[i]);
+        resourceManager.destroy(opaqueDrawIndirectBuffers[i]);
+        resourceManager.destroy(transparentDrawIndirectBuffers[i]);
+        resourceManager.destroy(addressBuffers[i]);
+        resourceManager.destroy(primitiveDataBuffers[i]);
+        resourceManager.destroy(modelMatrixBuffers[i]);
+        resourceManager.destroy(opaqueCullingAddressBuffers[i]);
+        resourceManager.destroy(transparentCullingAddressBuffers[i]);
     }
 
-    resourceManager.destroyDescriptorBuffer(addressesDescriptorBuffer);
-    resourceManager.destroyDescriptorBuffer(frustumCullingDescriptorBuffer);
-    resourceManager.destroyDescriptorBuffer(textureDescriptorBuffer);
+    resourceManager.destroy(addressesDescriptorBuffer);
+    resourceManager.destroy(frustumCullingDescriptorBuffer);
+    resourceManager.destroy(textureDescriptorBuffer);
 
     opaqueDrawCommands.clear();
     transparentDrawCommands.clear();

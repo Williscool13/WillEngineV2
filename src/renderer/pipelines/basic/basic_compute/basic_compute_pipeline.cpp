@@ -34,10 +34,10 @@ BasicComputePipeline::BasicComputePipeline(ResourceManager& resourceManager) : r
 
 BasicComputePipeline::~BasicComputePipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
-    resourceManager.destroyPipelineLayout(pipelineLayout);
-    resourceManager.destroyDescriptorSetLayout(descriptorSetLayout);
-    resourceManager.destroyDescriptorBuffer(samplerDescriptorBuffer);
+    resourceManager.destroy(pipeline);
+    resourceManager.destroy(pipelineLayout);
+    resourceManager.destroy(descriptorSetLayout);
+    resourceManager.destroy(samplerDescriptorBuffer);
 }
 
 void BasicComputePipeline::setupDescriptors(const ComputeDescriptorInfo& descriptorInfo)
@@ -70,7 +70,7 @@ void BasicComputePipeline::draw(VkCommandBuffer cmd, const ComputeDrawInfo drawI
 
 void BasicComputePipeline::createPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
+    resourceManager.destroy(pipeline);
     VkShaderModule gradientShader = resourceManager.createShaderModule("shaders/basic/compute.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
@@ -89,6 +89,6 @@ void BasicComputePipeline::createPipeline()
 
     pipeline = resourceManager.createComputePipeline(computePipelineCreateInfo);
 
-    resourceManager.destroyShaderModule(gradientShader);
+    resourceManager.destroy(gradientShader);
 }
 }

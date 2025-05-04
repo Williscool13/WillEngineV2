@@ -874,7 +874,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                         }
 
                                         ImGui::SameLine();
-                                        if (auto container = dynamic_cast<IComponentContainer*>(selectedItem)) {
+                                        if (auto container = dynamic_cast<IComponentContainer*>(engine->selectedItem)) {
                                             if (ImGui::Button("Attach to selected item")) {
                                                 if (!container->getMeshRenderer()) {
                                                     auto newComponent = components::ComponentFactory::getInstance().
@@ -1224,12 +1224,12 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     }
     ImGui::End();
 
-    if (selectedItem) {
-        if (IImguiRenderable* imguiRenderable = dynamic_cast<IImguiRenderable*>(selectedItem)) {
+    if (engine->selectedItem) {
+        if (IImguiRenderable* imguiRenderable = dynamic_cast<IImguiRenderable*>(engine->selectedItem)) {
             imguiRenderable->selectedRenderImgui();
         }
 
-        if (auto gameObject = dynamic_cast<GameObject*>(selectedItem)) {
+        if (auto gameObject = dynamic_cast<GameObject*>(engine->selectedItem)) {
             if (components::RigidBodyComponent* rb = gameObject->getRigidbody()) {
                 if (rb->hasRigidBody()) {
                     physics::Physics::get()->drawDebug(rb->getPhysicsBodyId());
@@ -1443,7 +1443,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
     if (destroy) {
         selectedMap->destroy();
         selectMap(nullptr);
-        deselectItem();
+        deselectItem(engine);
     }
 }
 
@@ -1465,8 +1465,8 @@ void ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const i
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
     if (ImGui::Button("X")) {
-        if (selectedItem == obj) {
-            deselectItem();
+        if (engine->selectedItem == obj) {
+            deselectItem(engine);
         }
         obj->destroy();
     }
@@ -1485,7 +1485,7 @@ void ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const i
                                                 ? fmt::format("{:.{}s}...", name, std::max(0, maxNameLength - 3))
                                                 : fmt::format("{:<{}}", name, maxNameLength);
 
-    if (obj == selectedItem) {
+    if (obj == engine->selectedItem) {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 1.0f, 0.0f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.0f, 0.6f, 0.0f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.0f, 0.7f, 0.0f, 1.0f));
@@ -1493,16 +1493,16 @@ void ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const i
 
     const bool isOpen = ImGui::TreeNodeEx("##TreeNode", flags, "%s", formattedName.c_str());
 
-    if (obj == selectedItem) {
+    if (obj == engine->selectedItem) {
         ImGui::PopStyleColor(3);
     }
 
     if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
-        if (obj == selectedItem) {
-            deselectItem();
+        if (obj == engine->selectedItem) {
+            deselectItem(engine);
         }
         else {
-            selectItem(obj);
+            selectItem(engine, obj);
         }
     }
     ImGui::NextColumn();
@@ -1641,23 +1641,23 @@ int ImguiWrapper::getIndexInVector(const IHierarchical* obj, const std::vector<I
     return -1;
 }
 
-void ImguiWrapper::selectItem(IHierarchical* hierarchical)
+void ImguiWrapper::selectItem(Engine* engine, IHierarchical* hierarchical)
 {
-    if (selectedItem != nullptr) {
-        deselectItem();
+    if (engine->selectedItem != nullptr) {
+        deselectItem(engine);
     }
-    selectedItem = hierarchical;
+    engine->selectedItem = hierarchical;
 }
 
-void ImguiWrapper::deselectItem()
+void ImguiWrapper::deselectItem(Engine* engine)
 {
-    if (const auto gameObject = dynamic_cast<GameObject*>(selectedItem)) {
+    if (const auto gameObject = dynamic_cast<GameObject*>(engine->selectedItem)) {
         if (const components::RigidBodyComponent* rb = gameObject->getRigidbody()) {
             if (rb->hasRigidBody()) {
                 physics::Physics::get()->stopDrawDebug(rb->getPhysicsBodyId());
             }
         }
     }
-    selectedItem = nullptr;
+    engine->selectedItem = nullptr;
 }
 }

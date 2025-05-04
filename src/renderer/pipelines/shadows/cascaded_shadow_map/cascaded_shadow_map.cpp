@@ -143,22 +143,22 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
 will_engine::cascaded_shadows::CascadedShadowMap::~CascadedShadowMap()
 {
     for (CascadeShadowMapData& cascadeShadowMapData : shadowMaps) {
-        resourceManager.destroyImage(cascadeShadowMapData.depthShadowMap);
+        resourceManager.destroy(cascadeShadowMapData.depthShadowMap);
         cascadeShadowMapData.depthShadowMap = {};
     }
 
-    resourceManager.destroyDescriptorSetLayout(cascadedShadowMapUniformLayout);
-    resourceManager.destroyDescriptorSetLayout(cascadedShadowMapSamplerLayout);
+    resourceManager.destroy(cascadedShadowMapUniformLayout);
+    resourceManager.destroy(cascadedShadowMapSamplerLayout);
     for (int32_t i = 0; i < FRAME_OVERLAP; ++i) {
-        resourceManager.destroyBuffer(cascadedShadowMapDatas[i]);
+        resourceManager.destroy(cascadedShadowMapDatas[i]);
     }
-    resourceManager.destroyDescriptorBuffer(cascadedShadowMapDescriptorBufferSampler);
-    resourceManager.destroyDescriptorBuffer(cascadedShadowMapDescriptorBufferUniform);
-    resourceManager.destroySampler(sampler);
-    resourceManager.destroyPipeline(renderObjectPipeline);
-    resourceManager.destroyPipelineLayout(renderObjectPipelineLayout);
-    resourceManager.destroyPipeline(terrainPipeline);
-    resourceManager.destroyPipelineLayout(terrainPipelineLayout);
+    resourceManager.destroy(cascadedShadowMapDescriptorBufferSampler);
+    resourceManager.destroy(cascadedShadowMapDescriptorBufferUniform);
+    resourceManager.destroy(sampler);
+    resourceManager.destroy(renderObjectPipeline);
+    resourceManager.destroy(renderObjectPipelineLayout);
+    resourceManager.destroy(terrainPipeline);
+    resourceManager.destroy(terrainPipelineLayout);
 }
 
 void will_engine::cascaded_shadows::CascadedShadowMap::update(const DirectionalLight& mainLight, const Camera* camera,
@@ -421,7 +421,7 @@ glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(
 
 void will_engine::cascaded_shadows::CascadedShadowMap::createRenderObjectPipeline()
 {
-    resourceManager.destroyPipeline(renderObjectPipeline);
+    resourceManager.destroy(renderObjectPipeline);
 
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.vert");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.frag");
@@ -451,13 +451,13 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createRenderObjectPipelin
     pipelineBuilder.setupPipelineLayout(renderObjectPipelineLayout);
 
     renderObjectPipeline = resourceManager.createRenderPipeline(pipelineBuilder, {VK_DYNAMIC_STATE_DEPTH_BIAS});
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
+    resourceManager.destroy(vertShader);
+    resourceManager.destroy(fragShader);
 }
 
 void will_engine::cascaded_shadows::CascadedShadowMap::createTerrainPipeline()
 {
-    resourceManager.destroyPipeline(terrainPipeline);
+    resourceManager.destroy(terrainPipeline);
 
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/shadows/terrain_shadow_pass.vert");
     VkShaderModule tescShader = resourceManager.createShaderModule("shaders/shadows/terrain_shadow_pass.tesc");
@@ -490,10 +490,10 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createTerrainPipeline()
     pipelineBuilder.setupTessellation(4);
 
     terrainPipeline = resourceManager.createRenderPipeline(pipelineBuilder, {VK_DYNAMIC_STATE_DEPTH_BIAS});
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(tescShader);
-    resourceManager.destroyShaderModule(teseShader);
-    resourceManager.destroyShaderModule(fragShader);
+    resourceManager.destroy(vertShader);
+    resourceManager.destroy(tescShader);
+    resourceManager.destroy(teseShader);
+    resourceManager.destroy(fragShader);
 }
 
 void will_engine::cascaded_shadows::CascadedShadowMap::generateSplits()

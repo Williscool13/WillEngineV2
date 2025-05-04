@@ -269,9 +269,8 @@ set(TEMP_SOURCES
         src/renderer/pipelines/debug/debug_renderer_types.h
         src/renderer/pipelines/debug/debug_composite_pipeline.cpp
         src/renderer/pipelines/debug/debug_composite_pipeline.h
-        src/renderer/pipelines/debug/debug_highlight_pipeline.cpp
-        src/renderer/pipelines/debug/debug_highlight_pipeline.h
-
+        src/renderer/pipelines/debug/debug_highlighter.cpp
+        src/renderer/pipelines/debug/debug_highlighter.h
 )
 
 add_executable(WillEngine main.cpp

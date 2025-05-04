@@ -1,0 +1,146 @@
+//
+// Created by William on 2025-05-04.
+//
+
+#include "debug_highlighter.h"
+
+#include <volk/volk.h>
+
+#include "src/core/game_object/renderable.h"
+#include "src/renderer/assets/render_object/render_object_types.h"
+
+
+namespace will_engine::debug_highlight_pipeline
+{
+DebugHighlighter::DebugHighlighter(ResourceManager& resourceManager) : resourceManager(resourceManager)
+{
+    std::array<VkDescriptorSetLayout, 1> descriptorLayout;
+    descriptorLayout[0] = resourceManager.getSceneDataLayout();
+
+    VkPushConstantRange pushConstants{};
+    pushConstants.offset = 0;
+    pushConstants.size = sizeof(DebugHighlightDrawPushConstant);
+    pushConstants.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+    VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
+    layoutInfo.pNext = nullptr;
+    layoutInfo.pSetLayouts = descriptorLayout.data();
+    layoutInfo.setLayoutCount = 1;
+    layoutInfo.pPushConstantRanges = &pushConstants;
+    layoutInfo.pushConstantRangeCount = 1;
+
+    pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+
+    createPipeline();
+}
+
+DebugHighlighter::~DebugHighlighter()
+{
+
+    resourceManager.destroy(pipelineLayout);
+    resourceManager.destroy(pipeline);
+    resourceManager.destroy(debugHighlightStencil);
+}
+
+void DebugHighlighter::draw(VkCommandBuffer cmd, IRenderable* highlightTarget, VkImageView debugTarget, VkImageView depthTarget) const
+{
+    if (IRenderReference* renderRef = highlightTarget->getRenderReference()) {
+        const std::optional<std::reference_wrapper<const Mesh>> meshData = renderRef->getMeshData(highlightTarget->getMeshIndex());
+        if (!meshData.has_value()) { return; }
+
+        const VkRenderingAttachmentInfo imageAttachment = vk_helpers::attachmentInfo(debugTarget, nullptr,
+                                                                                  VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+        const VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthTarget, nullptr,
+                                                                                     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+
+        VkRenderingInfo renderInfo{};
+        renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+        renderInfo.pNext = nullptr;
+
+        VkRenderingAttachmentInfo renderAttachments[1];
+        renderAttachments[0] = imageAttachment;
+
+        renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, RENDER_EXTENTS};
+        renderInfo.layerCount = 1;
+        renderInfo.colorAttachmentCount = 1;
+        renderInfo.pColorAttachments = renderAttachments;
+        renderInfo.pDepthAttachment = &depthAttachment;
+        renderInfo.pStencilAttachment = nullptr;
+
+        vkCmdBeginRendering(cmd, &renderInfo);
+
+        vkCmdSetLineWidth(cmd, 1.0f);
+
+        //  Viewport
+        VkViewport viewport = {};
+        viewport.x = 0;
+        viewport.y = 0;
+        viewport.width = RENDER_EXTENTS.width;
+        viewport.height = RENDER_EXTENTS.height;
+        viewport.minDepth = 0.f;
+        viewport.maxDepth = 1.f;
+        vkCmdSetViewport(cmd, 0, 1, &viewport);
+        //  Scissor
+        VkRect2D scissor = {};
+        scissor.offset.x = 0;
+        scissor.offset.y = 0;
+        scissor.extent.width = RENDER_EXTENTS.width;
+        scissor.extent.height = RENDER_EXTENTS.height;
+        vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
+        for (const Primitive& primitive : meshData.value().get().primitives) {
+            const uint32_t indexCount = primitive.indexCount;
+            const uint32_t firstIndex = primitive.firstIndex;
+            const int32_t vertexOffset = primitive.vertexOffset;
+            constexpr uint32_t firstInstance = 0;
+            constexpr uint32_t instanceCount = 1;
+
+            DebugHighlightDrawPushConstant push{};
+            push.modelMatrix = highlightTarget->getModelMatrix();
+            vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(DebugHighlightDrawPushConstant), &push);
+
+            vkCmdBindVertexBuffers(cmd, 0, 1, &renderRef->getPositionVertexBuffer().buffer, &ZERO_DEVICE_SIZE);
+            vkCmdBindIndexBuffer(cmd, renderRef->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
+
+            // Draw this mesh w/ vkCmdDrawIndexed w/ model matrix passed through push
+            vkCmdDrawIndexed(cmd, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+        }
+    }
+}
+
+void DebugHighlighter::createPipeline()
+{
+    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/debug/debug_highlighter.vert");
+    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/debug/debug_highlighter.frag");
+
+    PipelineBuilder renderPipelineBuilder;
+    VkVertexInputBindingDescription vertexBinding{};
+    vertexBinding.binding = 0;
+    vertexBinding.stride = sizeof(VertexPosition);
+    vertexBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+
+    std::array<VkVertexInputAttributeDescription, 1> vertexAttributes;
+    vertexAttributes[0].binding = 0;
+    vertexAttributes[0].location = 0;
+    vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
+    vertexAttributes[0].offset = offsetof(VertexPosition, position);
+
+    renderPipelineBuilder.setupVertexInput(&vertexBinding, 1, vertexAttributes.data(), 1);
+
+    renderPipelineBuilder.setShaders(vertShader, fragShader);
+    renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
+    renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
+    renderPipelineBuilder.disableMultisampling();
+    renderPipelineBuilder.disableBlending();
+    renderPipelineBuilder.disableDepthTest();
+    renderPipelineBuilder.setupRenderer({DEBUG_FORMAT}, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED);
+    renderPipelineBuilder.setupPipelineLayout(pipelineLayout);
+    const std::vector additionalDynamicStates{VK_DYNAMIC_STATE_LINE_WIDTH};
+    pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);
+
+    resourceManager.destroy(vertShader);
+    resourceManager.destroy(fragShader);
+}
+}

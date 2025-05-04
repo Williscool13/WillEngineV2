@@ -23,14 +23,12 @@ void main() {
     vec4 mainColor = imageLoad(finalImage, pixelCoord);
 
     vec2 debugUv = uv;
+    // Flip (Main image is flipped in PP)
     debugUv.y = 1 - debugUv.y;
+    // Unjitter
     debugUv += sceneData.jitter.xy / 2.0f;
-
     vec4 debugColor = texture(debugImage, debugUv);
 
-
-
     vec4 finalColor = mix(mainColor, debugColor, debugColor.a);
-
     imageStore(finalImage, pixelCoord, finalColor);
 }

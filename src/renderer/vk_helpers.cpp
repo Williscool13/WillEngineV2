@@ -640,7 +640,7 @@ void will_engine::vk_helpers::saveImageRGBA32F(const ResourceManager& resourceMa
     stbi_write_png(savePath, image.imageExtent.width, image.imageExtent.height, 4, byteImageData, image.imageExtent.width * 4);
 
     delete[] byteImageData;
-    resourceManager.destroyBufferImmediate(receivingBuffer);
+    resourceManager.destroyImmediate(receivingBuffer);
 }
 
 void will_engine::vk_helpers::saveImageRGBA16SFLOAT(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
@@ -690,7 +690,7 @@ void will_engine::vk_helpers::saveImageRGBA16SFLOAT(const ResourceManager& resou
     stbi_write_png(savePath, image.imageExtent.width, image.imageExtent.height, 4, byteImageData, image.imageExtent.width * 4);
 
     delete[] byteImageData;
-    resourceManager.destroyBufferImmediate(receivingBuffer);
+    resourceManager.destroyImmediate(receivingBuffer);
 }
 
 void will_engine::vk_helpers::savePacked32Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
@@ -735,7 +735,7 @@ void will_engine::vk_helpers::savePacked32Bit(const ResourceManager& resourceMan
     stbi_write_png(savePath, image.imageExtent.width, image.imageExtent.height, 4, byteImageData, image.imageExtent.width * 4);
 
     delete[] byteImageData;
-    resourceManager.destroyBufferImmediate(receivingBuffer);
+    resourceManager.destroyImmediate(receivingBuffer);
 }
 
 void will_engine::vk_helpers::savePacked64Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
@@ -780,7 +780,7 @@ void will_engine::vk_helpers::savePacked64Bit(const ResourceManager& resourceMan
     stbi_write_png(savePath, image.imageExtent.width, image.imageExtent.height, 4, byteImageData, image.imageExtent.width * 4);
 
     delete[] byteImageData;
-    resourceManager.destroyBufferImmediate(receivingBuffer);
+    resourceManager.destroyImmediate(receivingBuffer);
 }
 
 void will_engine::vk_helpers::saveImageR32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
@@ -828,7 +828,7 @@ void will_engine::vk_helpers::saveImageR32F(const ResourceManager& resourceManag
     stbi_write_png(savePath, static_cast<int>(newXSize), static_cast<int>(newYSize), 4, byteImageData, static_cast<int>(newXSize) * 4);
 
     delete[] byteImageData;
-    resourceManager.destroyBufferImmediate(receivingBuffer);
+    resourceManager.destroyImmediate(receivingBuffer);
 }
 
 void will_engine::vk_helpers::saveImageR16F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
@@ -879,7 +879,7 @@ void will_engine::vk_helpers::saveImageR16F(const ResourceManager& resourceManag
     stbi_write_png(savePath, static_cast<int>(newXSize), static_cast<int>(newYSize), 4, byteImageData, static_cast<int>(newXSize) * 4);
 
     delete[] byteImageData;
-    resourceManager.destroyBufferImmediate(receivingBuffer);
+    resourceManager.destroyImmediate(receivingBuffer);
 }
 
 void will_engine::vk_helpers::saveImageR8UNORM(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
@@ -925,7 +925,7 @@ void will_engine::vk_helpers::saveImageR8UNORM(const ResourceManager& resourceMa
     stbi_write_png(savePath, static_cast<int>(width), static_cast<int>(height), 4, byteImageData, static_cast<int>(width) * 4);
 
     delete[] byteImageData;
-    resourceManager.destroyBufferImmediate(receivingBuffer);
+    resourceManager.destroyImmediate(receivingBuffer);
 }
 
 void will_engine::vk_helpers::saveImageR8G8B8A8UNORM(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
@@ -972,7 +972,7 @@ void will_engine::vk_helpers::saveImageR8G8B8A8UNORM(const ResourceManager& reso
     stbi_write_png(savePath, static_cast<int>(width), static_cast<int>(height), 4, byteImageData, static_cast<int>(width) * 4);
 
     delete[] byteImageData;
-    resourceManager.destroyBufferImmediate(receivingBuffer);
+    resourceManager.destroyImmediate(receivingBuffer);
 }
 
 void will_engine::vk_helpers::saveImage(const std::vector<float>& imageData, int width, int height, std::filesystem::path filename,

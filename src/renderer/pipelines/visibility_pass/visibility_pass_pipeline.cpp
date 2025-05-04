@@ -39,8 +39,8 @@ will_engine::visibility_pass_pipeline::VisibilityPassPipeline::VisibilityPassPip
 
 will_engine::visibility_pass_pipeline::VisibilityPassPipeline::~VisibilityPassPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
-    resourceManager.destroyPipelineLayout(pipelineLayout);
+    resourceManager.destroy(pipeline);
+    resourceManager.destroy(pipelineLayout);
 }
 
 void will_engine::visibility_pass_pipeline::VisibilityPassPipeline::draw(VkCommandBuffer cmd, const VisibilityPassDrawInfo& drawInfo) const
@@ -97,7 +97,7 @@ void will_engine::visibility_pass_pipeline::VisibilityPassPipeline::draw(VkComma
 
 void will_engine::visibility_pass_pipeline::VisibilityPassPipeline::createPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
+    resourceManager.destroy(pipeline);
     VkShaderModule computeShader = resourceManager.createShaderModule("shaders/visibility_pass.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
@@ -115,5 +115,5 @@ void will_engine::visibility_pass_pipeline::VisibilityPassPipeline::createPipeli
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     pipeline = resourceManager.createComputePipeline(pipelineInfo);
-    resourceManager.destroyShaderModule(computeShader);
+    resourceManager.destroy(computeShader);
 }

@@ -82,6 +82,8 @@ public: // IRenderable
 
     uint32_t getRenderReferenceId() const override { return pRenderReference ? pRenderReference->getId() : INDEX_NONE; }
 
+    IRenderReference* getRenderReference() const override { return pRenderReference; }
+
     int32_t getMeshIndex() const override { return meshIndex; }
 
     void releaseMesh() override;

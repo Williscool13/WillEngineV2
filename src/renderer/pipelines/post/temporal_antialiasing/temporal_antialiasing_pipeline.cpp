@@ -47,10 +47,10 @@ will_engine::temporal_antialiasing_pipeline::TemporalAntialiasingPipeline::Tempo
 
 will_engine::temporal_antialiasing_pipeline::TemporalAntialiasingPipeline::~TemporalAntialiasingPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
-    resourceManager.destroyPipelineLayout(pipelineLayout);
-    resourceManager.destroyDescriptorSetLayout(descriptorSetLayout);
-    resourceManager.destroyDescriptorBuffer(descriptorBuffer);
+    resourceManager.destroy(pipeline);
+    resourceManager.destroy(pipelineLayout);
+    resourceManager.destroy(descriptorSetLayout);
+    resourceManager.destroy(descriptorBuffer);
 }
 
 void will_engine::temporal_antialiasing_pipeline::TemporalAntialiasingPipeline::setupDescriptorBuffer(const TemporalAntialiasingDescriptor& descriptor)
@@ -134,7 +134,7 @@ void will_engine::temporal_antialiasing_pipeline::TemporalAntialiasingPipeline::
 
 void will_engine::temporal_antialiasing_pipeline::TemporalAntialiasingPipeline::createPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
+    resourceManager.destroy(pipeline);
     VkShaderModule computeShader = resourceManager.createShaderModule("shaders/taa.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
@@ -152,5 +152,5 @@ void will_engine::temporal_antialiasing_pipeline::TemporalAntialiasingPipeline::
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     pipeline = resourceManager.createComputePipeline(pipelineInfo);
-    resourceManager.destroyShaderModule(computeShader);
+    resourceManager.destroy(computeShader);
 }

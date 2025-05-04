@@ -47,10 +47,10 @@ will_engine::post_process_pipeline::PostProcessPipeline::PostProcessPipeline(Res
 
 will_engine::post_process_pipeline::PostProcessPipeline::~PostProcessPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
-    resourceManager.destroyPipelineLayout(pipelineLayout);
-    resourceManager.destroyDescriptorSetLayout(descriptorSetLayout);
-    resourceManager.destroyDescriptorBuffer(descriptorBuffer);
+    resourceManager.destroy(pipeline);
+    resourceManager.destroy(pipelineLayout);
+    resourceManager.destroy(descriptorSetLayout);
+    resourceManager.destroy(descriptorBuffer);
 }
 
 void will_engine::post_process_pipeline::PostProcessPipeline::setupDescriptorBuffer(const PostProcessDescriptor& bufferInfo)
@@ -113,7 +113,7 @@ void will_engine::post_process_pipeline::PostProcessPipeline::draw(VkCommandBuff
 
 void will_engine::post_process_pipeline::PostProcessPipeline::createPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
+    resourceManager.destroy(pipeline);
     VkShaderModule computeShader = resourceManager.createShaderModule("shaders/postProcess.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
@@ -131,5 +131,5 @@ void will_engine::post_process_pipeline::PostProcessPipeline::createPipeline()
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     pipeline = resourceManager.createComputePipeline(pipelineInfo);
-    resourceManager.destroyShaderModule(computeShader);
+    resourceManager.destroy(computeShader);
 }

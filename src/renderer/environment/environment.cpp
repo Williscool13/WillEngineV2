@@ -98,7 +98,7 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
         computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
         equiToCubemapPipeline = resourceManager.createComputePipeline(computePipelineCreateInfo);
-        resourceManager.destroyShaderModule(computeShader);
+        resourceManager.destroy(computeShader);
     }
 
     // Cubemap -> Diff Pipeline
@@ -136,7 +136,7 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
         computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
         cubemapToDiffusePipeline = resourceManager.createComputePipeline(computePipelineCreateInfo);
-        resourceManager.destroyShaderModule(computeShader);
+        resourceManager.destroy(computeShader);
     }
 
     // Cubemap -> Spec Pipeline
@@ -174,7 +174,7 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
         computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
         cubemapToSpecularPipeline = resourceManager.createComputePipeline(computePipelineCreateInfo);
-        resourceManager.destroyShaderModule(computeShader);
+        resourceManager.destroy(computeShader);
     }
 
     // LUT Generation
@@ -207,7 +207,7 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
         computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
         lutPipeline = resourceManager.createComputePipeline(computePipelineCreateInfo);
-        resourceManager.destroyShaderModule(computeShader);
+        resourceManager.destroy(computeShader);
     }
 
 
@@ -273,37 +273,37 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
 
 will_engine::environment::Environment::~Environment()
 {
-    resourceManager.destroyPipelineLayout(equiToCubemapPipelineLayout);
-    resourceManager.destroyPipelineLayout(cubemapToDiffusePipelineLayout);
-    resourceManager.destroyPipelineLayout(cubemapToSpecularPipelineLayout);
-    resourceManager.destroyPipelineLayout(lutPipelineLayout);
-    resourceManager.destroyPipeline(equiToCubemapPipeline);
-    resourceManager.destroyPipeline(cubemapToDiffusePipeline);
-    resourceManager.destroyPipeline(cubemapToSpecularPipeline);
-    resourceManager.destroyPipeline(lutPipeline);
+    resourceManager.destroy(equiToCubemapPipelineLayout);
+    resourceManager.destroy(cubemapToDiffusePipelineLayout);
+    resourceManager.destroy(cubemapToSpecularPipelineLayout);
+    resourceManager.destroy(lutPipelineLayout);
+    resourceManager.destroy(equiToCubemapPipeline);
+    resourceManager.destroy(cubemapToDiffusePipeline);
+    resourceManager.destroy(cubemapToSpecularPipeline);
+    resourceManager.destroy(lutPipeline);
 
 
-    resourceManager.destroySampler(sampler);
+    resourceManager.destroy(sampler);
 
-    resourceManager.destroyDescriptorBuffer(cubemapStorageDescriptorBuffer);
-    resourceManager.destroyDescriptorBuffer(cubemapDescriptorBuffer);
-    resourceManager.destroyDescriptorBuffer(equiImageDescriptorBuffer);
-    resourceManager.destroyDescriptorBuffer(diffSpecMapDescriptorBuffer);
-    resourceManager.destroyDescriptorBuffer(lutDescriptorBuffer);
+    resourceManager.destroy(cubemapStorageDescriptorBuffer);
+    resourceManager.destroy(cubemapDescriptorBuffer);
+    resourceManager.destroy(equiImageDescriptorBuffer);
+    resourceManager.destroy(diffSpecMapDescriptorBuffer);
+    resourceManager.destroy(lutDescriptorBuffer);
 
-    resourceManager.destroyImage(lutImage);
+    resourceManager.destroy(lutImage);
     lutImage = {};
     for (EnvironmentMapData& envMap : environmentMaps) {
-        resourceManager.destroyImage(envMap.cubemapImage);
-        resourceManager.destroyImage(envMap.specDiffCubemap);
+        resourceManager.destroy(envMap.cubemapImage);
+        resourceManager.destroy(envMap.specDiffCubemap);
     }
 
 
-    resourceManager.destroyDescriptorSetLayout(equiImageLayout);
-    resourceManager.destroyDescriptorSetLayout(cubemapStorageLayout);
-    resourceManager.destroyDescriptorSetLayout(cubemapSamplerLayout);
-    resourceManager.destroyDescriptorSetLayout(lutLayout);
-    resourceManager.destroyDescriptorSetLayout(environmentIBLLayout);
+    resourceManager.destroy(equiImageLayout);
+    resourceManager.destroy(cubemapStorageLayout);
+    resourceManager.destroy(cubemapSamplerLayout);
+    resourceManager.destroy(lutLayout);
+    resourceManager.destroy(environmentIBLLayout);
 }
 
 void will_engine::environment::Environment::loadEnvironment(const char* name, const char* path, int32_t environmentMapIndex)
@@ -389,7 +389,7 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
 
 
     // can safely destroy the cubemap image view in the storage buffer
-    resourceManager.destroyImage(equiImage);
+    resourceManager.destroy(equiImage);
     cubemapStorageDescriptorBuffer.freeDescriptorBufferIndex(cubemapIndex);
     equiImageDescriptorBuffer.freeDescriptorBufferIndex(equipIndex);
 
@@ -503,7 +503,7 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
 
     // can safely destroy all the storage mip level image views since we don't plan on writing to them anymore
     for (CubemapImageView specDiffView : specDiffCubemap.cubemapImageViews) {
-        resourceManager.destroyImageView(specDiffView.imageView);
+        resourceManager.destroy(specDiffView.imageView);
     }
     specDiffCubemap.cubemapImageViews.clear();
     cubemapStorageDescriptorBuffer.freeAllDescriptorBufferIndices();

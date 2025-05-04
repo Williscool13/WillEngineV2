@@ -11,5 +11,5 @@ layout (push_constant) uniform PushConstants {
 } push;
 
 void main() {
-    gl_Position = sceneData.viewProj * modelMatrix * vec4(inPosition, 1.0);
+    gl_Position = sceneData.viewProj * push.modelMatrix * vec4(inPosition, 1.0);
 }
