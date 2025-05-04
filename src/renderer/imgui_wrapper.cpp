@@ -892,7 +892,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                         }
                                         else {
                                             if (ImGui::Button("Add to Scene")) {
-                                                IHierarchical* gob = engine->createGameObject(selectedMap, objectName);
+                                                IHierarchical* gob = Engine::createGameObject(selectedMap, objectName);
 
                                                 if (auto _container = dynamic_cast<IComponentContainer*>(gob)) {
                                                     auto newComponent = components::ComponentFactory::getInstance().createComponent(
@@ -1279,7 +1279,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
         if (ImGui::BeginTabItem("Scene Graph")) {
             if (ImGui::Button("Create Game Object")) {
                 static int32_t incrementId{0};
-                [[maybe_unused]] IHierarchical* gameObject = engine->createGameObject(selectedMap, fmt::format("New GameObject_{}", incrementId++));
+                [[maybe_unused]] IHierarchical* gameObject = Engine::createGameObject(selectedMap, fmt::format("New GameObject_{}", incrementId++));
             }
             ImGui::Separator();
             if (!selectedMap->getChildren().empty()) {

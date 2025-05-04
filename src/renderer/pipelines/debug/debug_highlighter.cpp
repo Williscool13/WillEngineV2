@@ -36,7 +36,6 @@ DebugHighlighter::DebugHighlighter(ResourceManager& resourceManager) : resourceM
 
 DebugHighlighter::~DebugHighlighter()
 {
-
     resourceManager.destroy(pipelineLayout);
     resourceManager.destroy(pipeline);
     resourceManager.destroy(debugHighlightStencil);
@@ -45,11 +44,11 @@ DebugHighlighter::~DebugHighlighter()
 void DebugHighlighter::draw(VkCommandBuffer cmd, IRenderable* highlightTarget, VkImageView debugTarget, VkImageView depthTarget) const
 {
     if (IRenderReference* renderRef = highlightTarget->getRenderReference()) {
-        const std::optional<std::reference_wrapper<const Mesh>> meshData = renderRef->getMeshData(highlightTarget->getMeshIndex());
+        const std::optional<std::reference_wrapper<const Mesh> > meshData = renderRef->getMeshData(highlightTarget->getMeshIndex());
         if (!meshData.has_value()) { return; }
 
         const VkRenderingAttachmentInfo imageAttachment = vk_helpers::attachmentInfo(debugTarget, nullptr,
-                                                                                  VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                                                                                     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         const VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthTarget, nullptr,
                                                                                      VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
@@ -69,7 +68,7 @@ void DebugHighlighter::draw(VkCommandBuffer cmd, IRenderable* highlightTarget, V
 
         vkCmdBeginRendering(cmd, &renderInfo);
 
-        vkCmdSetLineWidth(cmd, 1.0f);
+        vkCmdSetLineWidth(cmd, 2.0f);
 
         //  Viewport
         VkViewport viewport = {};
@@ -107,6 +106,8 @@ void DebugHighlighter::draw(VkCommandBuffer cmd, IRenderable* highlightTarget, V
             // Draw this mesh w/ vkCmdDrawIndexed w/ model matrix passed through push
             vkCmdDrawIndexed(cmd, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
         }
+
+        vkCmdEndRendering(cmd);
     }
 }
 
@@ -130,12 +131,12 @@ void DebugHighlighter::createPipeline()
     renderPipelineBuilder.setupVertexInput(&vertexBinding, 1, vertexAttributes.data(), 1);
 
     renderPipelineBuilder.setShaders(vertShader, fragShader);
-    renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
+    renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
     renderPipelineBuilder.disableMultisampling();
     renderPipelineBuilder.disableBlending();
-    renderPipelineBuilder.disableDepthTest();
-    renderPipelineBuilder.setupRenderer({DEBUG_FORMAT}, VK_FORMAT_UNDEFINED, VK_FORMAT_UNDEFINED);
+    renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
+    renderPipelineBuilder.setupRenderer({DEBUG_FORMAT}, VK_FORMAT_D32_SFLOAT, VK_FORMAT_UNDEFINED);
     renderPipelineBuilder.setupPipelineLayout(pipelineLayout);
     const std::vector additionalDynamicStates{VK_DYNAMIC_STATE_LINE_WIDTH};
     pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);

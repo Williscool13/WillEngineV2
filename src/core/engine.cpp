@@ -765,6 +765,12 @@ void Engine::render(float deltaTime)
 
         debugRenderer->draw(cmd, debugRendererDrawInfo);
 
+        if (IComponentContainer* cc = dynamic_cast<IComponentContainer*>(selectedItem)) {
+            if (components::MeshRendererComponent* meshRenderer = cc->getComponent<components::MeshRendererComponent>()) {
+                debugHighlighter->draw(cmd, meshRenderer, debugTarget.imageView, depthImage.imageView);
+            }
+        }
+
         vk_helpers::transitionImage(cmd, debugTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                     VK_IMAGE_ASPECT_COLOR_BIT);
@@ -936,7 +942,7 @@ void Engine::cleanup()
     SDL_DestroyWindow(window);
 }
 
-IHierarchical* Engine::createGameObject(Map* map, const std::string& name) const
+IHierarchical* Engine::createGameObject(Map* map, const std::string& name)
 {
     const auto newGameObject = new GameObject(name);
     map->addGameObject(newGameObject);
@@ -1159,7 +1165,7 @@ void Engine::createDrawResources()
     usageFlags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     usageFlags |= VK_IMAGE_USAGE_SAMPLED_BIT;
     usageFlags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-    const VkImageCreateInfo imageCreateInfo = vk_helpers::imageCreateInfo(DRAW_FORMAT, usageFlags, imageExtent);
+    const VkImageCreateInfo imageCreateInfo = vk_helpers::imageCreateInfo(DEBUG_FORMAT, usageFlags, imageExtent);
     debugTarget = resourceManager->createImage(imageCreateInfo);
 #endif
 }

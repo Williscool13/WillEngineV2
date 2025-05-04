@@ -149,7 +149,13 @@ public:
     void cleanup();
 
 public:
-    [[nodiscard]] IHierarchical* createGameObject(Map* map, const std::string& name) const;
+    /**
+     * Creates a gameobject as a child of the map parameter
+     * @param map
+     * @param name
+     * @return
+     */
+    [[nodiscard]] static IHierarchical* createGameObject(Map* map, const std::string& name);
 
     void addToBeginQueue(IHierarchical* obj);
 

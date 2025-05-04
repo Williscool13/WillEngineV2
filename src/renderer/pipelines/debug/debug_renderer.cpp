@@ -352,7 +352,7 @@ void DebugRenderer::createPipeline()
         renderPipelineBuilder.disableMultisampling();
         renderPipelineBuilder.disableBlending();
         renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-        renderPipelineBuilder.setupRenderer({ALBEDO_FORMAT}, DEPTH_FORMAT);
+        renderPipelineBuilder.setupRenderer({DEBUG_FORMAT}, DEPTH_FORMAT);
         renderPipelineBuilder.setupPipelineLayout(instancedPipelineLayout);
         const std::vector additionalDynamicStates{VK_DYNAMIC_STATE_LINE_WIDTH};
         instancedLinePipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);
@@ -391,7 +391,7 @@ void DebugRenderer::createPipeline()
         renderPipelineBuilder.disableMultisampling();
         renderPipelineBuilder.disableBlending();
         renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-        renderPipelineBuilder.setupRenderer({ALBEDO_FORMAT}, DEPTH_FORMAT);
+        renderPipelineBuilder.setupRenderer({DEBUG_FORMAT}, DEPTH_FORMAT);
         renderPipelineBuilder.setupPipelineLayout(normalPipelineLayout);
         const std::vector additionalDynamicStates{VK_DYNAMIC_STATE_LINE_WIDTH};
         linePipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);
