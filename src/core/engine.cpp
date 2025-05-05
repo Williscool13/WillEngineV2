@@ -24,8 +24,8 @@
 #include "src/renderer/assets/render_object/render_object.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/environment/environment.h"
-#include "../renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h"
-#include "../renderer/pipelines/debug/debug_renderer.h"
+#include "src/renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h"
+#include "src/renderer/pipelines/debug/debug_renderer.h"
 #include "src/renderer/pipelines/debug/debug_composite_pipeline.h"
 #include "src/renderer/pipelines/debug/debug_highlighter.h"
 #include "src/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline.h"
@@ -552,7 +552,7 @@ void Engine::render(float deltaTime)
     vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     vk_helpers::transitionImage(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                                DEPTH_STENCIL_ASPECT_FLAG);
+                                VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -662,7 +662,7 @@ void Engine::render(float deltaTime)
     vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                DEPTH_STENCIL_ASPECT_FLAG);
+                                VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     ambient_occlusion::GTAODrawInfo gtaoDrawInfo{
@@ -752,7 +752,7 @@ void Engine::render(float deltaTime)
         vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, debugTarget.image, VK_IMAGE_LAYOUT_UNDEFINED,
                                     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, {0.0f, 0.0f, 0.0f, 0.0f});
         vk_helpers::transitionImage(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                                    DEPTH_STENCIL_ASPECT_FLAG);
+                                    VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
 
         debug_renderer::DebugRendererDrawInfo debugRendererDrawInfo{
@@ -1045,7 +1045,7 @@ void Engine::createDrawResources()
     }
     // Depth Image
     {
-        depthStencilImage.imageFormat = DEPTH_FORMAT;
+        depthStencilImage.imageFormat = DEPTH_STENCIL_FORMAT;
         constexpr VkExtent3D depthImageExtent = {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1};
         depthStencilImage.imageExtent = depthImageExtent;
         VkImageUsageFlags depthImageUsages{};
@@ -1059,7 +1059,7 @@ void Engine::createDrawResources()
         depthImageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
         vmaCreateImage(context->allocator, &depthImageInfo, &depthImageAllocationInfo, &depthStencilImage.image, &depthStencilImage.allocation, nullptr);
 
-        VkImageViewCreateInfo combinedViewInfo = vk_helpers::imageviewCreateInfo(depthStencilImage.imageFormat, depthStencilImage.image, DEPTH_STENCIL_ASPECT_FLAG);
+        VkImageViewCreateInfo combinedViewInfo = vk_helpers::imageviewCreateInfo(depthStencilImage.imageFormat, depthStencilImage.image, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
         VK_CHECK(vkCreateImageView(context->device, &combinedViewInfo, nullptr, &depthStencilImage.imageView));
 
         VkImageViewCreateInfo depthViewInfo = vk_helpers::imageviewCreateInfo(depthStencilImage.imageFormat, depthStencilImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);

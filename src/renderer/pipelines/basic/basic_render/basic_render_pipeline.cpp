@@ -123,7 +123,7 @@ void will_engine::basic_render_pipeline::BasicRenderPipeline::createPipeline()
     renderPipelineBuilder.disableMultisampling();
     renderPipelineBuilder.disableBlending();
     renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    renderPipelineBuilder.setupRenderer({DRAW_FORMAT}, DEPTH_FORMAT);
+    renderPipelineBuilder.setupRenderer({DRAW_FORMAT}, DEPTH_STENCIL_FORMAT);
     renderPipelineBuilder.setupPipelineLayout(pipelineLayout);
 
     pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder);

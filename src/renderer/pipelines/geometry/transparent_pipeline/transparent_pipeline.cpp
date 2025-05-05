@@ -368,7 +368,7 @@ void TransparentPipeline::createAccumulationPipeline()
 
     pipelineBuilder.setupBlending(blendAttachmentStates);
     pipelineBuilder.enableDepthTest(false, VK_COMPARE_OP_GREATER);
-    pipelineBuilder.setupRenderer({accumulationImageFormat, revealageImageFormat, debugImageFormat}, DEPTH_FORMAT);
+    pipelineBuilder.setupRenderer({accumulationImageFormat, revealageImageFormat, debugImageFormat}, DEPTH_STENCIL_FORMAT);
     pipelineBuilder.setupPipelineLayout(accumulationPipelineLayout);
 
     accumulationPipeline = resourceManager.createRenderPipeline(pipelineBuilder);

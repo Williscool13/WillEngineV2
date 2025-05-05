@@ -119,7 +119,7 @@ void will_engine::environment_pipeline::EnvironmentPipeline::createPipeline()
     pipelineBuilder.disableMultisampling();
     pipelineBuilder.disableBlending();
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    pipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_FORMAT);
+    pipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_STENCIL_FORMAT);
     pipelineBuilder.setupPipelineLayout(pipelineLayout);
 
 

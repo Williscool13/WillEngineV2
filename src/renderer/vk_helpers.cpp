@@ -996,14 +996,14 @@ void will_engine::vk_helpers::saveStencilBuffer(const ResourceManager& resourceM
         bufferCopyRegion.bufferImageHeight = 0;
 
         transitionImage(cmd, depthStencilImage.image, imageLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                       DEPTH_STENCIL_ASPECT_FLAG);
+                       VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
         vkCmdCopyImageToBuffer(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
                               receivingBuffer.buffer, 1, &bufferCopyRegion);
 
         // Transition back
         transitionImage(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, imageLayout,
-                       DEPTH_STENCIL_ASPECT_FLAG);
+                       VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
     });
 
     void* data = receivingBuffer.info.pMappedData;

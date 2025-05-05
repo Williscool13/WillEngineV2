@@ -178,7 +178,7 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::createPipeline()
     renderPipelineBuilder.disableMultisampling();
     renderPipelineBuilder.disableBlending();
     renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    renderPipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_FORMAT);
+    renderPipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_STENCIL_FORMAT);
     renderPipelineBuilder.setupPipelineLayout(pipelineLayout);
 
     pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder);

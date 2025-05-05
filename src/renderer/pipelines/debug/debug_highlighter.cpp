@@ -149,7 +149,7 @@ void DebugHighlighter::createPipeline()
         1
     };
     renderPipelineBuilder.setupDepthStencil(VK_TRUE, VK_TRUE, VK_COMPARE_OP_GREATER_OR_EQUAL, VK_FALSE, VK_TRUE, stencilOp, stencilOp, 0.0f, 1.0f);
-    renderPipelineBuilder.setupRenderer({DEBUG_FORMAT}, DEPTH_FORMAT, DEPTH_FORMAT);
+    renderPipelineBuilder.setupRenderer({DEBUG_FORMAT}, DEPTH_STENCIL_FORMAT, DEPTH_STENCIL_FORMAT);
     renderPipelineBuilder.setupPipelineLayout(pipelineLayout);
     const std::vector additionalDynamicStates{VK_DYNAMIC_STATE_LINE_WIDTH};
     pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);
