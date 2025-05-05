@@ -669,17 +669,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save Normals")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "normalRT.png";
-                        auto unpackFunc = [](const uint32_t packedColor) {
-                            glm::vec4 pixel = glm::unpackSnorm4x8(packedColor);
-                            pixel.r = pixel.r * 0.5f + 0.5f;
-                            pixel.g = pixel.g * 0.5f + 0.5f;
-                            pixel.b = pixel.b * 0.5f + 0.5f;
-                            pixel.a = 1.0f;
-                            return pixel;
-                        };
-                        vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->normalRenderTarget,
-                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(),
-                                                    unpackFunc);
+                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->normalRenderTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vk_helpers::ImageFormat::A2R10G10B10_UNORM, path.string());
                     }
                     else {
                         fmt::print(" Failed to save normal render target");
@@ -1227,8 +1217,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         if (ImGui::Button("Save Stencil Debug Draw")) {
             if (file::getOrCreateDirectory(file::imagesSavePath)) {
                 const std::filesystem::path path = file::imagesSavePath / "debugStencil.png";
-                vk_helpers::saveStencilBuffer(*engine->resourceManager, *engine->immediate, engine->depthStencilImage,
-                                                  VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, path.string().c_str());
+                vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->depthStencilImage, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, vk_helpers::ImageFormat::D32S8, path.string(), true);
             }
             else {
                 fmt::print(" Failed to find/create image save path directory");

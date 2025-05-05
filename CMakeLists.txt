@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.28)
 project(WillEngine)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 
 add_definitions(-DVK_NO_PROTOTYPES)
 
@@ -49,7 +49,7 @@ add_subdirectory(extern/fastgltf/deps) # simdjson
 # Jolt Physics
 set(PHYSICS_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics")
 include(extern/JoltPhysics/Jolt/Jolt.cmake)
-set(CMAKE_CXX_STANDARD 20) # Jolt sets it to 17
+set(CMAKE_CXX_STANDARD 23) # Jolt sets it to 17
 
 include_directories(${CMAKE_SOURCE_DIR})
 

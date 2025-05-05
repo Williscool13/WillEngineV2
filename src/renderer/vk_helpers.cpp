@@ -594,6 +594,7 @@ VkPipelineShaderStageCreateInfo will_engine::vk_helpers::pipelineShaderStageCrea
     return info;
 }
 
+
 void will_engine::vk_helpers::saveImageRGBA32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
                                                const AllocatedImage& image, const VkImageLayout imageLayout,
                                                const VkImageAspectFlags aspectFlag,
@@ -929,7 +930,8 @@ void will_engine::vk_helpers::saveImageR8UNORM(const ResourceManager& resourceMa
 }
 
 void will_engine::vk_helpers::saveImageR8UINT(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
-    const AllocatedImage& image, VkImageLayout imageLayout, const char* savePath, VkImageAspectFlagBits aspectFlag, int32_t mipLevel)
+                                              const AllocatedImage& image, VkImageLayout imageLayout, const char* savePath,
+                                              VkImageAspectFlagBits aspectFlag, int32_t mipLevel)
 {
     const size_t width = image.imageExtent.width / static_cast<size_t>(std::pow(2, mipLevel));
     const size_t height = image.imageExtent.height / static_cast<size_t>(std::pow(2, mipLevel));
@@ -975,7 +977,7 @@ void will_engine::vk_helpers::saveImageR8UINT(const ResourceManager& resourceMan
 }
 
 void will_engine::vk_helpers::saveStencilBuffer(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
-    const AllocatedImage& depthStencilImage, VkImageLayout imageLayout, const char* savePath)
+                                                const AllocatedImage& depthStencilImage, VkImageLayout imageLayout, const char* savePath)
 {
     const size_t width = depthStencilImage.imageExtent.width;
     const size_t height = depthStencilImage.imageExtent.height;
@@ -996,14 +998,14 @@ void will_engine::vk_helpers::saveStencilBuffer(const ResourceManager& resourceM
         bufferCopyRegion.bufferImageHeight = 0;
 
         transitionImage(cmd, depthStencilImage.image, imageLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                       VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+                        VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
         vkCmdCopyImageToBuffer(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                              receivingBuffer.buffer, 1, &bufferCopyRegion);
+                               receivingBuffer.buffer, 1, &bufferCopyRegion);
 
         // Transition back
         transitionImage(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, imageLayout,
-                       VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+                        VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
     });
 
     void* data = receivingBuffer.info.pMappedData;
@@ -1013,9 +1015,9 @@ void will_engine::vk_helpers::saveStencilBuffer(const ResourceManager& resourceM
     const auto byteImageData = new uint8_t[texelCount * 4];
     for (size_t i = 0; i < texelCount; ++i) {
         const auto value = stencilData[i];
-        byteImageData[i * 4 + 0] = value * 255.0f;
-        byteImageData[i * 4 + 1] = value * 255.0f;
-        byteImageData[i * 4 + 2] = value * 255.0f;
+        byteImageData[i * 4 + 0] = value;
+        byteImageData[i * 4 + 1] = value;
+        byteImageData[i * 4 + 2] = value;
         byteImageData[i * 4 + 3] = 255;
     }
 
@@ -1113,4 +1115,202 @@ void will_engine::vk_helpers::saveHeightmap(const std::vector<float>& heightData
     stbi_write_png(filename.string().c_str(), width, height, 1, byteImageData, width);
 
     delete[] byteImageData;
+}
+
+will_engine::vk_helpers::FormatInfo will_engine::vk_helpers::getFormatInfo(ImageFormat format, bool stencilOnly)
+{
+    switch (format) {
+        case ImageFormat::RGBA32F:
+            return {16, VK_IMAGE_ASPECT_COLOR_BIT};
+        case ImageFormat::RGBA16F:
+            return {8, VK_IMAGE_ASPECT_COLOR_BIT};
+        case ImageFormat::RGBA8:
+            return {4, VK_IMAGE_ASPECT_COLOR_BIT};
+        case ImageFormat::R32F:
+            return {4, VK_IMAGE_ASPECT_COLOR_BIT};
+        case ImageFormat::R16F:
+            return {2, VK_IMAGE_ASPECT_COLOR_BIT};
+        case ImageFormat::R8UNORM:
+            return {1, VK_IMAGE_ASPECT_COLOR_BIT};
+        case ImageFormat::R8UINT:
+            return {1, VK_IMAGE_ASPECT_COLOR_BIT};
+        case ImageFormat::A2R10G10B10_UNORM:
+            return {sizeof(uint32_t), VK_IMAGE_ASPECT_COLOR_BIT};
+        case ImageFormat::D32S8:
+            return {stencilOnly ? sizeof(uint8_t) : sizeof(uint32_t), VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT};
+        default:
+            return {0, 0};
+    }
+}
+
+void will_engine::vk_helpers::saveImage(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
+                                        const AllocatedImage& image, VkImageLayout imageLayout,
+                                        ImageFormat format, const std::string& savePath, bool saveStencilOnly)
+{
+    const FormatInfo info = getFormatInfo(format, saveStencilOnly);
+    const VkImageAspectFlags aspectMask = info.aspectMask;
+
+    VkImageAspectFlags subresourceAspect = aspectMask;
+    // This will look different if `VK_KHR_separate_depth_stencil_layouts` is enabled
+    if (info.aspectMask == (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
+        subresourceAspect = saveStencilOnly ? VK_IMAGE_ASPECT_STENCIL_BIT : VK_IMAGE_ASPECT_DEPTH_BIT;
+    }
+    const uint32_t texelCount = image.imageExtent.width * image.imageExtent.height;
+    const size_t dataSize = texelCount * info.bytesPerPixel;
+    AllocatedBuffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
+
+    immediate.submit([&](VkCommandBuffer cmd) {
+        VkBufferImageCopy bufferCopyRegion{};
+        bufferCopyRegion.imageSubresource.aspectMask = subresourceAspect;
+        bufferCopyRegion.imageSubresource.mipLevel = 0;
+        bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
+        bufferCopyRegion.imageSubresource.layerCount = 1;
+        bufferCopyRegion.imageExtent = image.imageExtent;
+        bufferCopyRegion.bufferOffset = 0;
+        bufferCopyRegion.bufferRowLength = 0;
+        bufferCopyRegion.bufferImageHeight = 0;
+
+        transitionImage(cmd, image.image, imageLayout, VK_IMAGE_LAYOUT_GENERAL, aspectMask);
+        vkCmdCopyImageToBuffer(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer.buffer, 1, &bufferCopyRegion);
+        transitionImage(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout, aspectMask);
+    });
+
+
+    void* data = receivingBuffer.info.pMappedData;
+    std::vector<uint8_t> outputData(texelCount * 4);
+    processImageData(data, outputData, texelCount, format, saveStencilOnly);
+
+    stbi_write_png(savePath.c_str(), image.imageExtent.width, image.imageExtent.height, 4, outputData.data(), image.imageExtent.width * 4);
+
+    resourceManager.destroyImmediate(receivingBuffer);
+}
+
+void will_engine::vk_helpers::processImageData(void* sourceData, std::span<uint8_t> targetData, uint32_t pixelCount, ImageFormat format,
+                                               bool stencilOnly)
+{
+    constexpr float powEight = 255.0f;
+
+    switch (format) {
+        case ImageFormat::RGBA32F:
+        {
+            const auto floatData = static_cast<float*>(sourceData);
+            for (uint32_t i = 0; i < pixelCount; ++i) {
+                for (uint32_t c = 0; c < 4; ++c) {
+                    const float value = std::max(0.0f, std::min(1.0f, floatData[i * 4 + c]));
+                    targetData[i * 4 + c] = static_cast<uint8_t>(value * powEight);
+                }
+            }
+            break;
+        }
+
+        case ImageFormat::RGBA16F:
+        {
+            const auto halfData = static_cast<half_float::half*>(sourceData);
+            for (uint32_t i = 0; i < pixelCount; ++i) {
+                for (uint32_t c = 0; c < 4; ++c) {
+                    float value = halfData[i * 4 + c];
+                    value = std::max(0.0f, std::min(1.0f, value));
+                    targetData[i * 4 + c] = static_cast<uint8_t>(value * powEight);
+                }
+            }
+            break;
+        }
+
+        case ImageFormat::RGBA8:
+        {
+            const auto packedData = static_cast<uint32_t*>(sourceData);
+            for (uint32_t i = 0; i < pixelCount; ++i) {
+                const uint32_t pixel = packedData[i];
+                targetData[i * 4] = (pixel & 0xFF);
+                targetData[i * 4 + 1] = ((pixel >> 8) & 0xFF);
+                targetData[i * 4 + 2] = ((pixel >> 16) & 0xFF);
+                targetData[i * 4 + 3] = ((pixel >> 24) & 0xFF);
+            }
+            break;
+        }
+
+        case ImageFormat::R32F:
+        {
+            const auto floatData = static_cast<float*>(sourceData);
+            for (uint32_t i = 0; i < pixelCount; ++i) {
+                const float depth = floatData[i];
+                for (uint32_t c = 0; c < 3; ++c) {
+                    targetData[i * 4 + c] = static_cast<uint8_t>(depth * powEight);
+                }
+                targetData[i * 4 + 3] = 255;
+            }
+            break;
+        }
+
+        case ImageFormat::R16F:
+        {
+            const auto halfData = static_cast<half_float::half*>(sourceData);
+            for (uint32_t i = 0; i < pixelCount; ++i) {
+                const float depth = halfData[i];
+                for (uint32_t c = 0; c < 3; ++c) {
+                    targetData[i * 4 + c] = static_cast<uint8_t>(depth * powEight);
+                }
+                targetData[i * 4 + 3] = 255;
+            }
+            break;
+        }
+
+        case ImageFormat::R8UNORM:
+        case ImageFormat::R8UINT:
+        {
+            const uint8_t* byteSource = static_cast<uint8_t*>(sourceData);
+            for (uint32_t i = 0; i < pixelCount; ++i) {
+                const uint8_t value = byteSource[i];
+                for (uint32_t c = 0; c < 3; ++c) {
+                    targetData[i * 4 + c] = value;
+                }
+                targetData[i * 4 + 3] = 255;
+            }
+            break;
+        }
+        case ImageFormat::A2R10G10B10_UNORM:
+        {
+            const uint32_t* byteSource = static_cast<uint32_t*>(sourceData);
+            for (uint32_t i = 0; i < pixelCount; ++i) {
+                const uint32_t value = byteSource[i];
+
+                // Extract components according to A2R10G10B10 layout (AI BS)
+                const float r = static_cast<float>((value >> 20) & 0x3FF) / 1023.0f;
+                const float g = static_cast<float>((value >> 10) & 0x3FF) / 1023.0f;
+                const float b = static_cast<float>(value & 0x3FF) / 1023.0f;
+                //const float a = static_cast<float>((value >> 30) & 0x3) / 3.0f;
+
+                targetData[i * 4 + 0] = static_cast<uint8_t>(r * powEight);
+                targetData[i * 4 + 1] = static_cast<uint8_t>(g * powEight);
+                targetData[i * 4 + 2] = static_cast<uint8_t>(b * powEight);
+                //targetData[i * 4 + 3] = static_cast<uint8_t>(a * 255.0f);
+                targetData[i * 4 + 3] = powEight;
+            }
+            break;
+        }
+        case ImageFormat::D32S8:
+        {
+            if (stencilOnly) {
+                const uint8_t* byteSource = static_cast<uint8_t*>(sourceData);
+                for (uint32_t i = 0; i < pixelCount; ++i) {
+                    const uint8_t stencil = byteSource[i];
+                    for (uint32_t c = 0; c < 3; ++c) {
+                        targetData[i * 4 + c] = stencil * 255.0f;
+                    }
+                    targetData[i * 4 + 3] = 255;
+                }
+            }
+            else {
+                const auto depthData = static_cast<float*>(sourceData);
+                for (uint32_t i = 0; i < pixelCount; ++i) {
+                    const float depth = depthData[i];
+                    for (uint32_t c = 0; c < 3; ++c) {
+                        targetData[i * 4 + c] = static_cast<uint8_t>(depth * powEight);
+                    }
+                    targetData[i * 4 + 3] = 255;
+                }
+            }
+            break;
+        }
+    }
 }

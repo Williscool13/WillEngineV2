@@ -6,6 +6,7 @@
 #define VKHELPERS_H
 #include <filesystem>
 #include <functional>
+#include <span>
 
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vk_enum_string_helper.h>
@@ -26,6 +27,27 @@ class ImmediateSubmitter;
 
 namespace vk_helpers
 {
+    // Enum to define supported image formats
+    enum class ImageFormat
+    {
+        RGBA32F,
+        RGBA16F,
+        RGBA8,
+        A2R10G10B10_UNORM,
+        R32F,
+        R16F,
+        R8UNORM,
+        R8UINT,
+        D32S8
+    };
+
+    // Structure to hold format-specific parameters
+    struct FormatInfo
+    {
+        uint64_t bytesPerPixel;
+        VkImageAspectFlags aspectMask;
+    };
+
     VkImageCreateInfo imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
 
     VkImageCreateInfo cubemapCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
@@ -80,7 +102,8 @@ namespace vk_helpers
      */
     VkDeviceSize getAlignedSize(VkDeviceSize value, VkDeviceSize alignment);
 
-    void copyBuffer(VkCommandBuffer cmd, const AllocatedBuffer& src, VkDeviceSize srcOffset, const AllocatedBuffer& dst, VkDeviceSize dstOffset, VkDeviceSize size);
+    void copyBuffer(VkCommandBuffer cmd, const AllocatedBuffer& src, VkDeviceSize srcOffset, const AllocatedBuffer& dst, VkDeviceSize dstOffset,
+                    VkDeviceSize size);
 
     void clearColorImage(VkCommandBuffer cmd, VkImageAspectFlagBits aspectFlag, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout,
                          VkClearColorValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f});
@@ -134,10 +157,13 @@ namespace vk_helpers
 
     void saveImageR8UNORM(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
                           VkImageLayout imageLayout, const char* savePath, int32_t mipLevel = 0);
+
     void saveImageR8UINT(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
-                          VkImageLayout imageLayout, const char* savePath, VkImageAspectFlagBits aspectFlag = VK_IMAGE_ASPECT_COLOR_BIT, int32_t mipLevel = 0);
+                         VkImageLayout imageLayout, const char* savePath, VkImageAspectFlagBits aspectFlag = VK_IMAGE_ASPECT_COLOR_BIT,
+                         int32_t mipLevel = 0);
+
     void saveStencilBuffer(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
-        const AllocatedImage& depthStencilImage, VkImageLayout imageLayout, const char* savePath);
+                           const AllocatedImage& depthStencilImage, VkImageLayout imageLayout, const char* savePath);
 
     void saveImageR8G8B8A8UNORM(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
                                 VkImageLayout imageLayout, const char* savePath, int32_t mipLevel = 0);
@@ -145,6 +171,20 @@ namespace vk_helpers
     void saveImage(const std::vector<float>& imageData, int width, int height, std::filesystem::path filename, bool overrideAlpha = true);
 
     void saveHeightmap(const std::vector<float>& heightData, int width, int height, const std::filesystem::path& filename);
+
+    FormatInfo getFormatInfo(ImageFormat format, bool stencilOnly);
+
+    void processImageData(void* sourceData, std::span<uint8_t> targetData,
+                          uint32_t pixelCount,
+                          ImageFormat format, bool stencilOnly = false);
+
+    void saveImage(const ResourceManager& resourceManager,
+                   const ImmediateSubmitter& immediate,
+                   const AllocatedImage& image,
+                   VkImageLayout imageLayout,
+                   ImageFormat format,
+                   const std::string& savePath,
+                   bool saveStencilOnly = false);
 }
 }
 
