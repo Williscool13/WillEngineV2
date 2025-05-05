@@ -12,6 +12,7 @@
 
 
 #include "environment/environment.h"
+#include "pipelines/debug/debug_highlighter.h"
 #include "pipelines/post/post_process/post_process_pipeline_types.h"
 #include "pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h"
 #include "pipelines/shadows/ground_truth_ambient_occlusion/ambient_occlusion_types.h"
@@ -656,7 +657,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             return (2.0f * zNear) / (zFar + zNear - d * (zFar - zNear));
                         };
 
-                        vk_helpers::saveImageR32F(*engine->resourceManager, *engine->immediate, engine->depthImage,
+                        vk_helpers::saveImageR32F(*engine->resourceManager, *engine->immediate, engine->depthStencilImage,
                                                   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT, path.string().c_str(),
                                                   depthNormalize);
                     }
@@ -1221,6 +1222,18 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
     if (ImGui::Begin("Discardable Debug")) {
         ImGui::Checkbox("Draw Debug Render", &engine->bDrawDebugRendering);
+
+        ImGui::Separator();
+        if (ImGui::Button("Save Stencil Debug Draw")) {
+            if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                const std::filesystem::path path = file::imagesSavePath / "debugStencil.png";
+                vk_helpers::saveStencilBuffer(*engine->resourceManager, *engine->immediate, engine->depthStencilImage,
+                                                  VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, path.string().c_str());
+            }
+            else {
+                fmt::print(" Failed to find/create image save path directory");
+            }
+        }
     }
     ImGui::End();
 

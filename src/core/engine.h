@@ -288,7 +288,12 @@ private: // Pipelines
 
 private: // Draw Resources
     AllocatedImage drawImage{};
-    AllocatedImage depthImage{};
+    /**
+     * Image view in this depth image is VK_IMAGE_ASPECT_DEPTH_BIT
+     */
+    AllocatedImage depthStencilImage{};
+    VkImageView depthImageView{VK_NULL_HANDLE};
+    VkImageView stencilImageView{VK_NULL_HANDLE};
 
     /**
      * 8.8.8 View Normals - 8 unused

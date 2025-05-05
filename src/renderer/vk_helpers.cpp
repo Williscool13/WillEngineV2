@@ -928,6 +928,103 @@ void will_engine::vk_helpers::saveImageR8UNORM(const ResourceManager& resourceMa
     resourceManager.destroyImmediate(receivingBuffer);
 }
 
+void will_engine::vk_helpers::saveImageR8UINT(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
+    const AllocatedImage& image, VkImageLayout imageLayout, const char* savePath, VkImageAspectFlagBits aspectFlag, int32_t mipLevel)
+{
+    const size_t width = image.imageExtent.width / static_cast<size_t>(std::pow(2, mipLevel));
+    const size_t height = image.imageExtent.height / static_cast<size_t>(std::pow(2, mipLevel));
+    const size_t texelCount = width * height;
+    const size_t dataSize = texelCount * 1 * sizeof(uint8_t);
+
+    AllocatedBuffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
+
+    immediate.submit([&, mipLevel](VkCommandBuffer cmd) {
+        VkBufferImageCopy bufferCopyRegion{};
+        bufferCopyRegion.imageSubresource.aspectMask = aspectFlag;
+        bufferCopyRegion.imageSubresource.mipLevel = mipLevel;
+        bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
+        bufferCopyRegion.imageSubresource.layerCount = 1;
+        bufferCopyRegion.imageExtent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1u};
+        bufferCopyRegion.bufferOffset = 0;
+        bufferCopyRegion.bufferRowLength = 0;
+        bufferCopyRegion.bufferImageHeight = 0;
+
+        transitionImage(cmd, image.image, imageLayout, VK_IMAGE_LAYOUT_GENERAL, aspectFlag);
+
+        vkCmdCopyImageToBuffer(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer.buffer, 1, &bufferCopyRegion);
+
+        transitionImage(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout, aspectFlag);
+    });
+
+    void* data = receivingBuffer.info.pMappedData;
+    const auto imageData = static_cast<uint8_t*>(data);
+
+    const auto byteImageData = new uint8_t[texelCount * 4];
+    for (size_t i = 0; i < texelCount; ++i) {
+        const auto value = imageData[i];
+        byteImageData[i * 4 + 0] = value;
+        byteImageData[i * 4 + 1] = value;
+        byteImageData[i * 4 + 2] = value;
+        byteImageData[i * 4 + 3] = 255;
+    }
+
+    stbi_write_png(savePath, static_cast<int>(width), static_cast<int>(height), 4, byteImageData, static_cast<int>(width) * 4);
+
+    delete[] byteImageData;
+    resourceManager.destroyImmediate(receivingBuffer);
+}
+
+void will_engine::vk_helpers::saveStencilBuffer(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
+    const AllocatedImage& depthStencilImage, VkImageLayout imageLayout, const char* savePath)
+{
+    const size_t width = depthStencilImage.imageExtent.width;
+    const size_t height = depthStencilImage.imageExtent.height;
+    const size_t texelCount = width * height;
+    const size_t dataSize = texelCount * sizeof(uint8_t);
+
+    AllocatedBuffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
+
+    immediate.submit([&](VkCommandBuffer cmd) {
+        VkBufferImageCopy bufferCopyRegion{};
+        bufferCopyRegion.imageSubresource.aspectMask = VK_IMAGE_ASPECT_STENCIL_BIT;
+        bufferCopyRegion.imageSubresource.mipLevel = 0;
+        bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
+        bufferCopyRegion.imageSubresource.layerCount = 1;
+        bufferCopyRegion.imageExtent = {static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1u};
+        bufferCopyRegion.bufferOffset = 0;
+        bufferCopyRegion.bufferRowLength = 0;
+        bufferCopyRegion.bufferImageHeight = 0;
+
+        transitionImage(cmd, depthStencilImage.image, imageLayout, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                       DEPTH_STENCIL_ASPECT_FLAG);
+
+        vkCmdCopyImageToBuffer(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+                              receivingBuffer.buffer, 1, &bufferCopyRegion);
+
+        // Transition back
+        transitionImage(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, imageLayout,
+                       DEPTH_STENCIL_ASPECT_FLAG);
+    });
+
+    void* data = receivingBuffer.info.pMappedData;
+    const auto stencilData = static_cast<uint8_t*>(data);
+
+    // Convert to RGBA for PNG output
+    const auto byteImageData = new uint8_t[texelCount * 4];
+    for (size_t i = 0; i < texelCount; ++i) {
+        const auto value = stencilData[i];
+        byteImageData[i * 4 + 0] = value * 255.0f;
+        byteImageData[i * 4 + 1] = value * 255.0f;
+        byteImageData[i * 4 + 2] = value * 255.0f;
+        byteImageData[i * 4 + 3] = 255;
+    }
+
+    stbi_write_png(savePath, static_cast<int>(width), static_cast<int>(height), 4, byteImageData, static_cast<int>(width) * 4);
+
+    delete[] byteImageData;
+    resourceManager.destroyImmediate(receivingBuffer);
+}
+
 void will_engine::vk_helpers::saveImageR8G8B8A8UNORM(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
                                                      const AllocatedImage& image, VkImageLayout imageLayout, const char* savePath, int32_t mipLevel)
 {

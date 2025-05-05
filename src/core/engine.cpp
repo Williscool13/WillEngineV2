@@ -225,16 +225,16 @@ void Engine::initRenderer()
     postProcessPipeline = new post_process_pipeline::PostProcessPipeline(*resourceManager);
     startupProfiler.addEntry("Init PP Pass");
 
-    ambientOcclusionPipeline->setupDepthPrefilterDescriptorBuffer(depthImage.imageView);
+    ambientOcclusionPipeline->setupDepthPrefilterDescriptorBuffer(depthImageView);
     ambientOcclusionPipeline->setupAmbientOcclusionDescriptorBuffer(normalRenderTarget.imageView);
     ambientOcclusionPipeline->setupSpatialFilteringDescriptorBuffer();
-    contactShadowsPipeline->setupDescriptorBuffer(depthImage.imageView);
+    contactShadowsPipeline->setupDescriptorBuffer(depthImageView);
 
     const deferred_resolve::DeferredResolveDescriptor deferredResolveDescriptor{
         normalRenderTarget.imageView,
         albedoRenderTarget.imageView,
         pbrRenderTarget.imageView,
-        depthImage.imageView,
+        depthImageView,
         velocityRenderTarget.imageView,
         ambientOcclusionPipeline->getAmbientOcclusionRenderTarget().imageView,
         contactShadowsPipeline->getContactShadowRenderTarget().imageView,
@@ -246,7 +246,7 @@ void Engine::initRenderer()
     const temporal_antialiasing_pipeline::TemporalAntialiasingDescriptor temporalAntialiasingDescriptor{
         drawImage.imageView,
         historyBuffer.imageView,
-        depthImage.imageView,
+        depthImageView,
         velocityRenderTarget.imageView,
         taaResolveTarget.imageView,
         resourceManager->getDefaultSamplerLinear()
@@ -551,8 +551,8 @@ void Engine::render(float deltaTime)
 
     vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-    vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-                                VK_IMAGE_ASPECT_DEPTH_BIT);
+    vk_helpers::transitionImage(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                                DEPTH_STENCIL_ASPECT_FLAG);
     vk_helpers::transitionImage(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -568,7 +568,7 @@ void Engine::render(float deltaTime)
         albedoRenderTarget.imageView,
         pbrRenderTarget.imageView,
         velocityRenderTarget.imageView,
-        depthImage.imageView,
+        depthImageView,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
         environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferBindingInfo(),
@@ -598,7 +598,7 @@ void Engine::render(float deltaTime)
         albedoRenderTarget.imageView,
         pbrRenderTarget.imageView,
         velocityRenderTarget.imageView,
-        depthImage.imageView,
+        depthImageView,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
     };
@@ -613,7 +613,7 @@ void Engine::render(float deltaTime)
         albedoRenderTarget.imageView,
         pbrRenderTarget.imageView,
         velocityRenderTarget.imageView,
-        depthImage.imageView,
+        depthImageView,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
     };
@@ -629,7 +629,7 @@ void Engine::render(float deltaTime)
             albedoRenderTarget.imageView,
             pbrRenderTarget.imageView,
             velocityRenderTarget.imageView,
-            depthImage.imageView,
+            depthImageView,
             sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
             sceneDataDescriptorBuffer.getDescriptorBufferSize() * FRAME_OVERLAP
         };
@@ -638,7 +638,7 @@ void Engine::render(float deltaTime)
 
     transparent_pipeline::TransparentAccumulateDrawInfo transparentDrawInfo{
         true,
-        depthImage.imageView,
+        depthImageView,
         currentFrameOverlap,
         allRenderObjects,
         sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
@@ -661,8 +661,8 @@ void Engine::render(float deltaTime)
                                 VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                VK_IMAGE_ASPECT_DEPTH_BIT);
+    vk_helpers::transitionImage(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                DEPTH_STENCIL_ASPECT_FLAG);
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     ambient_occlusion::GTAODrawInfo gtaoDrawInfo{
@@ -751,14 +751,14 @@ void Engine::render(float deltaTime)
     if (bDrawDebugRendering) {
         vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, debugTarget.image, VK_IMAGE_LAYOUT_UNDEFINED,
                                     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, {0.0f, 0.0f, 0.0f, 0.0f});
-        vk_helpers::transitionImage(cmd, depthImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-                                    VK_IMAGE_ASPECT_DEPTH_BIT);
+        vk_helpers::transitionImage(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                                    DEPTH_STENCIL_ASPECT_FLAG);
 
 
         debug_renderer::DebugRendererDrawInfo debugRendererDrawInfo{
             currentFrameOverlap,
             debugTarget.imageView,
-            depthImage.imageView,
+            depthImageView,
             sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
             sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
         };
@@ -767,7 +767,7 @@ void Engine::render(float deltaTime)
 
         if (IComponentContainer* cc = dynamic_cast<IComponentContainer*>(selectedItem)) {
             if (components::MeshRendererComponent* meshRenderer = cc->getComponent<components::MeshRendererComponent>()) {
-                debugHighlighter->draw(cmd, meshRenderer, debugTarget.imageView, depthImage.imageView);
+                debugHighlighter->draw(cmd, meshRenderer, debugTarget.imageView, depthStencilImage.imageView);
             }
         }
 
@@ -892,7 +892,9 @@ void Engine::cleanup()
     }
 
     resourceManager->destroy(drawImage);
-    resourceManager->destroy(depthImage);
+    resourceManager->destroy(depthStencilImage);
+    resourceManager->destroy(depthImageView);
+    resourceManager->destroy(stencilImageView);
     resourceManager->destroy(normalRenderTarget);
     resourceManager->destroy(albedoRenderTarget);
     resourceManager->destroy(pbrRenderTarget);
@@ -1043,22 +1045,28 @@ void Engine::createDrawResources()
     }
     // Depth Image
     {
-        depthImage.imageFormat = DEPTH_FORMAT;
+        depthStencilImage.imageFormat = DEPTH_FORMAT;
         constexpr VkExtent3D depthImageExtent = {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1};
-        depthImage.imageExtent = depthImageExtent;
+        depthStencilImage.imageExtent = depthImageExtent;
         VkImageUsageFlags depthImageUsages{};
         depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
         depthImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         depthImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
-        VkImageCreateInfo depthImageInfo = vk_helpers::imageCreateInfo(depthImage.imageFormat, depthImageUsages, depthImageExtent);
+        VkImageCreateInfo depthImageInfo = vk_helpers::imageCreateInfo(depthStencilImage.imageFormat, depthImageUsages, depthImageExtent);
 
         VmaAllocationCreateInfo depthImageAllocationInfo = {};
         depthImageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         depthImageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vmaCreateImage(context->allocator, &depthImageInfo, &depthImageAllocationInfo, &depthImage.image, &depthImage.allocation, nullptr);
+        vmaCreateImage(context->allocator, &depthImageInfo, &depthImageAllocationInfo, &depthStencilImage.image, &depthStencilImage.allocation, nullptr);
 
-        VkImageViewCreateInfo depthViewInfo = vk_helpers::imageviewCreateInfo(depthImage.imageFormat, depthImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
-        VK_CHECK(vkCreateImageView(context->device, &depthViewInfo, nullptr, &depthImage.imageView));
+        VkImageViewCreateInfo combinedViewInfo = vk_helpers::imageviewCreateInfo(depthStencilImage.imageFormat, depthStencilImage.image, DEPTH_STENCIL_ASPECT_FLAG);
+        VK_CHECK(vkCreateImageView(context->device, &combinedViewInfo, nullptr, &depthStencilImage.imageView));
+
+        VkImageViewCreateInfo depthViewInfo = vk_helpers::imageviewCreateInfo(depthStencilImage.imageFormat, depthStencilImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
+        VK_CHECK(vkCreateImageView(context->device, &depthViewInfo, nullptr, &depthImageView));
+
+        VkImageViewCreateInfo stencilViewInfo = vk_helpers::imageviewCreateInfo(depthStencilImage.imageFormat, depthStencilImage.image, VK_IMAGE_ASPECT_STENCIL_BIT);
+        VK_CHECK(vkCreateImageView(context->device, &stencilViewInfo, nullptr, &stencilImageView));
     }
     // Render Targets
     {

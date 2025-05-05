@@ -38,10 +38,9 @@ DebugHighlighter::~DebugHighlighter()
 {
     resourceManager.destroy(pipelineLayout);
     resourceManager.destroy(pipeline);
-    resourceManager.destroy(debugHighlightStencil);
 }
 
-void DebugHighlighter::draw(VkCommandBuffer cmd, IRenderable* highlightTarget, VkImageView debugTarget, VkImageView depthTarget) const
+void DebugHighlighter::draw(VkCommandBuffer cmd, IRenderable* highlightTarget, VkImageView debugTarget, VkImageView depthStencilTarget) const
 {
     if (IRenderReference* renderRef = highlightTarget->getRenderReference()) {
         const std::optional<std::reference_wrapper<const Mesh> > meshData = renderRef->getMeshData(highlightTarget->getMeshIndex());
@@ -49,8 +48,13 @@ void DebugHighlighter::draw(VkCommandBuffer cmd, IRenderable* highlightTarget, V
 
         const VkRenderingAttachmentInfo imageAttachment = vk_helpers::attachmentInfo(debugTarget, nullptr,
                                                                                      VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-        const VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthTarget, nullptr,
-                                                                                     VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+        const VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(depthStencilTarget, nullptr,
+                                                                                     VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+        VkClearValue stencilClear{};
+        stencilClear.depthStencil = {0.0f, 0};
+        const VkRenderingAttachmentInfo stencilAttachment = vk_helpers::attachmentInfo(depthStencilTarget, &stencilClear,
+                                                                                     VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
         VkRenderingInfo renderInfo{};
         renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -64,7 +68,7 @@ void DebugHighlighter::draw(VkCommandBuffer cmd, IRenderable* highlightTarget, V
         renderInfo.colorAttachmentCount = 1;
         renderInfo.pColorAttachments = renderAttachments;
         renderInfo.pDepthAttachment = &depthAttachment;
-        renderInfo.pStencilAttachment = nullptr;
+        renderInfo.pStencilAttachment = &stencilAttachment;
 
         vkCmdBeginRendering(cmd, &renderInfo);
 
@@ -135,8 +139,17 @@ void DebugHighlighter::createPipeline()
     renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
     renderPipelineBuilder.disableMultisampling();
     renderPipelineBuilder.disableBlending();
-    renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    renderPipelineBuilder.setupRenderer({DEBUG_FORMAT}, VK_FORMAT_D32_SFLOAT, VK_FORMAT_UNDEFINED);
+    constexpr VkStencilOpState stencilOp = {
+        VK_STENCIL_OP_REPLACE,
+        VK_STENCIL_OP_REPLACE,
+        VK_STENCIL_OP_REPLACE,
+        VK_COMPARE_OP_ALWAYS,
+        0xff,
+        0xff,
+        1
+    };
+    renderPipelineBuilder.setupDepthStencil(VK_TRUE, VK_TRUE, VK_COMPARE_OP_GREATER_OR_EQUAL, VK_FALSE, VK_TRUE, stencilOp, stencilOp, 0.0f, 1.0f);
+    renderPipelineBuilder.setupRenderer({DEBUG_FORMAT}, DEPTH_FORMAT, DEPTH_FORMAT);
     renderPipelineBuilder.setupPipelineLayout(pipelineLayout);
     const std::vector additionalDynamicStates{VK_DYNAMIC_STATE_LINE_WIDTH};
     pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);

@@ -447,7 +447,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createRenderObjectPipelin
     pipelineBuilder.disableMultisampling();
     pipelineBuilder.disableBlending();
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_LESS_OR_EQUAL);
-    pipelineBuilder.setupRenderer({}, DEPTH_FORMAT);
+    pipelineBuilder.setupRenderer({}, CASCADE_DEPTH_FORMAT);
     pipelineBuilder.setupPipelineLayout(renderObjectPipelineLayout);
 
     renderObjectPipeline = resourceManager.createRenderPipeline(pipelineBuilder, {VK_DYNAMIC_STATE_DEPTH_BIAS});
@@ -485,7 +485,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createTerrainPipeline()
     pipelineBuilder.disableMultisampling();
     pipelineBuilder.disableBlending();
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_LESS_OR_EQUAL);
-    pipelineBuilder.setupRenderer({}, DEPTH_FORMAT);
+    pipelineBuilder.setupRenderer({}, CASCADE_DEPTH_FORMAT);
     pipelineBuilder.setupPipelineLayout(terrainPipelineLayout);
     pipelineBuilder.setupTessellation(4);
 

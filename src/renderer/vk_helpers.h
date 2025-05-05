@@ -134,6 +134,10 @@ namespace vk_helpers
 
     void saveImageR8UNORM(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
                           VkImageLayout imageLayout, const char* savePath, int32_t mipLevel = 0);
+    void saveImageR8UINT(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
+                          VkImageLayout imageLayout, const char* savePath, VkImageAspectFlagBits aspectFlag = VK_IMAGE_ASPECT_COLOR_BIT, int32_t mipLevel = 0);
+    void saveStencilBuffer(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
+        const AllocatedImage& depthStencilImage, VkImageLayout imageLayout, const char* savePath);
 
     void saveImageR8G8B8A8UNORM(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
                                 VkImageLayout imageLayout, const char* savePath, int32_t mipLevel = 0);

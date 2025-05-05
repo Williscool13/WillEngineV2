@@ -128,7 +128,7 @@ public: // Samplers
 public: // VkImage and VkImageView
     [[nodiscard]] AllocatedImage createImage(const VkImageCreateInfo& createInfo) const;
 
-    [[nodiscard]] AllocatedImage createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) const;
+    [[nodiscard]] AllocatedImage createImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false, VkImageAspectFlagBits aspectFlag = VK_IMAGE_ASPECT_NONE) const;
 
     [[nodiscard]] AllocatedImage createImage(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,
                                              bool mipmapped = false) const;

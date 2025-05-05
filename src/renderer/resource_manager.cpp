@@ -461,7 +461,7 @@ AllocatedImage will_engine::ResourceManager::createImage(const VkImageCreateInfo
     // allocate and create the image
     VK_CHECK(vmaCreateImage(context.allocator, &createInfo, &allocInfo, &newImage.image, &newImage.allocation, nullptr));
 
-    const VkImageAspectFlags aspectFlag = createInfo.format == VK_FORMAT_D32_SFLOAT ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+    const VkImageAspectFlags aspectFlag = createInfo.format == VK_FORMAT_D32_SFLOAT || createInfo.format == VK_FORMAT_D32_SFLOAT_S8_UINT ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
     // build an image-view for the image
     VkImageViewCreateInfo view_info = vk_helpers::imageviewCreateInfo(createInfo.format, newImage.image, aspectFlag);
@@ -473,7 +473,7 @@ AllocatedImage will_engine::ResourceManager::createImage(const VkImageCreateInfo
 }
 
 AllocatedImage will_engine::ResourceManager::createImage(const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage,
-                                                         const bool mipmapped) const
+                                                         const bool mipmapped, VkImageAspectFlagBits aspectFlag) const
 {
     AllocatedImage newImage{};
     newImage.imageFormat = format;
@@ -491,10 +491,13 @@ AllocatedImage will_engine::ResourceManager::createImage(const VkExtent3D size, 
     // allocate and create the image
     VK_CHECK(vmaCreateImage(context.allocator, &imgInfo, &allocinfo, &newImage.image, &newImage.allocation, nullptr));
 
-    const VkImageAspectFlags aspectFlag = format == VK_FORMAT_D32_SFLOAT ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+    VkImageAspectFlags targetAspect = aspectFlag;
+    if (targetAspect == VK_IMAGE_ASPECT_NONE) {
+        targetAspect = format == VK_FORMAT_D32_SFLOAT || format == VK_FORMAT_D32_SFLOAT_S8_UINT ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+    }
 
     // build a image-view for the image
-    VkImageViewCreateInfo view_info = vk_helpers::imageviewCreateInfo(format, newImage.image, aspectFlag);
+    VkImageViewCreateInfo view_info = vk_helpers::imageviewCreateInfo(format, newImage.image, targetAspect);
     view_info.subresourceRange.levelCount = imgInfo.mipLevels;
 
     VK_CHECK(vkCreateImageView(context.device, &view_info, nullptr, &newImage.imageView));

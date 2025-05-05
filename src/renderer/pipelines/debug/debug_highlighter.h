@@ -7,6 +7,7 @@
 
 #include <glm/glm.hpp>
 
+#include "src/renderer/imgui_wrapper.h"
 #include "src/renderer/resource_manager.h"
 
 namespace will_engine
@@ -28,7 +29,7 @@ public:
 
     ~DebugHighlighter();
 
-    void draw(VkCommandBuffer cmd, IRenderable* highlightTarget, VkImageView debugTarget, VkImageView depthTarget) const;
+    void draw(VkCommandBuffer cmd, IRenderable* highlightTarget, VkImageView debugTarget, VkImageView depthStencilTarget) const;
 
     void reloadShaders() { createPipeline(); }
 
@@ -41,7 +42,8 @@ private:
     VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
     VkPipeline pipeline{VK_NULL_HANDLE};
 
-    AllocatedImage debugHighlightStencil{VK_NULL_HANDLE};
+    // todo: remove
+    friend void ImguiWrapper::imguiInterface(Engine* engine);
 };
 }
 
