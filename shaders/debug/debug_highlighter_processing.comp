@@ -1,0 +1,60 @@
+#version 460
+
+#include "scene.glsl"
+
+layout (local_size_x = 16, local_size_y = 16) in;
+
+// layout (std140, set = 0, binding = 0) uniform SceneData - scene.glsl
+
+layout(set = 1, binding = 0, r8ui) uniform uimage2D highlighterStencil;
+layout(set = 1, binding = 1, rgba16) uniform image2D debugTarget;
+
+const int OUTLINE_THICKNESS = 2;
+
+void main() {
+    ivec2 pixelCoord = ivec2(gl_GlobalInvocationID.xy);
+    if (any(greaterThan(pixelCoord, ivec2(sceneData.renderTargetSize)))) {
+        return;
+    }
+
+    uint stencilValue = imageLoad(highlighterStencil, pixelCoord).r;
+
+    if (stencilValue == 0) {
+        return;
+    }
+
+    bool isEdge = false;
+
+    for (int thickness = 1; thickness <= OUTLINE_THICKNESS; thickness++) {
+        for (int dir = 0; dir < 4; dir++) {
+            ivec2 offset;
+            if (dir == 0) offset = ivec2(thickness, 0);  // Right
+            if (dir == 1) offset = ivec2(-thickness, 0); // Left
+            if (dir == 2) offset = ivec2(0, thickness);  // Down
+            if (dir == 3) offset = ivec2(0, -thickness); // Up
+
+            ivec2 neighborCoord = pixelCoord + offset;
+
+            if (all(greaterThanEqual(neighborCoord, ivec2(0))) &&
+            all(lessThan(neighborCoord, ivec2(sceneData.renderTargetSize)))) {
+                uint neighborValue = imageLoad(highlighterStencil, neighborCoord).r;
+                if (neighborValue == 0) {
+                    isEdge = true;
+                    break;
+                }
+            } else {
+                isEdge = true;
+                break;
+            }
+        }
+
+        if (isEdge) {
+            break;
+        }
+    }
+
+    if (isEdge) {
+        vec4 outlineColor = vec4(1.0, 0.647, 0.0, 1.0);
+        imageStore(debugTarget, pixelCoord, outlineColor);
+    }
+}

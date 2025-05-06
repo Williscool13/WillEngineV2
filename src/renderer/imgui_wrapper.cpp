@@ -234,6 +234,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 ImGui::Checkbox("Enable Shadows", &engine->bEnableShadows);
                 ImGui::Checkbox("Enable Contact Shadows", &engine->bEnableContactShadows);
                 ImGui::Checkbox("Enable Transparent Primitives", &engine->bDrawTransparents);
+                ImGui::Checkbox("Disable Physics", &engine->bEnablePhysics);
+                ImGui::Checkbox("Enable Physics Debug", &engine->bDebugPhysics);
                 ImGui::DragInt("Shadows PCF Level", &engine->csmSettings.pcfLevel, 2, 1, 5);
 
 
@@ -620,8 +622,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
 
                 ImGui::Separator();
-
-                ImGui::Checkbox("Disable Physics", &engine->bPausePhysics);
 
                 ImGui::Text("Deferred Debug");
                 const char* deferredDebugOptions[]{

@@ -137,6 +137,7 @@ void Engine::init()
     debugPipeline = new debug_pipeline::DebugCompositePipeline(*resourceManager);
     debugPipeline->setupDescriptorBuffer(debugTarget.imageView, finalImageBuffer.imageView);
     debugHighlighter = new debug_highlight_pipeline::DebugHighlighter(*resourceManager);
+    debugHighlighter->setupDescriptorBuffer(stencilImageView, debugTarget.imageView);
 #endif
 
     startupProfiler.addEntry("Immediate, ResourceM, AssetM, Physics");
@@ -338,11 +339,13 @@ void Engine::run()
 
 void Engine::updatePhysics(const float deltaTime) const
 {
-    if (!bPausePhysics) {
+    if (bEnablePhysics) {
         physics::Physics::get()->update(deltaTime);
     }
 
-    physics::Physics::get()->drawDebug();
+    if (bDebugPhysics) {
+        physics::Physics::get()->drawDebug();
+    }
 }
 
 void Engine::updateGame(const float deltaTime)
@@ -361,6 +364,33 @@ void Engine::updateGame(const float deltaTime)
             }
             else {
                 fmt::print("Failed to find an object with the raycast\n");
+            }
+        }
+    }
+
+    if (input.isKeyPressed(SDLK_G)) {
+        if (camera) {
+            if (auto transformable = dynamic_cast<ITransformable*>(selectedItem)) {
+                glm::vec3 itemPosition = transformable->getPosition();
+
+                glm::vec3 itemScale = transformable->getScale();
+                float maxDimension = glm::max(glm::max(itemScale.x, itemScale.y), itemScale.z);
+
+                float distance = glm::max(5.0f, maxDimension * 3.0f);
+
+                glm::vec3 currentCamPos = camera->getTransform().getPosition();
+                glm::vec3 currentDirection = glm::normalize(itemPosition - currentCamPos);
+
+                glm::vec3 newCamPos = itemPosition - (currentDirection * distance);
+
+                glm::vec3 forward = glm::normalize(newCamPos - itemPosition);
+                glm::vec3 right = glm::normalize(glm::cross(glm::vec3(0.0f, 1.0f, 0.0f), forward));
+                glm::vec3 up = glm::cross(forward, right);
+
+                glm::mat3 rotMatrix(right, up, forward);
+                glm::quat newRotation = glm::quat_cast(rotMatrix);
+
+                camera->setCameraTransform(newCamPos, newRotation);
             }
         }
     }
@@ -661,7 +691,8 @@ void Engine::render(float deltaTime)
                                 VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::transitionImage(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    vk_helpers::transitionImage(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
     vk_helpers::transitionImage(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -751,7 +782,8 @@ void Engine::render(float deltaTime)
     if (bDrawDebugRendering) {
         vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, debugTarget.image, VK_IMAGE_LAYOUT_UNDEFINED,
                                     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, {0.0f, 0.0f, 0.0f, 0.0f});
-        vk_helpers::transitionImage(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        vk_helpers::transitionImage(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                                     VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
 
@@ -765,15 +797,43 @@ void Engine::render(float deltaTime)
 
         debugRenderer->draw(cmd, debugRendererDrawInfo);
 
+        bool stencilDrawn = false;
+
+        debug_highlight_pipeline::DebugHighlighterDrawInfo highlightDrawInfo{
+            nullptr,
+            depthStencilImage,
+            sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+            sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
+        };
+
+
         if (IComponentContainer* cc = dynamic_cast<IComponentContainer*>(selectedItem)) {
             if (components::MeshRendererComponent* meshRenderer = cc->getComponent<components::MeshRendererComponent>()) {
-                debugHighlighter->draw(cmd, meshRenderer, debugTarget.imageView, depthStencilImage.imageView);
+                highlightDrawInfo.highlightTarget = meshRenderer;
+                stencilDrawn = debugHighlighter->drawHighlightStencil(cmd, highlightDrawInfo);
             }
         }
 
-        vk_helpers::transitionImage(cmd, debugTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                    VK_IMAGE_ASPECT_COLOR_BIT);
+        if (stencilDrawn) {
+            vk_helpers::transitionImage(cmd, debugTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                        VK_IMAGE_LAYOUT_GENERAL,
+                                        VK_IMAGE_ASPECT_COLOR_BIT);
+            vk_helpers::transitionImage(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
+                                        VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+
+            debugHighlighter->drawHighlightProcessing(cmd, highlightDrawInfo);
+
+
+            vk_helpers::transitionImage(cmd, debugTarget.image, VK_IMAGE_LAYOUT_GENERAL,
+                                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                        VK_IMAGE_ASPECT_COLOR_BIT);
+        }
+        else {
+            vk_helpers::transitionImage(cmd, debugTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                        VK_IMAGE_ASPECT_COLOR_BIT);
+        }
+
 
         debug_pipeline::DebugCompositePipelineDrawInfo drawInfo{
             sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
@@ -1057,15 +1117,19 @@ void Engine::createDrawResources()
         VmaAllocationCreateInfo depthImageAllocationInfo = {};
         depthImageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         depthImageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vmaCreateImage(context->allocator, &depthImageInfo, &depthImageAllocationInfo, &depthStencilImage.image, &depthStencilImage.allocation, nullptr);
+        vmaCreateImage(context->allocator, &depthImageInfo, &depthImageAllocationInfo, &depthStencilImage.image, &depthStencilImage.allocation,
+                       nullptr);
 
-        VkImageViewCreateInfo combinedViewInfo = vk_helpers::imageviewCreateInfo(depthStencilImage.imageFormat, depthStencilImage.image, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+        VkImageViewCreateInfo combinedViewInfo = vk_helpers::imageviewCreateInfo(depthStencilImage.imageFormat, depthStencilImage.image,
+                                                                                 VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
         VK_CHECK(vkCreateImageView(context->device, &combinedViewInfo, nullptr, &depthStencilImage.imageView));
 
-        VkImageViewCreateInfo depthViewInfo = vk_helpers::imageviewCreateInfo(depthStencilImage.imageFormat, depthStencilImage.image, VK_IMAGE_ASPECT_DEPTH_BIT);
+        VkImageViewCreateInfo depthViewInfo = vk_helpers::imageviewCreateInfo(depthStencilImage.imageFormat, depthStencilImage.image,
+                                                                              VK_IMAGE_ASPECT_DEPTH_BIT);
         VK_CHECK(vkCreateImageView(context->device, &depthViewInfo, nullptr, &depthImageView));
 
-        VkImageViewCreateInfo stencilViewInfo = vk_helpers::imageviewCreateInfo(depthStencilImage.imageFormat, depthStencilImage.image, VK_IMAGE_ASPECT_STENCIL_BIT);
+        VkImageViewCreateInfo stencilViewInfo = vk_helpers::imageviewCreateInfo(depthStencilImage.imageFormat, depthStencilImage.image,
+                                                                                VK_IMAGE_ASPECT_STENCIL_BIT);
         VK_CHECK(vkCreateImageView(context->device, &stencilViewInfo, nullptr, &stencilImageView));
     }
     // Render Targets

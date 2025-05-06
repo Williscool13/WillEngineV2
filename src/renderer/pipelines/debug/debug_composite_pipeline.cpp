@@ -17,11 +17,6 @@ DebugCompositePipeline::DebugCompositePipeline(ResourceManager& resourceManager)
     descriptorSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT,
                                                                     VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
-    VkPushConstantRange pushConstants{};
-    pushConstants.offset = 0;
-    pushConstants.size = sizeof(DebugPushConstant);
-    pushConstants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
     std::array<VkDescriptorSetLayout, 2> setLayouts;
     setLayouts[0] = resourceManager.getSceneDataLayout();
     setLayouts[1] = descriptorSetLayout;
@@ -31,8 +26,8 @@ DebugCompositePipeline::DebugCompositePipeline(ResourceManager& resourceManager)
     layoutInfo.pNext = nullptr;
     layoutInfo.pSetLayouts = setLayouts.data();
     layoutInfo.setLayoutCount = 2;
-    layoutInfo.pPushConstantRanges = &pushConstants;
-    layoutInfo.pushConstantRangeCount = 1;
+    layoutInfo.pPushConstantRanges = nullptr;
+    layoutInfo.pushConstantRangeCount = 0;
 
     pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
@@ -72,10 +67,6 @@ void DebugCompositePipeline::setupDescriptorBuffer(VkImageView debugTarget, VkIm
 void DebugCompositePipeline::draw(VkCommandBuffer cmd, DebugCompositePipelineDrawInfo drawInfo) const
 {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-
-    DebugPushConstant push{};
-    push.renderBounds = {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
-    vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(DebugPushConstant), &push);
 
     const std::array bindingInfos{
         drawInfo.sceneDataBinding,

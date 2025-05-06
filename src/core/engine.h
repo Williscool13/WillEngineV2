@@ -182,6 +182,7 @@ private:
     debug_renderer::DebugRenderer* debugRenderer{nullptr};
     debug_highlight_pipeline::DebugHighlighter* debugHighlighter{nullptr};
     debug_pipeline::DebugCompositePipeline* debugPipeline{nullptr};
+    bool bDebugPhysics{true};
 #endif
     // Might be used in imgui which can be active outside of debug build
     IHierarchical* selectedItem{nullptr};
@@ -233,7 +234,7 @@ private: // Debug
     bool bEnableDebugFrustumCullDraw{false};
     int32_t deferredDebug{0};
     bool bDrawTerrainLines{false};
-    bool bPausePhysics{true};
+    bool bEnablePhysics{true};
     bool bDrawTransparents{true};
     bool bEnableShadows{true};
     bool bEnableContactShadows{true};

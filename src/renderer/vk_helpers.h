@@ -105,7 +105,7 @@ namespace vk_helpers
     void copyBuffer(VkCommandBuffer cmd, const AllocatedBuffer& src, VkDeviceSize srcOffset, const AllocatedBuffer& dst, VkDeviceSize dstOffset,
                     VkDeviceSize size);
 
-    void clearColorImage(VkCommandBuffer cmd, VkImageAspectFlagBits aspectFlag, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout,
+    void clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout,
                          VkClearColorValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f});
 
     void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);

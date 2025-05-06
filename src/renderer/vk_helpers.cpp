@@ -280,19 +280,19 @@ void will_engine::vk_helpers::copyBuffer(VkCommandBuffer cmd, const AllocatedBuf
     vkCmdCopyBuffer(cmd, src.buffer, dst.buffer, 1, &vertexCopy);
 }
 
-void will_engine::vk_helpers::clearColorImage(VkCommandBuffer cmd, VkImageAspectFlagBits aspectFlag, VkImage image, VkImageLayout srcLayout,
+void will_engine::vk_helpers::clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, VkImage image, VkImageLayout srcLayout,
                                               VkImageLayout dstLayout, VkClearColorValue clearColor)
 {
-    transitionImage(cmd, image, srcLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    constexpr VkImageSubresourceRange range{
-        .aspectMask = VK_IMAGE_ASPECT_COLOR_BIT,
+    transitionImage(cmd, image, srcLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, aspectFlag);
+    VkImageSubresourceRange range{
+        .aspectMask = aspectFlag,
         .baseMipLevel = 0,
         .levelCount = 1,
         .baseArrayLayer = 0,
         .layerCount = 1
     };
     vkCmdClearColorImage(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColor, 1, &range);
-    transitionImage(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, dstLayout, VK_IMAGE_ASPECT_COLOR_BIT);
+    transitionImage(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, dstLayout, aspectFlag);
 }
 
 

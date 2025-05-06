@@ -5,6 +5,8 @@
 #ifndef RENDER_REFERENCE_H
 #define RENDER_REFERENCE_H
 
+#include <optional>
+
 #include <glm/glm.hpp>
 
 #include "src/renderer/vk_types.h"

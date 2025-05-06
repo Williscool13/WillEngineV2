@@ -15,12 +15,6 @@
 
 namespace will_engine::debug_pipeline
 {
-
-struct DebugPushConstant
-{
-    glm::vec2 renderBounds{RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
-};
-
 struct DebugCompositePipelineDrawInfo
 {
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
