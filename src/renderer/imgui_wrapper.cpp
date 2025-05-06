@@ -639,8 +639,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save Draw Image")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "drawImage.png";
-                        vk_helpers::saveImageRGBA16SFLOAT(*engine->resourceManager, *engine->immediate, engine->drawImage,
-                                                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str());
+                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->drawImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vk_helpers::ImageFormat::RGBA16F, path.string());
                     }
                     else {
                         fmt::print(" Failed to find/create image save path directory");
@@ -679,14 +678,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save Albedo Render Target")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "albedoRT.png";
-                        auto unpackFunc = [](const uint32_t packedColor) {
-                            glm::vec4 pixel = glm::unpackUnorm4x8(packedColor);
-                            pixel.a = 1.0f;
-                            return pixel;
-                        };
-                        vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->albedoRenderTarget,
-                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(),
-                                                    unpackFunc);
+                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->albedoRenderTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vk_helpers::ImageFormat::RGBA16F, path.string());
                     }
                     else {
                         fmt::print(" Failed to save albedo render target");
@@ -696,25 +688,17 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save PBR Render Target")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         std::filesystem::path path = file::imagesSavePath / "pbrRT.png";
-                        auto unpackFunc = [](const uint32_t packedColor) {
-                            glm::vec4 pixel = glm::unpackUnorm4x8(packedColor);
-                            pixel.a = 1.0f;
-                            return pixel;
-                        };
-                        vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->pbrRenderTarget,
-                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(),
-                                                    unpackFunc);
+                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->pbrRenderTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vk_helpers::ImageFormat::RGBA8_UNORM, path.string());
                     }
                     else {
                         fmt::print(" Failed to save pbr render target");
                     }
                 }
 
-                if (ImGui::Button("Save Post Process Resolve Target")) {
+                if (ImGui::Button("Save Final Image")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                        std::filesystem::path path = file::imagesSavePath / "postProcesResolve.png";
-                        vk_helpers::saveImageRGBA16SFLOAT(*engine->resourceManager, *engine->immediate, engine->finalImageBuffer,
-                                                          VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str());
+                        std::filesystem::path path = file::imagesSavePath / "finalImage.png";
+                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->finalImageBuffer, VK_IMAGE_LAYOUT_GENERAL, vk_helpers::ImageFormat::RGBA16F, path.string());
                     }
                     else {
                         fmt::print(" Failed to find/create image save path directory");

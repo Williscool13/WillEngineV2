@@ -233,7 +233,7 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
         resourceManager.setupDescriptorBufferSampler(lutDescriptorBuffer, descriptor, 0);
 
         immediate.submit([&](VkCommandBuffer cmd) {
-            vk_helpers::transitionImage(cmd, lutImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+            vk_helpers::imageBarrier(cmd, lutImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
             vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, lutPipeline);
 
@@ -253,7 +253,7 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
             constexpr uint32_t z_disp = 1;
             vkCmdDispatch(cmd, xDisp, yDisp, z_disp);
 
-            vk_helpers::transitionImage(cmd, lutImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+            vk_helpers::imageBarrier(cmd, lutImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
         });
     }
 
@@ -366,7 +366,7 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
 
 
     immediate.submit([&](VkCommandBuffer cmd) {
-        vk_helpers::transitionImage(cmd, newEnvMapData.cubemapImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::imageBarrier(cmd, newEnvMapData.cubemapImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, equiToCubemapPipeline);
 
@@ -432,7 +432,7 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
     }
 
     immediate.submit([&](VkCommandBuffer cmd) {
-        vk_helpers::transitionImage(cmd, specDiffCubemap.allocatedImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::imageBarrier(cmd, specDiffCubemap.allocatedImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
 
         VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];
@@ -497,7 +497,7 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
         }
 
 
-        vk_helpers::transitionImage(cmd, specDiffCubemap.allocatedImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::imageBarrier(cmd, specDiffCubemap.allocatedImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     });
 
 

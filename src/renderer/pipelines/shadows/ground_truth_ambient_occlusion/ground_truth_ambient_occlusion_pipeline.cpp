@@ -388,14 +388,14 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
 
     drawInfo.push.noiseIndex = GTAO_DENOISE_PASSES > 0 ? drawInfo.currentFrame % 64 : 0;
 
-    vk_helpers::transitionImage(cmd, debugImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::imageBarrier(cmd, debugImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, depthPrefilterImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
     if (!drawInfo.bEnabled) {
         vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, denoisedFinalAO.image, VK_IMAGE_LAYOUT_UNDEFINED,
                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, {1.0f, 1.0f, 1.0f, 1.0f});
-        vk_helpers::transitionImage(cmd, debugImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        vk_helpers::imageBarrier(cmd, debugImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                     VK_IMAGE_ASPECT_COLOR_BIT);
         return;
     }
@@ -420,9 +420,9 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
         vkCmdDispatch(cmd, x, y, 1);
     }
 
-    vk_helpers::transitionImage(cmd, depthPrefilterImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    vk_helpers::imageBarrier(cmd, depthPrefilterImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, ambientOcclusionImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::imageBarrier(cmd, ambientOcclusionImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     // Ambient Occlusion
     {
         vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, ambientOcclusionPipeline);
@@ -444,9 +444,9 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
     }
 
 
-    vk_helpers::transitionImage(cmd, ambientOcclusionImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    vk_helpers::imageBarrier(cmd, ambientOcclusionImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, denoisedFinalAO.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
+    vk_helpers::imageBarrier(cmd, denoisedFinalAO.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
     // Spatial Filtering
     {
@@ -469,11 +469,11 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
         vkCmdDispatch(cmd, x, y, 1);
     }
 
-    vk_helpers::transitionImage(cmd, denoisedFinalAO.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    vk_helpers::imageBarrier(cmd, denoisedFinalAO.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
 
 
-    vk_helpers::transitionImage(cmd, debugImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    vk_helpers::imageBarrier(cmd, debugImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
 
     vkCmdEndDebugUtilsLabelEXT(cmd);

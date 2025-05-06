@@ -62,7 +62,7 @@ void RenderObject::update(VkCommandBuffer cmd, const int32_t currentFrameOverlap
 
             renderable->setRenderFramesToUpdate(renderable->getRenderFramesToUpdate() - 1);
 
-            vk_helpers::synchronizeUniform(cmd, currentFrameModelMatrix, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
+            vk_helpers::uniformBarrier(cmd, currentFrameModelMatrix, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
                                            VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
         }
     }
@@ -102,7 +102,7 @@ bool RenderObject::updateBuffers(VkCommandBuffer cmd, const int32_t currentFrame
 
             *pPrimitiveData = pair.second;
         }
-        vk_helpers::synchronizeUniform(cmd, currentPrimitiveBuffer, VK_PIPELINE_STAGE_2_HOST_BIT
+        vk_helpers::uniformBarrier(cmd, currentPrimitiveBuffer, VK_PIPELINE_STAGE_2_HOST_BIT
                                        , VK_ACCESS_2_HOST_WRITE_BIT
                                        , VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT
                                        , VK_ACCESS_2_UNIFORM_READ_BIT);
