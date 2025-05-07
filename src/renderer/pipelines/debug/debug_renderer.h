@@ -4,12 +4,12 @@
 
 #ifndef DEBUG_RENDERER_H
 #define DEBUG_RENDERER_H
+
 #include <array>
 
 #include "debug_renderer_types.h"
 #include "src/renderer/renderer_constants.h"
 #include "src/renderer/vk_types.h"
-#include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 
 namespace will_engine
 {

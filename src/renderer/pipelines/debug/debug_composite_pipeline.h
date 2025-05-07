@@ -6,10 +6,6 @@
 #define DEBUG_PIPELINE_H
 
 
-#ifndef WILL_ENGINE_DEBUG
-    #error This file should only be included when WILL_ENGINE_DEBUG is defined
-#endif // !WILL_ENGINE_DEBUG
-
 #include "src/renderer/resource_manager.h"
 
 

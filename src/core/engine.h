@@ -182,7 +182,6 @@ private:
     debug_renderer::DebugRenderer* debugRenderer{nullptr};
     debug_highlight_pipeline::DebugHighlighter* debugHighlighter{nullptr};
     debug_pipeline::DebugCompositePipeline* debugPipeline{nullptr};
-    bool bDebugPhysics{true};
 #endif
     // Might be used in imgui which can be active outside of debug build
     IHierarchical* selectedItem{nullptr};
@@ -239,6 +238,7 @@ private: // Debug
     bool bEnableShadows{true};
     bool bEnableContactShadows{true};
     bool bDrawDebugRendering{true};
+    bool bDebugPhysics{true};
 
     void hotReloadShaders() const;
 

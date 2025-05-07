@@ -24,10 +24,12 @@
 #include "src/renderer/assets/render_object/render_object.h"
 #include "src/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "src/renderer/environment/environment.h"
-#include "src/renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h"
-#include "src/renderer/pipelines/debug/debug_renderer.h"
+#if WILL_ENGINE_DEBUG
 #include "src/renderer/pipelines/debug/debug_composite_pipeline.h"
 #include "src/renderer/pipelines/debug/debug_highlighter.h"
+#endif // !WILL_ENGINE_DEBUG
+#include "src/renderer/pipelines/debug/debug_renderer.h"
+#include "src/renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h"
 #include "src/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline.h"
 #include "src/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline_types.h"
 #include "src/renderer/pipelines/geometry/deferred_resolve/deferred_resolve_pipeline.h"
@@ -343,9 +345,11 @@ void Engine::updatePhysics(const float deltaTime) const
         physics::Physics::get()->update(deltaTime);
     }
 
+#if WILL_ENGINE_DEBUG
     if (bDebugPhysics) {
         physics::Physics::get()->drawDebug();
     }
+#endif
 }
 
 void Engine::updateGame(const float deltaTime)
