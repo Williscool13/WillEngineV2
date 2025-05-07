@@ -47,6 +47,10 @@ Physics::Physics()
 
     // Create physics system
     physicsSystem = new JPH::PhysicsSystem();
+#ifdef JPH_DEBUG_RENDERER
+    joltDebugRenderer = new JoltDebugRenderer();
+    joltDebugDrawFilter = new JoltDebugDrawFilter();
+#endif
     physicsSystem->Init(
         MAX_BODIES,
         NUM_BODY_MUTEXES,
@@ -261,7 +265,7 @@ JPH::BodyID Physics::setupRigidbody(IPhysicsBody* physicsBody, const JPH::EShape
                 shape = getUnitCapsuleShape();
                 break;
             }
-            shape = new JPH::CapsuleShape(shapeParams.y, shapeParams.z);
+            shape = new JPH::CapsuleShape(shapeParams.y, shapeParams.x);
             break;
         case JPH::EShapeSubType::Cylinder:
             if (shapeParams == UNIT_CYLINDER) {
@@ -341,6 +345,11 @@ void Physics::releaseRigidbody(IPhysicsBody* physicsBody)
     physicsSystem->GetBodyInterface().DestroyBody(bodyId);
     physicsObjects.erase(bodyId);
     physicsBody->setPhysicsBodyId(JPH::BodyID(JPH::BodyID::cMaxBodyIndex));
+
+#ifdef JPH_DEBUG_RENDERER
+    joltDebugDrawFilter->RemoveBody(bodyId);
+#endif // JPH_DEBUG_RENDERER
+
 }
 
 void Physics::setPositionAndRotation(const JPH::BodyID bodyId, const glm::vec3 position, const glm::quat rotation, const bool activate) const
@@ -411,6 +420,14 @@ void Physics::setMotionType(const IPhysicsBody* body, const JPH::EMotionType mot
     physicsSystem->GetBodyInterface().SetMotionType(body->getPhysicsBodyId(), motionType, activation);
 }
 
+void Physics::drawDebug()
+{
+#ifdef JPH_DEBUG_RENDERER
+    constexpr JPH::BodyManager::DrawSettings drawSettings{};
+    physicsSystem->DrawBodies(drawSettings, joltDebugRenderer, joltDebugDrawFilter);
+#endif
+}
+
 PhysicsProperties Physics::serializeProperties(const IPhysicsBody* physicsBody) const
 {
     if (physicsBody == nullptr || physicsBody->getPhysicsBodyId().GetIndex() == JPH::BodyID::cMaxBodyIndex) {
@@ -471,5 +488,19 @@ bool Physics::deserializeProperties(IPhysicsBody* physicsBody, const PhysicsProp
 
     auto bodyId = setupRigidbody(physicsBody, properties.shapeType, properties.shapeParams, static_cast<JPH::EMotionType>(properties.motionType), properties.layer);
     return bodyId.GetIndex() != JPH::BodyID::cMaxBodyIndex;
+}
+
+void Physics::drawDebug(const JPH::BodyID bodyId) const
+{
+#ifdef JPH_DEBUG_RENDERER
+    joltDebugDrawFilter->AddBody(bodyId);
+#endif // JPH_DEBUG_RENDERER
+}
+
+void Physics::stopDrawDebug(const JPH::BodyID bodyId) const
+{
+#ifdef JPH_DEBUG_RENDERER
+    joltDebugDrawFilter->RemoveBody(bodyId);
+#endif // JPH_DEBUG_RENDERER
 }
 }

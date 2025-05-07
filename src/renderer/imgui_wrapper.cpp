@@ -12,6 +12,7 @@
 
 
 #include "environment/environment.h"
+#include "pipelines/debug/debug_highlighter.h"
 #include "pipelines/post/post_process/post_process_pipeline_types.h"
 #include "pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h"
 #include "pipelines/shadows/ground_truth_ambient_occlusion/ambient_occlusion_types.h"
@@ -21,6 +22,7 @@
 #include "src/core/camera/free_camera.h"
 #include "src/core/game_object/renderable.h"
 #include "src/core/scene/serializer.h"
+#include "src/physics/physics.h"
 #include "src/util/file.h"
 #include "src/util/math_utils.h"
 
@@ -232,6 +234,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 ImGui::Checkbox("Enable Shadows", &engine->bEnableShadows);
                 ImGui::Checkbox("Enable Contact Shadows", &engine->bEnableContactShadows);
                 ImGui::Checkbox("Enable Transparent Primitives", &engine->bDrawTransparents);
+                ImGui::Checkbox("Disable Physics", &engine->bEnablePhysics);
+                ImGui::Checkbox("Enable Physics Debug", &engine->bDebugPhysics);
                 ImGui::DragInt("Shadows PCF Level", &engine->csmSettings.pcfLevel, 2, 1, 5);
 
 
@@ -274,6 +278,11 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     ImGui::Text("Far Plane: %.3f", farPlane);
 
                     ImGui::Unindent();
+                }
+
+                if (ImGui::Button("Hard-Reset All Camera Settings")) {
+                    delete engine->camera;
+                    engine->camera = new FreeCamera();
                 }
 
                 ImGui::EndTabItem();
@@ -614,8 +623,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                 ImGui::Separator();
 
-                ImGui::Checkbox("Disable Physics", &engine->bPausePhysics);
-
                 ImGui::Text("Deferred Debug");
                 const char* deferredDebugOptions[]{
                     "None", "Depth", "Velocity", "Albedo", "Normal", "PBR", "Shadows", "Cascade Level", "nDotL", "AO", "Contact Shadows"
@@ -632,8 +639,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save Draw Image")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "drawImage.png";
-                        vk_helpers::saveImageRGBA16SFLOAT(*engine->resourceManager, *engine->immediate, engine->drawImage,
-                                                          VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str());
+                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->drawImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vk_helpers::ImageFormat::RGBA16F, path.string());
                     }
                     else {
                         fmt::print(" Failed to find/create image save path directory");
@@ -650,7 +656,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             return (2.0f * zNear) / (zFar + zNear - d * (zFar - zNear));
                         };
 
-                        vk_helpers::saveImageR32F(*engine->resourceManager, *engine->immediate, engine->depthImage,
+                        vk_helpers::saveImageR32F(*engine->resourceManager, *engine->immediate, engine->depthStencilImage,
                                                   VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT, path.string().c_str(),
                                                   depthNormalize);
                     }
@@ -662,17 +668,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save Normals")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "normalRT.png";
-                        auto unpackFunc = [](const uint32_t packedColor) {
-                            glm::vec4 pixel = glm::unpackSnorm4x8(packedColor);
-                            pixel.r = pixel.r * 0.5f + 0.5f;
-                            pixel.g = pixel.g * 0.5f + 0.5f;
-                            pixel.b = pixel.b * 0.5f + 0.5f;
-                            pixel.a = 1.0f;
-                            return pixel;
-                        };
-                        vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->normalRenderTarget,
-                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(),
-                                                    unpackFunc);
+                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->normalRenderTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vk_helpers::ImageFormat::A2R10G10B10_UNORM, path.string());
                     }
                     else {
                         fmt::print(" Failed to save normal render target");
@@ -682,14 +678,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save Albedo Render Target")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "albedoRT.png";
-                        auto unpackFunc = [](const uint32_t packedColor) {
-                            glm::vec4 pixel = glm::unpackUnorm4x8(packedColor);
-                            pixel.a = 1.0f;
-                            return pixel;
-                        };
-                        vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->albedoRenderTarget,
-                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(),
-                                                    unpackFunc);
+                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->albedoRenderTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vk_helpers::ImageFormat::RGBA16F, path.string());
                     }
                     else {
                         fmt::print(" Failed to save albedo render target");
@@ -699,25 +688,17 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save PBR Render Target")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         std::filesystem::path path = file::imagesSavePath / "pbrRT.png";
-                        auto unpackFunc = [](const uint32_t packedColor) {
-                            glm::vec4 pixel = glm::unpackUnorm4x8(packedColor);
-                            pixel.a = 1.0f;
-                            return pixel;
-                        };
-                        vk_helpers::savePacked32Bit(*engine->resourceManager, *engine->immediate, engine->pbrRenderTarget,
-                                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str(),
-                                                    unpackFunc);
+                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->pbrRenderTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vk_helpers::ImageFormat::RGBA8_UNORM, path.string());
                     }
                     else {
                         fmt::print(" Failed to save pbr render target");
                     }
                 }
 
-                if (ImGui::Button("Save Post Process Resolve Target")) {
+                if (ImGui::Button("Save Final Image")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                        std::filesystem::path path = file::imagesSavePath / "postProcesResolve.png";
-                        vk_helpers::saveImageRGBA16SFLOAT(*engine->resourceManager, *engine->immediate, engine->postProcessOutputBuffer,
-                                                          VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT, path.string().c_str());
+                        std::filesystem::path path = file::imagesSavePath / "finalImage.png";
+                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->finalImageBuffer, VK_IMAGE_LAYOUT_GENERAL, vk_helpers::ImageFormat::RGBA16F, path.string());
                     }
                     else {
                         fmt::print(" Failed to find/create image save path directory");
@@ -868,7 +849,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                         }
 
                                         ImGui::SameLine();
-                                        if (auto container = dynamic_cast<IComponentContainer*>(selectedItem)) {
+                                        if (auto container = dynamic_cast<IComponentContainer*>(engine->selectedItem)) {
                                             if (ImGui::Button("Attach to selected item")) {
                                                 if (!container->getMeshRenderer()) {
                                                     auto newComponent = components::ComponentFactory::getInstance().
@@ -886,7 +867,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                         }
                                         else {
                                             if (ImGui::Button("Add to Scene")) {
-                                                IHierarchical* gob = engine->createGameObject(selectedMap, objectName);
+                                                IHierarchical* gob = Engine::createGameObject(selectedMap, objectName);
 
                                                 if (auto _container = dynamic_cast<IComponentContainer*>(gob)) {
                                                     auto newComponent = components::ComponentFactory::getInstance().createComponent(
@@ -1214,61 +1195,32 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::End();
 
     if (ImGui::Begin("Discardable Debug")) {
-        if (contactShadowsOutputImguiId == VK_NULL_HANDLE) {
-            if (engine->contactShadowsPipeline->debugImage.imageView != VK_NULL_HANDLE) {
-                contactShadowsOutputImguiId = ImGui_ImplVulkan_AddTexture(
-                    engine->resourceManager->getDefaultSamplerNearest(),
-                    engine->contactShadowsPipeline->debugImage.imageView,
-                    VK_IMAGE_LAYOUT_GENERAL);
+        ImGui::Checkbox("Draw Debug Render", &engine->bDrawDebugRendering);
+
+        ImGui::Separator();
+        if (ImGui::Button("Save Stencil Debug Draw")) {
+            if (file::getOrCreateDirectory(file::imagesSavePath)) {
+                const std::filesystem::path path = file::imagesSavePath / "debugStencil.png";
+                vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->depthStencilImage, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, vk_helpers::ImageFormat::D32S8, path.string(), true);
             }
-        }
-
-        if (contactShadowsOutputImguiId == VK_NULL_HANDLE) {
-            ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "Debug texture not available.");
-        }
-        else {
-            // Calculate best fit size
-            float maxSize = ImGui::GetContentRegionAvail().x;
-            maxSize = glm::min(maxSize, 1024.0f);
-
-            VkExtent3D imageExtent = engine->contactShadowsPipeline->debugImage.imageExtent;
-            float width = std::min(maxSize, static_cast<float>(imageExtent.width));
-            float aspectRatio = static_cast<float>(imageExtent.width) / static_cast<float>(imageExtent.height);
-            float height = width / aspectRatio;
-
-            ImGui::Image(reinterpret_cast<ImTextureID>(contactShadowsOutputImguiId), ImVec2(width, height));
-
-            if (ImGui::Button("Save SCSS Debug Image")) {
-                if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                    const std::filesystem::path path = file::imagesSavePath / "scss_debug.png";
-
-                    vk_helpers::saveImageR8G8B8A8UNORM(
-                        *engine->resourceManager,
-                        *engine->immediate,
-                        engine->contactShadowsPipeline->debugImage,
-                        VK_IMAGE_LAYOUT_GENERAL,
-                        path.string().c_str(),
-                        0
-                    );
-
-                    ImGui::OpenPopup("SaveConfirmation");
-                }
-            }
-
-            if (ImGui::BeginPopupModal("SaveConfirmation", NULL, ImGuiWindowFlags_AlwaysAutoResize)) {
-                ImGui::Text("Image saved to %s/gtao_debug.png", file::imagesSavePath.string().c_str());
-                if (ImGui::Button("OK", ImVec2(120, 0))) {
-                    ImGui::CloseCurrentPopup();
-                }
-                ImGui::EndPopup();
+            else {
+                fmt::print(" Failed to find/create image save path directory");
             }
         }
     }
     ImGui::End();
 
-    if (selectedItem) {
-        if (IImguiRenderable* imguiRenderable = dynamic_cast<IImguiRenderable*>(selectedItem)) {
+    if (engine->selectedItem) {
+        if (IImguiRenderable* imguiRenderable = dynamic_cast<IImguiRenderable*>(engine->selectedItem)) {
             imguiRenderable->selectedRenderImgui();
+        }
+
+        if (auto gameObject = dynamic_cast<GameObject*>(engine->selectedItem)) {
+            if (components::RigidBodyComponent* rb = gameObject->getRigidbody()) {
+                if (rb->hasRigidBody()) {
+                    physics::Physics::get()->drawDebug(rb->getPhysicsBodyId());
+                }
+            }
         }
     }
 
@@ -1313,7 +1265,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
         if (ImGui::BeginTabItem("Scene Graph")) {
             if (ImGui::Button("Create Game Object")) {
                 static int32_t incrementId{0};
-                [[maybe_unused]] IHierarchical* gameObject = engine->createGameObject(selectedMap, fmt::format("New GameObject_{}", incrementId++));
+                [[maybe_unused]] IHierarchical* gameObject = Engine::createGameObject(selectedMap, fmt::format("New GameObject_{}", incrementId++));
             }
             ImGui::Separator();
             if (!selectedMap->getChildren().empty()) {
@@ -1477,7 +1429,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
     if (destroy) {
         selectedMap->destroy();
         selectMap(nullptr);
-        selectedItem = nullptr;
+        deselectItem(engine);
     }
 }
 
@@ -1499,8 +1451,8 @@ void ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const i
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
     if (ImGui::Button("X")) {
-        if (selectedItem == obj) {
-            selectedItem = nullptr;
+        if (engine->selectedItem == obj) {
+            deselectItem(engine);
         }
         obj->destroy();
     }
@@ -1519,7 +1471,7 @@ void ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const i
                                                 ? fmt::format("{:.{}s}...", name, std::max(0, maxNameLength - 3))
                                                 : fmt::format("{:<{}}", name, maxNameLength);
 
-    if (obj == selectedItem) {
+    if (obj == engine->selectedItem) {
         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 1.0f, 0.0f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.0f, 0.6f, 0.0f, 1.0f));
         ImGui::PushStyleColor(ImGuiCol_HeaderActive, ImVec4(0.0f, 0.7f, 0.0f, 1.0f));
@@ -1527,12 +1479,17 @@ void ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const i
 
     const bool isOpen = ImGui::TreeNodeEx("##TreeNode", flags, "%s", formattedName.c_str());
 
-    if (obj == selectedItem) {
+    if (obj == engine->selectedItem) {
         ImGui::PopStyleColor(3);
     }
 
     if (ImGui::IsItemClicked() && !ImGui::IsItemToggledOpen()) {
-        selectedItem = (obj == selectedItem) ? nullptr : obj;
+        if (obj == engine->selectedItem) {
+            deselectItem(engine);
+        }
+        else {
+            selectItem(engine, obj);
+        }
     }
     ImGui::NextColumn();
 
@@ -1668,5 +1625,25 @@ int ImguiWrapper::getIndexInVector(const IHierarchical* obj, const std::vector<I
     }
 
     return -1;
+}
+
+void ImguiWrapper::selectItem(Engine* engine, IHierarchical* hierarchical)
+{
+    if (engine->selectedItem != nullptr) {
+        deselectItem(engine);
+    }
+    engine->selectedItem = hierarchical;
+}
+
+void ImguiWrapper::deselectItem(Engine* engine)
+{
+    if (const auto gameObject = dynamic_cast<GameObject*>(engine->selectedItem)) {
+        if (const components::RigidBodyComponent* rb = gameObject->getRigidbody()) {
+            if (rb->hasRigidBody()) {
+                physics::Physics::get()->stopDrawDebug(rb->getPhysicsBodyId());
+            }
+        }
+    }
+    engine->selectedItem = nullptr;
 }
 }

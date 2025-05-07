@@ -36,6 +36,7 @@ public:
 
     DirectionalLightData getData() const { return {direction, intensity, color}; }
 
+    // todo: remove
     friend void ImguiWrapper::imguiInterface(Engine* engine);
 
 private:

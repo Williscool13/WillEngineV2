@@ -3,9 +3,9 @@
 #extension GL_EXT_buffer_reference: require
 #extension GL_EXT_nonuniform_qualifier: enable
 
+#include "common.glsl"
 #include "scene.glsl"
 #include "structure.glsl"
-
 
 // world space
 layout (location = 0) in vec3 inPosition;
@@ -41,7 +41,7 @@ float smoothBlend(float value, float threshold, float range) {
 }
 
 void main() {
-    normalTarget = vec4(mat3(sceneData.view) * normalize(inNormal), 0.0f);
+    normalTarget = vec4(packNormal(mat3(sceneData.view) * normalize(inNormal)), 0.0f);;
 
     float slope = 1.0 - abs(dot(normalize(inNormal), vec3(0.0, 1.0, 0.0)));
     float height = inPosition.y;

@@ -1,42 +1,33 @@
 //
-// Created by William on 2025-01-25.
+// Created by William on 2025-05-02.
 //
 
-#include "post_process_pipeline.h"
+#include "debug_composite_pipeline.h"
 
-#include <array>
-#include <fmt/format.h>
+#include "volk/volk.h"
 
-#include "src/renderer/renderer_constants.h"
-#include "src/renderer/resource_manager.h"
-#include "src/renderer/vk_descriptors.h"
-
-will_engine::post_process_pipeline::PostProcessPipeline::PostProcessPipeline(ResourceManager& resourceManager)
-    : resourceManager(resourceManager)
+namespace will_engine::debug_pipeline
+{
+DebugCompositePipeline::DebugCompositePipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
     DescriptorLayoutBuilder layoutBuilder;
-    layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // taa resolve image
-    layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // post process result
+    layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // Debug output (flipped image!)
+    layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // Final Image
 
     descriptorSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT,
                                                                     VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
-    VkPushConstantRange pushConstants{};
-    pushConstants.offset = 0;
-    pushConstants.size = sizeof(PostProcessPushConstants);
-    pushConstants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
-
-    VkDescriptorSetLayout setLayouts[2];
+    std::array<VkDescriptorSetLayout, 2> setLayouts;
     setLayouts[0] = resourceManager.getSceneDataLayout();
     setLayouts[1] = descriptorSetLayout;
 
     VkPipelineLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layoutInfo.pNext = nullptr;
-    layoutInfo.pSetLayouts = setLayouts;
+    layoutInfo.pSetLayouts = setLayouts.data();
     layoutInfo.setLayoutCount = 2;
-    layoutInfo.pPushConstantRanges = &pushConstants;
-    layoutInfo.pushConstantRangeCount = 1;
+    layoutInfo.pPushConstantRanges = nullptr;
+    layoutInfo.pushConstantRangeCount = 0;
 
     pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
 
@@ -45,7 +36,7 @@ will_engine::post_process_pipeline::PostProcessPipeline::PostProcessPipeline(Res
     descriptorBuffer = resourceManager.createDescriptorBufferSampler(descriptorSetLayout, 1);
 }
 
-will_engine::post_process_pipeline::PostProcessPipeline::~PostProcessPipeline()
+DebugCompositePipeline::~DebugCompositePipeline()
 {
     resourceManager.destroy(pipeline);
     resourceManager.destroy(pipelineLayout);
@@ -53,18 +44,18 @@ will_engine::post_process_pipeline::PostProcessPipeline::~PostProcessPipeline()
     resourceManager.destroy(descriptorBuffer);
 }
 
-void will_engine::post_process_pipeline::PostProcessPipeline::setupDescriptorBuffer(const PostProcessDescriptor& bufferInfo)
+void DebugCompositePipeline::setupDescriptorBuffer(VkImageView debugTarget, VkImageView finalImageView)
 {
     std::vector<DescriptorImageData> descriptors;
     descriptors.reserve(2);
 
     VkDescriptorImageInfo inputImage{};
-    inputImage.sampler = bufferInfo.sampler;
-    inputImage.imageView = bufferInfo.inputImage;
+    inputImage.sampler = resourceManager.getDefaultSamplerNearest();
+    inputImage.imageView = debugTarget;
     inputImage.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo outputImage{};
-    outputImage.imageView = bufferInfo.outputImage;
+    outputImage.imageView = finalImageView;
     outputImage.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
     descriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, inputImage, false});
@@ -73,26 +64,9 @@ void will_engine::post_process_pipeline::PostProcessPipeline::setupDescriptorBuf
     resourceManager.setupDescriptorBufferSampler(descriptorBuffer, descriptors, 0);
 }
 
-void will_engine::post_process_pipeline::PostProcessPipeline::draw(VkCommandBuffer cmd, PostProcessDrawInfo drawInfo) const
+void DebugCompositePipeline::draw(VkCommandBuffer cmd, DebugCompositePipelineDrawInfo drawInfo) const
 {
-    if (!descriptorBuffer.isIndexOccupied(0)) {
-        fmt::print("Descriptor buffer not yet set up");
-        return;
-    }
-
-    VkDebugUtilsLabelEXT label{};
-    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
-    label.pLabelName = "Post Process Pass";
-    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
-
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
-
-    PostProcessPushConstants push{};
-    push.width = RENDER_EXTENTS.width;
-    push.height = RENDER_EXTENTS.height;
-    push.postProcessFlags = static_cast<uint32_t>(drawInfo.postProcessFlags);
-
-    vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PostProcessPushConstants), &push);
 
     const std::array bindingInfos{
         drawInfo.sceneDataBinding,
@@ -107,14 +81,12 @@ void will_engine::post_process_pipeline::PostProcessPipeline::draw(VkCommandBuff
     const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
     const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
     vkCmdDispatch(cmd, x, y, 1);
-
-    vkCmdEndDebugUtilsLabelEXT(cmd);
 }
 
-void will_engine::post_process_pipeline::PostProcessPipeline::createPipeline()
+void DebugCompositePipeline::createPipeline()
 {
     resourceManager.destroy(pipeline);
-    VkShaderModule computeShader = resourceManager.createShaderModule("shaders/postProcess.comp");
+    VkShaderModule computeShader = resourceManager.createShaderModule("shaders/debug/debug_composite.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
     stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -132,4 +104,5 @@ void will_engine::post_process_pipeline::PostProcessPipeline::createPipeline()
 
     pipeline = resourceManager.createComputePipeline(pipelineInfo);
     resourceManager.destroy(computeShader);
+}
 }

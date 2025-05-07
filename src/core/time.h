@@ -25,6 +25,8 @@ public:
 
     [[nodiscard]] float getDeltaTime() const;
 
+    [[nodiscard]] float getTime() const;
+
 private:
     uint64_t deltaTime = 0;
     uint64_t lastTime = 0;

@@ -55,6 +55,9 @@ public:
 
     void beginDestroy() override;
 
+public:
+    void drawHighlight();
+
 public: // Serialization
     void serialize(ordered_json& j) override;
 
@@ -78,6 +81,8 @@ public: // IRenderable
     }
 
     uint32_t getRenderReferenceId() const override { return pRenderReference ? pRenderReference->getId() : INDEX_NONE; }
+
+    IRenderReference* getRenderReference() const override { return pRenderReference; }
 
     int32_t getMeshIndex() const override { return meshIndex; }
 

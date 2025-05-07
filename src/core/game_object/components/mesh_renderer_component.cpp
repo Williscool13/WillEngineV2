@@ -41,6 +41,33 @@ void MeshRendererComponent::beginDestroy()
     releaseMesh();
 }
 
+void MeshRendererComponent::drawHighlight()
+{
+    if (!pRenderReference) {
+        return;
+    }
+
+    std::optional<std::reference_wrapper<const Mesh>> meshData = pRenderReference->getMeshData(meshIndex);
+    if (!meshData.has_value()) { return; }
+
+    // for (const Primitive& primitive : meshData.value().get().primitives) {
+    //     primitive.indexCount;
+    //     uint32_t instanceCount = 1;
+    //     primitive.firstIndex;
+    //     primitive.vertexOffset;
+    //     uint32_t firstInstance = 0;
+    //
+    //     glm::mat4 pushModelMatrix = getModelMatrix();
+    //
+    //     // bind vertex and instance buffer from pRenderReference
+    //     vkCmdBindVertexBuffers(cmd, 0, 1, &pRenderReference->getPositionVertexBuffer().buffer, &ZERO_DEVICE_SIZE);
+    //     vkCmdBindIndexBuffer(cmd, pRenderReference->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
+    //
+    //     // Draw this mesh w/ vkCmdDrawIndexed w/ model matrix passed through push
+    //     vkCmdDrawIndexed(cmd, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+    // }
+}
+
 void MeshRendererComponent::serialize(ordered_json& j)
 {
     Component::serialize(j);
@@ -145,7 +172,8 @@ void MeshRendererComponent::setOwner(IComponentContainer* owner)
 
     transformableOwner = dynamic_cast<ITransformable*>(owner);
     if (!transformableOwner) {
-        fmt::print("Attempted to attach a mesh renderer to an IComponentContainer that does not implement ITransformable. Model matrix will always be identity.\n");
+        fmt::print(
+            "Attempted to attach a mesh renderer to an IComponentContainer that does not implement ITransformable. Model matrix will always be identity.\n");
     }
 }
 } // namespace will_engine::components

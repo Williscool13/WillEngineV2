@@ -6,6 +6,7 @@
 #define VKHELPERS_H
 #include <filesystem>
 #include <functional>
+#include <span>
 
 #include <vulkan/vulkan_core.h>
 #include <vulkan/vk_enum_string_helper.h>
@@ -26,6 +27,28 @@ class ImmediateSubmitter;
 
 namespace vk_helpers
 {
+    // Enum to define supported image formats
+    enum class ImageFormat
+    {
+        RGBA32F,
+        RGBA16F,
+        RGBA8,
+        RGBA8_UNORM,
+        A2R10G10B10_UNORM,
+        R32F,
+        R16F,
+        R8UNORM,
+        R8UINT,
+        D32S8
+    };
+
+    // Structure to hold format-specific parameters
+    struct FormatInfo
+    {
+        uint64_t bytesPerPixel;
+        VkImageAspectFlags aspectMask;
+    };
+
     VkImageCreateInfo imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
 
     VkImageCreateInfo cubemapCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
@@ -80,22 +103,19 @@ namespace vk_helpers
      */
     VkDeviceSize getAlignedSize(VkDeviceSize value, VkDeviceSize alignment);
 
-    void copyBuffer(VkCommandBuffer cmd, const AllocatedBuffer& src, VkDeviceSize srcOffset, const AllocatedBuffer& dst, VkDeviceSize dstOffset, VkDeviceSize size);
+    void copyBuffer(VkCommandBuffer cmd, const AllocatedBuffer& src, VkDeviceSize srcOffset, const AllocatedBuffer& dst, VkDeviceSize dstOffset,
+                    VkDeviceSize size);
 
-    void clearColorImage(VkCommandBuffer cmd, VkImageAspectFlagBits aspectFlag, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout,
+    void clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout,
                          VkClearColorValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f});
 
-    void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
+    void imageBarrier(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
 
-    void transitionImage(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageAspectFlags aspectMask, VkImageLayout targetLayout);
-
-    void synchronizeUniform(VkCommandBuffer cmd, const AllocatedBuffer& buffer, VkPipelineStageFlagBits2 srcPipelineStage,
+    void uniformBarrier(VkCommandBuffer cmd, const AllocatedBuffer& buffer, VkPipelineStageFlagBits2 srcPipelineStage,
                             VkAccessFlagBits2 srcAccessBit, VkPipelineStageFlagBits2
                             dstPipelineStage, VkAccessFlagBits2 dstAccessBit);
 
     void copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize);
-
-    void copyDepthToDepth(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize);
 
     void generateMipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize);
 
@@ -107,20 +127,6 @@ namespace vk_helpers
     VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shaderModule,
                                                                   const char* entry = "main");
 
-    void saveImageRGBA32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
-                          VkImageLayout imageLayout, VkImageAspectFlags aspectFlag, const char* savePath, bool overrideAlpha = true);
-
-    void saveImageRGBA16SFLOAT(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
-                               VkImageLayout imageLayout, VkImageAspectFlags aspectFlag, const char* savePath, bool overrideAlpha = true);
-
-    void savePacked32Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
-                         VkImageLayout imageLayout, VkImageAspectFlags aspectFlag, const char* savePath,
-                         const std::function<glm::vec4(uint32_t)>& unpackingFunction);
-
-    void savePacked64Bit(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
-                         VkImageLayout imageLayout, VkImageAspectFlags aspectFlag, const char* savePath,
-                         const std::function<glm::vec4(uint64_t)>& unpackingFunction);
-
     /**
      * Save the Allocated image as a grayscaled image. The image must be a format with only 1 channel (e.g. R32 or D32)
      */
@@ -128,19 +134,21 @@ namespace vk_helpers
                        VkImageLayout imageLayout, VkImageAspectFlags aspectFlag, const char* savePath,
                        const std::function<float(float)>& valueTransform, int32_t mipLevel = 0);
 
-    void saveImageR16F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
-                       VkImageLayout imageLayout, VkImageAspectFlags aspectFlag, const char* savePath,
-                       const std::function<float(uint16_t)>& valueTransform, int32_t mipLevel = 0);
-
-    void saveImageR8UNORM(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
-                          VkImageLayout imageLayout, const char* savePath, int32_t mipLevel = 0);
-
-    void saveImageR8G8B8A8UNORM(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
-                                VkImageLayout imageLayout, const char* savePath, int32_t mipLevel = 0);
-
-    void saveImage(const std::vector<float>& imageData, int width, int height, std::filesystem::path filename, bool overrideAlpha = true);
-
     void saveHeightmap(const std::vector<float>& heightData, int width, int height, const std::filesystem::path& filename);
+
+    FormatInfo getFormatInfo(ImageFormat format, bool stencilOnly);
+
+    void processImageData(void* sourceData, std::span<uint8_t> targetData,
+                          uint32_t pixelCount,
+                          ImageFormat format, bool stencilOnly = false);
+
+    void saveImage(const ResourceManager& resourceManager,
+                   const ImmediateSubmitter& immediate,
+                   const AllocatedImage& image,
+                   VkImageLayout imageLayout,
+                   ImageFormat format,
+                   const std::string& savePath,
+                   bool saveStencilOnly = false);
 }
 }
 

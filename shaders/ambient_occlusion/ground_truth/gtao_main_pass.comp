@@ -132,6 +132,7 @@ void main() {
 
     // Get view space normal by sampling normal buffer and converting from world to view (code not relevant)
     vec3 viewNormal = texture(normalBuffer, uv).rgb;
+    viewNormal = unpackNormal(viewNormal);
 
     if (pushConstants.debug == 2){
         imageStore(debugImage, screenPos, vec4(viewNormal, 1.0f));

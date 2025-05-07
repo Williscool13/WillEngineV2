@@ -39,9 +39,9 @@ will_engine::terrain::TerrainPipeline::TerrainPipeline(ResourceManager& resource
 
 will_engine::terrain::TerrainPipeline::~TerrainPipeline()
 {
-    resourceManager.destroyPipelineLayout(pipelineLayout);
-    resourceManager.destroyPipeline(pipeline);
-    resourceManager.destroyPipeline(linePipeline);
+    resourceManager.destroy(pipelineLayout);
+    resourceManager.destroy(pipeline);
+    resourceManager.destroy(linePipeline);
 }
 
 void will_engine::terrain::TerrainPipeline::draw(VkCommandBuffer cmd, const TerrainDrawInfo& drawInfo) const
@@ -143,7 +143,7 @@ void will_engine::terrain::TerrainPipeline::draw(VkCommandBuffer cmd, const Terr
 
 void will_engine::terrain::TerrainPipeline::createPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
+    resourceManager.destroy(pipeline);
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/terrain/terrain.vert");
     VkShaderModule tescShader = resourceManager.createShaderModule("shaders/terrain/terrain.tesc");
     VkShaderModule teseShader = resourceManager.createShaderModule("shaders/terrain/terrain.tese");
@@ -184,20 +184,20 @@ void will_engine::terrain::TerrainPipeline::createPipeline()
     pipelineBuilder.disableMultisampling();
     pipelineBuilder.disableBlending();
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    pipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_FORMAT);
+    pipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_STENCIL_FORMAT);
     pipelineBuilder.setupPipelineLayout(pipelineLayout);
     pipelineBuilder.setupTessellation(4);
 
     pipeline = resourceManager.createRenderPipeline(pipelineBuilder, {VK_DYNAMIC_STATE_DEPTH_BIAS});
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(tescShader);
-    resourceManager.destroyShaderModule(teseShader);
-    resourceManager.destroyShaderModule(fragShader);
+    resourceManager.destroy(vertShader);
+    resourceManager.destroy(tescShader);
+    resourceManager.destroy(teseShader);
+    resourceManager.destroy(fragShader);
 }
 
 void will_engine::terrain::TerrainPipeline::createLinePipeline()
 {
-    resourceManager.destroyPipeline(linePipeline);
+    resourceManager.destroy(linePipeline);
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/terrain/terrain.vert");
     VkShaderModule tescShader = resourceManager.createShaderModule("shaders/terrain/terrain.tesc");
     VkShaderModule teseShader = resourceManager.createShaderModule("shaders/terrain/terrain.tese");
@@ -238,13 +238,13 @@ void will_engine::terrain::TerrainPipeline::createLinePipeline()
     pipelineBuilder.disableMultisampling();
     pipelineBuilder.disableBlending();
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    pipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_FORMAT);
+    pipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_STENCIL_FORMAT);
     pipelineBuilder.setupPipelineLayout(pipelineLayout);
     pipelineBuilder.setupTessellation(4);
 
     linePipeline = resourceManager.createRenderPipeline(pipelineBuilder, {VK_DYNAMIC_STATE_DEPTH_BIAS});
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(tescShader);
-    resourceManager.destroyShaderModule(teseShader);
-    resourceManager.destroyShaderModule(fragShader);
+    resourceManager.destroy(vertShader);
+    resourceManager.destroy(tescShader);
+    resourceManager.destroy(teseShader);
+    resourceManager.destroy(fragShader);
 }

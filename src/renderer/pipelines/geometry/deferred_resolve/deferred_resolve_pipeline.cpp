@@ -46,9 +46,9 @@ will_engine::deferred_resolve::DeferredResolvePipeline::DeferredResolvePipeline(
 
 will_engine::deferred_resolve::DeferredResolvePipeline::~DeferredResolvePipeline()
 {
-    resourceManager.destroyPipelineLayout(pipelineLayout);
-    resourceManager.destroyPipeline(pipeline);
-    resourceManager.destroyDescriptorBuffer(resolveDescriptorBuffer);
+    resourceManager.destroy(pipelineLayout);
+    resourceManager.destroy(pipeline);
+    resourceManager.destroy(resolveDescriptorBuffer);
 }
 
 void will_engine::deferred_resolve::DeferredResolvePipeline::setupDescriptorBuffer(const DeferredResolveDescriptor& drawInfo)
@@ -162,7 +162,7 @@ void will_engine::deferred_resolve::DeferredResolvePipeline::draw(VkCommandBuffe
 
 void will_engine::deferred_resolve::DeferredResolvePipeline::createPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
+    resourceManager.destroy(pipeline);
     VkShaderModule deferredResolveShader = resourceManager.createShaderModule("shaders/deferredResolve.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo = {};
@@ -180,5 +180,5 @@ void will_engine::deferred_resolve::DeferredResolvePipeline::createPipeline()
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     pipeline = resourceManager.createComputePipeline(pipelineInfo);
-    resourceManager.destroyShaderModule(deferredResolveShader);
+    resourceManager.destroy(deferredResolveShader);
 }

@@ -1,14 +1,14 @@
 cmake_minimum_required(VERSION 3.28)
 project(WillEngine)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 23)
 
 add_definitions(-DVK_NO_PROTOTYPES)
+
 add_definitions(-DGLM_FORCE_DEPTH_ZERO_TO_ONE)
 add_definitions(-DGLM_ENABLE_EXPERIMENTAL)
-add_definitions(-DJPH_DEBUG_RENDERER)
+
 #add_definitions(-DJPH_PROFILE_ENABLED=0)
-#add_definitions(-DJPH_DEBUG_RENDERER=0)
 add_definitions(-DJPH_ENABLE_ASSERTS=1)
 add_definitions(-DJPH_ENABLE_ASSERT_MESSAGES=1)
 
@@ -16,6 +16,7 @@ add_definitions(-DJPH_ENABLE_ASSERT_MESSAGES=1)
 # ##endif
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_definitions(-DWILL_ENGINE_DEBUG=1)
+    add_definitions(-DJPH_DEBUG_RENDERER)
 elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
     add_definitions(-DWILL_ENGINE_RELEASE=1)
 endif ()
@@ -48,7 +49,7 @@ add_subdirectory(extern/fastgltf/deps) # simdjson
 # Jolt Physics
 set(PHYSICS_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics")
 include(extern/JoltPhysics/Jolt/Jolt.cmake)
-set(CMAKE_CXX_STANDARD 20) # Jolt sets it to 17
+set(CMAKE_CXX_STANDARD 23) # Jolt sets it to 17
 
 include_directories(${CMAKE_SOURCE_DIR})
 
@@ -131,8 +132,8 @@ set(PHYSICS_SOURCES
         src/physics/physics_utils.h
         src/physics/physics_utils.cpp
         src/physics/physics_constants.h
-        src/physics/debug/debug_renderer.cpp
-        src/physics/debug/debug_renderer.h
+        src/physics/debug/jolt_debug_renderer.cpp
+        src/physics/debug/jolt_debug_renderer.h
         src/physics/physics_body.h
 )
 
@@ -263,7 +264,13 @@ set(TEMP_SOURCES
         src/renderer/pipelines/geometry/transparent_pipeline/transparent_pipeline_types.h
         src/renderer/pipelines/basic/basic_compute/basic_compute_pipeline_types.h
         src/renderer/pipelines/visibility_pass/visibility_pass_pipeline_types.h
-
+        src/renderer/pipelines/debug/debug_renderer.cpp
+        src/renderer/pipelines/debug/debug_renderer.h
+        src/renderer/pipelines/debug/debug_renderer_types.h
+        src/renderer/pipelines/debug/debug_composite_pipeline.cpp
+        src/renderer/pipelines/debug/debug_composite_pipeline.h
+        src/renderer/pipelines/debug/debug_highlighter.cpp
+        src/renderer/pipelines/debug/debug_highlighter.h
 )
 
 add_executable(WillEngine main.cpp

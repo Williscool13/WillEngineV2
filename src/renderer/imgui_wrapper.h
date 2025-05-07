@@ -61,11 +61,16 @@ private:
     static int getIndexInVector(const IHierarchical* obj, const std::vector<IHierarchical*>& vector);
 
 private:
+    static void selectItem(Engine* engine, IHierarchical* hierarchical);
+
+    static void deselectItem(Engine* engine);
+
+private:
     const VulkanContext& context;
 
     VkDescriptorPool imguiPool{VK_NULL_HANDLE};
 
-    IHierarchical* selectedItem{nullptr};
+
     Map* selectedMap{nullptr};
 
     uint32_t selectedRenderObjectId = 0;

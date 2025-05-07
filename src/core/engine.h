@@ -5,7 +5,6 @@
 #ifndef ENGINE_H
 #define ENGINE_H
 
-#include <unordered_map>
 #include <vulkan/vulkan_core.h>
 #include <glm/glm.hpp>
 
@@ -28,12 +27,27 @@
 #include "src/renderer/pipelines/shadows/ground_truth_ambient_occlusion/ambient_occlusion_types.h"
 
 
+namespace will_engine::debug_renderer
+{
+class DebugRenderer;
+}
+
 class ResourceManager;
 class ImmediateSubmitter;
 class VulkanContext;
 
 namespace will_engine
 {
+namespace debug_highlight_pipeline
+{
+    class DebugHighlighter;
+}
+
+namespace debug_pipeline
+{
+    class DebugCompositePipeline;
+}
+
 namespace ambient_occlusion
 {
     class GroundTruthAmbientOcclusionPipeline;
@@ -135,7 +149,13 @@ public:
     void cleanup();
 
 public:
-    [[nodiscard]] IHierarchical* createGameObject(Map* map, const std::string& name) const;
+    /**
+     * Creates a gameobject as a child of the map parameter
+     * @param map
+     * @param name
+     * @return
+     */
+    [[nodiscard]] static IHierarchical* createGameObject(Map* map, const std::string& name);
 
     void addToBeginQueue(IHierarchical* obj);
 
@@ -158,6 +178,13 @@ private:
     ResourceManager* resourceManager{nullptr};
     AssetManager* assetManager{nullptr};
     physics::Physics* physics{nullptr};
+#if WILL_ENGINE_DEBUG
+    debug_renderer::DebugRenderer* debugRenderer{nullptr};
+    debug_highlight_pipeline::DebugHighlighter* debugHighlighter{nullptr};
+    debug_pipeline::DebugCompositePipeline* debugPipeline{nullptr};
+#endif
+    // Might be used in imgui which can be active outside of debug build
+    IHierarchical* selectedItem{nullptr};
 
     environment::Environment* environmentMap{nullptr};
 
@@ -206,10 +233,12 @@ private: // Debug
     bool bEnableDebugFrustumCullDraw{false};
     int32_t deferredDebug{0};
     bool bDrawTerrainLines{false};
-    bool bPausePhysics{true};
+    bool bEnablePhysics{true};
     bool bDrawTransparents{true};
     bool bEnableShadows{true};
     bool bEnableContactShadows{true};
+    bool bDrawDebugRendering{true};
+    bool bDebugPhysics{true};
 
     void hotReloadShaders() const;
 
@@ -260,7 +289,12 @@ private: // Pipelines
 
 private: // Draw Resources
     AllocatedImage drawImage{};
-    AllocatedImage depthImage{};
+    /**
+     * Image view in this depth image is VK_IMAGE_ASPECT_DEPTH_BIT
+     */
+    AllocatedImage depthStencilImage{};
+    VkImageView depthImageView{VK_NULL_HANDLE};
+    VkImageView stencilImageView{VK_NULL_HANDLE};
 
     /**
      * 8.8.8 View Normals - 8 unused
@@ -287,7 +321,12 @@ private: // Draw Resources
      * A copy of the previous TAA Resolve Buffer
      */
     AllocatedImage historyBuffer{};
-    AllocatedImage postProcessOutputBuffer{};
+
+#if WILL_ENGINE_DEBUG
+    AllocatedImage debugTarget{};
+#endif
+
+    AllocatedImage finalImageBuffer{};
 
 private: // Swapchain
     VkSwapchainKHR swapchain{};

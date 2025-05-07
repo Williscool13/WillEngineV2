@@ -46,7 +46,7 @@ public:
 
     void setupInputAssembly(VkPrimitiveTopology topology, bool enablePrimitiveRestart = false);
 
-    void setupRasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace, bool rasterizerDiscardEnable = false);
+    void setupRasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace, float lineWidth = 1.0f, bool rasterizerDiscardEnable = false);
 
     /**
      * Use to initialize the depth bias of the pipeline.
@@ -60,7 +60,7 @@ public:
     void setupMultisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples, float minSampleShading, const VkSampleMask* pSampleMask,
                             VkBool32 alphaToCoverageEnable, VkBool32 alphaToOneEnable);
 
-    void setupRenderer(const std::vector<VkFormat>& colorattachmentFormat, VkFormat depthAttachmentFormat);
+    void setupRenderer(const std::vector<VkFormat>& colorAttachmentFormat, VkFormat depthAttachmentFormat = VK_FORMAT_UNDEFINED, VkFormat stencilAttachmentFormat = VK_FORMAT_UNDEFINED);
 
     /**
      * Set up the depth and stencil for this pipeline
@@ -101,9 +101,11 @@ public:
      */
     void disableDepthTest();
 
-    VkPipelineDynamicStateCreateInfo generateDynamicStates(VkDynamicState states[], uint32_t count);
 
     void setupTessellation(int32_t controlPoints = 4);
+
+private:
+    VkPipelineDynamicStateCreateInfo generateDynamicStates(VkDynamicState states[], uint32_t count);
 
 private:
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages;

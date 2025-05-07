@@ -168,19 +168,19 @@ will_engine::ResourceManager::~ResourceManager()
 {
     if (context.device == VK_NULL_HANDLE) { return; }
 
-    destroyImage(whiteImage);
-    destroyImage(errorCheckerboardImage);
-    destroySampler(defaultSamplerNearest);
-    destroySampler(defaultSamplerLinear);
-    destroySampler(defaultSamplerMipMappedLinear);
-    destroyDescriptorSetLayout(emptyDescriptorSetLayout);
-    destroyDescriptorSetLayout(sceneDataLayout);
-    destroyDescriptorSetLayout(frustumCullLayout);
-    destroyDescriptorSetLayout(addressesLayout);
-    destroyDescriptorSetLayout(texturesLayout);
-    destroyDescriptorSetLayout(renderTargetsLayout);
-    destroyDescriptorSetLayout(terrainTexturesLayout);
-    destroyDescriptorSetLayout(terrainUniformLayout);
+    destroy(whiteImage);
+    destroy(errorCheckerboardImage);
+    destroy(defaultSamplerNearest);
+    destroy(defaultSamplerLinear);
+    destroy(defaultSamplerMipMappedLinear);
+    destroy(emptyDescriptorSetLayout);
+    destroy(sceneDataLayout);
+    destroy(frustumCullLayout);
+    destroy(addressesLayout);
+    destroy(texturesLayout);
+    destroy(renderTargetsLayout);
+    destroy(terrainTexturesLayout);
+    destroy(terrainUniformLayout);
 
     flushDestructionQueue();
 }
@@ -292,12 +292,12 @@ AllocatedBuffer will_engine::ResourceManager::createBuffer(const size_t allocSiz
     return newBuffer;
 }
 
-AllocatedBuffer will_engine::ResourceManager::createHostSequentialBuffer(const size_t allocSize) const
+AllocatedBuffer will_engine::ResourceManager::createHostSequentialBuffer(const size_t allocSize, const VkBufferUsageFlags additionalUsages) const
 {
     const VkBufferCreateInfo bufferInfo{
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
         .size = allocSize,
-        .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT,
+        .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | additionalUsages,
         .sharingMode = VK_SHARING_MODE_EXCLUSIVE
     };
 
@@ -425,7 +425,7 @@ VkDeviceAddress will_engine::ResourceManager::getBufferAddress(const AllocatedBu
     return srcPtr;
 }
 
-void will_engine::ResourceManager::destroyBufferImmediate(AllocatedBuffer& buffer) const
+void will_engine::ResourceManager::destroyImmediate(AllocatedBuffer& buffer) const
 {
     if (buffer.buffer == VK_NULL_HANDLE) { return; }
     vmaDestroyBuffer(context.allocator, buffer.buffer, buffer.allocation);
@@ -433,7 +433,7 @@ void will_engine::ResourceManager::destroyBufferImmediate(AllocatedBuffer& buffe
     buffer.allocation = VK_NULL_HANDLE;
 }
 
-void will_engine::ResourceManager::destroyBuffer(AllocatedBuffer& buffer)
+void will_engine::ResourceManager::destroy(AllocatedBuffer& buffer)
 {
     if (buffer.buffer == VK_NULL_HANDLE) { return; }
     destructionQueues[lastKnownFrameOverlap].bufferQueue.push_back({buffer.buffer, buffer.allocation});
@@ -461,7 +461,7 @@ AllocatedImage will_engine::ResourceManager::createImage(const VkImageCreateInfo
     // allocate and create the image
     VK_CHECK(vmaCreateImage(context.allocator, &createInfo, &allocInfo, &newImage.image, &newImage.allocation, nullptr));
 
-    const VkImageAspectFlags aspectFlag = createInfo.format == VK_FORMAT_D32_SFLOAT ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+    const VkImageAspectFlags aspectFlag = createInfo.format == VK_FORMAT_D32_SFLOAT || createInfo.format == VK_FORMAT_D32_SFLOAT_S8_UINT ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
 
     // build an image-view for the image
     VkImageViewCreateInfo view_info = vk_helpers::imageviewCreateInfo(createInfo.format, newImage.image, aspectFlag);
@@ -473,7 +473,7 @@ AllocatedImage will_engine::ResourceManager::createImage(const VkImageCreateInfo
 }
 
 AllocatedImage will_engine::ResourceManager::createImage(const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage,
-                                                         const bool mipmapped) const
+                                                         const bool mipmapped, VkImageAspectFlagBits aspectFlag) const
 {
     AllocatedImage newImage{};
     newImage.imageFormat = format;
@@ -491,10 +491,13 @@ AllocatedImage will_engine::ResourceManager::createImage(const VkExtent3D size, 
     // allocate and create the image
     VK_CHECK(vmaCreateImage(context.allocator, &imgInfo, &allocinfo, &newImage.image, &newImage.allocation, nullptr));
 
-    const VkImageAspectFlags aspectFlag = format == VK_FORMAT_D32_SFLOAT ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+    VkImageAspectFlags targetAspect = aspectFlag;
+    if (targetAspect == VK_IMAGE_ASPECT_NONE) {
+        targetAspect = format == VK_FORMAT_D32_SFLOAT || format == VK_FORMAT_D32_SFLOAT_S8_UINT ? VK_IMAGE_ASPECT_DEPTH_BIT : VK_IMAGE_ASPECT_COLOR_BIT;
+    }
 
     // build a image-view for the image
-    VkImageViewCreateInfo view_info = vk_helpers::imageviewCreateInfo(format, newImage.image, aspectFlag);
+    VkImageViewCreateInfo view_info = vk_helpers::imageviewCreateInfo(format, newImage.image, targetAspect);
     view_info.subresourceRange.levelCount = imgInfo.mipLevels;
 
     VK_CHECK(vkCreateImageView(context.device, &view_info, nullptr, &newImage.imageView));
@@ -513,7 +516,7 @@ AllocatedImage will_engine::ResourceManager::createImage(const void* data, const
     const AllocatedImage newImage = createImage(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, mipmapped);
 
     immediate.submit([&](VkCommandBuffer cmd) {
-        vk_helpers::transitionImage(cmd, newImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::imageBarrier(cmd, newImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
         VkBufferImageCopy copyRegion = {};
         copyRegion.bufferOffset = 0;
@@ -533,12 +536,12 @@ AllocatedImage will_engine::ResourceManager::createImage(const void* data, const
             vk_helpers::generateMipmaps(cmd, newImage.image, VkExtent2D{newImage.imageExtent.width, newImage.imageExtent.height});
         }
         else {
-            vk_helpers::transitionImage(cmd, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            vk_helpers::imageBarrier(cmd, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                         VK_IMAGE_ASPECT_COLOR_BIT);
         }
     });
 
-    destroyBufferImmediate(uploadbuffer);
+    destroyImmediate(uploadbuffer);
 
     return newImage;
 }
@@ -568,8 +571,9 @@ AllocatedImage will_engine::ResourceManager::createCubemap(const VkExtent3D size
     return newImage;
 }
 
-void will_engine::ResourceManager::destroyImage(AllocatedImage& image)
+void will_engine::ResourceManager::destroy(AllocatedImage& image)
 {
+    if (image.image == VK_NULL_HANDLE) { return; }
     destructionQueues[lastKnownFrameOverlap].imageQueue.push_back({image.image, image.allocation});
     destructionQueues[lastKnownFrameOverlap].imageViewQueue.push_back(image.imageView);
     image.image = VK_NULL_HANDLE;
@@ -579,7 +583,7 @@ void will_engine::ResourceManager::destroyImage(AllocatedImage& image)
     image.imageFormat = {};
 }
 
-void will_engine::ResourceManager::destroySampler(VkSampler sampler)
+void will_engine::ResourceManager::destroy(VkSampler sampler)
 {
     destructionQueues[lastKnownFrameOverlap].samplerQueue.push_back(sampler);
     sampler = VK_NULL_HANDLE;
@@ -609,9 +613,9 @@ int32_t will_engine::ResourceManager::setupDescriptorBufferUniform(DescriptorBuf
     return descriptorBuffer.setupData(context.device, uniformBuffers, index);
 }
 
-void will_engine::ResourceManager::destroyDescriptorBuffer(DescriptorBuffer& descriptorBuffer)
+void will_engine::ResourceManager::destroy(DescriptorBuffer& descriptorBuffer)
 {
-    destroyBuffer(descriptorBuffer.getBuffer());
+    destroy(descriptorBuffer.getBuffer());
 }
 
 VkShaderModule will_engine::ResourceManager::createShaderModule(const std::filesystem::path& path) const
@@ -668,6 +672,12 @@ VkShaderModule will_engine::ResourceManager::createShaderModule(const std::files
 
     std::vector<std::string> include_paths = {"shaders/include"};
     options.SetIncluder(std::make_unique<CustomIncluder>(include_paths));
+
+    // Macros
+    if (NORMAL_REMAP) {
+        options.AddMacroDefinition("REMAP_NORMALS");
+    }
+
     auto result = compiler.CompileGlslToSpv(source, kind, "shader", options);
 
     if (result.GetCompilationStatus() != shaderc_compilation_status_success) {
@@ -694,7 +704,7 @@ VkShaderModule will_engine::ResourceManager::createShaderModule(const std::files
     return shaderModule;
 }
 
-void will_engine::ResourceManager::destroyShaderModule(VkShaderModule& shaderModule) const
+void will_engine::ResourceManager::destroy(VkShaderModule& shaderModule) const
 {
     vkDestroyShaderModule(context.device, shaderModule, nullptr);
     shaderModule = VK_NULL_HANDLE;
@@ -707,7 +717,7 @@ VkPipelineLayout will_engine::ResourceManager::createPipelineLayout(const VkPipe
     return pipelineLayout;
 }
 
-void will_engine::ResourceManager::destroyPipelineLayout(VkPipelineLayout pipelineLayout)
+void will_engine::ResourceManager::destroy(VkPipelineLayout pipelineLayout)
 {
     if (pipelineLayout == VK_NULL_HANDLE) { return; }
     destructionQueues[lastKnownFrameOverlap].pipelineLayoutQueue.push_back(pipelineLayout);
@@ -728,7 +738,7 @@ VkPipeline will_engine::ResourceManager::createComputePipeline(const VkComputePi
     return computePipeline;
 }
 
-void will_engine::ResourceManager::destroyPipeline(VkPipeline pipeline)
+void will_engine::ResourceManager::destroy(VkPipeline pipeline)
 {
     if (pipeline == VK_NULL_HANDLE) { return; }
     destructionQueues[lastKnownFrameOverlap].pipelineQueue.push_back(pipeline);
@@ -742,7 +752,7 @@ VkDescriptorSetLayout will_engine::ResourceManager::createDescriptorSetLayout(De
     return layoutBuilder.build(context.device, shaderStageFlags, nullptr, layoutCreateFlags);
 }
 
-void will_engine::ResourceManager::destroyDescriptorSetLayout(VkDescriptorSetLayout descriptorSetLayout)
+void will_engine::ResourceManager::destroy(VkDescriptorSetLayout descriptorSetLayout)
 {
     if (descriptorSetLayout == VK_NULL_HANDLE) { return; }
     destructionQueues[lastKnownFrameOverlap].descriptorSetLayoutQueue.push_back(descriptorSetLayout);
@@ -756,7 +766,7 @@ VkImageView will_engine::ResourceManager::createImageView(const VkImageViewCreat
     return imageView;
 }
 
-void will_engine::ResourceManager::destroyImageView(VkImageView imageView)
+void will_engine::ResourceManager::destroy(VkImageView imageView)
 {
     if (imageView == VK_NULL_HANDLE) { return; }
     destructionQueues[lastKnownFrameOverlap].imageViewQueue.push_back(imageView);

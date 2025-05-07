@@ -26,6 +26,11 @@ glm::mat4 will_engine::physics::PhysicsUtils::toGLM(const JPH::Mat44& mat)
     };
 }
 
+glm::vec3 will_engine::physics::PhysicsUtils::toGLM(JPH::ColorArg inColor)
+{
+    return {inColor.r, inColor.g, inColor.b};
+}
+
 JPH::Vec3 will_engine::physics::PhysicsUtils::toJolt(const glm::vec3& v)
 {
     return {v.x, v.y, v.z};

@@ -30,8 +30,8 @@ will_engine::environment_pipeline::EnvironmentPipeline::EnvironmentPipeline(Reso
 
 will_engine::environment_pipeline::EnvironmentPipeline::~EnvironmentPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
-    resourceManager.destroyPipelineLayout(pipelineLayout);
+    resourceManager.destroy(pipeline);
+    resourceManager.destroy(pipelineLayout);
 }
 
 void will_engine::environment_pipeline::EnvironmentPipeline::draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& drawInfo) const
@@ -108,7 +108,7 @@ void will_engine::environment_pipeline::EnvironmentPipeline::draw(VkCommandBuffe
 
 void will_engine::environment_pipeline::EnvironmentPipeline::createPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
+    resourceManager.destroy(pipeline);
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/environment/environment.vert");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/environment/environment.frag");
 
@@ -119,12 +119,12 @@ void will_engine::environment_pipeline::EnvironmentPipeline::createPipeline()
     pipelineBuilder.disableMultisampling();
     pipelineBuilder.disableBlending();
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    pipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_FORMAT);
+    pipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_STENCIL_FORMAT);
     pipelineBuilder.setupPipelineLayout(pipelineLayout);
 
 
     pipeline = resourceManager.createRenderPipeline(pipelineBuilder);
 
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
+    resourceManager.destroy(vertShader);
+    resourceManager.destroy(fragShader);
 }

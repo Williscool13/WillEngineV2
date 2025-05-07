@@ -34,8 +34,8 @@ will_engine::deferred_mrt::DeferredMrtPipeline::DeferredMrtPipeline(ResourceMana
 
 will_engine::deferred_mrt::DeferredMrtPipeline::~DeferredMrtPipeline()
 {
-    resourceManager.destroyPipelineLayout(pipelineLayout);
-    resourceManager.destroyPipeline(pipeline);
+    resourceManager.destroy(pipelineLayout);
+    resourceManager.destroy(pipeline);
 }
 
 void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, const DeferredMrtDrawInfo& drawInfo) const
@@ -95,12 +95,11 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
     scissor.extent.width = RENDER_EXTENTS.width;
     scissor.extent.height = RENDER_EXTENTS.height;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
-    constexpr VkDeviceSize zeroOffset{0};
 
     for (RenderObject* renderObject : drawInfo.renderObjects) {
         if (!renderObject->canDraw()) { continue; }
 
-        std::array<VkDescriptorBufferBindingInfoEXT, 3> descriptorBufferBindingInfos{
+        std::array descriptorBufferBindingInfos{
             drawInfo.sceneDataBinding,
             renderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo(),
             renderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo(),
@@ -110,7 +109,7 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
 
         constexpr std::array<uint32_t, 3> indices{0, 1, 2};
 
-        std::array<VkDeviceSize, 3> offsets{
+        std::array offsets{
             drawInfo.sceneDataOffset,
             renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
             ZERO_DEVICE_SIZE
@@ -133,7 +132,7 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
 
 void will_engine::deferred_mrt::DeferredMrtPipeline::createPipeline()
 {
-    resourceManager.destroyPipeline(pipeline);
+    resourceManager.destroy(pipeline);
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/deferredMrt.vert");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/deferredMrt.frag");
 
@@ -179,10 +178,10 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::createPipeline()
     renderPipelineBuilder.disableMultisampling();
     renderPipelineBuilder.disableBlending();
     renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
-    renderPipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_FORMAT);
+    renderPipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_STENCIL_FORMAT);
     renderPipelineBuilder.setupPipelineLayout(pipelineLayout);
 
     pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder);
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
+    resourceManager.destroy(vertShader);
+    resourceManager.destroy(fragShader);
 }

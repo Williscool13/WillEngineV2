@@ -101,15 +101,15 @@ TransparentPipeline::TransparentPipeline(ResourceManager& resourceManager,
 
 TransparentPipeline::~TransparentPipeline()
 {
-    resourceManager.destroyImage(accumulationImage);
-    resourceManager.destroyImage(revealageImage);
-    resourceManager.destroyImage(debugImage);
-    resourceManager.destroyPipelineLayout(accumulationPipelineLayout);
-    resourceManager.destroyPipeline(accumulationPipeline);
-    resourceManager.destroyDescriptorSetLayout(compositeDescriptorSetLayout);
-    resourceManager.destroyPipelineLayout(compositePipelineLayout);
-    resourceManager.destroyPipeline(compositePipeline);
-    resourceManager.destroyDescriptorBuffer(compositeDescriptorBuffer);
+    resourceManager.destroy(accumulationImage);
+    resourceManager.destroy(revealageImage);
+    resourceManager.destroy(debugImage);
+    resourceManager.destroy(accumulationPipelineLayout);
+    resourceManager.destroy(accumulationPipeline);
+    resourceManager.destroy(compositeDescriptorSetLayout);
+    resourceManager.destroy(compositePipelineLayout);
+    resourceManager.destroy(compositePipeline);
+    resourceManager.destroy(compositeDescriptorBuffer);
 }
 
 void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentAccumulateDrawInfo& drawInfo) const
@@ -119,11 +119,11 @@ void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentA
     label.pLabelName = "Transparent Accumulation Pass (Render Objects)";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
-    vk_helpers::transitionImage(cmd, accumulationImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    vk_helpers::imageBarrier(cmd, accumulationImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, revealageImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    vk_helpers::imageBarrier(cmd, revealageImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, debugImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+    vk_helpers::imageBarrier(cmd, debugImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
 
 
@@ -219,11 +219,11 @@ void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentA
 
     vkCmdEndRendering(cmd);
 
-    vk_helpers::transitionImage(cmd, accumulationImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    vk_helpers::imageBarrier(cmd, accumulationImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, revealageImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    vk_helpers::imageBarrier(cmd, revealageImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::transitionImage(cmd, debugImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    vk_helpers::imageBarrier(cmd, debugImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                 VK_IMAGE_ASPECT_COLOR_BIT);
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
@@ -297,7 +297,7 @@ void TransparentPipeline::drawComposite(VkCommandBuffer cmd, const TransparentCo
 
 void TransparentPipeline::createAccumulationPipeline()
 {
-    resourceManager.destroyPipeline(accumulationPipeline);
+    resourceManager.destroy(accumulationPipeline);
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/transparent.vert");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/transparent.frag");
 
@@ -368,17 +368,17 @@ void TransparentPipeline::createAccumulationPipeline()
 
     pipelineBuilder.setupBlending(blendAttachmentStates);
     pipelineBuilder.enableDepthTest(false, VK_COMPARE_OP_GREATER);
-    pipelineBuilder.setupRenderer({accumulationImageFormat, revealageImageFormat, debugImageFormat}, DEPTH_FORMAT);
+    pipelineBuilder.setupRenderer({accumulationImageFormat, revealageImageFormat, debugImageFormat}, DEPTH_STENCIL_FORMAT);
     pipelineBuilder.setupPipelineLayout(accumulationPipelineLayout);
 
     accumulationPipeline = resourceManager.createRenderPipeline(pipelineBuilder);
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
+    resourceManager.destroy(vertShader);
+    resourceManager.destroy(fragShader);
 }
 
 void TransparentPipeline::createCompositePipeline()
 {
-    resourceManager.destroyPipeline(compositePipeline);
+    resourceManager.destroy(compositePipeline);
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/transparentComposite.vert");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/transparentComposite.frag");
 
@@ -400,24 +400,13 @@ void TransparentPipeline::createCompositePipeline()
     blendAttachmentStates[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
                                               VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
-    // blendAttachmentStates[0].blendEnable = VK_TRUE;
-    // blendAttachmentStates[0].srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
-    // blendAttachmentStates[0].dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
-    // blendAttachmentStates[0].colorBlendOp = VK_BLEND_OP_ADD;
-    // blendAttachmentStates[0].srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    // blendAttachmentStates[0].dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
-    // blendAttachmentStates[0].alphaBlendOp = VK_BLEND_OP_ADD;
-    // blendAttachmentStates[0].colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-    //                            VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
-
-
     pipelineBuilder.setupBlending(blendAttachmentStates);
     pipelineBuilder.disableDepthTest();
-    pipelineBuilder.setupRenderer({DRAW_FORMAT}, VK_FORMAT_UNDEFINED);
+    pipelineBuilder.setupRenderer({DRAW_FORMAT});
     pipelineBuilder.setupPipelineLayout(compositePipelineLayout);
 
     compositePipeline = resourceManager.createRenderPipeline(pipelineBuilder);
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
+    resourceManager.destroy(vertShader);
+    resourceManager.destroy(fragShader);
 }
 }

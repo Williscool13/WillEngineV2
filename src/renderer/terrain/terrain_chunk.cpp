@@ -40,7 +40,7 @@ TerrainChunk::TerrainChunk(ResourceManager& resourceManager, const std::vector<f
     resourceManager.copyBufferImmediate(bufferCopies);
 
     for (BufferCopyInfo bufferCopy : bufferCopies) {
-        resourceManager.destroyBufferImmediate(bufferCopy.src);
+        resourceManager.destroyImmediate(bufferCopy.src);
     }
 
     for (int i{0}; i < FRAME_OVERLAP; i++) {
@@ -85,15 +85,15 @@ TerrainChunk::~TerrainChunk()
             terrainBodyId = JPH::BodyID(JPH::BodyID::cMaxBodyIndex);
         }
     }
-    resourceManager.destroyBuffer(vertexBuffer);
-    resourceManager.destroyBuffer(indexBuffer);
+    resourceManager.destroy(vertexBuffer);
+    resourceManager.destroy(indexBuffer);
 
     for (AllocatedBuffer terrainUniformBuffer : terrainUniformBuffers) {
-        resourceManager.destroyBuffer(terrainUniformBuffer);
+        resourceManager.destroy(terrainUniformBuffer);
     }
 
-    resourceManager.destroyDescriptorBuffer(textureDescriptorBuffer);
-    resourceManager.destroyDescriptorBuffer(uniformDescriptorBuffer);
+    resourceManager.destroy(textureDescriptorBuffer);
+    resourceManager.destroy(uniformDescriptorBuffer);
 }
 
 void TerrainChunk::generateMesh(const int32_t width, const int32_t height, const std::vector<float>& heightData)
