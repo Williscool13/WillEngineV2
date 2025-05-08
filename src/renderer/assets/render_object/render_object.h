@@ -48,7 +48,10 @@ public:
      */
     bool updateBuffers(VkCommandBuffer cmd, int32_t currentFrameOverlap, int32_t previousFrameOverlap);
 
-    void dirty() { bufferFramesToUpdate = FRAME_OVERLAP; }
+    /**
+     * Will mark all renderables as dirty.
+     */
+    void dirty();
 
     int32_t bufferFramesToUpdate{0};
 

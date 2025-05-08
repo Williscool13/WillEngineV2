@@ -273,8 +273,8 @@ void will_engine::vk_helpers::copyBuffer(VkCommandBuffer cmd, const AllocatedBuf
     if (src.buffer == VK_NULL_HANDLE) { return; }
     if (dst.buffer == VK_NULL_HANDLE) { return; }
     VkBufferCopy vertexCopy{};
-    vertexCopy.dstOffset = srcOffset;
-    vertexCopy.srcOffset = dstOffset;
+    vertexCopy.dstOffset = dstOffset;
+    vertexCopy.srcOffset = srcOffset;
     vertexCopy.size = size;
 
     vkCmdCopyBuffer(cmd, src.buffer, dst.buffer, 1, &vertexCopy);

@@ -107,19 +107,12 @@ bool RenderObject::updateBuffers(VkCommandBuffer cmd, const int32_t currentFrame
     // sizes don't match, need to recreate the buffer
     size_t latestInstanceBufferSize = currentMaxInstanceCount * sizeof(InstanceData);
     if (currentInstanceBuffer.info.size != latestInstanceBufferSize) {
+        AllocatedBuffer newInstanceBuffer = resourceManager.createHostRandomBuffer(latestInstanceBufferSize,
+                                                                                   VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
+                                                                                   VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+
         resourceManager.destroy(currentInstanceBuffer);
-        currentInstanceBuffer = resourceManager.createHostRandomBuffer(latestInstanceBufferSize,
-                                                                       VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-                                                                       VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-
-        // Copy as much available data as possible from "previous frame" instance buffer
-        if (previousInstanceBuffer.buffer != VK_NULL_HANDLE) {
-            const size_t sizeToCopy = glm::min(latestInstanceBufferSize, previousInstanceBuffer.info.size);
-            if (sizeToCopy > 0) {
-                vk_helpers::copyBuffer(cmd, previousInstanceBuffer, 0, currentInstanceBuffer, 0, sizeToCopy);
-            }
-        }
-
+        currentInstanceBuffer = newInstanceBuffer;
 
         const VkDeviceAddress instanceBufferAddress = resourceManager.getBufferAddress(currentInstanceBuffer);
         memcpy(static_cast<char*>(addressBuffers[currentFrameOverlap].info.pMappedData) + sizeof(VkDeviceAddress) * 2, &instanceBufferAddress,
@@ -196,6 +189,15 @@ bool RenderObject::updateBuffers(VkCommandBuffer cmd, const int32_t currentFrame
 
     bufferFramesToUpdate--;
     return false;
+}
+
+void RenderObject::dirty()
+{
+    bufferFramesToUpdate = FRAME_OVERLAP;
+    for (const auto key : renderableMap | std::views::keys) {
+        key->dirty();
+    }
+
 }
 
 GameObject* RenderObject::generateGameObject(const std::string& gameObjectName)
@@ -276,7 +278,6 @@ bool RenderObject::generateMesh(IRenderable* renderable, const int32_t meshIndex
     }
 
     renderable->setRenderObjectReference(this, meshIndex);
-    renderable->dirty();
 
     RenderableProperties renderableProperties{
         instanceIndex
