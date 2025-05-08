@@ -73,7 +73,6 @@ bool RenderObject::updateBuffers(VkCommandBuffer cmd, const int32_t currentFrame
     if (bufferFramesToUpdate <= 0) { return true; }
 
     AllocatedBuffer& currentPrimitiveBuffer = primitiveDataBuffers[currentFrameOverlap];
-    const AllocatedBuffer& previousPrimitiveBuffer = primitiveDataBuffers[previousFrameOverlap];
 
     // Recreate the primitive buffer if needed
     size_t latestPrimitiveBufferSize = currentMaxPrimitiveCount * sizeof(PrimitiveData);
@@ -82,12 +81,6 @@ bool RenderObject::updateBuffers(VkCommandBuffer cmd, const int32_t currentFrame
         currentPrimitiveBuffer = resourceManager.createHostRandomBuffer(latestPrimitiveBufferSize,
                                                                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
                                                                         VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-
-        // Copy as much available data as possible from "previous frame" primitive buffer
-        const size_t sizeToCopy = glm::min(latestPrimitiveBufferSize, previousPrimitiveBuffer.info.size);
-        if (currentFrameOverlap != 0 && sizeToCopy > 0) {
-            vk_helpers::copyBuffer(cmd, previousPrimitiveBuffer, 0, currentPrimitiveBuffer, 0, sizeToCopy);
-        }
 
         const VkDeviceAddress primitiveBufferAddress = resourceManager.getBufferAddress(currentPrimitiveBuffer);
         memcpy(static_cast<char*>(addressBuffers[currentFrameOverlap].info.pMappedData) + sizeof(VkDeviceAddress), &primitiveBufferAddress,
@@ -120,9 +113,11 @@ bool RenderObject::updateBuffers(VkCommandBuffer cmd, const int32_t currentFrame
                                                                        VK_BUFFER_USAGE_TRANSFER_DST_BIT);
 
         // Copy as much available data as possible from "previous frame" instance buffer
-        const size_t sizeToCopy = glm::min(latestInstanceBufferSize, previousInstanceBuffer.info.size);
-        if (currentFrameOverlap != 0 && sizeToCopy > 0) {
-            vk_helpers::copyBuffer(cmd, previousInstanceBuffer, 0, currentInstanceBuffer, 0, sizeToCopy);
+        if (previousInstanceBuffer.buffer != VK_NULL_HANDLE) {
+            const size_t sizeToCopy = glm::min(latestInstanceBufferSize, previousInstanceBuffer.info.size);
+            if (sizeToCopy > 0) {
+                vk_helpers::copyBuffer(cmd, previousInstanceBuffer, 0, currentInstanceBuffer, 0, sizeToCopy);
+            }
         }
 
 
