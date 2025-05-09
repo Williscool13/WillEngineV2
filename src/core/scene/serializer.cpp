@@ -5,14 +5,18 @@
 #include "serializer.h"
 
 #include "src/core/engine.h"
+#include "src/core/engine_types.h"
+#include "src/core/game_object/game_object_factory.h"
+#include "src/renderer/lighting/directional_light.h"
 
 namespace will_engine
 {
 void Serializer::serializeGameObject(ordered_json& j, IHierarchical* obj)
 
 {
-    if (const auto gameObject = dynamic_cast<GameObject*>(obj)) {
+    if (const auto gameObject = dynamic_cast<game_object::GameObject*>(obj)) {
         j["id"] = gameObject->getId();
+        j["gameObjectType"] = gameObject->getComponentType();
     }
 
     j["name"] = obj->getName();
@@ -50,16 +54,28 @@ void Serializer::serializeGameObject(ordered_json& j, IHierarchical* obj)
     }
 }
 
-GameObject* Serializer::deserializeGameObject(const ordered_json& j, IHierarchical* parent)
+game_object::GameObject* Serializer::deserializeGameObject(const ordered_json& j, IHierarchical* parent)
 {
-    const auto gameObject = new GameObject();
+    auto& gameObjectFactory = game_object::GameObjectFactory::getInstance();
+    game_object::GameObject* gameObject{nullptr};
+    std::string name{};
+
+    if (j.contains("name")) {
+        name = j["name"].get<std::string>();
+    }
+
+    if (j.contains("gameObjectType")) {
+        const std::string type = j["gameObjectType"];
+        gameObject = gameObjectFactory.createGameObject(type, name);
+    }
+
+    if (!gameObject) {
+        gameObject = gameObjectFactory.createGameObject(game_object::GameObject::getStaticType(), "");
+    }
+
 
     if (j.contains("id")) {
         gameObject->setId(j["id"].get<uint32_t>());
-    }
-
-    if (j.contains("name")) {
-        gameObject->setName(j["name"].get<std::string>());
     }
 
     if (j.contains("transform")) {
@@ -70,6 +86,8 @@ GameObject* Serializer::deserializeGameObject(const ordered_json& j, IHierarchic
 
     if (j.contains("components")) {
         if (const auto componentContainer = dynamic_cast<IComponentContainer*>(gameObject)) {
+            auto& factory = components::ComponentFactory::getInstance();
+
             const auto& components = j["components"];
             for (const auto& [componentType, componentData] : components.items()) {
                 std::string componentName;
@@ -80,14 +98,21 @@ GameObject* Serializer::deserializeGameObject(const ordered_json& j, IHierarchic
                     componentName = componentType;
                 }
 
-                auto& factory = components::ComponentFactory::getInstance();
-                auto newComponent = factory.createComponent(componentType, componentName);
 
-                if (newComponent) {
-                    auto orderedComponentData = ordered_json(componentData);
-                    const auto _component = componentContainer->addComponent(std::move(newComponent));
-                    _component->deserialize(orderedComponentData);
+                components::Component* component = componentContainer->getComponentByTypeName(componentType);
+
+                if (!component) {
+                    auto newComponent = factory.createComponent(componentType, componentName);
+                    component = componentContainer->addComponent(std::move(newComponent));
                 }
+
+                if (!component) {
+                    fmt::print("Component failed to be created ({})", componentType);
+                    continue;
+                }
+
+                auto orderedComponentData = ordered_json(componentData);
+                component->deserialize(orderedComponentData);
             }
         }
     }
@@ -338,7 +363,8 @@ bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag 
             if (inFile.is_open()) {
                 inFile >> rootJ;
                 inFile.close();
-            } else {
+            }
+            else {
                 fmt::print("Warning: Could not open existing settings file. Creating new file.\n");
                 fileExists = false;
             }

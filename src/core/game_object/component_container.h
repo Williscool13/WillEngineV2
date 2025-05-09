@@ -23,31 +23,20 @@ class IComponentContainer
 public:
     virtual ~IComponentContainer() = default;
 
-    virtual components::Component* getComponentByType(const std::type_info& type) = 0;
-
-    virtual std::vector<components::Component*> getComponentsByType(const std::type_info& type) = 0;
+    virtual components::Component* getComponentImpl(const std::type_info& type) = 0;
 
     template<typename T>
     T* getComponent()
     {
         static_assert(std::is_base_of_v<components::Component, T>, "T must inherit from Component");
-        return static_cast<T*>(getComponentByType(typeid(T)));
-    }
-
-    template<typename T>
-    std::vector<T*> getComponents()
-    {
-        static_assert(std::is_base_of_v<components::Component, T>, "T must inherit from Component");
-        std::vector<components::Component*> baseComponents = getComponentsByType(typeid(T));
-        std::vector<T*> typed;
-        typed.reserve(baseComponents.size());
-        for (auto* comp : baseComponents) {
-            typed.push_back(static_cast<T*>(comp));
-        }
-        return typed;
+        return static_cast<T*>(getComponentImpl(typeid(T)));
     }
 
     virtual std::vector<components::Component*> getAllComponents() = 0;
+
+    virtual components::Component* getComponentByTypeName(std::string_view componentType) = 0;
+
+    virtual bool hasComponent(std::string_view componentType) = 0;
 
     virtual bool canAddComponent(std::string_view componentType) = 0;
 

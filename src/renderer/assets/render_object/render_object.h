@@ -16,7 +16,10 @@
 
 namespace will_engine
 {
-class GameObject;
+namespace game_object
+{
+    class GameObject;
+}
 
 
 struct RenderableProperties
@@ -111,7 +114,7 @@ private: // IRenderReference
     uint32_t renderObjectId{};
 
 public: // Model Rendering API
-    GameObject* generateGameObject(const std::string& gameObjectName = "");
+    game_object::GameObject* generateGameObject(const std::string& gameObjectName = "");
 
     [[nodiscard]] size_t getMeshCount() const { return meshes.size(); }
     [[nodiscard]] bool canDraw() const { return freeInstanceIndices.size() != currentMaxInstanceCount; }
@@ -139,7 +142,7 @@ public: // Model Rendering API
     [[nodiscard]] size_t getTransparentDrawIndirectCommandCount() const { return transparentDrawCommands.size(); }
 
 
-    void recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent);
+    void recursiveGenerateGameObject(const RenderNode& renderNode, game_object::GameObject* parent);
 
     /**
      * @param renderable to assign mesh references.

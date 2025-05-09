@@ -12,7 +12,7 @@
 
 #include "src/renderer/vulkan_context.h"
 #include "render_object_constants.h"
-#include "src/core/game_object/game_object.h"
+#include "src/core/game_object/game_object_factory.h"
 #include "src/util/file.h"
 #include "src/util/model_utils.h"
 
@@ -200,7 +200,7 @@ void RenderObject::dirty()
 
 }
 
-GameObject* RenderObject::generateGameObject(const std::string& gameObjectName)
+game_object::GameObject* RenderObject::generateGameObject(const std::string& gameObjectName)
 {
     // get number of meshes in the entire model
     uint32_t instanceCount{0};
@@ -209,7 +209,10 @@ GameObject* RenderObject::generateGameObject(const std::string& gameObjectName)
             instanceCount++;
         }
     }
-    auto* superRoot = new GameObject(gameObjectName);
+
+    auto& gameObjectFactory = game_object::GameObjectFactory::getInstance();
+    game_object::GameObject* superRoot = gameObjectFactory.createGameObject(game_object::GameObject::getStaticType(), gameObjectName);
+
     for (const int32_t rootNode : topNodes) {
         recursiveGenerateGameObject(renderNodes[rootNode], superRoot);
     }
@@ -218,10 +221,10 @@ GameObject* RenderObject::generateGameObject(const std::string& gameObjectName)
     return superRoot;
 }
 
-void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, GameObject* parent)
+void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, game_object::GameObject* parent)
 {
-    // todo: preferably RenderObject does not directly reference GameObject. Try using a static factory
-    const auto gameObject = new GameObject();
+    auto& gameObjectFactory = game_object::GameObjectFactory::getInstance();
+    game_object::GameObject* gameObject = gameObjectFactory.createGameObject(game_object::GameObject::getStaticType(), renderNode.name);
 
     if (renderNode.meshIndex != -1) {
         IComponentContainer* _container = gameObject;

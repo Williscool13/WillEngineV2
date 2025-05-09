@@ -20,6 +20,7 @@
 
 namespace will_engine
 {
+class Engine;
 using ordered_json = nlohmann::ordered_json;
 using json = nlohmann::json;
 
@@ -251,7 +252,7 @@ class Serializer
 public: // GameObjects
     static void serializeGameObject(ordered_json& j, IHierarchical* obj);
 
-    static GameObject* deserializeGameObject(const ordered_json& j, IHierarchical* parent);
+    static game_object::GameObject* deserializeGameObject(const ordered_json& j, IHierarchical* parent);
 
     static bool serializeMap(IHierarchical* map, ordered_json& rootJ, const std::filesystem::path& filepath);
 

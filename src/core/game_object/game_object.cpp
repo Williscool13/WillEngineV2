@@ -12,7 +12,7 @@
 #include "src/core/engine.h"
 #include "src/core/time.h"
 
-namespace will_engine
+namespace will_engine::game_object
 {
 uint64_t GameObject::runningTallyId = 0;
 
@@ -26,7 +26,7 @@ GameObject::GameObject(std::string gameObjectName)
         this->gameObjectName = std::move(gameObjectName);
     }
 
-    if (Engine* engine = Engine::get()) {
+    if (will_engine::Engine* engine = will_engine::Engine::get()) {
         engine->addToBeginQueue(this);
     }
 }
@@ -59,7 +59,7 @@ void GameObject::destroy()
 
     children.clear();
 
-    if (Engine* engine = Engine::get()) {
+    if (will_engine::Engine* engine = will_engine::Engine::get()) {
         engine->addToDeletionQueue(this);
     }
 }
@@ -364,13 +364,32 @@ void GameObject::rotateAxis(const float angle, const glm::vec3& axis)
 }
 
 
-bool GameObject::canAddComponent(const std::string_view componentType)
+components::Component* GameObject::getComponentByTypeName(std::string_view componentType)
 {
     for (const auto& _component : components) {
         if (componentType == _component->getComponentType()) {
-            fmt::print("Attempted to add a component of the same type to a gameobject. This is not supported at this time.\n");
-            return false;
+            return _component.get();
         }
+    }
+
+    return nullptr;
+}
+
+bool GameObject::hasComponent(std::string_view componentType)
+{
+    for (const auto& _component : components) {
+        if (componentType == _component->getComponentType()) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+bool GameObject::canAddComponent(const std::string_view componentType)
+{
+    if (hasComponent(componentType)) {
+        return false;
     }
 
     return true;
@@ -380,12 +399,11 @@ components::Component* GameObject::addComponent(std::unique_ptr<components::Comp
 {
     if (!component) { return nullptr; }
 
-    for (const auto& _component : components) {
-        if (component->getComponentType() == _component->getComponentType()) {
-            fmt::print("Attempted to add a component of the same type to a gameobject. This is not supported at this time.\n");
-            return nullptr;
-        }
+    if (hasComponent(component->getComponentType())) {
+        fmt::print("Attempted to add a component that already exists on this gameobject.\n");
+        return nullptr;
     }
+
     component->setOwner(this);
     components.push_back(std::move(component));
 

@@ -28,6 +28,7 @@
 #include "src/renderer/pipelines/debug/debug_composite_pipeline.h"
 #include "src/renderer/pipelines/debug/debug_highlighter.h"
 #endif // !WILL_ENGINE_DEBUG
+#include "game_object/game_object_factory.h"
 #include "src/renderer/pipelines/debug/debug_renderer.h"
 #include "src/renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h"
 #include "src/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline.h"
@@ -147,8 +148,11 @@ void Engine::init()
     environmentMap = new environment::Environment(*resourceManager, *immediate);
     startupProfiler.addEntry("Environment");
 
-    auto& factory = components::ComponentFactory::getInstance();
-    factory.registerComponents();
+    auto& componentFactory = components::ComponentFactory::getInstance();
+    componentFactory.registerComponents();
+
+    auto& gameObjectFactory = game_object::GameObjectFactory::getInstance();
+    gameObjectFactory.registerGameObjects();
 
     const std::filesystem::path envMapSource = "assets/environments";
 
@@ -1010,7 +1014,7 @@ void Engine::cleanup()
 
 IHierarchical* Engine::createGameObject(Map* map, const std::string& name)
 {
-    const auto newGameObject = new GameObject(name);
+    const auto newGameObject = new game_object::GameObject(name);
     map->addGameObject(newGameObject);
     return newGameObject;
 }

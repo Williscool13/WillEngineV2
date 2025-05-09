@@ -271,6 +271,8 @@ set(TEMP_SOURCES
         src/renderer/pipelines/debug/debug_composite_pipeline.h
         src/renderer/pipelines/debug/debug_highlighter.cpp
         src/renderer/pipelines/debug/debug_highlighter.h
+        src/core/game_object/game_object_factory.cpp
+        src/core/game_object/game_object_factory.h
 )
 
 add_executable(WillEngine main.cpp

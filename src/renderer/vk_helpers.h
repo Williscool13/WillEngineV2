@@ -17,9 +17,6 @@
 
 #include "vk_types.h"
 
-
-class Engine;
-
 namespace will_engine
 {
 class ResourceManager;

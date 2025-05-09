@@ -45,7 +45,7 @@ public:
 #pragma region Interfaces
 
 public: // IComponentContainer
-    components::Component* getComponentByType(const std::type_info& type) override
+    components::Component* getComponentImpl(const std::type_info& type) override
     {
         for (const auto& component : components) {
             if (typeid(*component) == type) {
@@ -53,19 +53,6 @@ public: // IComponentContainer
             }
         }
         return nullptr;
-    }
-
-    std::vector<components::Component*> getComponentsByType(const std::type_info& type) override
-    {
-        std::vector<components::Component*> outComponents;
-        outComponents.reserve(components.size());
-        for (const auto& component : components) {
-            if (typeid(*component) == type) {
-                outComponents.push_back(component.get());
-            }
-        }
-
-        return outComponents;
     }
 
     std::vector<components::Component*> getAllComponents() override
@@ -78,6 +65,10 @@ public: // IComponentContainer
 
         return _components;
     }
+
+    components::Component* getComponentByTypeName(std::string_view componentType) override;
+
+    bool hasComponent(std::string_view componentType) override;
 
     bool canAddComponent(std::string_view componentType) override;
 

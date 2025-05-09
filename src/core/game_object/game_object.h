@@ -23,7 +23,7 @@ class MeshRendererComponent;
 class RigidBodyComponent;
 }
 
-namespace will_engine
+namespace will_engine::game_object
 {
 class Engine;
 class RenderObject;
@@ -154,7 +154,7 @@ protected: // ITransformable
     glm::mat4 cachedModelMatrix{1.0f};
 
 public: // IComponentContainer
-    components::Component* getComponentByType(const std::type_info& type) override
+    components::Component* getComponentImpl(const std::type_info& type) override
     {
         for (const auto& component : components) {
             if (typeid(*component) == type) {
@@ -162,19 +162,6 @@ public: // IComponentContainer
             }
         }
         return nullptr;
-    }
-
-    std::vector<components::Component*> getComponentsByType(const std::type_info& type) override
-    {
-        std::vector<components::Component*> outComponents;
-        outComponents.reserve(components.size());
-        for (const auto& component : components) {
-            if (typeid(*component) == type) {
-                outComponents.push_back(component.get());
-            }
-        }
-
-        return outComponents;
     }
 
     std::vector<components::Component*> getAllComponents() override
@@ -188,6 +175,10 @@ public: // IComponentContainer
         return _components;
     }
 
+    components::Component* getComponentByTypeName(std::string_view componentType) override;
+
+    bool hasComponent(std::string_view componentType) override;
+
     bool canAddComponent(std::string_view componentType) override;
 
     components::Component* addComponent(std::unique_ptr<components::Component> component) override;
@@ -197,6 +188,17 @@ public: // IComponentContainer
     components::RigidBodyComponent* getRigidbody() const override { return rigidbodyComponent; }
 
     components::MeshRendererComponent* getMeshRenderer() const override { return meshRendererComponent; }
+
+public:
+    static constexpr auto TYPE = "GameObject";
+    static constexpr bool CAN_BE_CREATED_MANUALLY = true;
+
+    static std::string_view getStaticType()
+    {
+        return TYPE;
+    }
+
+    virtual std::string_view getComponentType() { return TYPE; }
 
 protected: // IComponentContainer
     std::vector<std::unique_ptr<components::Component> > components{};

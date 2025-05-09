@@ -110,6 +110,28 @@ void will_engine::Map::addGameObject(IHierarchical* newChild)
     addChild(newChild);
 }
 
+will_engine::components::Component* will_engine::Map::getComponentByTypeName(std::string_view componentType)
+{
+    for (const auto& _component : components) {
+        if (componentType == _component->getComponentType()) {
+            return _component.get();
+        }
+    }
+
+    return nullptr;
+}
+
+bool will_engine::Map::hasComponent(std::string_view componentType)
+{
+    for (const auto& _component : components) {
+        if (componentType == _component->getComponentType()) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 bool will_engine::Map::canAddComponent(std::string_view componentType)
 {
     for (const auto& _component : components) {

@@ -820,7 +820,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                 if (ImGui::BeginTabBar("GameObject Generation")) {
                                     if (ImGui::BeginTabItem("Full Model")) {
                                         if (ImGui::Button("Generate Full Object")) {
-                                            GameObject* gob = selectedRenderObject->generateGameObject(std::string(objectName));
+                                            game_object::GameObject* gob = selectedRenderObject->generateGameObject(std::string(objectName));
                                             selectedMap->addGameObject(gob);
                                             fmt::print("Added whole gltf model to the scene\n");
                                         }
@@ -1215,7 +1215,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             imguiRenderable->selectedRenderImgui();
         }
 
-        if (auto gameObject = dynamic_cast<GameObject*>(engine->selectedItem)) {
+        if (auto gameObject = dynamic_cast<game_object::GameObject*>(engine->selectedItem)) {
             if (components::RigidBodyComponent* rb = gameObject->getRigidbody()) {
                 if (rb->hasRigidBody()) {
                     physics::Physics::get()->drawDebug(rb->getPhysicsBodyId());
@@ -1637,7 +1637,7 @@ void ImguiWrapper::selectItem(Engine* engine, IHierarchical* hierarchical)
 
 void ImguiWrapper::deselectItem(Engine* engine)
 {
-    if (const auto gameObject = dynamic_cast<GameObject*>(engine->selectedItem)) {
+    if (const auto gameObject = dynamic_cast<game_object::GameObject*>(engine->selectedItem)) {
         if (const components::RigidBodyComponent* rb = gameObject->getRigidbody()) {
             if (rb->hasRigidBody()) {
                 physics::Physics::get()->stopDrawDebug(rb->getPhysicsBodyId());
