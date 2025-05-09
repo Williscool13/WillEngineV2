@@ -82,83 +82,85 @@ void DebugHighlighter::setupDescriptorBuffer(VkImageView stencilImageView, VkIma
 
 bool DebugHighlighter::drawHighlightStencil(VkCommandBuffer cmd, const DebugHighlighterDrawInfo& drawInfo) const
 {
-    if (IRenderReference* renderRef = drawInfo.highlightTarget->getRenderReference()) {
-        const std::optional<std::reference_wrapper<const Mesh> > meshData = renderRef->getMeshData(drawInfo.highlightTarget->getMeshIndex());
-        if (meshData.has_value()) {
-            const VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthStencilTarget.imageView, nullptr,
-                                                                                         VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-            VkClearValue stencilClear{};
-            stencilClear.depthStencil = {0.0f, 0};
-            const VkRenderingAttachmentInfo stencilAttachment = vk_helpers::attachmentInfo(drawInfo.depthStencilTarget.imageView, &stencilClear,
-                                                                                           VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
-
-            VkRenderingInfo renderInfo{};
-            renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
-            renderInfo.pNext = nullptr;
-
-            renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, RENDER_EXTENTS};
-            renderInfo.layerCount = 1;
-            renderInfo.colorAttachmentCount = 0;
-            renderInfo.pColorAttachments = nullptr;
-            renderInfo.pDepthAttachment = &depthAttachment;
-            renderInfo.pStencilAttachment = &stencilAttachment;
-
-            vkCmdBeginRendering(cmd, &renderInfo);
-
-            vkCmdSetLineWidth(cmd, 2.0f);
-
-            //  Viewport
-            VkViewport viewport = {};
-            viewport.x = 0;
-            viewport.y = 0;
-            viewport.width = RENDER_EXTENTS.width;
-            viewport.height = RENDER_EXTENTS.height;
-            viewport.minDepth = 0.f;
-            viewport.maxDepth = 1.f;
-            vkCmdSetViewport(cmd, 0, 1, &viewport);
-            //  Scissor
-            VkRect2D scissor = {};
-            scissor.offset.x = 0;
-            scissor.offset.y = 0;
-            scissor.extent.width = RENDER_EXTENTS.width;
-            scissor.extent.height = RENDER_EXTENTS.height;
-            vkCmdSetScissor(cmd, 0, 1, &scissor);
-
-            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
-
-            const std::array bindingInfos{
-                drawInfo.sceneDataBinding,
-            };
-            vkCmdBindDescriptorBuffersEXT(cmd, 1, bindingInfos.data());
-
-            constexpr std::array indices{0u};
-            const std::array offsets{drawInfo.sceneDataOffset};
-            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, indices.data(), offsets.data());
-
-
-            for (const Primitive& primitive : meshData.value().get().primitives) {
-                const uint32_t indexCount = primitive.indexCount;
-                const uint32_t firstIndex = primitive.firstIndex;
-                const int32_t vertexOffset = primitive.vertexOffset;
-                constexpr uint32_t firstInstance = 0;
-                constexpr uint32_t instanceCount = 1;
-
-                DebugHighlightDrawPushConstant push{};
-                push.modelMatrix = drawInfo.highlightTarget->getModelMatrix();
-                vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(DebugHighlightDrawPushConstant), &push);
-
-                vkCmdBindVertexBuffers(cmd, 0, 1, &renderRef->getPositionVertexBuffer().buffer, &ZERO_DEVICE_SIZE);
-                vkCmdBindIndexBuffer(cmd, renderRef->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-
-                // Draw this mesh w/ vkCmdDrawIndexed w/ model matrix passed through push
-                vkCmdDrawIndexed(cmd, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
-            }
-
-            vkCmdEndRendering(cmd);
-            return true;
-        }
+    if (!drawInfo.highlightTarget->canDrawHighlight()) {
+        return false;
     }
+
+    HighlightData highlightData = drawInfo.highlightTarget->getHighlightData();
+
+
+    const VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthStencilTarget.imageView, nullptr,
+                                                                                 VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+    VkClearValue stencilClear{};
+    stencilClear.depthStencil = {0.0f, 0};
+    const VkRenderingAttachmentInfo stencilAttachment = vk_helpers::attachmentInfo(drawInfo.depthStencilTarget.imageView, &stencilClear,
+                                                                                   VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+
+    VkRenderingInfo renderInfo{};
+    renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    renderInfo.pNext = nullptr;
+
+    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, RENDER_EXTENTS};
+    renderInfo.layerCount = 1;
+    renderInfo.colorAttachmentCount = 0;
+    renderInfo.pColorAttachments = nullptr;
+    renderInfo.pDepthAttachment = &depthAttachment;
+    renderInfo.pStencilAttachment = &stencilAttachment;
+
+    vkCmdBeginRendering(cmd, &renderInfo);
+
+    vkCmdSetLineWidth(cmd, 2.0f);
+
+    //  Viewport
+    VkViewport viewport = {};
+    viewport.x = 0;
+    viewport.y = 0;
+    viewport.width = RENDER_EXTENTS.width;
+    viewport.height = RENDER_EXTENTS.height;
+    viewport.minDepth = 0.f;
+    viewport.maxDepth = 1.f;
+    vkCmdSetViewport(cmd, 0, 1, &viewport);
+    //  Scissor
+    VkRect2D scissor = {};
+    scissor.offset.x = 0;
+    scissor.offset.y = 0;
+    scissor.extent.width = RENDER_EXTENTS.width;
+    scissor.extent.height = RENDER_EXTENTS.height;
+    vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+
+    const std::array bindingInfos{
+        drawInfo.sceneDataBinding,
+    };
+    vkCmdBindDescriptorBuffersEXT(cmd, 1, bindingInfos.data());
+
+    constexpr std::array indices{0u};
+    const std::array offsets{drawInfo.sceneDataOffset};
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 1, indices.data(), offsets.data());
+
+    DebugHighlightDrawPushConstant push{};
+    push.modelMatrix = highlightData.modelMatrix;
+    vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(DebugHighlightDrawPushConstant), &push);
+
+    vkCmdBindVertexBuffers(cmd, 0, 1, &highlightData.vertexBuffer->buffer, &ZERO_DEVICE_SIZE);
+    vkCmdBindIndexBuffer(cmd, highlightData.indexBuffer->buffer, 0, VK_INDEX_TYPE_UINT32);
+
+    for (const Primitive& primitive : highlightData.primitives) {
+        const uint32_t indexCount = primitive.indexCount;
+        const uint32_t firstIndex = primitive.firstIndex;
+        const int32_t vertexOffset = primitive.vertexOffset;
+        constexpr uint32_t firstInstance = 0;
+        constexpr uint32_t instanceCount = 1;
+
+        // Draw this mesh w/ vkCmdDrawIndexed w/ model matrix passed through push
+        vkCmdDrawIndexed(cmd, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+    }
+
+    vkCmdEndRendering(cmd);
+    return true;
+
     return false;
 }
 

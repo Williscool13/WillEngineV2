@@ -7,6 +7,7 @@
 #include <cstdint>
 
 #include "src/renderer/assets/render_object/render_reference.h"
+#include "src/renderer/pipelines/debug/debug_highlight_types.h"
 
 namespace will_engine
 {
@@ -33,7 +34,6 @@ public:
 
     virtual void setIsShadowCaster(bool isShadowCaster) = 0;
 
-
     virtual glm::mat4 getModelMatrix() = 0;
 
     virtual int32_t getRenderFramesToUpdate() = 0;
@@ -42,6 +42,10 @@ public:
 
     virtual void setRenderFramesToUpdate(int32_t value) = 0;
 
+    // Debug Highlight
+    virtual bool canDrawHighlight() = 0;
+
+    virtual debug_highlight_pipeline::HighlightData getHighlightData() = 0;
 };
 }
 #endif //RENDERABLE_H

@@ -11,6 +11,7 @@
 #include "src/core/game_object/renderable.h"
 #include "src/core/game_object/components/component.h"
 #include "src/renderer/renderer_constants.h"
+#include "src/renderer/pipelines/debug/debug_highlighter.h"
 #include "src/util/math_constants.h"
 
 namespace will_engine
@@ -55,8 +56,10 @@ public:
 
     void beginDestroy() override;
 
-public:
-    void drawHighlight();
+public: // Debug Highlight
+    virtual bool canDrawHighlight() override;
+
+    virtual debug_highlight_pipeline::HighlightData getHighlightData() override;
 
 public: // Serialization
     void serialize(ordered_json& j) override;

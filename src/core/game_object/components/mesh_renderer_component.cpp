@@ -41,32 +41,38 @@ void MeshRendererComponent::beginDestroy()
     releaseMesh();
 }
 
-void MeshRendererComponent::drawHighlight()
+bool MeshRendererComponent::canDrawHighlight()
 {
-    if (!pRenderReference) {
-        return;
+    if (pRenderReference) {
+        const std::optional<std::reference_wrapper<const Mesh> > meshData = pRenderReference->getMeshData(meshIndex);
+        if (meshData.has_value()) {
+            return true;
+        }
     }
 
-    std::optional<std::reference_wrapper<const Mesh>> meshData = pRenderReference->getMeshData(meshIndex);
-    if (!meshData.has_value()) { return; }
-
-    // for (const Primitive& primitive : meshData.value().get().primitives) {
-    //     primitive.indexCount;
-    //     uint32_t instanceCount = 1;
-    //     primitive.firstIndex;
-    //     primitive.vertexOffset;
-    //     uint32_t firstInstance = 0;
-    //
-    //     glm::mat4 pushModelMatrix = getModelMatrix();
-    //
-    //     // bind vertex and instance buffer from pRenderReference
-    //     vkCmdBindVertexBuffers(cmd, 0, 1, &pRenderReference->getPositionVertexBuffer().buffer, &ZERO_DEVICE_SIZE);
-    //     vkCmdBindIndexBuffer(cmd, pRenderReference->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-    //
-    //     // Draw this mesh w/ vkCmdDrawIndexed w/ model matrix passed through push
-    //     vkCmdDrawIndexed(cmd, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
-    // }
+    return false;
 }
+
+debug_highlight_pipeline::HighlightData MeshRendererComponent::getHighlightData()
+{
+    debug_highlight_pipeline::HighlightData data{VK_NULL_HANDLE, VK_NULL_HANDLE,};
+    if (!pRenderReference) {
+        return data;
+    }
+
+    const std::optional<std::reference_wrapper<const Mesh> > meshData = pRenderReference->getMeshData(meshIndex);
+
+    if (!meshData.has_value()) {
+        return data;
+    }
+
+    data.vertexBuffer = &pRenderReference->getPositionVertexBuffer();
+    data.indexBuffer = &pRenderReference->getIndexBuffer();
+    data.modelMatrix = getModelMatrix();
+    data.primitives = std::span(meshData.value().get().primitives);
+    return data;
+}
+
 
 void MeshRendererComponent::serialize(ordered_json& j)
 {

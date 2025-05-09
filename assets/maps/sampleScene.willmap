@@ -6,7 +6,7 @@
     },
     "metadata": {
         "name": "sampleScene",
-        "created": "2025-05-09 16:32:41",
+        "created": "2025-05-09 17:45:33",
         "formatVersion": 1
     },
     "rootComponents": {
@@ -239,7 +239,7 @@
                 "transform": {
                     "position": {
                         "x": 0.0,
-                        "y": 38.79999923706055,
+                        "y": 38.87907791137695,
                         "z": 0.0
                     },
                     "rotation": {
@@ -703,12 +703,12 @@
                         "properties": {
                             "isActive": true,
                             "motionType": 1,
-                            "layer": 0,
+                            "layer": 1,
                             "shapeType": 1,
                             "shapeParams": {
-                                "x": 10.0,
-                                "y": 0.10000000149011612,
-                                "z": 10.0
+                                "x": 20.0,
+                                "y": 0.20000000298023224,
+                                "z": 20.0
                             }
                         },
                         "componentName": "New RigidBodyComponent"
@@ -721,15 +721,15 @@
                 "name": "GameObject_16",
                 "transform": {
                     "position": {
-                        "x": -7.5,
-                        "y": 38.79999923706055,
-                        "z": 0.0
+                        "x": -7.500000476837158,
+                        "y": 38.900001525878906,
+                        "z": 9.995816299124272e-07
                     },
                     "rotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
+                        "x": 9.525448874114772e-09,
+                        "y": -0.0012825665762647986,
+                        "z": -2.6858504043048015e-07,
+                        "w": 0.9999992251396179
                     },
                     "scale": {
                         "x": 1.0,
@@ -750,11 +750,11 @@
                             "isActive": true,
                             "motionType": 2,
                             "layer": 1,
-                            "shapeType": 0,
+                            "shapeType": 1,
                             "shapeParams": {
                                 "x": 1.0,
-                                "y": 0.0,
-                                "z": 0.0
+                                "y": 1.0,
+                                "z": 1.0
                             }
                         },
                         "componentName": "New RigidBodyComponent"

@@ -7,6 +7,7 @@
 
 #include <glm/glm.hpp>
 
+#include "src/renderer/pipelines/debug/debug_highlight_types.h"
 #include "src/core/game_object/renderable.h"
 #include "src/renderer/imgui_wrapper.h"
 #include "src/renderer/resource_manager.h"
@@ -18,19 +19,6 @@ class IRenderable;
 
 namespace will_engine::debug_highlight_pipeline
 {
-struct DebugHighlightDrawPushConstant
-{
-    glm::mat4 modelMatrix{1.0f};
-    glm::vec4 color{1.0f, 0.647f, 0.0f, 1.0f};
-};
-
-struct DebugHighlighterDrawInfo
-{
-    IRenderable* highlightTarget{nullptr};
-    AllocatedImage depthStencilTarget{VK_NULL_HANDLE};
-    VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
-    VkDeviceSize sceneDataOffset{0};
-};
 
 class DebugHighlighter {
 public:
