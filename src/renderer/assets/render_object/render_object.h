@@ -103,6 +103,11 @@ private:
 public: // IRenderReference
     [[nodiscard]] uint32_t getId() const override { return renderObjectId; }
 
+    /**
+     * Releases the instance index and all associated primitives with that instance
+     * @param renderable
+     * @return
+     */
     bool releaseInstanceIndex(IRenderable* renderable) override;
 
     std::optional<std::reference_wrapper<const Mesh>> getMeshData(int32_t meshIndex) override;;

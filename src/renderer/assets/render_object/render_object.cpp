@@ -307,6 +307,7 @@ bool RenderObject::releaseInstanceIndex(IRenderable* renderable)
                 continue;
             }
 
+
             freePrimitiveIndices.insert(pair.first);
 
             for (size_t i = opaqueDrawCommands.size(); i > 0; --i) {
@@ -328,6 +329,8 @@ bool RenderObject::releaseInstanceIndex(IRenderable* renderable)
     for (auto freeIndex : freePrimitiveIndices) {
         primitiveDataMap.erase(freeIndex);
     }
+
+    freeInstanceIndices.insert(it->second.instanceIndex);
 
     renderableMap.erase(renderable);
     dirty();
