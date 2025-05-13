@@ -17,16 +17,27 @@ namespace Layers
     static constexpr JPH::ObjectLayer MOVING{1};
     static constexpr JPH::ObjectLayer PLAYER{2};
     static constexpr JPH::ObjectLayer TERRAIN{3};
-    static constexpr JPH::ObjectLayer NUM_LAYERS{4};
+    static constexpr JPH::ObjectLayer SENSOR{4};        // Non-Physical Volumes / Triggers
+    static constexpr JPH::ObjectLayer PROJECTILE{5};
+    static constexpr JPH::ObjectLayer DEBRIS{6};
+    static constexpr JPH::ObjectLayer CHARACTER{7};
+    static constexpr JPH::ObjectLayer UI_RAYCAST{8};    // Diegetic UI / Non-HUD UI
+    static constexpr JPH::ObjectLayer VEHICLE{9};
+    static constexpr JPH::ObjectLayer NUM_LAYERS{10};
 
-    inline const char* layerNames[] = {"Non-Moving", "Moving", "Player", "Terrain"};
+    inline const char* layerNames[] = {
+        "Non-Moving", "Moving", "Player", "Terrain", "Sensor",
+        "Projectile", "Debris", "Character", "UI-Raycast", "Vehicle"
+    };
 }
 
 namespace BroadPhaseLayers
 {
-    static constexpr JPH::BroadPhaseLayer NON_MOVING(0);
-    static constexpr JPH::BroadPhaseLayer MOVING(1);
-    static constexpr JPH::uint NUM_LAYERS(2);
+    static constexpr JPH::BroadPhaseLayer STATIC(0);
+    static constexpr JPH::BroadPhaseLayer DYNAMIC(1);
+    static constexpr JPH::BroadPhaseLayer SENSOR(2);
+    static constexpr JPH::BroadPhaseLayer PROJECTILE(3);
+    static constexpr JPH::uint NUM_LAYERS(4);
 }
 
 class BPLayerInterfaceImpl final : public JPH::BroadPhaseLayerInterface

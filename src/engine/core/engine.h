@@ -140,6 +140,8 @@ public:
 
     void updateRender(VkCommandBuffer cmd, float deltaTime, int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
 
+    void updateDebug(float deltaTime) const;
+
     void render(float deltaTime);
 
     /**

@@ -10,10 +10,16 @@ namespace will_engine::physics
 BPLayerInterfaceImpl::BPLayerInterfaceImpl()
 {
     // Map each object layer to a broad phase layer
-    mObjectToBroadPhase[Layers::NON_MOVING] = BroadPhaseLayers::NON_MOVING;
-    mObjectToBroadPhase[Layers::MOVING] = BroadPhaseLayers::MOVING;
-    mObjectToBroadPhase[Layers::PLAYER] = BroadPhaseLayers::MOVING;
-    mObjectToBroadPhase[Layers::TERRAIN] = BroadPhaseLayers::NON_MOVING;
+    mObjectToBroadPhase[Layers::NON_MOVING] = BroadPhaseLayers::STATIC;
+    mObjectToBroadPhase[Layers::MOVING] = BroadPhaseLayers::DYNAMIC;
+    mObjectToBroadPhase[Layers::PLAYER] = BroadPhaseLayers::DYNAMIC;
+    mObjectToBroadPhase[Layers::TERRAIN] = BroadPhaseLayers::STATIC;
+    mObjectToBroadPhase[Layers::SENSOR] = BroadPhaseLayers::SENSOR;
+    mObjectToBroadPhase[Layers::PROJECTILE] = BroadPhaseLayers::PROJECTILE;
+    mObjectToBroadPhase[Layers::DEBRIS] = BroadPhaseLayers::DYNAMIC;
+    mObjectToBroadPhase[Layers::CHARACTER] = BroadPhaseLayers::DYNAMIC;
+    mObjectToBroadPhase[Layers::UI_RAYCAST] = BroadPhaseLayers::SENSOR;
+    mObjectToBroadPhase[Layers::VEHICLE] = BroadPhaseLayers::DYNAMIC;
 }
 
 JPH::uint BPLayerInterfaceImpl::GetNumBroadPhaseLayers() const
@@ -39,29 +45,26 @@ const char* BPLayerInterfaceImpl::GetBroadPhaseLayerName(JPH::BroadPhaseLayer in
 
 bool ObjectVsBroadPhaseLayerFilterImpl::ShouldCollide(const JPH::ObjectLayer inLayer1, const JPH::BroadPhaseLayer inLayer2) const
 {
-    switch (inLayer1) {
-        case Layers::PLAYER: // fallthrough
-        case Layers::MOVING:
-            return true;
-        case Layers::NON_MOVING: // fallthrough
-        case Layers::TERRAIN:
-            return inLayer2 == BroadPhaseLayers::MOVING;
-        default:
-            JPH_ASSERT(false);
-            return false;
+    // No physical collision
+    if (inLayer1 == Layers::SENSOR || inLayer1 == Layers::UI_RAYCAST) {
+        return false;
     }
+
+    // NON_MOVING and TERRAIN objects don't collide with other STATIC objects
+    if ((inLayer1 == Layers::NON_MOVING || inLayer1 == Layers::TERRAIN) && inLayer2 == BroadPhaseLayers::STATIC) {
+        return false;
+    }
+
+    return true;
 }
 
 bool ObjectLayerPairFilterImpl::ShouldCollide(JPH::ObjectLayer inLayer1, JPH::ObjectLayer inLayer2) const
 {
-    if (inLayer1 == Layers::PLAYER || inLayer2 == Layers::PLAYER) return true;
+    if (inLayer1 == Layers::UI_RAYCAST || inLayer2 == Layers::UI_RAYCAST)
+        return false;
 
-    // If either object is NON_MOVING or TERRAIN, they only collide with MOVING objects
-    if (inLayer1 == Layers::NON_MOVING || inLayer1 == Layers::TERRAIN ||
-        inLayer2 == Layers::NON_MOVING || inLayer2 == Layers::TERRAIN)
-    {
-        return (inLayer1 == Layers::MOVING || inLayer2 == Layers::MOVING);
-    }
+    if (inLayer1 == Layers::SENSOR || inLayer2 == Layers::SENSOR)
+        return false;
 
     return true;
 }

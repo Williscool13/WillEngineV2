@@ -12,7 +12,7 @@ will_engine::FreeCamera::FreeCamera(const float fov, const float aspect, const f
 
 void will_engine::FreeCamera::update(const float deltaTime)
 {
-    const Input& input = Input::Get();
+    const input::Input& input = input::Input::get();
     if (!input.isInFocus()) {
         return;
     }
@@ -20,30 +20,30 @@ void will_engine::FreeCamera::update(const float deltaTime)
     glm::vec3 velocity{0.f};
     float verticalVelocity{0.f};
 
-    if (input.isKeyDown(SDLK_D)) {
+    if (input.isKeyDown(input::Key::D)) {
         velocity.x += 1.0f;
     }
-    if (input.isKeyDown(SDLK_A)) {
+    if (input.isKeyDown(input::Key::A)) {
         velocity.x -= 1.0f;
     }
-    if (input.isKeyDown(SDLK_LCTRL)) {
+    if (input.isKeyDown(input::Key::LCTRL)) {
         verticalVelocity -= 1.0f;
     }
-    if (input.isKeyDown(SDLK_SPACE)) {
+    if (input.isKeyDown(input::Key::SPACE)) {
         verticalVelocity += 1.0f;
     }
     // I guess vulkan is negative Z forward?!
-    if (input.isKeyDown(SDLK_W)) {
+    if (input.isKeyDown(input::Key::W)) {
         velocity.z -= 1.0f;
     }
-    if (input.isKeyDown(SDLK_S)) {
+    if (input.isKeyDown(input::Key::S)) {
         velocity.z += 1.0f;
     }
 
-    if (input.isKeyPressed(SDLK_PERIOD)) {
+    if (input.isKeyPressed(input::Key::PERIOD)) {
         speed += 1;
     }
-    if (input.isKeyPressed(SDLK_COMMA)) {
+    if (input.isKeyPressed(input::Key::COMMA)) {
         speed -= 1;
     }
     speed = glm::clamp(speed, -2.0f, 3.0f);

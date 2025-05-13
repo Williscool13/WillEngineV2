@@ -4,66 +4,14 @@
 
 #include "input.h"
 
+#include <ranges>
 #include <fmt/format.h>
 
 #include "imgui.h"
 #include "engine/engine_constants.h"
 
-namespace will_engine
+namespace will_engine::input
 {
-Input::Input()
-{
-    keyStateData[SDLK_ESCAPE] = {};
-    keyStateData[SDLK_SPACE] = {};
-    keyStateData[SDLK_LSHIFT] = {};
-    keyStateData[SDLK_LCTRL] = {};
-    keyStateData[SDLK_RETURN] = {};
-    keyStateData[SDLK_Q] = {};
-    keyStateData[SDLK_W] = {};
-    keyStateData[SDLK_E] = {};
-    keyStateData[SDLK_R] = {};
-    keyStateData[SDLK_T] = {};
-    keyStateData[SDLK_Y] = {};
-    keyStateData[SDLK_U] = {};
-    keyStateData[SDLK_I] = {};
-    keyStateData[SDLK_O] = {};
-    keyStateData[SDLK_P] = {};
-    keyStateData[SDLK_A] = {};
-    keyStateData[SDLK_S] = {};
-    keyStateData[SDLK_D] = {};
-    keyStateData[SDLK_F] = {};
-    keyStateData[SDLK_G] = {};
-    keyStateData[SDLK_H] = {};
-    keyStateData[SDLK_J] = {};
-    keyStateData[SDLK_K] = {};
-    keyStateData[SDLK_L] = {};
-    keyStateData[SDLK_Z] = {};
-    keyStateData[SDLK_X] = {};
-    keyStateData[SDLK_C] = {};
-    keyStateData[SDLK_V] = {};
-    keyStateData[SDLK_B] = {};
-    keyStateData[SDLK_N] = {};
-    keyStateData[SDLK_M] = {};
-    keyStateData[SDLK_COMMA] = {};
-    keyStateData[SDLK_PERIOD] = {};
-    keyStateData[SDLK_1] = {};
-    keyStateData[SDLK_2] = {};
-    keyStateData[SDLK_3] = {};
-    keyStateData[SDLK_4] = {};
-    keyStateData[SDLK_5] = {};
-    keyStateData[SDLK_6] = {};
-    keyStateData[SDLK_7] = {};
-    keyStateData[SDLK_8] = {};
-    keyStateData[SDLK_9] = {};
-    keyStateData[SDLK_0] = {};
-
-    mouseStateData[SDL_BUTTON_LEFT - 1] = {};
-    mouseStateData[SDL_BUTTON_RIGHT - 1] = {};
-    mouseStateData[SDL_BUTTON_MIDDLE - 1] = {};
-    mouseStateData[SDL_BUTTON_X1] = {};
-    mouseStateData[SDL_BUTTON_X2] = {};
-}
-
 void Input::init(SDL_Window* window)
 {
     this->window = window;
@@ -75,7 +23,7 @@ void Input::processEvent(const SDL_Event& event)
         case SDL_EVENT_KEY_DOWN:
         case SDL_EVENT_KEY_UP:
         {
-            const auto it = keyStateData.find(event.key.key);
+            const auto it = keyStateData.find(static_cast<Key>(event.key.key));
             if (it != keyStateData.end()) {
                 UpdateInputState(it->second, event.key.down);
             }
@@ -84,7 +32,7 @@ void Input::processEvent(const SDL_Event& event)
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
         case SDL_EVENT_MOUSE_BUTTON_UP:
         {
-            const auto it = mouseStateData.find(event.button.button - 1);
+            const auto it = mouseStateData.find(static_cast<MouseButton>(SDL_BUTTON_MASK(event.button.button)));
             if (it != mouseStateData.end()) {
                 UpdateInputState(it->second, event.button.down);
             }
@@ -114,7 +62,7 @@ void Input::updateFocus(const Uint32 sdlWindowFlags)
     const bool isTyping = engine_constants::useImgui ? ImGui::GetIO().WantTextInput : false;
     const bool isPopupActive = engine_constants::useImgui ? ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopup) : false;
 
-    if (windowInputFocus && !isTyping && !isPopupActive && isKeyPressed(SDLK_F)) {
+    if (windowInputFocus && !isTyping && !isPopupActive && isKeyPressed(Key::NUMLOCKCLEAR)) {
         inFocus = !inFocus;
         if (!window) {
             fmt::print("Input: Attempted to update focus but window is not defined, perhaps init was not called?\n");
@@ -126,14 +74,14 @@ void Input::updateFocus(const Uint32 sdlWindowFlags)
 
 void Input::frameReset()
 {
-    for (std::pair<const unsigned, InputStateData>& key : keyStateData) {
-        key.second.pressed = false;
-        key.second.released = false;
+    for (auto& val : keyStateData | std::views::values) {
+        val.pressed = false;
+        val.released = false;
     }
 
-    for (std::pair<const uint8_t, InputStateData>& mouse : mouseStateData) {
-        mouse.second.pressed = false;
-        mouse.second.released = false;
+    for (auto& val : mouseStateData | std::views::values) {
+        val.pressed = false;
+        val.released = false;
     }
 
     mouseXDelta = 0;
@@ -148,43 +96,43 @@ void Input::UpdateInputState(InputStateData& inputButton, const bool isPressed)
 }
 
 
-bool Input::isKeyPressed(const SDL_Keycode key) const
+bool Input::isKeyPressed(const Key key) const
 {
     const auto it = keyStateData.find(key);
     return it != keyStateData.end() && it->second.pressed;
 }
 
-bool Input::isKeyReleased(const SDL_Keycode key) const
+bool Input::isKeyReleased(const Key key) const
 {
     const auto it = keyStateData.find(key);
     return it != keyStateData.end() && it->second.released;
 }
 
-bool Input::isKeyDown(const SDL_Keycode key) const
+bool Input::isKeyDown(const Key key) const
 {
     const auto it = keyStateData.find(key);
     return it != keyStateData.end() && it->second.state == InputState::DOWN;
 }
 
-bool Input::isMousePressed(const uint8_t mouseButton) const
+bool Input::isMousePressed(const MouseButton mouseButton) const
 {
     const auto it = mouseStateData.find(mouseButton);
     return it != mouseStateData.end() && it->second.pressed;
 }
 
-bool Input::isMouseReleased(const uint8_t mouseButton) const
+bool Input::isMouseReleased(const MouseButton mouseButton) const
 {
     const auto it = mouseStateData.find(mouseButton);
     return it != mouseStateData.end() && it->second.released;
 }
 
-bool Input::isMouseDown(const uint8_t mouseButton) const
+bool Input::isMouseDown(const MouseButton mouseButton) const
 {
     const auto it = mouseStateData.find(mouseButton);
     return it != mouseStateData.end() && it->second.state == InputState::DOWN;
 }
 
-Input::InputStateData Input::getKeyData(const SDL_Keycode key) const
+Input::InputStateData Input::getKeyData(const Key key) const
 {
     const auto it = keyStateData.find(key);
     if (it != keyStateData.end()) {
@@ -193,7 +141,7 @@ Input::InputStateData Input::getKeyData(const SDL_Keycode key) const
     return {};
 }
 
-Input::InputStateData Input::getMouseData(const uint8_t mouseButton) const
+Input::InputStateData Input::getMouseData(const MouseButton mouseButton) const
 {
     const auto it = mouseStateData.find(mouseButton);
     if (it != mouseStateData.end()) {

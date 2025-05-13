@@ -16,19 +16,19 @@ void will_engine::OrbitCamera::update(const float deltaTime)
 {
     if (!orbitTarget) { return; }
 
-    const Input& input = Input::Get();
+    const input::Input& input = input::Input::get();
     if (input.isInFocus()) {
-        if (input.isKeyDown(SDLK_E)) {
+        if (input.isKeyDown(input::Key::E)) {
             armOffset.z -= 2 * deltaTime;
         }
-        if (input.isKeyDown(SDLK_Q)) {
+        if (input.isKeyDown(input::Key::Q)) {
             armOffset.z += 2 * deltaTime;
         }
 
-        if (input.isKeyPressed(SDLK_PERIOD)) {
+        if (input.isKeyPressed(input::Key::PERIOD)) {
             rotationSpeed += 0.2;
         }
-        if (input.isKeyPressed(SDLK_COMMA)) {
+        if (input.isKeyPressed(input::Key::COMMA)) {
             rotationSpeed -= 0.2f;
         }
         rotationSpeed = glm::clamp(rotationSpeed, -2.0f, 3.0f);

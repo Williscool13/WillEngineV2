@@ -92,7 +92,7 @@ void Engine::init()
         static_cast<int>(windowExtent.height),
         window_flags);
 
-    Input::Get().init(window);
+    input::Input::get().init(window);
 
     startupProfiler.addEntry("Windowing");
 
@@ -287,7 +287,7 @@ void Engine::run()
 
     // main loop
     while (!bQuit) {
-        Input& input = Input::Get();
+        input::Input& input = input::Input::get();
         Time& time = Time::Get();
         input.frameReset();
 
@@ -338,6 +338,8 @@ void Engine::run()
         updateGame(deltaTime);
         profiler.endTimer("1Game");
 
+        updateDebug(deltaTime);
+
         render(deltaTime);
         profiler.endTimer("3Total");
     }
@@ -360,8 +362,10 @@ void Engine::updateGame(const float deltaTime)
 {
     if (camera) { camera->update(deltaTime); }
 
-    const Input& input = Input::Get();
-    if (input.isKeyPressed(SDLK_R)) {
+#if WILL_ENGINE_DEBUG
+    // Non-Core Gameplay Actions
+    const input::Input& input = input::Input::get();
+    if (input.isKeyPressed(input::Key::R)) {
         if (camera) {
             const glm::vec3 direction = camera->getForwardWS();
             //const physics::PlayerCollisionFilter dontHitPlayerFilter{};
@@ -376,7 +380,7 @@ void Engine::updateGame(const float deltaTime)
         }
     }
 
-    if (input.isKeyPressed(SDLK_G)) {
+    if (input.isKeyPressed(input::Key::G)) {
         if (camera) {
             if (auto transformable = dynamic_cast<ITransformable*>(selectedItem)) {
                 glm::vec3 itemPosition = transformable->getPosition();
@@ -403,6 +407,15 @@ void Engine::updateGame(const float deltaTime)
         }
     }
 
+    constexpr glm::vec3 offset{-100, 100, 0};
+    for (int32_t i{0}; i < 100; i++) {
+        for (int32_t j{0}; j < 100; j++) {
+            float z = glm::sin(Time::Get().getTime() - j * 0.5f) * 2.0;
+            debug_renderer::DebugRenderer::drawBox(offset + glm::vec3(i, j, z), {0.8f, 0.8f, 0.8f}, {0.0f, 0.7f, 0.1f});
+        }
+    }
+#endif
+
     for (IHierarchical* hierarchal : hierarchalBeginQueue) {
         hierarchal->beginPlay();
     }
@@ -425,15 +438,6 @@ void Engine::updateGame(const float deltaTime)
         delete hierarchical;
     }
     hierarchicalDeletionQueue.clear();
-
-
-    constexpr glm::vec3 offset{-100, 100, 0};
-    for (int32_t i{0}; i < 100; i++) {
-        for (int32_t j{0}; j < 100; j++) {
-            float z = glm::sin(Time::Get().getTime() - j * 0.5f) * 2.0;
-            debug_renderer::DebugRenderer::drawBox(offset + glm::vec3(i, j, z), {0.8f, 0.8f, 0.8f}, {0.0f, 0.7f, 0.1f});
-        }
-    }
 }
 
 void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap) const
@@ -510,6 +514,18 @@ void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int3
                                    VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
     vk_helpers::uniformBarrier(cmd, debugSceneDataBuffer, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
                                    VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
+}
+
+void Engine::updateDebug(float deltaTime) const
+{
+#if WILL_ENGINE_DEBUG
+    const input::Input& input = input::Input::get();
+    if (!input.isInFocus()) {
+        if (input.isMousePressed(input::MouseButton::LMB)) {
+            fmt::print("LMB");
+        }
+    }
+#endif
 }
 
 void Engine::render(float deltaTime)
