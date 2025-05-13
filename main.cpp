@@ -9,7 +9,7 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <stb/stb_image_write.h>
 
-#include "src/core/engine.h"
+#include "engine/core/engine.h"
 
 int main(int argc, char* argv[])
 {
