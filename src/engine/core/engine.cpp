@@ -350,7 +350,7 @@ void Engine::updatePhysics(const float deltaTime) const
         physics::Physics::get()->update(deltaTime);
     }
 
-#if WILL_ENGINE_DEBUG
+#if WILL_ENGINE_DEBUG_DRAW
     if (bDebugPhysics) {
         physics::Physics::get()->drawDebug();
     }
@@ -509,8 +509,7 @@ void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int3
 
 void Engine::updateDebug(float deltaTime)
 {
-#if WILL_ENGINE_DEBUG
-
+#if WILL_ENGINE_DEBUG_DRAW
     if (selectedItem) {
         if (const auto gameObject = dynamic_cast<game_object::GameObject*>(selectedItem)) {
             if (components::RigidBodyComponent* rb = gameObject->getRigidbody()) {
@@ -1048,7 +1047,7 @@ void Engine::cleanup()
     SDL_DestroyWindow(window);
 }
 
-#if WILL_ENGINE_DEBUG
+#if WILL_ENGINE_DEBUG_DRAW
 void Engine::selectItem(IHierarchical* hierarchical)
 {
     if (selectedItem != nullptr) {

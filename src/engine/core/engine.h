@@ -150,7 +150,7 @@ public:
      */
     void cleanup();
 
-#if WILL_ENGINE_DEBUG
+#if WILL_ENGINE_DEBUG_DRAW
     void selectItem(IHierarchical* hierarchical);
 
     void deselectItem();

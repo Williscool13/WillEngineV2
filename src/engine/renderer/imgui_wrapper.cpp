@@ -1621,14 +1621,14 @@ int ImguiWrapper::getIndexInVector(const IHierarchical* obj, const std::vector<I
 
 void ImguiWrapper::selectItem(Engine* engine, IHierarchical* hierarchical)
 {
-#if WILL_ENGINE_DEBUG
+#if WILL_ENGINE_DEBUG_DRAW
     engine->selectItem(hierarchical);
 #endif
 }
 
 void ImguiWrapper::deselectItem(Engine* engine)
 {
-#if WILL_ENGINE_DEBUG
+#if WILL_ENGINE_DEBUG_DRAW
     engine->deselectItem();
 #endif
 }
