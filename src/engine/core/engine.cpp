@@ -9,7 +9,6 @@
 #include <vk-bootstrap/VkBootstrap.h>
 
 #include <Jolt/Jolt.h>
-#include <Jolt/Physics/Body/BodyCreationSettings.h>
 
 #include "camera/free_camera.h"
 #include "game_object/game_object.h"
@@ -24,12 +23,7 @@
 #include "engine/renderer/assets/render_object/render_object.h"
 #include "engine/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "engine/renderer/environment/environment.h"
-#if WILL_ENGINE_DEBUG
-#include "engine/renderer/pipelines/debug/debug_composite_pipeline.h"
-#include "engine/renderer/pipelines/debug/debug_highlighter.h"
-#endif // !WILL_ENGINE_DEBUG
 #include "engine/core/game_object/game_object_factory.h"
-#include "engine/renderer/pipelines/debug/debug_renderer.h"
 #include "engine/renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h"
 #include "engine/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline.h"
 #include "engine/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline_types.h"
@@ -48,19 +42,24 @@
 #include "engine/renderer/pipelines/visibility_pass/visibility_pass_pipeline_types.h"
 #include "engine/util/file.h"
 #include "engine/util/halton.h"
+#if WILL_ENGINE_DEBUG
+#include "engine/renderer/pipelines/debug/debug_composite_pipeline.h"
+#include "engine/renderer/pipelines/debug/debug_highlighter.h"
+#include "engine/renderer/pipelines/debug/debug_renderer.h"
+#endif // !WILL_ENGINE_DEBUG
 
-#ifdef NDEBUG
-#define USE_VALIDATION_LAYERS false
-#else
+#ifdef WILL_ENGINE_DEBUG
 #define USE_VALIDATION_LAYERS true
+#else
+#define USE_VALIDATION_LAYERS false
 #endif
 
-#ifdef NDEBUG
-// uncapped FPS
-#define PRESENT_MODE VK_PRESENT_MODE_IMMEDIATE_KHR
-#else
+#ifdef  WILL_ENGINE_DEBUG
 // vsync
 #define PRESENT_MODE VK_PRESENT_MODE_FIFO_KHR
+#else
+// uncapped FPS
+#define PRESENT_MODE VK_PRESENT_MODE_IMMEDIATE_KHR
 #endif
 
 namespace will_engine
@@ -88,11 +87,11 @@ void Engine::init()
 
     window = SDL_CreateWindow(
         ENGINE_NAME,
-        static_cast<int>(windowExtent.width),
-        static_cast<int>(windowExtent.height),
+        static_cast<int>(windowExtent.x),
+        static_cast<int>(windowExtent.y),
         window_flags);
 
-    input::Input::get().init(window);
+    input::Input::get().init(window, windowExtent);
 
     startupProfiler.addEntry("Windowing");
 
@@ -101,7 +100,7 @@ void Engine::init()
 
     startupProfiler.addEntry("Vulkan Context");
 
-    createSwapchain(windowExtent.width, windowExtent.height);
+    createSwapchain(windowExtent.x, windowExtent.y);
 
     startupProfiler.addEntry("Swapchain");
 
@@ -511,18 +510,42 @@ void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int3
     pDebugSceneData->deltaTime = deltaTime;
 
     vk_helpers::uniformBarrier(cmd, sceneDataBuffer, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
-                                   VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
+                               VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
     vk_helpers::uniformBarrier(cmd, debugSceneDataBuffer, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
-                                   VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
+                               VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
 }
 
-void Engine::updateDebug(float deltaTime) const
+void Engine::updateDebug(float deltaTime)
 {
 #if WILL_ENGINE_DEBUG
+
+    if (selectedItem) {
+        if (const auto gameObject = dynamic_cast<game_object::GameObject*>(selectedItem)) {
+            if (components::RigidBodyComponent* rb = gameObject->getRigidbody()) {
+                if (rb->hasRigidBody()) {
+                    physics::Physics::get()->drawDebug(rb->getPhysicsBodyId());
+                }
+            }
+        }
+    }
+
     const input::Input& input = input::Input::get();
     if (!input.isInFocus()) {
         if (input.isMousePressed(input::MouseButton::LMB)) {
-            fmt::print("LMB");
+            if (physics::Physics* physics = physics::Physics::get()) {
+                const glm::vec3 direction = camera->screenToWorldDirection(input.getMousePosition());
+                if (const physics::RaycastHit result = physics::PhysicsUtils::raycast(camera->getPosition(),
+                                                                                      normalize(direction) * camera->getNearPlane())) {
+                    if (const physics::PhysicsObject* physicsObject = physics->getPhysicsObject(result.hitBodyID)) {
+                        const auto* component = dynamic_cast<components::Component*>(physicsObject->physicsBody);
+                        if (IComponentContainer* owner = component->getOwner()) {
+                            if (const auto hierarchical = dynamic_cast<IHierarchical*>(owner)) {
+                                selectItem(hierarchical);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 #endif
@@ -600,15 +623,15 @@ void Engine::render(float deltaTime)
     vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     vk_helpers::imageBarrier(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                                VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+                             VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
     vk_helpers::imageBarrier(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::imageBarrier(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::imageBarrier(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::imageBarrier(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
 
     environment_pipeline::EnvironmentDrawInfo environmentPipelineDrawInfo{
         true,
@@ -702,16 +725,16 @@ void Engine::render(float deltaTime)
     }
 
     vk_helpers::imageBarrier(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::imageBarrier(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::imageBarrier(cmd, pbrRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::imageBarrier(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::imageBarrier(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+                             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                             VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
     vk_helpers::imageBarrier(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     ambient_occlusion::GTAODrawInfo gtaoDrawInfo{
@@ -761,7 +784,7 @@ void Engine::render(float deltaTime)
     }
 
     vk_helpers::imageBarrier(cmd, drawImage.image, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
     const VkImageLayout originLayout = frameNumber == 0 ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     vk_helpers::imageBarrier(cmd, historyBuffer.image, originLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::imageBarrier(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -776,13 +799,13 @@ void Engine::render(float deltaTime)
 
     // Copy to TAA History
     vk_helpers::imageBarrier(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::imageBarrier(cmd, historyBuffer.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::copyImageToImage(cmd, taaResolveTarget.image, historyBuffer.image, RENDER_EXTENTS, RENDER_EXTENTS);
 
     vk_helpers::imageBarrier(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::imageBarrier(cmd, finalImageBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
 
@@ -801,8 +824,8 @@ void Engine::render(float deltaTime)
         vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, debugTarget.image, VK_IMAGE_LAYOUT_UNDEFINED,
                                     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, {0.0f, 0.0f, 0.0f, 0.0f});
         vk_helpers::imageBarrier(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                                    VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+                                 VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                                 VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
 
         debug_renderer::DebugRendererDrawInfo debugRendererDrawInfo{
@@ -834,22 +857,22 @@ void Engine::render(float deltaTime)
 
         if (stencilDrawn) {
             vk_helpers::imageBarrier(cmd, debugTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                        VK_IMAGE_LAYOUT_GENERAL,
-                                        VK_IMAGE_ASPECT_COLOR_BIT);
+                                     VK_IMAGE_LAYOUT_GENERAL,
+                                     VK_IMAGE_ASPECT_COLOR_BIT);
             vk_helpers::imageBarrier(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
-                                        VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+                                     VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
             debugHighlighter->drawHighlightProcessing(cmd, highlightDrawInfo);
 
 
             vk_helpers::imageBarrier(cmd, debugTarget.image, VK_IMAGE_LAYOUT_GENERAL,
-                                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                        VK_IMAGE_ASPECT_COLOR_BIT);
+                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                     VK_IMAGE_ASPECT_COLOR_BIT);
         }
         else {
             vk_helpers::imageBarrier(cmd, debugTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                        VK_IMAGE_ASPECT_COLOR_BIT);
+                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                     VK_IMAGE_ASPECT_COLOR_BIT);
         }
 
 
@@ -863,27 +886,27 @@ void Engine::render(float deltaTime)
     }
 #endif
     vk_helpers::imageBarrier(cmd, finalImageBuffer.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
 
     vk_helpers::imageBarrier(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::copyImageToImage(cmd, finalImageBuffer.image, swapchainImages[swapchainImageIndex], RENDER_EXTENTS, swapchainExtent);
 
     vk_helpers::imageBarrier(cmd, finalImageBuffer.image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
 
     if (engine_constants::useImgui) {
         vk_helpers::imageBarrier(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                    VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+                                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
         imguiWrapper->drawImgui(cmd, swapchainImageViews[swapchainImageIndex], swapchainExtent);
 
         vk_helpers::imageBarrier(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                                    VK_IMAGE_ASPECT_COLOR_BIT);
+                                 VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                                 VK_IMAGE_ASPECT_COLOR_BIT);
     }
     else {
         vk_helpers::imageBarrier(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                    VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_ASPECT_COLOR_BIT);
+                                 VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_ASPECT_COLOR_BIT);
     }
 
     // End Command Buffer Recording
@@ -1022,6 +1045,29 @@ void Engine::cleanup()
     SDL_DestroyWindow(window);
 }
 
+#if WILL_ENGINE_DEBUG
+void Engine::selectItem(IHierarchical* hierarchical)
+{
+    if (selectedItem != nullptr) {
+        if (selectedItem == hierarchical) { return; }
+        deselectItem();
+    }
+    selectedItem = hierarchical;
+}
+
+void Engine::deselectItem()
+{
+    if (const auto gameObject = dynamic_cast<game_object::GameObject*>(selectedItem)) {
+        if (const components::RigidBodyComponent* rb = gameObject->getRigidbody()) {
+            if (rb->hasRigidBody()) {
+                physics::Physics::get()->stopDrawDebug(rb->getPhysicsBodyId());
+            }
+        }
+    }
+    selectedItem = nullptr;
+}
+#endif
+
 IHierarchical* Engine::createGameObject(Map* map, const std::string& name)
 {
     const auto newGameObject = new game_object::GameObject(name);
@@ -1086,16 +1132,17 @@ void Engine::resizeSwapchain()
         vkDestroyImageView(context->device, swapchainImage, nullptr);
     }
 
-    int w, h;
+    int32_t w, h;
     // get new window size
     SDL_GetWindowSize(window, &w, &h);
-    windowExtent.width = w;
-    windowExtent.height = h;
+    windowExtent = {w, h};
 
-    createSwapchain(windowExtent.width, windowExtent.height);
+
+    createSwapchain(windowExtent.x, windowExtent.y);
+    input::Input::get().setWindowExtent(windowExtent);
 
     bResizeRequested = false;
-    fmt::print("Window extent has been updated to {}x{}\n", windowExtent.width, windowExtent.height);
+    fmt::print("Window extent has been updated to {}x{}\n", windowExtent.x, windowExtent.y);
 }
 
 void Engine::createDrawResources()

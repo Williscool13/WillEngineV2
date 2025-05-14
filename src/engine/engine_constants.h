@@ -7,7 +7,7 @@
 
 namespace will_engine::engine_constants {
 
-#ifdef NDEBUG
+#ifdef  WILL_ENGINE_DEBUG
 constexpr bool useImgui = true;
 #else
 constexpr bool useImgui = true;

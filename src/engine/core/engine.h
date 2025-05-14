@@ -26,11 +26,21 @@
 #include "engine/renderer/pipelines/shadows/contact_shadow/contact_shadows_pipeline.h"
 #include "engine/renderer/pipelines/shadows/ground_truth_ambient_occlusion/ambient_occlusion_types.h"
 
-
+#if WILL_ENGINE_DEBUG
 namespace will_engine::debug_renderer
 {
 class DebugRenderer;
 }
+namespace will_engine::debug_highlight_pipeline
+{
+class DebugHighlighter;
+}
+
+namespace will_engine::debug_pipeline
+{
+class DebugCompositePipeline;
+}
+#endif
 
 class ResourceManager;
 class ImmediateSubmitter;
@@ -38,16 +48,6 @@ class VulkanContext;
 
 namespace will_engine
 {
-namespace debug_highlight_pipeline
-{
-    class DebugHighlighter;
-}
-
-namespace debug_pipeline
-{
-    class DebugCompositePipeline;
-}
-
 namespace ambient_occlusion
 {
     class GroundTruthAmbientOcclusionPipeline;
@@ -140,7 +140,7 @@ public:
 
     void updateRender(VkCommandBuffer cmd, float deltaTime, int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
 
-    void updateDebug(float deltaTime) const;
+    void updateDebug(float deltaTime);
 
     void render(float deltaTime);
 
@@ -149,6 +149,12 @@ public:
      * \n Resources -> Command Pool (implicit destroy C. Buffers) -> Swapchain -> Surface -> Device -> Instance -> Window
      */
     void cleanup();
+
+#if WILL_ENGINE_DEBUG
+    void selectItem(IHierarchical* hierarchical);
+
+    void deselectItem();
+#endif
 
 public:
     /**
@@ -172,7 +178,7 @@ public:
     void removeFromActiveTerrain(ITerrain* terrain);
 
 private:
-    VkExtent2D windowExtent{1700, 900};
+    glm::vec2 windowExtent{1700, 900};
     SDL_Window* window{nullptr};
 
     VulkanContext* context{nullptr};
@@ -184,6 +190,7 @@ private:
     debug_renderer::DebugRenderer* debugRenderer{nullptr};
     debug_highlight_pipeline::DebugHighlighter* debugHighlighter{nullptr};
     debug_pipeline::DebugCompositePipeline* debugPipeline{nullptr};
+    AllocatedImage debugTarget{};
 #endif
     // Might be used in imgui which can be active outside of debug build
     IHierarchical* selectedItem{nullptr};
@@ -226,6 +233,7 @@ public:
     void setSssSettings(const contact_shadows_pipeline::ContactShadowSettings& settings) { sssSettings = settings; }
 
     cascaded_shadows::CascadedShadowMapSettings getCsmSettings() const { return csmSettings; }
+
     void setCsmSettings(const cascaded_shadows::CascadedShadowMapSettings& settings);
 
     temporal_antialiasing_pipeline::TemporalAntialiasingSettings getTaaSettings() const { return taaSettings; }
@@ -323,10 +331,6 @@ private: // Draw Resources
      * A copy of the previous TAA Resolve Buffer
      */
     AllocatedImage historyBuffer{};
-
-#if WILL_ENGINE_DEBUG
-    AllocatedImage debugTarget{};
-#endif
 
     AllocatedImage finalImageBuffer{};
 

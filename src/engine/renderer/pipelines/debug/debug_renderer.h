@@ -11,6 +11,10 @@
 #include "engine/renderer/renderer_constants.h"
 #include "engine/renderer/vk_types.h"
 
+#ifndef WILL_ENGINE_DEBUG
+    #error This file should only be included when WILL_ENGINE_DEBUG is defined
+#endif // !WILL_ENGINE_DEBUG
+
 namespace will_engine
 {
 class ResourceManager;

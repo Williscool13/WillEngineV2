@@ -1214,14 +1214,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         if (IImguiRenderable* imguiRenderable = dynamic_cast<IImguiRenderable*>(engine->selectedItem)) {
             imguiRenderable->selectedRenderImgui();
         }
-
-        if (auto gameObject = dynamic_cast<game_object::GameObject*>(engine->selectedItem)) {
-            if (components::RigidBodyComponent* rb = gameObject->getRigidbody()) {
-                if (rb->hasRigidBody()) {
-                    physics::Physics::get()->drawDebug(rb->getPhysicsBodyId());
-                }
-            }
-        }
     }
 
     ImGui::Render();
@@ -1629,21 +1621,15 @@ int ImguiWrapper::getIndexInVector(const IHierarchical* obj, const std::vector<I
 
 void ImguiWrapper::selectItem(Engine* engine, IHierarchical* hierarchical)
 {
-    if (engine->selectedItem != nullptr) {
-        deselectItem(engine);
-    }
-    engine->selectedItem = hierarchical;
+#if WILL_ENGINE_DEBUG
+    engine->selectItem(hierarchical);
+#endif
 }
 
 void ImguiWrapper::deselectItem(Engine* engine)
 {
-    if (const auto gameObject = dynamic_cast<game_object::GameObject*>(engine->selectedItem)) {
-        if (const components::RigidBodyComponent* rb = gameObject->getRigidbody()) {
-            if (rb->hasRigidBody()) {
-                physics::Physics::get()->stopDrawDebug(rb->getPhysicsBodyId());
-            }
-        }
-    }
-    engine->selectedItem = nullptr;
+#if WILL_ENGINE_DEBUG
+    engine->deselectItem();
+#endif
 }
 }

@@ -27,6 +27,16 @@ struct RaycastHit
     glm::vec3 hitNormal{0.0f};
     JPH::BodyID hitBodyID;
     JPH::SubShapeID subShapeID;
+
+    bool operator!() const
+    {
+        return !hasHit;
+    }
+
+    explicit operator bool() const
+    {
+        return hasHit;
+    }
 };
 
 struct PhysicsObject

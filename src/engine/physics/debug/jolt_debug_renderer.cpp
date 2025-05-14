@@ -7,7 +7,7 @@
 #include "jolt_debug_renderer.h"
 
 #include "engine/physics/physics_utils.h"
-#include "../../renderer/pipelines/debug/debug_renderer.h"
+#include "engine/renderer/pipelines/debug/debug_renderer.h"
 
 
 will_engine::physics::JoltDebugRenderer::JoltDebugRenderer()

@@ -65,6 +65,8 @@ public:
 
     void setCameraTransform(glm::vec3 position, glm::quat rotation);
 
+    glm::vec3 screenToWorldDirection(const glm::vec2& screenPos) const;
+
 protected:
     /**
      * Updates the projection matrix. FOV is in degrees and converted to radians in this function

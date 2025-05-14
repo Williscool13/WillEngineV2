@@ -11,6 +11,7 @@
 
 #include "engine/renderer/resource_manager.h"
 
+#if WILL_ENGINE_DEBUG
 
 namespace will_engine::debug_renderer
 {
@@ -603,3 +604,4 @@ void DebugRenderer::setupTriangleRendering()
     }
 }
 }
+#endif

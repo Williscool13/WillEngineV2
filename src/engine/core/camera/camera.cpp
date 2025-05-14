@@ -73,3 +73,23 @@ void will_engine::Camera::setCameraTransform(const glm::vec3 position, const glm
     transform.setRotation(rotation);
     updateViewMatrix();
 }
+
+glm::vec3 will_engine::Camera::screenToWorldDirection(const glm::vec2& screenPos) const
+{
+    const glm::vec4 ndcPos(
+        screenPos.x * 2.0f - 1.0f,
+        (1.0f - screenPos.y) * 2.0f - 1.0f,
+        -1.0f,
+        1.0f
+    );
+
+    glm::mat4 invProj = glm::inverse(cachedProjMatrix);
+    glm::vec4 viewPos = invProj * ndcPos;
+
+    viewPos.w = 0.0f;
+
+    const glm::mat4 invView = glm::inverse(cachedViewMatrix);
+    const glm::vec4 worldDir = invView * viewPos;
+
+    return glm::normalize(glm::vec3(worldDir));
+}

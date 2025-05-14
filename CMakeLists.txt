@@ -12,14 +12,12 @@ add_definitions(-DGLM_ENABLE_EXPERIMENTAL)
 add_definitions(-DJPH_ENABLE_ASSERTS=1)
 add_definitions(-DJPH_ENABLE_ASSERT_MESSAGES=1)
 
-# #if WILL_ENGINE_DEBUG
-# ##endif
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_definitions(-DWILL_ENGINE_DEBUG=1)
     add_definitions(-DJPH_DEBUG_RENDERER)
-elseif (CMAKE_BUILD_TYPE STREQUAL "Release")
+else()
     add_definitions(-DWILL_ENGINE_RELEASE=1)
-endif ()
+endif()
 
 # Vulkan
 find_package(Vulkan REQUIRED)
@@ -50,7 +48,6 @@ add_subdirectory(extern/fastgltf/deps) # simdjson
 set(PHYSICS_REPO_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics")
 include(extern/JoltPhysics/Jolt/Jolt.cmake)
 set(CMAKE_CXX_STANDARD 23) # Jolt sets it to 17
-
 include_directories(${CMAKE_SOURCE_DIR}/src)
 
 set(IMGUI_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/imgui)
@@ -132,8 +129,6 @@ set(PHYSICS_SOURCES
         src/engine/physics/physics_utils.h
         src/engine/physics/physics_utils.cpp
         src/engine/physics/physics_constants.h
-        src/engine/physics/debug/jolt_debug_renderer.cpp
-        src/engine/physics/debug/jolt_debug_renderer.h
         src/engine/physics/physics_body.h
 )
 
@@ -216,6 +211,19 @@ if (WIN32)
     )
 endif ()
 
+if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+    set(DEBUG_SOURCES
+            src/engine/renderer/pipelines/debug/debug_renderer.cpp
+            src/engine/renderer/pipelines/debug/debug_renderer.h
+            src/engine/renderer/pipelines/debug/debug_composite_pipeline.cpp
+            src/engine/renderer/pipelines/debug/debug_composite_pipeline.h
+            src/engine/renderer/pipelines/debug/debug_highlighter.cpp
+            src/engine/renderer/pipelines/debug/debug_highlighter.h
+            src/engine/physics/debug/jolt_debug_renderer.cpp
+            src/engine/physics/debug/jolt_debug_renderer.h
+    )
+endif()
+
 set(TEMP_SOURCES
         src/engine/core/game_object/components/mesh_renderer_component.h
         src/engine/core/game_object/components/mesh_renderer_component.cpp
@@ -263,13 +271,7 @@ set(TEMP_SOURCES
         src/engine/renderer/pipelines/geometry/transparent_pipeline/transparent_pipeline_types.h
         src/engine/renderer/pipelines/basic/basic_compute/basic_compute_pipeline_types.h
         src/engine/renderer/pipelines/visibility_pass/visibility_pass_pipeline_types.h
-        src/engine/renderer/pipelines/debug/debug_renderer.cpp
-        src/engine/renderer/pipelines/debug/debug_renderer.h
         src/engine/renderer/pipelines/debug/debug_renderer_types.h
-        src/engine/renderer/pipelines/debug/debug_composite_pipeline.cpp
-        src/engine/renderer/pipelines/debug/debug_composite_pipeline.h
-        src/engine/renderer/pipelines/debug/debug_highlighter.cpp
-        src/engine/renderer/pipelines/debug/debug_highlighter.h
         src/engine/core/game_object/game_object_factory.cpp
         src/engine/core/game_object/game_object_factory.h
         src/engine/renderer/pipelines/debug/debug_highlight_types.h
@@ -287,6 +289,7 @@ add_executable(WillEngine main.cpp
         ${UTIL_SOURCES}
         ${WINDOWS_SOURCES}
         ${TEMP_SOURCES}
+        ${DEBUG_SOURCES}
 )
 
 target_include_directories(WillEngine PRIVATE

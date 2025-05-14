@@ -12,9 +12,10 @@
 
 namespace will_engine::input
 {
-void Input::init(SDL_Window* window)
+void Input::init(SDL_Window* window, const glm::vec2 windowExtents)
 {
     this->window = window;
+    this->windowExtents = windowExtents;
 }
 
 void Input::processEvent(const SDL_Event& event)
@@ -42,8 +43,8 @@ void Input::processEvent(const SDL_Event& event)
         {
             mouseXDelta += static_cast<float>(event.motion.xrel);
             mouseYDelta += static_cast<float>(event.motion.yrel);
-            mouseX = static_cast<float>(event.motion.x);
-            mouseY = static_cast<float>(event.motion.y);
+            mousePositionAbsolute = {event.motion.x, event.motion.y};
+            mousePosition = mousePositionAbsolute / windowExtents;
             break;
         }
         case SDL_EVENT_MOUSE_WHEEL:

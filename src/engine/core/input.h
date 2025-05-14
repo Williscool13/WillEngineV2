@@ -6,6 +6,7 @@
 #include <SDL.h>
 #include <SDL_events.h>
 #include <unordered_map>
+#include <glm/glm.hpp>
 
 
 namespace will_engine::input
@@ -205,7 +206,7 @@ private:
 public:
     Input() = default;
 
-    void init(SDL_Window* window);
+    void init(SDL_Window* window, glm::vec2 windowExtents);
 
     void processEvent(const SDL_Event& event);
 
@@ -229,9 +230,10 @@ public:
 
     InputStateData getMouseData(MouseButton mouseButton) const;
 
+    void setWindowExtent(const glm::vec2 windowExtent) { this->windowExtents = windowExtent; }
 
-    float getMouseX() const { return mouseX; }
-    float getMouseY() const { return mouseY; }
+    glm::vec2 getMousePosition() const { return mousePosition; }
+    glm::vec2 getMousePositionAbsolute() const { return mousePositionAbsolute; }
     float getMouseXDelta() const { return mouseXDelta; }
     float getMouseYDelta() const { return mouseYDelta; }
     float getMouseWheelDelta() const { return mouseWheelDelta; }
@@ -239,8 +241,14 @@ public:
     bool isInFocus() const { return inFocus; }
 
 private:
-    float mouseX{0.0f};
-    float mouseY{0.0f};
+    /**
+     * [0,1], [0,1]
+     */
+    glm::vec2 mousePosition{};
+    /**
+     * [0,windowExtent.width], [0, windowExtent.height]
+     */
+    glm::vec2 mousePositionAbsolute{};
     float mouseXDelta{0.0f};
     float mouseYDelta{0.0f};
     float mouseWheelDelta{0.0f};
@@ -249,6 +257,7 @@ private:
     bool inFocus{false};
 
     SDL_Window* window{nullptr};
+    glm::vec2 windowExtents{1700, 900};
 
     static void UpdateInputState(InputStateData& inputButton, bool isPressed);
 };
