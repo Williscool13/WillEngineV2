@@ -42,7 +42,7 @@
 #include "engine/renderer/pipelines/visibility_pass/visibility_pass_pipeline_types.h"
 #include "engine/util/file.h"
 #include "engine/util/halton.h"
-#if WILL_ENGINE_DEBUG
+#if  WILL_ENGINE_DEBUG_DRAW
 #include "engine/renderer/pipelines/debug/debug_composite_pipeline.h"
 #include "engine/renderer/pipelines/debug/debug_highlighter.h"
 #include "engine/renderer/pipelines/debug/debug_renderer.h"
@@ -133,7 +133,7 @@ void Engine::init()
 
     createDrawResources();
 
-#if WILL_ENGINE_DEBUG
+#if WILL_ENGINE_DEBUG_DRAW
     debugRenderer = new debug_renderer::DebugRenderer(*resourceManager);
     debug_renderer::DebugRenderer::set(debugRenderer);
     debugPipeline = new debug_pipeline::DebugCompositePipeline(*resourceManager);
@@ -405,14 +405,6 @@ void Engine::updateGame(const float deltaTime)
             }
         }
     }
-
-    constexpr glm::vec3 offset{-100, 100, 0};
-    for (int32_t i{0}; i < 100; i++) {
-        for (int32_t j{0}; j < 100; j++) {
-            float z = glm::sin(Time::Get().getTime() - j * 0.5f) * 2.0;
-            debug_renderer::DebugRenderer::drawBox(offset + glm::vec3(i, j, z), {0.8f, 0.8f, 0.8f}, {0.0f, 0.7f, 0.1f});
-        }
-    }
 #endif
 
     for (IHierarchical* hierarchal : hierarchalBeginQueue) {
@@ -537,15 +529,26 @@ void Engine::updateDebug(float deltaTime)
                 if (const physics::RaycastHit result = physics::PhysicsUtils::raycast(camera->getPosition(),
                                                                                       normalize(direction) * camera->getNearPlane())) {
                     if (const physics::PhysicsObject* physicsObject = physics->getPhysicsObject(result.hitBodyID)) {
-                        const auto* component = dynamic_cast<components::Component*>(physicsObject->physicsBody);
-                        if (IComponentContainer* owner = component->getOwner()) {
-                            if (const auto hierarchical = dynamic_cast<IHierarchical*>(owner)) {
-                                selectItem(hierarchical);
+                        if (const auto* component = dynamic_cast<components::Component*>(physicsObject->physicsBody)) {
+                            if (IComponentContainer* owner = component->getOwner()) {
+                                if (const auto hierarchical = dynamic_cast<IHierarchical*>(owner)) {
+                                    selectItem(hierarchical);
+                                }
                             }
                         }
                     }
                 }
             }
+        }
+    }
+#endif
+
+#if WILL_ENGINE_DEBUG_DRAW
+    constexpr glm::vec3 offset{-100, 100, 0};
+    for (int32_t i{0}; i < 100; i++) {
+        for (int32_t j{0}; j < 100; j++) {
+            float z = glm::sin(Time::Get().getTime() - j * 0.5f) * 2.0;
+            debug_renderer::DebugRenderer::drawBox(offset + glm::vec3(i, j, z), {0.8f, 0.8f, 0.8f}, {0.0f, 0.7f, 0.1f});
         }
     }
 #endif
@@ -817,7 +820,7 @@ void Engine::render(float deltaTime)
 
     postProcessPipeline->draw(cmd, postProcessDrawInfo);
 
-#if WILL_ENGINE_DEBUG
+#if WILL_ENGINE_DEBUG_DRAW
     // Ensure all real rendering happens before this step, as debug draws do write to the depth buffer.
     // This should ALWAYS be the final step before copying to swapchain
     if (bDrawDebugRendering) {
@@ -1025,7 +1028,7 @@ void Engine::cleanup()
 
     delete cascadedShadowMap;
     delete environmentMap;
-#if WILL_ENGINE_DEBUG
+#if WILL_ENGINE_DEBUG_DRAW
     resourceManager->destroy(debugTarget);
     delete debugRenderer;
     delete debugHighlighter;
@@ -1295,7 +1298,7 @@ void Engine::createDrawResources()
         VK_CHECK(vkCreateImageView(context->device, &rview_info, nullptr, &finalImageBuffer.imageView));
     }
 
-#if WILL_ENGINE_DEBUG
+#if WILL_ENGINE_DEBUG_DRAW
     // Debug Output (Gizmos, Debug Draws, etc. Output here before combined w/ final image. Goes around normal pass stuff. Expects inputs to be jittered because to test against depth buffer, fragments need to be jittered cause depth buffer is jittered)
     constexpr VkExtent3D imageExtent = {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1};
     VkImageUsageFlags usageFlags{};

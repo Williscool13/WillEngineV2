@@ -15,8 +15,14 @@ add_definitions(-DJPH_ENABLE_ASSERT_MESSAGES=1)
 if (CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_definitions(-DWILL_ENGINE_DEBUG=1)
     add_definitions(-DJPH_DEBUG_RENDERER)
+    add_definitions(-DWILL_ENGINE_DEBUG_DRAW=1)
 else()
     add_definitions(-DWILL_ENGINE_RELEASE=1)
+
+    if (CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
+        add_definitions(-DWILL_ENGINE_DEBUG_DRAW=1)
+        add_definitions(-DJPH_DEBUG_RENDERER)
+    endif()
 endif()
 
 # Vulkan
@@ -211,7 +217,7 @@ if (WIN32)
     )
 endif ()
 
-if (CMAKE_BUILD_TYPE STREQUAL "Debug")
+if (CMAKE_BUILD_TYPE STREQUAL "Debug" OR CMAKE_BUILD_TYPE STREQUAL "RelWithDebInfo")
     set(DEBUG_SOURCES
             src/engine/renderer/pipelines/debug/debug_renderer.cpp
             src/engine/renderer/pipelines/debug/debug_renderer.h

@@ -11,7 +11,7 @@
 #include "engine/renderer/renderer_constants.h"
 #include "engine/renderer/vk_types.h"
 
-#ifndef WILL_ENGINE_DEBUG
+#ifndef WILL_ENGINE_DEBUG_DRAW
     #error This file should only be included when WILL_ENGINE_DEBUG is defined
 #endif // !WILL_ENGINE_DEBUG
 

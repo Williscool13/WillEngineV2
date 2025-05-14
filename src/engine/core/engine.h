@@ -26,7 +26,7 @@
 #include "engine/renderer/pipelines/shadows/contact_shadow/contact_shadows_pipeline.h"
 #include "engine/renderer/pipelines/shadows/ground_truth_ambient_occlusion/ambient_occlusion_types.h"
 
-#if WILL_ENGINE_DEBUG
+#if WILL_ENGINE_DEBUG_DRAW
 namespace will_engine::debug_renderer
 {
 class DebugRenderer;
@@ -186,7 +186,7 @@ private:
     ResourceManager* resourceManager{nullptr};
     AssetManager* assetManager{nullptr};
     physics::Physics* physics{nullptr};
-#if WILL_ENGINE_DEBUG
+#if WILL_ENGINE_DEBUG_DRAW
     debug_renderer::DebugRenderer* debugRenderer{nullptr};
     debug_highlight_pipeline::DebugHighlighter* debugHighlighter{nullptr};
     debug_pipeline::DebugCompositePipeline* debugPipeline{nullptr};

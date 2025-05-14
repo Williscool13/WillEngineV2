@@ -11,7 +11,7 @@
 
 #include "engine/renderer/resource_manager.h"
 
-#if WILL_ENGINE_DEBUG
+#if WILL_ENGINE_DEBUG_DRAW
 
 namespace will_engine::debug_renderer
 {
