@@ -16,6 +16,8 @@
 
 namespace will_engine
 {
+class IComponentContainer;
+
 namespace game_object
 {
     class GameObject;
@@ -147,7 +149,7 @@ public: // Model Rendering API
     [[nodiscard]] size_t getTransparentDrawIndirectCommandCount() const { return transparentDrawCommands.size(); }
 
 
-    void recursiveGenerateGameObject(const RenderNode& renderNode, game_object::GameObject* parent);
+    void recursiveGenerate(const RenderNode& renderNode, IComponentContainer* container);
 
     /**
      * @param renderable to assign mesh references.

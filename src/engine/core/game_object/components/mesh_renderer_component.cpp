@@ -163,13 +163,19 @@ void MeshRendererComponent::releaseMesh()
     meshIndex = INDEX_NONE;
 }
 
+void MeshRendererComponent::setTransform(const Transform& localTransform)
+{
+    this->localTransform = localTransform;
+    cachedLocalModel = localTransform.toModelMatrix();
+}
+
 glm::mat4 MeshRendererComponent::getModelMatrix()
 {
     if (transformableOwner) {
-        return transformableOwner->getModelMatrix();
+        return cachedLocalModel * transformableOwner->getModelMatrix();
     }
 
-    return glm::mat4(1.0f);
+    return cachedLocalModel;
 }
 
 void MeshRendererComponent::setOwner(IComponentContainer* owner)

@@ -211,36 +211,29 @@ game_object::GameObject* RenderObject::generateGameObject(const std::string& gam
     }
 
     auto& gameObjectFactory = game_object::GameObjectFactory::getInstance();
-    game_object::GameObject* superRoot = gameObjectFactory.createGameObject(game_object::GameObject::getStaticType(), gameObjectName);
+    game_object::GameObject* container = gameObjectFactory.createGameObject(game_object::GameObject::getStaticType(), gameObjectName);
 
     for (const int32_t rootNode : topNodes) {
-        recursiveGenerateGameObject(renderNodes[rootNode], superRoot);
+        recursiveGenerate(renderNodes[rootNode], container);
     }
 
     dirty();
-    return superRoot;
+    return container;
 }
 
-void RenderObject::recursiveGenerateGameObject(const RenderNode& renderNode, game_object::GameObject* parent)
+void RenderObject::recursiveGenerate(const RenderNode& renderNode, IComponentContainer* container)
 {
-    auto& gameObjectFactory = game_object::GameObjectFactory::getInstance();
-    game_object::GameObject* gameObject = gameObjectFactory.createGameObject(game_object::GameObject::getStaticType(), renderNode.name);
-
     if (renderNode.meshIndex != -1) {
-        IComponentContainer* _container = gameObject;
-        auto newMeshComponent = components::ComponentFactory::getInstance().createComponent(
-            components::MeshRendererComponent::getStaticType(), renderNode.name);
-        _container->addComponent(std::move(newMeshComponent));
-        if (components::MeshRendererComponent* meshRenderer = _container->getMeshRenderer()) {
-            generateMesh(meshRenderer, renderNode.meshIndex);
+        auto newMeshComponent = components::ComponentFactory::getInstance().createComponent(components::MeshRendererComponent::getStaticType(), renderNode.name);
+        components::Component* component = container->addComponent(std::move(newMeshComponent));
+        if (const auto meshComponent = dynamic_cast<components::MeshRendererComponent*>(component)) {
+            generateMesh(meshComponent, renderNode.meshIndex);
+            meshComponent->setTransform(renderNode.transform);
         }
     }
 
-    gameObject->setLocalTransform(renderNode.transform);
-    parent->addChild(gameObject);
-
     for (const auto& child : renderNode.children) {
-        recursiveGenerateGameObject(*child, gameObject);
+        recursiveGenerate(*child, container);
     }
 }
 

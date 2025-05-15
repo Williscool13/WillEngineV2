@@ -99,9 +99,15 @@ public: // IRenderable
 
     void setIsShadowCaster(const bool isShadowCaster) override { bIsShadowCaster = isShadowCaster; }
 
+    void setTransform(const Transform& localTransform) override;
+
     glm::mat4 getModelMatrix() override;
 
     void setOwner(IComponentContainer* owner) override;
+
+private:
+    Transform localTransform{Transform::Identity};
+    glm::mat4 cachedLocalModel{1.0f};
 
 public:
     static constexpr auto TYPE = "MeshRendererComponent";

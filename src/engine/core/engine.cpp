@@ -367,7 +367,6 @@ void Engine::updateGame(const float deltaTime)
     if (input.isKeyPressed(input::Key::R)) {
         if (camera) {
             const glm::vec3 direction = camera->getForwardWS();
-            //const physics::PlayerCollisionFilter dontHitPlayerFilter{};
             const physics::RaycastHit result = physics::PhysicsUtils::raycast(camera->getPosition(), direction, 100.0f, {}, {}, {});
 
             if (result.hasHit) {

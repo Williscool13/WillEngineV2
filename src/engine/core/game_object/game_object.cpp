@@ -399,11 +399,6 @@ components::Component* GameObject::addComponent(std::unique_ptr<components::Comp
 {
     if (!component) { return nullptr; }
 
-    if (hasComponent(component->getComponentType())) {
-        fmt::print("Attempted to add a component that already exists on this gameobject.\n");
-        return nullptr;
-    }
-
     component->setOwner(this);
     components.push_back(std::move(component));
 

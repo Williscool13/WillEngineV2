@@ -34,6 +34,8 @@ public:
 
     virtual void setIsShadowCaster(bool isShadowCaster) = 0;
 
+    virtual void setTransform(const Transform& localTransform) = 0;
+
     virtual glm::mat4 getModelMatrix() = 0;
 
     virtual int32_t getRenderFramesToUpdate() = 0;

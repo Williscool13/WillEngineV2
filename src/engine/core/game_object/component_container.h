@@ -25,6 +25,7 @@ public:
 
     virtual components::Component* getComponentImpl(const std::type_info& type) = 0;
 
+    // todo: restore "GetComponents" from previously deleted commit.
     template<typename T>
     T* getComponent()
     {
