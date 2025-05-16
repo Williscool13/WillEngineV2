@@ -47,6 +47,18 @@ public:
         return typed;
     }
 
+    template<typename T>
+    void getComponentsInto(std::vector<T*>& outComponents)
+    {
+        static_assert(std::is_base_of_v<components::Component, T>, "T must inherit from Component");
+        std::vector<components::Component*> baseComponents = getComponentsImpl(typeid(T));
+        outComponents.clear();
+        outComponents.reserve(baseComponents.size());
+        for (auto* comp : baseComponents) {
+            outComponents.push_back(static_cast<T*>(comp));
+        }
+    }
+
     virtual std::vector<components::Component*> getAllComponents() = 0;
 
     virtual components::Component* getComponentByTypeName(std::string_view componentType) = 0;
@@ -60,8 +72,6 @@ public:
     virtual void destroyComponent(components::Component* component) = 0;
 
     virtual components::RigidBodyComponent* getRigidbody() const = 0;
-
-    virtual components::MeshRendererComponent* getMeshRenderer() const = 0;
 
     [[nodiscard]] virtual std::string_view getName() const = 0;
 };

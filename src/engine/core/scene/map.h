@@ -89,8 +89,6 @@ public: // IComponentContainer
 
     components::RigidBodyComponent* getRigidbody() const override { return nullptr; }
 
-    components::MeshRendererComponent* getMeshRenderer() const override { return nullptr; }
-
 protected: // IComponentContainer
     std::vector<std::unique_ptr<components::Component> > components{};
 

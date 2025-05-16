@@ -40,7 +40,6 @@ void will_engine::Map::destroy()
 {
     recursivelyDestroy();
 
-    // todo: add this to the deletion queue
     if (Engine* engine = Engine::get()) {
         engine->addToMapDeletionQueue(this);
     }

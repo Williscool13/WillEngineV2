@@ -211,7 +211,7 @@ public: // IComponentContainer
 
     components::RigidBodyComponent* getRigidbody() const override { return rigidbodyComponent; }
 
-    components::MeshRendererComponent* getMeshRenderer() const override { return meshRendererComponent; }
+    std::vector<components::MeshRendererComponent*> getMeshRendererComponents();
 
 public:
     static constexpr auto TYPE = "GameObject";
@@ -229,7 +229,8 @@ protected: // IComponentContainer
 
 protected:
     components::RigidBodyComponent* rigidbodyComponent{nullptr};
-    components::MeshRendererComponent* meshRendererComponent{nullptr};
+    std::vector<components::MeshRendererComponent*> cachedMeshRendererComponents{};
+    bool bIsCachedMeshRenderersDirty{false};
 
 public:
     bool operator==(const GameObject& other) const

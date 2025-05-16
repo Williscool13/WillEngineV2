@@ -858,17 +858,11 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                                         ImGui::SameLine();
                                         if (auto container = dynamic_cast<IComponentContainer*>(engine->selectedItem)) {
-                                            if (ImGui::Button("Attach to selected item")) {
-                                                if (!container->getMeshRenderer()) {
-                                                    auto newComponent = components::ComponentFactory::getInstance().
-                                                            createComponent(components::MeshRendererComponent::getStaticType(), "Mesh Renderer");
-                                                    container->addComponent(std::move(newComponent));
-                                                }
-                                                if (auto meshRenderer = container->getMeshRenderer()) {
-                                                    if (meshRenderer->hasMesh()) {
-                                                        meshRenderer->releaseMesh();
-                                                    }
-
+                                            if (ImGui::Button("Add to selected item")) {
+                                                auto newComponent = components::ComponentFactory::getInstance().
+                                                        createComponent(components::MeshRendererComponent::getStaticType(), "Mesh Renderer");
+                                                components::Component* component = container->addComponent(std::move(newComponent));
+                                                if (auto meshRenderer = dynamic_cast<components::MeshRendererComponent*>(component)) {
                                                     selectedRenderObject->generateMesh(meshRenderer, selectedMeshIndex);
                                                 }
                                             }
@@ -880,8 +874,9 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                                 if (auto _container = dynamic_cast<IComponentContainer*>(gob)) {
                                                     auto newComponent = components::ComponentFactory::getInstance().createComponent(
                                                         components::MeshRendererComponent::getStaticType(), "Mesh Renderer");
-                                                    _container->addComponent(std::move(newComponent));
-                                                    if (components::MeshRendererComponent* meshRenderer = _container->getMeshRenderer()) {
+
+                                                    components::Component* component = _container->addComponent(std::move(newComponent));
+                                                    if (auto meshRenderer = dynamic_cast<components::MeshRendererComponent*>(component)) {
                                                         selectedRenderObject->generateMesh(meshRenderer, selectedMeshIndex);
                                                     }
                                                     fmt::print("Added single mesh to scene\n");

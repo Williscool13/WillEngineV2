@@ -200,9 +200,8 @@ bool GameObject::deleteChild(IHierarchical* child)
 
 void GameObject::dirty()
 {
-    // todo: cache all meshrenderercomponents for easy access
-    for (components::MeshRendererComponent* meshComponent : getComponents<components::MeshRendererComponent>()) {
-        meshComponent->dirty();
+    for (components::MeshRendererComponent* meshRenderer : getMeshRendererComponents()) {
+        meshRenderer->dirty();
     }
 
     bIsGlobalTransformDirty = true;
@@ -470,7 +469,7 @@ components::Component* GameObject::addComponent(std::unique_ptr<components::Comp
     components.push_back(std::move(component));
 
     rigidbodyComponent = getComponent<components::RigidBodyComponent>();
-    meshRendererComponent = getComponent<components::MeshRendererComponent>();
+    bIsCachedMeshRenderersDirty = true;
 
     if (bHasBegunPlay) {
         components.back()->beginPlay();
@@ -496,9 +495,17 @@ void GameObject::destroyComponent(components::Component* component)
     }
 
     rigidbodyComponent = nullptr;
-    meshRendererComponent = nullptr;
     rigidbodyComponent = getComponent<components::RigidBodyComponent>();
-    meshRendererComponent = getComponent<components::MeshRendererComponent>();
+    bIsCachedMeshRenderersDirty = true;
+}
+
+std::vector<components::MeshRendererComponent*> GameObject::getMeshRendererComponents()
+{
+    if (bIsCachedMeshRenderersDirty) {
+        getComponentsInto<components::MeshRendererComponent>(cachedMeshRendererComponents);
+        bIsCachedMeshRenderersDirty = false;
+    }
+    return cachedMeshRendererComponents;
 }
 
 void GameObject::selectedRenderImgui()
