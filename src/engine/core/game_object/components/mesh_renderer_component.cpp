@@ -165,6 +165,7 @@ void MeshRendererComponent::releaseMesh()
 
 void MeshRendererComponent::setTransform(const Transform& localTransform)
 {
+    // todo: some kind of hierarchy? so we can maintain the hierarchy presented by the gltf model
     this->localTransform = localTransform;
     cachedLocalModel = localTransform.toModelMatrix();
 }

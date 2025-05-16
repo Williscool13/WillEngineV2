@@ -25,7 +25,8 @@ public:
 
     virtual components::Component* getComponentImpl(const std::type_info& type) = 0;
 
-    // todo: restore "GetComponents" from previously deleted commit.
+    virtual std::vector<components::Component*> getComponentsImpl(const std::type_info& type) = 0;
+
     template<typename T>
     T* getComponent()
     {
@@ -33,13 +34,26 @@ public:
         return static_cast<T*>(getComponentImpl(typeid(T)));
     }
 
+    template<typename T>
+    std::vector<T*> getComponents()
+    {
+        static_assert(std::is_base_of_v<components::Component, T>, "T must inherit from Component");
+        std::vector<components::Component*> baseComponents = getComponentsImpl(typeid(T));
+        std::vector<T*> typed;
+        typed.reserve(baseComponents.size());
+        for (auto* comp : baseComponents) {
+            typed.push_back(static_cast<T*>(comp));
+        }
+        return typed;
+    }
+
     virtual std::vector<components::Component*> getAllComponents() = 0;
 
     virtual components::Component* getComponentByTypeName(std::string_view componentType) = 0;
 
-    virtual bool hasComponent(std::string_view componentType) = 0;
+    virtual std::vector<components::Component*> getComponentsByTypeName(std::string_view componentType) = 0;
 
-    virtual bool canAddComponent(std::string_view componentType) = 0;
+    virtual bool hasComponent(std::string_view componentType) = 0;
 
     virtual components::Component* addComponent(std::unique_ptr<components::Component> component) = 0;
 

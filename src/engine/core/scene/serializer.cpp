@@ -99,12 +99,9 @@ game_object::GameObject* Serializer::deserializeGameObject(const ordered_json& j
                 }
 
 
-                components::Component* component = componentContainer->getComponentByTypeName(componentType);
+                std::unique_ptr<components::Component> newComponent = factory.createComponent(componentType, componentName);
+                components::Component* component = componentContainer->addComponent(std::move(newComponent));
 
-                if (!component) {
-                    auto newComponent = factory.createComponent(componentType, componentName);
-                    component = componentContainer->addComponent(std::move(newComponent));
-                }
 
                 if (!component) {
                     fmt::print("Component failed to be created ({})", componentType);

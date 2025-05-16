@@ -364,7 +364,7 @@ void GameObject::rotateAxis(const float angle, const glm::vec3& axis)
 }
 
 
-components::Component* GameObject::getComponentByTypeName(std::string_view componentType)
+components::Component* GameObject::getComponentByTypeName(const std::string_view componentType)
 {
     for (const auto& _component : components) {
         if (componentType == _component->getComponentType()) {
@@ -373,6 +373,19 @@ components::Component* GameObject::getComponentByTypeName(std::string_view compo
     }
 
     return nullptr;
+}
+
+std::vector<components::Component*> GameObject::getComponentsByTypeName(const std::string_view componentType)
+{
+    std::vector<components::Component*> outComponents;
+    outComponents.reserve(components.size());
+    for (const auto& component : components) {
+        if (component->getComponentType() == componentType) {
+            outComponents.push_back(component.get());
+        }
+    }
+
+    return outComponents;
 }
 
 bool GameObject::hasComponent(std::string_view componentType)
@@ -384,15 +397,6 @@ bool GameObject::hasComponent(std::string_view componentType)
     }
 
     return false;
-}
-
-bool GameObject::canAddComponent(const std::string_view componentType)
-{
-    if (hasComponent(componentType)) {
-        return false;
-    }
-
-    return true;
 }
 
 components::Component* GameObject::addComponent(std::unique_ptr<components::Component> component)
@@ -487,16 +491,11 @@ void GameObject::selectedRenderImgui()
                     const auto& creators = components::ComponentFactory::getInstance().getManuallyCreatableComponentCreators();
                     for (const auto& type : creators | std::views::keys) {
                         if (ImGui::Selectable(type.data())) {
-                            if (!canAddComponent(type)) {
-                                failedComponentMessage = "Cannot add another " + std::string(type) + " component";
-                                failedComponentTimeLeft = 7.5f;
+                            auto newComponent = components::ComponentFactory::getInstance().createComponent(type, "New " + std::string(type));
+                            if (newComponent) {
+                                addComponent(std::move(newComponent));
                             }
-                            else {
-                                auto newComponent = components::ComponentFactory::getInstance().createComponent(type, "New " + std::string(type));
-                                if (newComponent) {
-                                    addComponent(std::move(newComponent));
-                                }
-                            }
+
 
                             ImGui::CloseCurrentPopup();
                         }

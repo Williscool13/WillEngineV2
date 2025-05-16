@@ -10,7 +10,8 @@
 #include "engine/core/engine.h"
 #include "engine/util/file.h"
 
-will_engine::Map::Map(const std::filesystem::path& mapSource, ResourceManager& resourceManager) : mapSource(mapSource), resourceManager(resourceManager)
+will_engine::Map::Map(const std::filesystem::path& mapSource, ResourceManager& resourceManager) : mapSource(mapSource),
+                                                                                                  resourceManager(resourceManager)
 {
     if (!exists(mapSource)) {
         fmt::print("Map source file not found, generating an empty map\n");
@@ -30,7 +31,8 @@ will_engine::Map::Map(const std::filesystem::path& mapSource, ResourceManager& r
 will_engine::Map::~Map()
 {
     if (!children.empty()) {
-        fmt::print("Error: GameObject destroyed with children, potentially not destroyed with ::destroy. This will result in orphaned children and null references");
+        fmt::print(
+            "Error: GameObject destroyed with children, potentially not destroyed with ::destroy. This will result in orphaned children and null references");
     }
 }
 
@@ -121,7 +123,20 @@ will_engine::components::Component* will_engine::Map::getComponentByTypeName(std
     return nullptr;
 }
 
-bool will_engine::Map::hasComponent(std::string_view componentType)
+std::vector<will_engine::components::Component*> will_engine::Map::getComponentsByTypeName(std::string_view componentType)
+{
+    std::vector<components::Component*> outComponents;
+    outComponents.reserve(components.size());
+    for (const auto& component : components) {
+        if (component->getComponentType() == componentType) {
+            outComponents.push_back(component.get());
+        }
+    }
+
+    return outComponents;
+}
+
+bool will_engine::Map::hasComponent(const std::string_view componentType)
 {
     for (const auto& _component : components) {
         if (componentType == _component->getComponentType()) {
@@ -130,18 +145,6 @@ bool will_engine::Map::hasComponent(std::string_view componentType)
     }
 
     return false;
-}
-
-bool will_engine::Map::canAddComponent(std::string_view componentType)
-{
-    for (const auto& _component : components) {
-        if (componentType == _component->getComponentType()) {
-            fmt::print("Attempted to add a component of the same type to a gameobject. This is not supported at this time.\n");
-            return false;
-        }
-    }
-
-    return true;
 }
 
 will_engine::components::Component* will_engine::Map::addComponent(std::unique_ptr<components::Component> component)

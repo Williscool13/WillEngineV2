@@ -164,6 +164,19 @@ public: // IComponentContainer
         return nullptr;
     }
 
+    std::vector<components::Component*> getComponentsImpl(const std::type_info& type) override
+    {
+        std::vector<components::Component*> outComponents;
+        outComponents.reserve(components.size());
+        for (const auto& component : components) {
+            if (typeid(*component) == type) {
+                outComponents.push_back(component.get());
+            }
+        }
+
+        return outComponents;
+    }
+
     std::vector<components::Component*> getAllComponents() override
     {
         std::vector<components::Component*> _components;
@@ -175,11 +188,21 @@ public: // IComponentContainer
         return _components;
     }
 
+    /**
+     * Returns the first component of the type specified.
+     * @param componentType
+     * @return
+     */
     components::Component* getComponentByTypeName(std::string_view componentType) override;
 
-    bool hasComponent(std::string_view componentType) override;
+    /**
+     * Returns all components of the type specified.
+     * @param componentType
+     * @return
+     */
+    std::vector<components::Component*> getComponentsByTypeName(std::string_view componentType) override;
 
-    bool canAddComponent(std::string_view componentType) override;
+    bool hasComponent(std::string_view componentType) override;
 
     components::Component* addComponent(std::unique_ptr<components::Component> component) override;
 
