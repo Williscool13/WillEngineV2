@@ -272,8 +272,7 @@ void Engine::initGame()
 {
     assetManager->scanForAll();
     camera = new FreeCamera();
-    const auto map = new Map(file::getSampleScene(), *resourceManager);
-    activeMaps.insert(map);
+    createMap(file::getSampleScene());
 }
 
 void Engine::run()
@@ -413,21 +412,9 @@ void Engine::updateGame(const float deltaTime)
 
     // This is the main game update loop.
     // Recursively updates all child gameobjects of each map
-    for (Map* map : activeMaps) {
+    for (auto& map : activeMaps) {
         map->update(deltaTime);
     }
-
-    for (IHierarchical* hierarchical : hierarchicalDeletionQueue) {
-        if (auto map = dynamic_cast<Map*>(hierarchical)) {
-            if (activeMaps.contains(map)) {
-                activeMaps.erase(map);
-            }
-        }
-
-        hierarchical->beginDestroy();
-        delete hierarchical;
-    }
-    hierarchicalDeletionQueue.clear();
 }
 
 void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap) const
@@ -511,7 +498,7 @@ void Engine::updateDebug(float deltaTime)
 #if WILL_ENGINE_DEBUG_DRAW
     if (selectedItem) {
         if (const auto gameObject = dynamic_cast<game_object::GameObject*>(selectedItem)) {
-            if (components::RigidBodyComponent* rb = gameObject->getRigidbody()) {
+            if (const components::RigidBodyComponent* rb = gameObject->getRigidbody()) {
                 if (rb->hasRigidBody()) {
                     physics::Physics::get()->drawDebug(rb->getPhysicsBodyId());
                 }
@@ -1005,19 +992,18 @@ void Engine::cleanup()
     resourceManager->destroy(historyBuffer);
     resourceManager->destroy(finalImageBuffer);
 
-    for (Map* map : activeMaps) {
+    for (const auto& map : activeMaps) {
         map->destroy();
     }
+    // clear map deletion
+    for (const auto& map : mapDeletionQueue) {
+        map->beginDestructor();
+    }
+    mapDeletionQueue.clear();
 
-    for (IHierarchical* hierarchical : hierarchicalDeletionQueue) {
-        if (auto map = dynamic_cast<Map*>(hierarchical)) {
-            if (activeMaps.contains(map)) {
-                activeMaps.erase(map);
-            }
-        }
-
-        hierarchical->beginDestroy();
-        delete hierarchical;
+    // clear hierarchy deletion
+    for (const auto& hierarchical : hierarchicalDeletionQueue) {
+        hierarchical->beginDestructor();
     }
     hierarchicalDeletionQueue.clear();
     hierarchalBeginQueue.clear();
@@ -1071,9 +1057,10 @@ void Engine::deselectItem()
 
 IHierarchical* Engine::createGameObject(Map* map, const std::string& name)
 {
-    const auto newGameObject = new game_object::GameObject(name);
-    map->addGameObject(newGameObject);
-    return newGameObject;
+    auto newGameObject = std::make_unique<game_object::GameObject>(name);
+    auto newGameObjectPtr = newGameObject.get();
+    map->addChild(std::move(newGameObject));
+    return newGameObjectPtr;
 }
 
 void Engine::addToBeginQueue(IHierarchical* obj)
@@ -1081,13 +1068,23 @@ void Engine::addToBeginQueue(IHierarchical* obj)
     hierarchalBeginQueue.push_back(obj);
 }
 
-void Engine::addToDeletionQueue(IHierarchical* obj)
+void Engine::addToMapDeletionQueue(Map* obj)
 {
-    const auto found = std::ranges::find(hierarchalBeginQueue, obj);
-    if (found != hierarchalBeginQueue.end()) {
-        hierarchalBeginQueue.erase(found);
+    auto it = std::ranges::find_if(activeMaps,
+                                   [obj](const std::unique_ptr<Map>& ptr) {
+                                       return ptr.get() == obj;
+                                   });
+
+    if (it != activeMaps.end()) {
+        mapDeletionQueue.push_back(std::move(*it));
+        activeMaps.erase(it);
     }
-    hierarchicalDeletionQueue.push_back(obj);
+}
+
+
+void Engine::addToDeletionQueue(std::unique_ptr<IHierarchical> obj)
+{
+    hierarchicalDeletionQueue.push_back(std::move(obj));
 }
 
 void Engine::addToActiveTerrain(ITerrain* terrain)
@@ -1144,6 +1141,14 @@ void Engine::resizeSwapchain()
 
     bResizeRequested = false;
     fmt::print("Window extent has been updated to {}x{}\n", windowExtent.x, windowExtent.y);
+}
+
+Map* Engine::createMap(const std::filesystem::path& path)
+{
+    auto newMap = std::make_unique<Map>(path, *resourceManager);
+    Map* newMapPtr = newMap.get();
+    activeMaps.push_back(std::move(newMap));
+    return newMapPtr;
 }
 
 void Engine::createDrawResources()

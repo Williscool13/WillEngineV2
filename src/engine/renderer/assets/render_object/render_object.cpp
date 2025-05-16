@@ -200,7 +200,7 @@ void RenderObject::dirty()
 
 }
 
-game_object::GameObject* RenderObject::generateGameObject(const std::string& gameObjectName)
+std::unique_ptr<game_object::GameObject> RenderObject::generateGameObject(const std::string& gameObjectName)
 {
     // get number of meshes in the entire model
     uint32_t instanceCount{0};
@@ -211,10 +211,10 @@ game_object::GameObject* RenderObject::generateGameObject(const std::string& gam
     }
 
     auto& gameObjectFactory = game_object::GameObjectFactory::getInstance();
-    game_object::GameObject* container = gameObjectFactory.createGameObject(game_object::GameObject::getStaticType(), gameObjectName);
+    std::unique_ptr<game_object::GameObject> container = gameObjectFactory.createGameObject(game_object::GameObject::getStaticType(), gameObjectName);
 
     for (const int32_t rootNode : topNodes) {
-        recursiveGenerate(renderNodes[rootNode], container);
+        recursiveGenerate(renderNodes[rootNode], container.get());
     }
 
     dirty();

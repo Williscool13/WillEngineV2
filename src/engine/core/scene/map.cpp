@@ -38,14 +38,11 @@ will_engine::Map::~Map()
 
 void will_engine::Map::destroy()
 {
-    for (int32_t i = static_cast<int32_t>(children.size()) - 1; i >= 0; i--) {
-        recursiveDestroy(children[i]);
-    }
+    recursivelyDestroy();
 
-    children.clear();
-
+    // todo: add this to the deletion queue
     if (Engine* engine = Engine::get()) {
-        engine->addToDeletionQueue(this);
+        engine->addToMapDeletionQueue(this);
     }
 }
 
@@ -105,11 +102,6 @@ bool will_engine::Map::saveMap(const std::filesystem::path& newSavePath)
     ordered_json rootJ;
 
     return Serializer::serializeMap(this, rootJ, mapSource);
-}
-
-void will_engine::Map::addGameObject(IHierarchical* newChild)
-{
-    addChild(newChild);
 }
 
 will_engine::components::Component* will_engine::Map::getComponentByTypeName(std::string_view componentType)
@@ -185,7 +177,6 @@ void will_engine::Map::destroyComponent(components::Component* component)
         fmt::print("Attempted to remove a component that does not belong to this gameobject.\n");
     }
 
-    terrainComponent = nullptr;
     terrainComponent = getComponent<components::TerrainComponent>();
 }
 
@@ -207,68 +198,125 @@ void will_engine::Map::update(const float deltaTime)
         }
     }
 
-    for (IHierarchical* child : getChildren()) {
-        recursiveUpdate(child, deltaTime);
-    }
+    recursivelyUpdate(deltaTime);
 }
 
-void will_engine::Map::beginDestroy()
+void will_engine::Map::beginDestructor()
 {
     for (const auto& component : components) {
         component->beginDestroy();
     }
 }
 
-void will_engine::Map::recursiveUpdate(IHierarchical* object, const float deltaTime)
+will_engine::IHierarchical* will_engine::Map::addChild(std::unique_ptr<IHierarchical> child, bool retainTransform)
 {
-    object->update(deltaTime);
-
-    for (IHierarchical* child : object->getChildren()) {
-        recursiveUpdate(child, deltaTime);
-    }
-}
-
-void will_engine::Map::recursiveDestroy(IHierarchical* object)
-{
-    for (int32_t i = static_cast<int32_t>(object->getChildren().size()) - 1; i >= 0; i--) {
-        recursiveDestroy(object->getChildren()[i]);
+    ITransformable* transformable = dynamic_cast<ITransformable*>(child.get());
+    Transform prevTransform = Transform::Identity;
+    if (retainTransform && transformable) {
+        prevTransform = transformable->getGlobalTransform();
     }
 
-    object->destroy();
+    children.push_back(std::move(child));
+    children.back()->setParent(this);
+    bChildrenCacheDirty = true;
+
+    if (transformable && retainTransform) {
+        transformable->setGlobalTransform(prevTransform);
+    }
+    else {
+        dirty();
+    }
+
+    return children.back().get();
 }
 
-bool will_engine::Map::addChild(IHierarchical* child)
+bool will_engine::Map::moveChild(IHierarchical* child, IHierarchical* newParent, const bool retainTransform)
 {
-    if (child == this) { return false; }
-    if (child->getParent() != nullptr) { return false; }
-    if (std::ranges::find(children, child) != children.end()) { return false; }
+    const auto it = std::ranges::find_if(children,
+                                         [child](const std::unique_ptr<IHierarchical>& ptr) {
+                                             return ptr.get() == child;
+                                         });
+    if (it != children.end()) {
+        newParent->addChild(std::move(*it), retainTransform);
+        children.erase(it);
+        bChildrenCacheDirty = true;
+        return true;
+    }
 
-    child->setParent(this);
-    children.push_back(child);
-    return true;
-}
-
-bool will_engine::Map::removeChild(IHierarchical* child)
-{
-    if (child->getParent() != this) { return false; }
-
-    const auto it = std::ranges::find(children, child);
-    if (it == children.end()) { return false; }
-
-    children.erase(it);
-    child->setParent(nullptr);
-    return true;
-}
-
-bool will_engine::Map::removeParent()
-{
-    fmt::print("Warning: You are not allowed to remove parent of a willmap");
     return false;
 }
 
-void will_engine::Map::reparent(IHierarchical* newParent)
+void will_engine::Map::moveChildToIndex(int32_t fromIndex, int32_t targetIndex)
 {
-    fmt::print("Warning: You re not allowed to reparent a willmap");
+    if (fromIndex >= children.size() || targetIndex >= children.size() || fromIndex == targetIndex) {
+        return;
+    }
+
+    if (fromIndex < targetIndex) {
+        std::rotate(
+            children.begin() + fromIndex,
+            children.begin() + fromIndex + 1,
+            children.begin() + targetIndex + 1
+        );
+    }
+    else {
+        std::rotate(
+            children.begin() + targetIndex,
+            children.begin() + fromIndex,
+            children.begin() + fromIndex + 1
+        );
+    }
+
+    bChildrenCacheDirty = true;
+}
+
+void will_engine::Map::recursivelyUpdate(const float deltaTime)
+{
+    for (auto& child : children) {
+        if (child == nullptr) { continue; }
+        child->update(deltaTime);
+    }
+}
+
+void will_engine::Map::recursivelyDestroy()
+{
+    for (const auto& child : children) {
+        if (child == nullptr) { continue; }
+        child->recursivelyDestroy();
+        child->setParent(nullptr);
+    }
+
+    if (Engine* engine = Engine::get()) {
+        for (auto& child : children) {
+            if (child == nullptr) { continue; }
+            engine->addToDeletionQueue(std::move(child));
+        }
+
+        children.clear();
+        bChildrenCacheDirty = true;
+    }
+    else {
+        fmt::print("Warning: Failed to get engine to recursively delete gameobjects, may result in orphans");
+    }
+}
+
+bool will_engine::Map::deleteChild(IHierarchical* child)
+{
+    const auto it = std::ranges::find_if(children,
+                                         [child](const std::unique_ptr<IHierarchical>& ptr) {
+                                             return ptr.get() == child;
+                                         });
+
+    if (it != children.end()) {
+        if (Engine* engine = Engine::get()) {
+            engine->addToDeletionQueue(std::move(*it));
+            children.erase(it);
+            bChildrenCacheDirty = true;
+            return true;
+        }
+    }
+
+    return false;
 }
 
 void will_engine::Map::dirty()
@@ -276,6 +324,7 @@ void will_engine::Map::dirty()
     cachedModelMatrix = transform.toModelMatrix();
 
     for (const auto& child : children) {
+        if (child == nullptr) { continue; }
         child->dirty();
     }
 }
@@ -290,14 +339,19 @@ will_engine::IHierarchical* will_engine::Map::getParent() const
     return nullptr;
 }
 
-const std::vector<will_engine::IHierarchical*>& will_engine::Map::getChildren() const
-{
-    return children;
-}
-
 std::vector<will_engine::IHierarchical*>& will_engine::Map::getChildren()
 {
-    return children;
+    if (bChildrenCacheDirty) {
+        childrenCache.clear();
+        childrenCache.reserve(children.size());
+        for (const auto& child : children) {
+            if (child == nullptr) { continue; }
+            childrenCache.push_back(child.get());
+        }
+        bChildrenCacheDirty = false;
+    }
+
+    return childrenCache;
 }
 
 void will_engine::Map::setName(std::string newName)

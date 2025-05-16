@@ -16,7 +16,7 @@
 namespace will_engine
 {
 /**
- * Maps do no have parents, they are the roots of their respctive hierarchies
+ * Maps represent the top-most object in a scene hierarchy. It has no parents and can have an unbound number of children.
  */
 class Map final : public IHierarchical,
                   public ITransformable,
@@ -39,8 +39,6 @@ public:
     int32_t getMapId() const { return mapId; }
 
     std::filesystem::path getMapPath() const { return mapSource; }
-
-    void addGameObject(IHierarchical* newChild);
 
 #pragma region Interfaces
 
@@ -108,28 +106,26 @@ public: // IHierarchical
      */
     void update(float deltaTime) override;
 
-    void beginDestroy() override;
+    void beginDestructor() override;
 
-    bool addChild(IHierarchical* child) override;
+    IHierarchical* addChild(std::unique_ptr<IHierarchical> child, bool retainTransform = false) override;
 
-    bool removeChild(IHierarchical* child) override;
+    bool moveChild(IHierarchical* child, IHierarchical* newParent, bool retainTransform = true) override;
 
-    /**
-     * Removes the parent while maintaining world position. Does not attempt to update the parent's state.
-     * \n WARNING: Doing this without re-parenting will result in an orphaned gameobject, beware.
-     * @return
-     */
-    bool removeParent() override;
+    void moveChildToIndex(int32_t fromIndex, int32_t targetIndex) override;
 
-    void reparent(IHierarchical* newParent) override;
+    bool deleteChild(IHierarchical* child) override;;
+
+    void recursivelyUpdate(float deltaTime) override;
+
+    void recursivelyDestroy() override;
+
 
     void dirty() override;
 
     void setParent(IHierarchical* newParent) override;
 
     IHierarchical* getParent() const override;
-
-    const std::vector<IHierarchical*>& getChildren() const override;
 
     std::vector<IHierarchical*>& getChildren() override;
 
@@ -138,11 +134,11 @@ public: // IHierarchical
     std::string_view getName() const override { return mapName; }
 
 private: // IHierarchical
-    std::vector<IHierarchical*> children{};
+    std::vector<std::unique_ptr<IHierarchical>> children{};
 
-    void recursiveUpdate(IHierarchical* object, float deltaTime);
+    std::vector<IHierarchical*> childrenCache{};
+    bool bChildrenCacheDirty{false};
 
-    void recursiveDestroy(IHierarchical* object);
 
     bool bHasBegunPlay{false};
 

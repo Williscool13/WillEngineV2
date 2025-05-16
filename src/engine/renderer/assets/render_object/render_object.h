@@ -121,7 +121,7 @@ private: // IRenderReference
     uint32_t renderObjectId{};
 
 public: // Model Rendering API
-    game_object::GameObject* generateGameObject(const std::string& gameObjectName = "");
+    std::unique_ptr<game_object::GameObject> generateGameObject(const std::string& gameObjectName = "");
 
     [[nodiscard]] size_t getMeshCount() const { return meshes.size(); }
     [[nodiscard]] bool canDraw() const { return freeInstanceIndices.size() != currentMaxInstanceCount; }

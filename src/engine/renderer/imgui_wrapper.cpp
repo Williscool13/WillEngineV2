@@ -105,6 +105,10 @@ void ImguiWrapper::handleInput(const SDL_Event& e)
 
 void ImguiWrapper::selectMap(Map* newMap)
 {
+    if (newMap == nullptr) {
+        fmt::print("Attempted to select a nullptr map");
+        return;
+    }
     selectedMap = newMap;
     if (!selectedMap) {
         return;
@@ -639,7 +643,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save Draw Image")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "drawImage.png";
-                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->drawImage, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vk_helpers::ImageFormat::RGBA16F, path.string());
+                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->drawImage,
+                                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vk_helpers::ImageFormat::RGBA16F, path.string());
                     }
                     else {
                         fmt::print(" Failed to find/create image save path directory");
@@ -668,7 +673,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save Normals")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "normalRT.png";
-                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->normalRenderTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vk_helpers::ImageFormat::A2R10G10B10_UNORM, path.string());
+                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->normalRenderTarget,
+                                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vk_helpers::ImageFormat::A2R10G10B10_UNORM, path.string());
                     }
                     else {
                         fmt::print(" Failed to save normal render target");
@@ -678,7 +684,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save Albedo Render Target")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "albedoRT.png";
-                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->albedoRenderTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vk_helpers::ImageFormat::RGBA16F, path.string());
+                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->albedoRenderTarget,
+                                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vk_helpers::ImageFormat::RGBA16F, path.string());
                     }
                     else {
                         fmt::print(" Failed to save albedo render target");
@@ -688,7 +695,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save PBR Render Target")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         std::filesystem::path path = file::imagesSavePath / "pbrRT.png";
-                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->pbrRenderTarget, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vk_helpers::ImageFormat::RGBA8_UNORM, path.string());
+                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->pbrRenderTarget,
+                                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vk_helpers::ImageFormat::RGBA8_UNORM, path.string());
                     }
                     else {
                         fmt::print(" Failed to save pbr render target");
@@ -698,7 +706,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save Final Image")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         std::filesystem::path path = file::imagesSavePath / "finalImage.png";
-                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->finalImageBuffer, VK_IMAGE_LAYOUT_GENERAL, vk_helpers::ImageFormat::RGBA16F, path.string());
+                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->finalImageBuffer, VK_IMAGE_LAYOUT_GENERAL,
+                                              vk_helpers::ImageFormat::RGBA16F, path.string());
                     }
                     else {
                         fmt::print(" Failed to find/create image save path directory");
@@ -740,7 +749,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         }
 
         bool alreadyExistsInActiveMaps{false};
-        for (Map* map : engine->activeMaps) {
+        for (auto& map : engine->activeMaps) {
             if (map->getMapPath() == mapPath) {
                 alreadyExistsInActiveMaps = true;
                 break;
@@ -751,8 +760,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         if (ImGui::Button("Load")) {
             engine->assetManager->scanForAll();
             if (exists(mapPath)) {
-                auto map = new Map(mapPath, *engine->resourceManager);
-                engine->activeMaps.insert(map);
+                auto map = engine->createMap(mapPath);
                 selectMap(map);
             }
             else {
@@ -820,8 +828,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                 if (ImGui::BeginTabBar("GameObject Generation")) {
                                     if (ImGui::BeginTabItem("Full Model")) {
                                         if (ImGui::Button("Generate Full Object")) {
-                                            game_object::GameObject* gob = selectedRenderObject->generateGameObject(std::string(objectName));
-                                            selectedMap->addGameObject(gob);
+                                            auto gob = selectedRenderObject->generateGameObject(std::string(objectName));
+                                            selectedMap->addChild(std::move(gob));
                                             fmt::print("Added whole gltf model to the scene\n");
                                         }
                                         ImGui::EndTabItem();
@@ -1201,7 +1209,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         if (ImGui::Button("Save Stencil Debug Draw")) {
             if (file::getOrCreateDirectory(file::imagesSavePath)) {
                 const std::filesystem::path path = file::imagesSavePath / "debugStencil.png";
-                vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->depthStencilImage, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, vk_helpers::ImageFormat::D32S8, path.string(), true);
+                vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->depthStencilImage,
+                                      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, vk_helpers::ImageFormat::D32S8, path.string(), true);
             }
             else {
                 fmt::print(" Failed to find/create image save path directory");
@@ -1221,11 +1230,12 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
 void ImguiWrapper::drawSceneGraph(Engine* engine)
 {
+    if (ImGui::Button("Create New Map")) {}
     if (ImGui::BeginCombo("Select Map", selectedMap ? selectedMap->getName().data() : "None")) {
-        for (Map* map : engine->activeMaps) {
-            bool isSelected = (selectedMap == map);
+        for (auto& map : engine->activeMaps) {
+            bool isSelected = (selectedMap == map.get());
             if (ImGui::Selectable(map->getName().data(), isSelected)) {
-                selectMap(map);
+                selectMap(map.get());
             }
 
             if (isSelected) {
@@ -1237,8 +1247,8 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
 
     if (selectedMap == nullptr) {
         if (!engine->activeMaps.empty()) {
-            const auto firstMap = *engine->activeMaps.begin();
-            selectMap(firstMap);
+            const auto& firstMap = *engine->activeMaps.begin();
+            selectMap(firstMap.get());
         }
         else {
             ImGui::Text("No map currently selected");
@@ -1260,9 +1270,12 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
                 [[maybe_unused]] IHierarchical* gameObject = Engine::createGameObject(selectedMap, fmt::format("New GameObject_{}", incrementId++));
             }
             ImGui::Separator();
-            if (!selectedMap->getChildren().empty()) {
-                for (IHierarchical* child : selectedMap->getChildren()) {
-                    displayGameObject(engine, child, 0);
+            std::vector<IHierarchical*>& children = selectedMap->getChildren();
+            if (!children.empty()) {
+                for (IHierarchical* child : children) {
+                    if (!displayGameObject(engine, child, 0)) {
+                        break;
+                    }
                 }
             }
             else {
@@ -1425,7 +1438,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
     }
 }
 
-void ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const int32_t depth)
+bool ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const int32_t depth)
 {
     const int32_t indentLength = ImGui::GetFontSize();
 
@@ -1485,14 +1498,16 @@ void ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const i
     }
     ImGui::NextColumn();
 
+    bool exit = false;
     // Column 3: Control buttons
-    if (const IHierarchical* parent = obj->getParent()) {
+    if (IHierarchical* parent = obj->getParent()) {
         constexpr float spacing = 5.0f;
         constexpr float buttonWidth = 60.0f;
 
         ImGui::BeginDisabled(parent == selectedMap);
         if (ImGui::Button("Undent", ImVec2(buttonWidth, 0))) {
             undent(obj);
+            exit = true;
         }
         ImGui::EndDisabled();
 
@@ -1501,6 +1516,7 @@ void ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const i
         ImGui::BeginDisabled(parent != obj->getParent() || parentChildren[0] == obj);
         if (ImGui::Button("Indent", ImVec2(buttonWidth, 0))) {
             indent(obj);
+            exit = true;
         }
         ImGui::EndDisabled();
 
@@ -1508,6 +1524,7 @@ void ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const i
         ImGui::BeginDisabled(parent != obj->getParent() || parentChildren[0] == obj);
         if (ImGui::ArrowButton("##Up", ImGuiDir_Up)) {
             moveObject(obj, -1);
+            exit = true;
         }
         ImGui::EndDisabled();
 
@@ -1515,6 +1532,7 @@ void ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const i
         ImGui::BeginDisabled(parent != obj->getParent() || parentChildren[parentChildren.size() - 1] == obj);
         if (ImGui::ArrowButton("##Down", ImGuiDir_Down)) {
             moveObject(obj, 1);
+            exit = true;
         }
         ImGui::EndDisabled();
     }
@@ -1522,19 +1540,26 @@ void ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const i
 
     ImGui::Columns(1);
 
+
     if (const auto imguiRenderable = dynamic_cast<IImguiRenderable*>(obj)) {
         imguiRenderable->renderImgui();
     }
 
     if (isOpen) {
-        for (IHierarchical* child : obj->getChildren()) {
-            displayGameObject(engine, child, depth + 1);
+        if (!exit) {
+            for (IHierarchical* child : obj->getChildren()) {
+                if (!displayGameObject(engine, child, depth + 1)) {
+                    exit = true;
+                }
+            }
         }
         ImGui::TreePop();
     }
 
+
     ImGui::Unindent(static_cast<float>(depth * indentLength));
     ImGui::PopID();
+    return !exit;
 }
 
 void ImguiWrapper::drawImgui(VkCommandBuffer cmd, const VkImageView targetImageView, const VkExtent2D swapchainExtent)
@@ -1559,53 +1584,55 @@ void ImguiWrapper::indent(IHierarchical* obj)
     if (currParent == nullptr) { return; }
     // get index in scene Root
     const std::vector<IHierarchical*>& currChildren = currParent->getChildren();
-    int32_t index = getIndexInVector(obj, currChildren);
+    const int32_t index = getIndexInVector(obj, currChildren);
     if (index == -1 || index == 0) { return; }
 
-    obj->reparent(currChildren[index - 1]);
+    IHierarchical* const newParent = currChildren[index - 1];
+    currParent->moveChild(obj, newParent);
 }
 
 void ImguiWrapper::undent(IHierarchical* obj)
 {
-    // find first parent under scene root
-    const IHierarchical* parent = obj->getParent();
-    if (parent == nullptr) { return; }
+    IHierarchical* currentParent = obj->getParent();
+    if (currentParent == nullptr) { return; }
 
-    IHierarchical* parentParent = parent->getParent();
-    if (parent->getParent() == nullptr) { return; }
+    // Do not go beyond scene root
+    IHierarchical* parentParent = currentParent->getParent();
+    if (currentParent->getParent() == nullptr) { return; }
 
-    // get index of in scene Root
-    std::vector<IHierarchical*>& parentParentChildren = parentParent->getChildren();
-    const int32_t index = getIndexInVector(parent, parentParentChildren);
-    if (index == -1) { return; }
+    // Get index of old parent under their parent
+    const std::vector<IHierarchical*>& parentParentChildren = parentParent->getChildren();
+    const int32_t parentIndex = getIndexInVector(currentParent, parentParentChildren);
+    if (parentIndex == -1) { return; }
 
-    obj->reparent(parentParent);
+    // the count before the move
+    const int32_t currentChildCount = parentParentChildren.size();
+
+    currentParent->moveChild(obj, parentParent);
 
 
-    // already at end, no need to reorder.
-    if (index == parentParentChildren.size() - 1) { return; }
-    // move the child's position to index + 1 in the children vector
-    std::rotate(parentParentChildren.begin() + index + 1, parentParentChildren.end() - 1, parentParentChildren.end());
+    // Already at end, no need to reorder.
+    if (parentIndex == currentChildCount - 1) { return; }
+
+    // Re-order to right below previous parent.
+    parentParent->moveChildToIndex(currentChildCount, parentIndex + 1);
 }
 
 void ImguiWrapper::moveObject(const IHierarchical* obj, int diff)
 {
-    assert(diff != 0);
+    if (diff == 0) { return; }
 
-    std::vector<IHierarchical*>& parentChildren = obj->getParent()->getChildren();
+    IHierarchical* parent = obj->getParent();
+    if (!parent) { return; }
+
+    const std::vector<IHierarchical*>& parentChildren = parent->getChildren();
     const int32_t index = getIndexInVector(obj, parentChildren);
-    // couldn't find. big error.
     if (index == -1) { return; }
 
-    int32_t newIndex = index + diff;
-    if (newIndex < 0 || newIndex >= parentChildren.size()) { return; }
+    const int32_t newIndex = index + diff;
+    if (newIndex < 0 || newIndex >= static_cast<int32_t>(parentChildren.size())) { return; }
 
-    if (index < newIndex) {
-        std::rotate(parentChildren.begin() + index, parentChildren.begin() + newIndex, parentChildren.begin() + index + 2);
-    }
-    else {
-        std::rotate(parentChildren.begin() + newIndex, parentChildren.begin() + index, parentChildren.begin() + index + 1);
-    }
+    parent->moveChildToIndex(index, newIndex);
 }
 
 int ImguiWrapper::getIndexInVector(const IHierarchical* obj, const std::vector<IHierarchical*>& vector)

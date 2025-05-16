@@ -40,6 +40,10 @@ public:
 
     void destroy() override;
 
+    void recursivelyDestroy() override;
+
+    void recursivelyUpdate(float deltaTime) override;
+
 protected:
     bool bHasBegunPlay{false};
 
@@ -58,20 +62,15 @@ public: // IHierarchical
 
     void update(float deltaTime) override;
 
-    void beginDestroy() override;
+    void beginDestructor() override;
 
-    bool addChild(IHierarchical* child) override;
+    IHierarchical* addChild(std::unique_ptr<IHierarchical> child, bool retainTransform = false) override;
 
-    bool removeChild(IHierarchical* child) override;
+    bool moveChild(IHierarchical* child, IHierarchical* newParent, bool retainTransform = true) override;
 
-    /**
-     * Removes the parent while maintaining world position. Does not attempt to update the parent's state.
-     * \n WARNING: Doing this without re-parenting will result in an orphaned gameobject, beware.
-     * @return
-     */
-    bool removeParent() override;
+    void moveChildToIndex(int32_t fromIndex, int32_t targetIndex) override;
 
-    void reparent(IHierarchical* newParent) override;
+    bool deleteChild(IHierarchical* child) override;;
 
     void dirty() override;
 
@@ -79,9 +78,7 @@ public: // IHierarchical
 
     IHierarchical* getParent() const override;
 
-    const std::vector<IHierarchical*>& getChildren() const override;
-
-    std::vector<IHierarchical*>& getChildren() override;
+    const std::vector<IHierarchical*>& getChildren() override;
 
     void setName(std::string newName) override;
 
@@ -93,7 +90,11 @@ protected: // IHierarchical
      * Cache parent's transformable interface to reduce excessive casting
      */
     ITransformable* transformableParent{nullptr};
-    std::vector<IHierarchical*> children{};
+    std::vector<std::unique_ptr<IHierarchical>> children{};
+
+    std::vector<IHierarchical*> childrenCache{};
+    bool bChildrenCacheDirty{false};
+
     std::string gameObjectName{};
 
 public: // ITransformable

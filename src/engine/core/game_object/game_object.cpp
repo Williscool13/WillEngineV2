@@ -46,21 +46,43 @@ GameObject::~GameObject()
 
 void GameObject::destroy()
 {
-    for (IHierarchical* child : children) {
-        child->removeParent();
+    for (auto& child : children) {
+        if (child == nullptr) { continue; }
+        parent->addChild(std::move(child));
     }
 
-    if (parent) {
-        for (IHierarchical* child : children) {
-            child->reparent(parent);
-        }
-        parent->removeChild(this);
-    }
+    parent->deleteChild(this);
+}
 
-    children.clear();
+void GameObject::recursivelyDestroy()
+{
+    for (const auto& child : children) {
+        if (child == nullptr) { continue; }
+        child->recursivelyDestroy();
+        child->setParent(nullptr);
+    }
 
     if (will_engine::Engine* engine = will_engine::Engine::get()) {
-        engine->addToDeletionQueue(this);
+        for (auto& child : children) {
+            if (child == nullptr) { continue; }
+            engine->addToDeletionQueue(std::move(child));
+        }
+
+        children.clear();
+        bChildrenCacheDirty = true;
+    }
+    else {
+        fmt::print("Warning: Failed to get engine to recursively delete gameobjects, may result in orphans");
+    }
+}
+
+void GameObject::recursivelyUpdate(const float deltaTime)
+{
+    update(deltaTime);
+
+    for (const auto& child : children) {
+        if (child == nullptr) { continue; }
+        child->update(deltaTime);
     }
 }
 
@@ -88,65 +110,99 @@ void GameObject::update(const float deltaTime)
     }
 }
 
-void GameObject::beginDestroy()
+void GameObject::beginDestructor()
 {
     for (const auto& component : components) {
         component->beginDestroy();
     }
 }
 
-bool GameObject::addChild(IHierarchical* child)
+IHierarchical* GameObject::addChild(std::unique_ptr<IHierarchical> child, bool retainTransform)
 {
-    if (child == this) { return false; }
-    if (child->getParent() != nullptr) { return false; }
-    if (std::ranges::find(children, child) != children.end()) { return false; }
-
-    child->setParent(this);
-    children.push_back(child);
-    return true;
-}
-
-bool GameObject::removeChild(IHierarchical* child)
-{
-    if (child->getParent() != this) { return false; }
-
-    const auto it = std::ranges::find(children, child);
-    if (it == children.end()) { return false; }
-
-    children.erase(it);
-    child->setParent(nullptr);
-    return true;
-}
-
-bool GameObject::removeParent()
-{
-    if (parent == nullptr) { return false; }
-    const Transform previousGlobalTransform = getGlobalTransform();
-    setParent(nullptr);
-    setGlobalTransform(previousGlobalTransform);
-    return true;
-}
-
-void GameObject::reparent(IHierarchical* newParent)
-{
-    if (this == newParent) { return; }
-    const Transform previousGlobalTransform = getGlobalTransform();
-    if (parent) {
-        parent->removeChild(this);
-        setParent(nullptr);
+    ITransformable* transformable = dynamic_cast<ITransformable*>(child.get());
+    Transform prevTransform = Transform::Identity;
+    if (transformable && retainTransform) {
+        prevTransform = transformable->getGlobalTransform();
     }
 
-    if (newParent) {
-        newParent->addChild(this);
+    children.push_back(std::move(child));
+    children.back()->setParent(this);
+    bChildrenCacheDirty = true;
+
+    if (transformable && retainTransform) {
+        transformable->setGlobalTransform(prevTransform);
+    }
+    else {
+        dirty();
     }
 
-    setGlobalTransform(previousGlobalTransform);
+    return children.back().get();
+}
+
+bool GameObject::moveChild(IHierarchical* child, IHierarchical* newParent, bool retainTransform)
+{
+    const auto it = std::ranges::find_if(children,
+                                         [child](const std::unique_ptr<IHierarchical>& ptr) {
+                                             return ptr.get() == child;
+                                         });
+    if (it != children.end()) {
+        newParent->addChild(std::move(*it), retainTransform);
+        children.erase(it);
+        bChildrenCacheDirty = true;
+        return true;
+    }
+
+    return false;
+}
+
+void GameObject::moveChildToIndex(const int32_t fromIndex, const int32_t targetIndex)
+{
+    if (fromIndex >= children.size() || targetIndex >= children.size() || fromIndex == targetIndex) {
+        return;
+    }
+
+    if (fromIndex < targetIndex) {
+        std::rotate(
+            children.begin() + fromIndex,
+            children.begin() + fromIndex + 1,
+            children.begin() + targetIndex + 1
+        );
+    }
+    else {
+        std::rotate(
+            children.begin() + targetIndex,
+            children.begin() + fromIndex,
+            children.begin() + fromIndex + 1
+        );
+    }
+
+    bChildrenCacheDirty = true;
+}
+
+bool GameObject::deleteChild(IHierarchical* child)
+{
+    const auto it = std::ranges::find_if(children,
+                                         [child](const std::unique_ptr<IHierarchical>& ptr) {
+                                             return ptr.get() == child;
+                                         });
+
+    if (it != children.end()) {
+        if (will_engine::Engine* engine = will_engine::Engine::get()) {
+            engine->addToDeletionQueue(std::move(*it));
+            children.erase(it);
+            bChildrenCacheDirty = true;
+            return true;
+        }
+    }
+
+    return false;
 }
 
 void GameObject::dirty()
 {
-    if (meshRendererComponent) {
-        meshRendererComponent->dirty();
+    // todo: cache all meshrenderercomponents for easy access
+    for (components::MeshRendererComponent* meshComponent : getComponents<components::MeshRendererComponent>()) {
+        meshComponent->dirty();
     }
 
     bIsGlobalTransformDirty = true;
@@ -155,6 +211,7 @@ void GameObject::dirty()
     }
 
     for (const auto& child : children) {
+        if (child == nullptr) { continue; }
         child->dirty();
     }
 }
@@ -170,14 +227,20 @@ IHierarchical* GameObject::getParent() const
     return parent;
 }
 
-const std::vector<IHierarchical*>& GameObject::getChildren() const
+const std::vector<IHierarchical*>& GameObject::getChildren()
 {
-    return children;
-}
+    // todo: consider returning the `children` unique_ptr vector as a const ref
+    if (bChildrenCacheDirty) {
+        childrenCache.clear();
+        childrenCache.reserve(children.size());
+        for (const auto& child : children) {
+            if (child == nullptr) { continue; }
+            childrenCache.push_back(child.get());
+        }
+        bChildrenCacheDirty = false;
+    }
 
-std::vector<IHierarchical*>& GameObject::getChildren()
-{
-    return children;
+    return childrenCache;
 }
 
 glm::mat4 GameObject::getModelMatrix()

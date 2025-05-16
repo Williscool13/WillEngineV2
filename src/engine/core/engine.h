@@ -167,7 +167,9 @@ public:
 
     void addToBeginQueue(IHierarchical* obj);
 
-    void addToDeletionQueue(IHierarchical* obj);
+    void addToMapDeletionQueue(Map* obj);
+
+    void addToDeletionQueue(std::unique_ptr<IHierarchical> obj);
 
 public:
     AssetManager* getAssetManager() const { return assetManager; }
@@ -272,13 +274,13 @@ private: // Scene Data
     post_process_pipeline::PostProcessType postProcessData{
         post_process_pipeline::PostProcessType::Tonemapping | post_process_pipeline::PostProcessType::Sharpening
     };
-
-    std::unordered_set<Map*> activeMaps;
+    std::vector<std::unique_ptr<Map>> activeMaps;
     std::unordered_set<ITerrain*> activeTerrains;
 
 
     std::vector<IHierarchical*> hierarchalBeginQueue{};
-    std::vector<IHierarchical*> hierarchicalDeletionQueue{};
+    std::vector<std::unique_ptr<IHierarchical>> hierarchicalDeletionQueue{};
+    std::vector<std::unique_ptr<Map>> mapDeletionQueue{};
 
 private: // Pipelines
     visibility_pass_pipeline::VisibilityPassPipeline* visibilityPassPipeline{nullptr};
@@ -346,6 +348,7 @@ private: // Swapchain
     void resizeSwapchain();
 
 public:
+    Map* createMap(const std::filesystem::path& path);
     friend void ImguiWrapper::imguiInterface(Engine* engine);
 
     friend class ImguiWrapper;

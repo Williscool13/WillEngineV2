@@ -252,7 +252,7 @@ class Serializer
 public: // GameObjects
     static void serializeGameObject(ordered_json& j, IHierarchical* obj);
 
-    static game_object::GameObject* deserializeGameObject(const ordered_json& j, IHierarchical* parent);
+    static std::unique_ptr<IHierarchical> deserializeGameObject(const ordered_json& j);
 
     static bool serializeMap(IHierarchical* map, ordered_json& rootJ, const std::filesystem::path& filepath);
 

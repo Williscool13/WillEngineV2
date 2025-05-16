@@ -40,7 +40,15 @@ public:
 
     void drawSceneGraph(Engine* engine);
 
-    void displayGameObject(Engine* engine, IHierarchical* obj, int32_t depth);
+
+    /**
+     *
+     * @param engine
+     * @param obj
+     * @param depth
+     * @return indicates whether an action has been taken to invalidate the whole view, in which case drawing should be halted
+     */
+    bool displayGameObject(Engine* engine, IHierarchical* obj, int32_t depth);
 
     void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView, VkExtent2D swapchainExtent);
 

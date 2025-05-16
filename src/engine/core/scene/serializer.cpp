@@ -54,10 +54,10 @@ void Serializer::serializeGameObject(ordered_json& j, IHierarchical* obj)
     }
 }
 
-game_object::GameObject* Serializer::deserializeGameObject(const ordered_json& j, IHierarchical* parent)
+std::unique_ptr<IHierarchical> Serializer::deserializeGameObject(const ordered_json& j)
 {
     auto& gameObjectFactory = game_object::GameObjectFactory::getInstance();
-    game_object::GameObject* gameObject{nullptr};
+    std::unique_ptr<game_object::GameObject> gameObject{nullptr};
     std::string name{};
 
     if (j.contains("name")) {
@@ -79,52 +79,44 @@ game_object::GameObject* Serializer::deserializeGameObject(const ordered_json& j
     }
 
     if (j.contains("transform")) {
-        if (const auto transformable = dynamic_cast<ITransformable*>(gameObject)) {
-            transformable->setLocalTransform(j["transform"].get<Transform>());
-        }
+        gameObject->setLocalTransform(j["transform"].get<Transform>());
     }
 
     if (j.contains("components")) {
-        if (const auto componentContainer = dynamic_cast<IComponentContainer*>(gameObject)) {
-            auto& factory = components::ComponentFactory::getInstance();
+        auto& factory = components::ComponentFactory::getInstance();
 
-            const auto& components = j["components"];
-            for (const auto& [componentType, componentData] : components.items()) {
-                std::string componentName;
-                if (componentData.contains("componentName")) {
-                    componentName = componentData["componentName"].get<std::string>();
-                }
-                else {
-                    componentName = componentType;
-                }
-
-
-                std::unique_ptr<components::Component> newComponent = factory.createComponent(componentType, componentName);
-                components::Component* component = componentContainer->addComponent(std::move(newComponent));
-
-
-                if (!component) {
-                    fmt::print("Component failed to be created ({})", componentType);
-                    continue;
-                }
-
-                auto orderedComponentData = ordered_json(componentData);
-                component->deserialize(orderedComponentData);
+        const auto& components = j["components"];
+        for (const auto& [componentType, componentData] : components.items()) {
+            std::string componentName;
+            if (componentData.contains("componentName")) {
+                componentName = componentData["componentName"].get<std::string>();
             }
+            else {
+                componentName = componentType;
+            }
+
+
+            std::unique_ptr<components::Component> newComponent = factory.createComponent(componentType, componentName);
+            components::Component* component = gameObject->addComponent(std::move(newComponent));
+
+
+            if (!component) {
+                fmt::print("Component failed to be created ({})", componentType);
+                continue;
+            }
+
+            auto orderedComponentData = ordered_json(componentData);
+            component->deserialize(orderedComponentData);
         }
     }
 
     if (j.contains("children")) {
         const auto& children = j["children"];
         for (const auto& childJson : children) {
-            if (IHierarchical* child = deserializeGameObject(childJson, gameObject)) {
-                gameObject->addChild(child);
+            if (std::unique_ptr<IHierarchical> child = deserializeGameObject(childJson)) {
+                gameObject->addChild(std::move(child));
             }
         }
-    }
-
-    if (parent != nullptr) {
-        parent->addChild(gameObject);
     }
 
     return gameObject;
@@ -170,8 +162,8 @@ bool Serializer::deserializeMap(IHierarchical* root, ordered_json& rootJ)
 {
     if (rootJ.contains("gameObjects")) {
         for (auto child : rootJ["gameObjects"]["children"]) {
-            IHierarchical* childObject = deserializeGameObject(child, root);
-            root->addChild(childObject);
+            std::unique_ptr<IHierarchical> childObject = deserializeGameObject(child);
+            root->addChild(std::move(childObject));
         }
     }
 

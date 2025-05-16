@@ -26,7 +26,7 @@ public:
         registerGameObject<GameObject>(GameObject::CAN_BE_CREATED_MANUALLY);
     }
 
-    using GameObjectCreator = std::function<GameObject*(const std::string& name)>;
+    using GameObjectCreator = std::function<std::unique_ptr<GameObject>(const std::string& name)>;
 
     static GameObjectFactory& getInstance()
     {
@@ -41,13 +41,13 @@ public:
     void registerGameObject(bool canManuallyCreate) requires HasGetStaticType<T>
     {
         static_assert(std::is_base_of_v<GameObject, T>, "Must inherit from GameObject");
-        allCreators[T::getStaticType()] = [](const std::string& name) { return new T(name); };
+        allCreators[T::getStaticType()] = [](const std::string& name) { return std::make_unique<T>(name); };
         if (canManuallyCreate) {
-            canManuallyCreateCreators[T::getStaticType()] = [](const std::string& name) { return new T(name); };
+            canManuallyCreateCreators[T::getStaticType()] = [](const std::string& name) { return std::make_unique<T>(name); };
         }
     }
 
-    GameObject* createGameObject(const std::string_view& type, const std::string& name)
+    std::unique_ptr<GameObject> createGameObject(const std::string_view& type, const std::string& name)
     {
         const auto it = allCreators.find(type);
         if (it != allCreators.end()) {
