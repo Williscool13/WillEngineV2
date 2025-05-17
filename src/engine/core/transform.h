@@ -73,6 +73,23 @@ public:
         rotate(rotationDelta);
     }
 
+    Transform transformBy(const Transform& parent) const
+    {
+        Transform result;
+        result.scale = parent.scale * this->scale;
+        result.rotation = parent.rotation * this->rotation;
+        result.position = parent.position + parent.rotation * (parent.scale * this->position);
+        return result;
+    }
+
+    void applyParentTransform(const Transform& parent)
+    {
+        // Apply parent transform to this transform
+        position = parent.position + parent.rotation * (parent.scale * position);
+        rotation = parent.rotation * rotation;
+        scale = parent.scale * scale;
+    }
+
     glm::mat4 toModelMatrix() const
     {
         return glm::translate(glm::mat4(1.0f), position) *

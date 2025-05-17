@@ -205,6 +205,11 @@ public: // IComponentContainer
 
     bool hasComponent(std::string_view componentType) override;
 
+    /**
+     *
+     * @param component
+     * @return returns a pointer to the newly created component
+     */
     components::Component* addComponent(std::unique_ptr<components::Component> component) override;
 
     void destroyComponent(components::Component* component) override;

@@ -63,7 +63,7 @@ void RenderObject::update(VkCommandBuffer cmd, const int32_t currentFrameOverlap
             renderable->setRenderFramesToUpdate(renderable->getRenderFramesToUpdate() - 1);
 
             vk_helpers::uniformBarrier(cmd, currentFrameModelMatrix, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
-                                           VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
+                                       VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
         }
     }
 }
@@ -96,9 +96,9 @@ bool RenderObject::updateBuffers(VkCommandBuffer cmd, const int32_t currentFrame
             *pPrimitiveData = pair.second;
         }
         vk_helpers::uniformBarrier(cmd, currentPrimitiveBuffer, VK_PIPELINE_STAGE_2_HOST_BIT
-                                       , VK_ACCESS_2_HOST_WRITE_BIT
-                                       , VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT
-                                       , VK_ACCESS_2_UNIFORM_READ_BIT);
+                                   , VK_ACCESS_2_HOST_WRITE_BIT
+                                   , VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT
+                                   , VK_ACCESS_2_UNIFORM_READ_BIT);
     }
 
     AllocatedBuffer& currentInstanceBuffer = modelMatrixBuffers[currentFrameOverlap];
@@ -197,7 +197,6 @@ void RenderObject::dirty()
     for (const auto key : renderableMap | std::views::keys) {
         key->dirty();
     }
-
 }
 
 std::unique_ptr<game_object::GameObject> RenderObject::generateGameObject(const std::string& gameObjectName)
@@ -221,10 +220,23 @@ std::unique_ptr<game_object::GameObject> RenderObject::generateGameObject(const 
     return container;
 }
 
+bool RenderObject::generateMeshComponents(IComponentContainer* container, const Transform& transform)
+{
+    if (container == nullptr) { return false; }
+
+    for (const int32_t rootNode : topNodes) {
+        recursiveGenerate(renderNodes[rootNode], container, transform);
+    }
+
+    dirty();
+    return true;
+}
+
 void RenderObject::recursiveGenerate(const RenderNode& renderNode, IComponentContainer* container)
 {
     if (renderNode.meshIndex != -1) {
-        auto newMeshComponent = components::ComponentFactory::getInstance().createComponent(components::MeshRendererComponent::getStaticType(), renderNode.name);
+        auto newMeshComponent = components::ComponentFactory::getInstance().createComponent(
+            components::MeshRendererComponent::getStaticType(), renderNode.name);
         components::Component* component = container->addComponent(std::move(newMeshComponent));
         if (const auto meshComponent = dynamic_cast<components::MeshRendererComponent*>(component)) {
             generateMesh(meshComponent, renderNode.meshIndex);
@@ -234,6 +246,26 @@ void RenderObject::recursiveGenerate(const RenderNode& renderNode, IComponentCon
 
     for (const auto& child : renderNode.children) {
         recursiveGenerate(*child, container);
+    }
+}
+
+void RenderObject::recursiveGenerate(const RenderNode& renderNode, IComponentContainer* container, const Transform& parentTransform)
+{
+    Transform thisNodeTransform = renderNode.transform;
+    thisNodeTransform.applyParentTransform(parentTransform);
+
+    if (renderNode.meshIndex != -1) {
+        auto newMeshComponent = components::ComponentFactory::getInstance().createComponent(
+            components::MeshRendererComponent::getStaticType(), renderNode.name);
+        components::Component* component = container->addComponent(std::move(newMeshComponent));
+        if (const auto meshComponent = dynamic_cast<components::MeshRendererComponent*>(component)) {
+            generateMesh(meshComponent, renderNode.meshIndex);
+            meshComponent->setTransform(thisNodeTransform);
+        }
+    }
+
+    for (const auto& child : renderNode.children) {
+        recursiveGenerate(*child, container, thisNodeTransform);
     }
 }
 

@@ -122,6 +122,7 @@ private: // IRenderReference
 
 public: // Model Rendering API
     std::unique_ptr<game_object::GameObject> generateGameObject(const std::string& gameObjectName = "");
+    bool generateMeshComponents(IComponentContainer* container, const Transform& transform = Transform::Identity);
 
     [[nodiscard]] size_t getMeshCount() const { return meshes.size(); }
     [[nodiscard]] bool canDraw() const { return freeInstanceIndices.size() != currentMaxInstanceCount; }
@@ -150,6 +151,7 @@ public: // Model Rendering API
 
 
     void recursiveGenerate(const RenderNode& renderNode, IComponentContainer* container);
+    void recursiveGenerate(const RenderNode& renderNode, IComponentContainer* container, const Transform& parentTransform);
 
     /**
      * @param renderable to assign mesh references.

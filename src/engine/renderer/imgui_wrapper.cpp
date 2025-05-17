@@ -20,6 +20,7 @@
 #include "engine/core/engine.h"
 #include "engine/core/time.h"
 #include "engine/core/camera/free_camera.h"
+#include "engine/core/game_object/game_object_factory.h"
 #include "engine/core/game_object/renderable.h"
 #include "engine/core/scene/serializer.h"
 #include "engine/physics/physics.h"
@@ -828,8 +829,10 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                 if (ImGui::BeginTabBar("GameObject Generation")) {
                                     if (ImGui::BeginTabItem("Full Model")) {
                                         if (ImGui::Button("Generate Full Object")) {
-                                            auto gob = selectedRenderObject->generateGameObject(std::string(objectName));
-                                            selectedMap->addChild(std::move(gob));
+                                            auto& gameObjectFactory = game_object::GameObjectFactory::getInstance();
+                                            std::unique_ptr<game_object::GameObject> gameObject = gameObjectFactory.createGameObject(game_object::GameObject::getStaticType(), std::string(objectName));
+                                            selectedRenderObject->generateMeshComponents(gameObject.get());
+                                            selectedMap->addChild(std::move(gameObject));
                                             fmt::print("Added whole gltf model to the scene\n");
                                         }
                                         ImGui::EndTabItem();
