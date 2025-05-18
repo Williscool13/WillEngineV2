@@ -6,7 +6,7 @@
     },
     "metadata": {
         "name": "sampleScene",
-        "created": "2025-04-21 21:26:24",
+        "created": "2025-05-09 17:45:33",
         "formatVersion": 1
     },
     "rootComponents": {
@@ -142,7 +142,8 @@
         "children": [
             {
                 "id": 5,
-                "name": "Floor\u0000dsat44",
+                "gameObjectType": "GameObject",
+                "name": "GameObject_0",
                 "transform": {
                     "position": {
                         "x": 1.3145529010216706e-05,
@@ -187,7 +188,8 @@
             },
             {
                 "id": 6,
-                "name": "Shiny Orb\u0000_6",
+                "gameObjectType": "GameObject",
+                "name": "GameObject_1",
                 "transform": {
                     "position": {
                         "x": -95.4189224243164,
@@ -232,11 +234,12 @@
             },
             {
                 "id": 7,
-                "name": "Floating Orb",
+                "gameObjectType": "GameObject",
+                "name": "GameObject_2",
                 "transform": {
                     "position": {
                         "x": 0.0,
-                        "y": 38.79999923706055,
+                        "y": 38.87907791137695,
                         "z": 0.0
                     },
                     "rotation": {
@@ -277,7 +280,8 @@
             },
             {
                 "id": 8,
-                "name": "Cube\u0000ing Orb",
+                "gameObjectType": "GameObject",
+                "name": "GameObject_3",
                 "transform": {
                     "position": {
                         "x": 13.530956268310547,
@@ -322,7 +326,8 @@
             },
             {
                 "id": 4,
-                "name": "Sponza\u0000ect_4",
+                "gameObjectType": "GameObject",
+                "name": "GameObject_4",
                 "transform": {
                     "position": {
                         "x": 102.19999694824219,
@@ -353,7 +358,8 @@
             },
             {
                 "id": 7,
-                "name": "GameObject_7",
+                "gameObjectType": "GameObject",
+                "name": "GameObject_5",
                 "transform": {
                     "position": {
                         "x": 0.0,
@@ -375,7 +381,8 @@
                 "children": [
                     {
                         "id": 8,
-                        "name": "GameObject_8",
+                        "gameObjectType": "GameObject",
+                        "name": "GameObject_6",
                         "transform": {
                             "position": {
                                 "x": 0.0,
@@ -406,7 +413,8 @@
                     },
                     {
                         "id": 9,
-                        "name": "GameObject_9",
+                        "gameObjectType": "GameObject",
+                        "name": "GameObject_7",
                         "transform": {
                             "position": {
                                 "x": 0.0,
@@ -437,7 +445,8 @@
                     },
                     {
                         "id": 10,
-                        "name": "GameObject_10",
+                        "gameObjectType": "GameObject",
+                        "name": "GameObject_8",
                         "transform": {
                             "position": {
                                 "x": 0.0,
@@ -468,7 +477,8 @@
                     },
                     {
                         "id": 11,
-                        "name": "GameObject_11",
+                        "gameObjectType": "GameObject",
+                        "name": "GameObject_9",
                         "transform": {
                             "position": {
                                 "x": 0.5,
@@ -499,7 +509,8 @@
                     },
                     {
                         "id": 12,
-                        "name": "GameObject_12",
+                        "gameObjectType": "GameObject",
+                        "name": "GameObject_10",
                         "transform": {
                             "position": {
                                 "x": -1.5,
@@ -530,7 +541,8 @@
                     },
                     {
                         "id": 13,
-                        "name": "GameObject_13",
+                        "gameObjectType": "GameObject",
+                        "name": "GameObject_11",
                         "transform": {
                             "position": {
                                 "x": 0.0,
@@ -561,7 +573,8 @@
                     },
                     {
                         "id": 14,
-                        "name": "GameObject_14",
+                        "gameObjectType": "GameObject",
+                        "name": "GameObject_12",
                         "transform": {
                             "position": {
                                 "x": 3.0,
@@ -592,7 +605,8 @@
                     },
                     {
                         "id": 15,
-                        "name": "GameObject_15",
+                        "gameObjectType": "GameObject",
+                        "name": "GameObject_13",
                         "transform": {
                             "position": {
                                 "x": 1.5,
@@ -623,7 +637,8 @@
                     },
                     {
                         "id": 16,
-                        "name": "GameObject_16",
+                        "gameObjectType": "GameObject",
+                        "name": "GameObject_14",
                         "transform": {
                             "position": {
                                 "x": -3.0,
@@ -656,6 +671,7 @@
             },
             {
                 "id": 15,
+                "gameObjectType": "GameObject",
                 "name": "GameObject_15",
                 "transform": {
                     "position": {
@@ -687,12 +703,12 @@
                         "properties": {
                             "isActive": true,
                             "motionType": 1,
-                            "layer": 0,
+                            "layer": 1,
                             "shapeType": 1,
                             "shapeParams": {
-                                "x": 10.0,
-                                "y": 0.10000000149011612,
-                                "z": 10.0
+                                "x": 20.0,
+                                "y": 0.20000000298023224,
+                                "z": 20.0
                             }
                         },
                         "componentName": "New RigidBodyComponent"
@@ -701,18 +717,19 @@
             },
             {
                 "id": 16,
+                "gameObjectType": "GameObject",
                 "name": "GameObject_16",
                 "transform": {
                     "position": {
-                        "x": -7.5,
-                        "y": 38.79999923706055,
-                        "z": 0.0
+                        "x": -7.500000476837158,
+                        "y": 38.900001525878906,
+                        "z": 9.995816299124272e-07
                     },
                     "rotation": {
-                        "x": 0.0,
-                        "y": 0.0,
-                        "z": 0.0,
-                        "w": 1.0
+                        "x": 9.525448874114772e-09,
+                        "y": -0.0012825665762647986,
+                        "z": -2.6858504043048015e-07,
+                        "w": 0.9999992251396179
                     },
                     "scale": {
                         "x": 1.0,
@@ -733,14 +750,302 @@
                             "isActive": true,
                             "motionType": 2,
                             "layer": 1,
-                            "shapeType": 0,
+                            "shapeType": 1,
                             "shapeParams": {
                                 "x": 1.0,
-                                "y": 0.0,
-                                "z": 0.0
+                                "y": 1.0,
+                                "z": 1.0
                             }
                         },
                         "componentName": "New RigidBodyComponent"
+                    }
+                }
+            },
+            {
+                "id": 17,
+                "gameObjectType": "GameObject",
+                "name": "GameObject_17",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": -2.200000047683716
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "components": {
+                    "MeshRendererComponent": {
+                        "renderReference": 6331695,
+                        "renderMeshIndex": 3,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "Mesh Renderer"
+                    }
+                }
+            },
+            {
+                "id": 18,
+                "gameObjectType": "GameObject",
+                "name": "GameObject_18",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": -1.7000000476837158
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "components": {
+                    "MeshRendererComponent": {
+                        "renderReference": 6331695,
+                        "renderMeshIndex": 3,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "Mesh Renderer"
+                    }
+                }
+            },
+            {
+                "id": 19,
+                "gameObjectType": "GameObject",
+                "name": "GameObject_19",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": -0.8999999761581421
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "components": {
+                    "MeshRendererComponent": {
+                        "renderReference": 6331695,
+                        "renderMeshIndex": 3,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "Mesh Renderer"
+                    }
+                }
+            },
+            {
+                "id": 20,
+                "gameObjectType": "GameObject",
+                "name": "GameObject_20",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "components": {
+                    "MeshRendererComponent": {
+                        "renderReference": 6331695,
+                        "renderMeshIndex": 3,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "Mesh Renderer"
+                    }
+                }
+            },
+            {
+                "id": 21,
+                "gameObjectType": "GameObject",
+                "name": "GameObject_21",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.6000000238418579
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "components": {
+                    "MeshRendererComponent": {
+                        "renderReference": 6331695,
+                        "renderMeshIndex": 3,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "Mesh Renderer"
+                    }
+                }
+            },
+            {
+                "id": 22,
+                "gameObjectType": "GameObject",
+                "name": "GameObject_22",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 1.100000023841858
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "components": {
+                    "MeshRendererComponent": {
+                        "renderReference": 6331695,
+                        "renderMeshIndex": 3,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "Mesh Renderer"
+                    }
+                }
+            },
+            {
+                "id": 23,
+                "gameObjectType": "GameObject",
+                "name": "GameObject_23",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 1.600000023841858
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "components": {
+                    "MeshRendererComponent": {
+                        "renderReference": 6331695,
+                        "renderMeshIndex": 3,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "Mesh Renderer"
+                    }
+                }
+            },
+            {
+                "id": 24,
+                "gameObjectType": "GameObject",
+                "name": "GameObject_24",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 2.0999999046325684
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "components": {
+                    "MeshRendererComponent": {
+                        "renderReference": 6331695,
+                        "renderMeshIndex": 3,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "Mesh Renderer"
+                    }
+                }
+            },
+            {
+                "id": 25,
+                "gameObjectType": "GameObject",
+                "name": "GameObject_25",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 2.5999999046325684
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "components": {
+                    "MeshRendererComponent": {
+                        "renderReference": 6331695,
+                        "renderMeshIndex": 3,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "componentName": "Mesh Renderer"
                     }
                 }
             }
