@@ -165,7 +165,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::update(const DirectionalL
                                                               const int32_t currentFrameOverlap)
 {
     for (CascadeShadowMapData& shadowData : shadowMaps) {
-        shadowData.lightViewProj = getLightSpaceMatrix(shadowData.cascadeLevel, mainLight.getDirection(), camera, shadowData.split.nearPlane,
+        shadowData.lightViewProj = getLightSpaceMatrix(shadowData.cascadeLevel, mainLight.direction, camera, shadowData.split.nearPlane,
                                                        shadowData.split.farPlane);
     }
 

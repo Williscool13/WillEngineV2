@@ -19,7 +19,7 @@ struct DirectionalLightData
     float pad;
 };
 
-class DirectionalLight
+struct DirectionalLight
 {
 public:
     DirectionalLight() = delete;
@@ -28,18 +28,8 @@ public:
         : direction(normalize(direction)), intensity(intensity), color(color)
     {}
 
-    ~DirectionalLight() = default;
+    DirectionalLightData getData() const { return {normalize(direction), intensity, color}; }
 
-    [[nodiscard]] glm::vec3 getDirection() const { return direction; }
-    [[nodiscard]] float getIntensity() const { return intensity; }
-    [[nodiscard]] glm::vec3 getColor() const { return color; }
-
-    DirectionalLightData getData() const { return {direction, intensity, color}; }
-
-    // todo: remove
-    friend void ImguiWrapper::imguiInterface(Engine* engine);
-
-private:
     glm::vec3 direction{};
     float intensity{};
     glm::vec3 color{};

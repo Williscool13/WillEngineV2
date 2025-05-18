@@ -300,15 +300,26 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 }
 
                 if (ImGui::CollapsingHeader("Main Directional Light", ImGuiTreeNodeFlags_DefaultOpen)) {
-                    float direction[3] = {engine->mainLight.direction.x, engine->mainLight.direction.y, engine->mainLight.direction.z};
+                    DirectionalLight currentMainLight = engine->getMainLight();
+                    bool change = false;
+                    float direction[3] = {currentMainLight.direction.x, currentMainLight.direction.y, currentMainLight.direction.z};
                     if (ImGui::DragFloat3("Direction", direction, 0.1)) {
-                        engine->mainLight.direction = glm::vec3(direction[0], direction[1], direction[2]);
+                        currentMainLight.direction = glm::vec3(direction[0], direction[1], direction[2]);
+                        change = true;
                     }
-                    float color[3] = {engine->mainLight.color.x, engine->mainLight.color.y, engine->mainLight.color.z};
+                    float color[3] = {currentMainLight.color.x, currentMainLight.color.y, currentMainLight.color.z};
                     if (ImGui::DragFloat3("Color", color, 0.1)) {
                         engine->mainLight.color = glm::vec3(color[0], color[1], color[2]);
+                        change = true;
                     }
-                    ImGui::DragFloat("Intensity", &engine->mainLight.intensity, 0.05f, 0.0f, 5.0f);
+                    if (ImGui::DragFloat("Intensity", &engine->mainLight.intensity, 0.05f, 0.0f, 5.0f)) {
+                        change = true;
+                    }
+
+                    if (change) {
+                        currentMainLight.direction = normalize(currentMainLight.direction);
+                        engine->setMainLight(currentMainLight);
+                    }
                 }
 
                 ImGui::EndTabItem();
@@ -919,7 +930,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             }
 
                             if (!checked && _isLoaded) {
-                                // todo: unload needs to be delayed to account for double buffer
                                 renderObject->unload();
                             }
 
@@ -1028,7 +1038,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                 if (currentlySelectedTextureImguiId != VK_NULL_HANDLE) {
                                     vkDeviceWaitIdle(context.device);
                                     ImGui_ImplVulkan_RemoveTexture(currentlySelectedTextureImguiId);
-                                    // todo: remove texture needs to be delayed to account for double buffer
                                     currentlySelectedTextureImguiId = VK_NULL_HANDLE;
                                 }
                                 Texture* randomTexture = engine->assetManager->getAnyTexture();
@@ -1060,7 +1069,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                     if (currentlySelectedTextureImguiId != VK_NULL_HANDLE) {
                                         vkDeviceWaitIdle(context.device);
                                         ImGui_ImplVulkan_RemoveTexture(currentlySelectedTextureImguiId);
-                                        // todo: remove texture needs to be delayed to account for double buffer
                                         currentlySelectedTextureImguiId = VK_NULL_HANDLE;
                                     }
 
@@ -1346,7 +1354,6 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
                     }
 
                     if (ImGui::Button("Destroy Terrain", ImVec2(-1, 0))) {
-                        // todo: destroy terrain needs to be delayed to account for double buffer
                         currentTerrainComponent->destroyTerrain();
                     }
 

@@ -396,9 +396,9 @@ bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag 
     if (hasFlag(engineSettings, EngineSettingsTypeFlag::LIGHT_SETTINGS)) {
         ordered_json lightSettings;
         DirectionalLight mainLight = engine->getMainLight();
-        auto direction = normalize(mainLight.getDirection());
-        auto color = mainLight.getColor();
-        auto intensity = mainLight.getIntensity();
+        auto direction = normalize(mainLight.direction);
+        auto color = mainLight.color;
+        auto intensity = mainLight.intensity;
         lightSettings["mainLight"]["direction"] = {direction.x, direction.y, direction.z};
         lightSettings["mainLight"]["color"] = {color.x, color.y, color.z};
         lightSettings["mainLight"]["intensity"] = intensity;
@@ -596,7 +596,7 @@ bool Serializer::deserializeEngineSettings(Engine* engine, EngineSettingsTypeFla
                         direction.z = lightJ["direction"][2];
                     }
                     else {
-                        direction = normalize(engine->getMainLight().getDirection());
+                        direction = normalize(engine->getMainLight().direction);
                     }
 
                     if (lightJ.contains("color") && lightJ["color"].is_array() && lightJ["color"].size() == 3) {
@@ -605,14 +605,14 @@ bool Serializer::deserializeEngineSettings(Engine* engine, EngineSettingsTypeFla
                         color.z = lightJ["color"][2];
                     }
                     else {
-                        color = engine->getMainLight().getColor();
+                        color = engine->getMainLight().color;
                     }
 
                     if (lightJ.contains("intensity") && !lightJ["intensity"].is_array()) {
                         intensity = lightJ["intensity"].get<float>();
                     }
                     else {
-                        intensity = engine->getMainLight().getIntensity();
+                        intensity = engine->getMainLight().intensity;
                     }
 
                     DirectionalLight light{direction, intensity, color};

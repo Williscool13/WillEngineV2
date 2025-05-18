@@ -25,7 +25,6 @@ RenderObject::RenderObject(ResourceManager& resourceManager, const std::filesyst
 
 RenderObject::~RenderObject()
 {
-    // todo: deferred buffer destruction for multi-buffer
     unload();
 }
 

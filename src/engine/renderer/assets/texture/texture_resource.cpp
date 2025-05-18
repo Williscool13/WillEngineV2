@@ -47,7 +47,6 @@ TextureResource::TextureResource(ResourceManager& resourceManager, const std::fi
 
 TextureResource::~TextureResource()
 {
-    // todo: deferred texture destruction for multi-buffer modification
     resourceManager.destroy(image);
 }
 } // will_engine

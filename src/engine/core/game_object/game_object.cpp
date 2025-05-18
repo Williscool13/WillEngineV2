@@ -228,7 +228,6 @@ IHierarchical* GameObject::getParent() const
 
 const std::vector<IHierarchical*>& GameObject::getChildren()
 {
-    // todo: consider returning the `children` unique_ptr vector as a const ref
     if (bChildrenCacheDirty) {
         childrenCache.clear();
         childrenCache.reserve(children.size());
