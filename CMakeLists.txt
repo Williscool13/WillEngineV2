@@ -46,6 +46,12 @@ find_library(SDL3_LIBRARIES
         REQUIRED
 )
 
+find_library(KTX_LIBRARIES
+        NAMES ktx${LIB_SUFFIX}
+        PATHS ${CMAKE_CURRENT_SOURCE_DIR}/lib
+        REQUIRED
+)
+
 add_subdirectory(extern/fmt)
 add_subdirectory(extern/fastgltf)
 add_subdirectory(extern/fastgltf/deps) # simdjson
@@ -304,19 +310,19 @@ target_include_directories(WillEngine PRIVATE
         ${IMGUI_DIR}                                                        # ImGui
         ${IMGUI_DIR}/backends                                               # ImGui backends
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics                      # Jolt Physics
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/shaderc                          # ShaderC
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/SDL3                             # SDL2
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/include                 # fastgltf
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf/deps/simdjson           # simdjson
-        ${CMAKE_CURRENT_SOURCE_DIR}/extern/FastNoiseLite
-
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/FastNoiseLite                    # FastNoiseLite
+        ${CMAKE_CURRENT_SOURCE_DIR}/extern/ktx
 )
 
 target_link_libraries(WillEngine PRIVATE
         ${SDL3_LIBRARIES}
-        ${VOLK_LIBRARIES}
         ${SHADERC_LIBRARIES}
+        ${KTX_LIBRARIES}
         fmt::fmt
         fastgltf
         Jolt
@@ -327,4 +333,11 @@ set(SDL_DLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lib/SDL3${LIB_SUFFIX}.dll")
 add_custom_command(TARGET WillEngine POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${SDL_DLL_PATH} $<TARGET_FILE_DIR:WillEngine>
+)
+
+set(KTX_DLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lib/ktx${LIB_SUFFIX}.dll")
+
+add_custom_command(TARGET WillEngine POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        ${KTX_DLL_PATH} $<TARGET_FILE_DIR:WillEngine>
 )
