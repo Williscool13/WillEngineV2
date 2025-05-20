@@ -1,0 +1,757 @@
+{
+    "version": {
+        "major": 0,
+        "minor": 1,
+        "patch": 0
+    },
+    "metadata": {
+        "name": "newMap",
+        "created": "2025-05-20 20:47:14",
+        "formatVersion": 1
+    },
+    "rootComponents": {
+        "TerrainComponent": {
+            "terrain": {
+                "bIsGenerated": false,
+                "terrainGenerationProperties": {
+                    "scale": 100.0,
+                    "persistence": 0.5,
+                    "lacunarity": 2.0,
+                    "octaves": 4,
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    },
+                    "heightScale": 50.0
+                },
+                "terrainSeed": 13,
+                "terrainConfig": {
+                    "uvOffset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    },
+                    "uvScale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "baseColor": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0,
+                        "w": 1.0
+                    }
+                }
+            },
+            "componentName": "Terrain Component"
+        }
+    },
+    "gameObjects": {
+        "name": "newMap",
+        "transform": {
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        "components": {
+            "Terrain Component": {
+                "terrain": {
+                    "bIsGenerated": false,
+                    "terrainGenerationProperties": {
+                        "scale": 100.0,
+                        "persistence": 0.5,
+                        "lacunarity": 2.0,
+                        "octaves": 4,
+                        "offset": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "heightScale": 50.0
+                    },
+                    "terrainSeed": 13,
+                    "terrainConfig": {
+                        "uvOffset": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "uvScale": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "baseColor": {
+                            "x": 1.0,
+                            "y": 1.0,
+                            "z": 1.0,
+                            "w": 1.0
+                        }
+                    }
+                },
+                "componentType": "TerrainComponent"
+            }
+        },
+        "children": [
+            {
+                "id": 1,
+                "gameObjectType": "GameObject",
+                "name": "GameObject_1",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 0.05000000074505806,
+                        "y": 0.05000000074505806,
+                        "z": 0.05000000074505806
+                    }
+                },
+                "components": {
+                    "flagpole": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 0,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "Material__25": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 1,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "Material__298": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 2,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "leaf": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 3,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "Material__57": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 4,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "bricks": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 5,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "ceiling": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 6,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "column_a": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 7,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "arch": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 8,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "column_c": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 9,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "details": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 10,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "floor": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 11,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "column_b": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 12,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "vase": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 13,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "Material__47": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 14,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "vase_hanging": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 15,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "vase_round": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 16,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "chain": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 17,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "fabric_g": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 18,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "fabric_c": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 19,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "fabric_f": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 20,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "fabric_e": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 21,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "fabric_d": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 22,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "fabric_a": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 23,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    },
+                    "roof": {
+                        "renderReference": 435660386,
+                        "renderMeshIndex": 24,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.7071068286895752,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 0.7071067094802856
+                            },
+                            "scale": {
+                                "x": 1.0,
+                                "y": 1.0,
+                                "z": 1.0
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    }
+                }
+            }
+        ]
+    }
+}

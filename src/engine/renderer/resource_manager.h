@@ -58,6 +58,12 @@ struct BufferCopyInfo
     VkDeviceSize size;
 };
 
+struct ImageFormatProperties
+{
+    VkResult result;
+    VkImageFormatProperties properties;
+};
+
 class ResourceManager
 {
 public:
@@ -79,7 +85,7 @@ public:
      */
     void flushDestructionQueue();
 
-    std::optional<VkImageFormatProperties> getPhysicalDeviceImageFormatProperties(VkFormat format, VkImageUsageFlags usageFlags) const;
+    ImageFormatProperties getPhysicalDeviceImageFormatProperties(VkFormat format, VkImageUsageFlags usageFlags) const;
 
 private:
     std::array<DestructionQueue, FRAME_OVERLAP> destructionQueues;
