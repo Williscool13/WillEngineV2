@@ -34,7 +34,9 @@ public:
 
     bool loadMap();
 
-    bool saveMap(const std::filesystem::path& newSavePath = {});
+    bool saveMap();
+
+    bool saveMap(const std::filesystem::path& newSavePath);
 
     int32_t getMapId() const { return mapId; }
 

@@ -85,6 +85,8 @@ void MeshRendererComponent::serialize(ordered_json& j)
         j["renderIsVisible"] = bIsVisible;
         j["renderIsShadowCaster"] = bIsShadowCaster;
     }
+
+    j["transform"] = localTransform;
 }
 
 void MeshRendererComponent::deserialize(ordered_json& j)
@@ -107,12 +109,14 @@ void MeshRendererComponent::deserialize(ordered_json& j)
                 if (j.contains("renderIsShadowCaster")) {
                     bIsShadowCaster = j["renderIsShadowCaster"];
                 }
-
-                return;
+            } else {
+                fmt::print("Warning: Mesh Renderer Component failed to find render reference\n");
             }
         }
+    }
 
-        fmt::print("Warning: Mesh Renderer Component failed to find render reference\n");
+    if (j.contains("transform")) {
+        setTransform(j["transform"]);
     }
 }
 

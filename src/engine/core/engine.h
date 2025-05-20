@@ -130,6 +130,8 @@ public:
 
     void initRenderer();
 
+    bool generateDefaultMap();
+
     void initGame();
 
     void run();
@@ -218,6 +220,9 @@ private: // Rendering
     void createDrawResources();
 
 private: // Engine Settings
+#if WILL_ENGINE_DEBUG
+    EditorSettings editorSettings{};
+#endif
     EngineSettings engineSettings{};
     contact_shadows_pipeline::ContactShadowSettings sssSettings{};
     ambient_occlusion::GTAOSettings gtaoSettings{};
@@ -225,6 +230,10 @@ private: // Engine Settings
     temporal_antialiasing_pipeline::TemporalAntialiasingSettings taaSettings{};
 
 public:
+#if WILL_ENGINE_DEBUG
+    EditorSettings getEditorSettings() const { return editorSettings; }
+    void setEditorSettings(const EditorSettings& settings) { editorSettings = settings; }
+#endif
     EngineSettings getEngineSettings() const { return engineSettings; }
     void setEngineSettings(const EngineSettings& settings) { engineSettings = settings; }
 
@@ -235,7 +244,6 @@ public:
     void setSssSettings(const contact_shadows_pipeline::ContactShadowSettings& settings) { sssSettings = settings; }
 
     cascaded_shadows::CascadedShadowMapSettings getCsmSettings() const { return csmSettings; }
-
     void setCsmSettings(const cascaded_shadows::CascadedShadowMapSettings& settings);
 
     temporal_antialiasing_pipeline::TemporalAntialiasingSettings getTaaSettings() const { return taaSettings; }
@@ -255,7 +263,7 @@ private: // Debug
     void hotReloadShaders() const;
 
 public:
-    Camera* getCamera() const { return camera; }
+    Camera* getCamera() const { return fallbackCamera; }
     DirectionalLight getMainLight() const { return mainLight; }
     void setMainLight(const DirectionalLight& newLight) { mainLight = newLight; }
 
@@ -267,7 +275,10 @@ private: // Scene Data
     AllocatedBuffer sceneDataBuffers[FRAME_OVERLAP]{};
     AllocatedBuffer debugSceneDataBuffer{};
 
-    FreeCamera* camera{nullptr};
+    /**
+     * Should always exist and be used if no other camera is in the scene (todo: camera system)
+     */
+    FreeCamera* fallbackCamera{nullptr};
     DirectionalLight mainLight{glm::normalize(glm::vec3(-0.8f, -0.6f, -0.6f)), 1.5f, glm::vec3(1.0f)};
     int32_t environmentMapIndex{1};
 

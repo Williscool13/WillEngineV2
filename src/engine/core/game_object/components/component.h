@@ -56,12 +56,17 @@ public: // Defined Behaviors
         componentName = objectName;
     }
 
+    std::string getComponentName()
+    {
+        return componentName;
+    }
+
     std::string& getComponentNameRef()
     {
         return componentName;
     }
 
-    std::string_view getComponentName()
+    std::string_view getComponentNameView()
     {
         if (componentName.empty()) {
             return getComponentType();

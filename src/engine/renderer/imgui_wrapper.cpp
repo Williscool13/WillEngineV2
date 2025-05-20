@@ -130,11 +130,11 @@ void ImguiWrapper::selectMap(Map* newMap)
     if (terrain::TerrainChunk* terrainChunk = terrainComponent->getTerrainChunk()) {
         terrainProperties = terrainChunk->getTerrainProperties();
         terrainTextures = terrainChunk->getTerrainTextureIds();
-    } else {
+    }
+    else {
         terrainProperties = {};
         terrainTextures = {};
     }
-
 }
 
 void ImguiWrapper::imguiInterface(Engine* engine)
@@ -214,7 +214,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
     if (ImGui::Begin("Settings Window")) {
         if (ImGui::BeginTabBar("Settings Tab")) {
-            if (ImGui::BeginTabItem("General")) {
+            if (ImGui::BeginTabItem("Editor")) {
                 ImGui::SetNextItemWidth(-1.0f);
                 if (ImGui::Button("Save All Settings")) {
                     Serializer::serializeEngineSettings(engine, EngineSettingsTypeFlag::ALL_SETTINGS);
@@ -223,14 +223,16 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 ImGui::Separator();
 
                 bool anySettingChanged = false;
-                if (ImGui::Checkbox("Save Settings On Exit", &engine->engineSettings.saveOnExit)) {
+#if WILL_ENGINE_DEBUG
+                if (ImGui::Checkbox("Save Settings On Exit", &engine->editorSettings.saveOnExit)) {
                     anySettingChanged = true;
                 }
+#endif
 
                 if (anySettingChanged) {
-                    Serializer::serializeEngineSettings(engine, EngineSettingsTypeFlag::GENERAL_SETTINGS);
+                    Serializer::serializeEngineSettings(engine, EngineSettingsTypeFlag::EDITOR_SETTINGS);
                 }
-                ImGui::Text("General settings above are always auto-saved");
+                ImGui::Text("Editor settings above are always auto-saved");
 
 
                 ImGui::Separator();
@@ -243,8 +245,49 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 ImGui::Checkbox("Enable Transparent Primitives", &engine->bDrawTransparents);
                 ImGui::Checkbox("Disable Physics", &engine->bEnablePhysics);
                 ImGui::Checkbox("Enable Physics Debug", &engine->bDebugPhysics);
+                ImGui::Checkbox("Enable (All) Debug Render", &engine->bDrawDebugRendering);
                 ImGui::DragInt("Shadows PCF Level", &engine->csmSettings.pcfLevel, 2, 1, 5);
 
+
+                ImGui::EndTabItem();
+            }
+
+            if (ImGui::BeginTabItem("Engine")) {
+                if (ImGui::Button("Save Engine Settings")) {
+                    Serializer::serializeEngineSettings(engine, EngineSettingsTypeFlag::ENGINE_SETTINGS);
+                }
+
+                if (ImGui::Button("Change Default Map To Load")) {
+                    IGFD::FileDialogConfig config;
+                    config.path = "./assets/maps/";
+                    IGFD::FileDialog::Instance()->OpenDialog(
+                        "defaultMapDlg",
+                        "Change Default Map To Load",
+                        ".willmap",
+                        config);
+                }
+
+                if (IGFD::FileDialog::Instance()->Display("defaultMapDlg")) {
+                    if (IGFD::FileDialog::Instance()->IsOk()) {
+                        auto path = IGFD::FileDialog::Instance()->GetFilePathName();
+                        EngineSettings engineSettings = engine->getEngineSettings();
+                        engineSettings.defaultMapToLoad = path;
+                        engine->setEngineSettings(engineSettings);
+                    }
+                    IGFD::FileDialog::Instance()->Close();
+                }
+
+                ImGui::SameLine();
+                if (ImGui::Button("Reset Default Map To Load")) {
+                    EngineSettings engineSettings = engine->getEngineSettings();
+                    engineSettings.defaultMapToLoad = std::filesystem::path();
+                    engine->setEngineSettings(engineSettings);
+                }
+
+                EngineSettings engineSettings = engine->getEngineSettings();
+                ImGui::Text("Current Default Map: ");
+                ImGui::SameLine();
+                ImGui::Text(engineSettings.defaultMapToLoad.string().c_str());
 
                 ImGui::EndTabItem();
             }
@@ -256,28 +299,28 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 }
 
                 if (ImGui::Button("Reset Camera Position and Rotation")) {
-                    engine->camera->setCameraTransform({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 0.0f});
+                    engine->fallbackCamera->setCameraTransform({0.0f, 0.0f, 0.0f}, {1.0f, 0.0f, 0.0f, 0.0f});
                 }
 
                 if (ImGui::CollapsingHeader("Camera Properties", ImGuiTreeNodeFlags_DefaultOpen)) {
                     ImGui::Indent();
 
-                    glm::vec3 position = engine->camera->getTransform().getPosition();
+                    glm::vec3 position = engine->fallbackCamera->getTransform().getPosition();
                     ImGui::Text("Position: X: %.3f, Y: %.3f, Z: %.3f", position.x, position.y, position.z);
 
-                    glm::vec3 forward = engine->camera->getForwardWS();
-                    glm::vec3 up = engine->camera->getUpWS();
-                    glm::vec3 right = engine->camera->getRightWS();
+                    glm::vec3 forward = engine->fallbackCamera->getForwardWS();
+                    glm::vec3 up = engine->fallbackCamera->getUpWS();
+                    glm::vec3 right = engine->fallbackCamera->getRightWS();
 
                     ImGui::Text("Forward: X: %.3f, Y: %.3f, Z: %.3f", forward.x, forward.y, forward.z);
                     ImGui::Text("Up: X: %.3f, Y: %.3f, Z: %.3f", up.x, up.y, up.z);
                     ImGui::Text("Right: X: %.3f, Y: %.3f, Z: %.3f", right.x, right.y, right.z);
 
                     ImGui::Separator();
-                    float fov = glm::degrees(engine->camera->getFov());
-                    float aspect = engine->camera->getAspectRatio();
-                    float nearPlane = engine->camera->getNearPlane();
-                    float farPlane = engine->camera->getFarPlane();
+                    float fov = glm::degrees(engine->fallbackCamera->getFov());
+                    float aspect = engine->fallbackCamera->getAspectRatio();
+                    float nearPlane = engine->fallbackCamera->getNearPlane();
+                    float farPlane = engine->fallbackCamera->getFarPlane();
 
                     ImGui::Text("FOV: %.2f°", fov);
                     ImGui::Text("Aspect Ratio: %.3f", aspect);
@@ -288,8 +331,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 }
 
                 if (ImGui::Button("Hard-Reset All Camera Settings")) {
-                    delete engine->camera;
-                    engine->camera = new FreeCamera();
+                    delete engine->fallbackCamera;
+                    engine->fallbackCamera = new FreeCamera();
                 }
 
                 ImGui::EndTabItem();
@@ -669,8 +712,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "depthImage.png";
                         auto depthNormalize = [&engine](const float depth) {
-                            const float zNear = engine->camera->getFarPlane();
-                            const float zFar = engine->camera->getNearPlane() / 10.0;
+                            const float zNear = engine->fallbackCamera->getFarPlane();
+                            const float zFar = engine->fallbackCamera->getNearPlane() / 10.0;
                             float d = 1 - depth;
                             return (2.0f * zNear) / (zFar + zNear - d * (zFar - zNear));
                         };
@@ -738,78 +781,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     }
     ImGui::End();
 
-    if (ImGui::Begin("Maps")) {
-        static std::filesystem::path mapPath = {"assets/maps/sampleScene.willmap"};
-
-        ImGui::Text("Map Source: %s", mapPath.empty() ? "None selected" : mapPath.string().c_str());
-        ImGui::SameLine();
-        if (ImGui::Button("...")) {
-            IGFD::FileDialogConfig config;
-            config.path = "./assets/maps/";
-            config.fileName = mapPath.filename().string();
-            IGFD::FileDialog::Instance()->OpenDialog(
-                "WillmapDlg",
-                "Load Willmap",
-                ".willmap",
-                config);
-        }
-        if (IGFD::FileDialog::Instance()->Display("WillmapDlg")) {
-            if (IGFD::FileDialog::Instance()->IsOk()) {
-                mapPath = IGFD::FileDialog::Instance()->GetFilePathName();
-                mapPath = file::getRelativePath(mapPath);
-            }
-
-            IGFD::FileDialog::Instance()->Close();
-        }
-
-        bool alreadyExistsInActiveMaps{false};
-        for (auto& map : engine->activeMaps) {
-            if (map->getMapPath() == mapPath) {
-                alreadyExistsInActiveMaps = true;
-                break;
-            }
-        }
-        ImGui::SameLine();
-        ImGui::BeginDisabled(alreadyExistsInActiveMaps);
-        if (ImGui::Button("Load")) {
-            engine->assetManager->scanForAll();
-            if (exists(mapPath)) {
-                auto map = engine->createMap(mapPath);
-                selectMap(map);
-            }
-            else {
-                fmt::print("No map found at path %s", mapPath.string().c_str());
-            }
-        }
-        ImGui::EndDisabled();
-
-        ImGui::SameLine();
-
-        ImGui::BeginDisabled(!selectedMap);
-        if (ImGui::Button("Save")) {
-            if (selectedMap->saveMap(mapPath.string())) {
-                ImGui::OpenPopup("SerializeSuccess");
-            }
-            else {
-                ImGui::OpenPopup("SerializeError");
-            }
-        }
-
-        // Success/Error popups
-        if (ImGui::BeginPopupModal("SerializeSuccess", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-            ImGui::Text("Scene Serialization Success!");
-            if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
-            ImGui::EndPopup();
-        }
-        if (ImGui::BeginPopupModal("SerializeError", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-            ImGui::Text("Scene Serialization Failed!");
-            if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
-            ImGui::EndPopup();
-        }
-        ImGui::EndDisabled();
-    }
-    ImGui::End();
-
     if (ImGui::Begin("Will Engine Type Generator")) {
         if (ImGui::BeginTabBar("SceneTabs")) {
             if (ImGui::BeginTabItem("Render Objects")) {
@@ -843,7 +814,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                     if (ImGui::BeginTabItem("Full Model")) {
                                         if (ImGui::Button("Generate Full Object")) {
                                             auto& gameObjectFactory = game_object::GameObjectFactory::getInstance();
-                                            std::unique_ptr<game_object::GameObject> gameObject = gameObjectFactory.createGameObject(game_object::GameObject::getStaticType(), std::string(objectName));
+                                            std::unique_ptr<game_object::GameObject> gameObject = gameObjectFactory.createGameObject(
+                                                game_object::GameObject::getStaticType(), std::string(objectName));
                                             selectedRenderObject->generateMeshComponents(gameObject.get());
                                             selectedMap->addChild(std::move(gameObject));
                                             fmt::print("Added whole gltf model to the scene\n");
@@ -1213,8 +1185,6 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::End();
 
     if (ImGui::Begin("Discardable Debug")) {
-        ImGui::Checkbox("Draw Debug Render", &engine->bDrawDebugRendering);
-
         ImGui::Separator();
         if (ImGui::Button("Save Stencil Debug Draw")) {
             if (file::getOrCreateDirectory(file::imagesSavePath)) {
@@ -1240,12 +1210,12 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
 void ImguiWrapper::drawSceneGraph(Engine* engine)
 {
-    static std::filesystem::path mapPath = {"assets/maps/newMap.willmap"};
+    static std::filesystem::path newMapPath = {"assets/maps/newMap.willmap"};
 
-    if (ImGui::Button("Create New Map")) {
+    if (ImGui::Button("Create Map")) {
         IGFD::FileDialogConfig config;
         config.path = "./assets/maps/";
-        config.fileName = mapPath.filename().string();
+        config.fileName = newMapPath.filename().string();
         IGFD::FileDialog::Instance()->OpenDialog(
             "NewWillmapDlg",
             "Create New Map",
@@ -1255,8 +1225,50 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
 
     if (IGFD::FileDialog::Instance()->Display("NewWillmapDlg")) {
         if (IGFD::FileDialog::Instance()->IsOk()) {
-            mapPath = IGFD::FileDialog::Instance()->GetFilePathName();
-            if (Map* map = engine->createMap(mapPath)) {
+            std::filesystem::path mapPath = IGFD::FileDialog::Instance()->GetFilePathName();
+            mapPath = relative(mapPath);
+            Map* existing{nullptr};
+            for (auto& map : engine->activeMaps) {
+                if (map->getMapPath() == mapPath) {
+                    existing = map.get();
+                    break;
+                }
+            }
+            if (existing) {
+                selectMap(existing);
+            } else if (Map* map = engine->createMap(mapPath)) {
+                selectMap(map);
+            }
+        }
+        IGFD::FileDialog::Instance()->Close();
+    }
+
+    ImGui::SameLine();
+
+    if (ImGui::Button("Load Map")) {
+        IGFD::FileDialogConfig config;
+        config.path = "./assets/maps/";
+        IGFD::FileDialog::Instance()->OpenDialog(
+            "LoadWillmapDlg",
+            "Load Existing Map",
+            ".willmap",
+            config);
+    }
+
+    if (IGFD::FileDialog::Instance()->Display("LoadWillmapDlg")) {
+        if (IGFD::FileDialog::Instance()->IsOk()) {
+            std::filesystem::path mapPath = IGFD::FileDialog::Instance()->GetFilePathName();
+            mapPath = relative(mapPath);
+            Map* existing{nullptr};
+            for (auto& map : engine->activeMaps) {
+                if (map->getMapPath() == mapPath) {
+                    existing = map.get();
+                    break;
+                }
+            }
+            if (existing) {
+                selectMap(existing);
+            } else if (Map* map = engine->createMap(mapPath)) {
                 selectMap(map);
             }
         }
@@ -1264,6 +1276,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
     }
 
 
+    ImGui::SetNextItemWidth(200.0f);
     if (ImGui::BeginCombo("Select Map", selectedMap ? selectedMap->getName().data() : "None")) {
         for (auto& map : engine->activeMaps) {
             bool isSelected = (selectedMap == map.get());
@@ -1277,6 +1290,28 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
         }
         ImGui::EndCombo();
     }
+    ImGui::SameLine();
+    ImGui::BeginDisabled(!selectedMap);
+    if (ImGui::Button("Save Map")) {
+        if (selectedMap->saveMap()) {
+            ImGui::OpenPopup("SerializeSuccess");
+        }
+        else {
+            ImGui::OpenPopup("SerializeError");
+        }
+    }
+    ImGui::EndDisabled();
+
+    if (ImGui::BeginPopupModal("SerializeSuccess", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Scene Serialization Success!");
+        if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
+    if (ImGui::BeginPopupModal("SerializeError", nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
+        ImGui::Text("Scene Serialization Failed!");
+        if (ImGui::Button("OK")) ImGui::CloseCurrentPopup();
+        ImGui::EndPopup();
+    }
 
     if (selectedMap == nullptr) {
         if (!engine->activeMaps.empty()) {
@@ -1285,8 +1320,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
                 selectMap(firstMap.get());
             }
         }
-        if (selectedMap == nullptr)
-        {
+        if (selectedMap == nullptr) {
             ImGui::Text("No map currently selected");
             return;
         }
@@ -1381,7 +1415,8 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
                         if (terrain::TerrainChunk* terrainChunk = currentTerrainComponent->getTerrainChunk()) {
                             terrainProperties = terrainChunk->getTerrainProperties();
                             terrainTextures = terrainChunk->getTerrainTextureIds();
-                        } else {
+                        }
+                        else {
                             terrainProperties = {};
                             terrainTextures = {};
                         }
@@ -1494,11 +1529,11 @@ bool ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const i
     ImGui::SetColumnWidth(0, 30.0f);
     ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
     ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
+    bool destroy{false};
+    bool exit{false};
     if (ImGui::Button("X")) {
-        if (engine->selectedItem == obj) {
-            deselectItem(engine);
-        }
-        obj->destroy();
+        destroy = true;
+        exit = true;
     }
     ImGui::PopStyleColor(2);
     ImGui::NextColumn();
@@ -1537,7 +1572,6 @@ bool ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const i
     }
     ImGui::NextColumn();
 
-    bool exit = false;
     // Column 3: Control buttons
     if (IHierarchical* parent = obj->getParent()) {
         constexpr float spacing = 5.0f;
@@ -1598,6 +1632,12 @@ bool ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const i
 
     ImGui::Unindent(static_cast<float>(depth * indentLength));
     ImGui::PopID();
+    if (destroy) {
+        if (engine->selectedItem == obj) {
+            deselectItem(engine);
+        }
+        obj->destroy();
+    }
     return !exit;
 }
 

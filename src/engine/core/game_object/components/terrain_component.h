@@ -83,6 +83,8 @@ private:
         .baseColor = {1.0f, 1.0f, 1.0f, 1.0f}
     };
 
+    bool bIsGenerated{false};
+
 public:
     void updateRenderImgui() override;
 };

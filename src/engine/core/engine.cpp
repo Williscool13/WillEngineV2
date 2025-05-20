@@ -174,22 +174,24 @@ void Engine::init()
         imguiWrapper = new ImguiWrapper(*context, {window, swapchainImageFormat});
     }
 
-
     initRenderer();
-
     initGame();
-    startupProfiler.addEntry("Init Game");
+
+    Serializer::deserializeEngineSettings(this);
+    if (!generateDefaultMap()) {
+        createMap(file::getSampleScene());
+    }
+
+
+    const auto end = std::chrono::system_clock::now();
+    const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    fmt::print("Finished Initialization in {} seconds\n", static_cast<float>(elapsed.count()) / 1000000.0f);
 
     profiler.addTimer("0Physics");
     profiler.addTimer("1Game");
     profiler.addTimer("2Render");
     profiler.addTimer("3Total");
 
-    Serializer::deserializeEngineSettings(this);
-
-    const auto end = std::chrono::system_clock::now();
-    const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    fmt::print("Finished Initialization in {} seconds\n", static_cast<float>(elapsed.count()) / 1000000.0f);
 }
 
 void Engine::initRenderer()
@@ -273,8 +275,7 @@ void Engine::initRenderer()
 void Engine::initGame()
 {
     assetManager->scanForAll();
-    camera = new FreeCamera();
-    createMap(file::getSampleScene());
+    fallbackCamera = new FreeCamera();
 }
 
 void Engine::run()
@@ -360,15 +361,15 @@ void Engine::updatePhysics(const float deltaTime) const
 
 void Engine::updateGame(const float deltaTime)
 {
-    if (camera) { camera->update(deltaTime); }
+    if (fallbackCamera) { fallbackCamera->update(deltaTime); }
 
 #if WILL_ENGINE_DEBUG
     // Non-Core Gameplay Actions
     const input::Input& input = input::Input::get();
     if (input.isKeyPressed(input::Key::R)) {
-        if (camera) {
-            const glm::vec3 direction = camera->getForwardWS();
-            const physics::RaycastHit result = physics::PhysicsUtils::raycast(camera->getPosition(), direction, 100.0f, {}, {}, {});
+        if (fallbackCamera) {
+            const glm::vec3 direction = fallbackCamera->getForwardWS();
+            const physics::RaycastHit result = physics::PhysicsUtils::raycast(fallbackCamera->getPosition(), direction, 100.0f, {}, {}, {});
 
             if (result.hasHit) {
                 physics::PhysicsUtils::addImpulseAtPosition(result.hitBodyID, normalize(direction) * 100.0f, result.hitPosition);
@@ -380,7 +381,7 @@ void Engine::updateGame(const float deltaTime)
     }
 
     if (input.isKeyPressed(input::Key::G)) {
-        if (camera) {
+        if (fallbackCamera) {
             if (auto transformable = dynamic_cast<ITransformable*>(selectedItem)) {
                 glm::vec3 itemPosition = transformable->getPosition();
 
@@ -389,7 +390,7 @@ void Engine::updateGame(const float deltaTime)
 
                 float distance = glm::max(5.0f, maxDimension * 3.0f);
 
-                glm::vec3 currentCamPos = camera->getTransform().getPosition();
+                glm::vec3 currentCamPos = fallbackCamera->getTransform().getPosition();
                 glm::vec3 currentDirection = glm::normalize(itemPosition - currentCamPos);
 
                 glm::vec3 newCamPos = itemPosition - (currentDirection * distance);
@@ -401,7 +402,7 @@ void Engine::updateGame(const float deltaTime)
                 glm::mat3 rotMatrix(right, up, forward);
                 glm::quat newRotation = glm::quat_cast(rotMatrix);
 
-                camera->setCameraTransform(newCamPos, newRotation);
+                fallbackCamera->setCameraTransform(newCamPos, newRotation);
             }
         }
     }
@@ -446,20 +447,20 @@ void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int3
 
     pSceneData->jitter = taaSettings.bEnabled ? glm::vec4(currentJitter.x, currentJitter.y, prevJitter.x, prevJitter.y) : glm::vec4(0.0f);
 
-    const glm::mat4 cameraLook = glm::lookAt(glm::vec3(0), camera->getForwardWS(), glm::vec3(0, 1, 0));
+    const glm::mat4 cameraLook = glm::lookAt(glm::vec3(0), fallbackCamera->getForwardWS(), glm::vec3(0, 1, 0));
 
-    pSceneData->prevView = bIsFrameZero ? camera->getViewMatrix() : pPreviousSceneData->view;
-    pSceneData->prevProj = bIsFrameZero ? camera->getProjMatrix() : pPreviousSceneData->proj;
-    pSceneData->prevViewProj = bIsFrameZero ? camera->getViewProjMatrix() : pPreviousSceneData->viewProj;
+    pSceneData->prevView = bIsFrameZero ? fallbackCamera->getViewMatrix() : pPreviousSceneData->view;
+    pSceneData->prevProj = bIsFrameZero ? fallbackCamera->getProjMatrix() : pPreviousSceneData->proj;
+    pSceneData->prevViewProj = bIsFrameZero ? fallbackCamera->getViewProjMatrix() : pPreviousSceneData->viewProj;
 
-    pSceneData->prevInvView = bIsFrameZero ? inverse(camera->getViewMatrix()) : pPreviousSceneData->invView;
-    pSceneData->prevInvProj = bIsFrameZero ? inverse(camera->getProjMatrix()) : pPreviousSceneData->invProj;
-    pSceneData->prevInvViewProj = bIsFrameZero ? inverse(camera->getViewProjMatrix()) : pPreviousSceneData->invViewProj;
+    pSceneData->prevInvView = bIsFrameZero ? inverse(fallbackCamera->getViewMatrix()) : pPreviousSceneData->invView;
+    pSceneData->prevInvProj = bIsFrameZero ? inverse(fallbackCamera->getProjMatrix()) : pPreviousSceneData->invProj;
+    pSceneData->prevInvViewProj = bIsFrameZero ? inverse(fallbackCamera->getViewProjMatrix()) : pPreviousSceneData->invViewProj;
 
     pSceneData->prevViewProjCameraLookDirection = bIsFrameZero ? pSceneData->proj * cameraLook : pPreviousSceneData->viewProjCameraLookDirection;
 
-    pSceneData->view = camera->getViewMatrix();
-    pSceneData->proj = camera->getProjMatrix();
+    pSceneData->view = fallbackCamera->getViewMatrix();
+    pSceneData->proj = fallbackCamera->getProjMatrix();
     pSceneData->viewProj = pSceneData->proj * pSceneData->view;
 
     pSceneData->invView = glm::inverse(pSceneData->view);
@@ -468,20 +469,20 @@ void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int3
 
     pSceneData->viewProjCameraLookDirection = pSceneData->proj * cameraLook;
 
-    pSceneData->prevCameraWorldPos = bIsFrameZero ? camera->getPosition() : pPreviousSceneData->cameraWorldPos;
-    pSceneData->cameraWorldPos = camera->getPosition();
+    pSceneData->prevCameraWorldPos = bIsFrameZero ? fallbackCamera->getPosition() : pPreviousSceneData->cameraWorldPos;
+    pSceneData->cameraWorldPos = fallbackCamera->getPosition();
 
 
     pSceneData->renderTargetSize = {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
     pSceneData->texelSize = {1.0f / RENDER_EXTENT_WIDTH, 1.0f / RENDER_EXTENT_HEIGHT};
-    pSceneData->cameraPlanes = {camera->getNearPlane(), camera->getFarPlane()};
+    pSceneData->cameraPlanes = {fallbackCamera->getNearPlane(), fallbackCamera->getFarPlane()};
     pSceneData->deltaTime = deltaTime;
 
 
     const auto pDebugSceneData = static_cast<SceneData*>(debugSceneDataBuffer.info.pMappedData);
     pDebugSceneData->jitter = glm::vec4(0.0f);
     pDebugSceneData->view = glm::lookAt(glm::vec3(0), glm::vec3(0, 0, -1), glm::vec3(0, 1, 0));
-    pDebugSceneData->proj = camera->getProjMatrix();
+    pDebugSceneData->proj = fallbackCamera->getProjMatrix();
     pDebugSceneData->viewProj = pDebugSceneData->proj * pDebugSceneData->view;
 
     pDebugSceneData->prevView = pDebugSceneData->view;
@@ -522,9 +523,9 @@ void Engine::updateDebug(float deltaTime)
     if (!input.isInFocus()) {
         if (input.isMousePressed(input::MouseButton::LMB)) {
             if (physics::Physics* physics = physics::Physics::get()) {
-                const glm::vec3 direction = camera->screenToWorldDirection(input.getMousePosition());
-                if (const physics::RaycastHit result = physics::PhysicsUtils::raycast(camera->getPosition(),
-                                                                                      normalize(direction) * camera->getNearPlane())) {
+                const glm::vec3 direction = fallbackCamera->screenToWorldDirection(input.getMousePosition());
+                if (const physics::RaycastHit result = physics::PhysicsUtils::raycast(fallbackCamera->getPosition(),
+                                                                                      normalize(direction) * fallbackCamera->getNearPlane())) {
                     if (const physics::PhysicsObject* physicsObject = physics->getPhysicsObject(result.hitBodyID)) {
                         if (const auto* component = dynamic_cast<components::Component*>(physicsObject->physicsBody)) {
                             if (IComponentContainer* owner = component->getOwner()) {
@@ -597,7 +598,7 @@ void Engine::render(float deltaTime)
     updateRender(cmd, deltaTime, currentFrameOverlap, previousFrameOverlap);
 
     // Updates Cascaded Shadow Map Properties
-    cascadedShadowMap->update(mainLight, camera, currentFrameOverlap);
+    cascadedShadowMap->update(mainLight, fallbackCamera, currentFrameOverlap);
 
     visibility_pass_pipeline::VisibilityPassDrawInfo csmFrustumCullDrawInfo{
         currentFrameOverlap,
@@ -738,7 +739,7 @@ void Engine::render(float deltaTime)
     vk_helpers::imageBarrier(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     ambient_occlusion::GTAODrawInfo gtaoDrawInfo{
-        camera,
+        fallbackCamera,
         gtaoSettings.bEnabled,
         gtaoSettings.pushConstants,
         frameNumber,
@@ -748,7 +749,7 @@ void Engine::render(float deltaTime)
     ambientOcclusionPipeline->draw(cmd, gtaoDrawInfo);
 
     contact_shadows_pipeline::ContactShadowsDrawInfo contactDrawInfo{
-        camera,
+        fallbackCamera,
         mainLight,
         sssSettings.bEnabled,
         sssSettings.pushConstants,
@@ -768,8 +769,8 @@ void Engine::render(float deltaTime)
         cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferBindingInfo(),
         cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferSize() * currentFrameOverlap,
         cascadedShadowMap->getCascadedShadowMapSamplerBuffer().getDescriptorBufferBindingInfo(),
-        camera->getNearPlane(),
-        camera->getFarPlane(),
+        fallbackCamera->getNearPlane(),
+        fallbackCamera->getFarPlane(),
         bEnableShadows,
         bEnableContactShadows
     };
@@ -955,9 +956,11 @@ void Engine::cleanup()
     fmt::print("----------------------------------------\n");
     fmt::print("Cleaning up {}\n", ENGINE_NAME);
 
-    if (engineSettings.saveOnExit) {
+#if WILL_ENGINE_DEBUG
+    if (editorSettings.saveOnExit) {
         Serializer::serializeEngineSettings(this);
     }
+#endif
 
     vkDeviceWaitIdle(context->device);
 
@@ -1158,6 +1161,7 @@ void Engine::resizeSwapchain()
 Map* Engine::createMap(const std::filesystem::path& path)
 {
     auto newMap = std::make_unique<Map>(path, *resourceManager);
+    if (!newMap) { return nullptr; }
     Map* newMapPtr = newMap.get();
     activeMaps.push_back(std::move(newMap));
     return newMapPtr;
@@ -1348,5 +1352,24 @@ void Engine::hotReloadShaders() const
     deferredResolvePipeline->reloadShaders();
     temporalAntialiasingPipeline->reloadShaders();
     postProcessPipeline->reloadShaders();
+}
+
+bool Engine::generateDefaultMap()
+{
+    if (engineSettings.defaultMapToLoad.empty()) {
+        fmt::print("Warning: Default Map To Load is empty, loading sample scene\n");
+        return false;
+    }
+    if (!exists(engineSettings.defaultMapToLoad)) {
+        fmt::print("Warning: Default Map To Load provided doesn't exist, loading sample scene\n");
+        return false;
+    }
+
+    if (!createMap(relative(engineSettings.defaultMapToLoad))) {
+        fmt::print("Warning: Default Map To Load failed to be loaded, loading sample scene\n");
+        return false;
+    }
+
+    return true;
 }
 }

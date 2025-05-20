@@ -139,6 +139,16 @@ namespace vk_helpers
                           uint32_t pixelCount,
                           ImageFormat format, bool stencilOnly = false);
 
+    /**
+     * Used to save any type of image
+     * @param resourceManager
+     * @param immediate
+     * @param image
+     * @param imageLayout
+     * @param format
+     * @param savePath
+     * @param saveStencilOnly value only used if aspect mask is depthStencil
+     */
     void saveImage(const ResourceManager& resourceManager,
                    const ImmediateSubmitter& immediate,
                    const AllocatedImage& image,

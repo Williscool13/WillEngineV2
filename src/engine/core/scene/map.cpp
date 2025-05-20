@@ -92,6 +92,13 @@ bool will_engine::Map::loadMap()
     return true;
 }
 
+bool will_engine::Map::saveMap()
+{
+    ordered_json rootJ;
+
+    return Serializer::serializeMap(this, rootJ, mapSource);
+}
+
 bool will_engine::Map::saveMap(const std::filesystem::path& newSavePath)
 {
     if (!newSavePath.empty() && mapSource != newSavePath) {

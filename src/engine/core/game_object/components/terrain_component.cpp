@@ -36,6 +36,7 @@ void will_engine::components::TerrainComponent::serialize(ordered_json& j)
 {
     Component::serialize(j);
 
+    j["terrain"]["bIsGenerated"] = bIsGenerated;
     j["terrain"]["terrainGenerationProperties"] = terrainGenerationProperties;
     j["terrain"]["terrainSeed"] = seed;
     j["terrain"]["terrainConfig"] = terrainConfig;
@@ -52,26 +53,25 @@ void will_engine::components::TerrainComponent::deserialize(ordered_json& j)
     if (j.contains("terrain")) {
         const ordered_json terrain = j["terrain"];
 
-        bool shouldLoad = false;
+        if (terrain.contains("bIsGenerated")) {
+            bIsGenerated = terrain["bIsGenerated"].get<bool>();
+        }
+
         if (terrain.contains("terrainGenerationProperties")) {
             terrainGenerationProperties = terrain["terrainGenerationProperties"];
-            shouldLoad = true;
         }
 
         if (terrain.contains("terrainSeed")) {
             seed = terrain["terrainSeed"];
-            shouldLoad = true;
         }
 
         if (terrain.contains("terrainConfig")) {
             terrainConfig = terrain["terrainConfig"];
-            shouldLoad = true;
         }
 
         terrain::TerrainProperties tempProperties{};
         if (terrain.contains("terrainProperties")) {
             tempProperties = terrain["terrainProperties"];
-            shouldLoad = true;
         }
 
         std::array<uint32_t, terrain::MAX_TERRAIN_TEXTURE_COUNT> tempTextures = terrain::TerrainChunk::getDefaultTextureIds();
@@ -82,10 +82,9 @@ void will_engine::components::TerrainComponent::deserialize(ordered_json& j)
                     tempTextures[i] = textureArray[i].get<uint32_t>();
                 }
             }
-            shouldLoad = true;
         }
 
-        if (shouldLoad) {
+        if (bIsGenerated) {
             generateTerrain(tempProperties, tempTextures);
         }
     }
@@ -98,6 +97,7 @@ void will_engine::components::TerrainComponent::generateTerrain()
     if (Engine* engine = Engine::get()) {
         engine->addToActiveTerrain(this);
     }
+    bIsGenerated = true;
 }
 
 void will_engine::components::TerrainComponent::generateTerrain(terrain::TerrainProperties terrainProperties, std::array<uint32_t, terrain::MAX_TERRAIN_TEXTURE_COUNT> textureIds)
@@ -108,11 +108,13 @@ void will_engine::components::TerrainComponent::generateTerrain(terrain::Terrain
         engine->addToActiveTerrain(this);
     }
     terrainChunk->setTerrainBufferData(terrainProperties, textureIds);
+    bIsGenerated = true;
 }
 
 void will_engine::components::TerrainComponent::destroyTerrain()
 {
     terrainChunk.reset();
+    bIsGenerated = false;
 }
 
 std::vector<float> will_engine::components::TerrainComponent::getHeightMapData() const
@@ -124,5 +126,5 @@ void will_engine::components::TerrainComponent::updateRenderImgui()
 {
     Component::updateRenderImgui();
 
-    ImGui::Text("This component is not meant to be added directly to game objects. This will have no effect.");
+    ImGui::Text("This component is not meant to be added directly to game objects. This will have no effect.\n");
 }
