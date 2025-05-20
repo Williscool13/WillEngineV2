@@ -273,6 +273,17 @@ void will_engine::ResourceManager::flushDestructionQueue()
     }
 }
 
+std::optional<VkImageFormatProperties> will_engine::ResourceManager::getPhysicalDeviceImageFormatProperties(const VkFormat format, const VkImageUsageFlags usageFlags) const
+{
+    VkImageFormatProperties formatProperties;
+    const VkResult result = vkGetPhysicalDeviceImageFormatProperties(context.physicalDevice, format,VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_OPTIMAL, usageFlags, 0, &formatProperties);
+    if (result == VK_ERROR_FORMAT_NOT_SUPPORTED) {
+        return {};
+    } else {
+        return formatProperties;
+    }
+}
+
 AllocatedBuffer will_engine::ResourceManager::createBuffer(const size_t allocSize, const VkBufferUsageFlags usage,
                                                            const VmaMemoryUsage memoryUsage) const
 {

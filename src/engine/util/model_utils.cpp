@@ -6,11 +6,15 @@
 
 #include <fmt/format.h>
 #include <stb/stb_image.h>
+#include <volk/volk.h>
+#include <ktx/ktx.h>
+#include <ktx/ktxvulkan.h>
 
 #include "engine/renderer/resource_manager.h"
 #include "engine/renderer/assets/render_object/render_object.h"
 
-std::optional<AllocatedImage> will_engine::model_utils::loadImage(const ResourceManager& resourceManager, const fastgltf::Asset& asset, const fastgltf::Image& image,
+std::optional<AllocatedImage> will_engine::model_utils::loadImage(const ResourceManager& resourceManager, const fastgltf::Asset& asset,
+                                                                  const fastgltf::Image& image,
                                                                   const std::filesystem::path& parentFolder)
 {
     AllocatedImage newImage{};
@@ -27,56 +31,45 @@ std::optional<AllocatedImage> will_engine::model_utils::loadImage(const Resource
                 const std::wstring widePath(fileName.uri.path().begin(), fileName.uri.path().end());
                 const std::filesystem::path fullPath = parentFolder / widePath;
 
-                //std::string extension = getFileExtension(fullpath);
-                /*if (isKTXFile(extension)) {
+                if (fullPath.extension() == ".ktx" || fullPath.extension() == ".ktx2") {
                     ktxTexture* kTexture;
-                    KTX_error_code ktxresult;
+                    const KTX_error_code ktxResult = ktxTexture_CreateFromNamedFile(fullPath.string().c_str(), KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT,
+                                                                                    &kTexture);
 
-                    ktxresult = ktxTexture_CreateFromNamedFile(
-                        fullpath.c_str(),
-                        KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT,
-                        &kTexture);
-
-
-                    if (ktxresult == KTX_SUCCESS) {
-                        VkImageFormatProperties formatProperties;
-                        VkResult result = vkGetPhysicalDeviceImageFormatProperties(engine->_physicalDevice
-                            , ktxTexture_GetVkFormat(kTexture), VK_IMAGE_TYPE_2D
-                            , VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT, 0, &formatProperties);
-                        if (result == VK_ERROR_FORMAT_NOT_SUPPORTED) {
-                            fmt::print("Image found with format not supported\n");
-                            VkExtent3D imagesize;
-                            imagesize.width = 1;
-                            imagesize.height = 1;
-                            imagesize.depth = 1;
-                            unsigned char data[4] = { 255, 0, 255, 1 };
-                            newImage = engine->_resourceConstructor->create_image(data, 4, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, false);
-                        }
-                        else {
-                            unsigned char* data = (unsigned char*)ktxTexture_GetData(kTexture);
+                    if (ktxResult == KTX_SUCCESS) {
+                        std::optional<VkImageFormatProperties> formatProperties = resourceManager.getPhysicalDeviceImageFormatProperties(
+                            ktxTexture_GetVkFormat(kTexture), VK_IMAGE_USAGE_SAMPLED_BIT);
+                        if (formatProperties.has_value()) {
+                            const unsigned char* data = ktxTexture_GetData(kTexture);
                             VkExtent3D imageExtents{};
                             imageExtents.width = kTexture->baseWidth;
                             imageExtents.height = kTexture->baseHeight;
                             imageExtents.depth = 1;
-                            newImage = engine->_resourceConstructor->create_image(data, kTexture->dataSize, imageExtents, ktxTexture_GetVkFormat(kTexture), VK_IMAGE_USAGE_SAMPLED_BIT, false);
+                            newImage = resourceManager.createImage(data, kTexture->dataSize, imageExtents,
+                                                                   ktxTexture_GetVkFormat(kTexture), VK_IMAGE_USAGE_SAMPLED_BIT,
+                                                                   false);
                         }
-
+                        else {
+                            newImage = resourceManager.getErrorCheckerboardImage();
+                        }
                     }
 
-                    ktxTexture_Destroy(kTexture);
-                }*/
+                    //ktxTexture_Destroy(kTexture);
+                }
+                else {
+                    unsigned char* data = stbi_load(fullPath.string().c_str(), &width, &height, &nrChannels, 4);
+                    if (data) {
+                        VkExtent3D imagesize;
+                        imagesize.width = width;
+                        imagesize.height = height;
+                        imagesize.depth = 1;
+                        const size_t size = width * height * 4;
+                        newImage = resourceManager.createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
 
-                // ReSharper disable once CppTooWideScope
-                unsigned char* data = stbi_load(fullPath.string().c_str(), &width, &height, &nrChannels, 4);
-                if (data) {
-                    VkExtent3D imagesize;
-                    imagesize.width = width;
-                    imagesize.height = height;
-                    imagesize.depth = 1;
-                    const size_t size = width * height * 4;
-                    newImage = resourceManager.createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
-
-                    stbi_image_free(data);
+                        stbi_image_free(data);
+                    } else {
+                        newImage = resourceManager.getErrorCheckerboardImage();
+                    }
                 }
             },
             [&](const fastgltf::sources::Array& vector) {
@@ -113,7 +106,8 @@ std::optional<AllocatedImage> will_engine::model_utils::loadImage(const Resource
                                        imagesize.height = height;
                                        imagesize.depth = 1;
                                        const size_t size = width * height * 4;
-                                       newImage = resourceManager.createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
+                                       newImage = resourceManager.createImage(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM,
+                                                                              VK_IMAGE_USAGE_SAMPLED_BIT, true);
                                        stbi_image_free(data);
                                    }
                                }
@@ -126,7 +120,8 @@ std::optional<AllocatedImage> will_engine::model_utils::loadImage(const Resource
     if (newImage.image == VK_NULL_HANDLE) {
         fmt::print("Image failed to load: {}\n", image.name.c_str());
         return {};
-    } else {
+    }
+    else {
         return newImage;
     }
 }
@@ -179,7 +174,8 @@ will_engine::MaterialProperties will_engine::model_utils::extractMaterial(fastgl
     return material;
 }
 
-void will_engine::model_utils::loadTextureIndices(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, int& imageIndex, int& samplerIndex)
+void will_engine::model_utils::loadTextureIndices(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf,
+                                                  int& imageIndex, int& samplerIndex)
 {
     if (!texture.has_value()) { return; }
 

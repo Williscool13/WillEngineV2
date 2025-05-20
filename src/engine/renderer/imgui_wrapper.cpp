@@ -106,10 +106,6 @@ void ImguiWrapper::handleInput(const SDL_Event& e)
 
 void ImguiWrapper::selectMap(Map* newMap)
 {
-    if (newMap == nullptr) {
-        fmt::print("Attempted to select a nullptr map");
-        return;
-    }
     selectedMap = newMap;
     if (!selectedMap) {
         return;
@@ -131,8 +127,14 @@ void ImguiWrapper::selectMap(Map* newMap)
     terrainGenerationSettings = terrainComponent->getTerrainGenerationProperties();
     terrainSeed = terrainComponent->getSeed();
     terrainConfig = terrainComponent->getConfig();
-    terrainProperties = terrainComponent->getTerrainChunk()->getTerrainProperties();
-    terrainTextures = terrainComponent->getTerrainChunk()->getTerrainTextureIds();
+    if (terrain::TerrainChunk* terrainChunk = terrainComponent->getTerrainChunk()) {
+        terrainProperties = terrainChunk->getTerrainProperties();
+        terrainTextures = terrainChunk->getTerrainTextureIds();
+    } else {
+        terrainProperties = {};
+        terrainTextures = {};
+    }
+
 }
 
 void ImguiWrapper::imguiInterface(Engine* engine)
@@ -882,6 +884,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                             }
                                         }
                                         else {
+                                            ImGui::BeginDisabled(!selectedMap);
                                             if (ImGui::Button("Add to Scene")) {
                                                 IHierarchical* gob = Engine::createGameObject(selectedMap, objectName);
 
@@ -896,6 +899,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                                     fmt::print("Added single mesh to scene\n");
                                                 }
                                             }
+                                            ImGui::EndDisabled();
                                         }
                                         ImGui::EndTabItem();
                                     }
@@ -1236,7 +1240,30 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
 void ImguiWrapper::drawSceneGraph(Engine* engine)
 {
-    if (ImGui::Button("Create New Map")) {}
+    static std::filesystem::path mapPath = {"assets/maps/newMap.willmap"};
+
+    if (ImGui::Button("Create New Map")) {
+        IGFD::FileDialogConfig config;
+        config.path = "./assets/maps/";
+        config.fileName = mapPath.filename().string();
+        IGFD::FileDialog::Instance()->OpenDialog(
+            "NewWillmapDlg",
+            "Create New Map",
+            ".willmap",
+            config);
+    }
+
+    if (IGFD::FileDialog::Instance()->Display("NewWillmapDlg")) {
+        if (IGFD::FileDialog::Instance()->IsOk()) {
+            mapPath = IGFD::FileDialog::Instance()->GetFilePathName();
+            if (Map* map = engine->createMap(mapPath)) {
+                selectMap(map);
+            }
+        }
+        IGFD::FileDialog::Instance()->Close();
+    }
+
+
     if (ImGui::BeginCombo("Select Map", selectedMap ? selectedMap->getName().data() : "None")) {
         for (auto& map : engine->activeMaps) {
             bool isSelected = (selectedMap == map.get());
@@ -1254,11 +1281,13 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
     if (selectedMap == nullptr) {
         if (!engine->activeMaps.empty()) {
             const auto& firstMap = *engine->activeMaps.begin();
-            selectMap(firstMap.get());
+            if (firstMap) {
+                selectMap(firstMap.get());
+            }
         }
-        else {
+        if (selectedMap == nullptr)
+        {
             ImGui::Text("No map currently selected");
-
             return;
         }
     }
@@ -1349,8 +1378,13 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
                         terrainGenerationSettings = currentTerrainComponent->getTerrainGenerationProperties();
                         terrainSeed = currentTerrainComponent->getSeed();
                         terrainConfig = currentTerrainComponent->getConfig();
-                        terrainProperties = currentTerrainComponent->getTerrainChunk()->getTerrainProperties();
-                        terrainTextures = currentTerrainComponent->getTerrainChunk()->getTerrainTextureIds();
+                        if (terrain::TerrainChunk* terrainChunk = currentTerrainComponent->getTerrainChunk()) {
+                            terrainProperties = terrainChunk->getTerrainProperties();
+                            terrainTextures = terrainChunk->getTerrainTextureIds();
+                        } else {
+                            terrainProperties = {};
+                            terrainTextures = {};
+                        }
                     }
 
                     if (ImGui::Button("Destroy Terrain", ImVec2(-1, 0))) {

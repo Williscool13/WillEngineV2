@@ -328,14 +328,14 @@ target_link_libraries(WillEngine PRIVATE
         Jolt
 )
 
-set(SDL_DLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lib/SDL3${LIB_SUFFIX}.dll")
+set(SDL_DLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lib/SDL3.dll")
 
 add_custom_command(TARGET WillEngine POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
         ${SDL_DLL_PATH} $<TARGET_FILE_DIR:WillEngine>
 )
 
-set(KTX_DLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lib/ktx${LIB_SUFFIX}.dll")
+set(KTX_DLL_PATH "${CMAKE_CURRENT_SOURCE_DIR}/lib/ktx.dll")
 
 add_custom_command(TARGET WillEngine POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different

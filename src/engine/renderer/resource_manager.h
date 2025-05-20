@@ -79,6 +79,8 @@ public:
      */
     void flushDestructionQueue();
 
+    std::optional<VkImageFormatProperties> getPhysicalDeviceImageFormatProperties(VkFormat format, VkImageUsageFlags usageFlags) const;
+
 private:
     std::array<DestructionQueue, FRAME_OVERLAP> destructionQueues;
 

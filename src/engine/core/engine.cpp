@@ -131,7 +131,10 @@ void Engine::init()
     physics = new physics::Physics();
     physics::Physics::set(physics);
 
+    startupProfiler.addEntry("Immediate, ResourceM, AssetM, Physics");
+
     createDrawResources();
+    startupProfiler.addEntry("Draw Resources");
 
 #if WILL_ENGINE_DEBUG_DRAW
     debugRenderer = new debug_renderer::DebugRenderer(*resourceManager);
@@ -141,8 +144,7 @@ void Engine::init()
     debugHighlighter = new debug_highlight_pipeline::DebugHighlighter(*resourceManager);
     debugHighlighter->setupDescriptorBuffer(stencilImageView, debugTarget.imageView);
 #endif
-
-    startupProfiler.addEntry("Immediate, ResourceM, AssetM, Physics");
+    startupProfiler.addEntry("Debug Draws");
 
     environmentMap = new environment::Environment(*resourceManager, *immediate);
     startupProfiler.addEntry("Environment");
@@ -415,6 +417,16 @@ void Engine::updateGame(const float deltaTime)
     for (auto& map : activeMaps) {
         map->update(deltaTime);
     }
+
+    for (const auto& map : mapDeletionQueue) {
+        map->beginDestructor();
+    }
+    mapDeletionQueue.clear();
+
+    for (const auto& hierarchical : hierarchicalDeletionQueue) {
+        hierarchical->beginDestructor();
+    }
+    hierarchicalDeletionQueue.clear();
 }
 
 void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap) const
