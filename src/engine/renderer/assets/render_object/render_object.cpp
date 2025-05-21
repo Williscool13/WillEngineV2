@@ -373,7 +373,7 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath, std::vec
 {
     auto start = std::chrono::system_clock::now();
 
-    fastgltf::Parser parser{};
+    fastgltf::Parser parser{fastgltf::Extensions::KHR_texture_basisu | fastgltf::Extensions::KHR_mesh_quantization};
     constexpr auto gltfOptions = fastgltf::Options::DontRequireValidAssetMember
                                  | fastgltf::Options::AllowDouble
                                  | fastgltf::Options::LoadExternalBuffers

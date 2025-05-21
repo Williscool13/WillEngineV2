@@ -21,37 +21,14 @@ std::optional<AllocatedImage> will_engine::model_utils::loadImage(const Resource
 
     int width{}, height{}, nrChannels{};
 
-
     std::visit(
         fastgltf::visitor{
-            [&](const auto& arg) {
-                // Get the type name
+            [&](auto& arg) {
                 const char* typeName = typeid(arg).name();
                 fmt::print("Unknown variant type: {} for image: {}\n", typeName, image.name.c_str());
             },
             [&](const fastgltf::sources::URI& fileName) {
                 fmt::print("Image source is URI type for image: {}\n", image.name.c_str());
-                // Rest of your URI handling code
-                // ...
-            },
-            [&](const fastgltf::sources::Array& vector) {
-                fmt::print("Image source is Array type for image: {}\n", image.name.c_str());
-                // Rest of your Array handling code
-                // ...
-            },
-            [&](const fastgltf::sources::BufferView& view) {
-                fmt::print("Image source is BufferView type for image: {}\n", image.name.c_str());
-                // Rest of your BufferView handling code
-                // ...
-            }
-        }, image.data);
-
-    std::visit(
-        fastgltf::visitor{
-            [](auto& arg) {
-                fmt::print("What!");
-            },
-            [&](const fastgltf::sources::URI& fileName) {
                 assert(fileName.fileByteOffset == 0); // We don't support offsets with stbi.
                 assert(fileName.uri.isLocalPath()); // We're only capable of loading
                 // local files.
@@ -95,6 +72,7 @@ std::optional<AllocatedImage> will_engine::model_utils::loadImage(const Resource
                 }
             },
             [&](const fastgltf::sources::Array& vector) {
+                fmt::print("Image source is Array type for image: {}\n", image.name.c_str());
                 if (vector.bytes.size() > 30) {
                     // Minimum size for a meaningful check
                     std::string_view strData(reinterpret_cast<const char*>(vector.bytes.data()),
@@ -174,6 +152,7 @@ std::optional<AllocatedImage> will_engine::model_utils::loadImage(const Resource
                 }
             },
             [&](const fastgltf::sources::BufferView& view) {
+                fmt::print("Image source is BufferView type for image: {}\n", image.name.c_str());
                 const fastgltf::BufferView& bufferView = asset.bufferViews[view.bufferViewIndex];
                 const fastgltf::Buffer& buffer = asset.buffers[bufferView.bufferIndex];
                 // We only care about VectorWithMime here, because we
