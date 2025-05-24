@@ -162,6 +162,10 @@ will_engine::ResourceManager::ResourceManager(const VulkanContext& context, Imme
         destructionQueues[i].pipelineLayoutQueue.reserve(100);
         destructionQueues[i].descriptorSetLayoutQueue.reserve(100);
     }
+
+    const VkCommandPoolCreateInfo poolInfo = vk_helpers::commandPoolCreateInfo(context.graphicsQueueFamily, VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+    VK_CHECK(vkCreateCommandPool(context.device, &poolInfo, nullptr, &ktxTextureCommandPool));
+    vulkanDeviceInfo = ktxVulkanDeviceInfo_Create(context.physicalDevice, context.device, context.graphicsQueue, ktxTextureCommandPool, nullptr);
 }
 
 will_engine::ResourceManager::~ResourceManager()
@@ -183,6 +187,9 @@ will_engine::ResourceManager::~ResourceManager()
     destroy(terrainUniformLayout);
 
     flushDestructionQueue();
+
+    ktxVulkanDeviceInfo_Destroy(vulkanDeviceInfo);
+    vkDestroyCommandPool(context.device, ktxTextureCommandPool, nullptr);
 }
 
 void will_engine::ResourceManager::update(int32_t currentFrameOverlap)

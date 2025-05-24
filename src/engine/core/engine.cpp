@@ -80,10 +80,9 @@ void Engine::init()
 
     // We initialize SDL and create a window with it.
     SDL_Init(SDL_INIT_VIDEO);
-    constexpr auto window_flags = SDL_WINDOW_VULKAN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE;
+    //constexpr auto window_flags = SDL_WINDOW_VULKAN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE;
+    constexpr auto window_flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
     windowExtent = {RENDER_EXTENTS.width, RENDER_EXTENTS.height};
-
-    //auto window_flags = static_cast<SDL_WindowFlags>(SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE);
 
     window = SDL_CreateWindow(
         ENGINE_NAME,

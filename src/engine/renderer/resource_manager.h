@@ -9,6 +9,9 @@
 #include <fstream>
 #include <span>
 
+#include <volk/volk.h>
+
+#include "ktxvulkan.h"
 #include "renderer_constants.h"
 #include "vk_descriptors.h"
 #include "vk_pipelines.h"
@@ -191,6 +194,8 @@ public: // Image View
     void destroy(VkImageView imageView);
 
 public:
+    [[nodiscard]] ktxVulkanDeviceInfo* getKtxVulkanDeviceInfo() const { return vulkanDeviceInfo; }
+
     [[nodiscard]] VkSampler getDefaultSamplerLinear() const { return defaultSamplerLinear; }
     [[nodiscard]] VkSampler getDefaultSamplerNearest() const { return defaultSamplerNearest; }
     [[nodiscard]] VkSampler getDefaultSamplerMipMappedNearest() const { return defaultSamplerMipMappedLinear; }
@@ -209,6 +214,9 @@ public:
 private:
     const VulkanContext& context;
     const ImmediateSubmitter& immediate;
+
+    VkCommandPool ktxTextureCommandPool{VK_NULL_HANDLE};
+    ktxVulkanDeviceInfo* vulkanDeviceInfo{nullptr};
 
     AllocatedImage whiteImage{};
     AllocatedImage errorCheckerboardImage{};

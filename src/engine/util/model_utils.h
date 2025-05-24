@@ -26,6 +26,17 @@ void loadTextureIndices(const fastgltf::Optional<fastgltf::TextureInfo>& texture
 VkFilter extractFilter(fastgltf::Filter filter);
 
 VkSamplerMipmapMode extractMipMapMode(fastgltf::Filter filter);
+
+/**
+ *
+ * @param vector
+ * @return 0 if not, number indicates ktx version
+ */
+static int32_t isKtxTexture(const fastgltf::sources::Array& vector);
+
+static std::optional<AllocatedImage> processKtxVector(const ResourceManager& resourceManager, const fastgltf::sources::Array& vector);
+
+static std::optional<AllocatedImage> processKtx2Vector(const ResourceManager& resourceManager, const fastgltf::sources::Array& vector);
 }
 
 

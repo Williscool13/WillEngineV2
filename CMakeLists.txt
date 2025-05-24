@@ -288,6 +288,8 @@ set(TEMP_SOURCES
         src/engine/core/game_object/game_object_factory.cpp
         src/engine/core/game_object/game_object_factory.h
         src/engine/renderer/pipelines/debug/debug_highlight_types.h
+        src/engine/renderer/resources/vulkan_resource.cpp
+        src/engine/renderer/resources/vulkan_resource.h
 )
 
 add_executable(WillEngine main.cpp
