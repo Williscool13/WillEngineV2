@@ -13,7 +13,7 @@
 
 #if WILL_ENGINE_DEBUG_DRAW
 
-namespace will_engine::debug_renderer
+namespace will_engine::renderer
 {
 DebugRenderer* DebugRenderer::debugRenderer = nullptr;
 
@@ -30,30 +30,29 @@ DebugRenderer::DebugRenderer(ResourceManager& resourceManager) : resourceManager
 
     // Vertex Buffer
     const uint64_t instancedVertexBufferSize = instancedVertices.size() * sizeof(DebugRendererVertex);
-    const AllocatedBuffer instancedVertexStaging = resourceManager.createStagingBuffer(instancedVertexBufferSize);
+    AllocatedBuffer instancedVertexStaging = resourceManager.createStagingBuffer(instancedVertexBufferSize);
     memcpy(instancedVertexStaging.info.pMappedData, instancedVertices.data(), instancedVertexBufferSize);
     instancedVertexBuffer = resourceManager.createDeviceBuffer(instancedVertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
     // Index Buffer
     const uint64_t instancedIndexBufferSize = instancedIndices.size() * sizeof(uint32_t);
-    const AllocatedBuffer instancedIndexStaging = resourceManager.createStagingBuffer(instancedIndexBufferSize);
+    AllocatedBuffer instancedIndexStaging = resourceManager.createStagingBuffer(instancedIndexBufferSize);
     memcpy(instancedIndexStaging.info.pMappedData, instancedIndices.data(), instancedIndexBufferSize);
     instancedIndexBuffer = resourceManager.createDeviceBuffer(instancedIndexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
     std::array<BufferCopyInfo, 2> bufferCopies = {
-        BufferCopyInfo(instancedVertexStaging, 0, instancedVertexBuffer, 0, instancedVertexBufferSize),
-        {instancedIndexStaging, 0, instancedIndexBuffer, 0, instancedIndexBufferSize},
+        BufferCopyInfo(instancedVertexStaging.buffer, 0, instancedVertexBuffer.buffer, 0, instancedVertexBufferSize),
+        {instancedIndexStaging.buffer, 0, instancedIndexBuffer.buffer, 0, instancedIndexBufferSize},
     };
 
     resourceManager.copyBufferImmediate(bufferCopies);
-    for (BufferCopyInfo bufferCopy : bufferCopies) {
-        resourceManager.destroyImmediate(bufferCopy.src);
-    }
+    resourceManager.destroyResourceImmediate(std::move(instancedIndexStaging));
+    resourceManager.destroyResourceImmediate(std::move(instancedVertexStaging));
 
 
     std::array<VkDescriptorSetLayout, 2> descriptorLayout;
     descriptorLayout[0] = resourceManager.getSceneDataLayout();
-    descriptorLayout[1] = uniformLayout;
+    descriptorLayout[1] = uniformLayout.layout;
 
     VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
     layoutInfo.pSetLayouts = descriptorLayout.data();
@@ -72,30 +71,30 @@ DebugRenderer::DebugRenderer(ResourceManager& resourceManager) : resourceManager
 
 DebugRenderer::~DebugRenderer()
 {
-    resourceManager.destroy(uniformLayout);
+    resourceManager.destroyResource(std::move(uniformLayout));
 
-    resourceManager.destroy(instancedVertexBuffer);
-    resourceManager.destroy(instancedIndexBuffer);
+    resourceManager.destroyResource(std::move(instancedVertexBuffer));
+    resourceManager.destroyResource(std::move(instancedIndexBuffer));
 
     for (DebugRenderGroup& group : debugRenderInstanceGroups) {
         for (AllocatedBuffer& buffer : group.instanceBuffers) {
-            resourceManager.destroy(buffer);
+            resourceManager.destroyResource(std::move(buffer));
         }
-        resourceManager.destroy(group.instanceDescriptorBuffer);
+        resourceManager.destroyResource(std::move(group.instanceDescriptorBuffer));
     }
 
     for (AllocatedBuffer& buffer : lineVertexBuffers) {
-        resourceManager.destroy(buffer);
+        resourceManager.destroyResource(std::move(buffer));
     }
     for (AllocatedBuffer& buffer : triangleVertexBuffers) {
-        resourceManager.destroy(buffer);
+        resourceManager.destroyResource(std::move(buffer));
     }
 
-    resourceManager.destroy(instancedPipelineLayout);
-    resourceManager.destroy(normalPipelineLayout);
-    resourceManager.destroy(instancedLinePipeline);
-    resourceManager.destroy(linePipeline);
-    resourceManager.destroy(trianglePipeline);
+    resourceManager.destroyResource(std::move(instancedPipelineLayout));
+    resourceManager.destroyResource(std::move(normalPipelineLayout));
+    resourceManager.destroyResource(std::move(instancedLinePipeline));
+    resourceManager.destroyResource(std::move(linePipeline));
+    resourceManager.destroyResource(std::move(trianglePipeline));
 }
 
 void DebugRenderer::drawLine(const glm::vec3& start, const glm::vec3& end, const glm::vec3& color)
@@ -150,14 +149,14 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
                 newSize += DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT;
             }
 
-            resourceManager.destroy(instanceBuffer);
+            resourceManager.destroyResource(std::move(instanceBuffer));
 
             // Don't need to copy, writing to it in the next section anyway
             const uint64_t newBufferSize = newSize * sizeof(DebugRendererInstance);
             instanceBuffer = resourceManager.createHostSequentialBuffer(newBufferSize);
 
             DescriptorUniformData addressesUniformData{
-                .uniformBuffer = instanceBuffer,
+                .buffer = instanceBuffer.buffer,
                 .allocSize = newBufferSize,
             };
 
@@ -179,7 +178,7 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
                 newSize += DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT;
             }
 
-            resourceManager.destroy(lineVertexBuffer);
+            resourceManager.destroyResource(std::move(lineVertexBuffer));
 
             const uint64_t newBufferSize = newSize * sizeof(DebugRendererVertexFull);
             lineVertexBuffer = resourceManager.createHostSequentialBuffer(newBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
@@ -196,7 +195,7 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
                 newSize += DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT;
             }
 
-            resourceManager.destroy(triangleVertexBuffer);
+            resourceManager.destroyResource(std::move(triangleVertexBuffer));
 
             const uint64_t newBufferSize = newSize * sizeof(DebugRendererVertexFull);
             triangleVertexBuffer = resourceManager.createHostSequentialBuffer(newBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
@@ -208,7 +207,7 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
 
 
     const VkRenderingAttachmentInfo imageAttachment = vk_helpers::attachmentInfo(drawInfo.debugTarget, nullptr,
-                                                                                  VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+                                                                                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     const VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthTarget, nullptr,
                                                                                  VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
@@ -249,26 +248,27 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
 
     // Instanced rendering
     {
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, instancedLinePipeline);
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, instancedLinePipeline.pipeline);
 
         for (DebugRenderGroup& group : debugRenderInstanceGroups) {
             if (group.instances.empty()) { continue;; }
 
 
-            const std::array descriptorBufferBindingInfos{
+            const std::array<VkDescriptorBufferBindingInfoEXT, 2> descriptorBufferBindingInfos{
                 drawInfo.sceneDataBinding,
-                group.instanceDescriptorBuffer.getDescriptorBufferBindingInfo()
+                group.instanceDescriptorBuffer.getBindingInfo()
             };
 
             vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfos.data());
 
             constexpr std::array<uint32_t, 2> indices{0, 1};
-            const std::array offsets{
+            const std::array<VkDeviceSize, 2> offsets{
                 drawInfo.sceneDataOffset,
                 group.instanceDescriptorBuffer.getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
             };
 
-            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, instancedPipelineLayout, 0, 2, indices.data(), offsets.data());
+            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, instancedPipelineLayout.layout, 0, 2, indices.data(),
+                                               offsets.data());
 
             vkCmdBindVertexBuffers(cmd, 0, 1, &instancedVertexBuffer.buffer, &ZERO_DEVICE_SIZE);
             vkCmdBindIndexBuffer(cmd, instancedIndexBuffer.buffer, 0, VK_INDEX_TYPE_UINT32);
@@ -281,13 +281,13 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
 
     // Line Rendering
     if (!lineVertices.empty()) {
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, linePipeline);
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, linePipeline.pipeline);
 
         const std::array descriptorBufferBindingInfos{drawInfo.sceneDataBinding};
         constexpr std::array<uint32_t, 1> indices{};
         const std::array offsets{drawInfo.sceneDataOffset};
         vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfos.data());
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, normalPipelineLayout, 0, 1, indices.data(), offsets.data());
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, normalPipelineLayout.layout, 0, 1, indices.data(), offsets.data());
 
         AllocatedBuffer& currentLineVertexBuffer = lineVertexBuffers[drawInfo.currentFrameOverlap];
         vkCmdBindVertexBuffers(cmd, 0, 1, &currentLineVertexBuffer.buffer, &ZERO_DEVICE_SIZE);
@@ -295,13 +295,13 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     }
 
     if (!triangleVertices.empty()) {
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, trianglePipeline);
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, trianglePipeline.pipeline);
 
         const std::array descriptorBufferBindingInfos{drawInfo.sceneDataBinding};
         constexpr std::array<uint32_t, 1> indices{};
         const std::array offsets{drawInfo.sceneDataOffset};
         vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfos.data());
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, normalPipelineLayout, 0, 1, indices.data(), offsets.data());
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, normalPipelineLayout.layout, 0, 1, indices.data(), offsets.data());
 
         AllocatedBuffer& currentTriangleVertexBuffer = triangleVertexBuffers[drawInfo.currentFrameOverlap];
         vkCmdBindVertexBuffers(cmd, 0, 1, &currentTriangleVertexBuffer.buffer, &ZERO_DEVICE_SIZE);
@@ -324,28 +324,35 @@ void DebugRenderer::clear()
 
 void DebugRenderer::createPipeline()
 {
-    resourceManager.destroy(instancedLinePipeline);
-    resourceManager.destroy(trianglePipeline);
-    resourceManager.destroy(linePipeline);
+    resourceManager.destroyResource(std::move(instancedLinePipeline));
+    resourceManager.destroyResource(std::move(trianglePipeline));
+    resourceManager.destroyResource(std::move(linePipeline));
 
     // Instanced Pipeline
     {
         VkShaderModule vertShader = resourceManager.createShaderModule("shaders/debug/debug_renderer_instanced.vert");
         VkShaderModule fragShader = resourceManager.createShaderModule("shaders/debug/debug_renderer_instanced.frag");
 
-        PipelineBuilder renderPipelineBuilder;
-        VkVertexInputBindingDescription vertexBinding{};
-        vertexBinding.binding = 0;
-        vertexBinding.stride = sizeof(DebugRendererVertex);
-        vertexBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        RenderPipelineBuilder renderPipelineBuilder;
 
-        std::array<VkVertexInputAttributeDescription, 1> vertexAttributes;
-        vertexAttributes[0].binding = 0;
-        vertexAttributes[0].location = 0;
-        vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-        vertexAttributes[0].offset = offsetof(DebugRendererVertex, position);
+        const std::vector<VkVertexInputBindingDescription> vertexBindings{
+            {
+                .binding = 0,
+                .stride = sizeof(DebugRendererVertex),
+                .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+            }
+        };
 
-        renderPipelineBuilder.setupVertexInput(&vertexBinding, 1, vertexAttributes.data(), 1);
+        const std::vector<VkVertexInputAttributeDescription> vertexAttributes{
+            {
+                .location = 0,
+                .binding = 0,
+                .format = VK_FORMAT_R32G32B32_SFLOAT,
+                .offset = offsetof(DebugRendererVertex, position),
+            }
+        };
+
+        renderPipelineBuilder.setupVertexInput(vertexBindings, vertexAttributes);
 
         renderPipelineBuilder.setShaders(vertShader, fragShader);
         renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_LINE_LIST); // line so that we don't see diagonals on quads
@@ -354,12 +361,12 @@ void DebugRenderer::createPipeline()
         renderPipelineBuilder.disableBlending();
         renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
         renderPipelineBuilder.setupRenderer({DEBUG_FORMAT}, DEPTH_STENCIL_FORMAT);
-        renderPipelineBuilder.setupPipelineLayout(instancedPipelineLayout);
-        const std::vector additionalDynamicStates{VK_DYNAMIC_STATE_LINE_WIDTH};
-        instancedLinePipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);
+        renderPipelineBuilder.setupPipelineLayout(instancedPipelineLayout.layout);
+        renderPipelineBuilder.addDynamicState(VK_DYNAMIC_STATE_LINE_WIDTH);
+        instancedLinePipeline = resourceManager.createRenderPipeline(renderPipelineBuilder);
 
-        resourceManager.destroy(vertShader);
-        resourceManager.destroy(fragShader);
+        resourceManager.destroyShaderModule(vertShader);
+        resourceManager.destroyShaderModule(fragShader);
     }
 
     // Line Vertex Pipeline
@@ -367,24 +374,32 @@ void DebugRenderer::createPipeline()
         VkShaderModule vertShader = resourceManager.createShaderModule("shaders/debug/debug_renderer.vert");
         VkShaderModule fragShader = resourceManager.createShaderModule("shaders/debug/debug_renderer.frag");
 
-        PipelineBuilder renderPipelineBuilder;
-        VkVertexInputBindingDescription vertexBinding{};
-        vertexBinding.binding = 0;
-        vertexBinding.stride = sizeof(DebugRendererVertexFull);
-        vertexBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+        RenderPipelineBuilder renderPipelineBuilder;
 
-        std::array<VkVertexInputAttributeDescription, 2> vertexAttributes;
-        vertexAttributes[0].binding = 0;
-        vertexAttributes[0].location = 0;
-        vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-        vertexAttributes[0].offset = offsetof(DebugRendererVertexFull, position);
+        const std::vector<VkVertexInputBindingDescription> vertexBindings{
+            {
+                .binding = 0,
+                .stride = sizeof(DebugRendererVertexFull),
+                .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+            }
+        };
 
-        vertexAttributes[1].binding = 0;
-        vertexAttributes[1].location = 1;
-        vertexAttributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-        vertexAttributes[1].offset = offsetof(DebugRendererVertexFull, color);
+        const std::vector<VkVertexInputAttributeDescription> vertexAttributes{
+            {
+                .location = 0,
+                .binding = 0,
+                .format = VK_FORMAT_R32G32B32_SFLOAT,
+                .offset = offsetof(DebugRendererVertexFull, position),
+            },
+            {
+                .location = 1,
+                .binding = 0,
+                .format = VK_FORMAT_R32G32B32_SFLOAT,
+                .offset = offsetof(DebugRendererVertexFull, color),
+            }
+        };
 
-        renderPipelineBuilder.setupVertexInput(&vertexBinding, 1, vertexAttributes.data(), 2);
+        renderPipelineBuilder.setupVertexInput(vertexBindings, vertexAttributes);
 
         renderPipelineBuilder.setShaders(vertShader, fragShader);
         renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
@@ -393,16 +408,16 @@ void DebugRenderer::createPipeline()
         renderPipelineBuilder.disableBlending();
         renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
         renderPipelineBuilder.setupRenderer({DEBUG_FORMAT}, DEPTH_STENCIL_FORMAT);
-        renderPipelineBuilder.setupPipelineLayout(normalPipelineLayout);
-        const std::vector additionalDynamicStates{VK_DYNAMIC_STATE_LINE_WIDTH};
-        linePipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);
+        renderPipelineBuilder.setupPipelineLayout(normalPipelineLayout.layout);
+        renderPipelineBuilder.addDynamicState(VK_DYNAMIC_STATE_LINE_WIDTH);
+        linePipeline = resourceManager.createRenderPipeline(renderPipelineBuilder);
 
         //renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
         renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
-        trianglePipeline = resourceManager.createRenderPipeline(renderPipelineBuilder, additionalDynamicStates);
+        trianglePipeline = resourceManager.createRenderPipeline(renderPipelineBuilder);
 
-        resourceManager.destroy(vertShader);
-        resourceManager.destroy(fragShader);
+        resourceManager.destroyShaderModule(vertShader);
+        resourceManager.destroyShaderModule(fragShader);
     }
 }
 
@@ -460,12 +475,12 @@ void DebugRenderer::setupBoxRendering(const int32_t index)
     // Box Instance Data Buffer
     constexpr uint64_t boxInstanceBufferSize = DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT * sizeof(DebugRendererInstance);
 
-    debugRenderInstanceGroups[index].instanceDescriptorBuffer = resourceManager.createDescriptorBufferUniform(uniformLayout, FRAME_OVERLAP);
+    debugRenderInstanceGroups[index].instanceDescriptorBuffer = resourceManager.createDescriptorBufferUniform(uniformLayout.layout, FRAME_OVERLAP);
     for (int32_t i = 0; i < FRAME_OVERLAP; ++i) {
         debugRenderInstanceGroups[index].instanceBufferSizes[i] = DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT;
         debugRenderInstanceGroups[index].instanceBuffers[i] = resourceManager.createHostSequentialBuffer(boxInstanceBufferSize);
         DescriptorUniformData addressesUniformData{
-            .uniformBuffer = debugRenderInstanceGroups[index].instanceBuffers[i],
+            .buffer = debugRenderInstanceGroups[index].instanceBuffers[i].buffer,
             .allocSize = boxInstanceBufferSize,
         };
 
@@ -516,12 +531,12 @@ void DebugRenderer::setupSphereRendering(const int32_t index)
     // Sphere Instance Data Buffer
     constexpr uint64_t sphereInstanceBufferSize = DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT * sizeof(DebugRendererInstance);
 
-    debugRenderInstanceGroups[index].instanceDescriptorBuffer = resourceManager.createDescriptorBufferUniform(uniformLayout, FRAME_OVERLAP);
+    debugRenderInstanceGroups[index].instanceDescriptorBuffer = resourceManager.createDescriptorBufferUniform(uniformLayout.layout, FRAME_OVERLAP);
     for (int32_t i = 0; i < FRAME_OVERLAP; ++i) {
         debugRenderInstanceGroups[index].instanceBuffers[i] = resourceManager.createHostSequentialBuffer(sphereInstanceBufferSize);
         debugRenderInstanceGroups[index].instanceBufferSizes[i] = DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT;
         DescriptorUniformData addressesUniformData{
-            .uniformBuffer = debugRenderInstanceGroups[index].instanceBuffers[i],
+            .buffer = debugRenderInstanceGroups[index].instanceBuffers[i].buffer,
             .allocSize = sphereInstanceBufferSize,
         };
 

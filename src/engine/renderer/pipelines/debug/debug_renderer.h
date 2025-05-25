@@ -10,18 +10,18 @@
 #include "debug_renderer_types.h"
 #include "engine/renderer/renderer_constants.h"
 #include "engine/renderer/vk_types.h"
+#include "engine/renderer/resources/allocated_buffer.h"
+#include "engine/renderer/resources/descriptor_set_layout.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
 
 #ifndef WILL_ENGINE_DEBUG_DRAW
     #error This file should only be included when WILL_ENGINE_DEBUG is defined
 #endif // !WILL_ENGINE_DEBUG
 
-namespace will_engine
+namespace will_engine::renderer
 {
 class ResourceManager;
-}
-
-namespace will_engine::debug_renderer
-{
 
 struct DebugRendererPushConstant
 {
@@ -86,16 +86,16 @@ private:
 
     void createPipeline();
 
-    VkPipelineLayout instancedPipelineLayout{VK_NULL_HANDLE};
-    VkPipelineLayout normalPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline instancedLinePipeline{VK_NULL_HANDLE};
+    PipelineLayout instancedPipelineLayout{};
+    PipelineLayout normalPipelineLayout{};
+    Pipeline instancedLinePipeline{};
 
 
     /**
      * Full refers to vertex format. Also refers to the lack of vertex color in the vertex data
      */
-    VkPipeline linePipeline{VK_NULL_HANDLE};
-    VkPipeline trianglePipeline{VK_NULL_HANDLE};
+    Pipeline linePipeline{};
+    Pipeline trianglePipeline{};
 
 private:
     ResourceManager& resourceManager;
@@ -105,27 +105,23 @@ private:
     // for custom debug draws from Jolt. For primitives use the instanced draws instead.
     std::vector<DebugRendererVertexFull> lineVertices{};
     std::array<int64_t, FRAME_OVERLAP> lineVertexBufferSizes{0, 0};
-    std::array<AllocatedBuffer, FRAME_OVERLAP> lineVertexBuffers{VK_NULL_HANDLE, VK_NULL_HANDLE};
+    std::array<AllocatedBuffer, FRAME_OVERLAP> lineVertexBuffers{};
 
     std::vector<DebugRendererVertexFull> triangleVertices{};
     std::array<int64_t, FRAME_OVERLAP> triangleVertexBufferSizes{0, 0};
-    std::array<AllocatedBuffer, FRAME_OVERLAP> triangleVertexBuffers{VK_NULL_HANDLE, VK_NULL_HANDLE};
+    std::array<AllocatedBuffer, FRAME_OVERLAP> triangleVertexBuffers{};
 
-    VkDescriptorSetLayout uniformLayout{VK_NULL_HANDLE};
+    DescriptorSetLayout uniformLayout{};
 
     std::vector<DebugRendererVertex> instancedVertices{};
     std::vector<uint32_t> instancedIndices{};
-    AllocatedBuffer instancedVertexBuffer{VK_NULL_HANDLE};
-    AllocatedBuffer instancedIndexBuffer{VK_NULL_HANDLE};
+    AllocatedBuffer instancedVertexBuffer{};
+    AllocatedBuffer instancedIndexBuffer{};
 
     /**
      * 0 = box, 1 = sphere
      */
     std::array<DebugRenderGroup, 4> debugRenderInstanceGroups;
-
-
-
-
 };
 }
 

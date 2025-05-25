@@ -23,7 +23,7 @@ class Map final : public IHierarchical,
                   public IComponentContainer
 {
 public:
-    explicit Map(const std::filesystem::path& mapSource, ResourceManager& resourceManager);
+    explicit Map(const std::filesystem::path& mapSource, renderer::ResourceManager& resourceManager);
 
     ~Map() override;
 
@@ -203,7 +203,7 @@ private:
     std::string mapName{};
     uint32_t mapId;
 
-    ResourceManager& resourceManager;
+    renderer::ResourceManager& resourceManager;
 
     bool isLoaded{false};
 };

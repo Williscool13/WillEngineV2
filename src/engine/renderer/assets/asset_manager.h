@@ -11,12 +11,12 @@
 #include "texture/texture.h"
 
 
-namespace will_engine
+namespace will_engine::renderer
 {
 class AssetManager
 {
 public:
-    explicit AssetManager(ResourceManager& resourceManager);
+    explicit AssetManager(renderer::ResourceManager& resourceManager);
 
     ~AssetManager();
 

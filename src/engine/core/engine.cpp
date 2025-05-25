@@ -21,19 +21,13 @@
 #include "engine/renderer/immediate_submitter.h"
 #include "engine/renderer/resource_manager.h"
 #include "engine/renderer/assets/render_object/render_object.h"
-#include "engine/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "engine/renderer/environment/environment.h"
 #include "engine/core/game_object/game_object_factory.h"
 #include "engine/renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h"
 #include "engine/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline.h"
-#include "engine/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline_types.h"
 #include "engine/renderer/pipelines/geometry/deferred_resolve/deferred_resolve_pipeline.h"
-#include "engine/renderer/pipelines/geometry/deferred_resolve/deferred_resolve_pipeline_types.h"
 #include "engine/renderer/pipelines/geometry/environment/environment_pipeline.h"
-#include "engine/renderer/pipelines/geometry/environment/environment_pipeline_types.h"
 #include "engine/renderer/pipelines/geometry/terrain/terrain_pipeline.h"
-#include "engine/renderer/pipelines/geometry/terrain/terrain_pipeline_types.h"
-#include "engine/renderer/pipelines/geometry/transparent_pipeline/transparent_pipeline_types.h"
 #include "engine/renderer/pipelines/post/post_process/post_process_pipeline.h"
 #include "engine/renderer/pipelines/post/temporal_antialiasing/temporal_antialiasing_pipeline.h"
 #include "engine/renderer/pipelines/shadows/contact_shadow/contact_shadows_pipeline_types.h"
@@ -124,9 +118,9 @@ void Engine::init()
 
     startupProfiler.addEntry("Command Pool and Sync Structures");
 
-    immediate = new ImmediateSubmitter(*context);
-    resourceManager = new ResourceManager(*context, *immediate);
-    assetManager = new AssetManager(*resourceManager);
+    immediate = new renderer::ImmediateSubmitter(*context);
+    resourceManager = new renderer::ResourceManager(*context, *immediate);
+    assetManager = new renderer::AssetManager(*resourceManager);
     physics = new physics::Physics();
     physics::Physics::set(physics);
 
@@ -136,16 +130,16 @@ void Engine::init()
     startupProfiler.addEntry("Draw Resources");
 
 #if WILL_ENGINE_DEBUG_DRAW
-    debugRenderer = new debug_renderer::DebugRenderer(*resourceManager);
-    debug_renderer::DebugRenderer::set(debugRenderer);
-    debugPipeline = new debug_pipeline::DebugCompositePipeline(*resourceManager);
+    debugRenderer = new renderer::DebugRenderer(*resourceManager);
+    renderer::DebugRenderer::set(debugRenderer);
+    debugPipeline = new renderer::DebugCompositePipeline(*resourceManager);
     debugPipeline->setupDescriptorBuffer(debugTarget.imageView, finalImageBuffer.imageView);
-    debugHighlighter = new debug_highlight_pipeline::DebugHighlighter(*resourceManager);
-    debugHighlighter->setupDescriptorBuffer(stencilImageView, debugTarget.imageView);
+    debugHighlighter = new renderer::DebugHighlighter(*resourceManager);
+    debugHighlighter->setupDescriptorBuffer(stencilImageView.imageView, debugTarget.imageView);
 #endif
     startupProfiler.addEntry("Debug Draws");
 
-    environmentMap = new environment::Environment(*resourceManager, *immediate);
+    environmentMap = new renderer::Environment(*resourceManager, *immediate);
     startupProfiler.addEntry("Environment");
 
     auto& componentFactory = components::ComponentFactory::getInstance();
@@ -163,7 +157,7 @@ void Engine::init()
     startupProfiler.addEntry("Load Environments");
 
 
-    cascadedShadowMap = new cascaded_shadows::CascadedShadowMap(*resourceManager);
+    cascadedShadowMap = new renderer::CascadedShadowMap(*resourceManager);
     cascadedShadowMap->setCascadedShadowMapProperties(csmSettings);
     cascadedShadowMap->generateSplits();
 
@@ -199,63 +193,63 @@ void Engine::initRenderer()
         sceneDataBuffers[i] = resourceManager->createHostSequentialBuffer(sizeof(SceneData));
     }
     // +1 for the debug scene data buffer. Not multi-buffering for simplicity
-    sceneDataDescriptorBuffer = DescriptorBufferUniform(*context, resourceManager->getSceneDataLayout(), FRAME_OVERLAP + 1);
+    sceneDataDescriptorBuffer = resourceManager->createDescriptorBufferUniform(resourceManager->getSceneDataLayout(), FRAME_OVERLAP + 1);
     std::vector<DescriptorUniformData> sceneDataBufferData{1};
     for (int i{0}; i < FRAME_OVERLAP; i++) {
-        sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = sceneDataBuffers[i], .allocSize = sizeof(SceneData)};
-        sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData, i);
+        sceneDataBufferData[0] = DescriptorUniformData{.buffer = sceneDataBuffers[i].buffer, .allocSize = sizeof(SceneData)};
+        resourceManager->setupDescriptorBufferUniform(sceneDataDescriptorBuffer, sceneDataBufferData, i);
     }
     debugSceneDataBuffer = resourceManager->createHostSequentialBuffer(sizeof(SceneData));
-    sceneDataBufferData[0] = DescriptorUniformData{.uniformBuffer = debugSceneDataBuffer, .allocSize = sizeof(SceneData)};
-    sceneDataDescriptorBuffer.setupData(context->device, sceneDataBufferData, FRAME_OVERLAP);
+    sceneDataBufferData[0] = DescriptorUniformData{.buffer = debugSceneDataBuffer.buffer, .allocSize = sizeof(SceneData)};
+    resourceManager->setupDescriptorBufferUniform(sceneDataDescriptorBuffer, sceneDataBufferData, FRAME_OVERLAP);
 
-    visibilityPassPipeline = new visibility_pass_pipeline::VisibilityPassPipeline(*resourceManager);
+    visibilityPassPipeline = new renderer::VisibilityPassPipeline(*resourceManager);
     startupProfiler.addEntry("Init Vis Pass");
-    environmentPipeline = new environment_pipeline::EnvironmentPipeline(*resourceManager, environmentMap->getCubemapDescriptorSetLayout());
+    environmentPipeline = new renderer::EnvironmentPipeline(*resourceManager, environmentMap->getCubemapDescriptorSetLayout());
     startupProfiler.addEntry("Init Environment Pass");
-    terrainPipeline = new terrain::TerrainPipeline(*resourceManager);
+    terrainPipeline = new renderer::TerrainPipeline(*resourceManager);
     startupProfiler.addEntry("Init Terrain Pass");
-    deferredMrtPipeline = new deferred_mrt::DeferredMrtPipeline(*resourceManager);
+    deferredMrtPipeline = new renderer::DeferredMrtPipeline(*resourceManager);
     startupProfiler.addEntry("Init Deffered MRT Pass");
-    ambientOcclusionPipeline = new ambient_occlusion::GroundTruthAmbientOcclusionPipeline(*resourceManager);
+    ambientOcclusionPipeline = new renderer::GroundTruthAmbientOcclusionPipeline(*resourceManager);
     startupProfiler.addEntry("Init GTAO Pass");
-    contactShadowsPipeline = new contact_shadows_pipeline::ContactShadowsPipeline(*resourceManager);
+    contactShadowsPipeline = new renderer::ContactShadowsPipeline(*resourceManager);
     startupProfiler.addEntry("Init SSS Pass");
-    deferredResolvePipeline = new deferred_resolve::DeferredResolvePipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
+    deferredResolvePipeline = new renderer::DeferredResolvePipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
                                                                             cascadedShadowMap->getCascadedShadowMapUniformLayout(),
                                                                             cascadedShadowMap->getCascadedShadowMapSamplerLayout());
     startupProfiler.addEntry("Init Deferred Resolve Pass");
-    temporalAntialiasingPipeline = new temporal_antialiasing_pipeline::TemporalAntialiasingPipeline(*resourceManager);
+    temporalAntialiasingPipeline = new renderer::TemporalAntialiasingPipeline(*resourceManager);
     startupProfiler.addEntry("Init TAA Pass");
-    transparentPipeline = new transparent_pipeline::TransparentPipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
+    transparentPipeline = new renderer::TransparentPipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
                                                                         cascadedShadowMap->getCascadedShadowMapUniformLayout(),
                                                                         cascadedShadowMap->getCascadedShadowMapSamplerLayout());
     startupProfiler.addEntry("Init Transparent Pass");
-    postProcessPipeline = new post_process_pipeline::PostProcessPipeline(*resourceManager);
+    postProcessPipeline = new renderer::PostProcessPipeline(*resourceManager);
     startupProfiler.addEntry("Init PP Pass");
 
-    ambientOcclusionPipeline->setupDepthPrefilterDescriptorBuffer(depthImageView);
+    ambientOcclusionPipeline->setupDepthPrefilterDescriptorBuffer(depthImageView.imageView);
     ambientOcclusionPipeline->setupAmbientOcclusionDescriptorBuffer(normalRenderTarget.imageView);
     ambientOcclusionPipeline->setupSpatialFilteringDescriptorBuffer();
-    contactShadowsPipeline->setupDescriptorBuffer(depthImageView);
+    contactShadowsPipeline->setupDescriptorBuffer(depthImageView.imageView);
 
-    const deferred_resolve::DeferredResolveDescriptor deferredResolveDescriptor{
+    const renderer::DeferredResolveDescriptor deferredResolveDescriptor{
         normalRenderTarget.imageView,
         albedoRenderTarget.imageView,
         pbrRenderTarget.imageView,
-        depthImageView,
+        depthImageView.imageView,
         velocityRenderTarget.imageView,
-        ambientOcclusionPipeline->getAmbientOcclusionRenderTarget().imageView,
-        contactShadowsPipeline->getContactShadowRenderTarget().imageView,
+        ambientOcclusionPipeline->getAmbientOcclusionRenderTarget(),
+        contactShadowsPipeline->getContactShadowRenderTarget(),
         drawImage.imageView,
         resourceManager->getDefaultSamplerLinear()
     };
     deferredResolvePipeline->setupDescriptorBuffer(deferredResolveDescriptor);
 
-    const temporal_antialiasing_pipeline::TemporalAntialiasingDescriptor temporalAntialiasingDescriptor{
+    const renderer::TemporalAntialiasingDescriptor temporalAntialiasingDescriptor{
         drawImage.imageView,
         historyBuffer.imageView,
-        depthImageView,
+        depthImageView.imageView,
         velocityRenderTarget.imageView,
         taaResolveTarget.imageView,
         resourceManager->getDefaultSamplerLinear()
@@ -263,7 +257,7 @@ void Engine::initRenderer()
     };
     temporalAntialiasingPipeline->setupDescriptorBuffer(temporalAntialiasingDescriptor);
 
-    const post_process_pipeline::PostProcessDescriptor postProcessDescriptor{
+    const renderer::PostProcessDescriptor postProcessDescriptor{
         taaResolveTarget.imageView,
         finalImageBuffer.imageView,
         resourceManager->getDefaultSamplerLinear()
@@ -431,8 +425,8 @@ void Engine::updateGame(const float deltaTime)
 
 void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap) const
 {
-    const AllocatedBuffer& previousSceneDataBuffer = sceneDataBuffers[previousFrameOverlap];
-    const AllocatedBuffer& sceneDataBuffer = sceneDataBuffers[currentFrameOverlap];
+    const renderer::AllocatedBuffer& previousSceneDataBuffer = sceneDataBuffers[previousFrameOverlap];
+    const renderer::AllocatedBuffer& sceneDataBuffer = sceneDataBuffers[currentFrameOverlap];
     const auto pSceneData = static_cast<SceneData*>(sceneDataBuffer.info.pMappedData);
     const auto pPreviousSceneData = static_cast<SceneData*>(previousSceneDataBuffer.info.pMappedData);
 
@@ -545,7 +539,7 @@ void Engine::updateDebug(float deltaTime)
     for (int32_t i{0}; i < 100; i++) {
         for (int32_t j{0}; j < 100; j++) {
             float z = glm::sin(Time::Get().getTime() - j * 0.5f) * 2.0;
-            debug_renderer::DebugRenderer::drawBox(offset + glm::vec3(i, j, z), {0.8f, 0.8f, 0.8f}, {0.0f, 0.7f, 0.1f});
+            renderer::DebugRenderer::drawBox(offset + glm::vec3(i, j, z), {0.8f, 0.8f, 0.8f}, {0.0f, 0.7f, 0.1f});
         }
     }
 #endif
@@ -580,10 +574,10 @@ void Engine::render(float deltaTime)
     profiler.beginTimer("2Render");
 
 
-    std::vector<RenderObject*> allRenderObjects = assetManager->getAllRenderObjects();
+    std::vector<renderer::RenderObject*> allRenderObjects = assetManager->getAllRenderObjects();
 
     // Update Render Object Buffers and Model Matrices
-    for (RenderObject* renderObject : allRenderObjects) {
+    for (renderer::RenderObject* renderObject : allRenderObjects) {
         renderObject->update(cmd, currentFrameOverlap, previousFrameOverlap);
     }
 
@@ -599,10 +593,10 @@ void Engine::render(float deltaTime)
     // Updates Cascaded Shadow Map Properties
     cascadedShadowMap->update(mainLight, fallbackCamera, currentFrameOverlap);
 
-    visibility_pass_pipeline::VisibilityPassDrawInfo csmFrustumCullDrawInfo{
+    renderer::VisibilityPassDrawInfo csmFrustumCullDrawInfo{
         currentFrameOverlap,
         allRenderObjects,
-        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        sceneDataDescriptorBuffer.getBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
         false,
         true,
@@ -611,7 +605,7 @@ void Engine::render(float deltaTime)
     visibilityPassPipeline->draw(cmd, csmFrustumCullDrawInfo);
 
 
-    cascaded_shadows::CascadedShadowMapDrawInfo csmDrawInfo{
+    renderer::CascadedShadowMapDrawInfo csmDrawInfo{
         csmSettings.bEnabled,
         currentFrameOverlap,
         allRenderObjects,
@@ -633,25 +627,25 @@ void Engine::render(float deltaTime)
     vk_helpers::imageBarrier(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                              VK_IMAGE_ASPECT_COLOR_BIT);
 
-    environment_pipeline::EnvironmentDrawInfo environmentPipelineDrawInfo{
+    renderer::EnvironmentDrawInfo environmentPipelineDrawInfo{
         true,
         normalRenderTarget.imageView,
         albedoRenderTarget.imageView,
         pbrRenderTarget.imageView,
         velocityRenderTarget.imageView,
-        depthImageView,
-        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        depthImageView.imageView,
+        sceneDataDescriptorBuffer.getBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
-        environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferBindingInfo(),
+        environmentMap->getCubemapDescriptorBuffer().getBindingInfo(),
         environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferSize() * environmentMapIndex,
     };
     environmentPipeline->draw(cmd, environmentPipelineDrawInfo);
 
 
-    visibility_pass_pipeline::VisibilityPassDrawInfo deferredFrustumCullDrawInfo{
+    renderer::VisibilityPassDrawInfo deferredFrustumCullDrawInfo{
         currentFrameOverlap,
         allRenderObjects,
-        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        sceneDataDescriptorBuffer.getBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
         true,
         false,
@@ -659,9 +653,8 @@ void Engine::render(float deltaTime)
     };
     visibilityPassPipeline->draw(cmd, deferredFrustumCullDrawInfo);
 
-    terrain::TerrainDrawInfo terrainDrawInfo{
+    renderer::TerrainDrawInfo terrainDrawInfo{
         false,
-        bDrawTerrainLines,
         currentFrameOverlap,
         {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT},
         activeTerrains,
@@ -669,13 +662,13 @@ void Engine::render(float deltaTime)
         albedoRenderTarget.imageView,
         pbrRenderTarget.imageView,
         velocityRenderTarget.imageView,
-        depthImageView,
-        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        depthImageView.imageView,
+        sceneDataDescriptorBuffer.getBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
     };
     terrainPipeline->draw(cmd, terrainDrawInfo);
 
-    const deferred_mrt::DeferredMrtDrawInfo deferredMrtDrawInfo{
+    const renderer::DeferredMrtDrawInfo deferredMrtDrawInfo{
         false,
         currentFrameOverlap,
         {RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT},
@@ -684,14 +677,14 @@ void Engine::render(float deltaTime)
         albedoRenderTarget.imageView,
         pbrRenderTarget.imageView,
         velocityRenderTarget.imageView,
-        depthImageView,
-        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        depthImageView.imageView,
+        sceneDataDescriptorBuffer.getBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
     };
     deferredMrtPipeline->draw(cmd, deferredMrtDrawInfo);
 
     if (bEnableDebugFrustumCullDraw) {
-        const deferred_mrt::DeferredMrtDrawInfo debugDeferredMrtDrawInfo{
+        const renderer::DeferredMrtDrawInfo debugDeferredMrtDrawInfo{
             false,
             currentFrameOverlap,
             {RENDER_EXTENT_WIDTH / 3.0f, RENDER_EXTENT_HEIGHT / 3.0f},
@@ -700,25 +693,25 @@ void Engine::render(float deltaTime)
             albedoRenderTarget.imageView,
             pbrRenderTarget.imageView,
             velocityRenderTarget.imageView,
-            depthImageView,
-            sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+            depthImageView.imageView,
+            sceneDataDescriptorBuffer.getBindingInfo(),
             sceneDataDescriptorBuffer.getDescriptorBufferSize() * FRAME_OVERLAP
         };
         deferredMrtPipeline->draw(cmd, debugDeferredMrtDrawInfo);
     }
 
-    transparent_pipeline::TransparentAccumulateDrawInfo transparentDrawInfo{
+    renderer::TransparentAccumulateDrawInfo transparentDrawInfo{
         true,
-        depthImageView,
+        depthImageView.imageView,
         currentFrameOverlap,
         allRenderObjects,
-        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        sceneDataDescriptorBuffer.getBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
-        environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo(),
+        environmentMap->getDiffSpecMapDescriptorBuffer().getBindingInfo(),
         environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferSize() * environmentMapIndex,
-        cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferBindingInfo(),
+        cascadedShadowMap->getCascadedShadowMapUniformBuffer().getBindingInfo(),
         cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferSize() * currentFrameOverlap,
-        cascadedShadowMap->getCascadedShadowMapSamplerBuffer().getDescriptorBufferBindingInfo(),
+        cascadedShadowMap->getCascadedShadowMapSamplerBuffer().getBindingInfo(),
     };
     if (bDrawTransparents) {
         transparentPipeline->drawAccumulate(cmd, transparentDrawInfo);
@@ -737,37 +730,37 @@ void Engine::render(float deltaTime)
                              VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
     vk_helpers::imageBarrier(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    ambient_occlusion::GTAODrawInfo gtaoDrawInfo{
+    renderer::GTAODrawInfo gtaoDrawInfo{
         fallbackCamera,
         gtaoSettings.bEnabled,
         gtaoSettings.pushConstants,
         frameNumber,
-        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        sceneDataDescriptorBuffer.getBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
     };
     ambientOcclusionPipeline->draw(cmd, gtaoDrawInfo);
 
-    contact_shadows_pipeline::ContactShadowsDrawInfo contactDrawInfo{
+    renderer::ContactShadowsDrawInfo contactDrawInfo{
         fallbackCamera,
         mainLight,
         sssSettings.bEnabled,
         sssSettings.pushConstants,
-        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        sceneDataDescriptorBuffer.getBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
     };
 
     contactShadowsPipeline->draw(cmd, contactDrawInfo);
 
-    const deferred_resolve::DeferredResolveDrawInfo deferredResolveDrawInfo{
+    const renderer::DeferredResolveDrawInfo deferredResolveDrawInfo{
         deferredDebug,
         csmSettings.pcfLevel,
-        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        sceneDataDescriptorBuffer.getBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap,
-        environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferBindingInfo(),
+        environmentMap->getDiffSpecMapDescriptorBuffer().getBindingInfo(),
         environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferSize() * environmentMapIndex,
-        cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferBindingInfo(),
+        cascadedShadowMap->getCascadedShadowMapUniformBuffer().getBindingInfo(),
         cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferSize() * currentFrameOverlap,
-        cascadedShadowMap->getCascadedShadowMapSamplerBuffer().getDescriptorBufferBindingInfo(),
+        cascadedShadowMap->getCascadedShadowMapSamplerBuffer().getBindingInfo(),
         fallbackCamera->getNearPlane(),
         fallbackCamera->getFarPlane(),
         bEnableShadows,
@@ -776,7 +769,7 @@ void Engine::render(float deltaTime)
     deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);
 
     vk_helpers::imageBarrier(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    transparent_pipeline::TransparentCompositeDrawInfo compositeDrawInfo{
+    renderer::TransparentCompositeDrawInfo compositeDrawInfo{
         drawImage.imageView
     };
     if (bDrawTransparents) {
@@ -789,10 +782,10 @@ void Engine::render(float deltaTime)
     vk_helpers::imageBarrier(cmd, historyBuffer.image, originLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::imageBarrier(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    const temporal_antialiasing_pipeline::TemporalAntialiasingDrawInfo taaDrawInfo{
+    const renderer::TemporalAntialiasingDrawInfo taaDrawInfo{
         taaSettings.blendValue,
         taaSettings.bEnabled ? 0 : 1,
-        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        sceneDataDescriptorBuffer.getBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
     };
     temporalAntialiasingPipeline->draw(cmd, taaDrawInfo);
@@ -809,9 +802,9 @@ void Engine::render(float deltaTime)
     vk_helpers::imageBarrier(cmd, finalImageBuffer.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
 
-    const post_process_pipeline::PostProcessDrawInfo postProcessDrawInfo{
+    const renderer::PostProcessDrawInfo postProcessDrawInfo{
         postProcessData,
-        sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        sceneDataDescriptorBuffer.getBindingInfo(),
         sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
     };
 
@@ -828,11 +821,11 @@ void Engine::render(float deltaTime)
                                  VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
 
-        debug_renderer::DebugRendererDrawInfo debugRendererDrawInfo{
+        renderer::DebugRendererDrawInfo debugRendererDrawInfo{
             currentFrameOverlap,
             debugTarget.imageView,
-            depthImageView,
-            sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+            depthImageView.imageView,
+            sceneDataDescriptorBuffer.getBindingInfo(),
             sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
         };
 
@@ -840,10 +833,10 @@ void Engine::render(float deltaTime)
 
         bool stencilDrawn = false;
 
-        debug_highlight_pipeline::DebugHighlighterDrawInfo highlightDrawInfo{
+        renderer::DebugHighlighterDrawInfo highlightDrawInfo{
             nullptr,
-            depthStencilImage,
-            sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+            depthStencilImage.imageView,
+            sceneDataDescriptorBuffer.getBindingInfo(),
             sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
         };
 
@@ -876,8 +869,8 @@ void Engine::render(float deltaTime)
         }
 
 
-        debug_pipeline::DebugCompositePipelineDrawInfo drawInfo{
-            sceneDataDescriptorBuffer.getDescriptorBufferBindingInfo(),
+        renderer::DebugCompositePipelineDrawInfo drawInfo{
+            sceneDataDescriptorBuffer.getBindingInfo(),
             sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
         };
 
@@ -974,11 +967,11 @@ void Engine::cleanup()
     delete transparentPipeline;
     delete postProcessPipeline;
 
-    for (AllocatedBuffer sceneBuffer : sceneDataBuffers) {
-        resourceManager->destroy(sceneBuffer);
+    for (renderer::AllocatedBuffer& sceneBuffer : sceneDataBuffers) {
+        resourceManager->destroyResource(std::move(std::move(std::move(sceneBuffer))));
     }
-    resourceManager->destroy(debugSceneDataBuffer);
-    resourceManager->destroy(sceneDataDescriptorBuffer);
+    resourceManager->destroyResource(std::move(debugSceneDataBuffer));
+    resourceManager->destroyResource(std::move(sceneDataDescriptorBuffer));
 
     if (engine_constants::useImgui) {
         delete imguiWrapper;
@@ -994,17 +987,18 @@ void Engine::cleanup()
         vkDestroySemaphore(context->device, frame._swapchainSemaphore, nullptr);
     }
 
-    resourceManager->destroy(drawImage);
-    resourceManager->destroy(depthStencilImage);
-    resourceManager->destroy(depthImageView);
-    resourceManager->destroy(stencilImageView);
-    resourceManager->destroy(normalRenderTarget);
-    resourceManager->destroy(albedoRenderTarget);
-    resourceManager->destroy(pbrRenderTarget);
-    resourceManager->destroy(velocityRenderTarget);
-    resourceManager->destroy(taaResolveTarget);
-    resourceManager->destroy(historyBuffer);
-    resourceManager->destroy(finalImageBuffer);
+    resourceManager->destroyResource(std::move(drawImage));
+    resourceManager->destroyResource(std::move(drawImage));
+    resourceManager->destroyResource(std::move(depthStencilImage));
+    resourceManager->destroyResource(std::move(depthImageView));
+    resourceManager->destroyResource(std::move(stencilImageView));
+    resourceManager->destroyResource(std::move(normalRenderTarget));
+    resourceManager->destroyResource(std::move(albedoRenderTarget));
+    resourceManager->destroyResource(std::move(pbrRenderTarget));
+    resourceManager->destroyResource(std::move(velocityRenderTarget));
+    resourceManager->destroyResource(std::move(taaResolveTarget));
+    resourceManager->destroyResource(std::move(historyBuffer));
+    resourceManager->destroyResource(std::move(finalImageBuffer));
 
     for (const auto& map : activeMaps) {
         map->destroy();
@@ -1027,7 +1021,7 @@ void Engine::cleanup()
     delete cascadedShadowMap;
     delete environmentMap;
 #if WILL_ENGINE_DEBUG_DRAW
-    resourceManager->destroy(debugTarget);
+    resourceManager->destroyResource(std::move(debugTarget));
     delete debugRenderer;
     delete debugHighlighter;
     delete debugPipeline;
@@ -1184,10 +1178,10 @@ void Engine::createDrawResources()
         VmaAllocationCreateInfo renderImageAllocationInfo = {};
         renderImageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         renderImageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vmaCreateImage(context->allocator, &renderImageInfo, &renderImageAllocationInfo, &drawImage.image, &drawImage.allocation, nullptr);
 
         VkImageViewCreateInfo renderViewInfo = vk_helpers::imageviewCreateInfo(drawImage.imageFormat, drawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
-        VK_CHECK(vkCreateImageView(context->device, &renderViewInfo, nullptr, &drawImage.imageView));
+
+        drawImage = resourceManager->createImage(renderImageInfo, renderImageAllocationInfo, renderViewInfo);
     }
     // Depth Image
     {
@@ -1203,20 +1197,18 @@ void Engine::createDrawResources()
         VmaAllocationCreateInfo depthImageAllocationInfo = {};
         depthImageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         depthImageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vmaCreateImage(context->allocator, &depthImageInfo, &depthImageAllocationInfo, &depthStencilImage.image, &depthStencilImage.allocation,
-                       nullptr);
 
         VkImageViewCreateInfo combinedViewInfo = vk_helpers::imageviewCreateInfo(depthStencilImage.imageFormat, depthStencilImage.image,
                                                                                  VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
-        VK_CHECK(vkCreateImageView(context->device, &combinedViewInfo, nullptr, &depthStencilImage.imageView));
+
+        depthStencilImage = resourceManager->createImage(depthImageInfo, depthImageAllocationInfo, combinedViewInfo);
 
         VkImageViewCreateInfo depthViewInfo = vk_helpers::imageviewCreateInfo(depthStencilImage.imageFormat, depthStencilImage.image,
                                                                               VK_IMAGE_ASPECT_DEPTH_BIT);
-        VK_CHECK(vkCreateImageView(context->device, &depthViewInfo, nullptr, &depthImageView));
-
         VkImageViewCreateInfo stencilViewInfo = vk_helpers::imageviewCreateInfo(depthStencilImage.imageFormat, depthStencilImage.image,
                                                                                 VK_IMAGE_ASPECT_STENCIL_BIT);
-        VK_CHECK(vkCreateImageView(context->device, &stencilViewInfo, nullptr, &stencilImageView));
+        depthImageView = resourceManager->createImageView(depthViewInfo);
+        stencilImageView = resourceManager->createImageView(stencilViewInfo);
     }
     // Render Targets
     {
@@ -1232,16 +1224,16 @@ void Engine::createDrawResources()
             renderImageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
             renderImageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-            AllocatedImage renderTarget{};
+            renderer::AllocatedImage renderTarget{};
             renderTarget.imageFormat = renderTargetFormat;
             renderTarget.imageExtent = imageExtent;
             const VkImageCreateInfo imageInfo = vk_helpers::imageCreateInfo(renderTarget.imageFormat, usageFlags, imageExtent);
-            vmaCreateImage(context->allocator, &imageInfo, &renderImageAllocationInfo, &renderTarget.image, &renderTarget.allocation,
-                           nullptr);
 
-            const VkImageViewCreateInfo imageViewInfo = vk_helpers::imageviewCreateInfo(renderTarget.imageFormat, renderTarget.image,
+            VkImageViewCreateInfo imageViewInfo = vk_helpers::imageviewCreateInfo(renderTarget.imageFormat, renderTarget.image,
                                                                                         VK_IMAGE_ASPECT_COLOR_BIT);
-            VK_CHECK(vkCreateImageView(context->device, &imageViewInfo, nullptr, &renderTarget.imageView));
+
+            return resourceManager->createImage(imageInfo, renderImageAllocationInfo, imageViewInfo);
+
 
             return renderTarget;
         });
@@ -1266,12 +1258,12 @@ void Engine::createDrawResources()
         VmaAllocationCreateInfo taaResolveAllocationInfo = {};
         taaResolveAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         taaResolveAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vmaCreateImage(context->allocator, &taaResolveImageInfo, &taaResolveAllocationInfo, &taaResolveTarget.image, &taaResolveTarget.allocation,
-                       nullptr);
 
-        const VkImageViewCreateInfo taaResolveImageViewInfo = vk_helpers::imageviewCreateInfo(
+        VkImageViewCreateInfo taaResolveImageViewInfo = vk_helpers::imageviewCreateInfo(
             taaResolveTarget.imageFormat, taaResolveTarget.image, VK_IMAGE_ASPECT_COLOR_BIT);
-        VK_CHECK(vkCreateImageView(context->device, &taaResolveImageViewInfo, nullptr, &taaResolveTarget.imageView));
+
+        taaResolveTarget = resourceManager->createImage(taaResolveImageInfo, taaResolveAllocationInfo, taaResolveImageViewInfo);
+
     }
     // Draw History
     {
@@ -1287,12 +1279,10 @@ void Engine::createDrawResources()
         VmaAllocationCreateInfo historyBufferAllocationInfo = {};
         historyBufferAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         historyBufferAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vmaCreateImage(context->allocator, &historyBufferImageInfo, &historyBufferAllocationInfo, &historyBuffer.image, &historyBuffer.allocation,
-                       nullptr);
 
-        const VkImageViewCreateInfo historyBufferImageViewInfo = vk_helpers::imageviewCreateInfo(
+        VkImageViewCreateInfo historyBufferImageViewInfo = vk_helpers::imageviewCreateInfo(
             historyBuffer.imageFormat, historyBuffer.image, VK_IMAGE_ASPECT_COLOR_BIT);
-        VK_CHECK(vkCreateImageView(context->device, &historyBufferImageViewInfo, nullptr, &historyBuffer.imageView));
+        taaResolveTarget = resourceManager->createImage(historyBufferImageInfo, historyBufferAllocationInfo, historyBufferImageViewInfo);
     }
     // Final Image
     {
@@ -1308,12 +1298,10 @@ void Engine::createDrawResources()
         VmaAllocationCreateInfo imageAllocationInfo = {};
         imageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         imageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
-        vmaCreateImage(context->allocator, &imageCreateInfo, &imageAllocationInfo, &finalImageBuffer.image,
-                       &finalImageBuffer.allocation, nullptr);
 
         VkImageViewCreateInfo rview_info = vk_helpers::imageviewCreateInfo(finalImageBuffer.imageFormat, finalImageBuffer.image,
                                                                            VK_IMAGE_ASPECT_COLOR_BIT);
-        VK_CHECK(vkCreateImageView(context->device, &rview_info, nullptr, &finalImageBuffer.imageView));
+        taaResolveTarget = resourceManager->createImage(imageCreateInfo, imageAllocationInfo, rview_info);
     }
 
 #if WILL_ENGINE_DEBUG_DRAW
@@ -1328,7 +1316,7 @@ void Engine::createDrawResources()
 #endif
 }
 
-void Engine::setCsmSettings(const cascaded_shadows::CascadedShadowMapSettings& settings)
+void Engine::setCsmSettings(const renderer::CascadedShadowMapSettings& settings)
 {
     csmSettings = settings;
     if (cascadedShadowMap) {

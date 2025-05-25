@@ -5,19 +5,28 @@
 #ifndef BASIC_COMPUTE_PIPELINE_H
 #define BASIC_COMPUTE_PIPELINE_H
 
-#include <volk/volk.h>
+#include "engine/renderer/resources/descriptor_set_layout.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 
-#include "engine/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
 
-namespace will_engine
+namespace will_engine::renderer
 {
 class ResourceManager;
 }
 
-namespace will_engine::basic_compute_pipeline
+namespace will_engine::renderer
 {
-struct ComputeDrawInfo;
-struct ComputeDescriptorInfo;
+struct ComputeDescriptorInfo
+{
+    VkImageView inputImage;
+};
+
+struct ComputeDrawInfo
+{
+    VkExtent2D renderExtent;
+};
 
 class BasicComputePipeline
 {
@@ -38,10 +47,9 @@ private:
 private:
     ResourceManager& resourceManager;
 
-    VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
-    VkPipeline pipeline{VK_NULL_HANDLE};
-    VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};
-
+    PipelineLayout pipelineLayout{};
+    Pipeline pipeline{};
+    DescriptorSetLayout descriptorSetLayout{};
     DescriptorBufferSampler samplerDescriptorBuffer;
 };
 }

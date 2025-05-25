@@ -5,20 +5,25 @@
 #ifndef SHADOW_TYPES_H
 #define SHADOW_TYPES_H
 
+#include <unordered_set>
 #include <glm/glm.hpp>
+#include <volk/volk.h>
 
-#include "engine/renderer/vk_types.h"
+
 #include "engine/renderer/lighting/directional_light.h"
+#include "engine/renderer/resources/allocated_image.h"
 
 namespace will_engine
 {
-class RenderObject;
+class ITerrain;
 }
 
-namespace will_engine::cascaded_shadows
+namespace will_engine::renderer
 {
+class RenderObject;
+
 static inline constexpr uint32_t SHADOW_CASCADE_COUNT{4};
-static inline VkFormat CASCADE_DEPTH_FORMAT{VK_FORMAT_D32_SFLOAT};
+static inline constexpr VkFormat CASCADE_DEPTH_FORMAT{VK_FORMAT_D32_SFLOAT};
 
 struct CascadeBias
 {
@@ -37,7 +42,7 @@ struct CascadedShadowMapSettings
     float cascadeNearPlane{0.1f};
     float cascadeFarPlane{100.0f};
 
-    std::array<cascaded_shadows::CascadeBias, SHADOW_CASCADE_COUNT> cascadeBias{
+    std::array<CascadeBias, SHADOW_CASCADE_COUNT> cascadeBias{
         CascadeBias(500.0f, 0.7f),
         {500.0f, 0.6f},
         {600.0f, 1.0f},
@@ -76,7 +81,7 @@ struct CascadeShadowMapData
 {
     int32_t cascadeLevel{-1};
     CascadeSplit split{};
-    AllocatedImage depthShadowMap{VK_NULL_HANDLE};
+    AllocatedImage depthShadowMap{};
     glm::mat4 lightViewProj{};
 };
 

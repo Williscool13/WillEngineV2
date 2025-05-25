@@ -5,12 +5,17 @@
 #ifndef DEBUG_PIPELINE_H
 #define DEBUG_PIPELINE_H
 
+#include <volk/volk.h>
 
-#include "engine/renderer/resource_manager.h"
+#include "engine/renderer/resources/descriptor_set_layout.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 
-
-namespace will_engine::debug_pipeline
+namespace will_engine::renderer
 {
+class ResourceManager;
+
 struct DebugCompositePipelineDrawInfo
 {
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
@@ -35,9 +40,9 @@ private:
 private:
     ResourceManager& resourceManager;
 
-    VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
-    VkPipeline pipeline{VK_NULL_HANDLE};
-    VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};
+    PipelineLayout pipelineLayout{};
+    Pipeline pipeline{};
+    DescriptorSetLayout descriptorSetLayout{};
     DescriptorBufferSampler descriptorBuffer;
 };
 

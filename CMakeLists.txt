@@ -172,10 +172,8 @@ set(RENDERER_SOURCES
         src/engine/renderer/environment/environment_types.h
         src/engine/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline.cpp
         src/engine/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline.h
-        src/engine/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline_types.h
         src/engine/renderer/pipelines/geometry/deferred_resolve/deferred_resolve_pipeline.cpp
         src/engine/renderer/pipelines/geometry/deferred_resolve/deferred_resolve_pipeline.h
-        src/engine/renderer/pipelines/geometry/deferred_resolve/deferred_resolve_pipeline_types.h
         src/engine/renderer/pipelines/geometry/environment/environment_pipeline.cpp
         src/engine/renderer/pipelines/geometry/environment/environment_pipeline.h
         src/engine/renderer/pipelines/post/post_process/post_process_pipeline.cpp
@@ -193,14 +191,14 @@ set(RENDERER_SOURCES
         src/engine/renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.cpp
         src/engine/renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h
         src/engine/renderer/pipelines/shadows/cascaded_shadow_map/shadow_types.h
-        src/engine/renderer/descriptor_buffer/descriptor_buffer.cpp
-        src/engine/renderer/descriptor_buffer/descriptor_buffer.h
-        src/engine/renderer/descriptor_buffer/descriptor_buffer_sampler.cpp
-        src/engine/renderer/descriptor_buffer/descriptor_buffer_sampler.h
-        src/engine/renderer/descriptor_buffer/descriptor_buffer_types.cpp
-        src/engine/renderer/descriptor_buffer/descriptor_buffer_types.h
-        src/engine/renderer/descriptor_buffer/descriptor_buffer_uniform.cpp
-        src/engine/renderer/descriptor_buffer/descriptor_buffer_uniform.h
+        src/engine/renderer/resources/descriptor_buffer/descriptor_buffer.cpp
+        src/engine/renderer/resources/descriptor_buffer/descriptor_buffer.h
+        src/engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.cpp
+        src/engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h
+        src/engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.cpp
+        src/engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.h
+        src/engine/renderer/resources/descriptor_buffer/descriptor_buffer_uniform.cpp
+        src/engine/renderer/resources/descriptor_buffer/descriptor_buffer_uniform.h
         src/engine/renderer/assets/render_object/render_object_constants.h
 )
 
@@ -276,13 +274,9 @@ set(TEMP_SOURCES
         src/engine/renderer/pipelines/shadows/contact_shadow/contact_shadows_pipeline.cpp
         src/engine/renderer/pipelines/shadows/contact_shadow/contact_shadows_pipeline.h
         src/engine/renderer/pipelines/shadows/contact_shadow/contact_shadows_pipeline_types.h
-        src/engine/renderer/pipelines/geometry/environment/environment_pipeline_types.h
-        src/engine/renderer/pipelines/basic/basic_render/basic_render_pipeline_types.h
         src/engine/renderer/pipelines/post/post_process/post_process_pipeline_types.h
         src/engine/renderer/pipelines/post/temporal_antialiasing/temporal_antialiasing_pipeline_types.h
         src/engine/renderer/pipelines/geometry/terrain/terrain_pipeline_types.h
-        src/engine/renderer/pipelines/geometry/transparent_pipeline/transparent_pipeline_types.h
-        src/engine/renderer/pipelines/basic/basic_compute/basic_compute_pipeline_types.h
         src/engine/renderer/pipelines/visibility_pass/visibility_pass_pipeline_types.h
         src/engine/renderer/pipelines/debug/debug_renderer_types.h
         src/engine/core/game_object/game_object_factory.cpp
@@ -290,6 +284,20 @@ set(TEMP_SOURCES
         src/engine/renderer/pipelines/debug/debug_highlight_types.h
         src/engine/renderer/resources/vulkan_resource.cpp
         src/engine/renderer/resources/vulkan_resource.h
+        src/engine/renderer/resources/allocated_image.cpp
+        src/engine/renderer/resources/allocated_image.h
+        src/engine/renderer/resources/allocated_buffer.cpp
+        src/engine/renderer/resources/allocated_buffer.h
+        src/engine/renderer/resources/sampler.cpp
+        src/engine/renderer/resources/sampler.h
+        src/engine/renderer/resources/pipeline.cpp
+        src/engine/renderer/resources/pipeline.h
+        src/engine/renderer/resources/pipeline_layout.cpp
+        src/engine/renderer/resources/pipeline_layout.h
+        src/engine/renderer/resources/descriptor_set_layout.cpp
+        src/engine/renderer/resources/descriptor_set_layout.h
+        src/engine/renderer/resources/image_view.cpp
+        src/engine/renderer/resources/image_view.h
 )
 
 add_executable(WillEngine main.cpp

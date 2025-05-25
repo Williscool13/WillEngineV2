@@ -10,24 +10,39 @@
 
 using will_engine::DescriptorBufferException;
 
-will_engine::DescriptorBufferUniform::DescriptorBufferUniform(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, int32_t maxObjectCount)
-    : DescriptorBuffer(context, descriptorSetLayout, maxObjectCount)
+namespace will_engine::renderer
 {
+DescriptorBufferUniform DescriptorBufferUniform::create(const VulkanContext& ctx, VkDescriptorSetLayout descriptorSetLayout, int32_t maxObjectCount)
+{
+    DescriptorBufferUniform newDescriptorBuffer{};
+    // Get size per Descriptor Set
+    vkGetDescriptorSetLayoutSizeEXT(ctx.device, descriptorSetLayout, &newDescriptorBuffer.descriptorBufferSize);
+    newDescriptorBuffer.descriptorBufferSize = vk_helpers::getAlignedSize(newDescriptorBuffer.descriptorBufferSize, ctx.deviceDescriptorBufferProperties.descriptorBufferOffsetAlignment);
+    // Get Descriptor Buffer offset
+    vkGetDescriptorSetLayoutBindingOffsetEXT(ctx.device, descriptorSetLayout, 0u, &newDescriptorBuffer.descriptorBufferOffset);
+
+    newDescriptorBuffer.freeIndices.clear();
+    for (int32_t i = 0; i < maxObjectCount; i++) { newDescriptorBuffer.freeIndices.insert(i); }
+    newDescriptorBuffer.maxObjectCount = maxObjectCount;
+
     VkBufferCreateInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     bufferInfo.pNext = nullptr;
-    bufferInfo.size = descriptorBufferSize * maxObjectCount;
+    bufferInfo.size = newDescriptorBuffer.descriptorBufferSize * maxObjectCount;
     bufferInfo.usage =
             VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT
             | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
     VmaAllocationCreateInfo vmaAllocInfo = {};
     vmaAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
     vmaAllocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    VK_CHECK(vmaCreateBuffer(context.allocator, &bufferInfo, &vmaAllocInfo, &mainBuffer.buffer, &mainBuffer.allocation, &mainBuffer.info));
+    VK_CHECK(
+        vmaCreateBuffer(ctx.allocator, &bufferInfo, &vmaAllocInfo, &newDescriptorBuffer.buffer, &newDescriptorBuffer.allocation, &newDescriptorBuffer.info));
 
-    mainBufferGpuAddress = vk_helpers::getDeviceAddress(context.device, mainBuffer.buffer);
+    newDescriptorBuffer.bufferAddress = vk_helpers::getDeviceAddress(ctx.device, newDescriptorBuffer.buffer);
+    newDescriptorBuffer.m_destroyed = false;
+    return newDescriptorBuffer;
 }
 
-int32_t will_engine::DescriptorBufferUniform::setupData(VkDevice device, const std::vector<DescriptorUniformData>& uniformBuffers, int32_t index)
+int32_t DescriptorBufferUniform::setupData(const VulkanContext& ctx, const std::vector<DescriptorUniformData>& uniformBuffers, int32_t index)
 {
     int32_t descriptorBufferIndex;
     if (index < 0) {
@@ -38,7 +53,8 @@ int32_t will_engine::DescriptorBufferUniform::setupData(VkDevice device, const s
 
         descriptorBufferIndex = *freeIndices.begin();
         freeIndices.erase(freeIndices.begin());
-    } else {
+    }
+    else {
         if (index >= maxObjectCount) {
             fmt::print("Specified index is higher than max allowed objects");
             return -1;
@@ -50,7 +66,7 @@ int32_t will_engine::DescriptorBufferUniform::setupData(VkDevice device, const s
     uint64_t accum_offset{descriptorBufferOffset};
 
     for (int32_t i = 0; i < uniformBuffers.size(); i++) {
-        const VkDeviceAddress uniformBufferAddress = vk_helpers::getDeviceAddress(device, uniformBuffers[i].uniformBuffer.buffer);
+        const VkDeviceAddress uniformBufferAddress = vk_helpers::getDeviceAddress(ctx.device, uniformBuffers[i].buffer);
 
 
         VkDescriptorAddressInfoEXT descriptorAddressInfo = {};
@@ -68,19 +84,20 @@ int32_t will_engine::DescriptorBufferUniform::setupData(VkDevice device, const s
         // at index 0, should be -> (pointer) + (baseOffset + 0 * uniformBufferSize) + (descriptorBufferIndex * descriptorBufferSize)
         // at index 1, should be -> (pointer) + (baseOffset + 1 * uniformBufferSize) + (descriptorBufferIndex * descriptorBufferSize)
         // at index 2, should be -> (pointer) + (baseOffset + 2 * uniformBufferSize) + (descriptorBufferIndex * descriptorBufferSize)
-        char* buffer_ptr_offset = static_cast<char*>(mainBuffer.info.pMappedData) + accum_offset + descriptorBufferIndex *
+        char* buffer_ptr_offset = static_cast<char*>(info.pMappedData) + accum_offset + descriptorBufferIndex *
                                   descriptorBufferSize;
 
-        vkGetDescriptorEXT(device, &descriptorGetInfo, deviceDescriptorBufferProperties.uniformBufferDescriptorSize, buffer_ptr_offset);
+        vkGetDescriptorEXT(ctx.device, &descriptorGetInfo, ctx.deviceDescriptorBufferProperties.uniformBufferDescriptorSize, buffer_ptr_offset);
 
-        accum_offset += deviceDescriptorBufferProperties.uniformBufferDescriptorSize;
+        accum_offset += ctx.deviceDescriptorBufferProperties.uniformBufferDescriptorSize;
     }
 
 
     return descriptorBufferIndex;
 }
 
-VkBufferUsageFlagBits will_engine::DescriptorBufferUniform::getBufferUsageFlags() const
+VkBufferUsageFlagBits DescriptorBufferUniform::getBufferUsageFlags() const
 {
     return VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT;
+}
 }

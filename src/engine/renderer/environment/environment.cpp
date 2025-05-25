@@ -11,7 +11,9 @@
 #include "engine/renderer/resource_manager.h"
 #include "engine/util/file.h"
 
-will_engine::environment::Environment::Environment(ResourceManager& resourceManager, ImmediateSubmitter& immediate)
+namespace will_engine::renderer
+{
+Environment::Environment(ResourceManager& resourceManager, ImmediateSubmitter& immediate)
     : resourceManager(resourceManager), immediate(immediate)
 {
     // Descriptor Set Layouts
@@ -20,28 +22,32 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
         {
             DescriptorLayoutBuilder layoutBuilder;
             layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-            equiImageLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT),
-                                                                        VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+            equiImageLayout = resourceManager.createDescriptorSetLayout(
+                layoutBuilder, static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT),
+                VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
         }
 
         //  (Storage) Cubemap Descriptor Set Layout
         {
             DescriptorLayoutBuilder layoutBuilder;
             layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-            cubemapStorageLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+            cubemapStorageLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT,
+                                                                             VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
         }
         //  (Sampler) Cubemap Descriptor Set Layout
         {
             DescriptorLayoutBuilder layoutBuilder;
             layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-            cubemapSamplerLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT),
-                                                                             VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+            cubemapSamplerLayout = resourceManager.createDescriptorSetLayout(
+                layoutBuilder, static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_COMPUTE_BIT | VK_SHADER_STAGE_FRAGMENT_BIT),
+                VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
         }
         // LUT generation
         {
             DescriptorLayoutBuilder layoutBuilder;
             layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE);
-            lutLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT, VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+            lutLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT,
+                                                                  VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
         }
 
         // Full Cubemap Descriptor - contains PBR IBL data
@@ -49,8 +55,9 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
             DescriptorLayoutBuilder layoutBuilder;
             layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // 1 cubemap  - diffuse/spec
             layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // 1 2d image - lut
-            environmentIBLLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT),
-                                                                             VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+            environmentIBLLayout = resourceManager.createDescriptorSetLayout(
+                layoutBuilder, static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT),
+                VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
         }
     }
 
@@ -70,7 +77,7 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
 
     // Equi -> Cubemap Pipeline
     {
-        VkDescriptorSetLayout layouts[]{equiImageLayout, cubemapStorageLayout};
+        VkDescriptorSetLayout layouts[]{equiImageLayout.layout, cubemapStorageLayout.layout};
 
         VkPipelineLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -93,17 +100,17 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
         VkComputePipelineCreateInfo computePipelineCreateInfo{};
         computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
         computePipelineCreateInfo.pNext = nullptr;
-        computePipelineCreateInfo.layout = equiToCubemapPipelineLayout;
+        computePipelineCreateInfo.layout = equiToCubemapPipelineLayout.layout;
         computePipelineCreateInfo.stage = stageInfo;
         computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
         equiToCubemapPipeline = resourceManager.createComputePipeline(computePipelineCreateInfo);
-        resourceManager.destroy(computeShader);
+        resourceManager.destroyShaderModule(computeShader);
     }
 
     // Cubemap -> Diff Pipeline
     {
-        VkDescriptorSetLayout layouts[]{cubemapSamplerLayout, cubemapStorageLayout};
+        VkDescriptorSetLayout layouts[]{cubemapSamplerLayout.layout, cubemapStorageLayout.layout};
 
         VkPushConstantRange pushConstantRange = {};
         pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
@@ -131,17 +138,17 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
         VkComputePipelineCreateInfo computePipelineCreateInfo{};
         computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
         computePipelineCreateInfo.pNext = nullptr;
-        computePipelineCreateInfo.layout = cubemapToDiffusePipelineLayout;
+        computePipelineCreateInfo.layout = cubemapToDiffusePipelineLayout.layout;
         computePipelineCreateInfo.stage = stageInfo;
         computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
         cubemapToDiffusePipeline = resourceManager.createComputePipeline(computePipelineCreateInfo);
-        resourceManager.destroy(computeShader);
+        resourceManager.destroyShaderModule(computeShader);
     }
 
     // Cubemap -> Spec Pipeline
     {
-        VkDescriptorSetLayout layouts[]{cubemapSamplerLayout, cubemapStorageLayout};
+        VkDescriptorSetLayout layouts[]{cubemapSamplerLayout.layout, cubemapStorageLayout.layout};
 
         VkPushConstantRange pushConstantRange = {};
         pushConstantRange.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
@@ -169,17 +176,17 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
         VkComputePipelineCreateInfo computePipelineCreateInfo{};
         computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
         computePipelineCreateInfo.pNext = nullptr;
-        computePipelineCreateInfo.layout = cubemapToSpecularPipelineLayout;
+        computePipelineCreateInfo.layout = cubemapToSpecularPipelineLayout.layout;
         computePipelineCreateInfo.stage = stageInfo;
         computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
         cubemapToSpecularPipeline = resourceManager.createComputePipeline(computePipelineCreateInfo);
-        resourceManager.destroy(computeShader);
+        resourceManager.destroyShaderModule(computeShader);
     }
 
     // LUT Generation
     {
-        VkDescriptorSetLayout layouts[1]{lutLayout};
+        VkDescriptorSetLayout layouts[1]{lutLayout.layout};
 
         VkPipelineLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -202,18 +209,18 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
         VkComputePipelineCreateInfo computePipelineCreateInfo{};
         computePipelineCreateInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
         computePipelineCreateInfo.pNext = nullptr;
-        computePipelineCreateInfo.layout = lutPipelineLayout;
+        computePipelineCreateInfo.layout = lutPipelineLayout.layout;
         computePipelineCreateInfo.stage = stageInfo;
         computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
         lutPipeline = resourceManager.createComputePipeline(computePipelineCreateInfo);
-        resourceManager.destroy(computeShader);
+        resourceManager.destroyShaderModule(computeShader);
     }
 
 
     // Execute LUT Generation
     {
-        lutDescriptorBuffer = resourceManager.createDescriptorBufferSampler(lutLayout, 1);
+        lutDescriptorBuffer = resourceManager.createDescriptorBufferSampler(lutLayout.layout, 1);
 
         VkImageUsageFlags usage{};
         usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
@@ -235,16 +242,16 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
         immediate.submit([&](VkCommandBuffer cmd) {
             vk_helpers::imageBarrier(cmd, lutImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, lutPipeline);
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, lutPipeline.pipeline);
 
             VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1];
-            descriptorBufferBindingInfo[0] = lutDescriptorBuffer.getDescriptorBufferBindingInfo();
+            descriptorBufferBindingInfo[0] = lutDescriptorBuffer.getBindingInfo();
 
             constexpr uint32_t lutIndex = 0;
             constexpr VkDeviceSize zeroOffset = 0;
 
             vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
-            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, lutPipelineLayout, 0, 1, &lutIndex, &zeroOffset);
+            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, lutPipelineLayout.layout, 0, 1, &lutIndex, &zeroOffset);
 
             // must be divisible by 16, dont want to bother bounds checking in shader code
             assert(LUT_IMAGE_EXTENT.width % 8 == 0 && LUT_IMAGE_EXTENT.height % 8 == 0);
@@ -253,66 +260,67 @@ will_engine::environment::Environment::Environment(ResourceManager& resourceMana
             constexpr uint32_t z_disp = 1;
             vkCmdDispatch(cmd, xDisp, yDisp, z_disp);
 
-            vk_helpers::imageBarrier(cmd, lutImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+            vk_helpers::imageBarrier(cmd, lutImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                     VK_IMAGE_ASPECT_COLOR_BIT);
         });
     }
 
-    equiImageDescriptorBuffer = resourceManager.createDescriptorBufferSampler(equiImageLayout, 1);
+    equiImageDescriptorBuffer = resourceManager.createDescriptorBufferSampler(equiImageLayout.layout, 1);
     // 0 will be filled and cleared for equi->cubemap
     // 0 to 4 and 5 will be filled with spec + diffuse cubemaps but will be cleared right after.
     // This will not exceed 6 size
-    cubemapStorageDescriptorBuffer = resourceManager.createDescriptorBufferSampler(cubemapStorageLayout, 6);
+    cubemapStorageDescriptorBuffer = resourceManager.createDescriptorBufferSampler(cubemapStorageLayout.layout, 6);
 
     // sample cubemap
-    cubemapDescriptorBuffer = resourceManager.createDescriptorBufferSampler(cubemapSamplerLayout, MAX_ENVIRONMENT_MAPS);
-    diffSpecMapDescriptorBuffer = resourceManager.createDescriptorBufferSampler(environmentIBLLayout, MAX_ENVIRONMENT_MAPS);
+    cubemapDescriptorBuffer = resourceManager.createDescriptorBufferSampler(cubemapSamplerLayout.layout, MAX_ENVIRONMENT_MAPS);
+    diffSpecMapDescriptorBuffer = resourceManager.createDescriptorBufferSampler(environmentIBLLayout.layout, MAX_ENVIRONMENT_MAPS);
 
     environmentMaps[0] = {"Blank Environment"};
     activeEnvironmentMapNames.insert({0, "Blank Environment"});
 }
 
-will_engine::environment::Environment::~Environment()
+Environment::~Environment()
 {
-    resourceManager.destroy(equiToCubemapPipelineLayout);
-    resourceManager.destroy(cubemapToDiffusePipelineLayout);
-    resourceManager.destroy(cubemapToSpecularPipelineLayout);
-    resourceManager.destroy(lutPipelineLayout);
-    resourceManager.destroy(equiToCubemapPipeline);
-    resourceManager.destroy(cubemapToDiffusePipeline);
-    resourceManager.destroy(cubemapToSpecularPipeline);
-    resourceManager.destroy(lutPipeline);
+    resourceManager.destroyResource(std::move(equiToCubemapPipelineLayout));
+    resourceManager.destroyResource(std::move(cubemapToDiffusePipelineLayout));
+    resourceManager.destroyResource(std::move(cubemapToSpecularPipelineLayout));
+    resourceManager.destroyResource(std::move(lutPipelineLayout));
+    resourceManager.destroyResource(std::move(equiToCubemapPipeline));
+    resourceManager.destroyResource(std::move(cubemapToDiffusePipeline));
+    resourceManager.destroyResource(std::move(cubemapToSpecularPipeline));
+    resourceManager.destroyResource(std::move(lutPipeline));
 
 
-    resourceManager.destroy(sampler);
+    resourceManager.destroyResource(std::move(sampler));
 
-    resourceManager.destroy(cubemapStorageDescriptorBuffer);
-    resourceManager.destroy(cubemapDescriptorBuffer);
-    resourceManager.destroy(equiImageDescriptorBuffer);
-    resourceManager.destroy(diffSpecMapDescriptorBuffer);
-    resourceManager.destroy(lutDescriptorBuffer);
+    resourceManager.destroyResource(std::move(cubemapStorageDescriptorBuffer));
+    resourceManager.destroyResource(std::move(cubemapDescriptorBuffer));
+    resourceManager.destroyResource(std::move(equiImageDescriptorBuffer));
+    resourceManager.destroyResource(std::move(diffSpecMapDescriptorBuffer));
+    resourceManager.destroyResource(std::move(lutDescriptorBuffer));
 
-    resourceManager.destroy(lutImage);
+    resourceManager.destroyResource(std::move(lutImage));
     lutImage = {};
-    for (EnvironmentMapData& envMap : environmentMaps) {
-        resourceManager.destroy(envMap.cubemapImage);
-        resourceManager.destroy(envMap.specDiffCubemap);
+    for (EnvironmentMapEntry& envMap : environmentMaps) {
+        resourceManager.destroyResource(std::move(envMap.cubemapImage));
+        resourceManager.destroyResource(std::move(envMap.specDiffCubemap));
     }
 
 
-    resourceManager.destroy(equiImageLayout);
-    resourceManager.destroy(cubemapStorageLayout);
-    resourceManager.destroy(cubemapSamplerLayout);
-    resourceManager.destroy(lutLayout);
-    resourceManager.destroy(environmentIBLLayout);
+    resourceManager.destroyResource(std::move(equiImageLayout));
+    resourceManager.destroyResource(std::move(cubemapStorageLayout));
+    resourceManager.destroyResource(std::move(cubemapSamplerLayout));
+    resourceManager.destroyResource(std::move(lutLayout));
+    resourceManager.destroyResource(std::move(environmentIBLLayout));
 }
 
-void will_engine::environment::Environment::loadEnvironment(const char* name, const char* path, int32_t environmentMapIndex)
+void Environment::loadEnvironment(const char* name, const char* path, int32_t environmentMapIndex)
 {
     auto start = std::chrono::system_clock::now();
     std::filesystem::path cubemapPath{path};
 
-    EnvironmentMapData newEnvMapData{};
-    newEnvMapData.sourcePath = cubemapPath.string();
+    EnvironmentMapEntry newEnvironmentEntry{};
+    newEnvironmentEntry.sourcePath = cubemapPath.string();
 
     environmentMapIndex += 1;
     if (environmentMapIndex >= MAX_ENVIRONMENT_MAPS || environmentMapIndex < 0) {
@@ -322,8 +330,9 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
 
     AllocatedImage equiImage;
     int32_t width, height, channels;
-    if (float* imageData = stbi_loadf(newEnvMapData.sourcePath.c_str(), &width, &height, &channels, 4)) {
-        equiImage = resourceManager.createImage(imageData, width * height * 4 * sizeof(float), VkExtent3D{static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1},
+    if (float* imageData = stbi_loadf(newEnvironmentEntry.sourcePath.c_str(), &width, &height, &channels, 4)) {
+        equiImage = resourceManager.createImageFromData(imageData, width * height * 4 * sizeof(float),
+                                                VkExtent3D{static_cast<uint32_t>(width), static_cast<uint32_t>(height), 1},
                                                 VK_FORMAT_R32G32B32A32_SFLOAT, VK_IMAGE_USAGE_SAMPLED_BIT, true);
         stbi_image_free(imageData);
     }
@@ -339,13 +348,13 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
 
 
     // Equirectangular -> Cubemap - recreate in case resolution changed
-    newEnvMapData.cubemapImage = resourceManager.createCubemap(CUBEMAP_EXTENTS, VK_FORMAT_R32G32B32A32_SFLOAT,
+    newEnvironmentEntry.cubemapImage = resourceManager.createCubemap(CUBEMAP_EXTENTS, VK_FORMAT_R32G32B32A32_SFLOAT,
                                                                VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT |
                                                                VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_STORAGE_BIT, true);
 
     // add new cubemap image to descriptor buffer
     VkDescriptorImageInfo equiImageDescriptorInfo{};
-    equiImageDescriptorInfo.sampler = sampler;
+    equiImageDescriptorInfo.sampler = sampler.sampler;
     equiImageDescriptorInfo.imageView = equiImage.imageView;
     equiImageDescriptorInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
@@ -354,8 +363,8 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
     int32_t equipIndex = resourceManager.setupDescriptorBufferSampler(equiImageDescriptorBuffer, combined_descriptor);
 
     VkDescriptorImageInfo cubemapDescriptor{};
-    cubemapDescriptor.sampler = sampler;
-    cubemapDescriptor.imageView = newEnvMapData.cubemapImage.imageView;
+    cubemapDescriptor.sampler = sampler.sampler;
+    cubemapDescriptor.imageView = newEnvironmentEntry.cubemapImage.imageView;
     cubemapDescriptor.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
     std::vector<DescriptorImageData> cubemapStorageDescriptor = {{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, cubemapDescriptor}};
     int32_t cubemapIndex = resourceManager.setupDescriptorBufferSampler(cubemapStorageDescriptorBuffer, cubemapStorageDescriptor);
@@ -366,30 +375,32 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
 
 
     immediate.submit([&](VkCommandBuffer cmd) {
-        vk_helpers::imageBarrier(cmd, newEnvMapData.cubemapImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::imageBarrier(cmd, newEnvironmentEntry.cubemapImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
+                                 VK_IMAGE_ASPECT_COLOR_BIT);
 
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, equiToCubemapPipeline);
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, equiToCubemapPipeline.pipeline);
 
         VkDescriptorBufferBindingInfoEXT descriptor_buffer_binding_info[2];
-        descriptor_buffer_binding_info[0] = equiImageDescriptorBuffer.getDescriptorBufferBindingInfo();
-        descriptor_buffer_binding_info[1] = cubemapStorageDescriptorBuffer.getDescriptorBufferBindingInfo();
+        descriptor_buffer_binding_info[0] = equiImageDescriptorBuffer.getBindingInfo();
+        descriptor_buffer_binding_info[1] = cubemapStorageDescriptorBuffer.getBindingInfo();
         vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptor_buffer_binding_info);
 
         constexpr uint32_t _equiImageIndex = 0;
         constexpr uint32_t _cubemapIndex = 1;
         const VkDeviceSize equiOffset = equipIndex * equiImageDescriptorBuffer.getDescriptorBufferSize();
         const VkDeviceSize cubemapOffset = cubemapIndex * cubemapStorageDescriptorBuffer.getDescriptorBufferSize();
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, equiToCubemapPipelineLayout, 0, 1, &_equiImageIndex, &equiOffset);
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, equiToCubemapPipelineLayout, 1, 1, &_cubemapIndex, &cubemapOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, equiToCubemapPipelineLayout.layout, 0, 1, &_equiImageIndex, &equiOffset);
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, equiToCubemapPipelineLayout.layout, 1, 1, &_cubemapIndex, &cubemapOffset);
 
         vkCmdDispatch(cmd, CUBEMAP_EXTENTS.width / 16, CUBEMAP_EXTENTS.height / 16, 6);
 
-        vk_helpers::generateMipmapsCubemap(cmd, newEnvMapData.cubemapImage.image, {CUBEMAP_EXTENTS.width, CUBEMAP_EXTENTS.height}, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+        vk_helpers::generateMipmapsCubemap(cmd, newEnvironmentEntry.cubemapImage.image, {CUBEMAP_EXTENTS.width, CUBEMAP_EXTENTS.height},
+                                           VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     });
 
 
     // can safely destroy the cubemap image view in the storage buffer
-    resourceManager.destroy(equiImage);
+    resourceManager.destroyResource(std::move(equiImage));
     cubemapStorageDescriptorBuffer.freeDescriptorBufferIndex(cubemapIndex);
     equiImageDescriptorBuffer.freeDescriptorBufferIndex(equipIndex);
 
@@ -397,47 +408,52 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
     auto end0 = std::chrono::system_clock::now();
     auto elapsed0 = std::chrono::duration_cast<std::chrono::microseconds>(end0 - start);
     fmt::print("Environment Map: {} | Cubemap {:.1f}ms | ", file::getFileName(path), elapsed0.count() / 1000.0f);
-    newEnvMapData.specDiffCubemap = resourceManager.createCubemap(SPECULAR_PREFILTERED_BASE_EXTENTS, VK_FORMAT_R32G32B32A32_SFLOAT,
+    newEnvironmentEntry.specDiffCubemap = resourceManager.createCubemap(SPECULAR_PREFILTERED_BASE_EXTENTS, VK_FORMAT_R32G32B32A32_SFLOAT,
                                                                   VK_IMAGE_USAGE_TRANSFER_SRC_BIT |
                                                                   VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_SAMPLED_BIT |
                                                                   VK_IMAGE_USAGE_STORAGE_BIT, true);
 
 
     AllocatedCubemap specDiffCubemap = {};
-    specDiffCubemap.allocatedImage = newEnvMapData.specDiffCubemap;
+    specDiffCubemap.allocatedImage = std::move(newEnvironmentEntry.specDiffCubemap);
     specDiffCubemap.cubemapImageViews = std::vector<CubemapImageView>(ENVIRONMENT_MAP_MIP_COUNT);
 
     for (int32_t i = 0; i < ENVIRONMENT_MAP_MIP_COUNT; i++) {
         CubemapImageView cubemapImageView{};
-        VkImageViewCreateInfo viewInfo = vk_helpers::cubemapViewCreateInfo(newEnvMapData.specDiffCubemap.imageFormat, newEnvMapData.specDiffCubemap.image, VK_IMAGE_ASPECT_COLOR_BIT);
+        VkImageViewCreateInfo viewInfo = vk_helpers::cubemapViewCreateInfo(specDiffCubemap.allocatedImage.imageFormat,
+                                                                           specDiffCubemap.allocatedImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
         viewInfo.subresourceRange.baseMipLevel = i;
         cubemapImageView.imageView = resourceManager.createImageView(viewInfo);
 
         auto length = static_cast<uint32_t>(SPECULAR_PREFILTERED_BASE_EXTENTS.width / pow(2, i)); // w and h always equal (assumption)
         cubemapImageView.imageExtent = {length, length, 1};
         // 0, 0.25, 0.5, 0.75, 1.0, diffuse
-        float roughness = i >= SPECULAR_PREFILTERED_MIP_LEVELS ? -1.0f : static_cast<float>(i) / static_cast<float>(SPECULAR_PREFILTERED_MIP_LEVELS - 1);
+        float roughness = i >= SPECULAR_PREFILTERED_MIP_LEVELS
+                              ? -1.0f
+                              : static_cast<float>(i) / static_cast<float>(SPECULAR_PREFILTERED_MIP_LEVELS - 1);
 
         cubemapImageView.roughness = roughness;
 
         VkDescriptorImageInfo prefilteredCubemapStorage{};
-        prefilteredCubemapStorage.imageView = cubemapImageView.imageView;
+        prefilteredCubemapStorage.imageView = cubemapImageView.imageView.imageView;
         prefilteredCubemapStorage.imageLayout = VK_IMAGE_LAYOUT_GENERAL;
 
         std::vector<DescriptorImageData> prefilteredCubemapStorageDescriptor = {{VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, prefilteredCubemapStorage}};
 
-        int32_t descriptorBufferIndex = resourceManager.setupDescriptorBufferSampler(cubemapStorageDescriptorBuffer, prefilteredCubemapStorageDescriptor);
+        int32_t descriptorBufferIndex = resourceManager.setupDescriptorBufferSampler(cubemapStorageDescriptorBuffer,
+                                                                                     prefilteredCubemapStorageDescriptor);
         cubemapImageView.descriptorBufferIndex = descriptorBufferIndex;
-        specDiffCubemap.cubemapImageViews[i] = cubemapImageView;
+        specDiffCubemap.cubemapImageViews[i] = std::move(cubemapImageView);
     }
 
     immediate.submit([&](VkCommandBuffer cmd) {
-        vk_helpers::imageBarrier(cmd, specDiffCubemap.allocatedImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::imageBarrier(cmd, specDiffCubemap.allocatedImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
+                                 VK_IMAGE_ASPECT_COLOR_BIT);
 
 
         VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];
-        descriptorBufferBindingInfo[0] = cubemapDescriptorBuffer.getDescriptorBufferBindingInfo();
-        descriptorBufferBindingInfo[1] = cubemapStorageDescriptorBuffer.getDescriptorBufferBindingInfo();
+        descriptorBufferBindingInfo[0] = cubemapDescriptorBuffer.getBindingInfo();
+        descriptorBufferBindingInfo[1] = cubemapStorageDescriptorBuffer.getBindingInfo();
 
         constexpr uint32_t _cubemapIndex = 0;
         constexpr uint32_t storageCubemapIndex = 1;
@@ -445,18 +461,20 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
 
         // Diffuse
         {
-            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToDiffusePipeline);
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToDiffusePipeline.pipeline);
             vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
 
             assert(specDiffCubemap.cubemapImageViews.size() == ENVIRONMENT_MAP_MIP_COUNT);
-            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToDiffusePipelineLayout, 0, 1, &_cubemapIndex, &sampleOffset);
+            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToDiffusePipelineLayout.layout, 0, 1, &_cubemapIndex,
+                                               &sampleOffset);
             const CubemapImageView& diffuse = specDiffCubemap.cubemapImageViews[ENVIRONMENT_MAP_MIP_COUNT - 1];
             const VkDeviceSize diffusemapOffset = cubemapStorageDescriptorBuffer.getDescriptorBufferSize() * diffuse.descriptorBufferIndex;
-            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToDiffusePipelineLayout, 1, 1, &storageCubemapIndex, &diffusemapOffset);
+            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToDiffusePipelineLayout.layout, 1, 1, &storageCubemapIndex,
+                                               &diffusemapOffset);
 
             CubeToDiffusePushConstantData pushData{};
             pushData.sampleDelta = DIFFUSE_SAMPLE_DELTA;
-            vkCmdPushConstants(cmd, cubemapToDiffusePipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(CubeToDiffusePushConstantData), &pushData);
+            vkCmdPushConstants(cmd, cubemapToDiffusePipelineLayout.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(CubeToDiffusePushConstantData), &pushData);
 
             // width and height should be 32 (if extents are 512), don't need bounds check in shader code
             const auto xDispatch = static_cast<uint32_t>(std::ceil(diffuse.imageExtent.width / 8.0f));
@@ -466,18 +484,19 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
         }
 
 
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToSpecularPipeline);
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToSpecularPipeline.pipeline);
 
         // Specular
         {
             vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
-            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToSpecularPipelineLayout, 0, 1, &_cubemapIndex, &sampleOffset);
+            vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToSpecularPipelineLayout.layout, 0, 1, &_cubemapIndex,
+                                               &sampleOffset);
 
             for (int32_t i = 0; i < SPECULAR_PREFILTERED_MIP_LEVELS; i++) {
                 const CubemapImageView& current = specDiffCubemap.cubemapImageViews[i];
 
                 VkDeviceSize irradiancemap_offset = cubemapStorageDescriptorBuffer.getDescriptorBufferSize() * current.descriptorBufferIndex;
-                vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToSpecularPipelineLayout, 1, 1, &storageCubemapIndex,
+                vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, cubemapToSpecularPipelineLayout.layout, 1, 1, &storageCubemapIndex,
                                                    &irradiancemap_offset);
 
                 CubeToPrefilteredConstantData pushData{};
@@ -485,7 +504,7 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
                 pushData.imageWidth = current.imageExtent.width;
                 pushData.imageHeight = current.imageExtent.height;
                 pushData.sampleCount = static_cast<uint32_t>(SPECULAR_SAMPLE_COUNT);
-                vkCmdPushConstants(cmd, cubemapToSpecularPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(CubeToDiffusePushConstantData),
+                vkCmdPushConstants(cmd, cubemapToSpecularPipelineLayout.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(CubeToDiffusePushConstantData),
                                    &pushData);
 
                 const auto xDispatch = static_cast<uint32_t>(std::ceil(current.imageExtent.width / 8.0f));
@@ -497,16 +516,20 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
         }
 
 
-        vk_helpers::imageBarrier(cmd, specDiffCubemap.allocatedImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::imageBarrier(cmd, specDiffCubemap.allocatedImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                 VK_IMAGE_ASPECT_COLOR_BIT);
     });
 
 
     // can safely destroy all the storage mip level image views since we don't plan on writing to them anymore
-    for (CubemapImageView specDiffView : specDiffCubemap.cubemapImageViews) {
-        resourceManager.destroy(specDiffView.imageView);
+    for (CubemapImageView& specDiffView : specDiffCubemap.cubemapImageViews) {
+        resourceManager.destroyResource(std::move(specDiffView.imageView));
     }
     specDiffCubemap.cubemapImageViews.clear();
     cubemapStorageDescriptorBuffer.freeAllDescriptorBufferIndices();
+
+    // After done processing, return it to the environment entry
+    newEnvironmentEntry.specDiffCubemap = std::move(specDiffCubemap.allocatedImage);
 
     auto end1 = std::chrono::system_clock::now();
     auto elapsed1 = std::chrono::duration_cast<std::chrono::microseconds>(end1 - end0);
@@ -514,12 +537,12 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
 
 
     VkDescriptorImageInfo diffSpecDescriptorInfo{};
-    diffSpecDescriptorInfo.sampler = sampler;
-    diffSpecDescriptorInfo.imageView = newEnvMapData.specDiffCubemap.imageView;
+    diffSpecDescriptorInfo.sampler = sampler.sampler;
+    diffSpecDescriptorInfo.imageView = newEnvironmentEntry.specDiffCubemap.imageView;
     diffSpecDescriptorInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     VkDescriptorImageInfo lutDescriptorInfo{};
-    lutDescriptorInfo.sampler = sampler;
+    lutDescriptorInfo.sampler = sampler.sampler;
     lutDescriptorInfo.imageView = lutImage.imageView;
     lutDescriptorInfo.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
@@ -530,10 +553,11 @@ void will_engine::environment::Environment::loadEnvironment(const char* name, co
 
     resourceManager.setupDescriptorBufferSampler(diffSpecMapDescriptorBuffer, combinedDescriptor2, environmentMapIndex);
 
-    environmentMaps[environmentMapIndex] = newEnvMapData;
+    environmentMaps[environmentMapIndex] = std::move(newEnvironmentEntry);
     activeEnvironmentMapNames.insert({environmentMapIndex, name});
 
     auto end3 = std::chrono::system_clock::now();
     auto elapsed3 = std::chrono::duration_cast<std::chrono::microseconds>(end3 - start);
     fmt::print("Total {:.1f}ms\n", elapsed3.count() / 1000.0f);
+}
 }

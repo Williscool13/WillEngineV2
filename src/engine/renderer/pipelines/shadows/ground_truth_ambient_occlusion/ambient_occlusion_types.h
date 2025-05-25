@@ -8,7 +8,7 @@
 
 #include "engine/core/camera/camera.h"
 
-namespace will_engine::ambient_occlusion
+namespace will_engine::renderer
 {
 static constexpr int32_t DEPTH_PREFILTER_MIP_COUNT = 5;
 static constexpr int32_t GTAO_DENOISE_PASSES = 1;

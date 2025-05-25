@@ -12,7 +12,7 @@
 #include "volk/volk.h"
 #include "vulkan_context.h"
 
-namespace will_engine
+namespace will_engine::renderer
 {
 class ImmediateSubmitter
 {

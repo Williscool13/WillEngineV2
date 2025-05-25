@@ -21,7 +21,7 @@ namespace will_engine::terrain
 class TerrainChunk : public IPhysicsBody
 {
 public:
-    TerrainChunk(ResourceManager& resourceManager, const std::vector<float>& heightMapData, int32_t width, int32_t height, TerrainConfig terrainConfig);
+    TerrainChunk(renderer::ResourceManager& resourceManager, const std::vector<float>& heightMapData, int32_t width, int32_t height, TerrainConfig terrainConfig);
 
     ~TerrainChunk() override;
 
@@ -45,14 +45,14 @@ public:
     }
 
 public:
-    [[nodiscard]] const AllocatedBuffer& getVertexBuffer() const { return vertexBuffer; }
-    [[nodiscard]] const AllocatedBuffer& getIndexBuffer() const { return indexBuffer; }
+    [[nodiscard]] const renderer::AllocatedBuffer& getVertexBuffer() const { return vertexBuffer; }
+    [[nodiscard]] const renderer::AllocatedBuffer& getIndexBuffer() const { return indexBuffer; }
 
     [[nodiscard]] size_t getIndexCount() const { return indices.size(); }
     const std::vector<uint32_t>& getIndices() { return indices; }
 
-    [[nodiscard]] const DescriptorBufferSampler& getTextureDescriptorBuffer() const { return textureDescriptorBuffer; }
-    [[nodiscard]] const DescriptorBufferUniform& getUniformDescriptorBuffer() const { return uniformDescriptorBuffer; }
+    [[nodiscard]] const renderer::DescriptorBufferSampler& getTextureDescriptorBuffer() const { return textureDescriptorBuffer; }
+    [[nodiscard]] const renderer::DescriptorBufferUniform& getUniformDescriptorBuffer() const { return uniformDescriptorBuffer; }
 
 public: // Physics
     void setTransform(const glm::vec3& position, const glm::quat& rotation) override {}
@@ -72,7 +72,7 @@ public: // Physics
     bool isTransformDirty() override { return bIsPhysicsDirty; }
 
 private:
-    ResourceManager& resourceManager;
+    renderer::ResourceManager& resourceManager;
     TerrainConfig terrainConfig;
 
 private: // Buffer Data
@@ -84,14 +84,14 @@ private: // Model Data
     std::vector<uint32_t> indices;
 
 private: // Buffer Data
-    AllocatedBuffer vertexBuffer{};
-    AllocatedBuffer indexBuffer{};
+    renderer::AllocatedBuffer vertexBuffer{};
+    renderer::AllocatedBuffer indexBuffer{};
 
-    DescriptorBufferSampler textureDescriptorBuffer;
-    DescriptorBufferUniform uniformDescriptorBuffer;
+    renderer::DescriptorBufferSampler textureDescriptorBuffer;
+    renderer::DescriptorBufferUniform uniformDescriptorBuffer;
 
-    std::array<AllocatedBuffer, FRAME_OVERLAP> terrainUniformBuffers{};
-    std::vector<std::shared_ptr<TextureResource> > textureResources{};
+    std::array<renderer::AllocatedBuffer, FRAME_OVERLAP> terrainUniformBuffers{};
+    std::vector<std::shared_ptr<renderer::TextureResource> > textureResources{};
     int32_t bufferFramesToUpdate{FRAME_OVERLAP};
 
 private: // Physics

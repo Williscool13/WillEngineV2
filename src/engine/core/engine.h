@@ -17,7 +17,6 @@
 #include "engine/renderer/renderer_constants.h"
 #include "engine/renderer/vk_types.h"
 #include "engine/renderer/assets/asset_manager.h"
-#include "engine/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "engine/renderer/lighting/directional_light.h"
 #include "engine/renderer/pipelines/post/post_process/post_process_pipeline_types.h"
 #include "engine/renderer/pipelines/geometry/transparent_pipeline/transparent_pipeline.h"
@@ -27,90 +26,29 @@
 #include "engine/renderer/pipelines/shadows/ground_truth_ambient_occlusion/ambient_occlusion_types.h"
 
 #if WILL_ENGINE_DEBUG_DRAW
-namespace will_engine::debug_renderer
+namespace will_engine::renderer
 {
+class Environment;
+class PostProcessPipeline;
+class TemporalAntialiasingPipeline;
+class GroundTruthAmbientOcclusionPipeline;
+class CascadedShadowMap;
+class DeferredResolvePipeline;
+class DeferredMrtPipeline;
+class TerrainPipeline;
+class EnvironmentPipeline;
+class VisibilityPassPipeline;
 class DebugRenderer;
-}
-namespace will_engine::debug_highlight_pipeline
-{
 class DebugHighlighter;
-}
-
-namespace will_engine::debug_pipeline
-{
 class DebugCompositePipeline;
 }
 #endif
 
-class ResourceManager;
-class ImmediateSubmitter;
-class VulkanContext;
-
 namespace will_engine
 {
-namespace ambient_occlusion
-{
-    class GroundTruthAmbientOcclusionPipeline;
-}
-
 namespace terrain
 {
-    class TerrainChunk;
-    class TerrainPipeline;
     class TerrainManager;
-}
-
-namespace identifier
-{
-    class IdentifierManager;
-}
-
-class Scene;
-
-namespace post_process_pipeline
-{
-    class PostProcessPipeline;
-}
-
-namespace deferred_resolve
-{
-    class DeferredResolvePipeline;
-}
-
-namespace deferred_mrt
-{
-    class DeferredMrtPipeline;
-}
-
-namespace visibility_pass_pipeline
-{
-    class VisibilityPassPipeline;
-}
-
-class FreeCamera;
-class ImguiWrapper;
-
-namespace cascaded_shadows
-{
-    class CascadedShadowMap;
-}
-
-namespace environment
-{
-    class Environment;
-}
-
-namespace temporal_antialiasing_pipeline
-{
-    class TemporalAntialiasingPipeline;
-}
-
-class RenderObject;
-class GameObject;
-
-namespace environment_pipeline
-{
-    class EnvironmentPipeline;
 }
 
 namespace physics
@@ -174,8 +112,8 @@ public:
     void addToDeletionQueue(std::unique_ptr<IHierarchical> obj);
 
 public:
-    AssetManager* getAssetManager() const { return assetManager; }
-    ResourceManager* getResourceManager() const { return resourceManager; }
+    renderer::AssetManager* getAssetManager() const { return assetManager; }
+    renderer::ResourceManager* getResourceManager() const { return resourceManager; }
 
     void addToActiveTerrain(ITerrain* terrain);
 
@@ -186,20 +124,20 @@ private:
     SDL_Window* window{nullptr};
 
     VulkanContext* context{nullptr};
-    ImmediateSubmitter* immediate{nullptr};
-    ResourceManager* resourceManager{nullptr};
-    AssetManager* assetManager{nullptr};
+    renderer::ImmediateSubmitter* immediate{nullptr};
+    renderer::ResourceManager* resourceManager{nullptr};
+    renderer::AssetManager* assetManager{nullptr};
     physics::Physics* physics{nullptr};
 #if WILL_ENGINE_DEBUG_DRAW
-    debug_renderer::DebugRenderer* debugRenderer{nullptr};
-    debug_highlight_pipeline::DebugHighlighter* debugHighlighter{nullptr};
-    debug_pipeline::DebugCompositePipeline* debugPipeline{nullptr};
-    AllocatedImage debugTarget{};
+    renderer::DebugRenderer* debugRenderer{nullptr};
+    renderer::DebugHighlighter* debugHighlighter{nullptr};
+    renderer::DebugCompositePipeline* debugPipeline{nullptr};
+    renderer::AllocatedImage debugTarget{};
 #endif
     // Might be used in imgui which can be active outside of debug build
     IHierarchical* selectedItem{nullptr};
 
-    environment::Environment* environmentMap{nullptr};
+    renderer::Environment* environmentMap{nullptr};
 
     terrain::TerrainManager* terrainManager{nullptr};
     ImguiWrapper* imguiWrapper = nullptr;
@@ -224,9 +162,9 @@ private: // Engine Settings
     EditorSettings editorSettings{};
 #endif
     EngineSettings engineSettings{};
-    contact_shadows_pipeline::ContactShadowSettings sssSettings{};
-    ambient_occlusion::GTAOSettings gtaoSettings{};
-    cascaded_shadows::CascadedShadowMapSettings csmSettings{};
+    renderer::ContactShadowSettings sssSettings{};
+    renderer::GTAOSettings gtaoSettings{};
+    renderer::CascadedShadowMapSettings csmSettings{};
     temporal_antialiasing_pipeline::TemporalAntialiasingSettings taaSettings{};
 
 public:
@@ -237,14 +175,14 @@ public:
     EngineSettings getEngineSettings() const { return engineSettings; }
     void setEngineSettings(const EngineSettings& settings) { engineSettings = settings; }
 
-    ambient_occlusion::GTAOSettings getAoSettings() const { return gtaoSettings; }
-    void setAoSettings(const ambient_occlusion::GTAOSettings& settings) { gtaoSettings = settings; }
+    renderer::GTAOSettings getAoSettings() const { return gtaoSettings; }
+    void setAoSettings(const renderer::GTAOSettings& settings) { gtaoSettings = settings; }
 
-    contact_shadows_pipeline::ContactShadowSettings getSssSettings() const { return sssSettings; }
-    void setSssSettings(const contact_shadows_pipeline::ContactShadowSettings& settings) { sssSettings = settings; }
+    renderer::ContactShadowSettings getSssSettings() const { return sssSettings; }
+    void setSssSettings(const renderer::ContactShadowSettings& settings) { sssSettings = settings; }
 
-    cascaded_shadows::CascadedShadowMapSettings getCsmSettings() const { return csmSettings; }
-    void setCsmSettings(const cascaded_shadows::CascadedShadowMapSettings& settings);
+    renderer::CascadedShadowMapSettings getCsmSettings() const { return csmSettings; }
+    void setCsmSettings(const renderer::CascadedShadowMapSettings& settings);
 
     temporal_antialiasing_pipeline::TemporalAntialiasingSettings getTaaSettings() const { return taaSettings; }
     void setTaaSettings(const temporal_antialiasing_pipeline::TemporalAntialiasingSettings& settings) { taaSettings = settings; }
@@ -252,7 +190,6 @@ public:
 private: // Debug
     bool bEnableDebugFrustumCullDraw{false};
     int32_t deferredDebug{0};
-    bool bDrawTerrainLines{false};
     bool bEnablePhysics{true};
     bool bDrawTransparents{true};
     bool bEnableShadows{true};
@@ -271,9 +208,9 @@ public:
     void setCurrentEnvironmentMapIndex(const int32_t index) { environmentMapIndex = index; }
 
 private: // Scene Data
-    DescriptorBufferUniform sceneDataDescriptorBuffer;
-    AllocatedBuffer sceneDataBuffers[FRAME_OVERLAP]{};
-    AllocatedBuffer debugSceneDataBuffer{};
+    renderer::DescriptorBufferUniform sceneDataDescriptorBuffer;
+    renderer::AllocatedBuffer sceneDataBuffers[FRAME_OVERLAP]{};
+    renderer::AllocatedBuffer debugSceneDataBuffer{};
 
     /**
      * Should always exist and be used if no other camera is in the scene (todo: camera system)
@@ -282,8 +219,8 @@ private: // Scene Data
     DirectionalLight mainLight{glm::normalize(glm::vec3(-0.8f, -0.6f, -0.6f)), 1.5f, glm::vec3(1.0f)};
     int32_t environmentMapIndex{1};
 
-    post_process_pipeline::PostProcessType postProcessData{
-        post_process_pipeline::PostProcessType::Tonemapping | post_process_pipeline::PostProcessType::Sharpening
+    renderer::PostProcessType postProcessData{
+        renderer::PostProcessType::Tonemapping | renderer::PostProcessType::Sharpening
     };
     std::vector<std::unique_ptr<Map>> activeMaps;
     std::unordered_set<ITerrain*> activeTerrains;
@@ -294,58 +231,58 @@ private: // Scene Data
     std::vector<std::unique_ptr<Map>> mapDeletionQueue{};
 
 private: // Pipelines
-    visibility_pass_pipeline::VisibilityPassPipeline* visibilityPassPipeline{nullptr};
+    renderer::VisibilityPassPipeline* visibilityPassPipeline{nullptr};
 
-    environment_pipeline::EnvironmentPipeline* environmentPipeline{nullptr};
-    terrain::TerrainPipeline* terrainPipeline{nullptr};
-    deferred_mrt::DeferredMrtPipeline* deferredMrtPipeline{nullptr};
-    deferred_resolve::DeferredResolvePipeline* deferredResolvePipeline{nullptr};
-    transparent_pipeline::TransparentPipeline* transparentPipeline{nullptr};
+    renderer::EnvironmentPipeline* environmentPipeline{nullptr};
+    renderer::TerrainPipeline* terrainPipeline{nullptr};
+    renderer::DeferredMrtPipeline* deferredMrtPipeline{nullptr};
+    renderer::DeferredResolvePipeline* deferredResolvePipeline{nullptr};
+    renderer::TransparentPipeline* transparentPipeline{nullptr};
 
-    cascaded_shadows::CascadedShadowMap* cascadedShadowMap{nullptr};
-    contact_shadows_pipeline::ContactShadowsPipeline* contactShadowsPipeline{nullptr};
-    ambient_occlusion::GroundTruthAmbientOcclusionPipeline* ambientOcclusionPipeline{nullptr};
+    renderer::CascadedShadowMap* cascadedShadowMap{nullptr};
+    renderer::ContactShadowsPipeline* contactShadowsPipeline{nullptr};
+    renderer::GroundTruthAmbientOcclusionPipeline* ambientOcclusionPipeline{nullptr};
 
-    temporal_antialiasing_pipeline::TemporalAntialiasingPipeline* temporalAntialiasingPipeline{nullptr};
+    renderer::TemporalAntialiasingPipeline* temporalAntialiasingPipeline{nullptr};
 
-    post_process_pipeline::PostProcessPipeline* postProcessPipeline{nullptr};
+    renderer::PostProcessPipeline* postProcessPipeline{nullptr};
 
 private: // Draw Resources
-    AllocatedImage drawImage{};
+    renderer::AllocatedImage drawImage{};
     /**
      * Image view in this depth image is VK_IMAGE_ASPECT_DEPTH_BIT
      */
-    AllocatedImage depthStencilImage{};
-    VkImageView depthImageView{VK_NULL_HANDLE};
-    VkImageView stencilImageView{VK_NULL_HANDLE};
+    renderer::AllocatedImage depthStencilImage{};
+    renderer::ImageView depthImageView{};
+    renderer::ImageView stencilImageView{};
 
     /**
      * 8.8.8 View Normals - 8 unused
      */
-    AllocatedImage normalRenderTarget{};
+    renderer::AllocatedImage normalRenderTarget{};
     /**
      * 8.8.8 RGB Albedo - 8 unused
      */
-    AllocatedImage albedoRenderTarget{};
+    renderer::AllocatedImage albedoRenderTarget{};
     /**
      * 8 Metallic, 8 Roughness, 8 emission (unused), 8 Is Transparent
      */
-    AllocatedImage pbrRenderTarget{};
+    renderer::AllocatedImage pbrRenderTarget{};
     /**
      * 16 X and 16 Y
      */
-    AllocatedImage velocityRenderTarget{};
+    renderer::AllocatedImage velocityRenderTarget{};
     /**
     * The results of the TAA pass will be outputted into this buffer
     */
-    AllocatedImage taaResolveTarget{};
+    renderer::AllocatedImage taaResolveTarget{};
 
     /**
      * A copy of the previous TAA Resolve Buffer
      */
-    AllocatedImage historyBuffer{};
+    renderer::AllocatedImage historyBuffer{};
 
-    AllocatedImage finalImageBuffer{};
+    renderer::AllocatedImage finalImageBuffer{};
 
 private: // Swapchain
     VkSwapchainKHR swapchain{};
@@ -365,6 +302,7 @@ public:
     friend class ImguiWrapper;
 };
 }
+
 
 
 #endif //ENGINE_H

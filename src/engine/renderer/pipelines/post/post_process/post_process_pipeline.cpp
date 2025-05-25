@@ -11,7 +11,9 @@
 #include "engine/renderer/resource_manager.h"
 #include "engine/renderer/vk_descriptors.h"
 
-will_engine::post_process_pipeline::PostProcessPipeline::PostProcessPipeline(ResourceManager& resourceManager)
+namespace will_engine::renderer
+{
+PostProcessPipeline::PostProcessPipeline(ResourceManager& resourceManager)
     : resourceManager(resourceManager)
 {
     DescriptorLayoutBuilder layoutBuilder;
@@ -28,7 +30,7 @@ will_engine::post_process_pipeline::PostProcessPipeline::PostProcessPipeline(Res
 
     VkDescriptorSetLayout setLayouts[2];
     setLayouts[0] = resourceManager.getSceneDataLayout();
-    setLayouts[1] = descriptorSetLayout;
+    setLayouts[1] = descriptorSetLayout.layout;
 
     VkPipelineLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -42,18 +44,18 @@ will_engine::post_process_pipeline::PostProcessPipeline::PostProcessPipeline(Res
 
     createPipeline();
 
-    descriptorBuffer = resourceManager.createDescriptorBufferSampler(descriptorSetLayout, 1);
+    descriptorBuffer = resourceManager.createDescriptorBufferSampler(descriptorSetLayout.layout, 1);
 }
 
-will_engine::post_process_pipeline::PostProcessPipeline::~PostProcessPipeline()
+PostProcessPipeline::~PostProcessPipeline()
 {
-    resourceManager.destroy(pipeline);
-    resourceManager.destroy(pipelineLayout);
-    resourceManager.destroy(descriptorSetLayout);
-    resourceManager.destroy(descriptorBuffer);
+    resourceManager.destroyResource(std::move(pipeline));
+    resourceManager.destroyResource(std::move(pipelineLayout));
+    resourceManager.destroyResource(std::move(descriptorSetLayout));
+    resourceManager.destroyResource(std::move(descriptorBuffer));
 }
 
-void will_engine::post_process_pipeline::PostProcessPipeline::setupDescriptorBuffer(const PostProcessDescriptor& bufferInfo)
+void PostProcessPipeline::setupDescriptorBuffer(const PostProcessDescriptor& bufferInfo)
 {
     std::vector<DescriptorImageData> descriptors;
     descriptors.reserve(2);
@@ -73,7 +75,7 @@ void will_engine::post_process_pipeline::PostProcessPipeline::setupDescriptorBuf
     resourceManager.setupDescriptorBufferSampler(descriptorBuffer, descriptors, 0);
 }
 
-void will_engine::post_process_pipeline::PostProcessPipeline::draw(VkCommandBuffer cmd, PostProcessDrawInfo drawInfo) const
+void PostProcessPipeline::draw(VkCommandBuffer cmd, PostProcessDrawInfo drawInfo) const
 {
     if (!descriptorBuffer.isIndexOccupied(0)) {
         fmt::print("Descriptor buffer not yet set up");
@@ -85,24 +87,24 @@ void will_engine::post_process_pipeline::PostProcessPipeline::draw(VkCommandBuff
     label.pLabelName = "Post Process Pass";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipeline);
 
     PostProcessPushConstants push{};
     push.width = RENDER_EXTENTS.width;
     push.height = RENDER_EXTENTS.height;
     push.postProcessFlags = static_cast<uint32_t>(drawInfo.postProcessFlags);
 
-    vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PostProcessPushConstants), &push);
+    vkCmdPushConstants(cmd, pipelineLayout.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PostProcessPushConstants), &push);
 
     const std::array bindingInfos{
         drawInfo.sceneDataBinding,
-        descriptorBuffer.getDescriptorBufferBindingInfo()
+        descriptorBuffer.getBindingInfo()
     };
     vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos.data());
 
     constexpr std::array<uint32_t, 2> indices{0, 1};
     const std::array<VkDeviceSize, 2> offsets{drawInfo.sceneDataOffset, 0};
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, indices.data(), offsets.data());
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout.layout, 0, 2, indices.data(), offsets.data());
 
     const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
     const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
@@ -111,9 +113,9 @@ void will_engine::post_process_pipeline::PostProcessPipeline::draw(VkCommandBuff
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }
 
-void will_engine::post_process_pipeline::PostProcessPipeline::createPipeline()
+void PostProcessPipeline::createPipeline()
 {
-    resourceManager.destroy(pipeline);
+    resourceManager.destroyResource(std::move(pipeline));
     VkShaderModule computeShader = resourceManager.createShaderModule("shaders/postProcess.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
@@ -126,10 +128,12 @@ void will_engine::post_process_pipeline::PostProcessPipeline::createPipeline()
     VkComputePipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipelineInfo.pNext = nullptr;
-    pipelineInfo.layout = pipelineLayout;
+    pipelineInfo.layout = pipelineLayout.layout;
     pipelineInfo.stage = stageInfo;
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     pipeline = resourceManager.createComputePipeline(pipelineInfo);
-    resourceManager.destroy(computeShader);
+    resourceManager.destroyShaderModule(computeShader);
+}
+
 }

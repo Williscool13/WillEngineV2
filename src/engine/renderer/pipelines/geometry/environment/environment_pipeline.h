@@ -7,14 +7,26 @@
 
 #include <volk/volk.h>
 
-namespace will_engine
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+
+namespace will_engine::renderer
 {
 class ResourceManager;
-}
 
-namespace will_engine::environment_pipeline
+struct EnvironmentDrawInfo
 {
-struct EnvironmentDrawInfo;
+    bool bClearColor{false};
+    VkImageView normalTarget{VK_NULL_HANDLE};
+    VkImageView albedoTarget{VK_NULL_HANDLE};
+    VkImageView pbrTarget{VK_NULL_HANDLE};
+    VkImageView velocityTarget{VK_NULL_HANDLE};
+    VkImageView depthTarget{VK_NULL_HANDLE};
+    VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
+    VkDeviceSize sceneDataOffset{};
+    VkDescriptorBufferBindingInfoEXT environmentMapBinding{};
+    VkDeviceSize environmentMapOffset{};
+};
 
 class EnvironmentPipeline
 {
@@ -33,8 +45,8 @@ private:
 private:
     ResourceManager& resourceManager;
 
-    VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
-    VkPipeline pipeline{VK_NULL_HANDLE};
+    PipelineLayout pipelineLayout{};
+    Pipeline pipeline{};
 };
 }
 

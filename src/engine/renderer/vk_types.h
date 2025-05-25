@@ -10,18 +10,12 @@
 #include <vulkan/vulkan_core.h>
 #include <glm/glm.hpp>
 
-struct AllocatedImage
-{
-    VkImage image{VK_NULL_HANDLE};
-    VkImageView imageView{VK_NULL_HANDLE};
-    VmaAllocation allocation{VK_NULL_HANDLE};
-    VkExtent3D imageExtent{};
-    VkFormat imageFormat{};
-};
+#include "resources/allocated_image.h"
+#include "resources/image_view.h"
 
 struct CubemapImageView
 {
-    VkImageView imageView;
+    will_engine::renderer::ImageView imageView;
     VkExtent3D imageExtent;
     float roughness;
     int32_t descriptorBufferIndex;
@@ -29,15 +23,8 @@ struct CubemapImageView
 
 struct AllocatedCubemap
 {
-    AllocatedImage allocatedImage;
+    will_engine::renderer::AllocatedImage allocatedImage;
     std::vector<CubemapImageView> cubemapImageViews; // one for each active mip level
-};
-
-struct AllocatedBuffer
-{
-    VkBuffer buffer;
-    VmaAllocation allocation;
-    VmaAllocationInfo info;
 };
 
 struct SceneData

@@ -20,7 +20,7 @@ struct DescriptorImageData
 
 struct DescriptorUniformData
 {
-    AllocatedBuffer uniformBuffer{};
+    VkBuffer buffer{VK_NULL_HANDLE};
     size_t allocSize{};
 };
 

@@ -17,13 +17,15 @@
 namespace will_engine
 {
 class IComponentContainer;
-
-namespace game_object
-{
-    class GameObject;
 }
 
+namespace will_engine::game_object
+{
+class GameObject;
+}
 
+namespace will_engine::renderer
+{
 struct RenderableProperties
 {
     uint32_t instanceIndex;
@@ -173,7 +175,7 @@ private: // Model Data
     std::vector<int32_t> topNodes;
 
 private: // Buffer Data
-    std::vector<VkSampler> samplers{};
+    std::vector<Sampler> samplers{};
     std::vector<AllocatedImage> images{};
 
     std::vector<VkDrawIndexedIndirectCommand> opaqueDrawCommands{};

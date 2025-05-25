@@ -12,7 +12,9 @@
 #include "engine/renderer/vk_helpers.h"
 #include "engine/renderer/assets/render_object/render_object.h"
 
-will_engine::visibility_pass_pipeline::VisibilityPassPipeline::VisibilityPassPipeline(ResourceManager& resourceManager)
+namespace will_engine::renderer
+{
+VisibilityPassPipeline::VisibilityPassPipeline(ResourceManager& resourceManager)
     : resourceManager(resourceManager)
 {
     VkDescriptorSetLayout layouts[3];
@@ -37,27 +39,27 @@ will_engine::visibility_pass_pipeline::VisibilityPassPipeline::VisibilityPassPip
     createPipeline();
 }
 
-will_engine::visibility_pass_pipeline::VisibilityPassPipeline::~VisibilityPassPipeline()
+VisibilityPassPipeline::~VisibilityPassPipeline()
 {
-    resourceManager.destroy(pipeline);
-    resourceManager.destroy(pipelineLayout);
+    resourceManager.destroyResource(std::move(pipeline));
+    resourceManager.destroyResource(std::move(pipelineLayout));
 }
 
-void will_engine::visibility_pass_pipeline::VisibilityPassPipeline::draw(VkCommandBuffer cmd, const VisibilityPassDrawInfo& drawInfo) const
+void VisibilityPassPipeline::draw(VkCommandBuffer cmd, const VisibilityPassDrawInfo& drawInfo) const
 {
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
     label.pLabelName = "Frustum Culling";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipeline);
 
 
     VisibilityPassPushConstants pushConstants = {};
     pushConstants.enable = drawInfo.bEnableFrustumCulling;
     pushConstants.shadowPass = drawInfo.bIsShadowPass;
 
-    vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VisibilityPassPushConstants), &pushConstants);
+    vkCmdPushConstants(cmd, pipelineLayout.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VisibilityPassPushConstants), &pushConstants);
 
     for (RenderObject* renderObject : drawInfo.renderObjects) {
         if (drawInfo.bIsOpaque) {
@@ -69,8 +71,8 @@ void will_engine::visibility_pass_pipeline::VisibilityPassPipeline::draw(VkComma
 
         std::array bindings{
             drawInfo.sceneDataBinding,
-            renderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo(),
-            renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferBindingInfo()
+            renderObject->getAddressesDescriptorBuffer().getBindingInfo(),
+            renderObject->getFrustumCullingAddressesDescriptorBuffer().getBindingInfo()
         };
         vkCmdBindDescriptorBuffersEXT(cmd, 3, bindings.data());
 
@@ -82,7 +84,7 @@ void will_engine::visibility_pass_pipeline::VisibilityPassPipeline::draw(VkComma
 
         constexpr std::array<uint32_t, 3> indices{0, 1, 2};
 
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 3, indices.data(), offsets.data());
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout.layout, 0, 3, indices.data(), offsets.data());
 
         vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(renderObject->getOpaqueDrawIndirectCommandCount()) / 64.0f)), 1, 1);
 
@@ -95,9 +97,9 @@ void will_engine::visibility_pass_pipeline::VisibilityPassPipeline::draw(VkComma
 }
 
 
-void will_engine::visibility_pass_pipeline::VisibilityPassPipeline::createPipeline()
+void VisibilityPassPipeline::createPipeline()
 {
-    resourceManager.destroy(pipeline);
+    resourceManager.destroyResource(std::move(pipeline));
     VkShaderModule computeShader = resourceManager.createShaderModule("shaders/visibility_pass.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
@@ -110,10 +112,12 @@ void will_engine::visibility_pass_pipeline::VisibilityPassPipeline::createPipeli
     VkComputePipelineCreateInfo pipelineInfo;
     pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipelineInfo.pNext = nullptr;
-    pipelineInfo.layout = pipelineLayout;
+    pipelineInfo.layout = pipelineLayout.layout;
     pipelineInfo.stage = stageInfo;
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     pipeline = resourceManager.createComputePipeline(pipelineInfo);
-    resourceManager.destroy(computeShader);
+    resourceManager.destroyShaderModule(computeShader);
+}
+
 }

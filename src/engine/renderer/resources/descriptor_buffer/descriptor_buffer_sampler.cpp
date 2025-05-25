@@ -11,12 +11,24 @@
 using will_engine::DescriptorImageData;
 using will_engine::DescriptorBufferException;
 
-will_engine::DescriptorBufferSampler::DescriptorBufferSampler(const VulkanContext& context, VkDescriptorSetLayout descriptorSetLayout, const int32_t maxObjectCount)
-    : DescriptorBuffer(context, descriptorSetLayout, maxObjectCount)
+namespace will_engine::renderer
 {
+DescriptorBufferSampler DescriptorBufferSampler::create(const VulkanContext& ctx, VkDescriptorSetLayout descriptorSetLayout, int32_t maxObjectCount)
+{
+    DescriptorBufferSampler newDescriptorBuffer{};
+    // Get size per Descriptor Set
+    vkGetDescriptorSetLayoutSizeEXT(ctx.device, descriptorSetLayout, &newDescriptorBuffer.descriptorBufferSize);
+    newDescriptorBuffer.descriptorBufferSize = vk_helpers::getAlignedSize(newDescriptorBuffer.descriptorBufferSize, ctx.deviceDescriptorBufferProperties.descriptorBufferOffsetAlignment);
+    // Get Descriptor Buffer offset
+    vkGetDescriptorSetLayoutBindingOffsetEXT(ctx.device, descriptorSetLayout, 0u, &newDescriptorBuffer.descriptorBufferOffset);
+
+    newDescriptorBuffer.freeIndices.clear();
+    for (int32_t i = 0; i < maxObjectCount; i++) { newDescriptorBuffer.freeIndices.insert(i); }
+    newDescriptorBuffer.maxObjectCount = maxObjectCount;
+
     VkBufferCreateInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     bufferInfo.pNext = nullptr;
-    bufferInfo.size = descriptorBufferSize * maxObjectCount;
+    bufferInfo.size = newDescriptorBuffer.descriptorBufferSize * maxObjectCount;
     bufferInfo.usage =
             VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT
             | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
@@ -24,12 +36,15 @@ will_engine::DescriptorBufferSampler::DescriptorBufferSampler(const VulkanContex
     VmaAllocationCreateInfo vmaAllocInfo = {};
     vmaAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
     vmaAllocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    VK_CHECK(vmaCreateBuffer(context.allocator, &bufferInfo, &vmaAllocInfo, &mainBuffer.buffer, &mainBuffer.allocation, &mainBuffer.info));
+    VK_CHECK(vmaCreateBuffer(ctx.allocator, &bufferInfo, &vmaAllocInfo, &newDescriptorBuffer.buffer, &newDescriptorBuffer.allocation, &newDescriptorBuffer.info));
 
-    mainBufferGpuAddress = vk_helpers::getDeviceAddress(context.device, mainBuffer.buffer);
+    newDescriptorBuffer.bufferAddress = vk_helpers::getDeviceAddress(ctx.device, newDescriptorBuffer.buffer);
+    newDescriptorBuffer.m_destroyed = false;
+    return newDescriptorBuffer;
 }
 
-int32_t will_engine::DescriptorBufferSampler::setupData(VkDevice device, const std::vector<DescriptorImageData>& imageBuffers, const int32_t index /*= -1*/)
+int32_t DescriptorBufferSampler::setupData(const VulkanContext& ctx, const std::vector<DescriptorImageData>& imageBuffers,
+                                           const int32_t index /*= -1*/)
 {
     int descriptorBufferIndex;
     if (index < 0) {
@@ -40,7 +55,8 @@ int32_t will_engine::DescriptorBufferSampler::setupData(VkDevice device, const s
 
         descriptorBufferIndex = *freeIndices.begin();
         freeIndices.erase(freeIndices.begin());
-    } else {
+    }
+    else {
         if (index >= maxObjectCount) {
             fmt::print("Specified index is higher than max allowed objects");
             return -1;
@@ -50,7 +66,7 @@ int32_t will_engine::DescriptorBufferSampler::setupData(VkDevice device, const s
 
     uint64_t accumOffset{descriptorBufferOffset};
 
-    if (deviceDescriptorBufferProperties.combinedImageSamplerDescriptorSingleArray == VK_FALSE) {
+    if (ctx.deviceDescriptorBufferProperties.combinedImageSamplerDescriptorSingleArray == VK_FALSE) {
         fmt::print("This implementation does not support combinedImageSamplerDescriptorSingleArray\n");
         return -1;
     }
@@ -60,16 +76,16 @@ int32_t will_engine::DescriptorBufferSampler::setupData(VkDevice device, const s
             size_t descriptorSize;
             switch (currentData.type) {
                 case VK_DESCRIPTOR_TYPE_SAMPLER:
-                    descriptorSize = deviceDescriptorBufferProperties.samplerDescriptorSize;
+                    descriptorSize = ctx.deviceDescriptorBufferProperties.samplerDescriptorSize;
                     break;
                 case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-                    descriptorSize = deviceDescriptorBufferProperties.combinedImageSamplerDescriptorSize;
+                    descriptorSize = ctx.deviceDescriptorBufferProperties.combinedImageSamplerDescriptorSize;
                     break;
                 case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-                    descriptorSize = deviceDescriptorBufferProperties.sampledImageDescriptorSize;
+                    descriptorSize = ctx.deviceDescriptorBufferProperties.sampledImageDescriptorSize;
                     break;
                 case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-                    descriptorSize = deviceDescriptorBufferProperties.storageImageDescriptorSize;
+                    descriptorSize = ctx.deviceDescriptorBufferProperties.storageImageDescriptorSize;
                     break;
                 default:
                     fmt::print("DescriptorBufferImage::setup_data() called with a non-image/sampler type in its data");
@@ -87,28 +103,28 @@ int32_t will_engine::DescriptorBufferSampler::setupData(VkDevice device, const s
         switch (currentData.type) {
             case VK_DESCRIPTOR_TYPE_SAMPLER:
                 image_descriptor_info.data.pSampler = &currentData.imageInfo.sampler;
-                descriptor_size = deviceDescriptorBufferProperties.samplerDescriptorSize;
+                descriptor_size = ctx.deviceDescriptorBufferProperties.samplerDescriptorSize;
                 break;
             case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
                 image_descriptor_info.data.pCombinedImageSampler = &currentData.imageInfo;
-                descriptor_size = deviceDescriptorBufferProperties.combinedImageSamplerDescriptorSize;
+                descriptor_size = ctx.deviceDescriptorBufferProperties.combinedImageSamplerDescriptorSize;
                 break;
             case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
                 image_descriptor_info.data.pSampledImage = &currentData.imageInfo;
-                descriptor_size = deviceDescriptorBufferProperties.sampledImageDescriptorSize;
+                descriptor_size = ctx.deviceDescriptorBufferProperties.sampledImageDescriptorSize;
                 break;
             case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
                 image_descriptor_info.data.pStorageImage = &currentData.imageInfo;
-                descriptor_size = deviceDescriptorBufferProperties.storageImageDescriptorSize;
+                descriptor_size = ctx.deviceDescriptorBufferProperties.storageImageDescriptorSize;
                 break;
             default:
                 fmt::print("DescriptorBufferImage::setup_data() called with a non-image/sampler descriptor type\n");
                 return -1;
         }
-        char* buffer_ptr_offset = static_cast<char*>(mainBuffer.info.pMappedData) + accumOffset + descriptorBufferIndex *
+        char* buffer_ptr_offset = static_cast<char*>(info.pMappedData) + accumOffset + descriptorBufferIndex *
                                   descriptorBufferSize;
 
-        vkGetDescriptorEXT(device, &image_descriptor_info, descriptor_size, buffer_ptr_offset);
+        vkGetDescriptorEXT(ctx.device, &image_descriptor_info, descriptor_size, buffer_ptr_offset);
 
         accumOffset += descriptor_size;
     }
@@ -116,7 +132,8 @@ int32_t will_engine::DescriptorBufferSampler::setupData(VkDevice device, const s
     return descriptorBufferIndex;
 }
 
-VkBufferUsageFlagBits will_engine::DescriptorBufferSampler::getBufferUsageFlags() const
+VkBufferUsageFlagBits DescriptorBufferSampler::getBufferUsageFlags() const
 {
     return static_cast<VkBufferUsageFlagBits>(VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT | VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT);
+}
 }

@@ -7,8 +7,6 @@
 
 #include <glm/glm.hpp>
 
-#include "engine/renderer/imgui_wrapper.h"
-
 namespace will_engine
 {
 struct DirectionalLightData

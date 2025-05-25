@@ -17,12 +17,12 @@ class TerrainManager {
 
 public:
 
-    explicit TerrainManager(ResourceManager& resourceManager)
+    explicit TerrainManager(renderer::ResourceManager& resourceManager)
         : resourceManager(resourceManager) {}
 
 
 private:
-    ResourceManager& resourceManager;
+    renderer::ResourceManager& resourceManager;
 };
 
 } // terrain

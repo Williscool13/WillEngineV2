@@ -7,9 +7,8 @@
 
 #include "texture_types.h"
 #include "engine/renderer/resource_manager.h"
-#include "engine/renderer/vk_types.h"
 
-namespace will_engine
+namespace will_engine::renderer
 {
 class TextureResource
 {

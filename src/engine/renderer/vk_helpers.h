@@ -15,12 +15,16 @@
 #include <glm/glm.hpp>
 #include <half/half.hpp>
 
-#include "vk_types.h"
+namespace will_engine::renderer
+{
+class AllocatedImage;
+class ImmediateSubmitter;
+class ResourceManager;
+class AllocatedBuffer;
+}
 
 namespace will_engine
 {
-class ResourceManager;
-class ImmediateSubmitter;
 
 namespace vk_helpers
 {
@@ -100,7 +104,7 @@ namespace vk_helpers
      */
     VkDeviceSize getAlignedSize(VkDeviceSize value, VkDeviceSize alignment);
 
-    void copyBuffer(VkCommandBuffer cmd, const AllocatedBuffer& src, VkDeviceSize srcOffset, const AllocatedBuffer& dst, VkDeviceSize dstOffset,
+    void copyBuffer(VkCommandBuffer cmd, const renderer::AllocatedBuffer& src, VkDeviceSize srcOffset, const renderer::AllocatedBuffer& dst, VkDeviceSize dstOffset,
                     VkDeviceSize size);
 
     void clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout,
@@ -108,7 +112,7 @@ namespace vk_helpers
 
     void imageBarrier(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
 
-    void uniformBarrier(VkCommandBuffer cmd, const AllocatedBuffer& buffer, VkPipelineStageFlagBits2 srcPipelineStage,
+    void uniformBarrier(VkCommandBuffer cmd, const renderer::AllocatedBuffer& buffer, VkPipelineStageFlagBits2 srcPipelineStage,
                             VkAccessFlagBits2 srcAccessBit, VkPipelineStageFlagBits2
                             dstPipelineStage, VkAccessFlagBits2 dstAccessBit);
 
@@ -127,7 +131,7 @@ namespace vk_helpers
     /**
      * Save the Allocated image as a grayscaled image. The image must be a format with only 1 channel (e.g. R32 or D32)
      */
-    void saveImageR32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
+    void saveImageR32F(renderer::ResourceManager& resourceManager, const renderer::ImmediateSubmitter& immediate, const renderer::AllocatedImage& image,
                        VkImageLayout imageLayout, VkImageAspectFlags aspectFlag, const char* savePath,
                        const std::function<float(float)>& valueTransform, int32_t mipLevel = 0);
 
@@ -149,9 +153,9 @@ namespace vk_helpers
      * @param savePath
      * @param saveStencilOnly value only used if aspect mask is depthStencil
      */
-    void saveImage(const ResourceManager& resourceManager,
-                   const ImmediateSubmitter& immediate,
-                   const AllocatedImage& image,
+    void saveImage(renderer::ResourceManager& resourceManager,
+                   const renderer::ImmediateSubmitter& immediate,
+                   const renderer::AllocatedImage& image,
                    VkImageLayout imageLayout,
                    ImageFormat format,
                    const std::string& savePath,

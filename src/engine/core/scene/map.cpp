@@ -10,8 +10,8 @@
 #include "engine/core/engine.h"
 #include "engine/util/file.h"
 
-will_engine::Map::Map(const std::filesystem::path& mapSource, ResourceManager& resourceManager) : mapSource(mapSource),
-                                                                                                  resourceManager(resourceManager)
+will_engine::Map::Map(const std::filesystem::path& mapSource, renderer::ResourceManager& resourceManager) : mapSource(mapSource),
+                                                                                                            resourceManager(resourceManager)
 {
     if (!exists(mapSource)) {
         fmt::print("Map source file not found, generating an empty map\n");

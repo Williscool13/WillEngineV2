@@ -53,9 +53,9 @@ bool MeshRendererComponent::canDrawHighlight()
     return false;
 }
 
-debug_highlight_pipeline::HighlightData MeshRendererComponent::getHighlightData()
+renderer::HighlightData MeshRendererComponent::getHighlightData()
 {
-    debug_highlight_pipeline::HighlightData data{VK_NULL_HANDLE, VK_NULL_HANDLE,};
+    renderer::HighlightData data{VK_NULL_HANDLE, VK_NULL_HANDLE,};
     if (!pRenderReference) {
         return data;
     }
@@ -66,8 +66,8 @@ debug_highlight_pipeline::HighlightData MeshRendererComponent::getHighlightData(
         return data;
     }
 
-    data.vertexBuffer = &pRenderReference->getPositionVertexBuffer();
-    data.indexBuffer = &pRenderReference->getIndexBuffer();
+    data.vertexBuffer = pRenderReference->getPositionVertexBuffer().buffer;
+    data.indexBuffer = pRenderReference->getIndexBuffer().buffer;
     data.modelMatrix = getModelMatrix();
     data.primitives = std::span(meshData.value().get().primitives);
     return data;
@@ -97,8 +97,8 @@ void MeshRendererComponent::deserialize(ordered_json& j)
         const uint32_t renderRefIndex = j["renderReference"].get<uint32_t>();
         const int32_t meshIndex = j["renderMeshIndex"].get<int32_t>();
 
-        if (const AssetManager* assetManager = Engine::get()->getAssetManager()) {
-            if (RenderObject* renderObject = assetManager->getRenderObject(renderRefIndex)) {
+        if (const renderer::AssetManager* assetManager = Engine::get()->getAssetManager()) {
+            if (renderer::RenderObject* renderObject = assetManager->getRenderObject(renderRefIndex)) {
                 if (!renderObject->isLoaded()) {
                     renderObject->load();
                 }

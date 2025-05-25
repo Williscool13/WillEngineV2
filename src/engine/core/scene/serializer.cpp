@@ -453,7 +453,7 @@ bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag 
     if (hasFlag(engineSettings, EngineSettingsTypeFlag::AMBIENT_OCCLUSION_SETTINGS)) {
         ordered_json aoSettings;
 
-        ambient_occlusion::GTAOSettings settings = engine->getAoSettings();
+        renderer::GTAOSettings settings = engine->getAoSettings();
         aoSettings["enabled"] = settings.bEnabled;
 
         aoSettings["properties"]["effect_radius"] = settings.pushConstants.effectRadius;
@@ -473,7 +473,7 @@ bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag 
     if (hasFlag(engineSettings, EngineSettingsTypeFlag::SCREEN_SPACE_SHADOWS_SETTINGS)) {
         ordered_json sssSettings;
 
-        contact_shadows_pipeline::ContactShadowSettings settings = engine->getSssSettings();
+        renderer::ContactShadowSettings settings = engine->getSssSettings();
         sssSettings["enabled"] = settings.bEnabled;
 
         sssSettings["properties"]["surfaceThickness"] = settings.pushConstants.surfaceThickness;
@@ -489,7 +489,7 @@ bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag 
     if (hasFlag(engineSettings, EngineSettingsTypeFlag::CASCADED_SHADOW_MAP_SETTINGS)) {
         ordered_json csmSettings;
 
-        cascaded_shadows::CascadedShadowMapSettings settings = engine->getCsmSettings();
+        renderer::CascadedShadowMapSettings settings = engine->getCsmSettings();
         csmSettings["enabled"] = settings.bEnabled;
 
         csmSettings["properties"]["pcfLevel"] = settings.pcfLevel;
@@ -679,7 +679,7 @@ bool Serializer::deserializeEngineSettings(Engine* engine, EngineSettingsTypeFla
         if (hasFlag(engineSettings, EngineSettingsTypeFlag::AMBIENT_OCCLUSION_SETTINGS)) {
             if (rootJ.contains("aoSettings")) {
                 ordered_json aoSettings = rootJ["aoSettings"];
-                ambient_occlusion::GTAOSettings settings = engine->getAoSettings();
+                renderer::GTAOSettings settings = engine->getAoSettings();
 
                 if (aoSettings.contains("enabled")) {
                     settings.bEnabled = aoSettings["enabled"].get<bool>();
@@ -737,7 +737,7 @@ bool Serializer::deserializeEngineSettings(Engine* engine, EngineSettingsTypeFla
         if (hasFlag(engineSettings, EngineSettingsTypeFlag::SCREEN_SPACE_SHADOWS_SETTINGS)) {
             if (rootJ.contains("sssSettings")) {
                 ordered_json sssSettings = rootJ["sssSettings"];
-                contact_shadows_pipeline::ContactShadowSettings settings = engine->getSssSettings();
+                renderer::ContactShadowSettings settings = engine->getSssSettings();
 
                 if (sssSettings.contains("enabled")) {
                     settings.bEnabled = sssSettings["enabled"].get<bool>();
@@ -779,7 +779,7 @@ bool Serializer::deserializeEngineSettings(Engine* engine, EngineSettingsTypeFla
         if (hasFlag(engineSettings, EngineSettingsTypeFlag::CASCADED_SHADOW_MAP_SETTINGS)) {
             if (rootJ.contains("csmSettings")) {
                 ordered_json csmSettings = rootJ["csmSettings"];
-                cascaded_shadows::CascadedShadowMapSettings settings = engine->getCsmSettings();
+                renderer::CascadedShadowMapSettings settings = engine->getCsmSettings();
 
                 if (csmSettings.contains("enabled")) {
                     settings.bEnabled = csmSettings["enabled"].get<bool>();

@@ -8,7 +8,7 @@
 
 #include "texture.h"
 
-namespace will_engine
+namespace will_engine::renderer
 {
 TextureResource::TextureResource(ResourceManager& resourceManager, const std::filesystem::path& texturePath, const uint32_t textureId, const TextureProperties properties) : resourceManager(resourceManager), textureId(textureId)
 {
@@ -33,7 +33,7 @@ TextureResource::TextureResource(ResourceManager& resourceManager, const std::fi
     };
 
     const size_t imageSize = width * height * 4;
-    image = resourceManager.createImage(
+    image = resourceManager.createImageFromData(
         data,
         imageSize,
         imageExtent,
@@ -47,6 +47,6 @@ TextureResource::TextureResource(ResourceManager& resourceManager, const std::fi
 
 TextureResource::~TextureResource()
 {
-    resourceManager.destroy(image);
+    resourceManager.destroyResource(std::move(image));
 }
 } // will_engine

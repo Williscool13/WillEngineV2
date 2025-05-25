@@ -11,9 +11,9 @@
 
 #include "vk_helpers.h"
 
-namespace will_engine
+namespace will_engine::renderer
 {
-class PipelineBuilder
+class RenderPipelineBuilder
 {
 public:
     enum class BlendMode
@@ -23,11 +23,11 @@ public:
         NO_BLEND
     };
 
-    PipelineBuilder() { clear(); }
+    RenderPipelineBuilder();
+
+    VkGraphicsPipelineCreateInfo generatePipelineCreateInfo(VkPipelineCreateFlagBits flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
     void clear();
-
-    VkPipeline buildPipeline(VkDevice device, VkPipelineCreateFlagBits flags, std::vector<VkDynamicState> additionalDynamicStates = {});
 
     void setShaders(VkShaderModule vertexShader);
 
@@ -35,32 +35,27 @@ public:
 
     void setShaders(VkShaderModule vertexShader, VkShaderModule tessControlShader, VkShaderModule tessEvalShader, VkShaderModule fragmentShader);
 
-    /**
-     * Care must be taken when using this to ensure that the pointers are still valid when the pipeline is constructed
-     * @param bindings
-     * @param bindingCount
-     * @param attributes
-     * @param attributeCount
-     */
-    void setupVertexInput(const VkVertexInputBindingDescription* bindings, uint32_t bindingCount, const VkVertexInputAttributeDescription* attributes, uint32_t attributeCount);
+    void setupVertexInput(const std::vector<VkVertexInputBindingDescription>& bindings,
+                          const std::vector<VkVertexInputAttributeDescription>& attributes);
 
     void setupInputAssembly(VkPrimitiveTopology topology, bool enablePrimitiveRestart = false);
 
-    void setupRasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace, float lineWidth = 1.0f, bool rasterizerDiscardEnable = false);
+    void setupRasterization(VkPolygonMode polygonMode, VkCullModeFlags cullMode, VkFrontFace frontFace, float lineWidth = 1.0f,
+                            bool rasterizerDiscardEnable = false);
 
-    /**
-     * Use to initialize the depth bias of the pipeline.
-     * \n Additionally dynamically set depth b ias with \code vkCmdSetDepthBias\endcode
-     * @param depthBiasConstantFactor
-     * @param depthBiasClamp
-     * @param depthBiasSlopeFactor
-     */
     void enableDepthBias(float depthBiasConstantFactor, float depthBiasClamp, float depthBiasSlopeFactor);
 
-    void setupMultisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples, float minSampleShading, const VkSampleMask* pSampleMask,
+    void setupMultisampling(VkBool32 sampleShadingEnable, VkSampleCountFlagBits rasterizationSamples, float minSampleShading,
+                            const VkSampleMask* pSampleMask,
                             VkBool32 alphaToCoverageEnable, VkBool32 alphaToOneEnable);
 
-    void setupRenderer(const std::vector<VkFormat>& colorAttachmentFormat, VkFormat depthAttachmentFormat = VK_FORMAT_UNDEFINED, VkFormat stencilAttachmentFormat = VK_FORMAT_UNDEFINED);
+    /**
+     * Shortcut to disable multisampling for this pipeline
+     */
+    void disableMultisampling();
+
+    void setupRenderer(const std::vector<VkFormat>& colorAttachmentFormat, VkFormat depthAttachmentFormat = VK_FORMAT_UNDEFINED,
+                       VkFormat stencilAttachmentFormat = VK_FORMAT_UNDEFINED);
 
     /**
      * Set up the depth and stencil for this pipeline
@@ -75,62 +70,94 @@ public:
      * @param maxDepthBounds
      */
     void setupDepthStencil(VkBool32 depthTestEnable, VkBool32 depthWriteEnable, VkCompareOp compareOp
-                           , VkBool32 depthBoundsTestEnable, VkBool32 stencilTestEnable, VkStencilOpState front, VkStencilOpState back
+                           , VkBool32 depthBoundsTestEnable, VkBool32 stencilTestEnable, const VkStencilOpState& front, const VkStencilOpState& back
                            , float minDepthBounds, float maxDepthBounds);
 
-
-    void disableBlending();
-    void setupBlending(const std::vector<VkPipelineColorBlendAttachmentState>& blendAttachmentStates);
-
-    void setupPipelineLayout(VkPipelineLayout pipelineLayout);
-
     /**
-     * Shortcut to disable multisampling for this pipeline
+     * Shortcut for setupDepthStencil
+     * @param depthWriteEnable
+     * @param op
      */
-    void disableMultisampling();
+    void enableDepthTest(VkBool32 depthWriteEnable, VkCompareOp op);
 
     /**
-     * Shortcut to enable depth testing
-     * @param depthWriteEnable enable depth write
-     * @param op operation to use
-     */
-    void enableDepthTest(bool depthWriteEnable, VkCompareOp op);
-
-    /**
-     * Shortcut to disable depth testing for this pipeline
+     * shortcut for setupDepthStencil
      */
     void disableDepthTest();
 
+    void setupBlending(const std::vector<VkPipelineColorBlendAttachmentState>& blendAttachmentStates);
+
+    void disableBlending();
+
+    void setupPipelineLayout(VkPipelineLayout pipelineLayout);
 
     void setupTessellation(int32_t controlPoints = 4);
 
-private:
-    VkPipelineDynamicStateCreateInfo generateDynamicStates(VkDynamicState states[], uint32_t count);
+    void addDynamicState(VkDynamicState dynamicState);
 
 private:
     std::vector<VkPipelineShaderStageCreateInfo> shaderStages;
 
     bool vertexInputEnabled{false};
-    VkPipelineVertexInputStateCreateInfo vertexInputInfo{};
+
+    // Viewport, details not necessary here (dynamic rendering)
+    VkPipelineViewportStateCreateInfo viewportState = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .viewportCount = 1,
+        .scissorCount = 1,
+    };
+
+    VkPipelineColorBlendStateCreateInfo colorBlending = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .logicOpEnable = VK_FALSE,
+        .logicOp = VK_LOGIC_OP_COPY,
+        .attachmentCount = 0,
+    };
+
+    VkPipelineVertexInputStateCreateInfo vertexInputInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .vertexBindingDescriptionCount = 0,
+        .pVertexBindingDescriptions = nullptr,
+        .vertexAttributeDescriptionCount = 0,
+        .pVertexAttributeDescriptions = nullptr,
+    };
+
     VkPipelineInputAssemblyStateCreateInfo inputAssembly{};
     VkPipelineRasterizationStateCreateInfo rasterizer{};
     VkPipelineMultisampleStateCreateInfo multisampling{};
     VkPipelineRenderingCreateInfo renderInfo{};
     VkPipelineDepthStencilStateCreateInfo depthStencil{};
 
+    VkPipelineDynamicStateCreateInfo dynamicInfo = {
+        .sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+        .pNext = nullptr,
+        .flags = 0,
+        .dynamicStateCount = 0,
+        .pDynamicStates = nullptr,
+    };
+
+    VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
+
+
+    std::vector<VkVertexInputBindingDescription> vertexBindings;
+    std::vector<VkVertexInputAttributeDescription> vertexAttributes;
+
+    std::vector<VkFormat> colorAttachmentFormats;
+
+    bool bBlendingDisabled{true};
+    std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates{};
+
     bool bIsTessellationEnabled{false};
     VkPipelineTessellationStateCreateInfo tessellation{};
 
 
-    VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
-
-    // keep to avoid dangling pointer for color attachment (referenced by pointer)
-    std::vector<VkFormat> colorAttachmentFormats;
-    bool bBlendingDisabled{true};
-    std::vector<VkPipelineColorBlendAttachmentState> blendAttachmentStates{};
+    std::vector<VkDynamicState> dynamicStates{VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR};
 };
 }
-
 
 
 #endif //VK_PIPELINES_H

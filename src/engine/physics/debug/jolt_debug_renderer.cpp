@@ -19,13 +19,13 @@ will_engine::physics::JoltDebugRenderer::~JoltDebugRenderer() {}
 
 void will_engine::physics::JoltDebugRenderer::DrawLine(JPH::RVec3Arg inFrom, JPH::RVec3Arg inTo, const JPH::ColorArg inColor)
 {
-    debug_renderer::DebugRenderer::drawLine(PhysicsUtils::toGLM(inFrom), PhysicsUtils::toGLM(inTo), PhysicsUtils::toGLM(inColor));
+    renderer::DebugRenderer::drawLine(PhysicsUtils::toGLM(inFrom), PhysicsUtils::toGLM(inTo), PhysicsUtils::toGLM(inColor));
 }
 
 void will_engine::physics::JoltDebugRenderer::DrawTriangle(JPH::RVec3Arg inV1, JPH::RVec3Arg inV2, JPH::RVec3Arg inV3, JPH::ColorArg inColor,
                                                            ECastShadow inCastShadow)
 {
-    debug_renderer::DebugRenderer::drawTriangle(PhysicsUtils::toGLM(inV1), PhysicsUtils::toGLM(inV2), PhysicsUtils::toGLM(inV3),
+    renderer::DebugRenderer::drawTriangle(PhysicsUtils::toGLM(inV1), PhysicsUtils::toGLM(inV2), PhysicsUtils::toGLM(inV3),
                                                 PhysicsUtils::toGLM(inColor));
 }
 

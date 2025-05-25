@@ -7,19 +7,56 @@
 
 #include <volk/volk.h>
 
-#include "engine/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 
-namespace will_engine
+namespace will_engine::renderer
 {
 class ResourceManager;
-class DescriptorBuffer;
-class DescriptorBufferSampler;
-}
 
-namespace will_engine::deferred_resolve
+struct DeferredResolveDescriptor
 {
-struct DeferredResolveDrawInfo;
-struct DeferredResolveDescriptor;
+    VkImageView normalTarget;
+    VkImageView albedoTarget;
+    VkImageView pbrTarget;
+    VkImageView depthTarget;
+    VkImageView velocityTarget;
+    VkImageView aoTarget;
+    VkImageView contactShadowsTarget;
+    VkImageView outputTarget;
+
+    VkSampler sampler;
+};
+
+struct DeferredResolvePushConstants
+{
+    int32_t width{1700};
+    int32_t height{900};
+    int32_t deferredDebug{0};
+    int32_t disableShadows{0};
+    int32_t disableContactShadows{0};
+    int32_t pcfLevel{5};
+    float nearPlane{1000.0f};
+    float farPlane{0.1f};
+};
+
+struct DeferredResolveDrawInfo
+{
+    int32_t deferredDebug{0};
+    int32_t csmPcf{0};
+    VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
+    VkDeviceSize sceneDataOffset{0};
+    VkDescriptorBufferBindingInfoEXT environmentIBLBinding{};
+    VkDeviceSize environmentIBLOffset{0};
+    VkDescriptorBufferBindingInfoEXT cascadeUniformBinding{};
+    VkDeviceSize cascadeUniformOffset{0};
+    VkDescriptorBufferBindingInfoEXT cascadeSamplerBinding{};
+    float nearPlane{1000.0f};
+    float farPlane{0.1f};
+    bool bEnableShadowMap{true};
+    bool bEnableContactShadows{true};
+};
 
 class DeferredResolvePipeline
 {
@@ -42,8 +79,8 @@ private:
 private:
     ResourceManager& resourceManager;
 
-    VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
-    VkPipeline pipeline{VK_NULL_HANDLE};
+    PipelineLayout pipelineLayout{};
+    Pipeline pipeline{};
 
     DescriptorBufferSampler resolveDescriptorBuffer;
 };

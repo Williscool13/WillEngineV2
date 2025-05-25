@@ -267,7 +267,7 @@ VkDeviceSize will_engine::vk_helpers::getAlignedSize(const VkDeviceSize value, V
     return (value + alignment - 1) & ~(alignment - 1);
 }
 
-void will_engine::vk_helpers::copyBuffer(VkCommandBuffer cmd, const AllocatedBuffer& src, VkDeviceSize srcOffset, const AllocatedBuffer& dst,
+void will_engine::vk_helpers::copyBuffer(VkCommandBuffer cmd, const renderer::AllocatedBuffer& src, VkDeviceSize srcOffset, const renderer::AllocatedBuffer& dst,
                                          VkDeviceSize dstOffset, VkDeviceSize size)
 {
     if (src.buffer == VK_NULL_HANDLE) { return; }
@@ -323,7 +323,7 @@ void will_engine::vk_helpers::imageBarrier(VkCommandBuffer cmd, VkImage image, V
     vkCmdPipelineBarrier2(cmd, &depInfo);
 }
 
-void will_engine::vk_helpers::uniformBarrier(VkCommandBuffer cmd, const AllocatedBuffer& buffer, VkPipelineStageFlagBits2 srcPipelineStage,
+void will_engine::vk_helpers::uniformBarrier(VkCommandBuffer cmd, const renderer::AllocatedBuffer& buffer, VkPipelineStageFlagBits2 srcPipelineStage,
                                                  VkAccessFlagBits2 srcAccessBit, VkPipelineStageFlagBits2 dstPipelineStage,
                                                  VkAccessFlagBits2 dstAccessBit)
 {
@@ -560,7 +560,7 @@ VkPipelineShaderStageCreateInfo will_engine::vk_helpers::pipelineShaderStageCrea
     return info;
 }
 
-void will_engine::vk_helpers::saveImageR32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
+void will_engine::vk_helpers::saveImageR32F(renderer::ResourceManager& resourceManager, const renderer::ImmediateSubmitter& immediate, const renderer::AllocatedImage& image,
                                             VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
                                             const char* savePath, const std::function<float(float)>& valueTransform, int32_t mipLevel)
 {
@@ -568,7 +568,7 @@ void will_engine::vk_helpers::saveImageR32F(const ResourceManager& resourceManag
     size_t newYSize = image.imageExtent.height / static_cast<size_t>(std::pow(2, mipLevel));
     const size_t texelCount = newXSize * newYSize;
     const size_t dataSize = texelCount * 1 * sizeof(float);
-    AllocatedBuffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
+    renderer::AllocatedBuffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
 
     immediate.submit([&, mipLevel](VkCommandBuffer cmd) {
         VkBufferImageCopy bufferCopyRegion{};
@@ -605,7 +605,7 @@ void will_engine::vk_helpers::saveImageR32F(const ResourceManager& resourceManag
     stbi_write_png(savePath, static_cast<int>(newXSize), static_cast<int>(newYSize), 4, byteImageData, static_cast<int>(newXSize) * 4);
 
     delete[] byteImageData;
-    resourceManager.destroyImmediate(receivingBuffer);
+    resourceManager.destroyResourceImmediate(receivingBuffer);
 }
 
 void will_engine::vk_helpers::saveHeightmap(const std::vector<float>& heightData, int width, int height, const std::filesystem::path& filename)
@@ -659,8 +659,8 @@ will_engine::vk_helpers::FormatInfo will_engine::vk_helpers::getFormatInfo(Image
     }
 }
 
-void will_engine::vk_helpers::saveImage(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
-                                        const AllocatedImage& image, VkImageLayout imageLayout,
+void will_engine::vk_helpers::saveImage(renderer::ResourceManager& resourceManager, const renderer::ImmediateSubmitter& immediate,
+                                        const renderer::AllocatedImage& image, VkImageLayout imageLayout,
                                         ImageFormat format, const std::string& savePath, bool saveStencilOnly)
 {
     const FormatInfo info = getFormatInfo(format, saveStencilOnly);
@@ -673,7 +673,7 @@ void will_engine::vk_helpers::saveImage(const ResourceManager& resourceManager, 
     }
     const uint32_t texelCount = image.imageExtent.width * image.imageExtent.height;
     const size_t dataSize = texelCount * info.bytesPerPixel;
-    AllocatedBuffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
+    renderer::AllocatedBuffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
 
     immediate.submit([&](VkCommandBuffer cmd) {
         VkBufferImageCopy bufferCopyRegion{};
@@ -698,7 +698,7 @@ void will_engine::vk_helpers::saveImage(const ResourceManager& resourceManager, 
 
     stbi_write_png(savePath.c_str(), image.imageExtent.width, image.imageExtent.height, 4, outputData.data(), image.imageExtent.width * 4);
 
-    resourceManager.destroyImmediate(receivingBuffer);
+    resourceManager.destroyResourceImmediate(receivingBuffer);
 }
 
 void will_engine::vk_helpers::processImageData(void* sourceData, std::span<uint8_t> targetData, uint32_t pixelCount, ImageFormat format,

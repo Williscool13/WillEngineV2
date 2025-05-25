@@ -8,6 +8,8 @@
 #include <vk-bootstrap/VkBootstrap.h>
 #include <volk/volk.h>
 
+namespace will_engine
+{
 VulkanContext::VulkanContext(SDL_Window* window, bool useValidationLayers)
 {
     if (VkResult res = volkInitialize(); res != VK_SUCCESS) {
@@ -30,7 +32,7 @@ VulkanContext::VulkanContext(SDL_Window* window, bool useValidationLayers)
     volkLoadInstance(instance);
     debugMessenger = vkb_inst.debug_messenger;
 
-    SDL_Vulkan_CreateSurface(window, instance, nullptr,  &surface);
+    SDL_Vulkan_CreateSurface(window, instance, nullptr, &surface);
 
     // vk 1.3
     VkPhysicalDeviceVulkan13Features features{};
@@ -91,6 +93,13 @@ VulkanContext::VulkanContext(SDL_Window* window, bool useValidationLayers)
     vulkanFunctions.vkGetDeviceProcAddr = vkGetDeviceProcAddr;
     allocatorInfo.pVulkanFunctions = &vulkanFunctions;
     vmaCreateAllocator(&allocatorInfo, &allocator);
+
+    VkPhysicalDeviceProperties2KHR deviceProperties{};
+    deviceDescriptorBufferProperties = {};
+    deviceDescriptorBufferProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_BUFFER_PROPERTIES_EXT;
+    deviceProperties.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2_KHR;
+    deviceProperties.pNext = &deviceDescriptorBufferProperties;
+    vkGetPhysicalDeviceProperties2(physicalDevice, &deviceProperties);
 }
 
 VulkanContext::~VulkanContext()
@@ -110,4 +119,5 @@ VulkanContext::~VulkanContext()
     if (instance) {
         vkDestroyInstance(instance, nullptr);
     }
+}
 }

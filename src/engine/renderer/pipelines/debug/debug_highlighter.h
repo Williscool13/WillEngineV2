@@ -4,23 +4,19 @@
 
 #ifndef DEBUG_HIGHLIGHT_PIPELINE_H
 #define DEBUG_HIGHLIGHT_PIPELINE_H
+#include "engine/renderer/resources/descriptor_set_layout.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 
-#include <glm/glm.hpp>
 
-#include "engine/renderer/pipelines/debug/debug_highlight_types.h"
-#include "engine/core/game_object/renderable.h"
-#include "engine/renderer/imgui_wrapper.h"
-#include "engine/renderer/resource_manager.h"
-
-namespace will_engine
+namespace will_engine::renderer
 {
-class IRenderable;
-}
+struct DebugHighlighterDrawInfo;
+class ResourceManager;
 
-namespace will_engine::debug_highlight_pipeline
+class DebugHighlighter
 {
-
-class DebugHighlighter {
 public:
     explicit DebugHighlighter(ResourceManager& resourceManager);
 
@@ -40,21 +36,15 @@ private:
 private:
     ResourceManager& resourceManager;
 
-    VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
-    VkPipeline pipeline{VK_NULL_HANDLE};
+    PipelineLayout pipelineLayout{};
+    Pipeline pipeline{};
 
-    VkDescriptorSetLayout processingSetLayout{VK_NULL_HANDLE};
-    VkPipelineLayout processingPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline processingPipeline{VK_NULL_HANDLE};
+    DescriptorSetLayout processingSetLayout{};
+    PipelineLayout processingPipelineLayout{};
+    Pipeline processingPipeline{};
     DescriptorBufferSampler descriptorBuffer{};
-
-    // todo: remove
-    friend void ImguiWrapper::imguiInterface(Engine* engine);
 };
 }
-
-
-
 
 
 #endif //DEBUG_HIGHLIGHT_PIPELINE_H

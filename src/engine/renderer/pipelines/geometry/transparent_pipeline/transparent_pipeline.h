@@ -8,18 +8,43 @@
 #include <volk/volk.h>
 
 #include "engine/renderer/vk_types.h"
-#include "engine/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/allocated_image.h"
+#include "engine/renderer/resources/descriptor_set_layout.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 
-namespace will_engine
+namespace will_engine::renderer
 {
-class ResourceManager;
 class RenderObject;
-}
+class ResourceManager;
 
-namespace will_engine::transparent_pipeline
+struct TransparentPushConstants
 {
-struct TransparentCompositeDrawInfo;
-struct TransparentAccumulateDrawInfo;
+    int32_t bEnabled{true};
+    int32_t bDisableShadows{false};
+    int32_t bDisableContactShadows{false};
+};
+
+struct TransparentAccumulateDrawInfo
+{
+    bool enabled{true};
+    VkImageView depthTarget{VK_NULL_HANDLE};
+    int32_t currentFrameOverlap{0};
+    const std::vector<RenderObject*>& renderObjects{};
+    VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
+    VkDeviceSize sceneDataOffset{0};
+    VkDescriptorBufferBindingInfoEXT environmentIBLBinding{};
+    VkDeviceSize environmentIBLOffset{0};
+    VkDescriptorBufferBindingInfoEXT cascadeUniformBinding{};
+    VkDeviceSize cascadeUniformOffset{0};
+    VkDescriptorBufferBindingInfoEXT cascadeSamplerBinding{};
+};
+
+struct TransparentCompositeDrawInfo
+{
+    VkImageView opaqueImage;
+};
 
 class TransparentPipeline
 {
@@ -48,15 +73,15 @@ private:
     const VkFormat accumulationImageFormat{VK_FORMAT_R16G16B16A16_SFLOAT};
     AllocatedImage accumulationImage{};
 
-    VkPipelineLayout accumulationPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline accumulationPipeline{VK_NULL_HANDLE};
+    PipelineLayout accumulationPipelineLayout{};
+    Pipeline accumulationPipeline{};
 
     const VkFormat revealageImageFormat{VK_FORMAT_R16_SFLOAT};
     AllocatedImage revealageImage{};
 
-    VkDescriptorSetLayout compositeDescriptorSetLayout{VK_NULL_HANDLE};
-    VkPipelineLayout compositePipelineLayout{VK_NULL_HANDLE};
-    VkPipeline compositePipeline{VK_NULL_HANDLE};
+    DescriptorSetLayout compositeDescriptorSetLayout{};
+    PipelineLayout compositePipelineLayout{};
+    Pipeline compositePipeline{};
     DescriptorBufferSampler compositeDescriptorBuffer;
 
     void createAccumulationPipeline();

@@ -382,39 +382,39 @@ void ImguiWrapper::imguiInterface(Engine* engine)
             }
 
             if (ImGui::BeginTabItem("Post-Processing")) {
-                static bool tonemapping = (engine->postProcessData & post_process_pipeline::PostProcessType::Tonemapping) !=
-                                          post_process_pipeline::PostProcessType::None;
+                static bool tonemapping = (engine->postProcessData & renderer::PostProcessType::Tonemapping) !=
+                                          renderer::PostProcessType::None;
                 if (ImGui::CollapsingHeader("Tonemapping", ImGuiTreeNodeFlags_DefaultOpen)) {
                     if (ImGui::Checkbox("Enable Tonemapping", &tonemapping)) {
                         if (tonemapping) {
-                            engine->postProcessData |= post_process_pipeline::PostProcessType::Tonemapping;
+                            engine->postProcessData |= renderer::PostProcessType::Tonemapping;
                         }
                         else {
-                            engine->postProcessData &= ~post_process_pipeline::PostProcessType::Tonemapping;
+                            engine->postProcessData &= ~renderer::PostProcessType::Tonemapping;
                         }
                     }
                 }
                 if (ImGui::CollapsingHeader("Sharpening", ImGuiTreeNodeFlags_DefaultOpen)) {
-                    static bool sharpening = (engine->postProcessData & post_process_pipeline::PostProcessType::Sharpening) !=
-                                             post_process_pipeline::PostProcessType::None;
+                    static bool sharpening = (engine->postProcessData & renderer::PostProcessType::Sharpening) !=
+                                             renderer::PostProcessType::None;
                     if (ImGui::Checkbox("Enable Sharpening", &sharpening)) {
                         if (sharpening) {
-                            engine->postProcessData |= post_process_pipeline::PostProcessType::Sharpening;
+                            engine->postProcessData |= renderer::PostProcessType::Sharpening;
                         }
                         else {
-                            engine->postProcessData &= ~post_process_pipeline::PostProcessType::Sharpening;
+                            engine->postProcessData &= ~renderer::PostProcessType::Sharpening;
                         }
                     }
                 }
                 if (ImGui::CollapsingHeader("FXAA", ImGuiTreeNodeFlags_DefaultOpen)) {
-                    static bool fxaa = (engine->postProcessData & post_process_pipeline::PostProcessType::FXAA) !=
-                                       post_process_pipeline::PostProcessType::None;
+                    static bool fxaa = (engine->postProcessData & renderer::PostProcessType::FXAA) !=
+                                       renderer::PostProcessType::None;
                     if (ImGui::Checkbox("Enable FXAA", &fxaa)) {
                         if (fxaa) {
-                            engine->postProcessData |= post_process_pipeline::PostProcessType::FXAA;
+                            engine->postProcessData |= renderer::PostProcessType::FXAA;
                         }
                         else {
-                            engine->postProcessData &= ~post_process_pipeline::PostProcessType::FXAA;
+                            engine->postProcessData &= ~renderer::PostProcessType::FXAA;
                         }
                     }
                 }
@@ -428,24 +428,24 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     Serializer::serializeEngineSettings(engine, EngineSettingsTypeFlag::AMBIENT_OCCLUSION_SETTINGS);
                 }
 
-                ambient_occlusion::GTAOPushConstants& gtao = engine->gtaoSettings.pushConstants;
+                renderer::GTAOPushConstants& gtao = engine->gtaoSettings.pushConstants;
                 const char* qualityPresets[] = {"Low", "Medium", "High", "Ultra"};
                 int slicePreset = 0;
 
-                if (gtao.sliceCount == ambient_occlusion::XE_GTAO_SLICE_COUNT_LOW) slicePreset = 0;
-                else if (gtao.sliceCount == ambient_occlusion::XE_GTAO_SLICE_COUNT_MEDIUM) slicePreset = 1;
-                else if (gtao.sliceCount == ambient_occlusion::XE_GTAO_SLICE_COUNT_HIGH) slicePreset = 2;
+                if (gtao.sliceCount == renderer::XE_GTAO_SLICE_COUNT_LOW) slicePreset = 0;
+                else if (gtao.sliceCount == renderer::XE_GTAO_SLICE_COUNT_MEDIUM) slicePreset = 1;
+                else if (gtao.sliceCount == renderer::XE_GTAO_SLICE_COUNT_HIGH) slicePreset = 2;
                 else slicePreset = 3;
 
                 if (ImGui::Combo("Slice Count Preset", &slicePreset, qualityPresets, IM_ARRAYSIZE(qualityPresets))) {
                     switch (slicePreset) {
-                        case 0: gtao.sliceCount = ambient_occlusion::XE_GTAO_SLICE_COUNT_LOW;
+                        case 0: gtao.sliceCount = renderer::XE_GTAO_SLICE_COUNT_LOW;
                             break;
-                        case 1: gtao.sliceCount = ambient_occlusion::XE_GTAO_SLICE_COUNT_MEDIUM;
+                        case 1: gtao.sliceCount = renderer::XE_GTAO_SLICE_COUNT_MEDIUM;
                             break;
-                        case 2: gtao.sliceCount = ambient_occlusion::XE_GTAO_SLICE_COUNT_HIGH;
+                        case 2: gtao.sliceCount = renderer::XE_GTAO_SLICE_COUNT_HIGH;
                             break;
-                        case 3: gtao.sliceCount = ambient_occlusion::XE_GTAO_SLICE_COUNT_ULTRA;
+                        case 3: gtao.sliceCount = renderer::XE_GTAO_SLICE_COUNT_ULTRA;
                             break;
                         default:
                             break;
@@ -453,20 +453,20 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 }
 
                 int stepsPreset = 0;
-                if (gtao.stepsPerSliceCount == ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_MEDIUM) stepsPreset = 1;
-                else if (gtao.stepsPerSliceCount == ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_LOW) stepsPreset = 0;
-                else if (gtao.stepsPerSliceCount == ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_ULTRA) stepsPreset = 3;
+                if (gtao.stepsPerSliceCount == renderer::XE_GTAO_STEPS_PER_SLICE_COUNT_MEDIUM) stepsPreset = 1;
+                else if (gtao.stepsPerSliceCount == renderer::XE_GTAO_STEPS_PER_SLICE_COUNT_LOW) stepsPreset = 0;
+                else if (gtao.stepsPerSliceCount == renderer::XE_GTAO_STEPS_PER_SLICE_COUNT_ULTRA) stepsPreset = 3;
                 else stepsPreset = 2;
 
                 if (ImGui::Combo("Steps Per Slice Preset", &stepsPreset, qualityPresets, IM_ARRAYSIZE(qualityPresets))) {
                     switch (stepsPreset) {
-                        case 0: gtao.stepsPerSliceCount = ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_LOW;
+                        case 0: gtao.stepsPerSliceCount = renderer::XE_GTAO_STEPS_PER_SLICE_COUNT_LOW;
                             break;
-                        case 1: gtao.stepsPerSliceCount = ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_MEDIUM;
+                        case 1: gtao.stepsPerSliceCount = renderer::XE_GTAO_STEPS_PER_SLICE_COUNT_MEDIUM;
                             break;
-                        case 2: gtao.stepsPerSliceCount = ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_HIGH;
+                        case 2: gtao.stepsPerSliceCount = renderer::XE_GTAO_STEPS_PER_SLICE_COUNT_HIGH;
                             break;
-                        case 3: gtao.stepsPerSliceCount = ambient_occlusion::XE_GTAO_STEPS_PER_SLICE_COUNT_ULTRA;
+                        case 3: gtao.stepsPerSliceCount = renderer::XE_GTAO_STEPS_PER_SLICE_COUNT_ULTRA;
                             break;
                         default:
                             break;
@@ -483,7 +483,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 ImGui::Separator();
                 float blurBeta = gtao.denoiseBlurBeta;
                 if (ImGui::SliderFloat("Denoise Blur Beta", &blurBeta, 0.0f, 5.0f)) {
-                    if (ambient_occlusion::GTAO_DENOISE_PASSES != 0) {
+                    if (renderer::GTAO_DENOISE_PASSES != 0) {
                         gtao.denoiseBlurBeta = blurBeta;
                     }
                 }
@@ -518,7 +518,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save SSS Settings")) {
                     Serializer::serializeEngineSettings(engine, EngineSettingsTypeFlag::SCREEN_SPACE_SHADOWS_SETTINGS);
                 }
-                contact_shadows_pipeline::ContactShadowsPushConstants& sssPush = engine->sssSettings.pushConstants;
+                renderer::ContactShadowsPushConstants& sssPush = engine->sssSettings.pushConstants;
                 ImGui::InputFloat("Surface Thickness", &sssPush.surfaceThickness);
                 ImGui::InputFloat("Blinear Threshold", &sssPush.bilinearThreshold);
                 ImGui::InputFloat("Shadow Contrast", &sssPush.shadowContrast);
@@ -543,7 +543,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 bool needUpdateCsmProperties = false;
                 bool needRegenerateSplit = false;
 
-                for (int32_t i = 0; i < cascaded_shadows::SHADOW_CASCADE_COUNT; ++i) {
+                for (int32_t i = 0; i < renderer::SHADOW_CASCADE_COUNT; ++i) {
                     ImGui::Text(fmt::format("Cascade {}:", i).c_str());
                     ImGui::SameLine();
                     ImGui::SetNextItemWidth(100);
@@ -597,7 +597,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 }
 
                 ImGui::SetNextItemWidth(100);
-                ImGui::SliderInt("Shadow Map Level", &shadowMapDebug, 0, cascaded_shadows::SHADOW_CASCADE_COUNT - 1);
+                ImGui::SliderInt("Shadow Map Level", &shadowMapDebug, 0, renderer::SHADOW_CASCADE_COUNT - 1);
                 ImGui::SameLine();
                 if (ImGui::Button(fmt::format("Save Shadow Map", shadowMapDebug).c_str())) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
@@ -607,7 +607,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             return logf(1.0f + depth * 15.0f) / logf(16.0f);
                         };
 
-                        AllocatedImage shadowMap = engine->cascadedShadowMap->getShadowMap(shadowMapDebug);
+                        const renderer::AllocatedImage& shadowMap = engine->cascadedShadowMap->getShadowMap(shadowMapDebug);
                         if (shadowMap.image != VK_NULL_HANDLE) {
                             vk_helpers::saveImageR32F(
                                 *engine->resourceManager,
@@ -790,13 +790,13 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                         float detailsHeight = 160.0f;
                         ImGui::BeginChild("Selected Object", ImVec2(0, detailsHeight), ImGuiChildFlags_Borders);
-                        RenderObject* _currentlySelected = engine->assetManager->getRenderObject(selectedRenderObjectId);
+                        renderer::RenderObject* _currentlySelected = engine->assetManager->getRenderObject(selectedRenderObjectId);
 
                         if (!_currentlySelected && engine->assetManager->hasAnyRenderObjects()) {
                             selectedRenderObjectId = engine->assetManager->getAnyRenderObject()->getId();
                         }
 
-                        RenderObject* selectedRenderObject = engine->assetManager->getRenderObject(selectedRenderObjectId);
+                        renderer::RenderObject* selectedRenderObject = engine->assetManager->getRenderObject(selectedRenderObjectId);
                         if (selectedRenderObject) {
                             ImGui::Text("Source: %s", file::getRelativePath(selectedRenderObject->getWillmodelPath()).string().c_str());
                             ImGui::Separator();
@@ -1016,7 +1016,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                     ImGui_ImplVulkan_RemoveTexture(currentlySelectedTextureImguiId);
                                     currentlySelectedTextureImguiId = VK_NULL_HANDLE;
                                 }
-                                Texture* randomTexture = engine->assetManager->getAnyTexture();
+                                renderer::Texture* randomTexture = engine->assetManager->getAnyTexture();
 
                                 currentlySelectedTexture = randomTexture->getTextureResource();
                                 currentlySelectedTextureImguiId = ImGui_ImplVulkan_AddTexture(
@@ -1035,7 +1035,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
 
                         if (ImGui::BeginCombo("Select Texture", previewText.c_str())) {
-                            for (Texture* texture : engine->assetManager->getAllTextures()) {
+                            for (renderer::Texture* texture : engine->assetManager->getAllTextures()) {
                                 bool isSelected = (currentlySelectedTexture->getId() == texture->getId());
 
                                 std::string label = fmt::format("[{}] Texture ID - {}", texture->isTextureResourceLoaded() ? "LOADED" : "NOT LOADED",
@@ -1355,8 +1355,6 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
         }
 
         if (ImGui::BeginTabItem("Terrain")) {
-            ImGui::Checkbox("Draw Vertex Lines Only", &engine->bDrawTerrainLines);
-
             const auto currentTerrainComponent = selectedMap->getComponent<components::TerrainComponent>();
             ImGui::BeginDisabled(!currentTerrainComponent);
             if (ImGui::Button("Save Terrain as HeightMap")) {
@@ -1447,7 +1445,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
 
                         for (int i = 0; i < 3; i++) {
                             std::string currentTextureName = "None";
-                            if (Texture* tex = engine->assetManager->getTexture(terrainTextures[i])) {
+                            if (renderer::Texture* tex = engine->assetManager->getTexture(terrainTextures[i])) {
                                 currentTextureName = tex->getName();
                                 if (currentTextureName.empty()) {
                                     currentTextureName = std::to_string(tex->getId());
@@ -1461,9 +1459,9 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
                                     terrainTextures[i] = 0;
                                 }
 
-                                std::vector<Texture*> textures = engine->assetManager->getAllTextures();
+                                std::vector<renderer::Texture*> textures = engine->assetManager->getAllTextures();
 
-                                for (const Texture* tex2 : textures) {
+                                for (const renderer::Texture* tex2 : textures) {
                                     std::string textureName = tex2->getName();
                                     if (textureName.empty()) {
                                         textureName = std::to_string(tex2->getId());

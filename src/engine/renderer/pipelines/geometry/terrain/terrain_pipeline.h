@@ -5,19 +5,44 @@
 #ifndef TERRAIN_PIPELINE_H
 #define TERRAIN_PIPELINE_H
 
+#include <unordered_set>
 #include <volk/volk.h>
+#include <glm/glm.hpp>
 
-#include "engine/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/renderer_constants.h"
+#include "engine/renderer/resources/descriptor_set_layout.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 
 namespace will_engine
 {
-class ResourceManager;
+class ITerrain;
 }
 
-namespace will_engine::terrain
+namespace will_engine::renderer
 {
-struct TerrainDrawInfo;
-class TerrainChunk;
+class ResourceManager;
+
+struct TerrainPushConstants
+{
+    float tessLevel;
+};
+
+struct TerrainDrawInfo
+{
+    bool bClearColor{true};
+    int32_t currentFrameOverlap{0};
+    glm::vec2 viewportExtents{RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
+    const std::unordered_set<ITerrain*>& terrains;
+    VkImageView normalTarget{VK_NULL_HANDLE};
+    VkImageView albedoTarget{VK_NULL_HANDLE};
+    VkImageView pbrTarget{VK_NULL_HANDLE};
+    VkImageView velocityTarget{VK_NULL_HANDLE};
+    VkImageView depthTarget{VK_NULL_HANDLE};
+    VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
+    VkDeviceSize sceneDataOffset{0};
+};
 
 class TerrainPipeline
 {
@@ -31,23 +56,18 @@ public:
     void reloadShaders()
     {
         createPipeline();
-        createLinePipeline();
     }
 
 private:
     void createPipeline();
 
-    void createLinePipeline();
-
 private:
     ResourceManager& resourceManager;
 
-    VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
-    VkPipeline pipeline{VK_NULL_HANDLE};
+    PipelineLayout pipelineLayout{};
+    Pipeline pipeline{};
 
-    VkPipeline linePipeline{VK_NULL_HANDLE};
-
-    VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};
+    DescriptorSetLayout descriptorSetLayout{};
     DescriptorBufferSampler descriptorBuffer;
 };
 }

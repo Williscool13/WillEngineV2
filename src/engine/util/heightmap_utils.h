@@ -125,10 +125,10 @@ public:
         return noiseData;
     }
 
-    static AllocatedImage createHeightmapImage(const ResourceManager& resourceManager, const std::vector<float>& heightData, const uint32_t width, const uint32_t height)
+    static renderer::AllocatedImage createHeightmapImage(renderer::ResourceManager& resourceManager, const std::vector<float>& heightData, const uint32_t width, const uint32_t height)
     {
         const VkExtent3D imageExtent{width, height, 1};
-        return resourceManager.createImage(
+        return resourceManager.createImageFromData(
             heightData.data(),
             heightData.size() * sizeof(float),
             imageExtent,

@@ -6,7 +6,6 @@
 
 #include <array>
 
-#include "transparent_pipeline_types.h"
 #include "engine/renderer/renderer_constants.h"
 #include "engine/renderer/resource_manager.h"
 #include "engine/renderer/vk_descriptors.h"
@@ -15,7 +14,7 @@
 #include "engine/renderer/assets/render_object/render_object.h"
 #include "engine/renderer/assets/render_object/render_object_types.h"
 
-namespace will_engine::transparent_pipeline
+namespace will_engine::renderer
 {
 TransparentPipeline::TransparentPipeline(ResourceManager& resourceManager,
                                          VkDescriptorSetLayout environmentIBLLayout,
@@ -32,7 +31,7 @@ TransparentPipeline::TransparentPipeline(ResourceManager& resourceManager,
 
     VkPushConstantRange pushConstants = {};
     pushConstants.offset = 0;
-    pushConstants.size = sizeof(TransparentsPushConstants);
+    pushConstants.size = sizeof(TransparentPushConstants);
     pushConstants.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
 
@@ -52,7 +51,7 @@ TransparentPipeline::TransparentPipeline(ResourceManager& resourceManager,
     }
 
     VkDescriptorSetLayout compositeDescriptor[1];
-    compositeDescriptor[0] = compositeDescriptorSetLayout;
+    compositeDescriptor[0] = compositeDescriptorSetLayout.layout;
 
     VkPipelineLayoutCreateInfo compositeLayoutInfo = vk_helpers::pipelineLayoutCreateInfo();
     compositeLayoutInfo.pNext = nullptr;
@@ -63,7 +62,7 @@ TransparentPipeline::TransparentPipeline(ResourceManager& resourceManager,
 
     compositePipelineLayout = resourceManager.createPipelineLayout(compositeLayoutInfo);
 
-    compositeDescriptorBuffer = resourceManager.createDescriptorBufferSampler(compositeDescriptorSetLayout, 1);
+    compositeDescriptorBuffer = resourceManager.createDescriptorBufferSampler(compositeDescriptorSetLayout.layout, 1);
 
     VkImageUsageFlags usage{};
     usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
@@ -101,15 +100,15 @@ TransparentPipeline::TransparentPipeline(ResourceManager& resourceManager,
 
 TransparentPipeline::~TransparentPipeline()
 {
-    resourceManager.destroy(accumulationImage);
-    resourceManager.destroy(revealageImage);
-    resourceManager.destroy(debugImage);
-    resourceManager.destroy(accumulationPipelineLayout);
-    resourceManager.destroy(accumulationPipeline);
-    resourceManager.destroy(compositeDescriptorSetLayout);
-    resourceManager.destroy(compositePipelineLayout);
-    resourceManager.destroy(compositePipeline);
-    resourceManager.destroy(compositeDescriptorBuffer);
+    resourceManager.destroyResource(std::move(accumulationImage));
+    resourceManager.destroyResource(std::move(revealageImage));
+    resourceManager.destroyResource(std::move(debugImage));
+    resourceManager.destroyResource(std::move(accumulationPipelineLayout));
+    resourceManager.destroyResource(std::move(accumulationPipeline));
+    resourceManager.destroyResource(std::move(compositeDescriptorSetLayout));
+    resourceManager.destroyResource(std::move(compositePipelineLayout));
+    resourceManager.destroyResource(std::move(compositePipeline));
+    resourceManager.destroyResource(std::move(compositeDescriptorBuffer));
 }
 
 void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentAccumulateDrawInfo& drawInfo) const
@@ -120,11 +119,11 @@ void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentA
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
     vk_helpers::imageBarrier(cmd, accumulationImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::imageBarrier(cmd, revealageImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::imageBarrier(cmd, debugImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
 
 
     constexpr VkClearValue colorClear = {.color = {0.0f, 0.0f, 0.0f, 0.0f}};
@@ -158,12 +157,12 @@ void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentA
     renderInfo.pStencilAttachment = nullptr;
 
     vkCmdBeginRendering(cmd, &renderInfo);
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, accumulationPipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, accumulationPipeline.pipeline);
 
-    TransparentsPushConstants pushConstants = {};
+    TransparentPushConstants pushConstants = {};
     pushConstants.bEnabled = drawInfo.enabled;
 
-    vkCmdPushConstants(cmd, accumulationPipelineLayout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(TransparentsPushConstants), &pushConstants);
+    vkCmdPushConstants(cmd, accumulationPipelineLayout.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(TransparentPushConstants), &pushConstants);
 
     //  Viewport
     VkViewport viewport = {};
@@ -188,8 +187,8 @@ void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentA
 
         std::array descriptorBufferBindingInfos{
             drawInfo.sceneDataBinding,
-            renderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo(),
-            renderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo(),
+            renderObject->getAddressesDescriptorBuffer().getBindingInfo(),
+            renderObject->getTextureDescriptorBuffer().getBindingInfo(),
             drawInfo.environmentIBLBinding,
             drawInfo.cascadeUniformBinding,
             drawInfo.cascadeSamplerBinding,
@@ -207,7 +206,8 @@ void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentA
             ZERO_DEVICE_SIZE
         };
 
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, accumulationPipelineLayout, 0, 6, indices.data(), offsets.data());
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, accumulationPipelineLayout.layout, 0, 6, indices.data(),
+                                           offsets.data());
 
         const VkBuffer vertexBuffers[2] = {renderObject->getPositionVertexBuffer().buffer, renderObject->getPropertyVertexBuffer().buffer};
         constexpr VkDeviceSize vertexOffsets[2] = {0, 0};
@@ -220,11 +220,11 @@ void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentA
     vkCmdEndRendering(cmd);
 
     vk_helpers::imageBarrier(cmd, accumulationImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::imageBarrier(cmd, revealageImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::imageBarrier(cmd, debugImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+                             VK_IMAGE_ASPECT_COLOR_BIT);
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }
@@ -254,7 +254,7 @@ void TransparentPipeline::drawComposite(VkCommandBuffer cmd, const TransparentCo
     renderInfo.pStencilAttachment = nullptr;
 
     vkCmdBeginRendering(cmd, &renderInfo);
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, compositePipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, compositePipeline.pipeline);
 
     //  Viewport
     VkViewport viewport = {};
@@ -276,7 +276,7 @@ void TransparentPipeline::drawComposite(VkCommandBuffer cmd, const TransparentCo
 
 
     const std::array descriptorBufferBindingInfos{
-        compositeDescriptorBuffer.getDescriptorBufferBindingInfo()
+        compositeDescriptorBuffer.getBindingInfo()
     };
     vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfos.data());
 
@@ -286,7 +286,7 @@ void TransparentPipeline::drawComposite(VkCommandBuffer cmd, const TransparentCo
         ZERO_DEVICE_SIZE,
     };
 
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, compositePipelineLayout, 0, 1, indices.data(), offsets.data());
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, compositePipelineLayout.layout, 0, 1, indices.data(), offsets.data());
 
     vkCmdDraw(cmd, 3, 1, 0, 0);
 
@@ -297,45 +297,52 @@ void TransparentPipeline::drawComposite(VkCommandBuffer cmd, const TransparentCo
 
 void TransparentPipeline::createAccumulationPipeline()
 {
-    resourceManager.destroy(accumulationPipeline);
+    resourceManager.destroyResource(std::move(accumulationPipeline));
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/transparent.vert");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/transparent.frag");
 
-    PipelineBuilder pipelineBuilder;
-    VkVertexInputBindingDescription positionBinding{};
-    positionBinding.binding = 0;
-    positionBinding.stride = sizeof(VertexPosition);
-    positionBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    RenderPipelineBuilder pipelineBuilder;
+    const std::vector<VkVertexInputBindingDescription> vertexBindings{
+        {
+            .binding = 0,
+            .stride = sizeof(VertexPosition),
+            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+        },
+        {
+            .binding = 1,
+            .stride = sizeof(VertexProperty),
+            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+        }
+    };
 
-    VkVertexInputBindingDescription propertyBinding{};
-    propertyBinding.binding = 1;
-    propertyBinding.stride = sizeof(VertexProperty);
-    propertyBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    const std::vector<VkVertexInputAttributeDescription> vertexAttributes{
+        {
+            .location = 0,
+            .binding = 0,
+            .format = VK_FORMAT_R32G32B32_SFLOAT,
+            .offset = offsetof(VertexPosition, position),
+        },
+        {
+            .location = 1,
+            .binding = 1,
+            .format = VK_FORMAT_R32G32B32_SFLOAT,
+            .offset = offsetof(VertexProperty, normal),
+        },
+        {
+            .location = 2,
+            .binding = 1,
+            .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+            .offset = offsetof(VertexProperty, color),
+        },
+        {
+            .location = 3,
+            .binding = 1,
+            .format = VK_FORMAT_R32G32_SFLOAT,
+            .offset = offsetof(VertexProperty, uv),
+        },
+    };
 
-    VkVertexInputAttributeDescription vertexAttributes[4];
-    vertexAttributes[0].binding = 0;
-    vertexAttributes[0].location = 0;
-    vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertexAttributes[0].offset = offsetof(VertexPosition, position);
-
-    vertexAttributes[1].binding = 1;
-    vertexAttributes[1].location = 1;
-    vertexAttributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertexAttributes[1].offset = offsetof(VertexProperty, normal);
-
-    vertexAttributes[2].binding = 1;
-    vertexAttributes[2].location = 2;
-    vertexAttributes[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-    vertexAttributes[2].offset = offsetof(VertexProperty, color);
-
-    vertexAttributes[3].binding = 1;
-    vertexAttributes[3].location = 3;
-    vertexAttributes[3].format = VK_FORMAT_R32G32_SFLOAT;
-    vertexAttributes[3].offset = offsetof(VertexProperty, uv);
-
-    const VkVertexInputBindingDescription vertexBindings[2] = {positionBinding, propertyBinding};
-
-    pipelineBuilder.setupVertexInput(vertexBindings, 2, vertexAttributes, 4);
+    pipelineBuilder.setupVertexInput(vertexBindings, vertexAttributes);
 
     pipelineBuilder.setShaders(vertShader, fragShader);
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
@@ -369,20 +376,20 @@ void TransparentPipeline::createAccumulationPipeline()
     pipelineBuilder.setupBlending(blendAttachmentStates);
     pipelineBuilder.enableDepthTest(false, VK_COMPARE_OP_GREATER);
     pipelineBuilder.setupRenderer({accumulationImageFormat, revealageImageFormat, debugImageFormat}, DEPTH_STENCIL_FORMAT);
-    pipelineBuilder.setupPipelineLayout(accumulationPipelineLayout);
+    pipelineBuilder.setupPipelineLayout(accumulationPipelineLayout.layout);
 
     accumulationPipeline = resourceManager.createRenderPipeline(pipelineBuilder);
-    resourceManager.destroy(vertShader);
-    resourceManager.destroy(fragShader);
+    resourceManager.destroyShaderModule(vertShader);
+    resourceManager.destroyShaderModule(fragShader);
 }
 
 void TransparentPipeline::createCompositePipeline()
 {
-    resourceManager.destroy(compositePipeline);
+    resourceManager.destroyResource(std::move(compositePipeline));
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/transparentComposite.vert");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/transparentComposite.frag");
 
-    PipelineBuilder pipelineBuilder;
+    RenderPipelineBuilder pipelineBuilder;
     pipelineBuilder.setShaders(vertShader, fragShader);
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
@@ -403,10 +410,10 @@ void TransparentPipeline::createCompositePipeline()
     pipelineBuilder.setupBlending(blendAttachmentStates);
     pipelineBuilder.disableDepthTest();
     pipelineBuilder.setupRenderer({DRAW_FORMAT});
-    pipelineBuilder.setupPipelineLayout(compositePipelineLayout);
+    pipelineBuilder.setupPipelineLayout(compositePipelineLayout.layout);
 
     compositePipeline = resourceManager.createRenderPipeline(pipelineBuilder);
-    resourceManager.destroy(vertShader);
-    resourceManager.destroy(fragShader);
+    resourceManager.destroyShaderModule(vertShader);
+    resourceManager.destroyShaderModule(fragShader);
 }
 }

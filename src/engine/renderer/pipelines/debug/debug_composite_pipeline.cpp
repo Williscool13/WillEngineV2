@@ -4,9 +4,11 @@
 
 #include "debug_composite_pipeline.h"
 
+#include "engine/renderer/resource_manager.h"
+#include "engine/renderer/vk_descriptors.h"
 #include "volk/volk.h"
 
-namespace will_engine::debug_pipeline
+namespace will_engine::renderer
 {
 DebugCompositePipeline::DebugCompositePipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
@@ -19,7 +21,7 @@ DebugCompositePipeline::DebugCompositePipeline(ResourceManager& resourceManager)
 
     std::array<VkDescriptorSetLayout, 2> setLayouts;
     setLayouts[0] = resourceManager.getSceneDataLayout();
-    setLayouts[1] = descriptorSetLayout;
+    setLayouts[1] = descriptorSetLayout.layout;
 
     VkPipelineLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -33,15 +35,15 @@ DebugCompositePipeline::DebugCompositePipeline(ResourceManager& resourceManager)
 
     createPipeline();
 
-    descriptorBuffer = resourceManager.createDescriptorBufferSampler(descriptorSetLayout, 1);
+    descriptorBuffer = resourceManager.createDescriptorBufferSampler(descriptorSetLayout.layout, 1);
 }
 
 DebugCompositePipeline::~DebugCompositePipeline()
 {
-    resourceManager.destroy(pipeline);
-    resourceManager.destroy(pipelineLayout);
-    resourceManager.destroy(descriptorSetLayout);
-    resourceManager.destroy(descriptorBuffer);
+    resourceManager.destroyResource(std::move(pipeline));
+    resourceManager.destroyResource(std::move(pipelineLayout));
+    resourceManager.destroyResource(std::move(descriptorSetLayout));
+    resourceManager.destroyResource(std::move(descriptorBuffer));
 }
 
 void DebugCompositePipeline::setupDescriptorBuffer(VkImageView debugTarget, VkImageView finalImageView)
@@ -66,17 +68,17 @@ void DebugCompositePipeline::setupDescriptorBuffer(VkImageView debugTarget, VkIm
 
 void DebugCompositePipeline::draw(VkCommandBuffer cmd, DebugCompositePipelineDrawInfo drawInfo) const
 {
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipeline);
 
     const std::array bindingInfos{
         drawInfo.sceneDataBinding,
-        descriptorBuffer.getDescriptorBufferBindingInfo()
+        descriptorBuffer.getBindingInfo()
     };
     vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos.data());
 
-    constexpr std::array<uint32_t, 2> indices{0, 1};
+    constexpr std::array indices{0u, 1u};
     const std::array<VkDeviceSize, 2> offsets{drawInfo.sceneDataOffset, 0};
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 2, indices.data(), offsets.data());
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout.layout, 0, 2, indices.data(), offsets.data());
 
     const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
     const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
@@ -85,7 +87,7 @@ void DebugCompositePipeline::draw(VkCommandBuffer cmd, DebugCompositePipelineDra
 
 void DebugCompositePipeline::createPipeline()
 {
-    resourceManager.destroy(pipeline);
+    resourceManager.destroyResource(std::move(pipeline));
     VkShaderModule computeShader = resourceManager.createShaderModule("shaders/debug/debug_composite.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
@@ -98,11 +100,11 @@ void DebugCompositePipeline::createPipeline()
     VkComputePipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipelineInfo.pNext = nullptr;
-    pipelineInfo.layout = pipelineLayout;
+    pipelineInfo.layout = pipelineLayout.layout;
     pipelineInfo.stage = stageInfo;
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     pipeline = resourceManager.createComputePipeline(pipelineInfo);
-    resourceManager.destroy(computeShader);
+    resourceManager.destroyShaderModule(computeShader);
 }
 }

@@ -8,13 +8,17 @@
 
 #include "volk/volk.h"
 #include "engine/core/camera/camera.h"
+#include "engine/core/game_object/terrain.h"
 #include "engine/renderer/renderer_constants.h"
+#include "engine/renderer/assets/render_object/render_object.h"
 #include "engine/renderer/assets/render_object/render_object_types.h"
 #include "engine/renderer/terrain/terrain_chunk.h"
 #include "engine/util/math_constants.h"
 #include "engine/util/render_utils.h"
 
-will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceManager& resourceManager)
+namespace will_engine::renderer
+{
+CascadedShadowMap::CascadedShadowMap(ResourceManager& resourceManager)
     : resourceManager(resourceManager)
 {
     // (Uniform) Shadow Map Layout - Used by deferred resolve
@@ -74,7 +78,7 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
     //
     {
         VkDescriptorSetLayout layouts[2];
-        layouts[0] = cascadedShadowMapUniformLayout;
+        layouts[0] = cascadedShadowMapUniformLayout.layout;
         layouts[1] = resourceManager.getRenderObjectAddressesLayout();
 
         VkPushConstantRange pushConstantRange;
@@ -96,7 +100,7 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
     //
     {
         VkDescriptorSetLayout layouts[1];
-        layouts[0] = cascadedShadowMapUniformLayout;
+        layouts[0] = cascadedShadowMapUniformLayout.layout;
 
         VkPushConstantRange pushConstantRange;
         pushConstantRange.size = sizeof(CascadedShadowMapGenerationPushConstants);
@@ -117,19 +121,19 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
     std::vector<DescriptorImageData> textureDescriptors;
     for (const CascadeShadowMapData& shadowMapData : shadowMaps) {
         const VkDescriptorImageInfo imageInfo{
-            .sampler = sampler, .imageView = shadowMapData.depthShadowMap.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+            .sampler = sampler.sampler, .imageView = shadowMapData.depthShadowMap.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
         };
         textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, imageInfo, false});
     }
-    cascadedShadowMapDescriptorBufferSampler = resourceManager.createDescriptorBufferSampler(cascadedShadowMapSamplerLayout, 1);
+    cascadedShadowMapDescriptorBufferSampler = resourceManager.createDescriptorBufferSampler(cascadedShadowMapSamplerLayout.layout, 1);
     resourceManager.setupDescriptorBufferSampler(cascadedShadowMapDescriptorBufferSampler, textureDescriptors, 0);
 
 
-    cascadedShadowMapDescriptorBufferUniform = resourceManager.createDescriptorBufferUniform(cascadedShadowMapUniformLayout, FRAME_OVERLAP);
+    cascadedShadowMapDescriptorBufferUniform = resourceManager.createDescriptorBufferUniform(cascadedShadowMapUniformLayout.layout, FRAME_OVERLAP);
     for (int32_t i = 0; i < FRAME_OVERLAP; ++i) {
         cascadedShadowMapDatas[i] = resourceManager.createHostSequentialBuffer(sizeof(CascadeShadowData));
         std::vector<DescriptorUniformData> cascadeData{
-            {.uniformBuffer = cascadedShadowMapDatas[i], .allocSize = sizeof(CascadeShadowData)}
+            {.buffer = cascadedShadowMapDatas[i].buffer, .allocSize = sizeof(CascadeShadowData)}
         };
         resourceManager.setupDescriptorBufferUniform(cascadedShadowMapDescriptorBufferUniform, cascadeData, i);
 
@@ -140,29 +144,29 @@ will_engine::cascaded_shadows::CascadedShadowMap::CascadedShadowMap(ResourceMana
     }
 }
 
-will_engine::cascaded_shadows::CascadedShadowMap::~CascadedShadowMap()
+CascadedShadowMap::~CascadedShadowMap()
 {
     for (CascadeShadowMapData& cascadeShadowMapData : shadowMaps) {
-        resourceManager.destroy(cascadeShadowMapData.depthShadowMap);
+        resourceManager.destroyResource(std::move(cascadeShadowMapData.depthShadowMap));
         cascadeShadowMapData.depthShadowMap = {};
     }
 
-    resourceManager.destroy(cascadedShadowMapUniformLayout);
-    resourceManager.destroy(cascadedShadowMapSamplerLayout);
+    resourceManager.destroyResource(std::move(cascadedShadowMapUniformLayout));
+    resourceManager.destroyResource(std::move(cascadedShadowMapSamplerLayout));
     for (int32_t i = 0; i < FRAME_OVERLAP; ++i) {
-        resourceManager.destroy(cascadedShadowMapDatas[i]);
+        resourceManager.destroyResource(std::move(cascadedShadowMapDatas[i]));
     }
-    resourceManager.destroy(cascadedShadowMapDescriptorBufferSampler);
-    resourceManager.destroy(cascadedShadowMapDescriptorBufferUniform);
-    resourceManager.destroy(sampler);
-    resourceManager.destroy(renderObjectPipeline);
-    resourceManager.destroy(renderObjectPipelineLayout);
-    resourceManager.destroy(terrainPipeline);
-    resourceManager.destroy(terrainPipelineLayout);
+    resourceManager.destroyResource(std::move(cascadedShadowMapDescriptorBufferSampler));
+    resourceManager.destroyResource(std::move(cascadedShadowMapDescriptorBufferUniform));
+    resourceManager.destroyResource(std::move(sampler));
+    resourceManager.destroyResource(std::move(renderObjectPipeline));
+    resourceManager.destroyResource(std::move(renderObjectPipelineLayout));
+    resourceManager.destroyResource(std::move(terrainPipeline));
+    resourceManager.destroyResource(std::move(terrainPipelineLayout));
 }
 
-void will_engine::cascaded_shadows::CascadedShadowMap::update(const DirectionalLight& mainLight, const Camera* camera,
-                                                              const int32_t currentFrameOverlap)
+void CascadedShadowMap::update(const DirectionalLight& mainLight, const Camera* camera,
+                               const int32_t currentFrameOverlap)
 {
     for (CascadeShadowMapData& shadowData : shadowMaps) {
         shadowData.lightViewProj = getLightSpaceMatrix(shadowData.cascadeLevel, mainLight.direction, camera, shadowData.split.nearPlane,
@@ -182,7 +186,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::update(const DirectionalL
     data->farShadowPlane = shadowMaps[SHADOW_CASCADE_COUNT - 1].split.farPlane;
 }
 
-void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd, CascadedShadowMapDrawInfo drawInfo)
+void CascadedShadowMap::draw(VkCommandBuffer cmd, CascadedShadowMapDrawInfo drawInfo)
 {
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
@@ -202,12 +206,13 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
         CascadeBias cascadeBias = csmProperties.cascadeBias[i];
 
         if (!drawInfo.bEnabled) {
-            vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_DEPTH_BIT, cascadeShadowMapData.depthShadowMap.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, {0.0f, 0.0f});
+            vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_DEPTH_BIT, cascadeShadowMapData.depthShadowMap.image, VK_IMAGE_LAYOUT_UNDEFINED,
+                                        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, {0.0f, 0.0f});
             continue;
         }
 
         vk_helpers::imageBarrier(cmd, cascadeShadowMapData.depthShadowMap.image, VK_IMAGE_LAYOUT_UNDEFINED,
-                                    VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+                                 VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
 
 
         // Terrain
@@ -227,14 +232,14 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             renderInfo.pStencilAttachment = nullptr;
 
             vkCmdBeginRendering(cmd, &renderInfo);
-            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, terrainPipeline);
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, terrainPipeline.pipeline);
 
             vkCmdSetDepthBias(cmd, cascadeBias.constant, 0.0f, cascadeBias.slope);
 
             CascadedShadowMapGenerationPushConstants pushConstants{};
             pushConstants.cascadeIndex = cascadeShadowMapData.cascadeLevel;
             pushConstants.tessLevel = 1;
-            vkCmdPushConstants(cmd, terrainPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, 0,
+            vkCmdPushConstants(cmd, terrainPipelineLayout.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, 0,
                                sizeof(CascadedShadowMapGenerationPushConstants), &pushConstants);
 
             //  Viewport
@@ -262,12 +267,14 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 
                 VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[1];
                 constexpr uint32_t shadowDataIndex{0};
-                descriptorBufferBindingInfo[0] = cascadedShadowMapDescriptorBufferUniform.getDescriptorBufferBindingInfo();
+                descriptorBufferBindingInfo[0] = cascadedShadowMapDescriptorBufferUniform.getBindingInfo();
 
                 vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfo);
 
-                const VkDeviceSize shadowDataOffset{cascadedShadowMapDescriptorBufferUniform.getDescriptorBufferSize() * drawInfo.currentFrameOverlap};
-                vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, terrainPipelineLayout, 0, 1, &shadowDataIndex,
+                const VkDeviceSize shadowDataOffset{
+                    cascadedShadowMapDescriptorBufferUniform.getDescriptorBufferSize() * drawInfo.currentFrameOverlap
+                };
+                vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, terrainPipelineLayout.layout, 0, 1, &shadowDataIndex,
                                                    &shadowDataOffset);
 
                 VkBuffer vertexBuffer = terrainChunk->getVertexBuffer().buffer;
@@ -296,13 +303,14 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             renderInfo.pStencilAttachment = nullptr;
 
             vkCmdBeginRendering(cmd, &renderInfo);
-            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObjectPipeline);
+            vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObjectPipeline.pipeline);
 
             vkCmdSetDepthBias(cmd, cascadeBias.constant, 0.0f, cascadeBias.slope);
 
             CascadedShadowMapGenerationPushConstants pushConstants{};
             pushConstants.cascadeIndex = cascadeShadowMapData.cascadeLevel;
-            vkCmdPushConstants(cmd, renderObjectPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(CascadedShadowMapGenerationPushConstants),
+            vkCmdPushConstants(cmd, renderObjectPipelineLayout.layout, VK_SHADER_STAGE_VERTEX_BIT, 0,
+                               sizeof(CascadedShadowMapGenerationPushConstants),
                                &pushConstants);
 
             //  Viewport
@@ -327,20 +335,20 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
             for (RenderObject* renderObject : drawInfo.renderObjects) {
                 if (!renderObject->canDrawOpaque()) { continue; }
 
-                VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];
-                constexpr uint32_t shadowDataIndex{0};
-                constexpr uint32_t addressIndex{1};
-                descriptorBufferBindingInfo[0] = cascadedShadowMapDescriptorBufferUniform.getDescriptorBufferBindingInfo();
-                descriptorBufferBindingInfo[1] = renderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo();
+                std::array bindings{
+                    cascadedShadowMapDescriptorBufferUniform.getBindingInfo(),
+                    renderObject->getAddressesDescriptorBuffer().getBindingInfo()
+                };
+                vkCmdBindDescriptorBuffersEXT(cmd, 2, bindings.data());
 
-                vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
+                std::array indices{0u, 1u};
+                std::array offests{
+                    cascadedShadowMapDescriptorBufferUniform.getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
+                    renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap
+                };
 
-                const VkDeviceSize shadowDataOffset{cascadedShadowMapDescriptorBufferUniform.getDescriptorBufferSize() * drawInfo.currentFrameOverlap};
-                const VkDeviceSize addressOffset{renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap};
-                vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObjectPipelineLayout, 0, 1, &shadowDataIndex,
-                                                   &shadowDataOffset);
-                vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObjectPipelineLayout, 1, 1, &addressIndex,
-                                                   &addressOffset);
+                vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObjectPipelineLayout.layout, 0, 2, indices.data(),
+                                                   offests.data());
 
 
                 vkCmdBindVertexBuffers(cmd, 0, 1, &renderObject->getPositionVertexBuffer().buffer, &zeroOffset);
@@ -353,7 +361,7 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
         }
 
         vk_helpers::imageBarrier(cmd, cascadeShadowMapData.depthShadowMap.image, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
-                                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
+                                 VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT);
     }
 
 
@@ -361,9 +369,9 @@ void will_engine::cascaded_shadows::CascadedShadowMap::draw(VkCommandBuffer cmd,
 }
 
 
-glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(int32_t cascadeLevel, const glm::vec3 lightDirection,
-                                                                                const Camera* camera, float cascadeNear, float cascadeFar,
-                                                                                bool reversedDepth) const
+glm::mat4 CascadedShadowMap::getLightSpaceMatrix(int32_t cascadeLevel, const glm::vec3 lightDirection,
+                                                 const Camera* camera, float cascadeNear, float cascadeFar,
+                                                 bool reversedDepth) const
 {
     constexpr int32_t numberOfCorners = 8;
     glm::vec3 corners[numberOfCorners];
@@ -419,25 +427,32 @@ glm::mat4 will_engine::cascaded_shadows::CascadedShadowMap::getLightSpaceMatrix(
 }
 
 
-void will_engine::cascaded_shadows::CascadedShadowMap::createRenderObjectPipeline()
+void CascadedShadowMap::createRenderObjectPipeline()
 {
-    resourceManager.destroy(renderObjectPipeline);
+    resourceManager.destroyResource(std::move(renderObjectPipeline));
 
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.vert");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.frag");
 
-    PipelineBuilder pipelineBuilder;
-    VkVertexInputBindingDescription mainBinding{};
-    mainBinding.binding = 0;
-    mainBinding.stride = sizeof(VertexPosition);
-    mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    VkVertexInputAttributeDescription vertexAttributes[1];
-    vertexAttributes[0].binding = 0;
-    vertexAttributes[0].location = 0;
-    vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertexAttributes[0].offset = offsetof(VertexPosition, position);
+    RenderPipelineBuilder pipelineBuilder;
+    const std::vector<VkVertexInputBindingDescription> vertexBindings{
+        {
+            .binding = 0,
+            .stride = sizeof(VertexPosition),
+            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+        }
+    };
 
-    pipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 1);
+    const std::vector<VkVertexInputAttributeDescription> vertexAttributes{
+        {
+            .location = 0,
+            .binding = 0,
+            .format = VK_FORMAT_R32G32B32_SFLOAT,
+            .offset = offsetof(VertexPosition, position),
+        }
+    };
+
+    pipelineBuilder.setupVertexInput(vertexBindings, vertexAttributes);
 
     pipelineBuilder.setShaders(vertShader, fragShader);
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
@@ -448,34 +463,43 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createRenderObjectPipelin
     pipelineBuilder.disableBlending();
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_LESS_OR_EQUAL);
     pipelineBuilder.setupRenderer({}, CASCADE_DEPTH_FORMAT);
-    pipelineBuilder.setupPipelineLayout(renderObjectPipelineLayout);
+    pipelineBuilder.setupPipelineLayout(renderObjectPipelineLayout.layout);
+    pipelineBuilder.addDynamicState(VK_DYNAMIC_STATE_DEPTH_BIAS);
 
-    renderObjectPipeline = resourceManager.createRenderPipeline(pipelineBuilder, {VK_DYNAMIC_STATE_DEPTH_BIAS});
-    resourceManager.destroy(vertShader);
-    resourceManager.destroy(fragShader);
+    renderObjectPipeline = resourceManager.createRenderPipeline(pipelineBuilder);
+    resourceManager.destroyShaderModule(vertShader);
+    resourceManager.destroyShaderModule(fragShader);
 }
 
-void will_engine::cascaded_shadows::CascadedShadowMap::createTerrainPipeline()
+void CascadedShadowMap::createTerrainPipeline()
 {
-    resourceManager.destroy(terrainPipeline);
+    resourceManager.destroyResource(std::move(terrainPipeline));
 
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/shadows/terrain_shadow_pass.vert");
     VkShaderModule tescShader = resourceManager.createShaderModule("shaders/shadows/terrain_shadow_pass.tesc");
     VkShaderModule teseShader = resourceManager.createShaderModule("shaders/shadows/terrain_shadow_pass.tese");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.frag");
 
-    PipelineBuilder pipelineBuilder;
-    VkVertexInputBindingDescription mainBinding{};
-    mainBinding.binding = 0;
-    mainBinding.stride = sizeof(terrain::TerrainVertex);
-    mainBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
-    VkVertexInputAttributeDescription vertexAttributes[1];
-    vertexAttributes[0].binding = 0;
-    vertexAttributes[0].location = 0;
-    vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertexAttributes[0].offset = offsetof(terrain::TerrainVertex, position);
 
-    pipelineBuilder.setupVertexInput(&mainBinding, 1, vertexAttributes, 1);
+    RenderPipelineBuilder pipelineBuilder;
+    const std::vector<VkVertexInputBindingDescription> vertexBindings{
+        {
+            .binding = 0,
+            .stride = sizeof(terrain::TerrainVertex),
+            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+        }
+    };
+
+    const std::vector<VkVertexInputAttributeDescription> vertexAttributes{
+        {
+            .location = 0,
+            .binding = 0,
+            .format = VK_FORMAT_R32G32B32_SFLOAT,
+            .offset = offsetof(terrain::TerrainVertex, position),
+        }
+    };
+
+    pipelineBuilder.setupVertexInput(vertexBindings, vertexAttributes);
 
     pipelineBuilder.setShaders(vertShader, tescShader, teseShader, fragShader);
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_PATCH_LIST, false);
@@ -486,17 +510,18 @@ void will_engine::cascaded_shadows::CascadedShadowMap::createTerrainPipeline()
     pipelineBuilder.disableBlending();
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_LESS_OR_EQUAL);
     pipelineBuilder.setupRenderer({}, CASCADE_DEPTH_FORMAT);
-    pipelineBuilder.setupPipelineLayout(terrainPipelineLayout);
+    pipelineBuilder.setupPipelineLayout(terrainPipelineLayout.layout);
     pipelineBuilder.setupTessellation(4);
+    pipelineBuilder.addDynamicState(VK_DYNAMIC_STATE_DEPTH_BIAS);
 
-    terrainPipeline = resourceManager.createRenderPipeline(pipelineBuilder, {VK_DYNAMIC_STATE_DEPTH_BIAS});
-    resourceManager.destroy(vertShader);
-    resourceManager.destroy(tescShader);
-    resourceManager.destroy(teseShader);
-    resourceManager.destroy(fragShader);
+    terrainPipeline = resourceManager.createRenderPipeline(pipelineBuilder);
+    resourceManager.destroyShaderModule(vertShader);
+    resourceManager.destroyShaderModule(tescShader);
+    resourceManager.destroyShaderModule(teseShader);
+    resourceManager.destroyShaderModule(fragShader);
 }
 
-void will_engine::cascaded_shadows::CascadedShadowMap::generateSplits()
+void CascadedShadowMap::generateSplits()
 {
     if (csmProperties.useManualSplit) {
         for (int32_t i = 0; i < SHADOW_CASCADE_COUNT; ++i) {
@@ -526,4 +551,5 @@ void will_engine::cascaded_shadows::CascadedShadowMap::generateSplits()
 
         shadowMaps[SHADOW_CASCADE_COUNT - 1].split.farPlane = csmProperties.cascadeFarPlane;
     }
+}
 }

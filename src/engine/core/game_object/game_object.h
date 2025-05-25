@@ -26,7 +26,6 @@ class RigidBodyComponent;
 namespace will_engine::game_object
 {
 class Engine;
-class RenderObject;
 
 class GameObject : public ITransformable,
                    public IHierarchical,

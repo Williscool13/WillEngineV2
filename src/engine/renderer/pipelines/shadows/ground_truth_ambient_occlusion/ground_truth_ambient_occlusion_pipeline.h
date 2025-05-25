@@ -7,13 +7,20 @@
 
 #include <array>
 
-#include "engine/renderer/imgui_wrapper.h"
-#include "engine/renderer/resource_manager.h"
 #include "ambient_occlusion_types.h"
+#include "engine/renderer/resources/allocated_image.h"
+#include "engine/renderer/resources/descriptor_set_layout.h"
+#include "engine/renderer/resources/image_view.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/sampler.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 
 
-namespace will_engine::ambient_occlusion
+namespace will_engine::renderer
 {
+class ResourceManager;
+
 class GroundTruthAmbientOcclusionPipeline
 {
 public:
@@ -31,7 +38,7 @@ public:
 
     void reloadShaders();
 
-    AllocatedImage getAmbientOcclusionRenderTarget() const { return denoisedFinalAO; }
+    VkImageView getAmbientOcclusionRenderTarget() const { return denoisedFinalAO.imageView; }
 
 private:
     void createDepthPrefilterPipeline();
@@ -41,54 +48,51 @@ private:
     void createSpatialFilteringPipeline();
 
 private: // Depth Pre-filter
-    VkDescriptorSetLayout depthPrefilterSetLayout{VK_NULL_HANDLE};
-    VkPipelineLayout depthPrefilterPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline depthPrefilterPipeline{VK_NULL_HANDLE};
+    DescriptorSetLayout depthPrefilterSetLayout{};
+    PipelineLayout depthPrefilterPipelineLayout{};
+    Pipeline depthPrefilterPipeline{};
 
-    VkSampler depthSampler{VK_NULL_HANDLE};
+    Sampler depthSampler{};
 
     // 16 vs 32. look at cost later.
     VkFormat depthPrefilterFormat{VK_FORMAT_R16_SFLOAT};
-    AllocatedImage depthPrefilterImage{VK_NULL_HANDLE};
-    std::array<VkImageView, DEPTH_PREFILTER_MIP_COUNT> depthPrefilterImageViews{};
+    AllocatedImage depthPrefilterImage{};
+    std::array<ImageView, DEPTH_PREFILTER_MIP_COUNT> depthPrefilterImageViews{};
 
     DescriptorBufferSampler depthPrefilterDescriptorBuffer;
 
 private: // Ambient Occlusion
-    VkDescriptorSetLayout ambientOcclusionSetLayout{VK_NULL_HANDLE};
-    VkPipelineLayout ambientOcclusionPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline ambientOcclusionPipeline{VK_NULL_HANDLE};
+    DescriptorSetLayout ambientOcclusionSetLayout{};
+    PipelineLayout ambientOcclusionPipelineLayout{};
+    Pipeline ambientOcclusionPipeline{};
 
-    VkSampler depthPrefilterSampler{VK_NULL_HANDLE};
-    VkSampler normalsSampler{VK_NULL_HANDLE};
+    Sampler depthPrefilterSampler{};
+    Sampler normalsSampler{};
 
     // 8 is supposedly enough?
     VkFormat ambientOcclusionFormat{VK_FORMAT_R8_UNORM};
-    AllocatedImage ambientOcclusionImage{VK_NULL_HANDLE};
+    AllocatedImage ambientOcclusionImage{};
 
     VkFormat edgeDataFormat{VK_FORMAT_R8_UNORM};
-    AllocatedImage edgeDataImage{VK_NULL_HANDLE};
+    AllocatedImage edgeDataImage{};
 
     DescriptorBufferSampler ambientOcclusionDescriptorBuffer;
 
 private: // Spatial Filtering
-    VkDescriptorSetLayout spatialFilteringSetLayout{VK_NULL_HANDLE};
-    VkPipelineLayout spatialFilteringPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline spatialFilteringPipeline{VK_NULL_HANDLE};
+    DescriptorSetLayout spatialFilteringSetLayout{};
+    PipelineLayout spatialFilteringPipelineLayout{};
+    Pipeline spatialFilteringPipeline{};
 
-    AllocatedImage denoisedFinalAO{VK_NULL_HANDLE};
+    AllocatedImage denoisedFinalAO{};
 
     DescriptorBufferSampler spatialFilteringDescriptorBuffer;
 
 private: // Debug
     VkFormat debugFormat{VK_FORMAT_R8G8B8A8_UNORM};
-    AllocatedImage debugImage{VK_NULL_HANDLE};
+    AllocatedImage debugImage{};
 
 private:
     ResourceManager& resourceManager;
-
-    // todo: remove
-    friend void ImguiWrapper::imguiInterface(Engine* engine);
 };
 }
 

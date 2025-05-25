@@ -9,10 +9,11 @@
 
 #include <glm/glm.hpp>
 
+#include "engine/renderer/resources/allocated_buffer.h"
 #include "engine/renderer/vk_types.h"
 #include "render_object_types.h"
 
-namespace will_engine
+namespace will_engine::renderer
 {
 class IRenderable;
 

@@ -8,15 +8,37 @@
 #include <volk/volk.h>
 
 #include "post_process_pipeline_types.h"
-#include "engine/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/descriptor_set_layout.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 
-namespace will_engine
+namespace will_engine::renderer
 {
 class ResourceManager;
-}
 
-namespace will_engine::post_process_pipeline
+struct PostProcessDescriptor
 {
+    VkImageView inputImage;
+    VkImageView outputImage;
+    VkSampler sampler;
+};
+
+struct PostProcessPushConstants
+{
+    int32_t width;
+    int32_t height;
+    uint32_t postProcessFlags;
+    int32_t padding;
+};
+
+struct PostProcessDrawInfo
+{
+    PostProcessType postProcessFlags{PostProcessType::ALL};
+    VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
+    VkDeviceSize sceneDataOffset{0};
+};
+
 class PostProcessPipeline
 {
 public:
@@ -36,10 +58,10 @@ private:
 private:
     ResourceManager& resourceManager;
 
-    VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
-    VkPipeline pipeline{VK_NULL_HANDLE};
-    VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};
-    DescriptorBufferSampler descriptorBuffer;
+    PipelineLayout pipelineLayout{};
+    Pipeline pipeline{};
+    DescriptorSetLayout descriptorSetLayout{};
+    DescriptorBufferSampler descriptorBuffer{};
 };
 }
 

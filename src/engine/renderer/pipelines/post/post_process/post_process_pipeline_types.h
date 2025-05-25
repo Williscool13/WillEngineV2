@@ -7,7 +7,7 @@
 
 #include <volk/volk.h>
 
-namespace will_engine::post_process_pipeline
+namespace will_engine::renderer
 {
 enum class PostProcessType : uint32_t
 {
@@ -43,28 +43,6 @@ inline PostProcessType& operator&=(PostProcessType& a, PostProcessType b)
     return a = a & b;
 }
 
-
-struct PostProcessDescriptor
-{
-    VkImageView inputImage;
-    VkImageView outputImage;
-    VkSampler sampler;
-};
-
-struct PostProcessPushConstants
-{
-    int32_t width;
-    int32_t height;
-    uint32_t postProcessFlags;
-    int32_t padding;
-};
-
-struct PostProcessDrawInfo
-{
-    PostProcessType postProcessFlags{PostProcessType::ALL};
-    VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
-    VkDeviceSize sceneDataOffset{0};
-};
 }
 
 #endif //POST_PROCESS_PIPELINE_TYPES_H

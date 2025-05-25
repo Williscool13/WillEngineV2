@@ -4,13 +4,15 @@
 
 #include "environment_pipeline.h"
 
-#include "environment_pipeline_types.h"
 #include "engine/renderer/renderer_constants.h"
 #include "engine/renderer/resource_manager.h"
 #include "engine/renderer/vk_helpers.h"
 #include "engine/renderer/vk_pipelines.h"
 
-will_engine::environment_pipeline::EnvironmentPipeline::EnvironmentPipeline(ResourceManager& resourceManager, VkDescriptorSetLayout environmentMapLayout) : resourceManager(resourceManager)
+namespace will_engine::renderer
+{
+EnvironmentPipeline::EnvironmentPipeline(ResourceManager& resourceManager, VkDescriptorSetLayout environmentMapLayout) : resourceManager(
+    resourceManager)
 {
     VkDescriptorSetLayout layouts[2];
     layouts[0] = resourceManager.getSceneDataLayout();
@@ -28,13 +30,13 @@ will_engine::environment_pipeline::EnvironmentPipeline::EnvironmentPipeline(Reso
     createPipeline();
 }
 
-will_engine::environment_pipeline::EnvironmentPipeline::~EnvironmentPipeline()
+EnvironmentPipeline::~EnvironmentPipeline()
 {
-    resourceManager.destroy(pipeline);
-    resourceManager.destroy(pipelineLayout);
+    resourceManager.destroyResource(std::move(pipeline));
+    resourceManager.destroyResource(std::move(pipelineLayout));
 }
 
-void will_engine::environment_pipeline::EnvironmentPipeline::draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& drawInfo) const
+void EnvironmentPipeline::draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& drawInfo) const
 {
     VkDebugUtilsLabelEXT label{};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
@@ -44,11 +46,16 @@ void will_engine::environment_pipeline::EnvironmentPipeline::draw(VkCommandBuffe
     constexpr VkClearValue colorClear = {.color = {0.0f, 0.0f, 0.0f, 0.0f}};
     constexpr VkClearValue depthClear = {.depthStencil = {0.0f, 0u}};
 
-    VkRenderingAttachmentInfo normalAttachment = vk_helpers::attachmentInfo(drawInfo.normalTarget, drawInfo.bClearColor ? &colorClear : nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo albedoAttachment = vk_helpers::attachmentInfo(drawInfo.albedoTarget, drawInfo.bClearColor ? &colorClear : nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo pbrAttachment = vk_helpers::attachmentInfo(drawInfo.pbrTarget, drawInfo.bClearColor ? &colorClear : nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo velocityAttachment = vk_helpers::attachmentInfo(drawInfo.velocityTarget, drawInfo.bClearColor ? &colorClear : nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthTarget, drawInfo.bClearColor ? &depthClear : nullptr, VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo normalAttachment = vk_helpers::attachmentInfo(drawInfo.normalTarget, drawInfo.bClearColor ? &colorClear : nullptr,
+                                                                            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo albedoAttachment = vk_helpers::attachmentInfo(drawInfo.albedoTarget, drawInfo.bClearColor ? &colorClear : nullptr,
+                                                                            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo pbrAttachment = vk_helpers::attachmentInfo(drawInfo.pbrTarget, drawInfo.bClearColor ? &colorClear : nullptr,
+                                                                         VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo velocityAttachment = vk_helpers::attachmentInfo(drawInfo.velocityTarget, drawInfo.bClearColor ? &colorClear : nullptr,
+                                                                              VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthTarget, drawInfo.bClearColor ? &depthClear : nullptr,
+                                                                           VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL);
 
     VkRenderingInfo renderInfo{};
     renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -68,7 +75,7 @@ void will_engine::environment_pipeline::EnvironmentPipeline::draw(VkCommandBuffe
     renderInfo.pStencilAttachment = nullptr;
 
     vkCmdBeginRendering(cmd, &renderInfo);
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
 
     // Viewport
     VkViewport viewport = {};
@@ -92,13 +99,10 @@ void will_engine::environment_pipeline::EnvironmentPipeline::draw(VkCommandBuffe
     bindingInfos[1] = drawInfo.environmentMapBinding;
     vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos);
 
-    constexpr uint32_t sceneDataIndex{0};
-    constexpr uint32_t environmentIndex{1};
-    const VkDeviceSize sceneDataOffset = drawInfo.sceneDataOffset;
-    const VkDeviceSize environmentMapOffset = drawInfo.environmentMapOffset;
+    constexpr std::array<uint32_t, 2> indices{0, 1};
+    const std::array<VkDeviceSize, 2> offsets{drawInfo.sceneDataOffset, drawInfo.environmentMapOffset};
 
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &sceneDataIndex, &sceneDataOffset);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &environmentIndex, &environmentMapOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout.layout, 0, 2, indices.data(), offsets.data());
 
     vkCmdDraw(cmd, 3, 1, 0, 0);
     vkCmdEndRendering(cmd);
@@ -106,13 +110,13 @@ void will_engine::environment_pipeline::EnvironmentPipeline::draw(VkCommandBuffe
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }
 
-void will_engine::environment_pipeline::EnvironmentPipeline::createPipeline()
+void EnvironmentPipeline::createPipeline()
 {
-    resourceManager.destroy(pipeline);
+    resourceManager.destroyResource(std::move(pipeline));
     VkShaderModule vertShader = resourceManager.createShaderModule("shaders/environment/environment.vert");
     VkShaderModule fragShader = resourceManager.createShaderModule("shaders/environment/environment.frag");
 
-    PipelineBuilder pipelineBuilder;
+    RenderPipelineBuilder pipelineBuilder;
     pipelineBuilder.setShaders(vertShader, fragShader);
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
@@ -120,11 +124,12 @@ void will_engine::environment_pipeline::EnvironmentPipeline::createPipeline()
     pipelineBuilder.disableBlending();
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
     pipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_STENCIL_FORMAT);
-    pipelineBuilder.setupPipelineLayout(pipelineLayout);
+    pipelineBuilder.setupPipelineLayout(pipelineLayout.layout);
 
 
     pipeline = resourceManager.createRenderPipeline(pipelineBuilder);
 
-    resourceManager.destroy(vertShader);
-    resourceManager.destroy(fragShader);
+    resourceManager.destroyShaderModule(vertShader);
+    resourceManager.destroyShaderModule(fragShader);
+}
 }

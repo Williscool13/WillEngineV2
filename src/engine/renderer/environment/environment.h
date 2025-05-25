@@ -8,12 +8,17 @@
 
 #include "engine/renderer/immediate_submitter.h"
 #include "engine/renderer/vk_types.h"
-#include "engine/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/allocated_image.h"
+#include "engine/renderer/resources/descriptor_set_layout.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/sampler.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 
+namespace will_engine::renderer
+{
 class ResourceManager;
 
-namespace will_engine::environment
-{
 struct CubeToDiffusePushConstantData
 {
     float sampleDelta;
@@ -30,7 +35,7 @@ struct CubeToPrefilteredConstantData
     uint32_t sampleCount;
 };
 
-struct EnvironmentMapData
+struct EnvironmentMapEntry
 {
     std::string sourcePath;
     AllocatedImage cubemapImage;
@@ -48,22 +53,22 @@ public:
 
 private:
     std::unordered_map<int32_t, const char*> activeEnvironmentMapNames{};
-    EnvironmentMapData environmentMaps[11]{
-        {"", VK_NULL_HANDLE, VK_NULL_HANDLE},
-        {"", VK_NULL_HANDLE, VK_NULL_HANDLE},
-        {"", VK_NULL_HANDLE, VK_NULL_HANDLE},
-        {"", VK_NULL_HANDLE, VK_NULL_HANDLE},
-        {"", VK_NULL_HANDLE, VK_NULL_HANDLE},
-        {"", VK_NULL_HANDLE, VK_NULL_HANDLE},
-        {"", VK_NULL_HANDLE, VK_NULL_HANDLE},
-        {"", VK_NULL_HANDLE, VK_NULL_HANDLE},
-        {"", VK_NULL_HANDLE, VK_NULL_HANDLE},
-        {"", VK_NULL_HANDLE, VK_NULL_HANDLE},
+    EnvironmentMapEntry environmentMaps[11]{
+        {"", {}, {}},
+        {"", {}, {}},
+        {"", {}, {}},
+        {"", {}, {}},
+        {"", {}, {}},
+        {"", {}, {}},
+        {"", {}, {}},
+        {"", {}, {}},
+        {"", {}, {}},
+        {"", {}, {}},
     };
 
 public:
-    [[nodiscard]] VkDescriptorSetLayout getCubemapDescriptorSetLayout() const { return cubemapSamplerLayout; }
-    [[nodiscard]] VkDescriptorSetLayout getDiffSpecMapDescriptorSetlayout() const {return environmentIBLLayout; }
+    [[nodiscard]] VkDescriptorSetLayout getCubemapDescriptorSetLayout() const { return cubemapSamplerLayout.layout; }
+    [[nodiscard]] VkDescriptorSetLayout getDiffSpecMapDescriptorSetlayout() const {return environmentIBLLayout.layout; }
 
     DescriptorBufferSampler& getCubemapDescriptorBuffer() { return cubemapDescriptorBuffer; }
     DescriptorBufferSampler& getDiffSpecMapDescriptorBuffer() { return diffSpecMapDescriptorBuffer; }
@@ -75,18 +80,18 @@ private:
     ResourceManager& resourceManager;
     ImmediateSubmitter& immediate;
 
-    VkDescriptorSetLayout equiImageLayout{VK_NULL_HANDLE};
-    VkDescriptorSetLayout cubemapStorageLayout{VK_NULL_HANDLE};
+    DescriptorSetLayout equiImageLayout{};
+    DescriptorSetLayout cubemapStorageLayout{};
     /**
      * Final cubemap, for environment rendering
      */
-    VkDescriptorSetLayout cubemapSamplerLayout{VK_NULL_HANDLE};
-    VkDescriptorSetLayout lutLayout{VK_NULL_HANDLE};
+    DescriptorSetLayout cubemapSamplerLayout{};
+    DescriptorSetLayout lutLayout{};
     /**
      * Final PBR data, used for pbr calculations (diff/spec and LUT)
      * Diff/Spec Irradiance Cubemap (LOD 1-4 spec, LOD 5 diff), and 2D-LUT
      */
-    VkDescriptorSetLayout environmentIBLLayout{VK_NULL_HANDLE};
+    DescriptorSetLayout environmentIBLLayout{};
 
     DescriptorBufferSampler equiImageDescriptorBuffer;
     DescriptorBufferSampler cubemapStorageDescriptorBuffer;
@@ -94,20 +99,20 @@ private:
     DescriptorBufferSampler lutDescriptorBuffer;
     DescriptorBufferSampler diffSpecMapDescriptorBuffer;
 
-    VkPipelineLayout equiToCubemapPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline equiToCubemapPipeline{VK_NULL_HANDLE};
+    PipelineLayout equiToCubemapPipelineLayout{};
+    Pipeline equiToCubemapPipeline{};
 
-    VkPipelineLayout cubemapToDiffusePipelineLayout{VK_NULL_HANDLE};
-    VkPipeline cubemapToDiffusePipeline{VK_NULL_HANDLE};
-    VkPipelineLayout cubemapToSpecularPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline cubemapToSpecularPipeline{VK_NULL_HANDLE};
+    PipelineLayout cubemapToDiffusePipelineLayout{};
+    Pipeline cubemapToDiffusePipeline{};
+    PipelineLayout cubemapToSpecularPipelineLayout{};
+    Pipeline cubemapToSpecularPipeline{};
 
     // Hardcoded LUT generation
-    VkPipelineLayout lutPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline lutPipeline{VK_NULL_HANDLE};
+    PipelineLayout lutPipelineLayout{};
+    Pipeline lutPipeline{};
     AllocatedImage lutImage; // same for all environment maps
 
-    VkSampler sampler{};
+    Sampler sampler{};
 };
 }
 
