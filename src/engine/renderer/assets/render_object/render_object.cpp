@@ -626,7 +626,11 @@ void RenderObject::load()
     // 0 is always a "fallback sampler"
     textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, {.sampler = resourceManager.getDefaultSamplerNearest()}, false});
     for (const Sampler& sampler : samplers) {
-        textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, {.sampler = sampler.sampler}, false});
+        if (sampler.sampler == VK_NULL_HANDLE) {
+            textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, {.sampler = resourceManager.getDefaultSamplerNearest()}, false});
+        } else {
+            textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, {.sampler = sampler.sampler}, false});
+        }
     }
 
     const size_t remaining = render_object_constants::MAX_SAMPLER_COUNT - samplers.size() - model_utils::samplerOffset;
@@ -641,11 +645,17 @@ void RenderObject::load()
         false
     });
     for (const AllocatedImage& image : images) {
-        textureDescriptors.push_back({
-            VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, {.imageView = image.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}, false
-        });
-    }
+        if (image.imageView == VK_NULL_HANDLE) {
+            textureDescriptors.push_back({
+                VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, {.imageView = resourceManager.getErrorCheckerboardImage(), .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}, false
+            });
+        } else {
+            textureDescriptors.push_back({
+                VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, {.imageView = image.imageView, .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL}, false
+            });
+        }
 
+    }
 
     textureDescriptorBuffer = resourceManager.createDescriptorBufferSampler(resourceManager.getTexturesLayout(), 1);
     resourceManager.setupDescriptorBufferSampler(textureDescriptorBuffer, textureDescriptors, 0);

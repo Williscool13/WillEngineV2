@@ -30,6 +30,7 @@ Pipeline Pipeline::createCompute(VkDevice device, const VkComputePipelineCreateI
 {
     Pipeline newPipeline{};
     VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &createInfo, nullptr, &newPipeline.pipeline));
+    newPipeline.m_destroyed = false;
     return newPipeline;
 }
 

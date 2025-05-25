@@ -96,7 +96,9 @@ std::optional<will_engine::renderer::AllocatedImage> will_engine::model_utils::l
                         }
                     }
                 }
-                else {
+
+                // fallback to png if fail
+                if (newImage.image == VK_NULL_HANDLE) {
                     unsigned char* data = stbi_load_from_memory(reinterpret_cast<const unsigned char*>(vector.bytes.data()),
                                                                 static_cast<int>(vector.bytes.size()), &width, &height, &nrChannels, 4);
                     if (data) {

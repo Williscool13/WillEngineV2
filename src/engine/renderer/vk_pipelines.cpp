@@ -10,6 +10,8 @@ namespace will_engine::renderer
 {
 RenderPipelineBuilder::RenderPipelineBuilder()
 {
+    dynamicInfo.pDynamicStates = dynamicStates.data();
+    dynamicInfo.dynamicStateCount = dynamicStates.size();
     clear();
 }
 

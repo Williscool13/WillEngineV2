@@ -58,14 +58,14 @@ using VulkanResourceVariant = std::variant<
     AllocatedBuffer,
     DescriptorSetLayout,
     PipelineLayout, Pipeline,
-DescriptorBufferSampler, DescriptorBufferUniform
+    DescriptorBufferSampler, DescriptorBufferUniform
 >;
 
 struct DestructionQueue
 {
     std::vector<VulkanResourceVariant> resources;
 
-    void flush(VulkanContext& context)  // Remove const here
+    void flush(VulkanContext& context) // Remove const here
     {
         for (auto& resource : resources) {
             std::visit([&](auto& res) { res.release(context); }, resource);
@@ -123,6 +123,7 @@ public:
     template<typename T>
     void destroyResource(T&& resource)
     {
+        if (!resource.isValid()) { return; }
         static_assert(std::is_base_of_v<VulkanResource, std::decay_t<T> >,
                       "T must derive from VulkanResource");
 
@@ -138,7 +139,7 @@ public:
     template<typename T>
     void destroyResourceImmediate(T&& resource)
     {
-        static_assert(std::is_base_of_v<VulkanResource, std::decay_t<T>>,
+        static_assert(std::is_base_of_v<VulkanResource, std::decay_t<T> >,
                       "T must derive from VulkanResource");
 
         resource.release(context);
@@ -208,7 +209,8 @@ public: // VkImage and VkImageView
         return AllocatedImage::create(context.allocator, context.device, size, format, usage, mipmapped, aspectFlag);
     }
 
-    AllocatedImage createImage(const VkImageCreateInfo& bufferInfo, const VmaAllocationCreateInfo& allocInfo, VkImageViewCreateInfo& imageViewInfo) const
+    AllocatedImage createImage(const VkImageCreateInfo& bufferInfo, const VmaAllocationCreateInfo& allocInfo,
+                               VkImageViewCreateInfo& imageViewInfo) const
     {
         return AllocatedImage::create(context.allocator, context.device, bufferInfo, allocInfo, imageViewInfo);
     }
@@ -237,6 +239,7 @@ public: // Descriptor Buffer
 public: // Shader Module
     // todo :shader modules is handled a little differently
     VkShaderModule createShaderModule(const std::filesystem::path& path) const;
+
     void destroyShaderModule(VkShaderModule& module) const;
 
 public: // Pipeline Layout
@@ -248,10 +251,10 @@ public: // Pipeline Layout
 public: // Pipelines
     Pipeline createRenderPipeline(RenderPipelineBuilder& pipelineBuilder) const
     {
-        VkPipeline newPipeline;
         const VkGraphicsPipelineCreateInfo createInfo = pipelineBuilder.generatePipelineCreateInfo();
         return createRenderPipeline(createInfo);
     }
+
     Pipeline createRenderPipeline(const VkGraphicsPipelineCreateInfo& createInfo) const
     {
         return Pipeline::createRender(context.device, createInfo);

@@ -315,6 +315,7 @@ bool will_engine::Map::deleteChild(IHierarchical* child)
 
     if (it != children.end()) {
         if (Engine* engine = Engine::get()) {
+            it->get()->setParent(nullptr);
             engine->addToDeletionQueue(std::move(*it));
             children.erase(it);
             bChildrenCacheDirty = true;

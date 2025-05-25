@@ -1282,7 +1282,7 @@ void Engine::createDrawResources()
 
         VkImageViewCreateInfo historyBufferImageViewInfo = vk_helpers::imageviewCreateInfo(
             historyBuffer.imageFormat, historyBuffer.image, VK_IMAGE_ASPECT_COLOR_BIT);
-        taaResolveTarget = resourceManager->createImage(historyBufferImageInfo, historyBufferAllocationInfo, historyBufferImageViewInfo);
+        historyBuffer = resourceManager->createImage(historyBufferImageInfo, historyBufferAllocationInfo, historyBufferImageViewInfo);
     }
     // Final Image
     {
@@ -1301,7 +1301,7 @@ void Engine::createDrawResources()
 
         VkImageViewCreateInfo rview_info = vk_helpers::imageviewCreateInfo(finalImageBuffer.imageFormat, finalImageBuffer.image,
                                                                            VK_IMAGE_ASPECT_COLOR_BIT);
-        taaResolveTarget = resourceManager->createImage(imageCreateInfo, imageAllocationInfo, rview_info);
+        finalImageBuffer = resourceManager->createImage(imageCreateInfo, imageAllocationInfo, rview_info);
     }
 
 #if WILL_ENGINE_DEBUG_DRAW

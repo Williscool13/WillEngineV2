@@ -20,7 +20,6 @@ class Pipeline : public VulkanResource
 {
 public:
     VkPipeline pipeline{VK_NULL_HANDLE};
-    VkPipelineLayout layout{VK_NULL_HANDLE};
 
     Pipeline() = default;
 
@@ -45,7 +44,6 @@ public:
     // Move constructor
     Pipeline(Pipeline&& other) noexcept
         : pipeline(std::exchange(other.pipeline, VK_NULL_HANDLE))
-          , layout(std::exchange(other.layout, VK_NULL_HANDLE))
           , m_destroyed(other.m_destroyed)
     {
         other.m_destroyed = true;
@@ -55,7 +53,6 @@ public:
     {
         if (this != &other) {
             pipeline = std::exchange(other.pipeline, VK_NULL_HANDLE);
-            layout = std::exchange(other.layout, VK_NULL_HANDLE);
             m_destroyed = other.m_destroyed;
             other.m_destroyed = true;
         }
