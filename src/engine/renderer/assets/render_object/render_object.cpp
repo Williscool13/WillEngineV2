@@ -196,27 +196,6 @@ void RenderObject::dirty()
     }
 }
 
-std::unique_ptr<game_object::GameObject> RenderObject::generateGameObject(const std::string& gameObjectName)
-{
-    // get number of meshes in the entire model
-    uint32_t instanceCount{0};
-    for (const RenderNode& renderNode : renderNodes) {
-        if (renderNode.meshIndex != -1) {
-            instanceCount++;
-        }
-    }
-
-    auto& gameObjectFactory = will_engine::game_object::GameObjectFactory::getInstance();
-    std::unique_ptr<game_object::GameObject> container = gameObjectFactory.createGameObject(game_object::GameObject::getStaticType(), gameObjectName);
-
-    for (const int32_t rootNode : topNodes) {
-        recursiveGenerate(renderNodes[rootNode], container.get());
-    }
-
-    dirty();
-    return container;
-}
-
 bool RenderObject::generateMeshComponents(IComponentContainer* container, const Transform& transform)
 {
     if (container == nullptr) { return false; }

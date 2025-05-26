@@ -12,12 +12,12 @@
 #include "engine/renderer/assets/render_object/render_object_types.h"
 
 
-namespace will_engine::model_utils
+namespace will_engine::renderer::model_utils
 {
 static constexpr int32_t samplerOffset{1};
 static constexpr int32_t imageOffset{1};
 
-[[nodiscard]] std::optional<renderer::AllocatedImage> loadImage(renderer::ResourceManager& resourceManager, const fastgltf::Asset& asset, const fastgltf::Image& image, const std::filesystem::path& parentFolder);
+[[nodiscard]] std::optional<AllocatedImage> loadImage(ResourceManager& resourceManager, const fastgltf::Asset& asset, const fastgltf::Image& image, const std::filesystem::path& parentFolder);
 
 MaterialProperties extractMaterial(fastgltf::Asset& gltf, const fastgltf::Material& gltfMaterial);
 
@@ -34,9 +34,9 @@ VkSamplerMipmapMode extractMipMapMode(fastgltf::Filter filter);
  */
 static int32_t isKtxTexture(const fastgltf::sources::Array& vector);
 
-static std::optional<renderer::AllocatedImage> processKtxVector(renderer::ResourceManager& resourceManager, const fastgltf::sources::Array& vector);
+static std::optional<AllocatedImage> processKtxVector(ResourceManager& resourceManager, const fastgltf::sources::Array& vector);
 
-static std::optional<renderer::AllocatedImage> processKtx2Vector(renderer::ResourceManager& resourceManager, const fastgltf::sources::Array& vector);
+static std::optional<AllocatedImage> processKtx2Vector(ResourceManager& resourceManager, const fastgltf::sources::Array& vector);
 }
 
 

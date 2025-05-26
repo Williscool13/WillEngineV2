@@ -123,7 +123,6 @@ private: // IRenderReference
     uint32_t renderObjectId{};
 
 public: // Model Rendering API
-    std::unique_ptr<game_object::GameObject> generateGameObject(const std::string& gameObjectName = "");
     bool generateMeshComponents(IComponentContainer* container, const Transform& transform = Transform::Identity);
 
     [[nodiscard]] size_t getMeshCount() const { return meshes.size(); }

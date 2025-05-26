@@ -63,9 +63,9 @@ using VulkanResourceVariant = std::variant<
 
 struct DestructionQueue
 {
-    std::vector<VulkanResourceVariant> resources;
+    std::vector<VulkanResourceVariant> resources{};
 
-    void flush(VulkanContext& context) // Remove const here
+    void flush(VulkanContext& context)
     {
         for (auto& resource : resources) {
             std::visit([&](auto& res) { res.release(context); }, resource);
@@ -75,7 +75,6 @@ struct DestructionQueue
 };
 
 
-// todo: improve this buffer copy flow, maybe use pointers since lifetime is not a concern when copying like this
 struct BufferCopyInfo
 {
     VkBuffer src;

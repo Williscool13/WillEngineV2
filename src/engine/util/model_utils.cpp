@@ -13,11 +13,12 @@
 #include "engine/renderer/resource_manager.h"
 #include "engine/renderer/assets/render_object/render_object.h"
 
-std::optional<will_engine::renderer::AllocatedImage> will_engine::model_utils::loadImage(renderer::ResourceManager& resourceManager, const fastgltf::Asset& asset,
-                                                                                         const fastgltf::Image& image,
-                                                                                         const std::filesystem::path& parentFolder)
+namespace will_engine::renderer
 {
-    renderer::AllocatedImage newImage{};
+std::optional<AllocatedImage> model_utils::loadImage(ResourceManager& resourceManager, const fastgltf::Asset& asset, const fastgltf::Image& image,
+                                                     const std::filesystem::path& parentFolder)
+{
+    AllocatedImage newImage{};
 
     int width{}, height{}, nrChannels{};
 
@@ -37,7 +38,7 @@ std::optional<will_engine::renderer::AllocatedImage> will_engine::model_utils::l
                                                                                     &kTexture);
 
                     if (ktxResult == KTX_SUCCESS) {
-                        renderer::ImageFormatProperties formatProperties = resourceManager.getPhysicalDeviceImageFormatProperties(
+                        ImageFormatProperties formatProperties = resourceManager.getPhysicalDeviceImageFormatProperties(
                             ktxTexture_GetVkFormat(kTexture), VK_IMAGE_USAGE_SAMPLED_BIT);
                         if (formatProperties.result == VK_SUCCESS) {
                             const unsigned char* data = ktxTexture_GetData(kTexture);
@@ -46,8 +47,8 @@ std::optional<will_engine::renderer::AllocatedImage> will_engine::model_utils::l
                             imageExtents.height = kTexture->baseHeight;
                             imageExtents.depth = 1;
                             newImage = resourceManager.createImageFromData(data, kTexture->dataSize, imageExtents,
-                                                                   ktxTexture_GetVkFormat(kTexture), VK_IMAGE_USAGE_SAMPLED_BIT,
-                                                                   false);
+                                                                           ktxTexture_GetVkFormat(kTexture), VK_IMAGE_USAGE_SAMPLED_BIT,
+                                                                           false);
                         }
                     }
 
@@ -61,7 +62,8 @@ std::optional<will_engine::renderer::AllocatedImage> will_engine::model_utils::l
                         imagesize.height = height;
                         imagesize.depth = 1;
                         const size_t size = width * height * 4;
-                        newImage = resourceManager.createImageFromData(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
+                        newImage = resourceManager.createImageFromData(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT,
+                                                                       true);
 
                         stbi_image_free(data);
                     }
@@ -84,13 +86,13 @@ std::optional<will_engine::renderer::AllocatedImage> will_engine::model_utils::l
                 const int32_t ktxVersion = isKtxTexture(vector);
                 if (ktxVersion > 0) {
                     if (ktxVersion == 1) {
-                        std::optional<renderer::AllocatedImage> _newImage = processKtxVector(resourceManager, vector);
+                        std::optional<AllocatedImage> _newImage = processKtxVector(resourceManager, vector);
                         if (_newImage.has_value()) {
                             newImage = std::move(_newImage.value());
                         }
                     }
                     else {
-                        std::optional<renderer::AllocatedImage> _newImage = processKtx2Vector(resourceManager, vector);
+                        std::optional<AllocatedImage> _newImage = processKtx2Vector(resourceManager, vector);
                         if (_newImage.has_value()) {
                             newImage = std::move(_newImage.value());
                         }
@@ -107,7 +109,8 @@ std::optional<will_engine::renderer::AllocatedImage> will_engine::model_utils::l
                         imagesize.height = height;
                         imagesize.depth = 1;
                         const size_t size = width * height * 4;
-                        newImage = resourceManager.createImageFromData(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT, true);
+                        newImage = resourceManager.createImageFromData(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_USAGE_SAMPLED_BIT,
+                                                                       true);
 
                         stbi_image_free(data);
                     }
@@ -125,13 +128,13 @@ std::optional<will_engine::renderer::AllocatedImage> will_engine::model_utils::l
                                    const int32_t ktxVersion = isKtxTexture(vector);
                                    if (ktxVersion > 0) {
                                        if (ktxVersion == 1) {
-                                           std::optional<renderer::AllocatedImage> _newImage = processKtxVector(resourceManager, vector);
+                                           std::optional<AllocatedImage> _newImage = processKtxVector(resourceManager, vector);
                                            if (_newImage.has_value()) {
                                                newImage = std::move(_newImage.value());
                                            }
                                        }
                                        else {
-                                           std::optional<renderer::AllocatedImage> _newImage = processKtx2Vector(resourceManager, vector);
+                                           std::optional<AllocatedImage> _newImage = processKtx2Vector(resourceManager, vector);
                                            if (_newImage.has_value()) {
                                                newImage = std::move(_newImage.value());
                                            }
@@ -148,7 +151,7 @@ std::optional<will_engine::renderer::AllocatedImage> will_engine::model_utils::l
                                            imagesize.depth = 1;
                                            const size_t size = width * height * 4;
                                            newImage = resourceManager.createImageFromData(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM,
-                                                                                  VK_IMAGE_USAGE_SAMPLED_BIT, true);
+                                                                                          VK_IMAGE_USAGE_SAMPLED_BIT, true);
                                            stbi_image_free(data);
                                        }
                                    }
@@ -168,7 +171,7 @@ std::optional<will_engine::renderer::AllocatedImage> will_engine::model_utils::l
     }
 }
 
-will_engine::MaterialProperties will_engine::model_utils::extractMaterial(fastgltf::Asset& gltf, const fastgltf::Material& gltfMaterial)
+MaterialProperties model_utils::extractMaterial(fastgltf::Asset& gltf, const fastgltf::Material& gltfMaterial)
 {
     MaterialProperties material = {};
     material.colorFactor = glm::vec4(
@@ -216,8 +219,8 @@ will_engine::MaterialProperties will_engine::model_utils::extractMaterial(fastgl
     return material;
 }
 
-void will_engine::model_utils::loadTextureIndices(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf,
-                                                  int& imageIndex, int& samplerIndex)
+void model_utils::loadTextureIndices(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf,
+                                     int& imageIndex, int& samplerIndex)
 {
     if (!texture.has_value()) { return; }
 
@@ -231,7 +234,7 @@ void will_engine::model_utils::loadTextureIndices(const fastgltf::Optional<fastg
     }
 }
 
-VkFilter will_engine::model_utils::extractFilter(fastgltf::Filter filter)
+VkFilter model_utils::extractFilter(fastgltf::Filter filter)
 {
     switch (filter) {
         // nearest samplers
@@ -249,7 +252,7 @@ VkFilter will_engine::model_utils::extractFilter(fastgltf::Filter filter)
     }
 }
 
-VkSamplerMipmapMode will_engine::model_utils::extractMipMapMode(fastgltf::Filter filter)
+VkSamplerMipmapMode model_utils::extractMipMapMode(fastgltf::Filter filter)
 {
     switch (filter) {
         case fastgltf::Filter::NearestMipMapNearest:
@@ -263,7 +266,7 @@ VkSamplerMipmapMode will_engine::model_utils::extractMipMapMode(fastgltf::Filter
     }
 }
 
-int32_t will_engine::model_utils::isKtxTexture(const fastgltf::sources::Array& vector)
+int32_t model_utils::isKtxTexture(const fastgltf::sources::Array& vector)
 {
     if (vector.bytes.size() >= 12) {
         // KTX1 identifier starts with 0xAB, 0x4B, 0x54, 0x58, 0x20, 0x31, 0x31, 0xBB
@@ -283,8 +286,8 @@ int32_t will_engine::model_utils::isKtxTexture(const fastgltf::sources::Array& v
     return 0;
 }
 
-std::optional<will_engine::renderer::AllocatedImage> will_engine::model_utils::processKtxVector(renderer::ResourceManager& resourceManager,
-                                                                                                const fastgltf::sources::Array& vector)
+std::optional<AllocatedImage> model_utils::processKtxVector(ResourceManager& resourceManager,
+                                                            const fastgltf::sources::Array& vector)
 {
     ktxTexture* kTexture;
     const KTX_error_code ktxResult = ktxTexture_CreateFromMemory(
@@ -294,7 +297,7 @@ std::optional<will_engine::renderer::AllocatedImage> will_engine::model_utils::p
         &kTexture);
 
     if (ktxResult == KTX_SUCCESS) {
-        renderer::ImageFormatProperties formatProperties = resourceManager.getPhysicalDeviceImageFormatProperties(
+        ImageFormatProperties formatProperties = resourceManager.getPhysicalDeviceImageFormatProperties(
             ktxTexture_GetVkFormat(kTexture), VK_IMAGE_USAGE_SAMPLED_BIT);
 
         if (formatProperties.result == VK_SUCCESS) {
@@ -305,8 +308,8 @@ std::optional<will_engine::renderer::AllocatedImage> will_engine::model_utils::p
             imageExtents.depth = 1;
 
             auto newImage = resourceManager.createImageFromData(data, kTexture->dataSize, imageExtents,
-                                                        ktxTexture_GetVkFormat(kTexture), VK_IMAGE_USAGE_SAMPLED_BIT,
-                                                        false);
+                                                                ktxTexture_GetVkFormat(kTexture), VK_IMAGE_USAGE_SAMPLED_BIT,
+                                                                false);
         }
         else {
             if (kTexture->classId == ktxTexture1_c) {
@@ -327,8 +330,7 @@ std::optional<will_engine::renderer::AllocatedImage> will_engine::model_utils::p
     return {};
 }
 
-std::optional<will_engine::renderer::AllocatedImage> will_engine::model_utils::processKtx2Vector(renderer::ResourceManager& resourceManager,
-                                                                                                 const fastgltf::sources::Array& vector)
+std::optional<AllocatedImage> model_utils::processKtx2Vector(ResourceManager& resourceManager, const fastgltf::sources::Array& vector)
 {
     ktxTexture2* kTexture;
 
@@ -342,7 +344,7 @@ std::optional<will_engine::renderer::AllocatedImage> will_engine::model_utils::p
         VkFormat format{VK_FORMAT_UNDEFINED};
         if (ktxTexture2_NeedsTranscoding(kTexture)) {
             // todo: choose appropriate format?
-            auto targetFormat = KTX_TTF_BC7_RGBA;
+            constexpr auto targetFormat = KTX_TTF_BC7_RGBA;
 
             const KTX_error_code result = ktxTexture2_TranscodeBasis(kTexture, targetFormat, 0);
             if (result != KTX_SUCCESS) {
@@ -352,7 +354,7 @@ std::optional<will_engine::renderer::AllocatedImage> will_engine::model_utils::p
             format = ktxTexture2_GetVkFormat(kTexture);
         }
 
-        renderer::ImageFormatProperties formatProperties = resourceManager.getPhysicalDeviceImageFormatProperties(format, VK_IMAGE_USAGE_SAMPLED_BIT);
+        ImageFormatProperties formatProperties = resourceManager.getPhysicalDeviceImageFormatProperties(format, VK_IMAGE_USAGE_SAMPLED_BIT);
 
 
         if (formatProperties.result == VK_SUCCESS) {
@@ -382,4 +384,5 @@ std::optional<will_engine::renderer::AllocatedImage> will_engine::model_utils::p
     }
 
     return {};
+}
 }
