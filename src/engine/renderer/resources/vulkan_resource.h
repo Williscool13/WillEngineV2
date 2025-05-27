@@ -5,24 +5,21 @@
 #ifndef VULKAN_RESOURCE_H
 #define VULKAN_RESOURCE_H
 
-
-namespace will_engine
-{
-class VulkanContext;
-}
-
 namespace will_engine::renderer
 {
+class ResourceManager;
 
-class VulkanResource {
+class VulkanResource
+{
+protected:
+    ResourceManager* manager;
+
 public:
-    VulkanResource() = default;
-    virtual ~VulkanResource() = default;
-    virtual void release(VulkanContext& context) = 0;
-    virtual bool isValid() const = 0;
+    VulkanResource() = delete;
 
-    VulkanResource(const VulkanResource&) = delete;
-    VulkanResource& operator=(const VulkanResource&) = delete;
+    explicit VulkanResource(ResourceManager* mgr) : manager(mgr) {}
+
+    virtual ~VulkanResource() = default;
 };
 }
 

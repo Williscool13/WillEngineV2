@@ -39,6 +39,7 @@ class VulkanContext;
 
 namespace will_engine::renderer
 {
+class Image;
 class ImmediateSubmitter;
 
 struct DestructorBufferData
@@ -98,6 +99,10 @@ public:
     ResourceManager(VulkanContext& context, ImmediateSubmitter& immediate);
 
     ~ResourceManager();
+
+public:
+    VkDevice getDevice() const { return context.device; }
+    VmaAllocator getAllocator() const { return context.allocator; }
 
 public:
     /**
@@ -190,10 +195,29 @@ public: // VkBuffer Helpers
 
     [[nodiscard]] VkDeviceAddress getBufferAddress(const AllocatedBuffer& buffer) const;
 
-public: // Samplers
-    Sampler createSampler(const VkSamplerCreateInfo& createInfo) const
+public:
+    template<typename T, typename... Args>
+    std::unique_ptr<T> createResource(Args&&... args)
     {
-        return Sampler::create(context.device, createInfo);
+        return std::make_unique<T>(this, std::forward<Args>(args)...);
+    }
+
+    template<typename T, typename... Args>
+    std::shared_ptr<T> createResourceShared(Args&&... args)
+    {
+        return std::make_shared<T>(this, std::forward<Args>(args)...);
+    }
+
+public: // Special Helpers
+    std::unique_ptr<Image> createCubemapImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) {
+        VkImageCreateInfo createInfo = vk_helpers::imageCreateInfo(format, usage, size);
+        if (mipmapped) {
+            createInfo.mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(size.width, size.height)))) + 1;
+        }
+        createInfo.arrayLayers = 6;
+        createInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+
+        return createResource<Image>(createInfo);
     }
 
 public: // VkImage and VkImageView
@@ -303,9 +327,9 @@ private:
 
     AllocatedImage whiteImage{};
     AllocatedImage errorCheckerboardImage{};
-    Sampler defaultSamplerLinear{};
-    Sampler defaultSamplerNearest{};
-    Sampler defaultSamplerMipMappedLinear{};
+    std::unique_ptr<Sampler> defaultSamplerLinear{nullptr};
+    std::unique_ptr<Sampler> defaultSamplerNearest{nullptr};
+    std::unique_ptr<Sampler> defaultSamplerMipMappedLinear{nullptr};
 
     DescriptorSetLayout emptyDescriptorSetLayout{};
 

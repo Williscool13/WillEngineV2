@@ -7,29 +7,21 @@
 #include <volk/volk.h>
 
 #include "engine/renderer/vk_helpers.h"
+#include "engine/renderer/resource_manager.h"
 
 namespace will_engine::renderer
 {
-void DescriptorSetLayout::release(VulkanContext& context)
+DescriptorSetLayout::DescriptorSetLayout(ResourceManager* resourceManager, const VkDescriptorSetLayoutCreateInfo& createInfo)
+    : VulkanResource(resourceManager)
 {
-    if (!m_destroyed) {
-        if (layout != VK_NULL_HANDLE) {
-            vkDestroyDescriptorSetLayout(context.device, layout, nullptr);
-            layout = VK_NULL_HANDLE;
-        }
-        m_destroyed = true;
-    }
-}
-bool DescriptorSetLayout::isValid() const
-{
-    return !m_destroyed && layout != VK_NULL_HANDLE;
+    VK_CHECK(vkCreateDescriptorSetLayout(resourceManager->getDevice(), &createInfo, nullptr, &layout));
 }
 
-DescriptorSetLayout DescriptorSetLayout::create(VkDevice device, const VkDescriptorSetLayoutCreateInfo& createInfo)
+DescriptorSetLayout::~DescriptorSetLayout()
 {
-    DescriptorSetLayout newSetLayout{};
-    VK_CHECK(vkCreateDescriptorSetLayout(device, &createInfo, nullptr, &newSetLayout.layout));
-    newSetLayout.m_destroyed = false;
-    return newSetLayout;
+    if (layout != VK_NULL_HANDLE) {
+        vkDestroyDescriptorSetLayout(manager->getDevice(), layout, nullptr);
+        layout = VK_NULL_HANDLE;
+    }
 }
 }

@@ -298,6 +298,12 @@ set(TEMP_SOURCES
         src/engine/renderer/resources/descriptor_set_layout.h
         src/engine/renderer/resources/image_view.cpp
         src/engine/renderer/resources/image_view.h
+        src/engine/renderer/resources/image_resource.cpp
+        src/engine/renderer/resources/image_resource.h
+        src/engine/renderer/resources/image.cpp
+        src/engine/renderer/resources/image.h
+        src/engine/renderer/resources/image_ktx.cpp
+        src/engine/renderer/resources/image_ktx.h
 )
 
 add_executable(WillEngine main.cpp

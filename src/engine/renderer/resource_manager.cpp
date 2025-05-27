@@ -52,7 +52,7 @@ ResourceManager::ResourceManager(VulkanContext& context, ImmediateSubmitter& imm
         samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        defaultSamplerNearest = createSampler(samplerInfo);
+        defaultSamplerNearest = createResource<Sampler>(samplerInfo);
     }
     // linear sampler
     {
@@ -63,7 +63,7 @@ ResourceManager::ResourceManager(VulkanContext& context, ImmediateSubmitter& imm
         samplerInfo.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         samplerInfo.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
         samplerInfo.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-        defaultSamplerLinear = createSampler(samplerInfo);
+        defaultSamplerLinear = createResource<Sampler>(samplerInfo);
     }
     // linear sampler mipmapped
     {
@@ -76,7 +76,7 @@ ResourceManager::ResourceManager(VulkanContext& context, ImmediateSubmitter& imm
         samplerInfo.mipLodBias = 0.0f;
         samplerInfo.anisotropyEnable = VK_TRUE;
         samplerInfo.maxAnisotropy = 8;
-        defaultSamplerMipMappedLinear = createSampler(samplerInfo);
+        defaultSamplerMipMappedLinear = createResource<Sampler>(samplerInfo);
     }
 
     // Empty (WIP/unused)

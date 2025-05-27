@@ -354,7 +354,7 @@ std::optional<AllocatedImage> model_utils::processKtx2Vector(ResourceManager& re
             format = ktxTexture2_GetVkFormat(kTexture);
         }
 
-        ImageFormatProperties formatProperties = resourceManager.getPhysicalDeviceImageFormatProperties(format, VK_IMAGE_USAGE_SAMPLED_BIT);
+        const ImageFormatProperties formatProperties = resourceManager.getPhysicalDeviceImageFormatProperties(format, VK_IMAGE_USAGE_SAMPLED_BIT);
 
 
         if (formatProperties.result == VK_SUCCESS) {

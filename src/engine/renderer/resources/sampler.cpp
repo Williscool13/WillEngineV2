@@ -6,29 +6,19 @@
 
 #include <volk/volk.h>
 
+#include "engine/renderer/resource_manager.h"
+
 namespace will_engine::renderer
 {
-void Sampler::release(VulkanContext& context)
+Sampler::Sampler(ResourceManager* mgr, const VkSamplerCreateInfo& createInfo): VulkanResource(mgr)
 {
-    if (!m_destroyed) {
-        if (sampler != VK_NULL_HANDLE) {
-            vkDestroySampler(context.device, sampler, nullptr);
-            sampler = VK_NULL_HANDLE;
-        }
-        m_destroyed = true;
+    vkCreateSampler(manager->getDevice(), &createInfo, nullptr, &sampler);
+}
+
+Sampler::~Sampler()
+{
+    if (sampler != VK_NULL_HANDLE) {
+        vkDestroySampler(manager->getDevice(), sampler, nullptr);
     }
-}
-
-bool Sampler::isValid() const
-{
-    return !m_destroyed && sampler != VK_NULL_HANDLE;
-}
-
-Sampler Sampler::create(VkDevice device, const VkSamplerCreateInfo& createInfo)
-{
-    Sampler newSampler{};
-    vkCreateSampler(device, &createInfo, nullptr, &newSampler.sampler);
-    newSampler.m_destroyed = false;
-    return newSampler;
 }
 }
