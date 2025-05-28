@@ -10,9 +10,8 @@
 
 namespace will_engine::renderer
 {
-class DescriptorSetLayout final : public VulkanResource
+struct DescriptorSetLayout final : VulkanResource
 {
-public:
     VkDescriptorSetLayout layout{VK_NULL_HANDLE};
 
     DescriptorSetLayout(ResourceManager* resourceManager, const VkDescriptorSetLayoutCreateInfo& createInfo);

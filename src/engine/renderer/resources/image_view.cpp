@@ -6,31 +6,21 @@
 
 #include <volk/volk.h>
 
+#include "engine/renderer/resource_manager.h"
 #include "engine/renderer/vk_helpers.h"
 
 namespace will_engine::renderer
 {
-void ImageView::release(VulkanContext& context)
+ImageView::ImageView(ResourceManager* resourceManager, const VkImageViewCreateInfo& createInfo) : VulkanResource(resourceManager)
 {
-    if (!m_destroyed) {
-        if (imageView != VK_NULL_HANDLE) {
-            vkDestroyImageView(context.device, imageView, nullptr);
-            imageView = VK_NULL_HANDLE;
-        }
-        m_destroyed = true;
+    VK_CHECK(vkCreateImageView(resourceManager->getDevice(), &createInfo, nullptr, &imageView));
+}
+
+ImageView::~ImageView()
+{
+    if (imageView != VK_NULL_HANDLE) {
+        vkDestroyImageView(manager->getDevice(), imageView, nullptr);
+        imageView = VK_NULL_HANDLE;
     }
-}
-
-bool ImageView::isValid() const
-{
-    return !m_destroyed && imageView != VK_NULL_HANDLE;
-}
-
-ImageView ImageView::create(VkDevice device, const VkImageViewCreateInfo& createInfo)
-{
-    ImageView newImagView{};
-    VK_CHECK(vkCreateImageView(device, &createInfo, nullptr, &newImagView.imageView));
-    newImagView.m_destroyed = false;
-    return newImagView;
 }
 }

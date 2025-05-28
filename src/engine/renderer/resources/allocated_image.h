@@ -18,9 +18,8 @@ namespace will_engine::renderer
 /**
  * A wrapper for a VkImage that always comes bundled with a VkImageView.
  */
-class AllocatedImage : public VulkanResource
+struct AllocatedImage : VulkanResource
 {
-public:
     VkImage image{VK_NULL_HANDLE};
     VkImageView imageView{VK_NULL_HANDLE};
     VmaAllocation allocation{VK_NULL_HANDLE};

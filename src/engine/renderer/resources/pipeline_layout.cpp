@@ -6,30 +6,21 @@
 
 #include <volk/volk.h>
 
+#include "engine/renderer/resource_manager.h"
 #include "engine/renderer/vk_helpers.h"
 
 namespace will_engine::renderer
 {
-void PipelineLayout::release(VulkanContext& context)
+PipelineLayout::PipelineLayout(ResourceManager* resourceManager, const VkPipelineLayoutCreateInfo& createInfo) : VulkanResource(resourceManager)
 {
-    if (!m_destroyed) {
-        if (layout != VK_NULL_HANDLE) {
-            vkDestroyPipelineLayout(context.device, layout, nullptr);
-            layout = VK_NULL_HANDLE;
-        }
-        m_destroyed = true;
-    }
+    VK_CHECK(vkCreatePipelineLayout(manager->getDevice(), &createInfo, nullptr, &layout));
 }
 
-bool PipelineLayout::isValid() const
+PipelineLayout::~PipelineLayout()
 {
-    return !m_destroyed && layout != VK_NULL_HANDLE;
-}
-PipelineLayout PipelineLayout::create(VkDevice device, const VkPipelineLayoutCreateInfo& createInfo)
-{
-    PipelineLayout newPipelineLayout{};
-    VK_CHECK(vkCreatePipelineLayout(device, &createInfo, nullptr, &newPipelineLayout.layout));
-    newPipelineLayout.m_destroyed = false;
-    return newPipelineLayout;
+    if (layout != VK_NULL_HANDLE) {
+        vkDestroyPipelineLayout(manager->getDevice(), layout, nullptr);
+        layout = VK_NULL_HANDLE;
+    }
 }
 }

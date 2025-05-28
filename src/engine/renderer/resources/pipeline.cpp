@@ -6,39 +6,25 @@
 
 #include <volk/volk.h>
 
-#include "engine/renderer/vk_helpers.h"
+#include "engine/renderer/resource_manager.h"
 
 namespace will_engine::renderer
 {
-void Pipeline::release(VulkanContext& context)
+Pipeline::Pipeline(ResourceManager* resourceManager, const VkComputePipelineCreateInfo& createInfo) : VulkanResource(resourceManager)
 {
-    if (!m_destroyed) {
-        if (pipeline != VK_NULL_HANDLE) {
-            vkDestroyPipeline(context.device, pipeline, nullptr);
-            pipeline = VK_NULL_HANDLE;
-        }
-        m_destroyed = true;
+    VK_CHECK(vkCreateComputePipelines(resourceManager->getDevice(), VK_NULL_HANDLE, 1, &createInfo, nullptr, &pipeline));
+}
+
+Pipeline::Pipeline(ResourceManager* resourceManager, const VkGraphicsPipelineCreateInfo& createInfo) : VulkanResource(resourceManager)
+{
+    VK_CHECK(vkCreateGraphicsPipelines(resourceManager->getDevice(), VK_NULL_HANDLE, 1, &createInfo, nullptr, &pipeline));
+}
+
+Pipeline::~Pipeline()
+{
+    if (pipeline != VK_NULL_HANDLE) {
+        vkDestroyPipeline(manager->getDevice(), pipeline, nullptr);
+        pipeline = VK_NULL_HANDLE;
     }
-}
-
-bool Pipeline::isValid() const
-{
-    return !m_destroyed && pipeline != VK_NULL_HANDLE;
-}
-
-Pipeline Pipeline::createCompute(VkDevice device, const VkComputePipelineCreateInfo& createInfo)
-{
-    Pipeline newPipeline{};
-    VK_CHECK(vkCreateComputePipelines(device, VK_NULL_HANDLE, 1, &createInfo, nullptr, &newPipeline.pipeline));
-    newPipeline.m_destroyed = false;
-    return newPipeline;
-}
-
-Pipeline Pipeline::createRender(VkDevice device, const VkGraphicsPipelineCreateInfo& createInfo)
-{
-    Pipeline newPipeline{};
-    VK_CHECK(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &createInfo, nullptr, &newPipeline.pipeline));
-    newPipeline.m_destroyed = false;
-    return newPipeline;
 }
 }

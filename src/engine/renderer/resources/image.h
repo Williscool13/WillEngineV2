@@ -12,9 +12,8 @@
 
 namespace will_engine::renderer
 {
-class Image final : public ImageResource
+struct Image final : ImageResource
 {
-public:
     VmaAllocation allocation{VK_NULL_HANDLE};
 
     Image(ResourceManager* resourceManager, const VkImageCreateInfo& createInfo);

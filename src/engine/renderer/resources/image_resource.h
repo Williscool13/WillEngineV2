@@ -12,9 +12,8 @@
 
 namespace will_engine::renderer
 {
-class ImageResource : public VulkanResource
+struct ImageResource : VulkanResource
 {
-public:
     VkImage image{VK_NULL_HANDLE};
     VkFormat imageFormat{VK_FORMAT_UNDEFINED};
     VkExtent3D imageExtent{};

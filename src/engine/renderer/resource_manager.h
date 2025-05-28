@@ -208,7 +208,7 @@ public:
         return std::make_shared<T>(this, std::forward<Args>(args)...);
     }
 
-public: // Special Helpers
+public: // Special helpers for unique resources
     std::unique_ptr<Image> createCubemapImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) {
         VkImageCreateInfo createInfo = vk_helpers::imageCreateInfo(format, usage, size);
         if (mipmapped) {

@@ -11,9 +11,8 @@
 
 namespace will_engine::renderer
 {
-class Sampler : public VulkanResource
+struct Sampler : VulkanResource
 {
-public:
     VkSampler sampler{VK_NULL_HANDLE};
 
     Sampler(ResourceManager* mgr, const VkSamplerCreateInfo& createInfo);

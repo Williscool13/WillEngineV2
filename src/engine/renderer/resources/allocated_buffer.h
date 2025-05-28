@@ -17,74 +17,38 @@ namespace will_engine::renderer
 /**
  * A wrapper for a VkBuffer with VMA allocation.
  */
-class AllocatedBuffer final : public VulkanResource
+struct AllocatedBuffer final : VulkanResource
 {
-public:
     VkBuffer buffer{VK_NULL_HANDLE};
     VmaAllocation allocation{VK_NULL_HANDLE};
     VmaAllocationInfo info{};
 
-    AllocatedBuffer() = default;
-
-    ~AllocatedBuffer() override
+    enum class BufferType
     {
-        assert(m_destroyed && "Resource not properly destroyed before destructor!");
-    }
+        HostSequential,
+        HostRandom,
+        Device,
+        Staging,
+        Receiving,
+        Custom
+    };
 
-    void release(VulkanContext& context) override;
+    AllocatedBuffer(ResourceManager* resourceManager, BufferType type, size_t size, VkBufferUsageFlags additionalUsages = 0);
 
-    bool isValid() const override;
+    AllocatedBuffer(ResourceManager* resourceManager, size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
 
-    static AllocatedBuffer create(VmaAllocator allocator, size_t allocSize,
-                                  VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
-
-    static AllocatedBuffer createHostSequential(VmaAllocator allocator, size_t allocSize,
-                                                VkBufferUsageFlags additionalUsages = 0);
-
-    static AllocatedBuffer createHostRandom(VmaAllocator allocator, size_t allocSize,
-                                            VkBufferUsageFlags additionalUsages = 0);
-
-    static AllocatedBuffer createDevice(VmaAllocator allocator, size_t allocSize,
-                                        VkBufferUsageFlags additionalUsages = 0);
-
-    static AllocatedBuffer createStaging(VmaAllocator allocator, size_t allocSize);
-
-    static AllocatedBuffer createReceiving(VmaAllocator allocator, size_t allocSize);
-
-    // No copying
-    AllocatedBuffer(const AllocatedBuffer&) = delete;
-
-    AllocatedBuffer& operator=(const AllocatedBuffer&) = delete;
-
-    // Move constructor
-    AllocatedBuffer(AllocatedBuffer&& other) noexcept
-        : buffer(std::exchange(other.buffer, VK_NULL_HANDLE))
-          , allocation(std::exchange(other.allocation, VK_NULL_HANDLE))
-          , info(std::exchange(other.info, {}))
-          , m_destroyed(other.m_destroyed)
-    {
-        other.m_destroyed = true;
-    }
-
-    AllocatedBuffer& operator=(AllocatedBuffer&& other) noexcept
-    {
-        if (this != &other) {
-            buffer = std::exchange(other.buffer, VK_NULL_HANDLE);
-            allocation = std::exchange(other.allocation, VK_NULL_HANDLE);
-            info = std::exchange(other.info, {});
-            m_destroyed = other.m_destroyed;
-            other.m_destroyed = true;
-        }
-        return *this;
-    }
-
-
+    ~AllocatedBuffer() override;
 
 private:
-    static AllocatedBuffer createInternal(VmaAllocator allocator, const VkBufferCreateInfo& bufferInfo, const VmaAllocationCreateInfo& allocInfo);
+    struct BufferConfig
+    {
+        VkBufferUsageFlags usage;
+        VmaAllocationCreateFlags allocFlags;
+        VmaMemoryUsage memoryUsage;
+        VkMemoryPropertyFlags requiredFlags;
+    };
 
-private:
-    bool m_destroyed{true};
+    static BufferConfig getBufferConfig(BufferType type, VkBufferUsageFlags additionalUsages);
 };
 }
 

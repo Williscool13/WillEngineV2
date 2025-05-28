@@ -9,7 +9,7 @@ namespace will_engine::renderer
 {
 class ResourceManager;
 
-class VulkanResource
+struct VulkanResource
 {
 protected:
     ResourceManager* manager;
