@@ -34,6 +34,7 @@
 #include "engine/renderer/pipelines/shadows/ground_truth_ambient_occlusion/ground_truth_ambient_occlusion_pipeline.h"
 #include "engine/renderer/pipelines/visibility_pass/visibility_pass_pipeline.h"
 #include "engine/renderer/pipelines/visibility_pass/visibility_pass_pipeline_types.h"
+#include "engine/renderer/resources/image.h"
 #include "engine/util/file.h"
 #include "engine/util/halton.h"
 #if  WILL_ENGINE_DEBUG_DRAW
@@ -184,7 +185,6 @@ void Engine::init()
     profiler.addTimer("1Game");
     profiler.addTimer("2Render");
     profiler.addTimer("3Total");
-
 }
 
 void Engine::initRenderer()
@@ -216,14 +216,14 @@ void Engine::initRenderer()
     contactShadowsPipeline = new renderer::ContactShadowsPipeline(*resourceManager);
     startupProfiler.addEntry("Init SSS Pass");
     deferredResolvePipeline = new renderer::DeferredResolvePipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
-                                                                            cascadedShadowMap->getCascadedShadowMapUniformLayout(),
-                                                                            cascadedShadowMap->getCascadedShadowMapSamplerLayout());
+                                                                    cascadedShadowMap->getCascadedShadowMapUniformLayout(),
+                                                                    cascadedShadowMap->getCascadedShadowMapSamplerLayout());
     startupProfiler.addEntry("Init Deferred Resolve Pass");
     temporalAntialiasingPipeline = new renderer::TemporalAntialiasingPipeline(*resourceManager);
     startupProfiler.addEntry("Init TAA Pass");
     transparentPipeline = new renderer::TransparentPipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
-                                                                        cascadedShadowMap->getCascadedShadowMapUniformLayout(),
-                                                                        cascadedShadowMap->getCascadedShadowMapSamplerLayout());
+                                                            cascadedShadowMap->getCascadedShadowMapUniformLayout(),
+                                                            cascadedShadowMap->getCascadedShadowMapSamplerLayout());
     startupProfiler.addEntry("Init Transparent Pass");
     postProcessPipeline = new renderer::PostProcessPipeline(*resourceManager);
     startupProfiler.addEntry("Init PP Pass");
@@ -241,13 +241,13 @@ void Engine::initRenderer()
         velocityRenderTarget.imageView,
         ambientOcclusionPipeline->getAmbientOcclusionRenderTarget(),
         contactShadowsPipeline->getContactShadowRenderTarget(),
-        drawImage.imageView,
+        drawImage->imageView,
         resourceManager->getDefaultSamplerLinear()
     };
     deferredResolvePipeline->setupDescriptorBuffer(deferredResolveDescriptor);
 
     const renderer::TemporalAntialiasingDescriptor temporalAntialiasingDescriptor{
-        drawImage.imageView,
+        drawImage->imageView,
         historyBuffer.imageView,
         depthImageView.imageView,
         velocityRenderTarget.imageView,
@@ -614,10 +614,14 @@ void Engine::render(float deltaTime)
 
     cascadedShadowMap->draw(cmd, csmDrawInfo);
 
-    vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, drawImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    drawImage->imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    depthStencilImage->imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
 
-    vk_helpers::imageBarrier(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+    vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, drawImage.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+
+    vk_helpers::imageBarrier(cmd, depthStencilImage.get(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                              VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+
     vk_helpers::imageBarrier(cmd, normalRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                              VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::imageBarrier(cmd, albedoRenderTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -725,10 +729,9 @@ void Engine::render(float deltaTime)
                              VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::imageBarrier(cmd, velocityRenderTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                              VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::imageBarrier(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                             VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    vk_helpers::imageBarrier(cmd, depthStencilImage.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                              VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
-    vk_helpers::imageBarrier(cmd, drawImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::imageBarrier(cmd, drawImage.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     renderer::GTAODrawInfo gtaoDrawInfo{
         fallbackCamera,
@@ -768,16 +771,15 @@ void Engine::render(float deltaTime)
     };
     deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);
 
-    vk_helpers::imageBarrier(cmd, drawImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::imageBarrier(cmd, drawImage.get(), VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     renderer::TransparentCompositeDrawInfo compositeDrawInfo{
-        drawImage.imageView
+        drawImage->imageView
     };
     if (bDrawTransparents) {
         transparentPipeline->drawComposite(cmd, compositeDrawInfo);
     }
 
-    vk_helpers::imageBarrier(cmd, drawImage.image, VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                             VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::imageBarrier(cmd, drawImage.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     const VkImageLayout originLayout = frameNumber == 0 ? VK_IMAGE_LAYOUT_UNDEFINED : VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
     vk_helpers::imageBarrier(cmd, historyBuffer.image, originLayout, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     vk_helpers::imageBarrier(cmd, taaResolveTarget.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -816,9 +818,7 @@ void Engine::render(float deltaTime)
     if (bDrawDebugRendering) {
         vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, debugTarget.image, VK_IMAGE_LAYOUT_UNDEFINED,
                                     VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, {0.0f, 0.0f, 0.0f, 0.0f});
-        vk_helpers::imageBarrier(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                 VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                                 VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+        vk_helpers::imageBarrier(cmd, depthStencilImage.get(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
 
         renderer::DebugRendererDrawInfo debugRendererDrawInfo{
@@ -835,7 +835,7 @@ void Engine::render(float deltaTime)
 
         renderer::DebugHighlighterDrawInfo highlightDrawInfo{
             nullptr,
-            depthStencilImage.imageView,
+            depthStencilImage->imageView,
             sceneDataDescriptorBuffer.getBindingInfo(),
             sceneDataDescriptorBuffer.getDescriptorBufferSize() * currentFrameOverlap
         };
@@ -849,22 +849,18 @@ void Engine::render(float deltaTime)
         }
 
         if (stencilDrawn) {
-            vk_helpers::imageBarrier(cmd, debugTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                     VK_IMAGE_LAYOUT_GENERAL,
+            vk_helpers::imageBarrier(cmd, debugTarget.image, VK_IMAGE_LAYOUT_GENERAL,
                                      VK_IMAGE_ASPECT_COLOR_BIT);
-            vk_helpers::imageBarrier(cmd, depthStencilImage.image, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL,
-                                     VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+            vk_helpers::imageBarrier(cmd, depthStencilImage.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
             debugHighlighter->drawHighlightProcessing(cmd, highlightDrawInfo);
 
 
-            vk_helpers::imageBarrier(cmd, debugTarget.image, VK_IMAGE_LAYOUT_GENERAL,
-                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            vk_helpers::imageBarrier(cmd, debugTarget.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                      VK_IMAGE_ASPECT_COLOR_BIT);
         }
         else {
-            vk_helpers::imageBarrier(cmd, debugTarget.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            vk_helpers::imageBarrier(cmd, debugTarget.image, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                      VK_IMAGE_ASPECT_COLOR_BIT);
         }
 
@@ -987,7 +983,6 @@ void Engine::cleanup()
         vkDestroySemaphore(context->device, frame._swapchainSemaphore, nullptr);
     }
 
-    resourceManager->destroyResource(std::move(drawImage));
     resourceManager->destroyResource(std::move(drawImage));
     resourceManager->destroyResource(std::move(depthStencilImage));
     resourceManager->destroyResource(std::move(depthImageView));
@@ -1164,44 +1159,38 @@ void Engine::createDrawResources()
 {
     // Draw Image
     {
-        drawImage.imageFormat = DRAW_FORMAT;
         constexpr VkExtent3D drawImageExtent = {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1};
-        drawImage.imageExtent = drawImageExtent;
         VkImageUsageFlags drawImageUsages{};
         drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         drawImageUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
         drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
         drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         drawImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
-        VkImageCreateInfo renderImageInfo = vk_helpers::imageCreateInfo(drawImage.imageFormat, drawImageUsages, drawImageExtent);
+        VkImageCreateInfo createInfo = vk_helpers::imageCreateInfo(DRAW_FORMAT, drawImageUsages, drawImageExtent);
 
         VmaAllocationCreateInfo renderImageAllocationInfo = {};
         renderImageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         renderImageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-        VkImageViewCreateInfo renderViewInfo = vk_helpers::imageviewCreateInfo(drawImage.imageFormat, drawImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
-
-        drawImage = resourceManager->createImage(renderImageInfo, renderImageAllocationInfo, renderViewInfo);
+        VkImageViewCreateInfo renderViewInfo = vk_helpers::imageviewCreateInfo(DRAW_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
+        drawImage = resourceManager->createResource<renderer::ImageWithView>(createInfo, renderImageAllocationInfo, renderViewInfo);
     }
     // Depth Image
     {
-        depthStencilImage.imageFormat = DEPTH_STENCIL_FORMAT;
         constexpr VkExtent3D depthImageExtent = {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1};
-        depthStencilImage.imageExtent = depthImageExtent;
         VkImageUsageFlags depthImageUsages{};
         depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
         depthImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         depthImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
-        VkImageCreateInfo depthImageInfo = vk_helpers::imageCreateInfo(depthStencilImage.imageFormat, depthImageUsages, depthImageExtent);
+        VkImageCreateInfo depthImageInfo = vk_helpers::imageCreateInfo(DEPTH_STENCIL_FORMAT, depthImageUsages, depthImageExtent);
 
         VmaAllocationCreateInfo depthImageAllocationInfo = {};
         depthImageAllocationInfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
         depthImageAllocationInfo.requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
 
-        VkImageViewCreateInfo combinedViewInfo = vk_helpers::imageviewCreateInfo(depthStencilImage.imageFormat, depthStencilImage.image,
-                                                                                 VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+        VkImageViewCreateInfo combinedViewInfo = vk_helpers::imageviewCreateInfo(DEPTH_STENCIL_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
-        depthStencilImage = resourceManager->createImage(depthImageInfo, depthImageAllocationInfo, combinedViewInfo);
+        depthStencilImage = resourceManager->createResource<renderer::ImageWithView>(depthImageInfo, depthImageAllocationInfo, combinedViewInfo);
 
         VkImageViewCreateInfo depthViewInfo = vk_helpers::imageviewCreateInfo(depthStencilImage.imageFormat, depthStencilImage.image,
                                                                               VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -1230,7 +1219,7 @@ void Engine::createDrawResources()
             const VkImageCreateInfo imageInfo = vk_helpers::imageCreateInfo(renderTarget.imageFormat, usageFlags, imageExtent);
 
             VkImageViewCreateInfo imageViewInfo = vk_helpers::imageviewCreateInfo(renderTarget.imageFormat, renderTarget.image,
-                                                                                        VK_IMAGE_ASPECT_COLOR_BIT);
+                                                                                  VK_IMAGE_ASPECT_COLOR_BIT);
 
             return resourceManager->createImage(imageInfo, renderImageAllocationInfo, imageViewInfo);
 
@@ -1263,7 +1252,6 @@ void Engine::createDrawResources()
             taaResolveTarget.imageFormat, taaResolveTarget.image, VK_IMAGE_ASPECT_COLOR_BIT);
 
         taaResolveTarget = resourceManager->createImage(taaResolveImageInfo, taaResolveAllocationInfo, taaResolveImageViewInfo);
-
     }
     // Draw History
     {

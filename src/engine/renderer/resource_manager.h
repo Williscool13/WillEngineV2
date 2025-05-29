@@ -64,13 +64,10 @@ using VulkanResourceVariant = std::variant<
 
 struct DestructionQueue
 {
-    std::vector<VulkanResourceVariant> resources{};
+    std::vector<std::unique_ptr<VulkanResource>> resources{};
 
-    void flush(VulkanContext& context)
+    void flush()
     {
-        for (auto& resource : resources) {
-            std::visit([&](auto& res) { res.release(context); }, resource);
-        }
         resources.clear();
     }
 };
@@ -124,29 +121,16 @@ private:
     int32_t lastKnownFrameOverlap{0};
 
 public:
-    template<typename T>
-    void destroyResource(T&& resource)
+    void destroyResource(std::unique_ptr<VulkanResource> resource)
     {
-        if (!resource.isValid()) { return; }
-        static_assert(std::is_base_of_v<VulkanResource, std::decay_t<T> >,
-                      "T must derive from VulkanResource");
-
-        destructionQueues[lastKnownFrameOverlap].resources.emplace_back(std::forward<T>(resource));
+        if (!resource) { return; }
+        destructionQueues[lastKnownFrameOverlap].resources.emplace_back(std::move(resource));
     }
 
-    /**
-     * Should only be used if the resource is not going to be used by FIF.
-     * \n Usually immediately after using this resource in an immediate submit.
-     * @tparam T
-     * @param resource
-     */
-    template<typename T>
-    void destroyResourceImmediate(T&& resource)
+    void destroyResourceImmediate(std::unique_ptr<VulkanResource> resource)
     {
-        static_assert(std::is_base_of_v<VulkanResource, std::decay_t<T> >,
-                      "T must derive from VulkanResource");
-
-        resource.release(context);
+        if (!resource) { return; }
+        resource.reset(); // explicit cleanup
     }
 
 public: // VkBuffer

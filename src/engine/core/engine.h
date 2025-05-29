@@ -249,13 +249,17 @@ private: // Pipelines
     renderer::PostProcessPipeline* postProcessPipeline{nullptr};
 
 private: // Draw Resources
-    renderer::AllocatedImage drawImage{};
+    std::unique_ptr<renderer::ImageWithView> drawImage;
+    std::unique_ptr<renderer::ImageWithView> depthStencilImage;
+    std::unique_ptr<renderer::ImageView> depthImageView;
+    std::unique_ptr<renderer::ImageView> stencilImageView;
+
     /**
      * Image view in this depth image is VK_IMAGE_ASPECT_DEPTH_BIT
      */
-    renderer::AllocatedImage depthStencilImage{};
-    renderer::ImageView depthImageView{};
-    renderer::ImageView stencilImageView{};
+    // renderer::AllocatedImage depthStencilImage{};
+    // renderer::ImageView depthImageView{};
+    // renderer::ImageView stencilImageView{};
 
     /**
      * 8.8.8 View Normals - 8 unused

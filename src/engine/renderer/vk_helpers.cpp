@@ -14,6 +14,8 @@
 
 #include "immediate_submitter.h"
 #include "resource_manager.h"
+#include "resources/image.h"
+#include "resources/image_with_view.h"
 
 VkImageCreateInfo will_engine::vk_helpers::imageCreateInfo(const VkFormat format, const VkImageUsageFlags usageFlags, const VkExtent3D extent)
 {
@@ -280,6 +282,20 @@ void will_engine::vk_helpers::copyBuffer(VkCommandBuffer cmd, const renderer::Al
     vkCmdCopyBuffer(cmd, src.buffer, dst.buffer, 1, &vertexCopy);
 }
 
+void will_engine::vk_helpers::clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, renderer::ImageWithView* image, VkImageLayout dstLayout, VkClearColorValue clearColor)
+{
+    imageBarrier(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, aspectFlag);
+    VkImageSubresourceRange range{
+        .aspectMask = aspectFlag,
+        .baseMipLevel = 0,
+        .levelCount = 1,
+        .baseArrayLayer = 0,
+        .layerCount = 1
+    };
+    vkCmdClearColorImage(cmd, image->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColor, 1, &range);
+    imageBarrier(cmd, image, dstLayout, aspectFlag);
+}
+
 void will_engine::vk_helpers::clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, VkImage image, VkImageLayout srcLayout,
                                               VkImageLayout dstLayout, VkClearColorValue clearColor)
 {
@@ -295,9 +311,67 @@ void will_engine::vk_helpers::clearColorImage(VkCommandBuffer cmd, VkImageAspect
     imageBarrier(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, dstLayout, aspectFlag);
 }
 
+void will_engine::vk_helpers::imageBarrier(VkCommandBuffer cmd, renderer::Image* image, VkImageLayout targetLayout, VkImageAspectFlags aspectMask)
+{
+    if (image->imageLayout == targetLayout) { return; }
+    VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+    imageBarrier.pNext = nullptr;
+
+    imageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    imageBarrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
+    imageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    imageBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT;
+
+    imageBarrier.oldLayout = image->imageLayout;
+    imageBarrier.newLayout = targetLayout;
+
+    imageBarrier.subresourceRange = imageSubresourceRange(aspectMask);
+    imageBarrier.image = image->image;
+
+    VkDependencyInfo depInfo{};
+    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    depInfo.pNext = nullptr;
+
+    depInfo.imageMemoryBarrierCount = 1;
+    depInfo.pImageMemoryBarriers = &imageBarrier;
+
+    vkCmdPipelineBarrier2(cmd, &depInfo);
+
+    image->imageLayout = targetLayout;
+}
+
+void will_engine::vk_helpers::imageBarrier(VkCommandBuffer cmd, renderer::ImageWithView* image, VkImageLayout targetLayout, VkImageAspectFlags aspectMask)
+{
+    if (image->imageLayout == targetLayout) { return; }
+    VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
+    imageBarrier.pNext = nullptr;
+
+    imageBarrier.srcStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    imageBarrier.srcAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_SHADER_WRITE_BIT;
+    imageBarrier.dstStageMask = VK_PIPELINE_STAGE_2_ALL_COMMANDS_BIT;
+    imageBarrier.dstAccessMask = VK_ACCESS_2_MEMORY_WRITE_BIT | VK_ACCESS_2_MEMORY_READ_BIT | VK_ACCESS_2_SHADER_READ_BIT;
+
+    imageBarrier.oldLayout = image->imageLayout;
+    imageBarrier.newLayout = targetLayout;
+
+    imageBarrier.subresourceRange = imageSubresourceRange(aspectMask);
+    imageBarrier.image = image->image;
+
+    VkDependencyInfo depInfo{};
+    depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
+    depInfo.pNext = nullptr;
+
+    depInfo.imageMemoryBarrierCount = 1;
+    depInfo.pImageMemoryBarriers = &imageBarrier;
+
+    vkCmdPipelineBarrier2(cmd, &depInfo);
+
+    image->imageLayout = targetLayout;
+}
+
 
 void will_engine::vk_helpers::imageBarrier(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout,
-                                              VkImageAspectFlags aspectMask)
+                                           VkImageAspectFlags aspectMask)
 {
     VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
     imageBarrier.pNext = nullptr;
