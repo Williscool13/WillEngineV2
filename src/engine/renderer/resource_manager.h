@@ -57,7 +57,7 @@ struct DestructorImageData
 
 using VulkanResourceVariant = std::variant<
     AllocatedImage, Sampler, ImageView,
-    AllocatedBuffer,
+    Buffer,
     DescriptorSetLayout,
     PipelineLayout, Pipeline,
     DescriptorBufferSampler, DescriptorBufferUniform
@@ -140,40 +140,40 @@ public:
     }
 
 public: // VkBuffer
-    AllocatedBuffer createBuffer(const size_t allocSize, const VkBufferUsageFlags usage, const VmaMemoryUsage memoryUsage) const
+    Buffer createBuffer(const size_t allocSize, const VkBufferUsageFlags usage, const VmaMemoryUsage memoryUsage) const
     {
-        return AllocatedBuffer::create(context.allocator, allocSize, usage, memoryUsage);
+        return Buffer::create(context.allocator, allocSize, usage, memoryUsage);
     }
 
-    AllocatedBuffer createHostSequentialBuffer(const size_t allocSize, const VkBufferUsageFlags additionalUsages = 0) const
+    Buffer createHostSequentialBuffer(const size_t allocSize, const VkBufferUsageFlags additionalUsages = 0) const
     {
-        return AllocatedBuffer::createHostSequential(context.allocator, allocSize, additionalUsages);
+        return Buffer::createHostSequential(context.allocator, allocSize, additionalUsages);
     }
 
-    AllocatedBuffer createHostRandomBuffer(const size_t allocSize, const VkBufferUsageFlags additionalUsages = 0) const
+    Buffer createHostRandomBuffer(const size_t allocSize, const VkBufferUsageFlags additionalUsages = 0) const
     {
-        return AllocatedBuffer::createHostRandom(context.allocator, allocSize, additionalUsages);
+        return Buffer::createHostRandom(context.allocator, allocSize, additionalUsages);
     }
 
-    AllocatedBuffer createDeviceBuffer(const size_t allocSize, const VkBufferUsageFlags additionalUsages = 0) const
+    Buffer createDeviceBuffer(const size_t allocSize, const VkBufferUsageFlags additionalUsages = 0) const
     {
-        return AllocatedBuffer::createDevice(context.allocator, allocSize, additionalUsages);
+        return Buffer::createDevice(context.allocator, allocSize, additionalUsages);
     }
 
-    AllocatedBuffer createStagingBuffer(const size_t allocSize) const
+    Buffer createStagingBuffer(const size_t allocSize) const
     {
-        return AllocatedBuffer::createStaging(context.allocator, allocSize);
+        return Buffer::createStaging(context.allocator, allocSize);
     }
 
-    AllocatedBuffer createReceivingBuffer(const size_t allocSize) const
+    Buffer createReceivingBuffer(const size_t allocSize) const
     {
-        return AllocatedBuffer::createReceiving(context.allocator, allocSize);
+        return Buffer::createReceiving(context.allocator, allocSize);
     }
 
 public: // VkBuffer Helpers
-    void copyBufferImmediate(const AllocatedBuffer& src, const AllocatedBuffer& dst, VkDeviceSize size) const;
+    void copyBufferImmediate(const Buffer& src, const Buffer& dst, VkDeviceSize size) const;
 
-    void copyBufferImmediate(const AllocatedBuffer& src, const AllocatedBuffer& dst, VkDeviceSize size,
+    void copyBufferImmediate(const Buffer& src, const Buffer& dst, VkDeviceSize size,
                              VkDeviceSize offset) const;
 
     /**
@@ -183,7 +183,8 @@ public: // VkBuffer Helpers
      */
     void copyBufferImmediate(std::span<BufferCopyInfo> bufferCopyInfos) const;
 
-    [[nodiscard]] VkDeviceAddress getBufferAddress(const AllocatedBuffer& buffer) const;
+    [[nodiscard]] VkDeviceAddress getBufferAddress(const Buffer& buffer) const;
+    [[nodiscard]] VkDeviceAddress getBufferAddress(VkBuffer buffer) const;
 
 public:
     template<typename T, typename... Args>
@@ -199,19 +200,9 @@ public:
     }
 
 public: // Special helpers for unique resources
-    ImageWithViewPtr createCubemapImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false)
-    {
-        VkImageCreateInfo createInfo = vk_helpers::imageCreateInfo(format, usage, size);
-        if (mipmapped) {
-            createInfo.mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(size.width, size.height)))) + 1;
-        }
-        createInfo.arrayLayers = 6;
-        createInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+    ImageResourcePtr createCubemapImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
 
-        return createResource<ImageWithView>(createInfo);
-    }
-
-    ImageWithViewPtr createImageFromData(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+    ImageResourcePtr createImageFromData(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
 
 public: // Shader Module
     // todo :shader modules is handled a little differently

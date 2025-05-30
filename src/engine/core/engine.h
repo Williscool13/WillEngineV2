@@ -139,7 +139,7 @@ private:
     renderer::DebugRenderer* debugRenderer{nullptr};
     renderer::DebugHighlighter* debugHighlighter{nullptr};
     renderer::DebugCompositePipeline* debugPipeline{nullptr};
-    std::unique_ptr<renderer::ImageWithView> debugTarget{};
+    renderer::ImageResourcePtr debugTarget{};
 #endif
     // Might be used in imgui which can be active outside of debug build
     IHierarchical* selectedItem{nullptr};
@@ -217,8 +217,8 @@ public:
 
 private: // Scene Data
     renderer::DescriptorBufferUniformPtr sceneDataDescriptorBuffer;
-    std::array<renderer::AllocatedBufferPtr, FRAME_OVERLAP> sceneDataBuffers;
-    renderer::AllocatedBufferPtr debugSceneDataBuffer{nullptr};
+    std::array<renderer::BufferPtr, FRAME_OVERLAP> sceneDataBuffers;
+    renderer::BufferPtr debugSceneDataBuffer{nullptr};
 
     /**
      * Should always exist and be used if no other camera is in the scene (todo: camera system)
@@ -256,38 +256,38 @@ private: // Pipelines
     renderer::PostProcessPipeline* postProcessPipeline{nullptr};
 
 private: // Draw Resources
-    renderer::ImageWithViewPtr drawImage{nullptr};
-    renderer::ImageWithViewPtr depthStencilImage{nullptr};
+    renderer::ImageResourcePtr drawImage{nullptr};
+    renderer::ImageResourcePtr depthStencilImage{nullptr};
     renderer::ImageViewPtr depthImageView{nullptr};
     renderer::ImageViewPtr stencilImageView{nullptr};
 
     /**
      * 10,10,10 View Normals - 2 unused
      */
-    renderer::ImageWithViewPtr normalRenderTarget{nullptr};
+    renderer::ImageResourcePtr normalRenderTarget{nullptr};
     /**
      * 16,16,16 RGB Albedo (HDR) - 16 indicates if the image should be shaded
      */
-    renderer::ImageWithViewPtr albedoRenderTarget{nullptr};
+    renderer::ImageResourcePtr albedoRenderTarget{nullptr};
     /**
      * 8 Metallic, 8 Roughness, 8 Unused, 8 Is Transparent
      */
-    renderer::ImageWithViewPtr pbrRenderTarget{nullptr};
+    renderer::ImageResourcePtr pbrRenderTarget{nullptr};
     /**
      * 16 X and 16 Y
      */
-    renderer::ImageWithViewPtr velocityRenderTarget{nullptr};
+    renderer::ImageResourcePtr velocityRenderTarget{nullptr};
     /**
     * The results of the TAA pass will be outputted into this buffer
     */
-    renderer::ImageWithViewPtr taaResolveTarget{nullptr};
+    renderer::ImageResourcePtr taaResolveTarget{nullptr};
 
     /**
      * A copy of the previous TAA Resolve Buffer
      */
-    renderer::ImageWithViewPtr historyBuffer{nullptr};
+    renderer::ImageResourcePtr historyBuffer{nullptr};
 
-    renderer::ImageWithViewPtr finalImageBuffer{nullptr};
+    renderer::ImageResourcePtr finalImageBuffer{nullptr};
 
 private: // Swapchain
     VkSwapchainKHR swapchain{};

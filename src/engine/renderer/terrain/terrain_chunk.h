@@ -45,8 +45,8 @@ public:
     }
 
 public:
-    [[nodiscard]] const renderer::AllocatedBuffer& getVertexBuffer() const { return vertexBuffer; }
-    [[nodiscard]] const renderer::AllocatedBuffer& getIndexBuffer() const { return indexBuffer; }
+    [[nodiscard]] const renderer::Buffer& getVertexBuffer() const { return vertexBuffer; }
+    [[nodiscard]] const renderer::Buffer& getIndexBuffer() const { return indexBuffer; }
 
     [[nodiscard]] size_t getIndexCount() const { return indices.size(); }
     const std::vector<uint32_t>& getIndices() { return indices; }
@@ -84,13 +84,13 @@ private: // Model Data
     std::vector<uint32_t> indices;
 
 private: // Buffer Data
-    renderer::AllocatedBuffer vertexBuffer{};
-    renderer::AllocatedBuffer indexBuffer{};
+    renderer::Buffer vertexBuffer{};
+    renderer::Buffer indexBuffer{};
 
     renderer::DescriptorBufferSampler textureDescriptorBuffer;
     renderer::DescriptorBufferUniform uniformDescriptorBuffer;
 
-    std::array<renderer::AllocatedBuffer, FRAME_OVERLAP> terrainUniformBuffers{};
+    std::array<renderer::Buffer, FRAME_OVERLAP> terrainUniformBuffers{};
     std::vector<std::shared_ptr<renderer::TextureResource> > textureResources{};
     int32_t bufferFramesToUpdate{FRAME_OVERLAP};
 

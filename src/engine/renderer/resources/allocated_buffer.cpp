@@ -9,7 +9,7 @@
 
 namespace will_engine::renderer
 {
-AllocatedBuffer::AllocatedBuffer(ResourceManager* resourceManager, BufferType type, size_t size,
+Buffer::Buffer(ResourceManager* resourceManager, BufferType type, size_t size,
                                  VkBufferUsageFlags additionalUsages) : VulkanResource(resourceManager)
 {
     auto [bufferUsage, allocFlags, memoryUsage, requiredFlags] = getBufferConfig(type, additionalUsages);
@@ -30,7 +30,7 @@ AllocatedBuffer::AllocatedBuffer(ResourceManager* resourceManager, BufferType ty
     VK_CHECK(vmaCreateBuffer(resourceManager->getAllocator(), &bufferInfo, &allocInfo, &buffer, &allocation, &info));
 }
 
-AllocatedBuffer::AllocatedBuffer(ResourceManager* resourceManager, size_t size, VkBufferUsageFlags usage,
+Buffer::Buffer(ResourceManager* resourceManager, size_t size, VkBufferUsageFlags usage,
                                  VmaMemoryUsage memoryUsage) : VulkanResource(resourceManager)
 {
     const VkBufferCreateInfo bufferInfo = {
@@ -48,7 +48,7 @@ AllocatedBuffer::AllocatedBuffer(ResourceManager* resourceManager, size_t size, 
     VK_CHECK(vmaCreateBuffer(resourceManager->getAllocator(), &bufferInfo, &allocInfo, &buffer, &allocation, &info));
 }
 
-AllocatedBuffer::BufferConfig AllocatedBuffer::getBufferConfig(BufferType type, VkBufferUsageFlags additionalUsages)
+Buffer::BufferConfig Buffer::getBufferConfig(BufferType type, VkBufferUsageFlags additionalUsages)
 {
     switch (type) {
         case BufferType::HostSequential:
@@ -92,7 +92,7 @@ AllocatedBuffer::BufferConfig AllocatedBuffer::getBufferConfig(BufferType type, 
     }
 }
 
-AllocatedBuffer::~AllocatedBuffer()
+Buffer::~Buffer()
 {
     if (buffer != VK_NULL_HANDLE) {
         vmaDestroyBuffer(manager->getAllocator(), buffer, allocation);

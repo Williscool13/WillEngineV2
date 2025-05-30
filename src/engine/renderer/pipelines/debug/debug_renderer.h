@@ -105,18 +105,18 @@ private:
     // for custom debug draws from Jolt. For primitives use the instanced draws instead.
     std::vector<DebugRendererVertexFull> lineVertices{};
     std::array<int64_t, FRAME_OVERLAP> lineVertexBufferSizes{0, 0};
-    std::array<AllocatedBuffer, FRAME_OVERLAP> lineVertexBuffers{};
+    std::array<Buffer, FRAME_OVERLAP> lineVertexBuffers{};
 
     std::vector<DebugRendererVertexFull> triangleVertices{};
     std::array<int64_t, FRAME_OVERLAP> triangleVertexBufferSizes{0, 0};
-    std::array<AllocatedBuffer, FRAME_OVERLAP> triangleVertexBuffers{};
+    std::array<Buffer, FRAME_OVERLAP> triangleVertexBuffers{};
 
     DescriptorSetLayout uniformLayout{};
 
     std::vector<DebugRendererVertex> instancedVertices{};
     std::vector<uint32_t> instancedIndices{};
-    AllocatedBuffer instancedVertexBuffer{};
-    AllocatedBuffer instancedIndexBuffer{};
+    Buffer instancedVertexBuffer{};
+    Buffer instancedIndexBuffer{};
 
     /**
      * 0 = box, 1 = sphere

@@ -1020,7 +1020,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                                 currentlySelectedTexture = randomTexture->getTextureResource();
                                 currentlySelectedTextureImguiId = ImGui_ImplVulkan_AddTexture(
-                                    engine->resourceManager->getDefaultSamplerLinear(), currentlySelectedTexture->getTexture().imageView,
+                                    engine->resourceManager->getDefaultSamplerLinear(), currentlySelectedTexture->getImageView(),
                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
                             }
                         }
@@ -1050,7 +1050,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                                     currentlySelectedTexture = texture->getTextureResource();
                                     currentlySelectedTextureImguiId = ImGui_ImplVulkan_AddTexture(
-                                        engine->resourceManager->getDefaultSamplerLinear(), currentlySelectedTexture->getTexture().imageView,
+                                        engine->resourceManager->getDefaultSamplerLinear(), currentlySelectedTexture->getImageView(),
                                         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
                                 }
                             }
@@ -1065,7 +1065,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             float maxSize = ImGui::GetContentRegionAvail().x;
                             maxSize = glm::min(maxSize, 512.0f);
 
-                            VkExtent3D imageExtent = currentlySelectedTexture->getTexture().imageExtent;
+                            VkExtent3D imageExtent = currentlySelectedTexture->getExtent();
                             float width = std::min(maxSize, static_cast<float>(imageExtent.width));
                             float aspectRatio = static_cast<float>(imageExtent.width) / static_cast<float>(imageExtent.height);
                             float height = width / aspectRatio;

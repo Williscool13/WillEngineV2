@@ -129,23 +129,23 @@ public: // Model Rendering API
     [[nodiscard]] bool canDraw() const { return freeInstanceIndices.size() != currentMaxInstanceCount; }
     [[nodiscard]] bool canDrawOpaque() const { return opaqueDrawCommands.size() > 0; }
     [[nodiscard]] bool canDrawTransparent() const { return transparentDrawCommands.size() > 0; }
-    [[nodiscard]] const DescriptorBufferUniform& getAddressesDescriptorBuffer() const { return addressesDescriptorBuffer; }
-    [[nodiscard]] const DescriptorBufferSampler& getTextureDescriptorBuffer() const { return textureDescriptorBuffer; }
-    [[nodiscard]] const DescriptorBufferUniform& getFrustumCullingAddressesDescriptorBuffer() { return frustumCullingDescriptorBuffer; }
-    [[nodiscard]] const AllocatedBuffer& getPositionVertexBuffer() const override { return vertexPositionBuffer; }
-    [[nodiscard]] const AllocatedBuffer& getPropertyVertexBuffer() const override { return vertexPropertyBuffer; }
-    [[nodiscard]] const AllocatedBuffer& getIndexBuffer() const override { return indexBuffer; }
+    [[nodiscard]] const DescriptorBufferUniform* getAddressesDescriptorBuffer() const { return addressesDescriptorBuffer.get(); }
+    [[nodiscard]] const DescriptorBufferSampler* getTextureDescriptorBuffer() const { return textureDescriptorBuffer.get(); }
+    [[nodiscard]] const DescriptorBufferUniform* getFrustumCullingAddressesDescriptorBuffer() const { return frustumCullingDescriptorBuffer.get(); }
+    [[nodiscard]] VkBuffer getPositionVertexBuffer() const override { return vertexPositionBuffer ? vertexPositionBuffer->buffer : VK_NULL_HANDLE; }
+    [[nodiscard]] VkBuffer getPropertyVertexBuffer() const override { return vertexPositionBuffer ? vertexPropertyBuffer->buffer : VK_NULL_HANDLE; }
+    [[nodiscard]] VkBuffer getIndexBuffer() const override          { return indexBuffer ? indexBuffer->buffer : VK_NULL_HANDLE; }
 
-    [[nodiscard]] const AllocatedBuffer& getOpaqueIndirectBuffer(const int32_t currentFrameOverlap) const
+    [[nodiscard]] VkBuffer getOpaqueIndirectBuffer(const int32_t currentFrameOverlap) const
     {
-        return opaqueDrawIndirectBuffers[currentFrameOverlap];
+        return opaqueDrawIndirectBuffers[currentFrameOverlap]->buffer;
     }
 
     [[nodiscard]] size_t getOpaqueDrawIndirectCommandCount() const { return opaqueDrawCommands.size(); }
 
-    [[nodiscard]] const AllocatedBuffer& getTransparentIndirectBuffer(const int32_t currentFrameOverlap) const
+    [[nodiscard]] VkBuffer getTransparentIndirectBuffer(const int32_t currentFrameOverlap) const
     {
-        return transparentDrawIndirectBuffers[currentFrameOverlap];
+        return transparentDrawIndirectBuffers[currentFrameOverlap]->buffer;
     }
 
     [[nodiscard]] size_t getTransparentDrawIndirectCommandCount() const { return transparentDrawCommands.size(); }
@@ -174,8 +174,9 @@ private: // Model Data
     std::vector<int32_t> topNodes;
 
 private: // Buffer Data
-    std::vector<Sampler> samplers{};
-    std::vector<AllocatedImage> images{};
+    std::vector<SamplerPtr> samplers{};
+    // todo: refactor this to use the new TextureResource class
+    std::vector<ImageResourcePtr> images{};
 
     std::vector<VkDrawIndexedIndirectCommand> opaqueDrawCommands{};
     std::vector<VkDrawIndexedIndirectCommand> transparentDrawCommands{};
@@ -183,26 +184,27 @@ private: // Buffer Data
     /**
      * Split vertex Position and Properties to improve GPU cache performance for passes that only need position (shadow pass, depth prepass), assuming these passes don't need the other properties of course
      */
-    AllocatedBuffer vertexPositionBuffer{};
-    AllocatedBuffer vertexPropertyBuffer{};
-    AllocatedBuffer indexBuffer{};
-    AllocatedBuffer opaqueDrawIndirectBuffers[FRAME_OVERLAP]{};
-    AllocatedBuffer transparentDrawIndirectBuffers[FRAME_OVERLAP]{};
+    BufferPtr vertexPositionBuffer{};
+    BufferPtr vertexPropertyBuffer{};
+    BufferPtr indexBuffer{};
+    std::array<BufferPtr, FRAME_OVERLAP> opaqueDrawIndirectBuffers{};
+    std::array<BufferPtr, FRAME_OVERLAP> transparentDrawIndirectBuffers{};
 
     // addresses
-    AllocatedBuffer addressBuffers[FRAME_OVERLAP]{};
+    std::array<BufferPtr, FRAME_OVERLAP> addressBuffers{};
     //  the actual buffers
-    AllocatedBuffer materialBuffer{};
-    AllocatedBuffer primitiveDataBuffers[FRAME_OVERLAP]{};
-    AllocatedBuffer modelMatrixBuffers[FRAME_OVERLAP]{};
+    // todo: Material buffer probably also needs to be multi-buffered if it changes at runtime, which it probably should be allowed to
+    BufferPtr materialBuffer{};
+    std::array<BufferPtr, FRAME_OVERLAP> primitiveDataBuffers{};
+    std::array<BufferPtr, FRAME_OVERLAP> modelMatrixBuffers{};
 
-    DescriptorBufferUniform addressesDescriptorBuffer;
-    DescriptorBufferSampler textureDescriptorBuffer;
+    DescriptorBufferUniformPtr addressesDescriptorBuffer{};
+    DescriptorBufferSamplerPtr textureDescriptorBuffer{};
 
-    AllocatedBuffer meshBoundsBuffer{};
-    AllocatedBuffer opaqueCullingAddressBuffers[FRAME_OVERLAP]{};
-    AllocatedBuffer transparentCullingAddressBuffers[FRAME_OVERLAP]{};
-    DescriptorBufferUniform frustumCullingDescriptorBuffer;
+    BufferPtr meshBoundsBuffer{};
+    std::array<BufferPtr, FRAME_OVERLAP> opaqueCullingAddressBuffers{};
+    std::array<BufferPtr, FRAME_OVERLAP> transparentCullingAddressBuffers{};
+    DescriptorBufferUniformPtr frustumCullingDescriptorBuffer{};
 };
 }
 

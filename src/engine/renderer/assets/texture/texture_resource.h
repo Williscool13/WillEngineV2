@@ -7,6 +7,9 @@
 
 #include "texture_types.h"
 #include "engine/renderer/resource_manager.h"
+#include "engine/renderer/resources/image_resource.h"
+#include "engine/renderer/resources/resources_fwd.h"
+
 
 namespace will_engine::renderer
 {
@@ -19,11 +22,12 @@ public:
 
     uint32_t getId() const { return textureId; }
 
-    const AllocatedImage& getTexture() const { return image; }
+    VkImageView getImageView() const { return image->imageView; }
+    VkExtent3D getExtent() const { return image->imageExtent; }
 
 private:
     ResourceManager& resourceManager;
-    AllocatedImage image;
+    ImageResourcePtr image;
 
     uint32_t textureId;
 };

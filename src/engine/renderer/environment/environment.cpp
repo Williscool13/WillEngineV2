@@ -10,6 +10,7 @@
 #include "environment_constants.h"
 #include "engine/renderer/immediate_submitter.h"
 #include "engine/renderer/resource_manager.h"
+#include "engine/renderer/resources/image.h"
 #include "engine/renderer/resources/image_with_view.h"
 #include "engine/util/file.h"
 
@@ -231,7 +232,7 @@ Environment::Environment(ResourceManager& resourceManager, ImmediateSubmitter& i
         usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
         VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(VK_FORMAT_R32G32_SFLOAT, usage, LUT_IMAGE_EXTENT);
-        lutImage = resourceManager.createResource<ImageWithView>(imgInfo);
+        ImageResourcePtr _lutImage = resourceManager.createResource<Image>(imgInfo);
 
         VkDescriptorImageInfo lutDescriptorInfo{};
         lutDescriptorInfo.sampler = nullptr; // not sampled (storage)
@@ -331,7 +332,7 @@ void Environment::loadEnvironment(const char* name, const char* path, int32_t en
         fmt::print("Environment map index out of range ({}). Clamping to 0 - {}\n", environmentMapIndex, MAX_ENVIRONMENT_MAPS - 1);
     }
 
-    ImageWithViewPtr equiImage;
+    ImageResourcePtr equiImage;
     int32_t width, height, channels;
     if (float* imageData = stbi_loadf(newEnvironmentEntry.sourcePath.c_str(), &width, &height, &channels, 4)) {
         equiImage = resourceManager.createImageFromData(imageData, width * height * 4 * sizeof(float),

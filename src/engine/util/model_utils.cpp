@@ -15,7 +15,7 @@
 
 namespace will_engine::renderer
 {
-std::optional<AllocatedImage> model_utils::loadImage(ResourceManager& resourceManager, const fastgltf::Asset& asset, const fastgltf::Image& image,
+ImageResourcePtr model_utils::loadImage(ResourceManager& resourceManager, const fastgltf::Asset& asset, const fastgltf::Image& image,
                                                      const std::filesystem::path& parentFolder)
 {
     AllocatedImage newImage{};

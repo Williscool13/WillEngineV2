@@ -107,7 +107,7 @@ struct DrawIndexedData
 struct DebugRenderGroup
 {
     std::vector<DebugRendererInstance> instances;
-    std::array<AllocatedBuffer, FRAME_OVERLAP> instanceBuffers{};
+    std::array<Buffer, FRAME_OVERLAP> instanceBuffers{};
     std::array<uint64_t, FRAME_OVERLAP> instanceBufferSizes{0, 0};
     DrawIndexedData drawIndexedData{};
     DescriptorBufferUniform instanceDescriptorBuffer;

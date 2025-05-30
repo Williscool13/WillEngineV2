@@ -169,7 +169,6 @@ set(RENDERER_SOURCES
         src/engine/renderer/environment/environment.cpp
         src/engine/renderer/environment/environment.h
         src/engine/renderer/environment/environment_constants.h
-        src/engine/renderer/environment/environment_types.h
         src/engine/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline.cpp
         src/engine/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline.h
         src/engine/renderer/pipelines/geometry/deferred_resolve/deferred_resolve_pipeline.cpp
@@ -303,8 +302,6 @@ set(TEMP_SOURCES
         src/engine/renderer/resources/image.h
         src/engine/renderer/resources/image_ktx.cpp
         src/engine/renderer/resources/image_ktx.h
-        src/engine/renderer/resources/image_with_view.cpp
-        src/engine/renderer/resources/image_with_view.h
         src/engine/renderer/resources/resources_fwd.cpp
         src/engine/renderer/resources/resources_fwd.h
         src/engine/renderer/resources/shader_module.cpp

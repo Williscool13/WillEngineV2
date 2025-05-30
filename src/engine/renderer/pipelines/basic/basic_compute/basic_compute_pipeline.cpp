@@ -22,11 +22,11 @@ BasicComputePipeline::BasicComputePipeline(ResourceManager& resourceManager) : r
     VkPipelineLayoutCreateInfo layoutCreateInfo{};
     layoutCreateInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layoutCreateInfo.pNext = nullptr;
-    layoutCreateInfo.pSetLayouts = &descriptorSetLayout.layout;
+    layoutCreateInfo.pSetLayouts = &descriptorSetLayout->layout;
     layoutCreateInfo.setLayoutCount = 1;
     layoutCreateInfo.pPushConstantRanges = nullptr;
     layoutCreateInfo.pushConstantRangeCount = 0;
-    pipelineLayout = resourceManager.createPipelineLayout(layoutCreateInfo);
+    pipelineLayout = resourceManager.createResource<PipelineLayout>(layoutCreateInfo);
 
     createPipeline();
 

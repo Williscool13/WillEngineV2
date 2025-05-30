@@ -194,12 +194,12 @@ void Engine::initRenderer()
 
     std::vector<DescriptorUniformData> sceneDataBufferData{1};
     for (int i{0}; i < FRAME_OVERLAP; i++) {
-        sceneDataBuffers[i] = resourceManager->createResource<renderer::AllocatedBuffer>(renderer::BufferType::HostSequential, sizeof(SceneData));
+        sceneDataBuffers[i] = resourceManager->createResource<renderer::Buffer>(renderer::BufferType::HostSequential, sizeof(SceneData));
         sceneDataBufferData[0] = DescriptorUniformData{.buffer = sceneDataBuffers[i]->buffer, .allocSize = sizeof(SceneData)};
         sceneDataDescriptorBuffer->setupData(sceneDataBufferData, i);
     }
 
-    debugSceneDataBuffer = resourceManager->createResource<renderer::AllocatedBuffer>(renderer::BufferType::HostSequential, sizeof(SceneData));
+    debugSceneDataBuffer = resourceManager->createResource<renderer::Buffer>(renderer::BufferType::HostSequential, sizeof(SceneData));
     sceneDataBufferData[0] = DescriptorUniformData{.buffer = debugSceneDataBuffer->buffer, .allocSize = sizeof(SceneData)};
     sceneDataDescriptorBuffer->setupData(sceneDataBufferData, FRAME_OVERLAP);
 
@@ -425,8 +425,8 @@ void Engine::updateGame(const float deltaTime)
 
 void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap) const
 {
-    const renderer::AllocatedBuffer* previousSceneDataBuffer = sceneDataBuffers[previousFrameOverlap].get();
-    const renderer::AllocatedBuffer* sceneDataBuffer = sceneDataBuffers[currentFrameOverlap].get();
+    const renderer::Buffer* previousSceneDataBuffer = sceneDataBuffers[previousFrameOverlap].get();
+    const renderer::Buffer* sceneDataBuffer = sceneDataBuffers[currentFrameOverlap].get();
 
     const auto pPreviousSceneData = static_cast<SceneData*>(previousSceneDataBuffer->info.pMappedData);
     assert(pPreviousSceneData != nullptr && "Previous scene data buffer not mapped");
@@ -651,8 +651,8 @@ void Engine::render(float deltaTime)
         depthImageView->imageView,
         sceneDataBinding,
         sceneDataBufferOffset,
-        environmentMap->getCubemapDescriptorBuffer().getBindingInfo(),
-        environmentMap->getCubemapDescriptorBuffer().getDescriptorBufferSize() * environmentMapIndex,
+        environmentMap->getCubemapDescriptorBuffer()->getBindingInfo(),
+        environmentMap->getCubemapDescriptorBuffer()->getDescriptorBufferSize() * environmentMapIndex,
     };
     environmentPipeline->draw(cmd, environmentPipelineDrawInfo);
 
@@ -722,8 +722,8 @@ void Engine::render(float deltaTime)
         allRenderObjects,
         sceneDataBinding,
         sceneDataBufferOffset,
-        environmentMap->getDiffSpecMapDescriptorBuffer().getBindingInfo(),
-        environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferSize() * environmentMapIndex,
+        environmentMap->getDiffSpecMapDescriptorBuffer()->getBindingInfo(),
+        environmentMap->getDiffSpecMapDescriptorBuffer()->getDescriptorBufferSize() * environmentMapIndex,
         cascadedShadowMap->getCascadedShadowMapUniformBuffer().getBindingInfo(),
         cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferSize() * currentFrameOverlap,
         cascadedShadowMap->getCascadedShadowMapSamplerBuffer().getBindingInfo(),
@@ -767,8 +767,8 @@ void Engine::render(float deltaTime)
         csmSettings.pcfLevel,
         sceneDataBinding,
         sceneDataBufferOffset,
-        environmentMap->getDiffSpecMapDescriptorBuffer().getBindingInfo(),
-        environmentMap->getDiffSpecMapDescriptorBuffer().getDescriptorBufferSize() * environmentMapIndex,
+        environmentMap->getDiffSpecMapDescriptorBuffer()->getBindingInfo(),
+        environmentMap->getDiffSpecMapDescriptorBuffer()->getDescriptorBufferSize() * environmentMapIndex,
         cascadedShadowMap->getCascadedShadowMapUniformBuffer().getBindingInfo(),
         cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferSize() * currentFrameOverlap,
         cascadedShadowMap->getCascadedShadowMapSamplerBuffer().getBindingInfo(),
@@ -960,7 +960,7 @@ void Engine::cleanup()
     delete transparentPipeline;
     delete postProcessPipeline;
 
-    for (renderer::AllocatedBufferPtr& sceneBuffer : sceneDataBuffers) {
+    for (renderer::BufferPtr& sceneBuffer : sceneDataBuffers) {
         resourceManager->destroyResource(std::move(sceneBuffer));
     }
     resourceManager->destroyResource(std::move(debugSceneDataBuffer));
@@ -1172,7 +1172,7 @@ void Engine::createDrawResources()
 
 
         VkImageViewCreateInfo renderViewInfo = vk_helpers::imageviewCreateInfo(DRAW_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
-        drawImage = resourceManager->createResource<renderer::ImageWithView>(createInfo, renderImageAllocationInfo, renderViewInfo);
+        drawImage = resourceManager->createResource<renderer::Image>(createInfo, renderImageAllocationInfo, renderViewInfo);
     }
     // Depth Image
     {
@@ -1192,7 +1192,7 @@ void Engine::createDrawResources()
         VkImageViewCreateInfo combinedViewInfo = vk_helpers::imageviewCreateInfo(DEPTH_STENCIL_FORMAT, VK_NULL_HANDLE,
                                                                                  VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
-        depthStencilImage = resourceManager->createResource<renderer::ImageWithView>(depthImageInfo, depthImageAllocationInfo, combinedViewInfo);
+        depthStencilImage = resourceManager->createResource<renderer::Image>(depthImageInfo, depthImageAllocationInfo, combinedViewInfo);
 
         VkImageViewCreateInfo depthViewInfo = vk_helpers::imageviewCreateInfo(depthStencilImage->imageFormat, depthStencilImage->image,
                                                                               VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -1219,7 +1219,7 @@ void Engine::createDrawResources()
 
             VkImageViewCreateInfo imageViewInfo = vk_helpers::imageviewCreateInfo(renderTargetFormat, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
 
-            return resourceManager->createResource<renderer::ImageWithView>(imageInfo, allocInfo, imageViewInfo);
+            return resourceManager->createResource<renderer::Image>(imageInfo, allocInfo, imageViewInfo);
         });
 
         normalRenderTarget = generateRenderTarget(NORMAL_FORMAT);
@@ -1244,7 +1244,7 @@ void Engine::createDrawResources()
 
         VkImageViewCreateInfo imageViewCreateInfo = vk_helpers::imageviewCreateInfo(DRAW_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
 
-        taaResolveTarget = resourceManager->createResource<renderer::ImageWithView>(imageCreateInfo, allocInfo, imageViewCreateInfo);
+        taaResolveTarget = resourceManager->createResource<renderer::Image>(imageCreateInfo, allocInfo, imageViewCreateInfo);
     }
     // Draw History
     {
@@ -1261,7 +1261,7 @@ void Engine::createDrawResources()
         };
 
         VkImageViewCreateInfo imageViewCreateInfo = vk_helpers::imageviewCreateInfo(DRAW_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
-        historyBuffer = resourceManager->createResource<renderer::ImageWithView>(imageCreateInfo, allocInfo, imageViewCreateInfo);
+        historyBuffer = resourceManager->createResource<renderer::Image>(imageCreateInfo, allocInfo, imageViewCreateInfo);
     }
     // Final Image
     {
@@ -1278,7 +1278,7 @@ void Engine::createDrawResources()
         };
 
         VkImageViewCreateInfo imageViewCreateInfo = vk_helpers::imageviewCreateInfo(DRAW_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
-        finalImageBuffer = resourceManager->createResource<renderer::ImageWithView>(imageCreateInfo, allocInfo, imageViewCreateInfo);
+        finalImageBuffer = resourceManager->createResource<renderer::Image>(imageCreateInfo, allocInfo, imageViewCreateInfo);
     }
 
 #if WILL_ENGINE_DEBUG_DRAW
@@ -1294,7 +1294,7 @@ void Engine::createDrawResources()
         .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
     };
     VkImageViewCreateInfo imageViewCreateInfo = vk_helpers::imageviewCreateInfo(DEBUG_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
-    debugTarget = resourceManager->createResource<renderer::ImageWithView>(imageCreateInfo, allocInfo, imageViewCreateInfo);
+    debugTarget = resourceManager->createResource<renderer::Image>(imageCreateInfo, allocInfo, imageViewCreateInfo);
 
 #endif
 }

@@ -20,7 +20,7 @@ struct Image final : ImageResource
 
     Image(ResourceManager* resourceManager, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
 
-    Image(ResourceManager* resourceManager, const VkImageCreateInfo& createInfo, const VmaAllocationCreateInfo& allocInfo);
+    Image(ResourceManager* resourceManager, const VkImageCreateInfo& createInfo, const VmaAllocationCreateInfo& allocInfo, VkImageViewCreateInfo& viewInfo);
 
     ~Image() override;
 };

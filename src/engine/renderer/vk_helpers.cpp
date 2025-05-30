@@ -269,8 +269,8 @@ VkDeviceSize will_engine::vk_helpers::getAlignedSize(const VkDeviceSize value, V
     return (value + alignment - 1) & ~(alignment - 1);
 }
 
-void will_engine::vk_helpers::copyBuffer(VkCommandBuffer cmd, const renderer::AllocatedBuffer& src, VkDeviceSize srcOffset,
-                                         const renderer::AllocatedBuffer& dst,
+void will_engine::vk_helpers::copyBuffer(VkCommandBuffer cmd, const renderer::Buffer& src, VkDeviceSize srcOffset,
+                                         const renderer::Buffer& dst,
                                          VkDeviceSize dstOffset, VkDeviceSize size)
 {
     if (src.buffer == VK_NULL_HANDLE) { return; }
@@ -283,7 +283,20 @@ void will_engine::vk_helpers::copyBuffer(VkCommandBuffer cmd, const renderer::Al
     vkCmdCopyBuffer(cmd, src.buffer, dst.buffer, 1, &vertexCopy);
 }
 
-void will_engine::vk_helpers::clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, renderer::ImageWithView* image,
+void will_engine::vk_helpers::copyBuffer(VkCommandBuffer cmd, VkBuffer src, VkDeviceSize srcOffset, VkBuffer dst, VkDeviceSize dstOffset,
+    VkDeviceSize size)
+{
+    if (src == VK_NULL_HANDLE) { return; }
+    if (dst == VK_NULL_HANDLE) { return; }
+    VkBufferCopy vertexCopy{};
+    vertexCopy.dstOffset = dstOffset;
+    vertexCopy.srcOffset = srcOffset;
+    vertexCopy.size = size;
+
+    vkCmdCopyBuffer(cmd, src, dst, 1, &vertexCopy);
+}
+
+void will_engine::vk_helpers::clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, renderer::ImageResource* image,
                                               VkImageLayout dstLayout, VkClearColorValue clearColor)
 {
     imageBarrier(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, aspectFlag);
@@ -342,7 +355,7 @@ void will_engine::vk_helpers::imageBarrier(VkCommandBuffer cmd, renderer::Image*
     image->imageLayout = targetLayout;
 }
 
-void will_engine::vk_helpers::imageBarrier(VkCommandBuffer cmd, renderer::ImageWithView* image, VkImageLayout targetLayout,
+void will_engine::vk_helpers::imageBarrier(VkCommandBuffer cmd, renderer::ImageResource* image, VkImageLayout targetLayout,
                                            VkImageAspectFlags aspectMask)
 {
     if (image->imageLayout == targetLayout) { return; }
@@ -646,7 +659,7 @@ void will_engine::vk_helpers::saveImageR32F(renderer::ResourceManager& resourceM
     size_t newYSize = image.imageExtent.height / static_cast<size_t>(std::pow(2, mipLevel));
     const size_t texelCount = newXSize * newYSize;
     const size_t dataSize = texelCount * 1 * sizeof(float);
-    renderer::AllocatedBuffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
+    renderer::Buffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
 
     immediate.submit([&, mipLevel](VkCommandBuffer cmd) {
         VkBufferImageCopy bufferCopyRegion{};
@@ -751,7 +764,7 @@ void will_engine::vk_helpers::saveImage(renderer::ResourceManager& resourceManag
     }
     const uint32_t texelCount = image.imageExtent.width * image.imageExtent.height;
     const size_t dataSize = texelCount * info.bytesPerPixel;
-    renderer::AllocatedBuffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
+    renderer::Buffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
 
     immediate.submit([&](VkCommandBuffer cmd) {
         VkBufferImageCopy bufferCopyRegion{};

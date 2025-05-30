@@ -8,6 +8,7 @@
 #include "engine/renderer/resources/descriptor_set_layout.h"
 #include "engine/renderer/resources/pipeline.h"
 #include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/resources_fwd.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 
 
@@ -47,10 +48,10 @@ private:
 private:
     ResourceManager& resourceManager;
 
-    PipelineLayout pipelineLayout{};
-    Pipeline pipeline{};
-    DescriptorSetLayout descriptorSetLayout{};
-    DescriptorBufferSampler samplerDescriptorBuffer;
+    PipelineLayoutPtr pipelineLayout{};
+    PipelinePtr pipeline{};
+    DescriptorSetLayoutPtr descriptorSetLayout{};
+    DescriptorBufferSamplerPtr samplerDescriptorBuffer{};
 };
 }
 

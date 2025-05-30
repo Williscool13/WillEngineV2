@@ -23,12 +23,12 @@ TerrainChunk::TerrainChunk(renderer::ResourceManager& resourceManager, const std
     generateMesh(width, height, heightMapData);
 
     const size_t vertexBufferSize = vertices.size() * sizeof(TerrainVertex);
-    renderer::AllocatedBuffer vertexStagingBuffer = resourceManager.createStagingBuffer(vertexBufferSize);
+    renderer::Buffer vertexStagingBuffer = resourceManager.createStagingBuffer(vertexBufferSize);
     memcpy(vertexStagingBuffer.info.pMappedData, vertices.data(), vertexBufferSize);
     vertexBuffer = resourceManager.createDeviceBuffer(vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
     const size_t indexBufferSize = indices.size() * sizeof(uint32_t);
-    renderer::AllocatedBuffer indexStagingBuffer = resourceManager.createStagingBuffer(indexBufferSize);
+    renderer::Buffer indexStagingBuffer = resourceManager.createStagingBuffer(indexBufferSize);
     memcpy(indexStagingBuffer.info.pMappedData, indices.data(), indexBufferSize);
     indexBuffer = resourceManager.createDeviceBuffer(indexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
@@ -87,7 +87,7 @@ TerrainChunk::~TerrainChunk()
     resourceManager.destroyResource(std::move(vertexBuffer));
     resourceManager.destroyResource(std::move(indexBuffer));
 
-    for (renderer::AllocatedBuffer& terrainUniformBuffer : terrainUniformBuffers) {
+    for (renderer::Buffer& terrainUniformBuffer : terrainUniformBuffers) {
         resourceManager.destroyResource(std::move(terrainUniformBuffer));
     }
 
@@ -209,7 +209,7 @@ void TerrainChunk::update(const int32_t currentFrameOverlap, const int32_t previ
 {
     if (bufferFramesToUpdate <= 0) { return; }
 
-    const renderer::AllocatedBuffer& currentFrameUniformBuffer = terrainUniformBuffers[currentFrameOverlap];
+    const renderer::Buffer& currentFrameUniformBuffer = terrainUniformBuffers[currentFrameOverlap];
     const auto pUniformBuffer = reinterpret_cast<TerrainProperties*>(static_cast<char*>(currentFrameUniformBuffer.info.pMappedData));
     memcpy(pUniformBuffer, &terrainProperties, sizeof(TerrainProperties));
 
@@ -232,7 +232,7 @@ void TerrainChunk::setTerrainBufferData(const TerrainProperties& terrainProperti
                 VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
                 {
                     .sampler = resourceManager.getDefaultSamplerMipMappedNearest(),
-                    .imageView = textureResource->getTexture().imageView,
+                    .imageView = textureResource->getImageView(),
                     .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
                 },
                 false

@@ -119,8 +119,8 @@ private:
     // contains the depth maps used by deferred resolve
     DescriptorBufferSampler cascadedShadowMapDescriptorBufferSampler;
     // contains the cascaded shadow map properties used by deferred resolve
-    //AllocatedBuffer cascadedShadowMapData{VK_NULL_HANDLE};
-    AllocatedBuffer cascadedShadowMapDatas[FRAME_OVERLAP]{};
+    //Buffer cascadedShadowMapData{VK_NULL_HANDLE};
+    Buffer cascadedShadowMapDatas[FRAME_OVERLAP]{};
     DescriptorBufferUniform cascadedShadowMapDescriptorBufferUniform;
 
 private:

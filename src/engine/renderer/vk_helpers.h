@@ -15,16 +15,16 @@
 #include <glm/glm.hpp>
 #include <half/half.hpp>
 
+#include "engine/renderer/resources/resources_fwd.h"
+
 struct DescriptorLayoutBuilder;
 
 namespace will_engine::renderer
 {
-struct Image;
-struct ImageWithView;
 class AllocatedImage;
 class ImmediateSubmitter;
 class ResourceManager;
-class AllocatedBuffer;
+class Buffer;
 }
 
 namespace will_engine
@@ -106,11 +106,13 @@ namespace vk_helpers
      */
     VkDeviceSize getAlignedSize(VkDeviceSize value, VkDeviceSize alignment);
 
-    void copyBuffer(VkCommandBuffer cmd, const renderer::AllocatedBuffer& src, VkDeviceSize srcOffset, const renderer::AllocatedBuffer& dst,
+    void copyBuffer(VkCommandBuffer cmd, const renderer::Buffer& src, VkDeviceSize srcOffset, const renderer::Buffer& dst,
                     VkDeviceSize dstOffset,
                     VkDeviceSize size);
 
-    void clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, renderer::ImageWithView* image, VkImageLayout dstLayout,
+    void copyBuffer(VkCommandBuffer cmd, VkBuffer src, VkDeviceSize srcOffset, VkBuffer dst, VkDeviceSize dstOffset, VkDeviceSize size);
+
+    void clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, renderer::ImageResource* image, VkImageLayout dstLayout,
                          VkClearColorValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f});
 
     void clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout,
@@ -118,7 +120,7 @@ namespace vk_helpers
 
     void imageBarrier(VkCommandBuffer cmd, renderer::Image* image, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
 
-    void imageBarrier(VkCommandBuffer cmd, renderer::ImageWithView* image, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
+    void imageBarrier(VkCommandBuffer cmd, renderer::ImageResource* image, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
 
     void imageBarrier(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
 

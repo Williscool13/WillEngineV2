@@ -30,13 +30,13 @@ DebugRenderer::DebugRenderer(ResourceManager& resourceManager) : resourceManager
 
     // Vertex Buffer
     const uint64_t instancedVertexBufferSize = instancedVertices.size() * sizeof(DebugRendererVertex);
-    AllocatedBuffer instancedVertexStaging = resourceManager.createStagingBuffer(instancedVertexBufferSize);
+    Buffer instancedVertexStaging = resourceManager.createStagingBuffer(instancedVertexBufferSize);
     memcpy(instancedVertexStaging.info.pMappedData, instancedVertices.data(), instancedVertexBufferSize);
     instancedVertexBuffer = resourceManager.createDeviceBuffer(instancedVertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
     // Index Buffer
     const uint64_t instancedIndexBufferSize = instancedIndices.size() * sizeof(uint32_t);
-    AllocatedBuffer instancedIndexStaging = resourceManager.createStagingBuffer(instancedIndexBufferSize);
+    Buffer instancedIndexStaging = resourceManager.createStagingBuffer(instancedIndexBufferSize);
     memcpy(instancedIndexStaging.info.pMappedData, instancedIndices.data(), instancedIndexBufferSize);
     instancedIndexBuffer = resourceManager.createDeviceBuffer(instancedIndexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
@@ -77,16 +77,16 @@ DebugRenderer::~DebugRenderer()
     resourceManager.destroyResource(std::move(instancedIndexBuffer));
 
     for (DebugRenderGroup& group : debugRenderInstanceGroups) {
-        for (AllocatedBuffer& buffer : group.instanceBuffers) {
+        for (Buffer& buffer : group.instanceBuffers) {
             resourceManager.destroyResource(std::move(buffer));
         }
         resourceManager.destroyResource(std::move(group.instanceDescriptorBuffer));
     }
 
-    for (AllocatedBuffer& buffer : lineVertexBuffers) {
+    for (Buffer& buffer : lineVertexBuffers) {
         resourceManager.destroyResource(std::move(buffer));
     }
-    for (AllocatedBuffer& buffer : triangleVertexBuffers) {
+    for (Buffer& buffer : triangleVertexBuffers) {
         resourceManager.destroyResource(std::move(buffer));
     }
 
@@ -140,7 +140,7 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     for (DebugRenderGroup& group : debugRenderInstanceGroups) {
         if (group.instances.empty()) { continue; }
 
-        AllocatedBuffer& instanceBuffer = group.instanceBuffers[drawInfo.currentFrameOverlap];
+        Buffer& instanceBuffer = group.instanceBuffers[drawInfo.currentFrameOverlap];
 
         if (group.instances.size() > group.instanceBufferSizes[drawInfo.currentFrameOverlap]) {
             uint64_t newSize = group.instanceBufferSizes[drawInfo.currentFrameOverlap];
@@ -170,7 +170,7 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
 
     // Upload Vertex Data
     {
-        AllocatedBuffer& lineVertexBuffer = lineVertexBuffers[drawInfo.currentFrameOverlap];
+        Buffer& lineVertexBuffer = lineVertexBuffers[drawInfo.currentFrameOverlap];
 
         if (lineVertices.size() > lineVertexBufferSizes[drawInfo.currentFrameOverlap]) {
             int64_t newSize = lineVertexBufferSizes[drawInfo.currentFrameOverlap];
@@ -187,7 +187,7 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
 
         memcpy(lineVertexBuffer.info.pMappedData, lineVertices.data(), sizeof(DebugRendererVertexFull) * lineVertices.size());
 
-        AllocatedBuffer& triangleVertexBuffer = triangleVertexBuffers[drawInfo.currentFrameOverlap];
+        Buffer& triangleVertexBuffer = triangleVertexBuffers[drawInfo.currentFrameOverlap];
 
         if (triangleVertices.size() > triangleVertexBufferSizes[drawInfo.currentFrameOverlap]) {
             int64_t newSize = triangleVertexBufferSizes[drawInfo.currentFrameOverlap];
@@ -289,7 +289,7 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
         vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfos.data());
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, normalPipelineLayout.layout, 0, 1, indices.data(), offsets.data());
 
-        AllocatedBuffer& currentLineVertexBuffer = lineVertexBuffers[drawInfo.currentFrameOverlap];
+        Buffer& currentLineVertexBuffer = lineVertexBuffers[drawInfo.currentFrameOverlap];
         vkCmdBindVertexBuffers(cmd, 0, 1, &currentLineVertexBuffer.buffer, &ZERO_DEVICE_SIZE);
         vkCmdDraw(cmd, lineVertices.size(), 1, 0, 0);
     }
@@ -303,7 +303,7 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
         vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfos.data());
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, normalPipelineLayout.layout, 0, 1, indices.data(), offsets.data());
 
-        AllocatedBuffer& currentTriangleVertexBuffer = triangleVertexBuffers[drawInfo.currentFrameOverlap];
+        Buffer& currentTriangleVertexBuffer = triangleVertexBuffers[drawInfo.currentFrameOverlap];
         vkCmdBindVertexBuffers(cmd, 0, 1, &currentTriangleVertexBuffer.buffer, &ZERO_DEVICE_SIZE);
         vkCmdDraw(cmd, triangleVertices.size(), 1, 0, 0);
     }

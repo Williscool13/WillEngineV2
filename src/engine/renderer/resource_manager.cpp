@@ -17,6 +17,7 @@
 #include "vulkan_context.h"
 #include "assets/render_object/render_object_constants.h"
 #include "resources/descriptor_set_layout.h"
+#include "resources/image.h"
 #include "resources/image_with_view.h"
 #include "shaderc/shaderc.hpp"
 #include "terrain/terrain_constants.h"
@@ -240,13 +241,13 @@ ImageFormatProperties ResourceManager::getPhysicalDeviceImageFormatProperties(
     return {result, formatProperties};
 }
 
-void ResourceManager::copyBufferImmediate(const AllocatedBuffer& src, const AllocatedBuffer& dst,
+void ResourceManager::copyBufferImmediate(const Buffer& src, const Buffer& dst,
                                           const VkDeviceSize size) const
 {
     copyBufferImmediate(src, dst, size, 0);
 }
 
-void ResourceManager::copyBufferImmediate(const AllocatedBuffer& src, const AllocatedBuffer& dst, const VkDeviceSize size,
+void ResourceManager::copyBufferImmediate(const Buffer& src, const Buffer& dst, const VkDeviceSize size,
                                           const VkDeviceSize offset) const
 {
     immediate.submit([&](VkCommandBuffer cmd) {
@@ -274,7 +275,7 @@ void ResourceManager::copyBufferImmediate(const std::span<BufferCopyInfo> buffer
 }
 
 
-VkDeviceAddress ResourceManager::getBufferAddress(const AllocatedBuffer& buffer) const
+VkDeviceAddress ResourceManager::getBufferAddress(const Buffer& buffer) const
 {
     VkBufferDeviceAddressInfo addressInfo{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR};
     addressInfo.buffer = buffer.buffer;
@@ -282,16 +283,36 @@ VkDeviceAddress ResourceManager::getBufferAddress(const AllocatedBuffer& buffer)
     return srcPtr;
 }
 
-ImageWithViewPtr ResourceManager::createImageFromData(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,
-                                                    bool mipmapped)
+VkDeviceAddress ResourceManager::getBufferAddress(VkBuffer buffer) const
+{
+    VkBufferDeviceAddressInfo addressInfo{VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO_KHR};
+    addressInfo.buffer = buffer;
+    const VkDeviceAddress srcPtr = vkGetBufferDeviceAddress(context.device, &addressInfo);
+    return srcPtr;
+}
+
+ImageResourcePtr ResourceManager::createCubemapImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped)
+{
+    VkImageCreateInfo createInfo = vk_helpers::imageCreateInfo(format, usage, size);
+    if (mipmapped) {
+        createInfo.mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(size.width, size.height)))) + 1;
+    }
+    createInfo.arrayLayers = 6;
+    createInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
+
+    return createResource<Image>(createInfo);
+}
+
+ImageResourcePtr ResourceManager::createImageFromData(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,
+                                                      bool mipmapped)
 {
     const size_t data_size = dataSize;
 
 
-    AllocatedBufferPtr uploadBuffer = createResource<AllocatedBuffer>(BufferType::Staging, sizeof(SceneData));
+    BufferPtr uploadBuffer = createResource<Buffer>(BufferType::Staging, sizeof(SceneData));
     memcpy(uploadBuffer->info.pMappedData, data, data_size);
 
-    ImageWithViewPtr newImage = createResource<ImageWithView>(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_IMAGE_ASPECT_COLOR_BIT, mipmapped);
+    ImageResourcePtr newImage = createResource<Image>(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_IMAGE_ASPECT_COLOR_BIT, mipmapped);
 
     immediate.submit([&](VkCommandBuffer cmd) {
         vk_helpers::imageBarrier(cmd, newImage.get(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);

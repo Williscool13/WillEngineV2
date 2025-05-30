@@ -173,7 +173,7 @@ void CascadedShadowMap::update(const DirectionalLight& mainLight, const Camera* 
                                                        shadowData.split.farPlane);
     }
 
-    const AllocatedBuffer& currentCascadeShadowMapData = cascadedShadowMapDatas[currentFrameOverlap];
+    const Buffer& currentCascadeShadowMapData = cascadedShadowMapDatas[currentFrameOverlap];
     if (currentCascadeShadowMapData.buffer == VK_NULL_HANDLE) { return; }
     const auto data = static_cast<CascadeShadowData*>(currentCascadeShadowMapData.info.pMappedData);
     for (size_t i = 0; i < SHADOW_CASCADE_COUNT; i++) {

@@ -25,18 +25,18 @@ enum class BufferType
 /**
  * A wrapper for a VkBuffer with VMA allocation.
  */
-struct AllocatedBuffer final : VulkanResource
+struct Buffer final : VulkanResource
 {
     VkBuffer buffer{VK_NULL_HANDLE};
     VmaAllocation allocation{VK_NULL_HANDLE};
     VmaAllocationInfo info{};
 
 
-    AllocatedBuffer(ResourceManager* resourceManager, BufferType type, size_t size, VkBufferUsageFlags additionalUsages = 0);
+    Buffer(ResourceManager* resourceManager, BufferType type, size_t size, VkBufferUsageFlags additionalUsages = 0);
 
-    AllocatedBuffer(ResourceManager* resourceManager, size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+    Buffer(ResourceManager* resourceManager, size_t size, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
 
-    ~AllocatedBuffer() override;
+    ~Buffer() override;
 
 private:
     struct BufferConfig

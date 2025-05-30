@@ -20,6 +20,8 @@ struct ImageResource : VulkanResource
     VkImageLayout imageLayout{VK_IMAGE_LAYOUT_UNDEFINED};
     uint32_t mipLevels{1};
 
+    VkImageView imageView{VK_NULL_HANDLE};
+
     explicit ImageResource(ResourceManager* resourceManager) : VulkanResource(resourceManager) {}
 
     ~ImageResource() override = 0;

@@ -50,8 +50,8 @@ struct CubeToPrefilteredConstantData
 struct EnvironmentMapEntry
 {
     std::string sourcePath;
-    ImageWithViewPtr cubemapImage;
-    ImageWithViewPtr specDiffCubemap;
+    ImageResourcePtr cubemapImage;
+    ImageResourcePtr specDiffCubemap;
 };
 
 class Environment
@@ -122,7 +122,7 @@ private:
     // Hardcoded LUT generation
     PipelineLayoutPtr lutPipelineLayout{};
     PipelinePtr lutPipeline{};
-    ImageWithViewPtr lutImage; // same for all environment maps
+    ImageResourcePtr lutImage; // same for all environment maps
 
     SamplerPtr sampler{};
 };

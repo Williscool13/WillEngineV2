@@ -43,13 +43,16 @@ Image::Image(ResourceManager* resourceManager, const VkExtent3D size, const VkFo
     VK_CHECK(vmaCreateImage(resourceManager->getAllocator(), &createInfo, &allocInfo, &image, &allocation, nullptr));
 }
 
-Image::Image(ResourceManager* resourceManager, const VkImageCreateInfo& createInfo, const VmaAllocationCreateInfo& allocInfo)
+Image::Image(ResourceManager* resourceManager, const VkImageCreateInfo& createInfo, const VmaAllocationCreateInfo& allocInfo,
+             VkImageViewCreateInfo& viewInfo)
     : ImageResource(resourceManager)
 {
     imageFormat = createInfo.format;
     imageExtent = createInfo.extent;
     mipLevels = createInfo.mipLevels;
     VK_CHECK(vmaCreateImage(resourceManager->getAllocator(), &createInfo, &allocInfo, &image, &allocation, nullptr));
+    viewInfo.image = image;
+    VK_CHECK(vkCreateImageView(resourceManager->getDevice(), &viewInfo, nullptr, &imageView));
 }
 
 Image::~Image()
