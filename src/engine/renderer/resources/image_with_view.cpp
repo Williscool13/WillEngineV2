@@ -35,6 +35,25 @@ ImageWithView::ImageWithView(ResourceManager* resourceManager, VkExtent3D size, 
     VK_CHECK(vkCreateImageView(resourceManager->getDevice(), &viewInfo, nullptr, &imageView));
 }
 
+ImageWithView::ImageWithView(ResourceManager* resourceManager, const VkImageCreateInfo& createInfo)
+    : ImageResource(resourceManager)
+{
+    constexpr VmaAllocationCreateInfo allocInfo = {
+        .usage = VMA_MEMORY_USAGE_GPU_ONLY,
+        .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+    };
+
+    VkImageViewCreateInfo viewInfo = vk_helpers::imageviewCreateInfo(createInfo.format, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
+
+    imageFormat = createInfo.format;
+    imageExtent = createInfo.extent;
+    mipLevels = createInfo.mipLevels;
+    VK_CHECK(vmaCreateImage(resourceManager->getAllocator(), &createInfo, &allocInfo, &image, &allocation, nullptr));
+    viewInfo.image = image;
+    VK_CHECK(vkCreateImageView(resourceManager->getDevice(), &viewInfo, nullptr, &imageView));
+
+}
+
 ImageWithView::ImageWithView(ResourceManager* resourceManager, const VkImageCreateInfo& createInfo, const VmaAllocationCreateInfo& allocInfo,
                              VkImageViewCreateInfo& viewInfo)
     : ImageResource(resourceManager)

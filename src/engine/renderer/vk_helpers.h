@@ -15,6 +15,8 @@
 #include <glm/glm.hpp>
 #include <half/half.hpp>
 
+struct DescriptorLayoutBuilder;
+
 namespace will_engine::renderer
 {
 struct Image;
@@ -27,7 +29,6 @@ class AllocatedBuffer;
 
 namespace will_engine
 {
-
 namespace vk_helpers
 {
     // Enum to define supported image formats
@@ -89,7 +90,6 @@ namespace vk_helpers
 
     VkPresentInfoKHR presentInfo();
 
-
     /**
      * Returns the Buffer Device address of the specified buffer
      * @param device The device the buffer was created with
@@ -106,7 +106,8 @@ namespace vk_helpers
      */
     VkDeviceSize getAlignedSize(VkDeviceSize value, VkDeviceSize alignment);
 
-    void copyBuffer(VkCommandBuffer cmd, const renderer::AllocatedBuffer& src, VkDeviceSize srcOffset, const renderer::AllocatedBuffer& dst, VkDeviceSize dstOffset,
+    void copyBuffer(VkCommandBuffer cmd, const renderer::AllocatedBuffer& src, VkDeviceSize srcOffset, const renderer::AllocatedBuffer& dst,
+                    VkDeviceSize dstOffset,
                     VkDeviceSize size);
 
     void clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, renderer::ImageWithView* image, VkImageLayout dstLayout,
@@ -116,13 +117,14 @@ namespace vk_helpers
                          VkClearColorValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f});
 
     void imageBarrier(VkCommandBuffer cmd, renderer::Image* image, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
+
     void imageBarrier(VkCommandBuffer cmd, renderer::ImageWithView* image, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
 
     void imageBarrier(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
 
     void uniformBarrier(VkCommandBuffer cmd, VkBuffer buffer, VkPipelineStageFlagBits2 srcPipelineStage,
-                            VkAccessFlagBits2 srcAccessBit, VkPipelineStageFlagBits2
-                            dstPipelineStage, VkAccessFlagBits2 dstAccessBit);
+                        VkAccessFlagBits2 srcAccessBit, VkPipelineStageFlagBits2
+                        dstPipelineStage, VkAccessFlagBits2 dstAccessBit);
 
     void copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize);
 
@@ -139,7 +141,8 @@ namespace vk_helpers
     /**
      * Save the Allocated image as a grayscaled image. The image must be a format with only 1 channel (e.g. R32 or D32)
      */
-    void saveImageR32F(renderer::ResourceManager& resourceManager, const renderer::ImmediateSubmitter& immediate, const renderer::AllocatedImage& image,
+    void saveImageR32F(renderer::ResourceManager& resourceManager, const renderer::ImmediateSubmitter& immediate,
+                       const renderer::AllocatedImage& image,
                        VkImageLayout imageLayout, VkImageAspectFlags aspectFlag, const char* savePath,
                        const std::function<float(float)>& valueTransform, int32_t mipLevel = 0);
 

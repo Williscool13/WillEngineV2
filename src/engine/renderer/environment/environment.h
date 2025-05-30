@@ -4,20 +4,32 @@
 
 #ifndef ENVIRONMENT_H
 #define ENVIRONMENT_H
+#include <string>
+#include <unordered_map>
 #include <vulkan/vulkan_core.h>
 
-#include "engine/renderer/immediate_submitter.h"
-#include "engine/renderer/vk_types.h"
-#include "engine/renderer/resources/allocated_image.h"
 #include "engine/renderer/resources/descriptor_set_layout.h"
-#include "engine/renderer/resources/pipeline.h"
-#include "engine/renderer/resources/pipeline_layout.h"
-#include "engine/renderer/resources/sampler.h"
-#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/resources_fwd.h"
 
 namespace will_engine::renderer
 {
+class ImmediateSubmitter;
 class ResourceManager;
+
+struct EnvironmentCubemapView
+{
+    ImageViewPtr imageView;
+    VkExtent3D imageExtent;
+    float roughness;
+    int32_t descriptorBufferIndex;
+};
+
+struct EnvironmentCubemap
+{
+    VkImage image;
+    VkFormat imageFormat;
+    std::vector<EnvironmentCubemapView> cubemapImageViews; // one for each active mip level
+};
 
 struct CubeToDiffusePushConstantData
 {
@@ -38,8 +50,8 @@ struct CubeToPrefilteredConstantData
 struct EnvironmentMapEntry
 {
     std::string sourcePath;
-    AllocatedImage cubemapImage;
-    AllocatedImage specDiffCubemap;
+    ImageWithViewPtr cubemapImage;
+    ImageWithViewPtr specDiffCubemap;
 };
 
 class Environment
@@ -54,24 +66,24 @@ public:
 private:
     std::unordered_map<int32_t, const char*> activeEnvironmentMapNames{};
     EnvironmentMapEntry environmentMaps[11]{
-        {"", {}, {}},
-        {"", {}, {}},
-        {"", {}, {}},
-        {"", {}, {}},
-        {"", {}, {}},
-        {"", {}, {}},
-        {"", {}, {}},
-        {"", {}, {}},
-        {"", {}, {}},
-        {"", {}, {}},
+        {"", {nullptr}, {nullptr}},
+        {"", {nullptr}, {nullptr}},
+        {"", {nullptr}, {nullptr}},
+        {"", {nullptr}, {nullptr}},
+        {"", {nullptr}, {nullptr}},
+        {"", {nullptr}, {nullptr}},
+        {"", {nullptr}, {nullptr}},
+        {"", {nullptr}, {nullptr}},
+        {"", {nullptr}, {nullptr}},
+        {"", {nullptr}, {nullptr}},
     };
 
 public:
-    [[nodiscard]] VkDescriptorSetLayout getCubemapDescriptorSetLayout() const { return cubemapSamplerLayout.layout; }
-    [[nodiscard]] VkDescriptorSetLayout getDiffSpecMapDescriptorSetlayout() const {return environmentIBLLayout.layout; }
+    [[nodiscard]] VkDescriptorSetLayout getCubemapDescriptorSetLayout() const { return cubemapSamplerLayout->layout; }
+    [[nodiscard]] VkDescriptorSetLayout getDiffSpecMapDescriptorSetLayout() const {return environmentIBLLayout->layout; }
 
-    DescriptorBufferSampler& getCubemapDescriptorBuffer() { return cubemapDescriptorBuffer; }
-    DescriptorBufferSampler& getDiffSpecMapDescriptorBuffer() { return diffSpecMapDescriptorBuffer; }
+    DescriptorBufferSampler* getCubemapDescriptorBuffer() const { return cubemapDescriptorBuffer.get(); }
+    DescriptorBufferSampler* getDiffSpecMapDescriptorBuffer() const { return diffSpecMapDescriptorBuffer.get(); }
 
 public: // Debug
     const std::unordered_map<int32_t, const char*>& getActiveEnvironmentMapNames() { return activeEnvironmentMapNames; }
@@ -80,39 +92,39 @@ private:
     ResourceManager& resourceManager;
     ImmediateSubmitter& immediate;
 
-    DescriptorSetLayout equiImageLayout{};
-    DescriptorSetLayout cubemapStorageLayout{};
+    DescriptorSetLayoutPtr equiImageLayout{nullptr};
+    DescriptorSetLayoutPtr cubemapStorageLayout{nullptr};
     /**
-     * Final cubemap, for environment rendering
+     * Final cubemap, for skybox rendering
      */
-    DescriptorSetLayout cubemapSamplerLayout{};
-    DescriptorSetLayout lutLayout{};
+    DescriptorSetLayoutPtr cubemapSamplerLayout{nullptr};
+    DescriptorSetLayoutPtr lutLayout{nullptr};
     /**
      * Final PBR data, used for pbr calculations (diff/spec and LUT)
-     * Diff/Spec Irradiance Cubemap (LOD 1-4 spec, LOD 5 diff), and 2D-LUT
+     * Diff/Spec Irradiance Cubemap (LOD 1-4 specular, LOD 5 diffuse), and 2D-LUT
      */
-    DescriptorSetLayout environmentIBLLayout{};
+    DescriptorSetLayoutPtr environmentIBLLayout{nullptr};
 
-    DescriptorBufferSampler equiImageDescriptorBuffer;
-    DescriptorBufferSampler cubemapStorageDescriptorBuffer;
-    DescriptorBufferSampler cubemapDescriptorBuffer;
-    DescriptorBufferSampler lutDescriptorBuffer;
-    DescriptorBufferSampler diffSpecMapDescriptorBuffer;
+    DescriptorBufferSamplerPtr equiImageDescriptorBuffer;
+    DescriptorBufferSamplerPtr cubemapStorageDescriptorBuffer;
+    DescriptorBufferSamplerPtr cubemapDescriptorBuffer;
+    DescriptorBufferSamplerPtr lutDescriptorBuffer;
+    DescriptorBufferSamplerPtr diffSpecMapDescriptorBuffer;
 
-    PipelineLayout equiToCubemapPipelineLayout{};
-    Pipeline equiToCubemapPipeline{};
+    PipelineLayoutPtr equiToCubemapPipelineLayout{};
+    PipelinePtr equiToCubemapPipeline{};
 
-    PipelineLayout cubemapToDiffusePipelineLayout{};
-    Pipeline cubemapToDiffusePipeline{};
-    PipelineLayout cubemapToSpecularPipelineLayout{};
-    Pipeline cubemapToSpecularPipeline{};
+    PipelineLayoutPtr cubemapToDiffusePipelineLayout{};
+    PipelinePtr cubemapToDiffusePipeline{};
+    PipelineLayoutPtr cubemapToSpecularPipelineLayout{};
+    PipelinePtr cubemapToSpecularPipeline{};
 
     // Hardcoded LUT generation
-    PipelineLayout lutPipelineLayout{};
-    Pipeline lutPipeline{};
-    AllocatedImage lutImage; // same for all environment maps
+    PipelineLayoutPtr lutPipelineLayout{};
+    PipelinePtr lutPipeline{};
+    ImageWithViewPtr lutImage; // same for all environment maps
 
-    Sampler sampler{};
+    SamplerPtr sampler{};
 };
 }
 

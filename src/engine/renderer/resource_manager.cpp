@@ -17,6 +17,7 @@
 #include "vulkan_context.h"
 #include "assets/render_object/render_object_constants.h"
 #include "resources/descriptor_set_layout.h"
+#include "resources/image_with_view.h"
 #include "shaderc/shaderc.hpp"
 #include "terrain/terrain_constants.h"
 
@@ -281,17 +282,19 @@ VkDeviceAddress ResourceManager::getBufferAddress(const AllocatedBuffer& buffer)
     return srcPtr;
 }
 
-AllocatedImage ResourceManager::createImageFromData(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,
+ImageWithViewPtr ResourceManager::createImageFromData(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,
                                                     bool mipmapped)
 {
     const size_t data_size = dataSize;
-    AllocatedBuffer uploadBuffer = createStagingBuffer(data_size);
-    memcpy(uploadBuffer.info.pMappedData, data, data_size);
 
-    AllocatedImage newImage = createImage(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, mipmapped);
+
+    AllocatedBufferPtr uploadBuffer = createResource<AllocatedBuffer>(BufferType::Staging, sizeof(SceneData));
+    memcpy(uploadBuffer->info.pMappedData, data, data_size);
+
+    ImageWithViewPtr newImage = createResource<ImageWithView>(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_IMAGE_ASPECT_COLOR_BIT, mipmapped);
 
     immediate.submit([&](VkCommandBuffer cmd) {
-        vk_helpers::imageBarrier(cmd, newImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::imageBarrier(cmd, newImage.get(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
         VkBufferImageCopy copyRegion = {};
         copyRegion.bufferOffset = 0;
@@ -305,15 +308,16 @@ AllocatedImage ResourceManager::createImageFromData(const void* data, size_t dat
         copyRegion.imageExtent = size;
 
         // copy the buffer into the image
-        vkCmdCopyBufferToImage(cmd, uploadBuffer.buffer, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
+        vkCmdCopyBufferToImage(cmd, uploadBuffer->buffer, newImage->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copyRegion);
 
         if (mipmapped) {
-            vk_helpers::generateMipmaps(cmd, newImage.image, VkExtent2D{newImage.imageExtent.width, newImage.imageExtent.height});
+            vk_helpers::generateMipmaps(cmd, newImage->image, VkExtent2D{newImage->imageExtent.width, newImage->imageExtent.height});
         }
         else {
-            vk_helpers::imageBarrier(cmd, newImage.image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+            vk_helpers::imageBarrier(cmd, newImage.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                      VK_IMAGE_ASPECT_COLOR_BIT);
         }
+        newImage->imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     });
 
     destroyResourceImmediate(std::move(uploadBuffer));

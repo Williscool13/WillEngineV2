@@ -13,20 +13,6 @@
 #include "resources/allocated_image.h"
 #include "resources/image_view.h"
 
-struct CubemapImageView
-{
-    will_engine::renderer::ImageView imageView;
-    VkExtent3D imageExtent;
-    float roughness;
-    int32_t descriptorBufferIndex;
-};
-
-struct AllocatedCubemap
-{
-    will_engine::renderer::AllocatedImage allocatedImage;
-    std::vector<CubemapImageView> cubemapImageViews; // one for each active mip level
-};
-
 struct SceneData
 {
     glm::mat4 view{1.0f};

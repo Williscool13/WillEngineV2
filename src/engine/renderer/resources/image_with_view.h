@@ -21,6 +21,7 @@ struct ImageWithView final : ImageResource
     VkImageView imageView{VK_NULL_HANDLE};
 
     ImageWithView(ResourceManager* resourceManager, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, VkImageAspectFlags aspect, bool mipmapped = false);
+    ImageWithView(ResourceManager* resourceManager, const VkImageCreateInfo& createInfo);
     ImageWithView(ResourceManager* resourceManager, const VkImageCreateInfo& createInfo, const VmaAllocationCreateInfo& allocInfo, VkImageViewCreateInfo& viewInfo);
 
     ~ImageWithView() override;

@@ -33,7 +33,6 @@
 #include "engine/renderer/pipelines/shadows/contact_shadow/contact_shadows_pipeline_types.h"
 #include "engine/renderer/pipelines/shadows/ground_truth_ambient_occlusion/ground_truth_ambient_occlusion_pipeline.h"
 #include "engine/renderer/pipelines/visibility_pass/visibility_pass_pipeline.h"
-#include "engine/renderer/pipelines/visibility_pass/visibility_pass_pipeline_types.h"
 #include "engine/renderer/resources/image.h"
 #include "engine/util/file.h"
 #include "engine/util/halton.h"
@@ -216,13 +215,13 @@ void Engine::initRenderer()
     startupProfiler.addEntry("Init GTAO Pass");
     contactShadowsPipeline = new renderer::ContactShadowsPipeline(*resourceManager);
     startupProfiler.addEntry("Init SSS Pass");
-    deferredResolvePipeline = new renderer::DeferredResolvePipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
+    deferredResolvePipeline = new renderer::DeferredResolvePipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetLayout(),
                                                                     cascadedShadowMap->getCascadedShadowMapUniformLayout(),
                                                                     cascadedShadowMap->getCascadedShadowMapSamplerLayout());
     startupProfiler.addEntry("Init Deferred Resolve Pass");
     temporalAntialiasingPipeline = new renderer::TemporalAntialiasingPipeline(*resourceManager);
     startupProfiler.addEntry("Init TAA Pass");
-    transparentPipeline = new renderer::TransparentPipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetlayout(),
+    transparentPipeline = new renderer::TransparentPipeline(*resourceManager, environmentMap->getDiffSpecMapDescriptorSetLayout(),
                                                             cascadedShadowMap->getCascadedShadowMapUniformLayout(),
                                                             cascadedShadowMap->getCascadedShadowMapSamplerLayout());
     startupProfiler.addEntry("Init Transparent Pass");

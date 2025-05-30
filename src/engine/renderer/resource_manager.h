@@ -23,6 +23,7 @@
 #include "resources/image_view.h"
 #include "resources/pipeline.h"
 #include "resources/pipeline_layout.h"
+#include "resources/resources_fwd.h"
 #include "resources/sampler.h"
 #include "resources/vulkan_resource.h"
 #include "resources/descriptor_buffer/descriptor_buffer_sampler.h"
@@ -198,7 +199,7 @@ public:
     }
 
 public: // Special helpers for unique resources
-    std::unique_ptr<Image> createCubemapImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false)
+    ImageWithViewPtr createCubemapImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false)
     {
         VkImageCreateInfo createInfo = vk_helpers::imageCreateInfo(format, usage, size);
         if (mipmapped) {
@@ -207,35 +208,10 @@ public: // Special helpers for unique resources
         createInfo.arrayLayers = 6;
         createInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 
-        return createResource<Image>(createInfo);
+        return createResource<ImageWithView>(createInfo);
     }
 
-public: // VkImage and VkImageView
-    AllocatedImage createImage(const VkImageCreateInfo& createInfo) const
-    {
-        return AllocatedImage::create(context.allocator, context.device, createInfo);
-    }
-
-    AllocatedImage createImage(const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage,
-                               const bool mipmapped = false, const VkImageAspectFlagBits aspectFlag = VK_IMAGE_ASPECT_NONE) const
-    {
-        return AllocatedImage::create(context.allocator, context.device, size, format, usage, mipmapped, aspectFlag);
-    }
-
-    AllocatedImage createImage(const VkImageCreateInfo& bufferInfo, const VmaAllocationCreateInfo& allocInfo,
-                               VkImageViewCreateInfo& imageViewInfo) const
-    {
-        return AllocatedImage::create(context.allocator, context.device, bufferInfo, allocInfo, imageViewInfo);
-    }
-
-    AllocatedImage createCubemap(const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage,
-                                 const bool mipmapped = false) const
-    {
-        return AllocatedImage::createCubemap(context.allocator, context.device, size, format, usage, mipmapped);
-    }
-
-    AllocatedImage createImageFromData(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,
-                                       bool mipmapped = false);
+    ImageWithViewPtr createImageFromData(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
 
 public: // Shader Module
     // todo :shader modules is handled a little differently

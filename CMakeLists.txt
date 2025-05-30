@@ -277,7 +277,6 @@ set(TEMP_SOURCES
         src/engine/renderer/pipelines/post/post_process/post_process_pipeline_types.h
         src/engine/renderer/pipelines/post/temporal_antialiasing/temporal_antialiasing_pipeline_types.h
         src/engine/renderer/pipelines/geometry/terrain/terrain_pipeline_types.h
-        src/engine/renderer/pipelines/visibility_pass/visibility_pass_pipeline_types.h
         src/engine/renderer/pipelines/debug/debug_renderer_types.h
         src/engine/core/game_object/game_object_factory.cpp
         src/engine/core/game_object/game_object_factory.h
@@ -308,6 +307,8 @@ set(TEMP_SOURCES
         src/engine/renderer/resources/image_with_view.h
         src/engine/renderer/resources/resources_fwd.cpp
         src/engine/renderer/resources/resources_fwd.h
+        src/engine/renderer/resources/shader_module.cpp
+        src/engine/renderer/resources/shader_module.h
 )
 
 add_executable(WillEngine main.cpp

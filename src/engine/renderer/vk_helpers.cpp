@@ -269,7 +269,8 @@ VkDeviceSize will_engine::vk_helpers::getAlignedSize(const VkDeviceSize value, V
     return (value + alignment - 1) & ~(alignment - 1);
 }
 
-void will_engine::vk_helpers::copyBuffer(VkCommandBuffer cmd, const renderer::AllocatedBuffer& src, VkDeviceSize srcOffset, const renderer::AllocatedBuffer& dst,
+void will_engine::vk_helpers::copyBuffer(VkCommandBuffer cmd, const renderer::AllocatedBuffer& src, VkDeviceSize srcOffset,
+                                         const renderer::AllocatedBuffer& dst,
                                          VkDeviceSize dstOffset, VkDeviceSize size)
 {
     if (src.buffer == VK_NULL_HANDLE) { return; }
@@ -282,7 +283,8 @@ void will_engine::vk_helpers::copyBuffer(VkCommandBuffer cmd, const renderer::Al
     vkCmdCopyBuffer(cmd, src.buffer, dst.buffer, 1, &vertexCopy);
 }
 
-void will_engine::vk_helpers::clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, renderer::ImageWithView* image, VkImageLayout dstLayout, VkClearColorValue clearColor)
+void will_engine::vk_helpers::clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, renderer::ImageWithView* image,
+                                              VkImageLayout dstLayout, VkClearColorValue clearColor)
 {
     imageBarrier(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, aspectFlag);
     VkImageSubresourceRange range{
@@ -340,7 +342,8 @@ void will_engine::vk_helpers::imageBarrier(VkCommandBuffer cmd, renderer::Image*
     image->imageLayout = targetLayout;
 }
 
-void will_engine::vk_helpers::imageBarrier(VkCommandBuffer cmd, renderer::ImageWithView* image, VkImageLayout targetLayout, VkImageAspectFlags aspectMask)
+void will_engine::vk_helpers::imageBarrier(VkCommandBuffer cmd, renderer::ImageWithView* image, VkImageLayout targetLayout,
+                                           VkImageAspectFlags aspectMask)
 {
     if (image->imageLayout == targetLayout) { return; }
     VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
@@ -398,8 +401,8 @@ void will_engine::vk_helpers::imageBarrier(VkCommandBuffer cmd, VkImage image, V
 }
 
 void will_engine::vk_helpers::uniformBarrier(VkCommandBuffer cmd, VkBuffer buffer, VkPipelineStageFlagBits2 srcPipelineStage,
-                                                 VkAccessFlagBits2 srcAccessBit, VkPipelineStageFlagBits2 dstPipelineStage,
-                                                 VkAccessFlagBits2 dstAccessBit)
+                                             VkAccessFlagBits2 srcAccessBit, VkPipelineStageFlagBits2 dstPipelineStage,
+                                             VkAccessFlagBits2 dstAccessBit)
 {
     VkBufferMemoryBarrier2 bufferBarrier{};
     bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
@@ -634,7 +637,8 @@ VkPipelineShaderStageCreateInfo will_engine::vk_helpers::pipelineShaderStageCrea
     return info;
 }
 
-void will_engine::vk_helpers::saveImageR32F(renderer::ResourceManager& resourceManager, const renderer::ImmediateSubmitter& immediate, const renderer::AllocatedImage& image,
+void will_engine::vk_helpers::saveImageR32F(renderer::ResourceManager& resourceManager, const renderer::ImmediateSubmitter& immediate,
+                                            const renderer::AllocatedImage& image,
                                             VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
                                             const char* savePath, const std::function<float(float)>& valueTransform, int32_t mipLevel)
 {

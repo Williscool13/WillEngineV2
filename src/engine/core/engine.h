@@ -15,7 +15,6 @@
 #include "engine/core/profiler/profiler.h"
 #include "engine/renderer/imgui_wrapper.h"
 #include "engine/renderer/renderer_constants.h"
-#include "engine/renderer/vk_types.h"
 #include "engine/renderer/assets/asset_manager.h"
 #include "engine/renderer/lighting/directional_light.h"
 #include "engine/renderer/pipelines/post/post_process/post_process_pipeline_types.h"
@@ -30,6 +29,14 @@
 #if WILL_ENGINE_DEBUG_DRAW
 namespace will_engine::renderer
 {
+class DebugRenderer;
+class DebugHighlighter;
+class DebugCompositePipeline;
+}
+#endif
+
+namespace will_engine::renderer
+{
 class Environment;
 class PostProcessPipeline;
 class TemporalAntialiasingPipeline;
@@ -40,11 +47,12 @@ class DeferredMrtPipeline;
 class TerrainPipeline;
 class EnvironmentPipeline;
 class VisibilityPassPipeline;
-class DebugRenderer;
-class DebugHighlighter;
-class DebugCompositePipeline;
 }
-#endif
+
+namespace will_engine::physics
+{
+class Physics;
+}
 
 namespace will_engine
 {
@@ -53,10 +61,7 @@ namespace terrain
     class TerrainManager;
 }
 
-namespace physics
-{
-    class Physics;
-}
+
 
 class Engine
 {
@@ -184,6 +189,7 @@ public:
     void setSssSettings(const renderer::ContactShadowSettings& settings) { sssSettings = settings; }
 
     renderer::CascadedShadowMapSettings getCsmSettings() const { return csmSettings; }
+
     void setCsmSettings(const renderer::CascadedShadowMapSettings& settings);
 
     temporal_antialiasing_pipeline::TemporalAntialiasingSettings getTaaSettings() const { return taaSettings; }
@@ -224,13 +230,13 @@ private: // Scene Data
     renderer::PostProcessType postProcessData{
         renderer::PostProcessType::Tonemapping | renderer::PostProcessType::Sharpening
     };
-    std::vector<std::unique_ptr<Map>> activeMaps;
+    std::vector<std::unique_ptr<Map> > activeMaps;
     std::unordered_set<ITerrain*> activeTerrains;
 
 
     std::vector<IHierarchical*> hierarchalBeginQueue{};
-    std::vector<std::unique_ptr<IHierarchical>> hierarchicalDeletionQueue{};
-    std::vector<std::unique_ptr<Map>> mapDeletionQueue{};
+    std::vector<std::unique_ptr<IHierarchical> > hierarchicalDeletionQueue{};
+    std::vector<std::unique_ptr<Map> > mapDeletionQueue{};
 
 private: // Pipelines
     renderer::VisibilityPassPipeline* visibilityPassPipeline{nullptr};
@@ -296,12 +302,12 @@ private: // Swapchain
 
 public:
     Map* createMap(const std::filesystem::path& path);
+
     friend void ImguiWrapper::imguiInterface(Engine* engine);
 
     friend class ImguiWrapper;
 };
 }
-
 
 
 #endif //ENGINE_H
