@@ -8,12 +8,7 @@
 #include <array>
 
 #include "debug_renderer_types.h"
-#include "engine/renderer/renderer_constants.h"
-#include "engine/renderer/vk_types.h"
-#include "engine/renderer/resources/allocated_buffer.h"
-#include "engine/renderer/resources/descriptor_set_layout.h"
-#include "engine/renderer/resources/pipeline.h"
-#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/resources_fwd.h"
 
 #ifndef WILL_ENGINE_DEBUG_DRAW
     #error This file should only be included when WILL_ENGINE_DEBUG is defined
@@ -86,16 +81,15 @@ private:
 
     void createPipeline();
 
-    PipelineLayout instancedPipelineLayout{};
-    PipelineLayout normalPipelineLayout{};
-    Pipeline instancedLinePipeline{};
-
+    PipelineLayoutPtr instancedPipelineLayout{};
+    PipelineLayoutPtr normalPipelineLayout{};
+    PipelinePtr instancedLinePipeline{};
 
     /**
      * Full refers to vertex format. Also refers to the lack of vertex color in the vertex data
      */
-    Pipeline linePipeline{};
-    Pipeline trianglePipeline{};
+    PipelinePtr linePipeline{};
+    PipelinePtr trianglePipeline{};
 
 private:
     ResourceManager& resourceManager;
@@ -105,18 +99,18 @@ private:
     // for custom debug draws from Jolt. For primitives use the instanced draws instead.
     std::vector<DebugRendererVertexFull> lineVertices{};
     std::array<int64_t, FRAME_OVERLAP> lineVertexBufferSizes{0, 0};
-    std::array<Buffer, FRAME_OVERLAP> lineVertexBuffers{};
+    std::array<BufferPtr, FRAME_OVERLAP> lineVertexBuffers{};
 
     std::vector<DebugRendererVertexFull> triangleVertices{};
     std::array<int64_t, FRAME_OVERLAP> triangleVertexBufferSizes{0, 0};
-    std::array<Buffer, FRAME_OVERLAP> triangleVertexBuffers{};
+    std::array<BufferPtr, FRAME_OVERLAP> triangleVertexBuffers{};
 
-    DescriptorSetLayout uniformLayout{};
+    DescriptorSetLayoutPtr uniformLayout{};
 
     std::vector<DebugRendererVertex> instancedVertices{};
     std::vector<uint32_t> instancedIndices{};
-    Buffer instancedVertexBuffer{};
-    Buffer instancedIndexBuffer{};
+    BufferPtr instancedVertexBuffer{};
+    BufferPtr instancedIndexBuffer{};
 
     /**
      * 0 = box, 1 = sphere

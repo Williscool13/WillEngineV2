@@ -15,7 +15,6 @@
 #include "immediate_submitter.h"
 #include "resource_manager.h"
 #include "resources/image.h"
-#include "resources/image_with_view.h"
 
 VkImageCreateInfo will_engine::vk_helpers::imageCreateInfo(const VkFormat format, const VkImageUsageFlags usageFlags, const VkExtent3D extent)
 {

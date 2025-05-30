@@ -275,7 +275,6 @@ set(TEMP_SOURCES
         src/engine/renderer/pipelines/shadows/contact_shadow/contact_shadows_pipeline_types.h
         src/engine/renderer/pipelines/post/post_process/post_process_pipeline_types.h
         src/engine/renderer/pipelines/post/temporal_antialiasing/temporal_antialiasing_pipeline_types.h
-        src/engine/renderer/pipelines/geometry/terrain/terrain_pipeline_types.h
         src/engine/renderer/pipelines/debug/debug_renderer_types.h
         src/engine/core/game_object/game_object_factory.cpp
         src/engine/core/game_object/game_object_factory.h
@@ -284,8 +283,8 @@ set(TEMP_SOURCES
         src/engine/renderer/resources/vulkan_resource.h
         src/engine/renderer/resources/allocated_image.cpp
         src/engine/renderer/resources/allocated_image.h
-        src/engine/renderer/resources/allocated_buffer.cpp
-        src/engine/renderer/resources/allocated_buffer.h
+        src/engine/renderer/resources/buffer.cpp
+        src/engine/renderer/resources/buffer.h
         src/engine/renderer/resources/sampler.cpp
         src/engine/renderer/resources/sampler.h
         src/engine/renderer/resources/pipeline.cpp

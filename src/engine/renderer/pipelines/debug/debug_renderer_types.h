@@ -7,9 +7,8 @@
 
 #include <glm/glm.hpp>
 
-#include "engine/renderer/resources/allocated_buffer.h"
-#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "engine/renderer/renderer_constants.h"
+#include "engine/renderer/resources/resources_fwd.h"
 
 namespace will_engine::renderer
 {
@@ -107,10 +106,10 @@ struct DrawIndexedData
 struct DebugRenderGroup
 {
     std::vector<DebugRendererInstance> instances;
-    std::array<Buffer, FRAME_OVERLAP> instanceBuffers{};
+    std::array<BufferPtr, FRAME_OVERLAP> instanceBuffers{};
     std::array<uint64_t, FRAME_OVERLAP> instanceBufferSizes{0, 0};
     DrawIndexedData drawIndexedData{};
-    DescriptorBufferUniform instanceDescriptorBuffer;
+    DescriptorBufferUniformPtr instanceDescriptorBuffer;
 
 };
 }

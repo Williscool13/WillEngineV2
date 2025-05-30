@@ -5,12 +5,10 @@
 #ifndef TEMPORAL_ANTIALIASING_PIPELINE_H
 #define TEMPORAL_ANTIALIASING_PIPELINE_H
 
-#include <volk/volk.h>
+#include <vulkan/vulkan_core.h>
 
-#include "engine/renderer/resources/descriptor_set_layout.h"
-#include "engine/renderer/resources/pipeline.h"
-#include "engine/renderer/resources/pipeline_layout.h"
-#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/resources_fwd.h"
+
 
 namespace will_engine::renderer
 {
@@ -59,10 +57,10 @@ private:
 private:
     ResourceManager& resourceManager;
 
-    PipelineLayout pipelineLayout{};
-    Pipeline pipeline{};
-    DescriptorSetLayout descriptorSetLayout{};
-    DescriptorBufferSampler descriptorBuffer{};
+    PipelineLayoutPtr pipelineLayout{};
+    PipelinePtr pipeline{};
+    DescriptorSetLayoutPtr descriptorSetLayout{};
+    DescriptorBufferSamplerPtr descriptorBuffer{};
 };
 }
 

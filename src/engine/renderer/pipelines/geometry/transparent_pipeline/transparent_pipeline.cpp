@@ -11,6 +11,7 @@
 #include "engine/renderer/vk_descriptors.h"
 #include "engine/renderer/vk_helpers.h"
 #include "engine/renderer/vk_pipelines.h"
+#include "engine/renderer/resources/image.h"
 #include "engine/renderer/assets/render_object/render_object.h"
 #include "engine/renderer/assets/render_object/render_object_types.h"
 
@@ -42,27 +43,33 @@ TransparentPipeline::TransparentPipeline(ResourceManager& resourceManager,
     layoutInfo.pPushConstantRanges = &pushConstants;
     layoutInfo.pushConstantRangeCount = 1;
 
-    accumulationPipelineLayout = resourceManager.createPipelineLayout(layoutInfo); {
-        DescriptorLayoutBuilder layoutBuilder;
-        layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // Accumulation
-        layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // Revealage
-        compositeDescriptorSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                                 VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-    }
+    accumulationPipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
 
-    VkDescriptorSetLayout compositeDescriptor[1];
-    compositeDescriptor[0] = compositeDescriptorSetLayout.layout;
+
+    DescriptorLayoutBuilder layoutBuilder;
+    layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // Accumulation
+    layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // Revealage
+    VkDescriptorSetLayoutCreateInfo layoutCreateInfo = layoutBuilder.build(
+        VK_SHADER_STAGE_FRAGMENT_BIT,
+        VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+
+    compositeDescriptorSetLayout = resourceManager.createResource<DescriptorSetLayout>(layoutCreateInfo);
+
+
+    std::array compositeDescriptor{
+        compositeDescriptorSetLayout->layout
+    };
 
     VkPipelineLayoutCreateInfo compositeLayoutInfo = vk_helpers::pipelineLayoutCreateInfo();
     compositeLayoutInfo.pNext = nullptr;
-    compositeLayoutInfo.pSetLayouts = compositeDescriptor;
-    compositeLayoutInfo.setLayoutCount = 1;
+    compositeLayoutInfo.pSetLayouts = compositeDescriptor.data();
+    compositeLayoutInfo.setLayoutCount = compositeDescriptor.size();
     compositeLayoutInfo.pPushConstantRanges = nullptr;
     compositeLayoutInfo.pushConstantRangeCount = 0;
 
-    compositePipelineLayout = resourceManager.createPipelineLayout(compositeLayoutInfo);
+    compositePipelineLayout = resourceManager.createResource<PipelineLayout>(compositeLayoutInfo);
 
-    compositeDescriptorBuffer = resourceManager.createDescriptorBufferSampler(compositeDescriptorSetLayout.layout, 1);
+    compositeDescriptorBuffer = resourceManager.createResource<DescriptorBufferSampler>(compositeDescriptorSetLayout->layout, 1);
 
     VkImageUsageFlags usage{};
     usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
@@ -70,29 +77,30 @@ TransparentPipeline::TransparentPipeline(ResourceManager& resourceManager,
     usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
     const VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(accumulationImageFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
-    accumulationImage = resourceManager.createImage(imgInfo);
+    accumulationImage = resourceManager.createResource<Image>(imgInfo);
 
     const VkImageCreateInfo revealageImgInfo = vk_helpers::imageCreateInfo(revealageImageFormat, usage, {
                                                                                RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1
                                                                            });
-    revealageImage = resourceManager.createImage(revealageImgInfo);
+    revealageImage = resourceManager.createResource<Image>(revealageImgInfo);
 
     const VkImageCreateInfo debugImgInfo = vk_helpers::imageCreateInfo(debugImageFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
-    debugImage = resourceManager.createImage(debugImgInfo);
+    debugImage = resourceManager.createResource<Image>(debugImgInfo);
 
-    std::vector<DescriptorImageData> descriptors{2};
     VkDescriptorImageInfo accumulation{};
     accumulation.sampler = resourceManager.getDefaultSamplerNearest();
-    accumulation.imageView = accumulationImage.imageView;
+    accumulation.imageView = accumulationImage->imageView;
     accumulation.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    descriptors[0] = {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, accumulation, false};
-
     VkDescriptorImageInfo revealage{};
     revealage.sampler = resourceManager.getDefaultSamplerNearest();
-    revealage.imageView = revealageImage.imageView;
+    revealage.imageView = revealageImage->imageView;
     revealage.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    descriptors[1] = {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, revealage, false};
-    resourceManager.setupDescriptorBufferSampler(compositeDescriptorBuffer, descriptors, 0);
+    std::array<DescriptorImageData, 2> descriptors{
+        DescriptorImageData{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, accumulation, false},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, revealage, false},
+    };
+
+    compositeDescriptorBuffer->setupData(descriptors, 0);
 
     createAccumulationPipeline();
     createCompositePipeline();
@@ -118,23 +126,23 @@ void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentA
     label.pLabelName = "Transparent Accumulation Pass (Render Objects)";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
-    vk_helpers::imageBarrier(cmd, accumulationImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                             VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::imageBarrier(cmd, revealageImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                             VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::imageBarrier(cmd, debugImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                             VK_IMAGE_ASPECT_COLOR_BIT);
+    accumulationImage->imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    revealageImage->imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    debugImage->imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    vk_helpers::imageBarrier(cmd, accumulationImage.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::imageBarrier(cmd, revealageImage.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::imageBarrier(cmd, debugImage.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
 
     constexpr VkClearValue colorClear = {.color = {0.0f, 0.0f, 0.0f, 0.0f}};
     constexpr VkClearValue revealageClear = {.color = {1.0f, 1.0f, 1.0f, 1.0f}};
 
 
-    VkRenderingAttachmentInfo accumulationAttachment = vk_helpers::attachmentInfo(accumulationImage.imageView, &colorClear,
+    VkRenderingAttachmentInfo accumulationAttachment = vk_helpers::attachmentInfo(accumulationImage->imageView, &colorClear,
                                                                                   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo revealageAttachment = vk_helpers::attachmentInfo(revealageImage.imageView, &revealageClear,
+    VkRenderingAttachmentInfo revealageAttachment = vk_helpers::attachmentInfo(revealageImage->imageView, &revealageClear,
                                                                                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    VkRenderingAttachmentInfo debugAttachment = vk_helpers::attachmentInfo(debugImage.imageView, &colorClear,
+    VkRenderingAttachmentInfo debugAttachment = vk_helpers::attachmentInfo(debugImage->imageView, &colorClear,
                                                                            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
     VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthTarget, nullptr,
@@ -157,12 +165,12 @@ void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentA
     renderInfo.pStencilAttachment = nullptr;
 
     vkCmdBeginRendering(cmd, &renderInfo);
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, accumulationPipeline.pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, accumulationPipeline->pipeline);
 
     TransparentPushConstants pushConstants = {};
     pushConstants.bEnabled = drawInfo.enabled;
 
-    vkCmdPushConstants(cmd, accumulationPipelineLayout.layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(TransparentPushConstants), &pushConstants);
+    vkCmdPushConstants(cmd, accumulationPipelineLayout->layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(TransparentPushConstants), &pushConstants);
 
     //  Viewport
     VkViewport viewport = {};
@@ -187,8 +195,8 @@ void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentA
 
         std::array descriptorBufferBindingInfos{
             drawInfo.sceneDataBinding,
-            renderObject->getAddressesDescriptorBuffer().getBindingInfo(),
-            renderObject->getTextureDescriptorBuffer().getBindingInfo(),
+            renderObject->getAddressesDescriptorBuffer()->getBindingInfo(),
+            renderObject->getTextureDescriptorBuffer()->getBindingInfo(),
             drawInfo.environmentIBLBinding,
             drawInfo.cascadeUniformBinding,
             drawInfo.cascadeSamplerBinding,
@@ -199,32 +207,29 @@ void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentA
 
         std::array offsets{
             drawInfo.sceneDataOffset,
-            renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
+            renderObject->getAddressesDescriptorBuffer()->getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
             ZERO_DEVICE_SIZE,
             drawInfo.environmentIBLOffset,
             drawInfo.cascadeUniformOffset,
             ZERO_DEVICE_SIZE
         };
 
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, accumulationPipelineLayout.layout, 0, 6, indices.data(),
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, accumulationPipelineLayout->layout, 0, 6, indices.data(),
                                            offsets.data());
 
-        const VkBuffer vertexBuffers[2] = {renderObject->getPositionVertexBuffer().buffer, renderObject->getPropertyVertexBuffer().buffer};
+        const VkBuffer vertexBuffers[2] = {renderObject->getPositionVertexBuffer(), renderObject->getPropertyVertexBuffer()};
         constexpr VkDeviceSize vertexOffsets[2] = {0, 0};
         vkCmdBindVertexBuffers(cmd, 0, 2, vertexBuffers, vertexOffsets);
-        vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexedIndirect(cmd, renderObject->getTransparentIndirectBuffer(drawInfo.currentFrameOverlap), 0,
                                  renderObject->getTransparentDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
     }
 
     vkCmdEndRendering(cmd);
 
-    vk_helpers::imageBarrier(cmd, accumulationImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                             VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::imageBarrier(cmd, revealageImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                             VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::imageBarrier(cmd, debugImage.image, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                             VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::imageBarrier(cmd, accumulationImage.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::imageBarrier(cmd, revealageImage.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::imageBarrier(cmd, debugImage.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }
@@ -254,7 +259,7 @@ void TransparentPipeline::drawComposite(VkCommandBuffer cmd, const TransparentCo
     renderInfo.pStencilAttachment = nullptr;
 
     vkCmdBeginRendering(cmd, &renderInfo);
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, compositePipeline.pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, compositePipeline->pipeline);
 
     //  Viewport
     VkViewport viewport = {};
@@ -276,7 +281,7 @@ void TransparentPipeline::drawComposite(VkCommandBuffer cmd, const TransparentCo
 
 
     const std::array descriptorBufferBindingInfos{
-        compositeDescriptorBuffer.getBindingInfo()
+        compositeDescriptorBuffer->getBindingInfo()
     };
     vkCmdBindDescriptorBuffersEXT(cmd, 1, descriptorBufferBindingInfos.data());
 
@@ -286,7 +291,7 @@ void TransparentPipeline::drawComposite(VkCommandBuffer cmd, const TransparentCo
         ZERO_DEVICE_SIZE,
     };
 
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, compositePipelineLayout.layout, 0, 1, indices.data(), offsets.data());
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, compositePipelineLayout->layout, 0, 1, indices.data(), offsets.data());
 
     vkCmdDraw(cmd, 3, 1, 0, 0);
 
@@ -376,9 +381,9 @@ void TransparentPipeline::createAccumulationPipeline()
     pipelineBuilder.setupBlending(blendAttachmentStates);
     pipelineBuilder.enableDepthTest(false, VK_COMPARE_OP_GREATER);
     pipelineBuilder.setupRenderer({accumulationImageFormat, revealageImageFormat, debugImageFormat}, DEPTH_STENCIL_FORMAT);
-    pipelineBuilder.setupPipelineLayout(accumulationPipelineLayout.layout);
-
-    accumulationPipeline = resourceManager.createRenderPipeline(pipelineBuilder);
+    pipelineBuilder.setupPipelineLayout(accumulationPipelineLayout->layout);
+    VkGraphicsPipelineCreateInfo pipelineCreateInfo = pipelineBuilder.generatePipelineCreateInfo();
+    accumulationPipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
     resourceManager.destroyShaderModule(vertShader);
     resourceManager.destroyShaderModule(fragShader);
 }
@@ -410,9 +415,9 @@ void TransparentPipeline::createCompositePipeline()
     pipelineBuilder.setupBlending(blendAttachmentStates);
     pipelineBuilder.disableDepthTest();
     pipelineBuilder.setupRenderer({DRAW_FORMAT});
-    pipelineBuilder.setupPipelineLayout(compositePipelineLayout.layout);
-
-    compositePipeline = resourceManager.createRenderPipeline(pipelineBuilder);
+    pipelineBuilder.setupPipelineLayout(compositePipelineLayout->layout);
+    VkGraphicsPipelineCreateInfo pipelineCreateInfo = pipelineBuilder.generatePipelineCreateInfo();
+    compositePipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
     resourceManager.destroyShaderModule(vertShader);
     resourceManager.destroyShaderModule(fragShader);
 }

@@ -7,8 +7,7 @@
 
 #include <volk/volk.h>
 
-#include "engine/renderer/resources/pipeline.h"
-#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/resources_fwd.h"
 
 namespace will_engine::renderer
 {
@@ -45,8 +44,8 @@ private:
 private:
     ResourceManager& resourceManager;
 
-    PipelineLayout pipelineLayout{};
-    Pipeline pipeline{};
+    PipelineLayoutPtr pipelineLayout{};
+    PipelinePtr pipeline{};
 };
 }
 

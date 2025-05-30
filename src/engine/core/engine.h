@@ -23,7 +23,6 @@
 #include "engine/renderer/pipelines/shadows/cascaded_shadow_map/shadow_types.h"
 #include "engine/renderer/pipelines/shadows/contact_shadow/contact_shadows_pipeline.h"
 #include "engine/renderer/pipelines/shadows/ground_truth_ambient_occlusion/ambient_occlusion_types.h"
-#include "engine/renderer/resources/image_with_view.h"
 #include "engine/renderer/resources/resources_fwd.h"
 
 #if WILL_ENGINE_DEBUG_DRAW

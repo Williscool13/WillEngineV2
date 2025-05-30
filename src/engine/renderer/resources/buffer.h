@@ -2,8 +2,8 @@
 // Created by William on 2025-05-24.
 //
 
-#ifndef ALLOCATED_BUFFER_H
-#define ALLOCATED_BUFFER_H
+#ifndef BUFFER_H
+#define BUFFER_H
 
 #include <vma/vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
@@ -51,4 +51,4 @@ private:
 };
 }
 
-#endif //ALLOCATED_BUFFER_H
+#endif //BUFFER_H

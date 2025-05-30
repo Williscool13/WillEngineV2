@@ -5,14 +5,10 @@
 #ifndef TRANSPARENT_PIPELINE_H
 #define TRANSPARENT_PIPELINE_H
 
-#include <volk/volk.h>
+#include <vector>
+#include <vulkan/vulkan_core.h>
 
-#include "engine/renderer/vk_types.h"
-#include "engine/renderer/resources/allocated_image.h"
-#include "engine/renderer/resources/descriptor_set_layout.h"
-#include "engine/renderer/resources/pipeline.h"
-#include "engine/renderer/resources/pipeline_layout.h"
-#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/resources_fwd.h"
 
 namespace will_engine::renderer
 {
@@ -68,21 +64,21 @@ private:
     ResourceManager& resourceManager;
 
     const VkFormat debugImageFormat{VK_FORMAT_R16G16B16A16_SFLOAT};
-    AllocatedImage debugImage{};
+    ImageResourcePtr debugImage{};
 
     const VkFormat accumulationImageFormat{VK_FORMAT_R16G16B16A16_SFLOAT};
-    AllocatedImage accumulationImage{};
+    ImageResourcePtr accumulationImage{};
 
-    PipelineLayout accumulationPipelineLayout{};
-    Pipeline accumulationPipeline{};
+    PipelineLayoutPtr accumulationPipelineLayout{};
+    PipelinePtr accumulationPipeline{};
 
     const VkFormat revealageImageFormat{VK_FORMAT_R16_SFLOAT};
-    AllocatedImage revealageImage{};
+    ImageResourcePtr revealageImage{};
 
-    DescriptorSetLayout compositeDescriptorSetLayout{};
-    PipelineLayout compositePipelineLayout{};
-    Pipeline compositePipeline{};
-    DescriptorBufferSampler compositeDescriptorBuffer;
+    DescriptorSetLayoutPtr compositeDescriptorSetLayout{};
+    PipelineLayoutPtr compositePipelineLayout{};
+    PipelinePtr compositePipeline{};
+    DescriptorBufferSamplerPtr compositeDescriptorBuffer;
 
     void createAccumulationPipeline();
 

@@ -5,12 +5,11 @@
 #ifndef DEFERRED_MRT_H
 #define DEFERRED_MRT_H
 
-#include <volk/volk.h>
+#include <vulkan/vulkan_core.h>
 #include <glm/glm.hpp>
 
 #include "engine/renderer/renderer_constants.h"
-#include "engine/renderer/resources/pipeline.h"
-#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/resources_fwd.h"
 
 namespace will_engine::renderer
 {
@@ -49,8 +48,8 @@ private:
 private:
     ResourceManager& resourceManager;
 
-    PipelineLayout pipelineLayout{};
-    Pipeline pipeline{};
+    PipelineLayoutPtr pipelineLayout{};
+    PipelinePtr pipeline{};
 };
 }
 

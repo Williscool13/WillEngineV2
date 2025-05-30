@@ -14,11 +14,13 @@ namespace will_engine::renderer
 {
 BasicRenderPipeline::BasicRenderPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
-    DescriptorLayoutBuilder layoutBuilder;
-    layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    samplerDescriptorLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                        VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-    samplerDescriptorBuffer = resourceManager.createDescriptorBufferSampler(samplerDescriptorLayout.layout, 1);
+    DescriptorLayoutBuilder builder{1};
+    builder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    VkDescriptorSetLayoutCreateInfo createInfo = builder.build(
+        VK_SHADER_STAGE_FRAGMENT_BIT,
+        VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    samplerDescriptorLayout = resourceManager.createResource<DescriptorSetLayout>(createInfo);
+    samplerDescriptorBuffer = resourceManager.createResource<DescriptorBufferSampler>(samplerDescriptorLayout->layout, 1);
 
     VkPushConstantRange renderPushConstantRange{};
     renderPushConstantRange.offset = 0;
@@ -28,12 +30,12 @@ BasicRenderPipeline::BasicRenderPipeline(ResourceManager& resourceManager) : res
     VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
     layoutInfo.setLayoutCount = 2;
 
-    VkDescriptorSetLayout layouts[2]{resourceManager.getSceneDataLayout(), samplerDescriptorLayout.layout};
-    layoutInfo.pSetLayouts = layouts;
+    std::array layouts{resourceManager.getSceneDataLayout(), samplerDescriptorLayout->layout};
+    layoutInfo.pSetLayouts = layouts.data();
     layoutInfo.pPushConstantRanges = &renderPushConstantRange;
     layoutInfo.pushConstantRangeCount = 1;
 
-    pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+    pipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
 
     createPipeline();
 }
@@ -57,7 +59,7 @@ void BasicRenderPipeline::setupDescriptors(const RenderDescriptorInfo& descripto
     textureImage.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     imageDescriptor.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, textureImage, false});
-    resourceManager.setupDescriptorBufferSampler(samplerDescriptorBuffer, imageDescriptor, 0);
+    samplerDescriptorBuffer->setupData(imageDescriptor, 0);
 }
 
 void BasicRenderPipeline::draw(VkCommandBuffer cmd, const RenderDrawInfo& drawInfo) const
@@ -72,7 +74,7 @@ void BasicRenderPipeline::draw(VkCommandBuffer cmd, const RenderDrawInfo& drawIn
     const VkRenderingInfo renderInfo = vk_helpers::renderingInfo(drawInfo.renderExtent, &colorAttachment, &depthAttachment);
 
     vkCmdBeginRendering(cmd, &renderInfo);
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
 
     // Dynamic States
     //  Viewport
@@ -94,16 +96,16 @@ void BasicRenderPipeline::draw(VkCommandBuffer cmd, const RenderDrawInfo& drawIn
 
     VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];
     descriptorBufferBindingInfo[0] = drawInfo.sceneDataBinding;
-    descriptorBufferBindingInfo[1] = samplerDescriptorBuffer.getBindingInfo();
+    descriptorBufferBindingInfo[1] = samplerDescriptorBuffer->getBindingInfo();
     vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
     constexpr std::array indices{0u, 1u};
     const std::array offsets{drawInfo.sceneDataOffset, ZERO_DEVICE_SIZE};
 
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout.layout, 0, 2, indices.data(), offsets.data());
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout->layout, 0, 2, indices.data(), offsets.data());
 
     RenderPushConstant push{};
     push.currentFrame = drawInfo.currentFrame;
-    vkCmdPushConstants(cmd, pipelineLayout.layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(RenderPushConstant), &push);
+    vkCmdPushConstants(cmd, pipelineLayout->layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(RenderPushConstant), &push);
     vkCmdDraw(cmd, 3, 1, 0, 0);
     vkCmdEndRendering(cmd);
 }
@@ -122,9 +124,9 @@ void BasicRenderPipeline::createPipeline()
     renderPipelineBuilder.disableBlending();
     renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
     renderPipelineBuilder.setupRenderer({DRAW_FORMAT}, DEPTH_STENCIL_FORMAT);
-    renderPipelineBuilder.setupPipelineLayout(pipelineLayout.layout);
-
-    pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder);
+    renderPipelineBuilder.setupPipelineLayout(pipelineLayout->layout);
+    VkGraphicsPipelineCreateInfo pipelineCreateInfo = renderPipelineBuilder.generatePipelineCreateInfo();
+    pipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
 
     resourceManager.destroyShaderModule(vertShader);
     resourceManager.destroyShaderModule(fragShader);

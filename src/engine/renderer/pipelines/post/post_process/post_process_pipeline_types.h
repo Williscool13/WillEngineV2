@@ -5,8 +5,6 @@
 #ifndef POST_PROCESS_PIPELINE_TYPES_H
 #define POST_PROCESS_PIPELINE_TYPES_H
 
-#include <volk/volk.h>
-
 namespace will_engine::renderer
 {
 enum class PostProcessType : uint32_t

@@ -28,7 +28,7 @@ DeferredMrtPipeline::DeferredMrtPipeline(ResourceManager& resourceManager) : res
     layoutInfo.pPushConstantRanges = nullptr;
     layoutInfo.pushConstantRangeCount = 0;
 
-    pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+    pipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
 
     createPipeline();
 }
@@ -78,7 +78,7 @@ void DeferredMrtPipeline::draw(VkCommandBuffer cmd, const DeferredMrtDrawInfo& d
     renderInfo.pStencilAttachment = nullptr;
 
     vkCmdBeginRendering(cmd, &renderInfo);
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
 
     //  Viewport
     VkViewport viewport = {};
@@ -102,27 +102,27 @@ void DeferredMrtPipeline::draw(VkCommandBuffer cmd, const DeferredMrtDrawInfo& d
 
         std::array descriptorBufferBindingInfos{
             drawInfo.sceneDataBinding,
-            renderObject->getAddressesDescriptorBuffer().getBindingInfo(),
-            renderObject->getTextureDescriptorBuffer().getBindingInfo(),
+            renderObject->getAddressesDescriptorBuffer()->getBindingInfo(),
+            renderObject->getTextureDescriptorBuffer()->getBindingInfo(),
         };
 
-        vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptorBufferBindingInfos.data());
+        vkCmdBindDescriptorBuffersEXT(cmd, descriptorBufferBindingInfos.size(), descriptorBufferBindingInfos.data());
 
         constexpr std::array<uint32_t, 3> indices{0, 1, 2};
 
         std::array offsets{
             drawInfo.sceneDataOffset,
-            renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
+            renderObject->getAddressesDescriptorBuffer()->getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
             ZERO_DEVICE_SIZE
         };
 
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout.layout, 0, 3, indices.data(), offsets.data());
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout->layout, 0, 3, indices.data(), offsets.data());
 
-        const VkBuffer vertexBuffers[2] = {renderObject->getPositionVertexBuffer().buffer, renderObject->getPropertyVertexBuffer().buffer};
+        const VkBuffer vertexBuffers[2] = {renderObject->getPositionVertexBuffer(), renderObject->getPropertyVertexBuffer()};
         constexpr VkDeviceSize vertexOffsets[2] = {0, 0};
         vkCmdBindVertexBuffers(cmd, 0, 2, vertexBuffers, vertexOffsets);
-        vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexedIndirect(cmd, renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap).buffer, 0,
+        vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexedIndirect(cmd, renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap), 0,
                                  renderObject->getOpaqueDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
     }
 
@@ -191,9 +191,9 @@ void DeferredMrtPipeline::createPipeline()
     renderPipelineBuilder.disableBlending();
     renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
     renderPipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_STENCIL_FORMAT);
-    renderPipelineBuilder.setupPipelineLayout(pipelineLayout.layout);
-
-    pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder);
+    renderPipelineBuilder.setupPipelineLayout(pipelineLayout->layout);
+    VkGraphicsPipelineCreateInfo pipelineCreateInfo = renderPipelineBuilder.generatePipelineCreateInfo();
+    pipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
     resourceManager.destroyShaderModule(vertShader);
     resourceManager.destroyShaderModule(fragShader);
 }

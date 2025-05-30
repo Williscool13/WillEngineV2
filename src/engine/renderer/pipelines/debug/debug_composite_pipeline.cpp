@@ -12,30 +12,30 @@ namespace will_engine::renderer
 {
 DebugCompositePipeline::DebugCompositePipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
-    DescriptorLayoutBuilder layoutBuilder;
+    DescriptorLayoutBuilder layoutBuilder{2};
     layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // Debug output (flipped image!)
     layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // Final Image
 
-    descriptorSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT,
-                                                                    VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    VkDescriptorSetLayoutCreateInfo createInfo = layoutBuilder.build(
+        VK_SHADER_STAGE_COMPUTE_BIT,
+        VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    descriptorSetLayout = resourceManager.createResource<DescriptorSetLayout>(createInfo);
 
-    std::array<VkDescriptorSetLayout, 2> setLayouts;
-    setLayouts[0] = resourceManager.getSceneDataLayout();
-    setLayouts[1] = descriptorSetLayout.layout;
+    const std::array descriptorSetLayouts{resourceManager.getSceneDataLayout(), descriptorSetLayout->layout};
 
     VkPipelineLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layoutInfo.pNext = nullptr;
-    layoutInfo.pSetLayouts = setLayouts.data();
+    layoutInfo.pSetLayouts = descriptorSetLayouts.data();
     layoutInfo.setLayoutCount = 2;
     layoutInfo.pPushConstantRanges = nullptr;
     layoutInfo.pushConstantRangeCount = 0;
 
-    pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+    pipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
 
     createPipeline();
 
-    descriptorBuffer = resourceManager.createDescriptorBufferSampler(descriptorSetLayout.layout, 1);
+    descriptorBuffer = resourceManager.createResource<DescriptorBufferSampler>(descriptorSetLayout->layout, 1);
 }
 
 DebugCompositePipeline::~DebugCompositePipeline()
@@ -63,22 +63,22 @@ void DebugCompositePipeline::setupDescriptorBuffer(VkImageView debugTarget, VkIm
     descriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, inputImage, false});
     descriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, outputImage, false});
 
-    resourceManager.setupDescriptorBufferSampler(descriptorBuffer, descriptors, 0);
+    descriptorBuffer->setupData(descriptors, 0);
 }
 
 void DebugCompositePipeline::draw(VkCommandBuffer cmd, DebugCompositePipelineDrawInfo drawInfo) const
 {
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipeline);
 
     const std::array bindingInfos{
         drawInfo.sceneDataBinding,
-        descriptorBuffer.getBindingInfo()
+        descriptorBuffer->getBindingInfo()
     };
     vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos.data());
 
     constexpr std::array indices{0u, 1u};
     const std::array<VkDeviceSize, 2> offsets{drawInfo.sceneDataOffset, 0};
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout.layout, 0, 2, indices.data(), offsets.data());
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout->layout, 0, 2, indices.data(), offsets.data());
 
     const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
     const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
@@ -100,11 +100,11 @@ void DebugCompositePipeline::createPipeline()
     VkComputePipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipelineInfo.pNext = nullptr;
-    pipelineInfo.layout = pipelineLayout.layout;
+    pipelineInfo.layout = pipelineLayout->layout;
     pipelineInfo.stage = stageInfo;
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-    pipeline = resourceManager.createComputePipeline(pipelineInfo);
+    pipeline = resourceManager.createResource<Pipeline>(pipelineInfo);
     resourceManager.destroyShaderModule(computeShader);
 }
 }

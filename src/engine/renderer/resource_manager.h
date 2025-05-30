@@ -17,7 +17,7 @@
 #include "vk_descriptors.h"
 #include "vk_pipelines.h"
 #include "vk_types.h"
-#include "resources/allocated_buffer.h"
+#include "resources/buffer.h"
 #include "resources/allocated_image.h"
 #include "resources/descriptor_set_layout.h"
 #include "resources/image_view.h"
@@ -139,37 +139,6 @@ public:
         resource.reset(); // explicit cleanup
     }
 
-public: // VkBuffer
-    Buffer createBuffer(const size_t allocSize, const VkBufferUsageFlags usage, const VmaMemoryUsage memoryUsage) const
-    {
-        return Buffer::create(context.allocator, allocSize, usage, memoryUsage);
-    }
-
-    Buffer createHostSequentialBuffer(const size_t allocSize, const VkBufferUsageFlags additionalUsages = 0) const
-    {
-        return Buffer::createHostSequential(context.allocator, allocSize, additionalUsages);
-    }
-
-    Buffer createHostRandomBuffer(const size_t allocSize, const VkBufferUsageFlags additionalUsages = 0) const
-    {
-        return Buffer::createHostRandom(context.allocator, allocSize, additionalUsages);
-    }
-
-    Buffer createDeviceBuffer(const size_t allocSize, const VkBufferUsageFlags additionalUsages = 0) const
-    {
-        return Buffer::createDevice(context.allocator, allocSize, additionalUsages);
-    }
-
-    Buffer createStagingBuffer(const size_t allocSize) const
-    {
-        return Buffer::createStaging(context.allocator, allocSize);
-    }
-
-    Buffer createReceivingBuffer(const size_t allocSize) const
-    {
-        return Buffer::createReceiving(context.allocator, allocSize);
-    }
-
 public: // VkBuffer Helpers
     void copyBufferImmediate(const Buffer& src, const Buffer& dst, VkDeviceSize size) const;
 
@@ -210,38 +179,9 @@ public: // Shader Module
 
     void destroyShaderModule(VkShaderModule& module) const;
 
-public: // Pipeline Layout
-    PipelineLayout createPipelineLayout(const VkPipelineLayoutCreateInfo& createInfo) const
-    {
-        return PipelineLayout::create(context.device, createInfo);
-    }
-
-public: // Pipelines
-    Pipeline createRenderPipeline(RenderPipelineBuilder& pipelineBuilder) const
-    {
-        const VkGraphicsPipelineCreateInfo createInfo = pipelineBuilder.generatePipelineCreateInfo();
-        return createRenderPipeline(createInfo);
-    }
-
-    Pipeline createRenderPipeline(const VkGraphicsPipelineCreateInfo& createInfo) const
-    {
-        return Pipeline::createRender(context.device, createInfo);
-    }
-
-    Pipeline createComputePipeline(const VkComputePipelineCreateInfo& createInfo) const
-    {
-        return Pipeline::createCompute(context.device, createInfo);
-    }
-
 public: // Descriptor Set Layout
     DescriptorSetLayout createDescriptorSetLayout(DescriptorLayoutBuilder& layoutBuilder, VkShaderStageFlagBits shaderStageFlags,
                                                   VkDescriptorSetLayoutCreateFlags layoutCreateFlags) const;
-
-public: // Image View
-    ImageView createImageView(const VkImageViewCreateInfo& createInfo) const
-    {
-        return ImageView::create(context.device, createInfo);
-    }
 
 public:
     [[nodiscard]] ktxVulkanDeviceInfo* getKtxVulkanDeviceInfo() const { return vulkanDeviceInfo; }
@@ -272,9 +212,9 @@ private:
 
     AllocatedImage whiteImage{};
     AllocatedImage errorCheckerboardImage{};
-    std::unique_ptr<Sampler> defaultSamplerLinear{nullptr};
-    std::unique_ptr<Sampler> defaultSamplerNearest{nullptr};
-    std::unique_ptr<Sampler> defaultSamplerMipMappedLinear{nullptr};
+    SamplerPtr defaultSamplerLinear{};
+    SamplerPtr defaultSamplerNearest{};
+    SamplerPtr defaultSamplerMipMappedLinear{};
 
     DescriptorSetLayout emptyDescriptorSetLayout{};
 

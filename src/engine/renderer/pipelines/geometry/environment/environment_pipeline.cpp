@@ -25,7 +25,7 @@ EnvironmentPipeline::EnvironmentPipeline(ResourceManager& resourceManager, VkDes
     layoutInfo.pPushConstantRanges = nullptr;
     layoutInfo.pushConstantRangeCount = 0;
 
-    pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+    pipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
 
     createPipeline();
 }
@@ -75,7 +75,7 @@ void EnvironmentPipeline::draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& d
     renderInfo.pStencilAttachment = nullptr;
 
     vkCmdBeginRendering(cmd, &renderInfo);
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
 
     // Viewport
     VkViewport viewport = {};
@@ -94,15 +94,13 @@ void EnvironmentPipeline::draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& d
     scissor.extent.height = RENDER_EXTENTS.height;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    VkDescriptorBufferBindingInfoEXT bindingInfos[2];
-    bindingInfos[0] = drawInfo.sceneDataBinding;
-    bindingInfos[1] = drawInfo.environmentMapBinding;
-    vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos);
+    std::array bindingInfos{drawInfo.sceneDataBinding, drawInfo.environmentMapBinding};
 
     constexpr std::array<uint32_t, 2> indices{0, 1};
-    const std::array<VkDeviceSize, 2> offsets{drawInfo.sceneDataOffset, drawInfo.environmentMapOffset};
+    const std::array offsets{drawInfo.sceneDataOffset, drawInfo.environmentMapOffset};
 
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout.layout, 0, 2, indices.data(), offsets.data());
+    vkCmdBindDescriptorBuffersEXT(cmd, bindingInfos.size(), bindingInfos.data());
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout->layout, 0, 2, indices.data(), offsets.data());
 
     vkCmdDraw(cmd, 3, 1, 0, 0);
     vkCmdEndRendering(cmd);
@@ -124,10 +122,9 @@ void EnvironmentPipeline::createPipeline()
     pipelineBuilder.disableBlending();
     pipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
     pipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_STENCIL_FORMAT);
-    pipelineBuilder.setupPipelineLayout(pipelineLayout.layout);
-
-
-    pipeline = resourceManager.createRenderPipeline(pipelineBuilder);
+    pipelineBuilder.setupPipelineLayout(pipelineLayout->layout);
+    VkGraphicsPipelineCreateInfo pipelineCreateInfo = pipelineBuilder.generatePipelineCreateInfo();
+    pipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
 
     resourceManager.destroyShaderModule(vertShader);
     resourceManager.destroyShaderModule(fragShader);

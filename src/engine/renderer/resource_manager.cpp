@@ -18,7 +18,6 @@
 #include "assets/render_object/render_object_constants.h"
 #include "resources/descriptor_set_layout.h"
 #include "resources/image.h"
-#include "resources/image_with_view.h"
 #include "shaderc/shaderc.hpp"
 #include "terrain/terrain_constants.h"
 

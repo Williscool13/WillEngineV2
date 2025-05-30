@@ -11,7 +11,6 @@
 #include "engine/renderer/immediate_submitter.h"
 #include "engine/renderer/resource_manager.h"
 #include "engine/renderer/resources/image.h"
-#include "engine/renderer/resources/image_with_view.h"
 #include "engine/util/file.h"
 
 namespace will_engine::renderer

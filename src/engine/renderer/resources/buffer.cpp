@@ -2,7 +2,7 @@
 // Created by William on 2025-05-24.
 //
 
-#include "allocated_buffer.h"
+#include "buffer.h"
 
 #include "engine/renderer/resource_manager.h"
 #include "engine/renderer/vk_helpers.h"

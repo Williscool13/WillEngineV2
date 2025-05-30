@@ -7,11 +7,11 @@
 
 #include <unordered_set>
 #include <glm/glm.hpp>
-#include <volk/volk.h>
+#include <vulkan/vulkan_core.h>
 
 
 #include "engine/renderer/lighting/directional_light.h"
-#include "engine/renderer/resources/allocated_image.h"
+#include "engine/renderer/resources/resources_fwd.h"
 
 namespace will_engine
 {
@@ -81,7 +81,7 @@ struct CascadeShadowMapData
 {
     int32_t cascadeLevel{-1};
     CascadeSplit split{};
-    AllocatedImage depthShadowMap{};
+    ImageResourcePtr depthShadowMap{};
     glm::mat4 lightViewProj{};
 };
 

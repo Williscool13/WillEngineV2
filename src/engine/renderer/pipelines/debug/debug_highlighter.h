@@ -4,10 +4,10 @@
 
 #ifndef DEBUG_HIGHLIGHT_PIPELINE_H
 #define DEBUG_HIGHLIGHT_PIPELINE_H
-#include "engine/renderer/resources/descriptor_set_layout.h"
-#include "engine/renderer/resources/pipeline.h"
-#include "engine/renderer/resources/pipeline_layout.h"
-#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
+
+#include <vulkan/vulkan_core.h>
+
+#include "engine/renderer/resources/resources_fwd.h"
 
 
 namespace will_engine::renderer
@@ -36,13 +36,13 @@ private:
 private:
     ResourceManager& resourceManager;
 
-    PipelineLayout pipelineLayout{};
-    Pipeline pipeline{};
+    PipelineLayoutPtr pipelineLayout{};
+    PipelinePtr pipeline{};
 
-    DescriptorSetLayout processingSetLayout{};
-    PipelineLayout processingPipelineLayout{};
-    Pipeline processingPipeline{};
-    DescriptorBufferSampler descriptorBuffer{};
+    DescriptorSetLayoutPtr processingSetLayout{};
+    PipelineLayoutPtr processingPipelineLayout{};
+    PipelinePtr processingPipeline{};
+    DescriptorBufferSamplerPtr descriptorBuffer{};
 };
 }
 

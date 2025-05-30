@@ -34,26 +34,31 @@ DebugHighlighter::DebugHighlighter(ResourceManager& resourceManager) : resourceM
     layoutInfo.pPushConstantRanges = &pushConstants;
     layoutInfo.pushConstantRangeCount = 1;
 
-    pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+    pipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
 
-    DescriptorLayoutBuilder layoutBuilder;
+
+
+
+    DescriptorLayoutBuilder layoutBuilder{2};
     layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // Stencil Image
     layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // Debug Target
 
-    processingSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT,
-                                                                    VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    VkDescriptorSetLayoutCreateInfo createInfo = layoutBuilder.build(
+        VK_SHADER_STAGE_COMPUTE_BIT,
+        VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    processingSetLayout = resourceManager.createResource<DescriptorSetLayout>(createInfo);
 
-    descriptorLayout[1] = processingSetLayout.layout;
+    descriptorLayout[1] = processingSetLayout->layout;
 
     layoutInfo.setLayoutCount = 2;
     layoutInfo.pPushConstantRanges = nullptr;
     layoutInfo.pushConstantRangeCount = 0;
 
-    processingPipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+    processingPipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
 
     createPipeline();
 
-    descriptorBuffer = resourceManager.createDescriptorBufferSampler(processingSetLayout.layout, 1);
+    descriptorBuffer = resourceManager.createResource<DescriptorBufferSampler>(processingSetLayout->layout, 1);
 }
 
 DebugHighlighter::~DebugHighlighter()
@@ -82,7 +87,7 @@ void DebugHighlighter::setupDescriptorBuffer(VkImageView stencilImageView, VkIma
     descriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, inputImage, false});
     descriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, outputImage, false});
 
-    resourceManager.setupDescriptorBufferSampler(descriptorBuffer, descriptors, 0);
+    descriptorBuffer->setupData(descriptors, 0);
 }
 
 bool DebugHighlighter::drawHighlightStencil(VkCommandBuffer cmd, const renderer::DebugHighlighterDrawInfo& drawInfo) const
@@ -134,7 +139,7 @@ bool DebugHighlighter::drawHighlightStencil(VkCommandBuffer cmd, const renderer:
     scissor.extent.height = RENDER_EXTENTS.height;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
 
     const std::array bindingInfos{
         drawInfo.sceneDataBinding,
@@ -143,11 +148,11 @@ bool DebugHighlighter::drawHighlightStencil(VkCommandBuffer cmd, const renderer:
 
     constexpr std::array indices{0u};
     const std::array offsets{drawInfo.sceneDataOffset};
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout.layout, 0, 1, indices.data(), offsets.data());
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout->layout, 0, 1, indices.data(), offsets.data());
 
     DebugHighlightDrawPushConstant push{};
     push.modelMatrix = highlightData.modelMatrix;
-    vkCmdPushConstants(cmd, pipelineLayout.layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(DebugHighlightDrawPushConstant), &push);
+    vkCmdPushConstants(cmd, pipelineLayout->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(DebugHighlightDrawPushConstant), &push);
 
     vkCmdBindVertexBuffers(cmd, 0, 1, &highlightData.vertexBuffer, &ZERO_DEVICE_SIZE);
     vkCmdBindIndexBuffer(cmd, highlightData.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
@@ -171,17 +176,17 @@ bool DebugHighlighter::drawHighlightStencil(VkCommandBuffer cmd, const renderer:
 
 void DebugHighlighter::drawHighlightProcessing(VkCommandBuffer cmd, const DebugHighlighterDrawInfo& drawInfo) const
 {
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, processingPipeline.pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, processingPipeline->pipeline);
 
     const std::array bindingInfos{
         drawInfo.sceneDataBinding,
-        descriptorBuffer.getBindingInfo()
+        descriptorBuffer->getBindingInfo()
     };
     vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos.data());
 
     constexpr std::array<uint32_t, 2> indices{0, 1};
     const std::array<VkDeviceSize, 2> offsets{drawInfo.sceneDataOffset, 0};
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, processingPipelineLayout.layout, 0, 2, indices.data(), offsets.data());
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, processingPipelineLayout->layout, 0, 2, indices.data(), offsets.data());
 
     const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
     const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
@@ -230,9 +235,10 @@ void DebugHighlighter::createPipeline()
     };
     renderPipelineBuilder.setupDepthStencil(VK_TRUE, VK_TRUE, VK_COMPARE_OP_GREATER_OR_EQUAL, VK_FALSE, VK_TRUE, stencilOp, stencilOp, 0.0f, 1.0f);
     renderPipelineBuilder.setupRenderer({}, DEPTH_STENCIL_FORMAT, DEPTH_STENCIL_FORMAT);
-    renderPipelineBuilder.setupPipelineLayout(pipelineLayout.layout);
+    renderPipelineBuilder.setupPipelineLayout(pipelineLayout->layout);
     renderPipelineBuilder.addDynamicState(VK_DYNAMIC_STATE_LINE_WIDTH);
-    pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder);
+    VkGraphicsPipelineCreateInfo pipelineCreateInfo = renderPipelineBuilder.generatePipelineCreateInfo();
+    pipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
 
     resourceManager.destroyShaderModule(vertShader);
     resourceManager.destroyShaderModule(fragShader);
@@ -251,11 +257,11 @@ void DebugHighlighter::createPipeline()
     VkComputePipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipelineInfo.pNext = nullptr;
-    pipelineInfo.layout = processingPipelineLayout.layout;
+    pipelineInfo.layout = processingPipelineLayout->layout;
     pipelineInfo.stage = stageInfo;
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-    processingPipeline = resourceManager.createComputePipeline(pipelineInfo);
+    processingPipeline = resourceManager.createResource<Pipeline>(pipelineInfo);
     resourceManager.destroyShaderModule(computeShader);
 }
 }

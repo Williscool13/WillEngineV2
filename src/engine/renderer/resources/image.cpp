@@ -21,6 +21,20 @@ Image::Image(ResourceManager* resourceManager, const VkImageCreateInfo& createIn
     imageExtent = createInfo.extent;
     mipLevels = createInfo.mipLevels;
     VK_CHECK(vmaCreateImage(resourceManager->getAllocator(), &createInfo, &allocInfo, &image, &allocation, nullptr));
+
+    VkImageAspectFlags aspectFlag;
+    if (createInfo.format == VK_FORMAT_D32_SFLOAT) {
+        aspectFlag = VK_IMAGE_ASPECT_DEPTH_BIT;
+    } else if (createInfo.format == VK_FORMAT_D24_UNORM_S8_UINT) {
+        aspectFlag = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+    } else {
+        aspectFlag = VK_IMAGE_ASPECT_COLOR_BIT;
+    }
+
+    VkImageViewCreateInfo viewInfo = vk_helpers::imageviewCreateInfo(createInfo.format, VK_NULL_HANDLE, aspectFlag);
+    viewInfo.subresourceRange.levelCount = createInfo.mipLevels;
+    viewInfo.image = image;
+    VK_CHECK(vkCreateImageView(resourceManager->getDevice(), &viewInfo, nullptr, &imageView));
 }
 
 Image::Image(ResourceManager* resourceManager, const VkExtent3D size, const VkFormat format, const VkImageUsageFlags usage, const bool mipmapped)
@@ -41,6 +55,18 @@ Image::Image(ResourceManager* resourceManager, const VkExtent3D size, const VkFo
     imageExtent = createInfo.extent;
     mipLevels = createInfo.mipLevels;
     VK_CHECK(vmaCreateImage(resourceManager->getAllocator(), &createInfo, &allocInfo, &image, &allocation, nullptr));
+    VkImageAspectFlags aspectFlag;
+    if (createInfo.format == VK_FORMAT_D32_SFLOAT) {
+        aspectFlag = VK_IMAGE_ASPECT_DEPTH_BIT;
+    } else if (createInfo.format == VK_FORMAT_D24_UNORM_S8_UINT) {
+        aspectFlag = VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT;
+    } else {
+        aspectFlag = VK_IMAGE_ASPECT_COLOR_BIT;
+    }
+    VkImageViewCreateInfo viewInfo = vk_helpers::imageviewCreateInfo(createInfo.format, VK_NULL_HANDLE, aspectFlag);
+    viewInfo.subresourceRange.levelCount = createInfo.mipLevels;
+    viewInfo.image = image;
+    VK_CHECK(vkCreateImageView(resourceManager->getDevice(), &viewInfo, nullptr, &imageView));
 }
 
 Image::Image(ResourceManager* resourceManager, const VkImageCreateInfo& createInfo, const VmaAllocationCreateInfo& allocInfo,
@@ -61,6 +87,10 @@ Image::~Image()
         vmaDestroyImage(manager->getAllocator(), image, allocation);
         image = VK_NULL_HANDLE;
         allocation = VK_NULL_HANDLE;
+    }
+    if (imageView != VK_NULL_HANDLE) {
+        vkDestroyImageView(manager->getDevice(), imageView, nullptr);
+        imageView = VK_NULL_HANDLE;
     }
     imageExtent = {};
     imageFormat = VK_FORMAT_UNDEFINED;

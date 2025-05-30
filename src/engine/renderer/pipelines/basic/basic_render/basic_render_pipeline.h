@@ -5,12 +5,9 @@
 #ifndef BASIC_RENDER_PIPELINE_H
 #define BASIC_RENDER_PIPELINE_H
 
-#include <volk/volk.h>
+#include <vulkan/vulkan_core.h>
 
-#include "engine/renderer/resources/descriptor_set_layout.h"
-#include "engine/renderer/resources/pipeline.h"
-#include "engine/renderer/resources/pipeline_layout.h"
-#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/resources_fwd.h"
 
 
 namespace will_engine::renderer
@@ -57,10 +54,10 @@ private:
 private:
     ResourceManager& resourceManager;
 
-    DescriptorSetLayout samplerDescriptorLayout{};
-    PipelineLayout pipelineLayout{};
-    Pipeline pipeline{};
-    DescriptorBufferSampler samplerDescriptorBuffer;
+    DescriptorSetLayoutPtr samplerDescriptorLayout{};
+    PipelineLayoutPtr pipelineLayout{};
+    PipelinePtr pipeline{};
+    DescriptorBufferSamplerPtr samplerDescriptorBuffer{};
 };
 }
 

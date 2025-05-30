@@ -8,7 +8,6 @@
 #include <span>
 #include <glm/glm.hpp>
 
-#include "engine/renderer/vk_types.h"
 #include "engine/renderer/assets/render_object/render_object_types.h"
 
 
@@ -24,8 +23,8 @@ struct DebugHighlightDrawPushConstant
 
 struct HighlightData
 {
-    VkBuffer vertexBuffer;
-    VkBuffer indexBuffer;
+    VkBuffer vertexBuffer{VK_NULL_HANDLE};
+    VkBuffer indexBuffer{VK_NULL_HANDLE};
     std::span<const Primitive> primitives;
 
     glm::mat4 modelMatrix{1.0f};

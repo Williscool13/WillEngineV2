@@ -7,7 +7,6 @@
 #include <array>
 #include <cmath>
 
-#include "visibility_pass_pipeline_types.h"
 #include "engine/renderer/resource_manager.h"
 #include "engine/renderer/vk_helpers.h"
 #include "engine/renderer/assets/render_object/render_object.h"

@@ -42,6 +42,8 @@ protected:
     int32_t maxObjectCount{10};
 
 public:
+    DescriptorBuffer() = delete;
+
     explicit DescriptorBuffer(ResourceManager* resourceManager);
 
     ~DescriptorBuffer() override;
@@ -53,8 +55,6 @@ public:
     VkDescriptorBufferBindingInfoEXT getBindingInfo() const;
 
     [[nodiscard]] VkDeviceSize getDescriptorBufferSize() const { return descriptorBufferSize; }
-
-    bool isIndexOccupied(const int32_t index) const { return freeIndices.contains(index); }
 
 protected:
     virtual VkBufferUsageFlagBits getBufferUsageFlags() const = 0;

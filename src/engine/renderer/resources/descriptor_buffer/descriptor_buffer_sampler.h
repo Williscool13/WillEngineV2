@@ -15,6 +15,8 @@ namespace will_engine::renderer
  */
 struct  DescriptorBufferSampler final : DescriptorBuffer
 {
+    DescriptorBufferSampler() = delete;
+
     DescriptorBufferSampler(ResourceManager* resourceManager, VkDescriptorSetLayout descriptorSetLayout, int32_t maxObjectCount = 10);
 
     /**

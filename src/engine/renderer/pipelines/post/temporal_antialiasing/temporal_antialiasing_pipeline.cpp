@@ -30,7 +30,7 @@ TemporalAntialiasingPipeline::TemporalAntialiasingPipeline(ResourceManager& reso
 
     VkDescriptorSetLayout setLayouts[2];
     setLayouts[0] = resourceManager.getSceneDataLayout();
-    setLayouts[1] = descriptorSetLayout.layout;
+    setLayouts[1] = descriptorSetLayout->layout;
 
     VkPipelineLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -40,11 +40,11 @@ TemporalAntialiasingPipeline::TemporalAntialiasingPipeline(ResourceManager& reso
     layoutInfo.pPushConstantRanges = &pushConstants;
     layoutInfo.pushConstantRangeCount = 1;
 
-    pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+    pipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
 
     createPipeline();
 
-    descriptorBuffer = resourceManager.createDescriptorBufferSampler(descriptorSetLayout.layout, 1);
+    descriptorBuffer = resourceManager.createResource<DescriptorBufferSampler>(descriptorSetLayout->layout, 1);
 }
 
 TemporalAntialiasingPipeline::~TemporalAntialiasingPipeline()
@@ -92,12 +92,12 @@ void TemporalAntialiasingPipeline::setupDescriptorBuffer(
     descriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, velocity, false});
     descriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, output, false});
 
-    resourceManager.setupDescriptorBufferSampler(descriptorBuffer, descriptors, 0);
+    descriptorBuffer->setupData(descriptors, 0);
 }
 
 void TemporalAntialiasingPipeline::draw(VkCommandBuffer cmd, const TemporalAntialiasingDrawInfo& drawInfo) const
 {
-    if (!descriptorBuffer.isIndexOccupied(0)) {
+    if (!descriptorBuffer) {
         fmt::print("Descriptor buffer not yet set up");
         return;
     }
@@ -107,24 +107,24 @@ void TemporalAntialiasingPipeline::draw(VkCommandBuffer cmd, const TemporalAntia
     label.pLabelName = "Compute TAA Pass";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipeline);
 
     TemporalAntialiasingPushConstants properties{};;
     properties.blendValue = drawInfo.blendValue;
     properties.taaDebug = drawInfo.debugMode;
 
-    vkCmdPushConstants(cmd, pipelineLayout.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(TemporalAntialiasingPushConstants), &properties);
+    vkCmdPushConstants(cmd, pipelineLayout->layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(TemporalAntialiasingPushConstants), &properties);
 
     VkDescriptorBufferBindingInfoEXT bindingInfos[2] = {};
     bindingInfos[0] = drawInfo.sceneDataBinding;
-    bindingInfos[1] = descriptorBuffer.getBindingInfo();
+    bindingInfos[1] = descriptorBuffer->getBindingInfo();
     vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos);
 
 
     constexpr std::array<uint32_t, 2> indices{0, 1};
     const std::array offsets{drawInfo.sceneDataOffset, ZERO_DEVICE_SIZE};
 
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout.layout, 0, 2, indices.data(), offsets.data());
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout->layout, 0, 2, indices.data(), offsets.data());
 
     const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
     const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
@@ -148,11 +148,11 @@ void TemporalAntialiasingPipeline::createPipeline()
     VkComputePipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipelineInfo.pNext = nullptr;
-    pipelineInfo.layout = pipelineLayout.layout;
+    pipelineInfo.layout = pipelineLayout->layout;
     pipelineInfo.stage = stageInfo;
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-    pipeline = resourceManager.createComputePipeline(pipelineInfo);
+    pipeline = resourceManager.createResource<Pipeline>(pipelineInfo);
     resourceManager.destroyShaderModule(computeShader);
 }
 }

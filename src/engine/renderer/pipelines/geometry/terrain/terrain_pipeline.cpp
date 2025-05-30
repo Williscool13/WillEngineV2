@@ -4,7 +4,6 @@
 
 #include "terrain_pipeline.h"
 
-#include "terrain_pipeline_types.h"
 #include "engine/core/game_object/terrain.h"
 #include "engine/renderer/resource_manager.h"
 #include "engine/renderer/vk_helpers.h"
@@ -33,7 +32,7 @@ TerrainPipeline::TerrainPipeline(ResourceManager& resourceManager) : resourceMan
     layoutInfo.pPushConstantRanges = &pushConstants;
     layoutInfo.pushConstantRangeCount = 1;
 
-    pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+    pipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
 
     createPipeline();
 }
@@ -83,7 +82,7 @@ void TerrainPipeline::draw(VkCommandBuffer cmd, const TerrainDrawInfo& drawInfo)
     renderInfo.pStencilAttachment = nullptr;
 
     vkCmdBeginRendering(cmd, &renderInfo);
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline.pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
 
 
     //  Viewport
@@ -104,7 +103,7 @@ void TerrainPipeline::draw(VkCommandBuffer cmd, const TerrainDrawInfo& drawInfo)
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
     TerrainPushConstants push{4.0f};
-    vkCmdPushConstants(cmd, pipelineLayout.layout, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, 0, sizeof(TerrainPushConstants), &push);
+    vkCmdPushConstants(cmd, pipelineLayout->layout, VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, 0, sizeof(TerrainPushConstants), &push);
 
     constexpr VkDeviceSize zeroOffset{0};
 
@@ -112,24 +111,22 @@ void TerrainPipeline::draw(VkCommandBuffer cmd, const TerrainDrawInfo& drawInfo)
         terrain::TerrainChunk* terrainChunk = terrain->getTerrainChunk();
         if (!terrainChunk) { continue; }
 
-        constexpr uint32_t sceneDataIndex{0};
-        constexpr uint32_t textureIndex{1};
-        constexpr uint32_t uniformIndex{2};
+        std::array descriptorBufferBindingInfo{
+            drawInfo.sceneDataBinding,
+            terrainChunk->getTextureDescriptorBuffer().getBindingInfo(),
+            terrainChunk->getUniformDescriptorBuffer().getBindingInfo(),
+        };
 
-        VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[3];
-        descriptorBufferBindingInfo[0] = drawInfo.sceneDataBinding;
-        descriptorBufferBindingInfo[1] = terrainChunk->getTextureDescriptorBuffer().getBindingInfo();
-        descriptorBufferBindingInfo[2] = terrainChunk->getUniformDescriptorBuffer().getBindingInfo();
-        vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptorBufferBindingInfo);
+        vkCmdBindDescriptorBuffersEXT(cmd, descriptorBufferBindingInfo.size(), descriptorBufferBindingInfo.data());
 
         std::array<uint32_t, 3> indices{0, 1, 2};
-        std::array<VkDeviceSize, 3> offsets{
+        std::array offsets{
             drawInfo.sceneDataOffset,
             ZERO_DEVICE_SIZE,
             drawInfo.currentFrameOverlap * terrainChunk->getUniformDescriptorBuffer().getDescriptorBufferSize()
         };
 
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout.layout, 0, 3, indices.data(), offsets.data());
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout->layout, 0, 3, indices.data(), offsets.data());
 
         VkBuffer vertexBuffer = terrainChunk->getVertexBuffer().buffer;
         vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer, &zeroOffset);
@@ -201,11 +198,11 @@ void TerrainPipeline::createPipeline()
     renderPipelineBuilder.disableBlending();
     renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
     renderPipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_STENCIL_FORMAT);
-    renderPipelineBuilder.setupPipelineLayout(pipelineLayout.layout);
+    renderPipelineBuilder.setupPipelineLayout(pipelineLayout->layout);
     renderPipelineBuilder.setupTessellation(4);
     renderPipelineBuilder.addDynamicState(VK_DYNAMIC_STATE_DEPTH_BIAS);
-
-    pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder);
+    VkGraphicsPipelineCreateInfo pipelineCreateInfo = renderPipelineBuilder.generatePipelineCreateInfo();
+    pipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
     resourceManager.destroyShaderModule(vertShader);
     resourceManager.destroyShaderModule(tescShader);
     resourceManager.destroyShaderModule(teseShader);

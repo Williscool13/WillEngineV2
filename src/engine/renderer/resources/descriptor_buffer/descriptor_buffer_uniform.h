@@ -15,6 +15,8 @@ using will_engine::DescriptorUniformData;
 
 struct DescriptorBufferUniform final : DescriptorBuffer
 {
+    DescriptorBufferUniform() = delete;
+
     DescriptorBufferUniform(ResourceManager* resourceManager, VkDescriptorSetLayout descriptorSetLayout, int32_t maxObjectCount = 10);
 
     /**
