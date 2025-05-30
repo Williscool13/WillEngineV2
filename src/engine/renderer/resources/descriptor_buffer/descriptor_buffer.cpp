@@ -4,27 +4,23 @@
 
 #include "descriptor_buffer.h"
 
+#include "engine/renderer/resource_manager.h"
 #include "engine/renderer/vk_helpers.h"
 #include "engine/renderer/vulkan_context.h"
 
 namespace will_engine::renderer
 {
-void DescriptorBuffer::release(VulkanContext& context)
-{
-    if (!m_destroyed) {
-        if (buffer != VK_NULL_HANDLE) {
-            vmaDestroyBuffer(context.allocator, buffer, allocation);
-            buffer = VK_NULL_HANDLE;
-            allocation = VK_NULL_HANDLE;
-        }
-        info = {};
-        m_destroyed = true;
-    }
-}
+DescriptorBuffer::DescriptorBuffer(ResourceManager* resourceManager) : VulkanResource(resourceManager)
+{}
 
-bool DescriptorBuffer::isValid() const
+DescriptorBuffer::~DescriptorBuffer()
 {
-    return !m_destroyed && buffer != VK_NULL_HANDLE;
+    if (buffer != VK_NULL_HANDLE && allocation != VK_NULL_HANDLE) {
+        vmaDestroyBuffer(manager->getAllocator(), buffer, allocation);
+        buffer = VK_NULL_HANDLE;
+        allocation = VK_NULL_HANDLE;
+    }
+    info = {};
 }
 
 void DescriptorBuffer::freeDescriptorBufferIndex(int32_t index)

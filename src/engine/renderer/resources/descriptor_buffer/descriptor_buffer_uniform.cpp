@@ -4,6 +4,7 @@
 
 #include "descriptor_buffer_uniform.h"
 
+#include "engine/renderer/resource_manager.h"
 #include "volk/volk.h"
 #include "engine/renderer/vk_helpers.h"
 #include "engine/renderer/vulkan_context.h"
@@ -12,37 +13,33 @@ using will_engine::DescriptorBufferException;
 
 namespace will_engine::renderer
 {
-DescriptorBufferUniform DescriptorBufferUniform::create(const VulkanContext& ctx, VkDescriptorSetLayout descriptorSetLayout, int32_t maxObjectCount)
+DescriptorBufferUniform::DescriptorBufferUniform(ResourceManager* resourceManager, VkDescriptorSetLayout descriptorSetLayout, int32_t maxObjectCount)
+    : DescriptorBuffer(resourceManager)
 {
-    DescriptorBufferUniform newDescriptorBuffer{};
     // Get size per Descriptor Set
-    vkGetDescriptorSetLayoutSizeEXT(ctx.device, descriptorSetLayout, &newDescriptorBuffer.descriptorBufferSize);
-    newDescriptorBuffer.descriptorBufferSize = vk_helpers::getAlignedSize(newDescriptorBuffer.descriptorBufferSize, ctx.deviceDescriptorBufferProperties.descriptorBufferOffsetAlignment);
-    // Get Descriptor Buffer offset
-    vkGetDescriptorSetLayoutBindingOffsetEXT(ctx.device, descriptorSetLayout, 0u, &newDescriptorBuffer.descriptorBufferOffset);
+    vkGetDescriptorSetLayoutSizeEXT(resourceManager->getDevice(), descriptorSetLayout, &descriptorBufferSize);
+    descriptorBufferSize = vk_helpers::getAlignedSize(descriptorBufferSize,
+                                                      resourceManager->getPhysicalDeviceDescriptorBufferProperties().descriptorBufferOffsetAlignment);
+    // Get Descriptor Buffer start ptr offset
+    vkGetDescriptorSetLayoutBindingOffsetEXT(resourceManager->getDevice(), descriptorSetLayout, 0u, &descriptorBufferOffset);
 
-    newDescriptorBuffer.freeIndices.clear();
-    for (int32_t i = 0; i < maxObjectCount; i++) { newDescriptorBuffer.freeIndices.insert(i); }
-    newDescriptorBuffer.maxObjectCount = maxObjectCount;
+    freeIndices.clear();
+    for (int32_t i = 0; i < maxObjectCount; i++) { freeIndices.insert(i); }
+    this->maxObjectCount = maxObjectCount;
 
     VkBufferCreateInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     bufferInfo.pNext = nullptr;
-    bufferInfo.size = newDescriptorBuffer.descriptorBufferSize * maxObjectCount;
-    bufferInfo.usage =
-            VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT
-            | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
+    bufferInfo.size = descriptorBufferSize * maxObjectCount;
+    bufferInfo.usage = VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT;
     VmaAllocationCreateInfo vmaAllocInfo = {};
     vmaAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
     vmaAllocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    VK_CHECK(
-        vmaCreateBuffer(ctx.allocator, &bufferInfo, &vmaAllocInfo, &newDescriptorBuffer.buffer, &newDescriptorBuffer.allocation, &newDescriptorBuffer.info));
+    VK_CHECK(vmaCreateBuffer(resourceManager->getAllocator(), &bufferInfo, &vmaAllocInfo, &buffer, &allocation, &info));
 
-    newDescriptorBuffer.bufferAddress = vk_helpers::getDeviceAddress(ctx.device, newDescriptorBuffer.buffer);
-    newDescriptorBuffer.m_destroyed = false;
-    return newDescriptorBuffer;
+    bufferAddress = vk_helpers::getDeviceAddress(resourceManager->getDevice(), buffer);
 }
 
-int32_t DescriptorBufferUniform::setupData(const VulkanContext& ctx, const std::vector<DescriptorUniformData>& uniformBuffers, int32_t index)
+int32_t DescriptorBufferUniform::setupData(const std::span<DescriptorUniformData> uniformBuffers, const int32_t index)
 {
     int32_t descriptorBufferIndex;
     if (index < 0) {
@@ -66,8 +63,7 @@ int32_t DescriptorBufferUniform::setupData(const VulkanContext& ctx, const std::
     uint64_t accum_offset{descriptorBufferOffset};
 
     for (int32_t i = 0; i < uniformBuffers.size(); i++) {
-        const VkDeviceAddress uniformBufferAddress = vk_helpers::getDeviceAddress(ctx.device, uniformBuffers[i].buffer);
-
+        const VkDeviceAddress uniformBufferAddress = vk_helpers::getDeviceAddress(manager->getDevice(), uniformBuffers[i].buffer);
 
         VkDescriptorAddressInfoEXT descriptorAddressInfo = {};
         descriptorAddressInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_ADDRESS_INFO_EXT;
@@ -84,12 +80,12 @@ int32_t DescriptorBufferUniform::setupData(const VulkanContext& ctx, const std::
         // at index 0, should be -> (pointer) + (baseOffset + 0 * uniformBufferSize) + (descriptorBufferIndex * descriptorBufferSize)
         // at index 1, should be -> (pointer) + (baseOffset + 1 * uniformBufferSize) + (descriptorBufferIndex * descriptorBufferSize)
         // at index 2, should be -> (pointer) + (baseOffset + 2 * uniformBufferSize) + (descriptorBufferIndex * descriptorBufferSize)
-        char* buffer_ptr_offset = static_cast<char*>(info.pMappedData) + accum_offset + descriptorBufferIndex *
-                                  descriptorBufferSize;
+        char* buffer_ptr_offset = static_cast<char*>(info.pMappedData) + accum_offset + descriptorBufferIndex * descriptorBufferSize;
 
-        vkGetDescriptorEXT(ctx.device, &descriptorGetInfo, ctx.deviceDescriptorBufferProperties.uniformBufferDescriptorSize, buffer_ptr_offset);
+        const VkPhysicalDeviceDescriptorBufferPropertiesEXT& descriptorBufferProperties = manager->getPhysicalDeviceDescriptorBufferProperties();
+        vkGetDescriptorEXT(manager->getDevice(), &descriptorGetInfo, descriptorBufferProperties.uniformBufferDescriptorSize, buffer_ptr_offset);
 
-        accum_offset += ctx.deviceDescriptorBufferProperties.uniformBufferDescriptorSize;
+        accum_offset += descriptorBufferProperties.uniformBufferDescriptorSize;
     }
 
 

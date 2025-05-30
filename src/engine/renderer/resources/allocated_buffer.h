@@ -4,16 +4,24 @@
 
 #ifndef ALLOCATED_BUFFER_H
 #define ALLOCATED_BUFFER_H
-#include <cassert>
-#include <utility>
+
 #include <vma/vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
 
 #include "vulkan_resource.h"
-#include "engine/renderer/vulkan_context.h"
 
 namespace will_engine::renderer
 {
+enum class BufferType
+{
+    HostSequential,
+    HostRandom,
+    Device,
+    Staging,
+    Receiving,
+    Custom
+};
+
 /**
  * A wrapper for a VkBuffer with VMA allocation.
  */
@@ -23,15 +31,6 @@ struct AllocatedBuffer final : VulkanResource
     VmaAllocation allocation{VK_NULL_HANDLE};
     VmaAllocationInfo info{};
 
-    enum class BufferType
-    {
-        HostSequential,
-        HostRandom,
-        Device,
-        Staging,
-        Receiving,
-        Custom
-    };
 
     AllocatedBuffer(ResourceManager* resourceManager, BufferType type, size_t size, VkBufferUsageFlags additionalUsages = 0);
 

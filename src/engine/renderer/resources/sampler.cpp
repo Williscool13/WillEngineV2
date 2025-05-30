@@ -10,7 +10,7 @@
 
 namespace will_engine::renderer
 {
-Sampler::Sampler(ResourceManager* mgr, const VkSamplerCreateInfo& createInfo): VulkanResource(mgr)
+Sampler::Sampler(ResourceManager* resourceManager, const VkSamplerCreateInfo& createInfo): VulkanResource(resourceManager)
 {
     vkCreateSampler(manager->getDevice(), &createInfo, nullptr, &sampler);
 }

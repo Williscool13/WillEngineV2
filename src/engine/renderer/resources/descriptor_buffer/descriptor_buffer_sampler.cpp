@@ -4,6 +4,7 @@
 
 #include "descriptor_buffer_sampler.h"
 
+#include "engine/renderer/resource_manager.h"
 #include "volk/volk.h"
 #include "engine/renderer/vk_helpers.h"
 #include "engine/renderer/vulkan_context.h"
@@ -13,38 +14,35 @@ using will_engine::DescriptorBufferException;
 
 namespace will_engine::renderer
 {
-DescriptorBufferSampler DescriptorBufferSampler::create(const VulkanContext& ctx, VkDescriptorSetLayout descriptorSetLayout, int32_t maxObjectCount)
+DescriptorBufferSampler::DescriptorBufferSampler(ResourceManager* resourceManager, VkDescriptorSetLayout descriptorSetLayout,
+                                                 const int32_t maxObjectCount)
+    : DescriptorBuffer(resourceManager)
 {
-    DescriptorBufferSampler newDescriptorBuffer{};
     // Get size per Descriptor Set
-    vkGetDescriptorSetLayoutSizeEXT(ctx.device, descriptorSetLayout, &newDescriptorBuffer.descriptorBufferSize);
-    newDescriptorBuffer.descriptorBufferSize = vk_helpers::getAlignedSize(newDescriptorBuffer.descriptorBufferSize, ctx.deviceDescriptorBufferProperties.descriptorBufferOffsetAlignment);
+    vkGetDescriptorSetLayoutSizeEXT(resourceManager->getDevice(), descriptorSetLayout, &descriptorBufferSize);
+    descriptorBufferSize = vk_helpers::getAlignedSize(descriptorBufferSize,
+                                                      resourceManager->getPhysicalDeviceDescriptorBufferProperties().descriptorBufferOffsetAlignment);
     // Get Descriptor Buffer offset
-    vkGetDescriptorSetLayoutBindingOffsetEXT(ctx.device, descriptorSetLayout, 0u, &newDescriptorBuffer.descriptorBufferOffset);
+    vkGetDescriptorSetLayoutBindingOffsetEXT(resourceManager->getDevice(), descriptorSetLayout, 0u, &descriptorBufferOffset);
 
-    newDescriptorBuffer.freeIndices.clear();
-    for (int32_t i = 0; i < maxObjectCount; i++) { newDescriptorBuffer.freeIndices.insert(i); }
-    newDescriptorBuffer.maxObjectCount = maxObjectCount;
+    freeIndices.clear();
+    for (int32_t i = 0; i < maxObjectCount; i++) { freeIndices.insert(i); }
+    this->maxObjectCount = maxObjectCount;
 
     VkBufferCreateInfo bufferInfo = {.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO};
     bufferInfo.pNext = nullptr;
-    bufferInfo.size = newDescriptorBuffer.descriptorBufferSize * maxObjectCount;
-    bufferInfo.usage =
-            VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT
-            | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT
-            | VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT;
+    bufferInfo.size = descriptorBufferSize * maxObjectCount;
+    bufferInfo.usage = VK_BUFFER_USAGE_RESOURCE_DESCRIPTOR_BUFFER_BIT_EXT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
+                       VK_BUFFER_USAGE_SAMPLER_DESCRIPTOR_BUFFER_BIT_EXT;
     VmaAllocationCreateInfo vmaAllocInfo = {};
     vmaAllocInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
     vmaAllocInfo.flags = VMA_ALLOCATION_CREATE_MAPPED_BIT;
-    VK_CHECK(vmaCreateBuffer(ctx.allocator, &bufferInfo, &vmaAllocInfo, &newDescriptorBuffer.buffer, &newDescriptorBuffer.allocation, &newDescriptorBuffer.info));
+    VK_CHECK(vmaCreateBuffer(resourceManager->getAllocator(), &bufferInfo, &vmaAllocInfo, &buffer, &allocation, &info));
 
-    newDescriptorBuffer.bufferAddress = vk_helpers::getDeviceAddress(ctx.device, newDescriptorBuffer.buffer);
-    newDescriptorBuffer.m_destroyed = false;
-    return newDescriptorBuffer;
+    bufferAddress = vk_helpers::getDeviceAddress(resourceManager->getDevice(), buffer);
 }
 
-int32_t DescriptorBufferSampler::setupData(const VulkanContext& ctx, const std::vector<DescriptorImageData>& imageBuffers,
-                                           const int32_t index /*= -1*/)
+int32_t DescriptorBufferSampler::setupData(const std::span<DescriptorImageData> imageBuffers, const int32_t index /*= -1*/)
 {
     int descriptorBufferIndex;
     if (index < 0) {
@@ -66,7 +64,8 @@ int32_t DescriptorBufferSampler::setupData(const VulkanContext& ctx, const std::
 
     uint64_t accumOffset{descriptorBufferOffset};
 
-    if (ctx.deviceDescriptorBufferProperties.combinedImageSamplerDescriptorSingleArray == VK_FALSE) {
+    const VkPhysicalDeviceDescriptorBufferPropertiesEXT& descriptorBufferProperties = manager->getPhysicalDeviceDescriptorBufferProperties();
+    if (descriptorBufferProperties.combinedImageSamplerDescriptorSingleArray == VK_FALSE) {
         fmt::print("This implementation does not support combinedImageSamplerDescriptorSingleArray\n");
         return -1;
     }
@@ -76,16 +75,16 @@ int32_t DescriptorBufferSampler::setupData(const VulkanContext& ctx, const std::
             size_t descriptorSize;
             switch (currentData.type) {
                 case VK_DESCRIPTOR_TYPE_SAMPLER:
-                    descriptorSize = ctx.deviceDescriptorBufferProperties.samplerDescriptorSize;
+                    descriptorSize = descriptorBufferProperties.samplerDescriptorSize;
                     break;
                 case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
-                    descriptorSize = ctx.deviceDescriptorBufferProperties.combinedImageSamplerDescriptorSize;
+                    descriptorSize = descriptorBufferProperties.combinedImageSamplerDescriptorSize;
                     break;
                 case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
-                    descriptorSize = ctx.deviceDescriptorBufferProperties.sampledImageDescriptorSize;
+                    descriptorSize = descriptorBufferProperties.sampledImageDescriptorSize;
                     break;
                 case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
-                    descriptorSize = ctx.deviceDescriptorBufferProperties.storageImageDescriptorSize;
+                    descriptorSize = descriptorBufferProperties.storageImageDescriptorSize;
                     break;
                 default:
                     fmt::print("DescriptorBufferImage::setup_data() called with a non-image/sampler type in its data");
@@ -103,19 +102,19 @@ int32_t DescriptorBufferSampler::setupData(const VulkanContext& ctx, const std::
         switch (currentData.type) {
             case VK_DESCRIPTOR_TYPE_SAMPLER:
                 image_descriptor_info.data.pSampler = &currentData.imageInfo.sampler;
-                descriptor_size = ctx.deviceDescriptorBufferProperties.samplerDescriptorSize;
+                descriptor_size = descriptorBufferProperties.samplerDescriptorSize;
                 break;
             case VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER:
                 image_descriptor_info.data.pCombinedImageSampler = &currentData.imageInfo;
-                descriptor_size = ctx.deviceDescriptorBufferProperties.combinedImageSamplerDescriptorSize;
+                descriptor_size = descriptorBufferProperties.combinedImageSamplerDescriptorSize;
                 break;
             case VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE:
                 image_descriptor_info.data.pSampledImage = &currentData.imageInfo;
-                descriptor_size = ctx.deviceDescriptorBufferProperties.sampledImageDescriptorSize;
+                descriptor_size = descriptorBufferProperties.sampledImageDescriptorSize;
                 break;
             case VK_DESCRIPTOR_TYPE_STORAGE_IMAGE:
                 image_descriptor_info.data.pStorageImage = &currentData.imageInfo;
-                descriptor_size = ctx.deviceDescriptorBufferProperties.storageImageDescriptorSize;
+                descriptor_size = descriptorBufferProperties.storageImageDescriptorSize;
                 break;
             default:
                 fmt::print("DescriptorBufferImage::setup_data() called with a non-image/sampler descriptor type\n");
@@ -124,7 +123,7 @@ int32_t DescriptorBufferSampler::setupData(const VulkanContext& ctx, const std::
         char* buffer_ptr_offset = static_cast<char*>(info.pMappedData) + accumOffset + descriptorBufferIndex *
                                   descriptorBufferSize;
 
-        vkGetDescriptorEXT(ctx.device, &image_descriptor_info, descriptor_size, buffer_ptr_offset);
+        vkGetDescriptorEXT(manager->getDevice(), &image_descriptor_info, descriptor_size, buffer_ptr_offset);
 
         accumOffset += descriptor_size;
     }

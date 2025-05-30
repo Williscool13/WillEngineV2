@@ -25,6 +25,7 @@
 #include "engine/renderer/pipelines/shadows/contact_shadow/contact_shadows_pipeline.h"
 #include "engine/renderer/pipelines/shadows/ground_truth_ambient_occlusion/ambient_occlusion_types.h"
 #include "engine/renderer/resources/image_with_view.h"
+#include "engine/renderer/resources/resources_fwd.h"
 
 #if WILL_ENGINE_DEBUG_DRAW
 namespace will_engine::renderer
@@ -209,9 +210,9 @@ public:
     void setCurrentEnvironmentMapIndex(const int32_t index) { environmentMapIndex = index; }
 
 private: // Scene Data
-    renderer::DescriptorBufferUniform sceneDataDescriptorBuffer;
-    renderer::AllocatedBuffer sceneDataBuffers[FRAME_OVERLAP]{};
-    renderer::AllocatedBuffer debugSceneDataBuffer{};
+    renderer::DescriptorBufferUniformPtr sceneDataDescriptorBuffer;
+    std::array<renderer::AllocatedBufferPtr, FRAME_OVERLAP> sceneDataBuffers;
+    renderer::AllocatedBufferPtr debugSceneDataBuffer{nullptr};
 
     /**
      * Should always exist and be used if no other camera is in the scene (todo: camera system)
@@ -249,45 +250,38 @@ private: // Pipelines
     renderer::PostProcessPipeline* postProcessPipeline{nullptr};
 
 private: // Draw Resources
-    std::unique_ptr<renderer::ImageWithView> drawImage;
-    std::unique_ptr<renderer::ImageWithView> depthStencilImage;
-    std::unique_ptr<renderer::ImageView> depthImageView;
-    std::unique_ptr<renderer::ImageView> stencilImageView;
+    renderer::ImageWithViewPtr drawImage{nullptr};
+    renderer::ImageWithViewPtr depthStencilImage{nullptr};
+    renderer::ImageViewPtr depthImageView{nullptr};
+    renderer::ImageViewPtr stencilImageView{nullptr};
 
     /**
-     * Image view in this depth image is VK_IMAGE_ASPECT_DEPTH_BIT
+     * 10,10,10 View Normals - 2 unused
      */
-    // renderer::AllocatedImage depthStencilImage{};
-    // renderer::ImageView depthImageView{};
-    // renderer::ImageView stencilImageView{};
-
+    renderer::ImageWithViewPtr normalRenderTarget{nullptr};
     /**
-     * 8.8.8 View Normals - 8 unused
+     * 16,16,16 RGB Albedo (HDR) - 16 indicates if the image should be shaded
      */
-    renderer::AllocatedImage normalRenderTarget{};
+    renderer::ImageWithViewPtr albedoRenderTarget{nullptr};
     /**
-     * 8.8.8 RGB Albedo - 8 unused
+     * 8 Metallic, 8 Roughness, 8 Unused, 8 Is Transparent
      */
-    renderer::AllocatedImage albedoRenderTarget{};
-    /**
-     * 8 Metallic, 8 Roughness, 8 emission (unused), 8 Is Transparent
-     */
-    renderer::AllocatedImage pbrRenderTarget{};
+    renderer::ImageWithViewPtr pbrRenderTarget{nullptr};
     /**
      * 16 X and 16 Y
      */
-    renderer::AllocatedImage velocityRenderTarget{};
+    renderer::ImageWithViewPtr velocityRenderTarget{nullptr};
     /**
     * The results of the TAA pass will be outputted into this buffer
     */
-    renderer::AllocatedImage taaResolveTarget{};
+    renderer::ImageWithViewPtr taaResolveTarget{nullptr};
 
     /**
      * A copy of the previous TAA Resolve Buffer
      */
-    renderer::AllocatedImage historyBuffer{};
+    renderer::ImageWithViewPtr historyBuffer{nullptr};
 
-    renderer::AllocatedImage finalImageBuffer{};
+    renderer::ImageWithViewPtr finalImageBuffer{nullptr};
 
 private: // Swapchain
     VkSwapchainKHR swapchain{};

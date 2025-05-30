@@ -397,7 +397,7 @@ void will_engine::vk_helpers::imageBarrier(VkCommandBuffer cmd, VkImage image, V
     vkCmdPipelineBarrier2(cmd, &depInfo);
 }
 
-void will_engine::vk_helpers::uniformBarrier(VkCommandBuffer cmd, const renderer::AllocatedBuffer& buffer, VkPipelineStageFlagBits2 srcPipelineStage,
+void will_engine::vk_helpers::uniformBarrier(VkCommandBuffer cmd, VkBuffer buffer, VkPipelineStageFlagBits2 srcPipelineStage,
                                                  VkAccessFlagBits2 srcAccessBit, VkPipelineStageFlagBits2 dstPipelineStage,
                                                  VkAccessFlagBits2 dstAccessBit)
 {
@@ -413,7 +413,7 @@ void will_engine::vk_helpers::uniformBarrier(VkCommandBuffer cmd, const renderer
 
     bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    bufferBarrier.buffer = buffer.buffer;
+    bufferBarrier.buffer = buffer;
     bufferBarrier.offset = 0;
     bufferBarrier.size = VK_WHOLE_SIZE;
 

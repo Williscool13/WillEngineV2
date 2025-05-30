@@ -306,6 +306,8 @@ set(TEMP_SOURCES
         src/engine/renderer/resources/image_ktx.h
         src/engine/renderer/resources/image_with_view.cpp
         src/engine/renderer/resources/image_with_view.h
+        src/engine/renderer/resources/resources_fwd.cpp
+        src/engine/renderer/resources/resources_fwd.h
 )
 
 add_executable(WillEngine main.cpp

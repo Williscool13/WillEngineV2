@@ -15,7 +15,7 @@ struct Sampler : VulkanResource
 {
     VkSampler sampler{VK_NULL_HANDLE};
 
-    Sampler(ResourceManager* mgr, const VkSamplerCreateInfo& createInfo);
+    Sampler(ResourceManager* resourceManager, const VkSamplerCreateInfo& createInfo);
 
     ~Sampler() override;
 };

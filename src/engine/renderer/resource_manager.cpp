@@ -321,28 +321,6 @@ AllocatedImage ResourceManager::createImageFromData(const void* data, size_t dat
     return newImage;
 }
 
-DescriptorBufferSampler ResourceManager::createDescriptorBufferSampler(VkDescriptorSetLayout layout, int32_t maxObjectCount) const
-{
-    return DescriptorBufferSampler::create(context, layout, maxObjectCount);
-}
-
-int32_t ResourceManager::setupDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer, const std::vector<DescriptorImageData>& imageBuffers,
-    int index) const
-{
-    return descriptorBuffer.setupData(context, imageBuffers, index);
-}
-
-DescriptorBufferUniform ResourceManager::createDescriptorBufferUniform(VkDescriptorSetLayout layout, int32_t maxObjectCount) const
-{
-    return DescriptorBufferUniform::create(context, layout, maxObjectCount);
-}
-
-int32_t ResourceManager::setupDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer,
-    const std::vector<DescriptorUniformData>& uniformBuffers, int index) const
-{
-    return descriptorBuffer.setupData(context, uniformBuffers, index);
-}
-
 VkShaderModule ResourceManager::createShaderModule(const std::filesystem::path& path) const
 {
     std::filesystem::path projectRoot = std::filesystem::current_path();

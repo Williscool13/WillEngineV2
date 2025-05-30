@@ -7,7 +7,6 @@
 #define VKDESCRIPTORBUFFER_H
 
 #include <unordered_set>
-#include <utility>
 
 #include <vma/vk_mem_alloc.h>
 #include <vulkan/vulkan_core.h>
@@ -22,66 +21,8 @@ class VulkanContext;
 
 namespace will_engine::renderer
 {
-class DescriptorBuffer : public VulkanResource
+struct DescriptorBuffer : VulkanResource
 {
-public:
-    DescriptorBuffer() = default;
-
-    ~DescriptorBuffer() override = default;
-
-    // No copying
-    DescriptorBuffer(const DescriptorBuffer&) = delete;
-
-    DescriptorBuffer& operator=(const DescriptorBuffer&) = delete;
-
-    DescriptorBuffer(DescriptorBuffer&& other) noexcept
-        : buffer(std::exchange(other.buffer, VK_NULL_HANDLE))
-          , allocation(std::exchange(other.allocation, VK_NULL_HANDLE))
-          , info(std::exchange(other.info, {}))
-          , bufferAddress(std::exchange(other.bufferAddress, 0))
-          , descriptorBufferSize(other.descriptorBufferSize)
-          , descriptorBufferOffset(other.descriptorBufferOffset)
-          , freeIndices(std::move(other.freeIndices))
-          , maxObjectCount(other.maxObjectCount)
-          , m_destroyed(other.m_destroyed)
-    {
-        other.m_destroyed = true;
-    }
-
-    DescriptorBuffer& operator=(DescriptorBuffer&& other) noexcept
-    {
-        if (this != &other) {
-            buffer = std::exchange(other.buffer, VK_NULL_HANDLE);
-            allocation = std::exchange(other.allocation, VK_NULL_HANDLE);
-            info = std::exchange(other.info, {});
-            bufferAddress = std::exchange(other.bufferAddress, 0);
-            descriptorBufferSize = other.descriptorBufferSize;
-            descriptorBufferOffset = other.descriptorBufferOffset;
-            freeIndices = std::move(other.freeIndices);
-            maxObjectCount = other.maxObjectCount;
-            m_destroyed = other.m_destroyed;
-            other.m_destroyed = true;
-        }
-        return *this;
-    }
-
-    void release(VulkanContext& context) override;
-
-    bool isValid() const override;
-
-    void freeDescriptorBufferIndex(int32_t index);
-
-    void freeAllDescriptorBufferIndices();
-
-    VkDescriptorBufferBindingInfoEXT getBindingInfo() const;
-
-    [[nodiscard]] VkDeviceSize getDescriptorBufferSize() const { return descriptorBufferSize; }
-
-    bool isIndexOccupied(const int32_t index) const { return freeIndices.contains(index); }
-
-protected:
-    virtual VkBufferUsageFlagBits getBufferUsageFlags() const = 0;
-
 protected:
     VkBuffer buffer{VK_NULL_HANDLE};
     VmaAllocation allocation{VK_NULL_HANDLE};
@@ -98,13 +39,25 @@ protected:
     VkDeviceSize descriptorBufferOffset{};
 
     std::unordered_set<int32_t> freeIndices;
-    /**
-     * Must be specified when this descriptor buffer is created.
-     * \n Total descriptor buffer size will be offset + size * maxObjectCount
-     */
     int32_t maxObjectCount{10};
 
-    bool m_destroyed{true};
+public:
+    explicit DescriptorBuffer(ResourceManager* resourceManager);
+
+    ~DescriptorBuffer() override;
+
+    void freeDescriptorBufferIndex(int32_t index);
+
+    void freeAllDescriptorBufferIndices();
+
+    VkDescriptorBufferBindingInfoEXT getBindingInfo() const;
+
+    [[nodiscard]] VkDeviceSize getDescriptorBufferSize() const { return descriptorBufferSize; }
+
+    bool isIndexOccupied(const int32_t index) const { return freeIndices.contains(index); }
+
+protected:
+    virtual VkBufferUsageFlagBits getBufferUsageFlags() const = 0;
 };
 }
 

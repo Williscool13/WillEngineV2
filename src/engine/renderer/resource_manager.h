@@ -64,7 +64,7 @@ using VulkanResourceVariant = std::variant<
 
 struct DestructionQueue
 {
-    std::vector<std::unique_ptr<VulkanResource>> resources{};
+    std::vector<std::unique_ptr<VulkanResource> > resources{};
 
     void flush()
     {
@@ -100,6 +100,11 @@ public:
 public:
     VkDevice getDevice() const { return context.device; }
     VmaAllocator getAllocator() const { return context.allocator; }
+
+    const VkPhysicalDeviceDescriptorBufferPropertiesEXT& getPhysicalDeviceDescriptorBufferProperties() const
+    {
+        return context.deviceDescriptorBufferProperties;
+    }
 
 public:
     /**
@@ -193,7 +198,8 @@ public:
     }
 
 public: // Special helpers for unique resources
-    std::unique_ptr<Image> createCubemapImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false) {
+    std::unique_ptr<Image> createCubemapImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false)
+    {
         VkImageCreateInfo createInfo = vk_helpers::imageCreateInfo(format, usage, size);
         if (mipmapped) {
             createInfo.mipLevels = static_cast<uint32_t>(std::floor(std::log2(std::max(size.width, size.height)))) + 1;
@@ -230,18 +236,6 @@ public: // VkImage and VkImageView
 
     AllocatedImage createImageFromData(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,
                                        bool mipmapped = false);
-
-public: // Descriptor Buffer
-    [[nodiscard]] DescriptorBufferSampler createDescriptorBufferSampler(VkDescriptorSetLayout layout, int32_t maxObjectCount) const;
-
-    int32_t setupDescriptorBufferSampler(DescriptorBufferSampler& descriptorBuffer,
-                                         const std::vector<DescriptorImageData>& imageBuffers,
-                                         int index = -1) const;
-
-    [[nodiscard]] DescriptorBufferUniform createDescriptorBufferUniform(VkDescriptorSetLayout layout, int32_t maxObjectCount) const;
-
-    int32_t setupDescriptorBufferUniform(DescriptorBufferUniform& descriptorBuffer,
-                                         const std::vector<DescriptorUniformData>& uniformBuffers, int index = -1) const;
 
 public: // Shader Module
     // todo :shader modules is handled a little differently
