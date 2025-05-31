@@ -10,6 +10,14 @@
 #include <volk/volk.h>
 
 #include "engine/renderer/resource_manager.h"
+#include "engine/renderer/vk_descriptors.h"
+#include "engine/renderer/vk_helpers.h"
+#include "engine/renderer/vk_pipelines.h"
+#include "engine/renderer/resources/buffer.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_uniform.h"
 
 #if WILL_ENGINE_DEBUG_DRAW
 
@@ -29,6 +37,7 @@ DebugRenderer::DebugRenderer(ResourceManager& resourceManager) : resourceManager
     setupBoxRendering(BOX_INSTANCE_INDEX);
     setupSphereRendering(SPHERE_INSTANCE_INDEX);
     setupLineRendering();
+    setupTriangleRendering();
 
     // Vertex Buffer
     const uint64_t instancedVertexBufferSize = instancedVertices.size() * sizeof(DebugRendererVertex);
@@ -79,16 +88,16 @@ DebugRenderer::~DebugRenderer()
     resourceManager.destroyResource(std::move(instancedIndexBuffer));
 
     for (DebugRenderGroup& group : debugRenderInstanceGroups) {
-        for (BufferPtr buffer : group.instanceBuffers) {
+        for (BufferPtr& buffer : group.instanceBuffers) {
             resourceManager.destroyResource(std::move(buffer));
         }
         resourceManager.destroyResource(std::move(group.instanceDescriptorBuffer));
     }
 
-    for (BufferPtr buffer : lineVertexBuffers) {
+    for (BufferPtr& buffer : lineVertexBuffers) {
         resourceManager.destroyResource(std::move(buffer));
     }
-    for (BufferPtr buffer : triangleVertexBuffers) {
+    for (BufferPtr& buffer : triangleVertexBuffers) {
         resourceManager.destroyResource(std::move(buffer));
     }
 

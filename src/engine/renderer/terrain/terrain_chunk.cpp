@@ -23,18 +23,18 @@ TerrainChunk::TerrainChunk(renderer::ResourceManager& resourceManager, const std
     generateMesh(width, height, heightMapData);
 
     const size_t vertexBufferSize = vertices.size() * sizeof(TerrainVertex);
-    renderer::Buffer vertexStagingBuffer = resourceManager.createStagingBuffer(vertexBufferSize);
-    memcpy(vertexStagingBuffer.info.pMappedData, vertices.data(), vertexBufferSize);
-    vertexBuffer = resourceManager.createDeviceBuffer(vertexBufferSize, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
+    renderer::BufferPtr vertexStagingBuffer = resourceManager.createResource<renderer::Buffer>(renderer::BufferType::Staging, vertexBufferSize);
+    memcpy(vertexStagingBuffer->info.pMappedData, vertices.data(), vertexBufferSize);
+    vertexBuffer = resourceManager.createResource<renderer::Buffer>(renderer::BufferType::Device, VK_BUFFER_USAGE_VERTEX_BUFFER_BIT);
 
     const size_t indexBufferSize = indices.size() * sizeof(uint32_t);
-    renderer::Buffer indexStagingBuffer = resourceManager.createStagingBuffer(indexBufferSize);
-    memcpy(indexStagingBuffer.info.pMappedData, indices.data(), indexBufferSize);
-    indexBuffer = resourceManager.createDeviceBuffer(indexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
+    renderer::BufferPtr indexStagingBuffer = resourceManager.createResource<renderer::Buffer>(renderer::BufferType::Staging, indexBufferSize);
+    memcpy(indexStagingBuffer->info.pMappedData, indices.data(), indexBufferSize);
+    indexBuffer = resourceManager.createResource<renderer::Buffer>(renderer::BufferType::Device, indexBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
     std::array<renderer::BufferCopyInfo, 2> bufferCopies = {
-        renderer::BufferCopyInfo(vertexStagingBuffer.buffer, 0, vertexBuffer.buffer, 0, vertexBufferSize),
-        {indexStagingBuffer.buffer,0, indexBuffer.buffer, 0, indexBufferSize},
+        renderer::BufferCopyInfo(vertexStagingBuffer->buffer, 0, vertexBuffer->buffer, 0, vertexBufferSize),
+        {indexStagingBuffer->buffer,0, indexBuffer->buffer, 0, indexBufferSize},
     };
 
     resourceManager.copyBufferImmediate(bufferCopies);
@@ -43,15 +43,15 @@ TerrainChunk::TerrainChunk(renderer::ResourceManager& resourceManager, const std
     resourceManager.destroyResourceImmediate(std::move(indexStagingBuffer));
 
     for (int i{0}; i < FRAME_OVERLAP; i++) {
-        terrainUniformBuffers[i] = resourceManager.createHostSequentialBuffer(sizeof(TerrainProperties));
+        terrainUniformBuffers[i] = resourceManager.createResource<renderer::Buffer>(renderer::BufferType::HostSequential, sizeof(TerrainProperties));
     }
-    uniformDescriptorBuffer = resourceManager.createDescriptorBufferUniform(resourceManager.getTerrainUniformLayout(), FRAME_OVERLAP);
+    uniformDescriptorBuffer = resourceManager.createResource<renderer::DescriptorBufferUniform>(resourceManager.getTerrainUniformLayout(), FRAME_OVERLAP);
     // todo: maybe make this multi buffer for changing textures? Need to be careful about lifetimes of texture resources.
-    textureDescriptorBuffer = resourceManager.createDescriptorBufferSampler(resourceManager.getTerrainTexturesLayout(), 1);
+    textureDescriptorBuffer = resourceManager.createResource<renderer::DescriptorBufferSampler>(resourceManager.getTerrainTexturesLayout(), 1);
     std::vector<DescriptorUniformData> terrainBuffers{1};
     for (int i{0}; i < FRAME_OVERLAP; i++) {
-        terrainBuffers[0] = DescriptorUniformData{.buffer = terrainUniformBuffers[i].buffer, .allocSize = sizeof(TerrainProperties)};
-        resourceManager.setupDescriptorBufferUniform(uniformDescriptorBuffer, terrainBuffers, i);
+        terrainBuffers[0] = DescriptorUniformData{.buffer = terrainUniformBuffers[i]->buffer, .allocSize = sizeof(TerrainProperties)};
+        uniformDescriptorBuffer->setupData(terrainBuffers, i);
     }
 
     // Physics
@@ -87,7 +87,7 @@ TerrainChunk::~TerrainChunk()
     resourceManager.destroyResource(std::move(vertexBuffer));
     resourceManager.destroyResource(std::move(indexBuffer));
 
-    for (renderer::Buffer& terrainUniformBuffer : terrainUniformBuffers) {
+    for (renderer::BufferPtr& terrainUniformBuffer : terrainUniformBuffers) {
         resourceManager.destroyResource(std::move(terrainUniformBuffer));
     }
 
@@ -209,8 +209,8 @@ void TerrainChunk::update(const int32_t currentFrameOverlap, const int32_t previ
 {
     if (bufferFramesToUpdate <= 0) { return; }
 
-    const renderer::Buffer& currentFrameUniformBuffer = terrainUniformBuffers[currentFrameOverlap];
-    const auto pUniformBuffer = reinterpret_cast<TerrainProperties*>(static_cast<char*>(currentFrameUniformBuffer.info.pMappedData));
+    const renderer::BufferPtr& currentFrameUniformBuffer = terrainUniformBuffers[currentFrameOverlap];
+    const auto pUniformBuffer = reinterpret_cast<TerrainProperties*>(static_cast<char*>(currentFrameUniformBuffer->info.pMappedData));
     memcpy(pUniformBuffer, &terrainProperties, sizeof(TerrainProperties));
 
     bufferFramesToUpdate--;
@@ -245,7 +245,7 @@ void TerrainChunk::setTerrainBufferData(const TerrainProperties& terrainProperti
         }
     }
 
-    resourceManager.setupDescriptorBufferSampler(textureDescriptorBuffer, textureDescriptors, 0);
+    textureDescriptorBuffer->setupData(textureDescriptors, 0);
 
     this->textureIds = textureIds;
     bufferFramesToUpdate = FRAME_OVERLAP;

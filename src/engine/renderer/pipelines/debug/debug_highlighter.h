@@ -7,6 +7,8 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
 #include "engine/renderer/resources/resources_fwd.h"
 
 

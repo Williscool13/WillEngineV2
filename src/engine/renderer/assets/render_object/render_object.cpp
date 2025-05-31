@@ -13,6 +13,11 @@
 #include "engine/renderer/vulkan_context.h"
 #include "render_object_constants.h"
 #include "engine/core/game_object/game_object_factory.h"
+#include "engine/renderer/vk_helpers.h"
+#include "engine/renderer/resources/buffer.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "engine/util/file.h"
 #include "engine/util/model_utils.h"
 
@@ -624,7 +629,7 @@ void RenderObject::load()
     std::vector<DescriptorImageData> textureDescriptors;
     // 0 is always a "fallback sampler"
     textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, {.sampler = resourceManager.getDefaultSamplerNearest()}, false});
-    for (SamplerPtr sampler : samplers) {
+    for (SamplerPtr& sampler : samplers) {
         if (!sampler) {
             textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, {.sampler = resourceManager.getDefaultSamplerNearest()}, false});
         }
@@ -644,7 +649,7 @@ void RenderObject::load()
         VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, {.imageView = resourceManager.getWhiteImage(), .imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
         false
     });
-    for (ImageResourcePtr image : images) {
+    for (ImageResourcePtr& image : images) {
         if (!image) {
             textureDescriptors.push_back({
                 VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE,
@@ -777,11 +782,11 @@ void RenderObject::unload()
     renderables.clear();
     renderableMap.clear();
 
-    for (ImageResourcePtr image : images) {
+    for (ImageResourcePtr& image : images) {
         resourceManager.destroyResource(std::move(image));
     }
 
-    for (SamplerPtr sampler : samplers) {
+    for (SamplerPtr& sampler : samplers) {
         resourceManager.destroyResource(std::move(sampler));
     }
 

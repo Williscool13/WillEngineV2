@@ -281,8 +281,6 @@ set(TEMP_SOURCES
         src/engine/renderer/pipelines/debug/debug_highlight_types.h
         src/engine/renderer/resources/vulkan_resource.cpp
         src/engine/renderer/resources/vulkan_resource.h
-        src/engine/renderer/resources/allocated_image.cpp
-        src/engine/renderer/resources/allocated_image.h
         src/engine/renderer/resources/buffer.cpp
         src/engine/renderer/resources/buffer.h
         src/engine/renderer/resources/sampler.cpp

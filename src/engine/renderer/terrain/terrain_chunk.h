@@ -15,6 +15,7 @@
 #include "engine/renderer/resource_manager.h"
 #include "engine/renderer/vk_types.h"
 #include "engine/renderer/assets/texture/texture_resource.h"
+#include "engine/renderer/resources/buffer.h"
 
 namespace will_engine::terrain
 {
@@ -45,14 +46,14 @@ public:
     }
 
 public:
-    [[nodiscard]] const renderer::Buffer& getVertexBuffer() const { return vertexBuffer; }
-    [[nodiscard]] const renderer::Buffer& getIndexBuffer() const { return indexBuffer; }
+    [[nodiscard]] const VkBuffer getVertexBuffer() const { return vertexBuffer->buffer; }
+    [[nodiscard]] const VkBuffer getIndexBuffer() const { return indexBuffer->buffer; }
 
     [[nodiscard]] size_t getIndexCount() const { return indices.size(); }
     const std::vector<uint32_t>& getIndices() { return indices; }
 
-    [[nodiscard]] const renderer::DescriptorBufferSampler& getTextureDescriptorBuffer() const { return textureDescriptorBuffer; }
-    [[nodiscard]] const renderer::DescriptorBufferUniform& getUniformDescriptorBuffer() const { return uniformDescriptorBuffer; }
+    [[nodiscard]] renderer::DescriptorBufferSampler* getTextureDescriptorBuffer() const { return textureDescriptorBuffer.get(); }
+    [[nodiscard]] renderer::DescriptorBufferUniform* getUniformDescriptorBuffer() const { return uniformDescriptorBuffer.get(); }
 
 public: // Physics
     void setTransform(const glm::vec3& position, const glm::quat& rotation) override {}
@@ -84,13 +85,13 @@ private: // Model Data
     std::vector<uint32_t> indices;
 
 private: // Buffer Data
-    renderer::Buffer vertexBuffer{};
-    renderer::Buffer indexBuffer{};
+    renderer::BufferPtr vertexBuffer{};
+    renderer::BufferPtr indexBuffer{};
 
-    renderer::DescriptorBufferSampler textureDescriptorBuffer;
-    renderer::DescriptorBufferUniform uniformDescriptorBuffer;
+    renderer::DescriptorBufferSamplerPtr textureDescriptorBuffer;
+    renderer::DescriptorBufferUniformPtr uniformDescriptorBuffer;
 
-    std::array<renderer::Buffer, FRAME_OVERLAP> terrainUniformBuffers{};
+    std::array<renderer::BufferPtr, FRAME_OVERLAP> terrainUniformBuffers{};
     std::vector<std::shared_ptr<renderer::TextureResource> > textureResources{};
     int32_t bufferFramesToUpdate{FRAME_OVERLAP};
 

@@ -5,6 +5,7 @@
 #include "texture_resource.h"
 
 #include <stb/stb_image.h>
+#include <fmt/format.h>
 
 #include "texture.h"
 

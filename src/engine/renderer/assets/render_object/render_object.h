@@ -6,12 +6,17 @@
 #define MODEL_H
 
 #include <filesystem>
+#include <unordered_set>
 
 #include "render_object_types.h"
 #include "render_reference.h"
 #include "engine/core/game_object/renderable.h"
 #include "engine/renderer/renderer_constants.h"
 #include "engine/renderer/resource_manager.h"
+#include "engine/renderer/resources/buffer.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_uniform.h"
+#include "engine/renderer/resources/resources_fwd.h"
 
 
 namespace will_engine

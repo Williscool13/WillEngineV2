@@ -16,6 +16,7 @@
 #include "vk_helpers.h"
 #include "vulkan_context.h"
 #include "assets/render_object/render_object_constants.h"
+#include "resources/buffer.h"
 #include "resources/descriptor_set_layout.h"
 #include "resources/image.h"
 #include "shaderc/shaderc.hpp"
@@ -83,60 +84,60 @@ ResourceManager::ResourceManager(VulkanContext& context, ImmediateSubmitter& imm
     // Empty (WIP/unused)
     {
         DescriptorLayoutBuilder layoutBuilder;
-        emptyDescriptorSetLayout = createDescriptorSetLayout(
-            layoutBuilder,
+        VkDescriptorSetLayoutCreateInfo layoutCreateInfo = layoutBuilder.build(
             static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT),
             VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
         );
+        emptyDescriptorSetLayout = createResource<DescriptorSetLayout>(layoutCreateInfo);
     }
 
     // Scene Data Layout
     {
         DescriptorLayoutBuilder layoutBuilder;
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        sceneDataLayout = createDescriptorSetLayout(
-            layoutBuilder,
+        VkDescriptorSetLayoutCreateInfo layoutCreateInfo = layoutBuilder.build(
             static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT |
                                                VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT | VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT),
             VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
         );
+        sceneDataLayout = createResource<DescriptorSetLayout>(layoutCreateInfo);
     }
     // Frustum Cull Layout
     {
-        DescriptorLayoutBuilder layoutBuilder;
+        DescriptorLayoutBuilder layoutBuilder{1};
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        frustumCullLayout = createDescriptorSetLayout(
-            layoutBuilder,
+        VkDescriptorSetLayoutCreateInfo layoutCreateInfo = layoutBuilder.build(
             VK_SHADER_STAGE_COMPUTE_BIT,
             VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
         );
+        frustumCullLayout = createResource<DescriptorSetLayout>(layoutCreateInfo);
     }
 
     // Render Object Addresses
     {
-        DescriptorLayoutBuilder layoutBuilder;
+        DescriptorLayoutBuilder layoutBuilder{1};
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-        addressesLayout = createDescriptorSetLayout(
-            layoutBuilder,
+        VkDescriptorSetLayoutCreateInfo layoutCreateInfo = layoutBuilder.build(
             static_cast<VkShaderStageFlagBits>(VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_COMPUTE_BIT),
             VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
         );
+        addressesLayout = createResource<DescriptorSetLayout>(layoutCreateInfo);
     }
 
     // Render Object Textures
     {
-        DescriptorLayoutBuilder layoutBuilder;
+        DescriptorLayoutBuilder layoutBuilder{2};
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_SAMPLER, render_object_constants::MAX_SAMPLER_COUNT);
         layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, render_object_constants::MAX_IMAGES_COUNT);
-        texturesLayout = createDescriptorSetLayout(
-            layoutBuilder,
+        VkDescriptorSetLayoutCreateInfo layoutCreateInfo = layoutBuilder.build(
             VK_SHADER_STAGE_FRAGMENT_BIT,
             VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
         );
+        texturesLayout = createResource<DescriptorSetLayout>(layoutCreateInfo);
     }
     // Render Targets
     {
-        DescriptorLayoutBuilder layoutBuilder;
+        DescriptorLayoutBuilder layoutBuilder{8};
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // Normals
         layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // Albedo
         layoutBuilder.addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // PBR
@@ -145,35 +146,32 @@ ResourceManager::ResourceManager(VulkanContext& context, ImmediateSubmitter& imm
         layoutBuilder.addBinding(5, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // AO
         layoutBuilder.addBinding(6, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // Screen Space Contact Shadows
         layoutBuilder.addBinding(7, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // Output
-
-        renderTargetsLayout = createDescriptorSetLayout(
-            layoutBuilder,
+        VkDescriptorSetLayoutCreateInfo layoutCreateInfo = layoutBuilder.build(
             VK_SHADER_STAGE_COMPUTE_BIT,
             VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
         );
+        renderTargetsLayout = createResource<DescriptorSetLayout>(layoutCreateInfo);
     }
 
     // Terrain Textures
     {
-        DescriptorLayoutBuilder layoutBuilder;
+        DescriptorLayoutBuilder layoutBuilder{1};
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, terrain::MAX_TERRAIN_TEXTURE_COUNT);
-
-        terrainTexturesLayout = createDescriptorSetLayout(
-            layoutBuilder,
+        VkDescriptorSetLayoutCreateInfo layoutCreateInfo = layoutBuilder.build(
             VK_SHADER_STAGE_FRAGMENT_BIT,
             VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
         );
+        terrainTexturesLayout = createResource<DescriptorSetLayout>(layoutCreateInfo);
     }
     // Terrain Uniform
     {
-        DescriptorLayoutBuilder layoutBuilder;
+        DescriptorLayoutBuilder layoutBuilder{1};
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
-
-        terrainUniformLayout = createDescriptorSetLayout(
-            layoutBuilder,
+        VkDescriptorSetLayoutCreateInfo layoutCreateInfo = layoutBuilder.build(
             VK_SHADER_STAGE_FRAGMENT_BIT,
             VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
         );
+        terrainUniformLayout = createResource<DescriptorSetLayout>(layoutCreateInfo);
     }
 
     for (int32_t i = 0; i < FRAME_OVERLAP; ++i) {
@@ -216,14 +214,14 @@ void ResourceManager::update(const int32_t currentFrameOverlap)
         return;
     }
 
-    destructionQueues[currentFrameOverlap].flush(context);
+    destructionQueues[currentFrameOverlap].flush();
     lastKnownFrameOverlap = currentFrameOverlap;
 }
 
 void ResourceManager::flushDestructionQueue()
 {
     for (int32_t i = 0; i < FRAME_OVERLAP; ++i) {
-        destructionQueues[i].flush(context);
+        destructionQueues[i].flush();
     }
 }
 
@@ -240,13 +238,13 @@ ImageFormatProperties ResourceManager::getPhysicalDeviceImageFormatProperties(
     return {result, formatProperties};
 }
 
-void ResourceManager::copyBufferImmediate(const Buffer& src, const Buffer& dst,
+void ResourceManager::copyBufferImmediate(const VkBuffer src, const VkBuffer dst,
                                           const VkDeviceSize size) const
 {
     copyBufferImmediate(src, dst, size, 0);
 }
 
-void ResourceManager::copyBufferImmediate(const Buffer& src, const Buffer& dst, const VkDeviceSize size,
+void ResourceManager::copyBufferImmediate(const VkBuffer src, const VkBuffer dst, const VkDeviceSize size,
                                           const VkDeviceSize offset) const
 {
     immediate.submit([&](VkCommandBuffer cmd) {
@@ -255,7 +253,7 @@ void ResourceManager::copyBufferImmediate(const Buffer& src, const Buffer& dst, 
         vertexCopy.srcOffset = offset;
         vertexCopy.size = size;
 
-        vkCmdCopyBuffer(cmd, src.buffer, dst.buffer, 1, &vertexCopy);
+        vkCmdCopyBuffer(cmd, src, dst, 1, &vertexCopy);
     });
 }
 
@@ -307,11 +305,10 @@ ImageResourcePtr ResourceManager::createImageFromData(const void* data, size_t d
 {
     const size_t data_size = dataSize;
 
-
-    BufferPtr uploadBuffer = createResource<Buffer>(BufferType::Staging, sizeof(SceneData));
+    BufferPtr uploadBuffer = createResource<Buffer>(BufferType::Staging, data_size);
     memcpy(uploadBuffer->info.pMappedData, data, data_size);
 
-    ImageResourcePtr newImage = createResource<Image>(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_IMAGE_ASPECT_COLOR_BIT, mipmapped);
+    ImageResourcePtr newImage = createResource<Image>(size, format, usage | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, mipmapped);
 
     immediate.submit([&](VkCommandBuffer cmd) {
         vk_helpers::imageBarrier(cmd, newImage.get(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -429,5 +426,4 @@ void ResourceManager::destroyShaderModule(VkShaderModule& module) const
     vkDestroyShaderModule(context.device, module, nullptr);
     module = VK_NULL_HANDLE;
 }
--
 }

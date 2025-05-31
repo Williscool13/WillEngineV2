@@ -6,6 +6,7 @@
 #define SERIALIZER_TYPES_H
 #include <filesystem>
 #include <string>
+#include <fmt/format.h>
 
 #include "serializer_constants.h"
 #include "engine/renderer/assets/texture/texture.h"

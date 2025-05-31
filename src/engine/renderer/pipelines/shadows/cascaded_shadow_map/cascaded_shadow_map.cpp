@@ -10,10 +10,18 @@
 #include "engine/core/camera/camera.h"
 #include "engine/core/game_object/terrain.h"
 #include "engine/renderer/renderer_constants.h"
+#include "engine/renderer/vk_descriptors.h"
+#include "engine/renderer/vk_helpers.h"
+#include "engine/renderer/vk_pipelines.h"
 #include "engine/renderer/assets/render_object/render_object.h"
 #include "engine/renderer/assets/render_object/render_object_types.h"
 #include "engine/renderer/terrain/terrain_chunk.h"
 #include "engine/renderer/resources/image.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "engine/util/math_constants.h"
 #include "engine/util/render_utils.h"
 
@@ -280,9 +288,9 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, CascadedShadowMapDrawInfo draw
                 vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, terrainPipelineLayout->layout, 0, 1, &shadowDataIndex,
                                                    &shadowDataOffset);
 
-                VkBuffer vertexBuffer = terrainChunk->getVertexBuffer().buffer;
+                VkBuffer vertexBuffer = terrainChunk->getVertexBuffer();
                 vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer, &zeroOffset);
-                vkCmdBindIndexBuffer(cmd, terrainChunk->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
+                vkCmdBindIndexBuffer(cmd, terrainChunk->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
                 vkCmdDrawIndexed(cmd, terrainChunk->getIndexCount(), 1, 0, 0, 0);
             }
 

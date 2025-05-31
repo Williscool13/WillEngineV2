@@ -6,6 +6,10 @@
 
 #include "engine/renderer/resource_manager.h"
 #include "engine/renderer/vk_descriptors.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.h"
 #include "volk/volk.h"
 
 namespace will_engine::renderer
@@ -66,7 +70,7 @@ void DebugCompositePipeline::setupDescriptorBuffer(VkImageView debugTarget, VkIm
     descriptorBuffer->setupData(descriptors, 0);
 }
 
-void DebugCompositePipeline::draw(VkCommandBuffer cmd, DebugCompositePipelineDrawInfo drawInfo) const
+void DebugCompositePipeline::draw(VkCommandBuffer cmd, const DebugCompositePipelineDrawInfo& drawInfo) const
 {
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipeline);
 

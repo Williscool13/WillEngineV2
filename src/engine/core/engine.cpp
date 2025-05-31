@@ -98,17 +98,17 @@ void Engine::init()
     startupProfiler.addEntry("Swapchain");
 
     // Command Pools
-    const VkCommandPoolCreateInfo commandPoolInfo = vk_helpers::commandPoolCreateInfo(context->graphicsQueueFamily,
-                                                                                      VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
+    const VkCommandPoolCreateInfo commandPoolInfo = renderer::vk_helpers::commandPoolCreateInfo(context->graphicsQueueFamily,
+                                                                                                VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
     for (auto& frame : frames) {
         VK_CHECK(vkCreateCommandPool(context->device, &commandPoolInfo, nullptr, &frame._commandPool));
-        VkCommandBufferAllocateInfo cmdAllocInfo = vk_helpers::commandBufferAllocateInfo(frame._commandPool);
+        VkCommandBufferAllocateInfo cmdAllocInfo = renderer::vk_helpers::commandBufferAllocateInfo(frame._commandPool);
         VK_CHECK(vkAllocateCommandBuffers(context->device, &cmdAllocInfo, &frame._mainCommandBuffer));
     }
 
     // Sync Structures
-    const VkFenceCreateInfo fenceCreateInfo = vk_helpers::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
-    const VkSemaphoreCreateInfo semaphoreCreateInfo = vk_helpers::semaphoreCreateInfo();
+    const VkFenceCreateInfo fenceCreateInfo = renderer::vk_helpers::fenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
+    const VkSemaphoreCreateInfo semaphoreCreateInfo = renderer::vk_helpers::semaphoreCreateInfo();
     for (auto& frame : frames) {
         VK_CHECK(vkCreateFence(context->device, &fenceCreateInfo, nullptr, &frame._renderFence));
 
@@ -497,10 +497,10 @@ void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int3
     pDebugSceneData->texelSize = {1.0f / RENDER_EXTENT_WIDTH, 1.0f / RENDER_EXTENT_HEIGHT};
     pDebugSceneData->deltaTime = deltaTime;
 
-    vk_helpers::uniformBarrier(cmd, sceneDataBuffer->buffer, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
-                               VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
-    vk_helpers::uniformBarrier(cmd, debugSceneDataBuffer->buffer, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
-                               VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
+    renderer::vk_helpers::uniformBarrier(cmd, sceneDataBuffer->buffer, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
+                                         VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
+    renderer::vk_helpers::uniformBarrier(cmd, debugSceneDataBuffer->buffer, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
+                                         VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
 }
 
 void Engine::updateDebug(float deltaTime)
@@ -572,7 +572,7 @@ void Engine::render(float deltaTime)
 
     VkCommandBuffer cmd = getCurrentFrame()._mainCommandBuffer;
     VK_CHECK(vkResetCommandBuffer(cmd, 0));
-    const VkCommandBufferBeginInfo cmdBeginInfo = vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
+    const VkCommandBufferBeginInfo cmdBeginInfo = renderer::vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
     profiler.beginTimer("2Render");
@@ -632,15 +632,15 @@ void Engine::render(float deltaTime)
     debugTarget->imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     // do not reset historyBuffer's layout to preserve contents
 
-    vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, drawImage.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    renderer::vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, drawImage.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
 
-    vk_helpers::imageBarrier(cmd, depthStencilImage.get(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                             VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+    renderer::vk_helpers::imageBarrier(cmd, depthStencilImage.get(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                                       VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
-    vk_helpers::imageBarrier(cmd, normalRenderTarget.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::imageBarrier(cmd, albedoRenderTarget.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::imageBarrier(cmd, pbrRenderTarget.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::imageBarrier(cmd, velocityRenderTarget.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    renderer::vk_helpers::imageBarrier(cmd, normalRenderTarget.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    renderer::vk_helpers::imageBarrier(cmd, albedoRenderTarget.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    renderer::vk_helpers::imageBarrier(cmd, pbrRenderTarget.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    renderer::vk_helpers::imageBarrier(cmd, velocityRenderTarget.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     renderer::EnvironmentDrawInfo environmentPipelineDrawInfo{
         true,
@@ -724,21 +724,21 @@ void Engine::render(float deltaTime)
         sceneDataBufferOffset,
         environmentMap->getDiffSpecMapDescriptorBuffer()->getBindingInfo(),
         environmentMap->getDiffSpecMapDescriptorBuffer()->getDescriptorBufferSize() * environmentMapIndex,
-        cascadedShadowMap->getCascadedShadowMapUniformBuffer().getBindingInfo(),
-        cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferSize() * currentFrameOverlap,
-        cascadedShadowMap->getCascadedShadowMapSamplerBuffer().getBindingInfo(),
+        cascadedShadowMap->getCascadedShadowMapUniformBuffer()->getBindingInfo(),
+        cascadedShadowMap->getCascadedShadowMapUniformBuffer()->getDescriptorBufferSize() * currentFrameOverlap,
+        cascadedShadowMap->getCascadedShadowMapSamplerBuffer()->getBindingInfo(),
     };
     if (bDrawTransparents) {
         transparentPipeline->drawAccumulate(cmd, transparentDrawInfo);
     }
 
-    vk_helpers::imageBarrier(cmd, drawImage.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::imageBarrier(cmd, depthStencilImage.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    renderer::vk_helpers::imageBarrier(cmd, drawImage.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    renderer::vk_helpers::imageBarrier(cmd, depthStencilImage.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                              VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
-    vk_helpers::imageBarrier(cmd, normalRenderTarget.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::imageBarrier(cmd, albedoRenderTarget.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::imageBarrier(cmd, pbrRenderTarget.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::imageBarrier(cmd, velocityRenderTarget.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    renderer::vk_helpers::imageBarrier(cmd, normalRenderTarget.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    renderer::vk_helpers::imageBarrier(cmd, albedoRenderTarget.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    renderer::vk_helpers::imageBarrier(cmd, pbrRenderTarget.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    renderer::vk_helpers::imageBarrier(cmd, velocityRenderTarget.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
 
     renderer::GTAODrawInfo gtaoDrawInfo{
@@ -769,9 +769,9 @@ void Engine::render(float deltaTime)
         sceneDataBufferOffset,
         environmentMap->getDiffSpecMapDescriptorBuffer()->getBindingInfo(),
         environmentMap->getDiffSpecMapDescriptorBuffer()->getDescriptorBufferSize() * environmentMapIndex,
-        cascadedShadowMap->getCascadedShadowMapUniformBuffer().getBindingInfo(),
-        cascadedShadowMap->getCascadedShadowMapUniformBuffer().getDescriptorBufferSize() * currentFrameOverlap,
-        cascadedShadowMap->getCascadedShadowMapSamplerBuffer().getBindingInfo(),
+        cascadedShadowMap->getCascadedShadowMapUniformBuffer()->getBindingInfo(),
+        cascadedShadowMap->getCascadedShadowMapUniformBuffer()->getDescriptorBufferSize() * currentFrameOverlap,
+        cascadedShadowMap->getCascadedShadowMapSamplerBuffer()->getBindingInfo(),
         fallbackCamera->getNearPlane(),
         fallbackCamera->getFarPlane(),
         bEnableShadows,
@@ -779,7 +779,7 @@ void Engine::render(float deltaTime)
     };
     deferredResolvePipeline->draw(cmd, deferredResolveDrawInfo);
 
-    vk_helpers::imageBarrier(cmd, drawImage.get(), VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    renderer::vk_helpers::imageBarrier(cmd, drawImage.get(), VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     renderer::TransparentCompositeDrawInfo compositeDrawInfo{
         drawImage->imageView
     };
@@ -788,9 +788,9 @@ void Engine::render(float deltaTime)
     }
 
 
-    vk_helpers::imageBarrier(cmd, drawImage.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::imageBarrier(cmd, historyBuffer.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::imageBarrier(cmd, taaResolveTarget.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    renderer::vk_helpers::imageBarrier(cmd, drawImage.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    renderer::vk_helpers::imageBarrier(cmd, historyBuffer.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    renderer::vk_helpers::imageBarrier(cmd, taaResolveTarget.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
     const renderer::TemporalAntialiasingDrawInfo taaDrawInfo{
         taaSettings.blendValue,
@@ -801,11 +801,11 @@ void Engine::render(float deltaTime)
     temporalAntialiasingPipeline->draw(cmd, taaDrawInfo);
 
     // Copy to TAA History
-    vk_helpers::imageBarrier(cmd, taaResolveTarget.get(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::imageBarrier(cmd, historyBuffer.get(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::copyImageToImage(cmd, taaResolveTarget->image, historyBuffer->image, RENDER_EXTENTS, RENDER_EXTENTS);
-    vk_helpers::imageBarrier(cmd, taaResolveTarget.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::imageBarrier(cmd, finalImageBuffer.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    renderer::vk_helpers::imageBarrier(cmd, taaResolveTarget.get(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    renderer::vk_helpers::imageBarrier(cmd, historyBuffer.get(), VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    renderer::vk_helpers::copyImageToImage(cmd, taaResolveTarget->image, historyBuffer->image, RENDER_EXTENTS, RENDER_EXTENTS);
+    renderer::vk_helpers::imageBarrier(cmd, taaResolveTarget.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    renderer::vk_helpers::imageBarrier(cmd, finalImageBuffer.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
 
     const renderer::PostProcessDrawInfo postProcessDrawInfo{
@@ -820,9 +820,9 @@ void Engine::render(float deltaTime)
     // Ensure all real rendering happens before this step, as debug draws do write to the depth buffer.
     // This should ALWAYS be the final step before copying to swapchain
     if (bDrawDebugRendering) {
-        vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, debugTarget.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        renderer::vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, debugTarget.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                     {0.0f, 0.0f, 0.0f, 0.0f});
-        vk_helpers::imageBarrier(cmd, depthStencilImage.get(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        renderer::vk_helpers::imageBarrier(cmd, depthStencilImage.get(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
                                  VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
 
@@ -854,16 +854,16 @@ void Engine::render(float deltaTime)
         }
 
         if (stencilDrawn) {
-            vk_helpers::imageBarrier(cmd, debugTarget.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
-            vk_helpers::imageBarrier(cmd, depthStencilImage.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+            renderer::vk_helpers::imageBarrier(cmd, debugTarget.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+            renderer::vk_helpers::imageBarrier(cmd, depthStencilImage.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
             debugHighlighter->drawHighlightProcessing(cmd, highlightDrawInfo);
 
 
-            vk_helpers::imageBarrier(cmd, debugTarget.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+            renderer::vk_helpers::imageBarrier(cmd, debugTarget.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
         }
         else {
-            vk_helpers::imageBarrier(cmd, debugTarget.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+            renderer::vk_helpers::imageBarrier(cmd, debugTarget.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
         }
 
 
@@ -876,22 +876,22 @@ void Engine::render(float deltaTime)
         debugPipeline->draw(cmd, drawInfo);
     }
 #endif
-    vk_helpers::imageBarrier(cmd, finalImageBuffer.get(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::imageBarrier(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+    renderer::vk_helpers::imageBarrier(cmd, finalImageBuffer.get(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    renderer::vk_helpers::imageBarrier(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                              VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::copyImageToImage(cmd, finalImageBuffer->image, swapchainImages[swapchainImageIndex], RENDER_EXTENTS, swapchainExtent);
+    renderer::vk_helpers::copyImageToImage(cmd, finalImageBuffer->image, swapchainImages[swapchainImageIndex], RENDER_EXTENTS, swapchainExtent);
 
     if (engine_constants::useImgui) {
-        vk_helpers::imageBarrier(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        renderer::vk_helpers::imageBarrier(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                  VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
         imguiWrapper->drawImgui(cmd, swapchainImageViews[swapchainImageIndex], swapchainExtent);
 
-        vk_helpers::imageBarrier(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        renderer::vk_helpers::imageBarrier(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
                                  VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
                                  VK_IMAGE_ASPECT_COLOR_BIT);
     }
     else {
-        vk_helpers::imageBarrier(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        renderer::vk_helpers::imageBarrier(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
                                  VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_ASPECT_COLOR_BIT);
     }
 
@@ -901,12 +901,12 @@ void Engine::render(float deltaTime)
     profiler.endTimer("2Render");
 
     // Submission
-    const VkCommandBufferSubmitInfo cmdSubmitInfo = vk_helpers::commandBufferSubmitInfo(cmd);
-    const VkSemaphoreSubmitInfo waitInfo = vk_helpers::semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
+    const VkCommandBufferSubmitInfo cmdSubmitInfo = renderer::vk_helpers::commandBufferSubmitInfo(cmd);
+    const VkSemaphoreSubmitInfo waitInfo = renderer::vk_helpers::semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
                                                                            getCurrentFrame()._swapchainSemaphore);
     const VkSemaphoreSubmitInfo signalInfo =
-            vk_helpers::semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, getCurrentFrame()._renderSemaphore);
-    const VkSubmitInfo2 submit = vk_helpers::submitInfo(&cmdSubmitInfo, &signalInfo, &waitInfo);
+            renderer::vk_helpers::semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, getCurrentFrame()._renderSemaphore);
+    const VkSubmitInfo2 submit = renderer::vk_helpers::submitInfo(&cmdSubmitInfo, &signalInfo, &waitInfo);
 
     //submit command buffer to the queue and execute it.
     // _renderFence will now block until the graphic commands finish execution
@@ -1163,7 +1163,7 @@ void Engine::createDrawResources()
         drawImageUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
         drawImageUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         drawImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
-        VkImageCreateInfo createInfo = vk_helpers::imageCreateInfo(DRAW_FORMAT, drawImageUsages, drawImageExtent);
+        VkImageCreateInfo createInfo = renderer::vk_helpers::imageCreateInfo(DRAW_FORMAT, drawImageUsages, drawImageExtent);
 
         VmaAllocationCreateInfo renderImageAllocationInfo = {
             .usage = VMA_MEMORY_USAGE_GPU_ONLY,
@@ -1171,7 +1171,7 @@ void Engine::createDrawResources()
         };
 
 
-        VkImageViewCreateInfo renderViewInfo = vk_helpers::imageviewCreateInfo(DRAW_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
+        VkImageViewCreateInfo renderViewInfo = renderer::vk_helpers::imageviewCreateInfo(DRAW_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
         drawImage = resourceManager->createResource<renderer::Image>(createInfo, renderImageAllocationInfo, renderViewInfo);
     }
     // Depth Image
@@ -1181,7 +1181,7 @@ void Engine::createDrawResources()
         depthImageUsages |= VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT;
         depthImageUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         depthImageUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
-        VkImageCreateInfo depthImageInfo = vk_helpers::imageCreateInfo(DEPTH_STENCIL_FORMAT, depthImageUsages, depthImageExtent);
+        VkImageCreateInfo depthImageInfo = renderer::vk_helpers::imageCreateInfo(DEPTH_STENCIL_FORMAT, depthImageUsages, depthImageExtent);
 
         constexpr VmaAllocationCreateInfo depthImageAllocationInfo = {
             .usage = VMA_MEMORY_USAGE_GPU_ONLY,
@@ -1189,14 +1189,14 @@ void Engine::createDrawResources()
         };
 
 
-        VkImageViewCreateInfo combinedViewInfo = vk_helpers::imageviewCreateInfo(DEPTH_STENCIL_FORMAT, VK_NULL_HANDLE,
+        VkImageViewCreateInfo combinedViewInfo = renderer::vk_helpers::imageviewCreateInfo(DEPTH_STENCIL_FORMAT, VK_NULL_HANDLE,
                                                                                  VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
         depthStencilImage = resourceManager->createResource<renderer::Image>(depthImageInfo, depthImageAllocationInfo, combinedViewInfo);
 
-        VkImageViewCreateInfo depthViewInfo = vk_helpers::imageviewCreateInfo(depthStencilImage->imageFormat, depthStencilImage->image,
+        VkImageViewCreateInfo depthViewInfo = renderer::vk_helpers::imageviewCreateInfo(depthStencilImage->imageFormat, depthStencilImage->image,
                                                                               VK_IMAGE_ASPECT_DEPTH_BIT);
-        VkImageViewCreateInfo stencilViewInfo = vk_helpers::imageviewCreateInfo(depthStencilImage->imageFormat, depthStencilImage->image,
+        VkImageViewCreateInfo stencilViewInfo = renderer::vk_helpers::imageviewCreateInfo(depthStencilImage->imageFormat, depthStencilImage->image,
                                                                                 VK_IMAGE_ASPECT_STENCIL_BIT);
         depthImageView = resourceManager->createResource<renderer::ImageView>(depthViewInfo);
         stencilImageView = resourceManager->createResource<renderer::ImageView>(stencilViewInfo);
@@ -1211,13 +1211,13 @@ void Engine::createDrawResources()
             usageFlags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
             usageFlags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
             usageFlags |= VK_IMAGE_USAGE_SAMPLED_BIT;
-            const VkImageCreateInfo imageInfo = vk_helpers::imageCreateInfo(renderTargetFormat, usageFlags, imageExtent);
+            const VkImageCreateInfo imageInfo = renderer::vk_helpers::imageCreateInfo(renderTargetFormat, usageFlags, imageExtent);
             constexpr VmaAllocationCreateInfo allocInfo = {
                 .usage = VMA_MEMORY_USAGE_GPU_ONLY,
                 .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
             };
 
-            VkImageViewCreateInfo imageViewInfo = vk_helpers::imageviewCreateInfo(renderTargetFormat, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
+            VkImageViewCreateInfo imageViewInfo = renderer::vk_helpers::imageviewCreateInfo(renderTargetFormat, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
 
             return resourceManager->createResource<renderer::Image>(imageInfo, allocInfo, imageViewInfo);
         });
@@ -1235,14 +1235,14 @@ void Engine::createDrawResources()
         taaResolveUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         taaResolveUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
-        const VkImageCreateInfo imageCreateInfo = vk_helpers::imageCreateInfo(DRAW_FORMAT, taaResolveUsages, imageExtent);
+        const VkImageCreateInfo imageCreateInfo = renderer::vk_helpers::imageCreateInfo(DRAW_FORMAT, taaResolveUsages, imageExtent);
 
         constexpr VmaAllocationCreateInfo allocInfo = {
             .usage = VMA_MEMORY_USAGE_GPU_ONLY,
             .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         };
 
-        VkImageViewCreateInfo imageViewCreateInfo = vk_helpers::imageviewCreateInfo(DRAW_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
+        VkImageViewCreateInfo imageViewCreateInfo = renderer::vk_helpers::imageviewCreateInfo(DRAW_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
 
         taaResolveTarget = resourceManager->createResource<renderer::Image>(imageCreateInfo, allocInfo, imageViewCreateInfo);
     }
@@ -1253,14 +1253,14 @@ void Engine::createDrawResources()
         historyBufferUsages |= VK_IMAGE_USAGE_SAMPLED_BIT;
         historyBufferUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
-        const VkImageCreateInfo imageCreateInfo = vk_helpers::imageCreateInfo(DRAW_FORMAT, historyBufferUsages, imageExtent);
+        const VkImageCreateInfo imageCreateInfo = renderer::vk_helpers::imageCreateInfo(DRAW_FORMAT, historyBufferUsages, imageExtent);
 
         constexpr VmaAllocationCreateInfo allocInfo = {
             .usage = VMA_MEMORY_USAGE_GPU_ONLY,
             .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         };
 
-        VkImageViewCreateInfo imageViewCreateInfo = vk_helpers::imageviewCreateInfo(DRAW_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
+        VkImageViewCreateInfo imageViewCreateInfo = renderer::vk_helpers::imageviewCreateInfo(DRAW_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
         historyBuffer = resourceManager->createResource<renderer::Image>(imageCreateInfo, allocInfo, imageViewCreateInfo);
     }
     // Final Image
@@ -1270,14 +1270,14 @@ void Engine::createDrawResources()
         usageFlags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         usageFlags |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         usageFlags |= VK_IMAGE_USAGE_SAMPLED_BIT;
-        const VkImageCreateInfo imageCreateInfo = vk_helpers::imageCreateInfo(DRAW_FORMAT, usageFlags, imageExtent);
+        const VkImageCreateInfo imageCreateInfo = renderer::vk_helpers::imageCreateInfo(DRAW_FORMAT, usageFlags, imageExtent);
 
         constexpr VmaAllocationCreateInfo allocInfo = {
             .usage = VMA_MEMORY_USAGE_GPU_ONLY,
             .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
         };
 
-        VkImageViewCreateInfo imageViewCreateInfo = vk_helpers::imageviewCreateInfo(DRAW_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
+        VkImageViewCreateInfo imageViewCreateInfo = renderer::vk_helpers::imageviewCreateInfo(DRAW_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
         finalImageBuffer = resourceManager->createResource<renderer::Image>(imageCreateInfo, allocInfo, imageViewCreateInfo);
     }
 
@@ -1288,12 +1288,12 @@ void Engine::createDrawResources()
     usageFlags |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
     usageFlags |= VK_IMAGE_USAGE_SAMPLED_BIT;
     usageFlags |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-    const VkImageCreateInfo imageCreateInfo = vk_helpers::imageCreateInfo(DEBUG_FORMAT, usageFlags, imageExtent);
+    const VkImageCreateInfo imageCreateInfo = renderer::vk_helpers::imageCreateInfo(DEBUG_FORMAT, usageFlags, imageExtent);
     constexpr VmaAllocationCreateInfo allocInfo = {
         .usage = VMA_MEMORY_USAGE_GPU_ONLY,
         .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
     };
-    VkImageViewCreateInfo imageViewCreateInfo = vk_helpers::imageviewCreateInfo(DEBUG_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
+    VkImageViewCreateInfo imageViewCreateInfo = renderer::vk_helpers::imageviewCreateInfo(DEBUG_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
     debugTarget = resourceManager->createResource<renderer::Image>(imageCreateInfo, allocInfo, imageViewCreateInfo);
 
 #endif

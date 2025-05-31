@@ -5,13 +5,7 @@
 #ifndef VKTYPES_H
 #define VKTYPES_H
 
-#include <vector>
-#include <vma/vk_mem_alloc.h>
-#include <vulkan/vulkan_core.h>
 #include <glm/glm.hpp>
-
-#include "resources/allocated_image.h"
-#include "resources/image_view.h"
 
 struct SceneData
 {

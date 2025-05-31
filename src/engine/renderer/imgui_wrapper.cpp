@@ -11,6 +11,7 @@
 #include <Jolt/Jolt.h>
 
 
+#include "vk_helpers.h"
 #include "environment/environment.h"
 #include "pipelines/debug/debug_highlighter.h"
 #include "pipelines/post/post_process/post_process_pipeline_types.h"
@@ -607,9 +608,9 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             return logf(1.0f + depth * 15.0f) / logf(16.0f);
                         };
 
-                        const renderer::AllocatedImage& shadowMap = engine->cascadedShadowMap->getShadowMap(shadowMapDebug);
-                        if (shadowMap.image != VK_NULL_HANDLE) {
-                            vk_helpers::saveImageR32F(
+                        const renderer::ImageResource* shadowMap = engine->cascadedShadowMap->getShadowMap(shadowMapDebug);
+                        if (shadowMap->image != VK_NULL_HANDLE) {
+                            renderer::vk_helpers::saveImageR32F(
                                 *engine->resourceManager,
                                 *engine->immediate,
                                 shadowMap,
@@ -700,8 +701,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save Draw Image")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "drawImage.png";
-                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->drawImage,
-                                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vk_helpers::ImageFormat::RGBA16F, path.string());
+                        renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->drawImage.get(), renderer::vk_helpers::ImageFormat::RGBA16F, path.string());
                     }
                     else {
                         fmt::print(" Failed to find/create image save path directory");
@@ -718,9 +718,9 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                             return (2.0f * zNear) / (zFar + zNear - d * (zFar - zNear));
                         };
 
-                        vk_helpers::saveImageR32F(*engine->resourceManager, *engine->immediate, engine->depthStencilImage,
-                                                  VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT, path.string().c_str(),
-                                                  depthNormalize);
+                        renderer::vk_helpers::saveImageR32F(*engine->resourceManager, *engine->immediate, engine->depthStencilImage.get(),
+                                                            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT, path.string().c_str(),
+                                                            depthNormalize);
                     }
                     else {
                         fmt::print(" Failed to find/create image save path directory");
@@ -730,8 +730,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save Normals")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "normalRT.png";
-                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->normalRenderTarget,
-                                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vk_helpers::ImageFormat::A2R10G10B10_UNORM, path.string());
+                        renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->normalRenderTarget.get(), renderer::vk_helpers::ImageFormat::A2R10G10B10_UNORM, path.string());
                     }
                     else {
                         fmt::print(" Failed to save normal render target");
@@ -741,8 +740,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save Albedo Render Target")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "albedoRT.png";
-                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->albedoRenderTarget,
-                                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vk_helpers::ImageFormat::RGBA16F, path.string());
+                        renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->albedoRenderTarget.get(),
+                                                         renderer::vk_helpers::ImageFormat::RGBA16F, path.string());
                     }
                     else {
                         fmt::print(" Failed to save albedo render target");
@@ -752,8 +751,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save PBR Render Target")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         std::filesystem::path path = file::imagesSavePath / "pbrRT.png";
-                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->pbrRenderTarget,
-                                              VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, vk_helpers::ImageFormat::RGBA8_UNORM, path.string());
+                        renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->pbrRenderTarget.get(),
+                                                         renderer::vk_helpers::ImageFormat::RGBA8_UNORM, path.string());
                     }
                     else {
                         fmt::print(" Failed to save pbr render target");
@@ -763,8 +762,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save Final Image")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         std::filesystem::path path = file::imagesSavePath / "finalImage.png";
-                        vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->finalImageBuffer, VK_IMAGE_LAYOUT_GENERAL,
-                                              vk_helpers::ImageFormat::RGBA16F, path.string());
+                        renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->finalImageBuffer.get(),
+                                                        renderer::vk_helpers::ImageFormat::RGBA16F, path.string());
                     }
                     else {
                         fmt::print(" Failed to find/create image save path directory");
@@ -1189,8 +1188,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
         if (ImGui::Button("Save Stencil Debug Draw")) {
             if (file::getOrCreateDirectory(file::imagesSavePath)) {
                 const std::filesystem::path path = file::imagesSavePath / "debugStencil.png";
-                vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->depthStencilImage,
-                                      VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, vk_helpers::ImageFormat::D32S8, path.string(), true);
+                renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->depthStencilImage.get(), renderer::vk_helpers::ImageFormat::D32S8, path.string(), true);
             }
             else {
                 fmt::print(" Failed to find/create image save path directory");
@@ -1360,7 +1358,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
             if (ImGui::Button("Save Terrain as HeightMap")) {
                 const std::vector<float> heightmapData = currentTerrainComponent->getHeightMapData();
                 const std::filesystem::path path = file::imagesSavePath / "TerrainHeightMap.png";
-                vk_helpers::saveHeightmap(heightmapData, NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, path);
+                renderer::vk_helpers::saveHeightmap(heightmapData, NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, path);
             }
             ImGui::EndDisabled();
 
@@ -1646,8 +1644,8 @@ void ImguiWrapper::drawImgui(VkCommandBuffer cmd, const VkImageView targetImageV
     label.pLabelName = "DearImgui Draw Pass";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
-    const VkRenderingAttachmentInfo colorAttachment = vk_helpers::attachmentInfo(targetImageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    const VkRenderingInfo renderInfo = vk_helpers::renderingInfo(swapchainExtent, &colorAttachment, nullptr);
+    const VkRenderingAttachmentInfo colorAttachment = renderer::vk_helpers::attachmentInfo(targetImageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    const VkRenderingInfo renderInfo = renderer::vk_helpers::renderingInfo(swapchainExtent, &colorAttachment, nullptr);
     vkCmdBeginRendering(cmd, &renderInfo);
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
     vkCmdEndRendering(cmd);

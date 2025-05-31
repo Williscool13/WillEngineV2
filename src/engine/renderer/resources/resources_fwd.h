@@ -9,6 +9,7 @@
 
 namespace will_engine::renderer
 {
+struct DescriptorSetLayout;
 struct Buffer;
 struct DescriptorBufferUniform;
 struct DescriptorBufferSampler;
@@ -17,7 +18,6 @@ struct Image;
 struct ImageKtx;
 struct ImageResource;
 struct Sampler;
-struct DescriptorSetLayout;
 struct Pipeline;
 struct PipelineLayout;
 

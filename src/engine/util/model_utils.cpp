@@ -16,9 +16,9 @@
 namespace will_engine::renderer
 {
 ImageResourcePtr model_utils::loadImage(ResourceManager& resourceManager, const fastgltf::Asset& asset, const fastgltf::Image& image,
-                                                     const std::filesystem::path& parentFolder)
+                                        const std::filesystem::path& parentFolder)
 {
-    AllocatedImage newImage{};
+    ImageResourcePtr newImage{};
 
     int width{}, height{}, nrChannels{};
 
@@ -86,21 +86,15 @@ ImageResourcePtr model_utils::loadImage(ResourceManager& resourceManager, const 
                 const int32_t ktxVersion = isKtxTexture(vector);
                 if (ktxVersion > 0) {
                     if (ktxVersion == 1) {
-                        std::optional<AllocatedImage> _newImage = processKtxVector(resourceManager, vector);
-                        if (_newImage.has_value()) {
-                            newImage = std::move(_newImage.value());
-                        }
+                        newImage = processKtxVector(resourceManager, vector);
                     }
                     else {
-                        std::optional<AllocatedImage> _newImage = processKtx2Vector(resourceManager, vector);
-                        if (_newImage.has_value()) {
-                            newImage = std::move(_newImage.value());
-                        }
+                        newImage = processKtx2Vector(resourceManager, vector);
                     }
                 }
 
                 // fallback to png if fail
-                if (newImage.image == VK_NULL_HANDLE) {
+                if (!newImage) {
                     unsigned char* data = stbi_load_from_memory(reinterpret_cast<const unsigned char*>(vector.bytes.data()),
                                                                 static_cast<int>(vector.bytes.size()), &width, &height, &nrChannels, 4);
                     if (data) {
@@ -128,16 +122,10 @@ ImageResourcePtr model_utils::loadImage(ResourceManager& resourceManager, const 
                                    const int32_t ktxVersion = isKtxTexture(vector);
                                    if (ktxVersion > 0) {
                                        if (ktxVersion == 1) {
-                                           std::optional<AllocatedImage> _newImage = processKtxVector(resourceManager, vector);
-                                           if (_newImage.has_value()) {
-                                               newImage = std::move(_newImage.value());
-                                           }
+                                           newImage = processKtxVector(resourceManager, vector);
                                        }
                                        else {
-                                           std::optional<AllocatedImage> _newImage = processKtx2Vector(resourceManager, vector);
-                                           if (_newImage.has_value()) {
-                                               newImage = std::move(_newImage.value());
-                                           }
+                                           newImage = processKtx2Vector(resourceManager, vector);
                                        }
                                    }
                                    else {
@@ -160,15 +148,9 @@ ImageResourcePtr model_utils::loadImage(ResourceManager& resourceManager, const 
             }
         }, image.data);
 
-    // if any of the attempts to load the data failed, we haven't written the image
-    // so handle is null
-    if (newImage.image == VK_NULL_HANDLE) {
-        fmt::print("Image failed to load: {}\n", image.name.c_str());
-        return {};
-    }
-    else {
-        return newImage;
-    }
+
+    fmt::print("Image failed to load: {}\n", image.name.c_str());
+    return {};
 }
 
 MaterialProperties model_utils::extractMaterial(fastgltf::Asset& gltf, const fastgltf::Material& gltfMaterial)
@@ -286,8 +268,8 @@ int32_t model_utils::isKtxTexture(const fastgltf::sources::Array& vector)
     return 0;
 }
 
-std::optional<AllocatedImage> model_utils::processKtxVector(ResourceManager& resourceManager,
-                                                            const fastgltf::sources::Array& vector)
+ImageResourcePtr model_utils::processKtxVector(ResourceManager& resourceManager,
+                                               const fastgltf::sources::Array& vector)
 {
     ktxTexture* kTexture;
     const KTX_error_code ktxResult = ktxTexture_CreateFromMemory(
@@ -330,7 +312,7 @@ std::optional<AllocatedImage> model_utils::processKtxVector(ResourceManager& res
     return {};
 }
 
-std::optional<AllocatedImage> model_utils::processKtx2Vector(ResourceManager& resourceManager, const fastgltf::sources::Array& vector)
+ImageResourcePtr model_utils::processKtx2Vector(ResourceManager& resourceManager, const fastgltf::sources::Array& vector)
 {
     ktxTexture2* kTexture;
 

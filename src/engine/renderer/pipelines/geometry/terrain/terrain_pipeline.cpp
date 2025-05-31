@@ -8,6 +8,10 @@
 #include "engine/renderer/resource_manager.h"
 #include "engine/renderer/vk_helpers.h"
 #include "engine/renderer/vk_pipelines.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "engine/renderer/terrain/terrain_chunk.h"
 #include "engine/renderer/terrain/terrain_types.h"
 
@@ -115,8 +119,8 @@ void TerrainPipeline::draw(VkCommandBuffer cmd, const TerrainDrawInfo& drawInfo)
 
         std::array descriptorBufferBindingInfo{
             drawInfo.sceneDataBinding,
-            terrainChunk->getTextureDescriptorBuffer().getBindingInfo(),
-            terrainChunk->getUniformDescriptorBuffer().getBindingInfo(),
+            terrainChunk->getTextureDescriptorBuffer()->getBindingInfo(),
+            terrainChunk->getUniformDescriptorBuffer()->getBindingInfo(),
         };
 
         vkCmdBindDescriptorBuffersEXT(cmd, descriptorBufferBindingInfo.size(), descriptorBufferBindingInfo.data());
@@ -125,14 +129,14 @@ void TerrainPipeline::draw(VkCommandBuffer cmd, const TerrainDrawInfo& drawInfo)
         std::array offsets{
             drawInfo.sceneDataOffset,
             ZERO_DEVICE_SIZE,
-            drawInfo.currentFrameOverlap * terrainChunk->getUniformDescriptorBuffer().getDescriptorBufferSize()
+            drawInfo.currentFrameOverlap * terrainChunk->getUniformDescriptorBuffer()->getDescriptorBufferSize()
         };
 
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout->layout, 0, 3, indices.data(), offsets.data());
 
-        VkBuffer vertexBuffer = terrainChunk->getVertexBuffer().buffer;
+        VkBuffer vertexBuffer = terrainChunk->getVertexBuffer();
         vkCmdBindVertexBuffers(cmd, 0, 1, &vertexBuffer, &zeroOffset);
-        vkCmdBindIndexBuffer(cmd, terrainChunk->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(cmd, terrainChunk->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexed(cmd, terrainChunk->getIndexCount(), 1, 0, 0, 0);
     }
 

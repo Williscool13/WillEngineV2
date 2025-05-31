@@ -12,6 +12,11 @@
 #include "engine/renderer/resource_manager.h"
 #include "engine/renderer/vk_helpers.h"
 #include "ambient_occlusion_types.h"
+#include "engine/renderer/resources/image_view.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.h"
 
 namespace will_engine::renderer
 {

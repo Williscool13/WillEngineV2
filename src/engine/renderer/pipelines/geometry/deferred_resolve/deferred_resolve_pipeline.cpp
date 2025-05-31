@@ -5,9 +5,14 @@
 #include "deferred_resolve_pipeline.h"
 
 #include <array>
+#include <fmt/format.h>
 
 #include "engine/renderer/renderer_constants.h"
 #include "engine/renderer/resource_manager.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.h"
 
 namespace will_engine::renderer
 {
@@ -141,7 +146,7 @@ void DeferredResolvePipeline::draw(VkCommandBuffer cmd, const DeferredResolveDra
         drawInfo.cascadeSamplerBinding,
     };
 
-    vkCmdBindDescriptorBuffersEXT(cmd, bindingInfos.size(), bindingInfos.data);
+    vkCmdBindDescriptorBuffersEXT(cmd, bindingInfos.size(), bindingInfos.data());
 
     constexpr std::array<uint32_t, 5> indices{0, 1, 2, 3, 4};
     const std::array offsets{

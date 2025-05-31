@@ -10,7 +10,9 @@
 #include "environment_constants.h"
 #include "engine/renderer/immediate_submitter.h"
 #include "engine/renderer/resource_manager.h"
+#include "engine/renderer/vk_descriptors.h"
 #include "engine/renderer/resources/image.h"
+#include "engine/renderer/resources/image_view.h"
 #include "engine/util/file.h"
 
 namespace will_engine::renderer
@@ -231,7 +233,7 @@ Environment::Environment(ResourceManager& resourceManager, ImmediateSubmitter& i
         usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
 
         VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(VK_FORMAT_R32G32_SFLOAT, usage, LUT_IMAGE_EXTENT);
-        ImageResourcePtr _lutImage = resourceManager.createResource<Image>(imgInfo);
+        lutImage = resourceManager.createResource<Image>(imgInfo);
 
         VkDescriptorImageInfo lutDescriptorInfo{};
         lutDescriptorInfo.sampler = nullptr; // not sampled (storage)

@@ -14,9 +14,12 @@
 
 #include "immediate_submitter.h"
 #include "resource_manager.h"
+#include "resources/buffer.h"
 #include "resources/image.h"
 
-VkImageCreateInfo will_engine::vk_helpers::imageCreateInfo(const VkFormat format, const VkImageUsageFlags usageFlags, const VkExtent3D extent)
+namespace will_engine::renderer::vk_helpers
+{
+VkImageCreateInfo imageCreateInfo(const VkFormat format, const VkImageUsageFlags usageFlags, const VkExtent3D extent)
 {
     VkImageCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -39,7 +42,7 @@ VkImageCreateInfo will_engine::vk_helpers::imageCreateInfo(const VkFormat format
     return info;
 }
 
-VkImageCreateInfo will_engine::vk_helpers::cubemapCreateInfo(const VkFormat format, const VkImageUsageFlags usageFlags, const VkExtent3D extent)
+VkImageCreateInfo cubemapCreateInfo(const VkFormat format, const VkImageUsageFlags usageFlags, const VkExtent3D extent)
 {
     VkImageCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
@@ -65,7 +68,7 @@ VkImageCreateInfo will_engine::vk_helpers::cubemapCreateInfo(const VkFormat form
     return info;
 }
 
-VkImageViewCreateInfo will_engine::vk_helpers::imageviewCreateInfo(const VkFormat format, const VkImage image, const VkImageAspectFlags aspectFlags)
+VkImageViewCreateInfo imageviewCreateInfo(const VkFormat format, const VkImage image, const VkImageAspectFlags aspectFlags)
 {
     // Identical to imageCreateInfo, but is imageView instead
     VkImageViewCreateInfo info = {};
@@ -85,7 +88,7 @@ VkImageViewCreateInfo will_engine::vk_helpers::imageviewCreateInfo(const VkForma
     return info;
 }
 
-VkImageViewCreateInfo will_engine::vk_helpers::cubemapViewCreateInfo(const VkFormat format, const VkImage image, const VkImageAspectFlags aspectFlags)
+VkImageViewCreateInfo cubemapViewCreateInfo(const VkFormat format, const VkImage image, const VkImageAspectFlags aspectFlags)
 {
     // build a image-view for the depth image to use for rendering
     VkImageViewCreateInfo info = {};
@@ -104,7 +107,7 @@ VkImageViewCreateInfo will_engine::vk_helpers::cubemapViewCreateInfo(const VkFor
     return info;
 }
 
-VkImageSubresourceRange will_engine::vk_helpers::imageSubresourceRange(const VkImageAspectFlags aspectMask)
+VkImageSubresourceRange imageSubresourceRange(const VkImageAspectFlags aspectMask)
 {
     VkImageSubresourceRange subImage{};
     subImage.aspectMask = aspectMask;
@@ -119,7 +122,7 @@ VkImageSubresourceRange will_engine::vk_helpers::imageSubresourceRange(const VkI
 }
 
 
-VkCommandPoolCreateInfo will_engine::vk_helpers::commandPoolCreateInfo(uint32_t queueFamilyIndex, const VkCommandPoolCreateFlags flags /*= 0*/)
+VkCommandPoolCreateInfo commandPoolCreateInfo(uint32_t queueFamilyIndex, const VkCommandPoolCreateFlags flags /*= 0*/)
 {
     VkCommandPoolCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
@@ -129,7 +132,7 @@ VkCommandPoolCreateInfo will_engine::vk_helpers::commandPoolCreateInfo(uint32_t 
 }
 
 // ReSharper disable once CppParameterMayBeConst
-VkCommandBufferAllocateInfo will_engine::vk_helpers::commandBufferAllocateInfo(VkCommandPool pool, const uint32_t count /*= 1*/)
+VkCommandBufferAllocateInfo commandBufferAllocateInfo(VkCommandPool pool, const uint32_t count /*= 1*/)
 {
     VkCommandBufferAllocateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -141,7 +144,7 @@ VkCommandBufferAllocateInfo will_engine::vk_helpers::commandBufferAllocateInfo(V
     return info;
 }
 
-VkCommandBufferBeginInfo will_engine::vk_helpers::commandBufferBeginInfo(const VkCommandBufferUsageFlags flags)
+VkCommandBufferBeginInfo commandBufferBeginInfo(const VkCommandBufferUsageFlags flags)
 {
     VkCommandBufferBeginInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
@@ -152,8 +155,7 @@ VkCommandBufferBeginInfo will_engine::vk_helpers::commandBufferBeginInfo(const V
     return info;
 }
 
-// ReSharper disable once CppParameterMayBeConst
-VkCommandBufferSubmitInfo will_engine::vk_helpers::commandBufferSubmitInfo(VkCommandBuffer cmd)
+VkCommandBufferSubmitInfo commandBufferSubmitInfo(VkCommandBuffer cmd)
 {
     VkCommandBufferSubmitInfo info{};
     info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO;
@@ -165,7 +167,7 @@ VkCommandBufferSubmitInfo will_engine::vk_helpers::commandBufferSubmitInfo(VkCom
 }
 
 
-VkFenceCreateInfo will_engine::vk_helpers::fenceCreateInfo(const VkFenceCreateFlags flags /*= 0*/)
+VkFenceCreateInfo fenceCreateInfo(const VkFenceCreateFlags flags /*= 0*/)
 {
     VkFenceCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
@@ -174,7 +176,7 @@ VkFenceCreateInfo will_engine::vk_helpers::fenceCreateInfo(const VkFenceCreateFl
     return info;
 }
 
-VkSemaphoreCreateInfo will_engine::vk_helpers::semaphoreCreateInfo(const VkSemaphoreCreateFlags flags /*= 0*/)
+VkSemaphoreCreateInfo semaphoreCreateInfo(const VkSemaphoreCreateFlags flags /*= 0*/)
 {
     VkSemaphoreCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
@@ -183,8 +185,7 @@ VkSemaphoreCreateInfo will_engine::vk_helpers::semaphoreCreateInfo(const VkSemap
     return info;
 }
 
-// ReSharper disable once CppParameterMayBeConst
-VkSemaphoreSubmitInfo will_engine::vk_helpers::semaphoreSubmitInfo(const VkPipelineStageFlags2 stageMask, VkSemaphore semaphore)
+VkSemaphoreSubmitInfo semaphoreSubmitInfo(const VkPipelineStageFlags2 stageMask, VkSemaphore semaphore)
 {
     VkSemaphoreSubmitInfo submitInfo{};
     submitInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_SUBMIT_INFO;
@@ -197,8 +198,7 @@ VkSemaphoreSubmitInfo will_engine::vk_helpers::semaphoreSubmitInfo(const VkPipel
     return submitInfo;
 }
 
-// ReSharper disable once CppParameterMayBeConst
-VkRenderingAttachmentInfo will_engine::vk_helpers::attachmentInfo(VkImageView view, const VkClearValue* clear, const VkImageLayout layout)
+VkRenderingAttachmentInfo attachmentInfo(VkImageView view, const VkClearValue* clear, const VkImageLayout layout)
 {
     VkRenderingAttachmentInfo colorAttachment{};
     colorAttachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO;
@@ -215,8 +215,8 @@ VkRenderingAttachmentInfo will_engine::vk_helpers::attachmentInfo(VkImageView vi
     return colorAttachment;
 }
 
-VkRenderingInfo will_engine::vk_helpers::renderingInfo(const VkExtent2D renderExtent, const VkRenderingAttachmentInfo* colorAttachment,
-                                                       const VkRenderingAttachmentInfo* depthAttachment)
+VkRenderingInfo renderingInfo(const VkExtent2D renderExtent, const VkRenderingAttachmentInfo* colorAttachment,
+                              const VkRenderingAttachmentInfo* depthAttachment)
 {
     VkRenderingInfo renderInfo{};
     renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
@@ -232,8 +232,8 @@ VkRenderingInfo will_engine::vk_helpers::renderingInfo(const VkExtent2D renderEx
     return renderInfo;
 }
 
-VkSubmitInfo2 will_engine::vk_helpers::submitInfo(const VkCommandBufferSubmitInfo* cmd, const VkSemaphoreSubmitInfo* signalSemaphoreInfo,
-                                                  const VkSemaphoreSubmitInfo* waitSemaphoreInfo)
+VkSubmitInfo2 submitInfo(const VkCommandBufferSubmitInfo* cmd, const VkSemaphoreSubmitInfo* signalSemaphoreInfo,
+                         const VkSemaphoreSubmitInfo* waitSemaphoreInfo)
 {
     VkSubmitInfo2 info = {};
     info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2;
@@ -251,8 +251,7 @@ VkSubmitInfo2 will_engine::vk_helpers::submitInfo(const VkCommandBufferSubmitInf
     return info;
 }
 
-// ReSharper disable twice CppParameterMayBeConst
-VkDeviceAddress will_engine::vk_helpers::getDeviceAddress(VkDevice device, VkBuffer buffer)
+VkDeviceAddress getDeviceAddress(VkDevice device, VkBuffer buffer)
 {
     VkBufferDeviceAddressInfo deviceAdressInfo{};
     deviceAdressInfo.sType = VK_STRUCTURE_TYPE_BUFFER_DEVICE_ADDRESS_INFO;
@@ -263,27 +262,13 @@ VkDeviceAddress will_engine::vk_helpers::getDeviceAddress(VkDevice device, VkBuf
 }
 
 
-VkDeviceSize will_engine::vk_helpers::getAlignedSize(const VkDeviceSize value, VkDeviceSize alignment)
+VkDeviceSize getAlignedSize(const VkDeviceSize value, VkDeviceSize alignment)
 {
     return (value + alignment - 1) & ~(alignment - 1);
 }
 
-void will_engine::vk_helpers::copyBuffer(VkCommandBuffer cmd, const renderer::Buffer& src, VkDeviceSize srcOffset,
-                                         const renderer::Buffer& dst,
-                                         VkDeviceSize dstOffset, VkDeviceSize size)
-{
-    if (src.buffer == VK_NULL_HANDLE) { return; }
-    if (dst.buffer == VK_NULL_HANDLE) { return; }
-    VkBufferCopy vertexCopy{};
-    vertexCopy.dstOffset = dstOffset;
-    vertexCopy.srcOffset = srcOffset;
-    vertexCopy.size = size;
-
-    vkCmdCopyBuffer(cmd, src.buffer, dst.buffer, 1, &vertexCopy);
-}
-
-void will_engine::vk_helpers::copyBuffer(VkCommandBuffer cmd, VkBuffer src, VkDeviceSize srcOffset, VkBuffer dst, VkDeviceSize dstOffset,
-    VkDeviceSize size)
+void copyBuffer(VkCommandBuffer cmd, VkBuffer src, VkDeviceSize srcOffset, VkBuffer dst, VkDeviceSize dstOffset,
+                VkDeviceSize size)
 {
     if (src == VK_NULL_HANDLE) { return; }
     if (dst == VK_NULL_HANDLE) { return; }
@@ -295,8 +280,8 @@ void will_engine::vk_helpers::copyBuffer(VkCommandBuffer cmd, VkBuffer src, VkDe
     vkCmdCopyBuffer(cmd, src, dst, 1, &vertexCopy);
 }
 
-void will_engine::vk_helpers::clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, renderer::ImageResource* image,
-                                              VkImageLayout dstLayout, VkClearColorValue clearColor)
+void clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, ImageResource* image,
+                     VkImageLayout dstLayout, VkClearColorValue clearColor)
 {
     imageBarrier(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, aspectFlag);
     VkImageSubresourceRange range{
@@ -310,8 +295,8 @@ void will_engine::vk_helpers::clearColorImage(VkCommandBuffer cmd, VkImageAspect
     imageBarrier(cmd, image, dstLayout, aspectFlag);
 }
 
-void will_engine::vk_helpers::clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, VkImage image, VkImageLayout srcLayout,
-                                              VkImageLayout dstLayout, VkClearColorValue clearColor)
+void clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, VkImage image, VkImageLayout srcLayout,
+                     VkImageLayout dstLayout, VkClearColorValue clearColor)
 {
     imageBarrier(cmd, image, srcLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, aspectFlag);
     VkImageSubresourceRange range{
@@ -325,7 +310,7 @@ void will_engine::vk_helpers::clearColorImage(VkCommandBuffer cmd, VkImageAspect
     imageBarrier(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, dstLayout, aspectFlag);
 }
 
-void will_engine::vk_helpers::imageBarrier(VkCommandBuffer cmd, renderer::Image* image, VkImageLayout targetLayout, VkImageAspectFlags aspectMask)
+void imageBarrier(VkCommandBuffer cmd, Image* image, VkImageLayout targetLayout, VkImageAspectFlags aspectMask)
 {
     if (image->imageLayout == targetLayout) { return; }
     VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
@@ -354,8 +339,8 @@ void will_engine::vk_helpers::imageBarrier(VkCommandBuffer cmd, renderer::Image*
     image->imageLayout = targetLayout;
 }
 
-void will_engine::vk_helpers::imageBarrier(VkCommandBuffer cmd, renderer::ImageResource* image, VkImageLayout targetLayout,
-                                           VkImageAspectFlags aspectMask)
+void imageBarrier(VkCommandBuffer cmd, ImageResource* image, VkImageLayout targetLayout,
+                  VkImageAspectFlags aspectMask)
 {
     if (image->imageLayout == targetLayout) { return; }
     VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
@@ -385,8 +370,8 @@ void will_engine::vk_helpers::imageBarrier(VkCommandBuffer cmd, renderer::ImageR
 }
 
 
-void will_engine::vk_helpers::imageBarrier(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout,
-                                           VkImageAspectFlags aspectMask)
+void imageBarrier(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout,
+                  VkImageAspectFlags aspectMask)
 {
     VkImageMemoryBarrier2 imageBarrier{.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2};
     imageBarrier.pNext = nullptr;
@@ -412,9 +397,9 @@ void will_engine::vk_helpers::imageBarrier(VkCommandBuffer cmd, VkImage image, V
     vkCmdPipelineBarrier2(cmd, &depInfo);
 }
 
-void will_engine::vk_helpers::uniformBarrier(VkCommandBuffer cmd, VkBuffer buffer, VkPipelineStageFlagBits2 srcPipelineStage,
-                                             VkAccessFlagBits2 srcAccessBit, VkPipelineStageFlagBits2 dstPipelineStage,
-                                             VkAccessFlagBits2 dstAccessBit)
+void uniformBarrier(VkCommandBuffer cmd, VkBuffer buffer, VkPipelineStageFlagBits2 srcPipelineStage,
+                    VkAccessFlagBits2 srcAccessBit, VkPipelineStageFlagBits2 dstPipelineStage,
+                    VkAccessFlagBits2 dstAccessBit)
 {
     VkBufferMemoryBarrier2 bufferBarrier{};
     bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
@@ -442,7 +427,7 @@ void will_engine::vk_helpers::uniformBarrier(VkCommandBuffer cmd, VkBuffer buffe
     vkCmdPipelineBarrier2(cmd, &depInfo);
 }
 
-void will_engine::vk_helpers::copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize)
+void copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize)
 {
     VkImageBlit2 blitRegion{.sType = VK_STRUCTURE_TYPE_IMAGE_BLIT_2, .pNext = nullptr};
 
@@ -476,7 +461,7 @@ void will_engine::vk_helpers::copyImageToImage(VkCommandBuffer cmd, VkImage sour
     vkCmdBlitImage2(cmd, &blitInfo);
 }
 
-void will_engine::vk_helpers::generateMipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize)
+void generateMipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize)
 {
     const int mipLevels = static_cast<int>(std::floor(std::log2(std::max(imageSize.width, imageSize.height)))) + 1;
     for (int mip = 0; mip < mipLevels; mip++) {
@@ -546,8 +531,8 @@ void will_engine::vk_helpers::generateMipmaps(VkCommandBuffer cmd, VkImage image
     imageBarrier(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
-void will_engine::vk_helpers::generateMipmapsCubemap(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize, VkImageLayout inputLayout,
-                                                     VkImageLayout ouputLayout)
+void generateMipmapsCubemap(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize, VkImageLayout inputLayout,
+                            VkImageLayout ouputLayout)
 {
     imageBarrier(cmd, image, inputLayout, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
@@ -619,7 +604,7 @@ void will_engine::vk_helpers::generateMipmapsCubemap(VkCommandBuffer cmd, VkImag
     imageBarrier(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, ouputLayout, VK_IMAGE_ASPECT_COLOR_BIT);
 }
 
-VkPipelineLayoutCreateInfo will_engine::vk_helpers::pipelineLayoutCreateInfo()
+VkPipelineLayoutCreateInfo pipelineLayoutCreateInfo()
 {
     VkPipelineLayoutCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -634,8 +619,8 @@ VkPipelineLayoutCreateInfo will_engine::vk_helpers::pipelineLayoutCreateInfo()
     return info;
 }
 
-VkPipelineShaderStageCreateInfo will_engine::vk_helpers::pipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shaderModule,
-                                                                                       const char* entry)
+VkPipelineShaderStageCreateInfo pipelineShaderStageCreateInfo(VkShaderStageFlagBits stage, VkShaderModule shaderModule,
+                                                              const char* entry)
 {
     VkPipelineShaderStageCreateInfo info{};
     info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
@@ -649,16 +634,16 @@ VkPipelineShaderStageCreateInfo will_engine::vk_helpers::pipelineShaderStageCrea
     return info;
 }
 
-void will_engine::vk_helpers::saveImageR32F(renderer::ResourceManager& resourceManager, const renderer::ImmediateSubmitter& immediate,
-                                            const renderer::AllocatedImage& image,
-                                            VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
-                                            const char* savePath, const std::function<float(float)>& valueTransform, int32_t mipLevel)
+void saveImageR32F(ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
+                   const ImageResource* image,
+                   VkImageLayout imageLayout, VkImageAspectFlags aspectFlag,
+                   const char* savePath, const std::function<float(float)>& valueTransform, int32_t mipLevel)
 {
-    size_t newXSize = image.imageExtent.width / static_cast<size_t>(std::pow(2, mipLevel));
-    size_t newYSize = image.imageExtent.height / static_cast<size_t>(std::pow(2, mipLevel));
+    size_t newXSize = image->imageExtent.width / static_cast<size_t>(std::pow(2, mipLevel));
+    size_t newYSize = image->imageExtent.height / static_cast<size_t>(std::pow(2, mipLevel));
     const size_t texelCount = newXSize * newYSize;
     const size_t dataSize = texelCount * 1 * sizeof(float);
-    renderer::Buffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
+    BufferPtr receivingBuffer = resourceManager.createResource<Buffer>(BufferType::Receiving, dataSize);
 
     immediate.submit([&, mipLevel](VkCommandBuffer cmd) {
         VkBufferImageCopy bufferCopyRegion{};
@@ -671,14 +656,14 @@ void will_engine::vk_helpers::saveImageR32F(renderer::ResourceManager& resourceM
         bufferCopyRegion.bufferRowLength = 0;
         bufferCopyRegion.bufferImageHeight = 0;
 
-        imageBarrier(cmd, image.image, imageLayout, VK_IMAGE_LAYOUT_GENERAL, aspectFlag);
+        imageBarrier(cmd, image->image, imageLayout, VK_IMAGE_LAYOUT_GENERAL, aspectFlag);
 
-        vkCmdCopyImageToBuffer(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer.buffer, 1, &bufferCopyRegion);
+        vkCmdCopyImageToBuffer(cmd, image->image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer->buffer, 1, &bufferCopyRegion);
 
-        imageBarrier(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout, aspectFlag);
+        imageBarrier(cmd, image->image, VK_IMAGE_LAYOUT_GENERAL, imageLayout, aspectFlag);
     });
 
-    void* data = receivingBuffer.info.pMappedData;
+    void* data = receivingBuffer->info.pMappedData;
     const auto imageData = static_cast<float*>(data);
 
     const auto byteImageData = new uint8_t[texelCount * 4];
@@ -695,10 +680,10 @@ void will_engine::vk_helpers::saveImageR32F(renderer::ResourceManager& resourceM
     stbi_write_png(savePath, static_cast<int>(newXSize), static_cast<int>(newYSize), 4, byteImageData, static_cast<int>(newXSize) * 4);
 
     delete[] byteImageData;
-    resourceManager.destroyResourceImmediate(receivingBuffer);
+    resourceManager.destroyResourceImmediate(std::move(receivingBuffer));
 }
 
-void will_engine::vk_helpers::saveHeightmap(const std::vector<float>& heightData, int width, int height, const std::filesystem::path& filename)
+void saveHeightmap(const std::vector<float>& heightData, int width, int height, const std::filesystem::path& filename)
 {
     float minHeight = std::numeric_limits<float>::max();
     float maxHeight = std::numeric_limits<float>::lowest();
@@ -721,7 +706,7 @@ void will_engine::vk_helpers::saveHeightmap(const std::vector<float>& heightData
     delete[] byteImageData;
 }
 
-will_engine::vk_helpers::FormatInfo will_engine::vk_helpers::getFormatInfo(ImageFormat format, bool stencilOnly)
+FormatInfo getFormatInfo(ImageFormat format, bool stencilOnly)
 {
     switch (format) {
         case ImageFormat::RGBA32F:
@@ -749,10 +734,13 @@ will_engine::vk_helpers::FormatInfo will_engine::vk_helpers::getFormatInfo(Image
     }
 }
 
-void will_engine::vk_helpers::saveImage(renderer::ResourceManager& resourceManager, const renderer::ImmediateSubmitter& immediate,
-                                        const renderer::AllocatedImage& image, VkImageLayout imageLayout,
-                                        ImageFormat format, const std::string& savePath, bool saveStencilOnly)
+void saveImage(ResourceManager& resourceManager, const ImmediateSubmitter& immediate, ImageResource* image, ImageFormat format,
+    const std::string& savePath, bool saveStencilOnly)
 {
+    if (!image) {
+        fmt::print("Failed to save image because image is nullptr");
+        return;
+    }
     const FormatInfo info = getFormatInfo(format, saveStencilOnly);
     const VkImageAspectFlags aspectMask = info.aspectMask;
 
@@ -761,9 +749,9 @@ void will_engine::vk_helpers::saveImage(renderer::ResourceManager& resourceManag
     if (info.aspectMask == (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) {
         subresourceAspect = saveStencilOnly ? VK_IMAGE_ASPECT_STENCIL_BIT : VK_IMAGE_ASPECT_DEPTH_BIT;
     }
-    const uint32_t texelCount = image.imageExtent.width * image.imageExtent.height;
+    const uint32_t texelCount = image->imageExtent.width * image->imageExtent.height;
     const size_t dataSize = texelCount * info.bytesPerPixel;
-    renderer::Buffer receivingBuffer = resourceManager.createReceivingBuffer(dataSize);
+    BufferPtr receivingBuffer = resourceManager.createResource<Buffer>(BufferType::Receiving, dataSize);
 
     immediate.submit([&](VkCommandBuffer cmd) {
         VkBufferImageCopy bufferCopyRegion{};
@@ -771,28 +759,29 @@ void will_engine::vk_helpers::saveImage(renderer::ResourceManager& resourceManag
         bufferCopyRegion.imageSubresource.mipLevel = 0;
         bufferCopyRegion.imageSubresource.baseArrayLayer = 0;
         bufferCopyRegion.imageSubresource.layerCount = 1;
-        bufferCopyRegion.imageExtent = image.imageExtent;
+        bufferCopyRegion.imageExtent = image->imageExtent;
         bufferCopyRegion.bufferOffset = 0;
         bufferCopyRegion.bufferRowLength = 0;
         bufferCopyRegion.bufferImageHeight = 0;
 
-        imageBarrier(cmd, image.image, imageLayout, VK_IMAGE_LAYOUT_GENERAL, aspectMask);
-        vkCmdCopyImageToBuffer(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer.buffer, 1, &bufferCopyRegion);
-        imageBarrier(cmd, image.image, VK_IMAGE_LAYOUT_GENERAL, imageLayout, aspectMask);
+        VkImageLayout originalLayout = image->imageLayout;
+        imageBarrier(cmd, image, VK_IMAGE_LAYOUT_GENERAL, aspectMask);
+        vkCmdCopyImageToBuffer(cmd, image->image, VK_IMAGE_LAYOUT_GENERAL, receivingBuffer->buffer, 1, &bufferCopyRegion);
+        imageBarrier(cmd, image, originalLayout, aspectMask);
     });
 
 
-    void* data = receivingBuffer.info.pMappedData;
+    void* data = receivingBuffer->info.pMappedData;
     std::vector<uint8_t> outputData(texelCount * 4);
     processImageData(data, outputData, texelCount, format, saveStencilOnly);
 
-    stbi_write_png(savePath.c_str(), image.imageExtent.width, image.imageExtent.height, 4, outputData.data(), image.imageExtent.width * 4);
+    stbi_write_png(savePath.c_str(), image->imageExtent.width, image->imageExtent.height, 4, outputData.data(), image->imageExtent.width * 4);
 
-    resourceManager.destroyResourceImmediate(receivingBuffer);
+    resourceManager.destroyResourceImmediate(std::move(receivingBuffer));
 }
 
-void will_engine::vk_helpers::processImageData(void* sourceData, std::span<uint8_t> targetData, uint32_t pixelCount, ImageFormat format,
-                                               bool stencilOnly)
+void processImageData(void* sourceData, std::span<uint8_t> targetData, uint32_t pixelCount, ImageFormat format,
+                      bool stencilOnly)
 {
     constexpr float powEight = 255.0f;
 
@@ -931,4 +920,5 @@ void will_engine::vk_helpers::processImageData(void* sourceData, std::span<uint8
             break;
         }
     }
+}
 }

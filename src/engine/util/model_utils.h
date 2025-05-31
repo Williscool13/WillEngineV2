@@ -34,9 +34,9 @@ VkSamplerMipmapMode extractMipMapMode(fastgltf::Filter filter);
  */
 static int32_t isKtxTexture(const fastgltf::sources::Array& vector);
 
-static std::optional<AllocatedImage> processKtxVector(ResourceManager& resourceManager, const fastgltf::sources::Array& vector);
+static ImageResourcePtr processKtxVector(ResourceManager& resourceManager, const fastgltf::sources::Array& vector);
 
-static std::optional<AllocatedImage> processKtx2Vector(ResourceManager& resourceManager, const fastgltf::sources::Array& vector);
+static ImageResourcePtr processKtx2Vector(ResourceManager& resourceManager, const fastgltf::sources::Array& vector);
 }
 
 

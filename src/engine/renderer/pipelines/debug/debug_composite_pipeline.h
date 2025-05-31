@@ -27,7 +27,7 @@ public:
 
     void setupDescriptorBuffer(VkImageView debugTarget, VkImageView finalImageView);
 
-    void draw(VkCommandBuffer cmd, DebugCompositePipelineDrawInfo drawInfo) const;
+    void draw(VkCommandBuffer cmd, const DebugCompositePipelineDrawInfo& drawInfo) const;
 
     void reloadShaders() { createPipeline(); }
 

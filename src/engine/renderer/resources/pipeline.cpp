@@ -7,6 +7,7 @@
 #include <volk/volk.h>
 
 #include "engine/renderer/resource_manager.h"
+#include "engine/renderer/vk_helpers.h"
 
 namespace will_engine::renderer
 {

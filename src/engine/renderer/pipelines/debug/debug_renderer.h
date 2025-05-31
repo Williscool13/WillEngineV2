@@ -8,6 +8,11 @@
 #include <array>
 
 #include "debug_renderer_types.h"
+#include "engine/renderer/resources/descriptor_set_layout.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/buffer.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 #include "engine/renderer/resources/resources_fwd.h"
 
 #ifndef WILL_ENGINE_DEBUG_DRAW

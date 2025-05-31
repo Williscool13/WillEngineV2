@@ -4,6 +4,8 @@
 
 #include "texture.h"
 
+#include <fmt/format.h>
+
 namespace will_engine::renderer
 {
 Texture::Texture(ResourceManager& resourceManager, const uint32_t textureId, const std::filesystem::path& willTexturePath, const std::filesystem::path& texturePath,

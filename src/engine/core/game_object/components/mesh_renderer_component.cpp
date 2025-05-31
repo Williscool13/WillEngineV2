@@ -66,8 +66,8 @@ renderer::HighlightData MeshRendererComponent::getHighlightData()
         return data;
     }
 
-    data.vertexBuffer = pRenderReference->getPositionVertexBuffer().buffer;
-    data.indexBuffer = pRenderReference->getIndexBuffer().buffer;
+    data.vertexBuffer = pRenderReference->getPositionVertexBuffer();
+    data.indexBuffer = pRenderReference->getIndexBuffer();
     data.modelMatrix = getModelMatrix();
     data.primitives = std::span(meshData.value().get().primitives);
     return data;

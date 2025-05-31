@@ -15,19 +15,12 @@
 #include <glm/glm.hpp>
 #include <half/half.hpp>
 
+#include "resource_manager.h"
 #include "engine/renderer/resources/resources_fwd.h"
 
 struct DescriptorLayoutBuilder;
 
 namespace will_engine::renderer
-{
-class AllocatedImage;
-class ImmediateSubmitter;
-class ResourceManager;
-class Buffer;
-}
-
-namespace will_engine
 {
 namespace vk_helpers
 {
@@ -106,21 +99,17 @@ namespace vk_helpers
      */
     VkDeviceSize getAlignedSize(VkDeviceSize value, VkDeviceSize alignment);
 
-    void copyBuffer(VkCommandBuffer cmd, const renderer::Buffer& src, VkDeviceSize srcOffset, const renderer::Buffer& dst,
-                    VkDeviceSize dstOffset,
-                    VkDeviceSize size);
-
     void copyBuffer(VkCommandBuffer cmd, VkBuffer src, VkDeviceSize srcOffset, VkBuffer dst, VkDeviceSize dstOffset, VkDeviceSize size);
 
-    void clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, renderer::ImageResource* image, VkImageLayout dstLayout,
+    void clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, ImageResource* image, VkImageLayout dstLayout,
                          VkClearColorValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f});
 
     void clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout,
                          VkClearColorValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f});
 
-    void imageBarrier(VkCommandBuffer cmd, renderer::Image* image, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
+    void imageBarrier(VkCommandBuffer cmd, Image* image, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
 
-    void imageBarrier(VkCommandBuffer cmd, renderer::ImageResource* image, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
+    void imageBarrier(VkCommandBuffer cmd, ImageResource* image, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
 
     void imageBarrier(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
 
@@ -143,8 +132,8 @@ namespace vk_helpers
     /**
      * Save the Allocated image as a grayscaled image. The image must be a format with only 1 channel (e.g. R32 or D32)
      */
-    void saveImageR32F(renderer::ResourceManager& resourceManager, const renderer::ImmediateSubmitter& immediate,
-                       const renderer::AllocatedImage& image,
+    void saveImageR32F(ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
+                       const ImageResource* image,
                        VkImageLayout imageLayout, VkImageAspectFlags aspectFlag, const char* savePath,
                        const std::function<float(float)>& valueTransform, int32_t mipLevel = 0);
 
@@ -161,15 +150,13 @@ namespace vk_helpers
      * @param resourceManager
      * @param immediate
      * @param image
-     * @param imageLayout
      * @param format
      * @param savePath
      * @param saveStencilOnly value only used if aspect mask is depthStencil
      */
-    void saveImage(renderer::ResourceManager& resourceManager,
-                   const renderer::ImmediateSubmitter& immediate,
-                   const renderer::AllocatedImage& image,
-                   VkImageLayout imageLayout,
+    void saveImage(ResourceManager& resourceManager,
+                   const ImmediateSubmitter& immediate,
+                   ImageResource* image,
                    ImageFormat format,
                    const std::string& savePath,
                    bool saveStencilOnly = false);

@@ -8,6 +8,8 @@
 #include "engine/renderer/resource_manager.h"
 #include "engine/renderer/vk_helpers.h"
 #include "engine/renderer/vk_pipelines.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
 
 namespace will_engine::renderer
 {

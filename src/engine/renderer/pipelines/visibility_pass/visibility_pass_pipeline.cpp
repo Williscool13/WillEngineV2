@@ -10,6 +10,10 @@
 #include "engine/renderer/resource_manager.h"
 #include "engine/renderer/vk_helpers.h"
 #include "engine/renderer/assets/render_object/render_object.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_uniform.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 
 namespace will_engine::renderer
 {
@@ -70,15 +74,15 @@ void VisibilityPassPipeline::draw(VkCommandBuffer cmd, const VisibilityPassDrawI
 
         std::array bindings{
             drawInfo.sceneDataBinding,
-            renderObject->getAddressesDescriptorBuffer().getBindingInfo(),
-            renderObject->getFrustumCullingAddressesDescriptorBuffer().getBindingInfo()
+            renderObject->getAddressesDescriptorBuffer()->getBindingInfo(),
+            renderObject->getFrustumCullingAddressesDescriptorBuffer()->getBindingInfo()
         };
         vkCmdBindDescriptorBuffersEXT(cmd, 3, bindings.data());
 
         std::array offsets{
             drawInfo.sceneDataOffset,
-            renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
-            renderObject->getFrustumCullingAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap
+            renderObject->getAddressesDescriptorBuffer()->getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
+            renderObject->getFrustumCullingAddressesDescriptorBuffer()->getDescriptorBufferSize() * drawInfo.currentFrameOverlap
         };
 
         constexpr std::array<uint32_t, 3> indices{0, 1, 2};

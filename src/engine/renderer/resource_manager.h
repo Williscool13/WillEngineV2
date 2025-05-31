@@ -9,27 +9,21 @@
 #include <fstream>
 #include <span>
 #include <variant>
+#include <vma/vk_mem_alloc.h>
 
 #include <volk/volk.h>
 
-#include "ktxvulkan.h"
+
 #include "renderer_constants.h"
-#include "vk_descriptors.h"
-#include "vk_pipelines.h"
 #include "vk_types.h"
-#include "resources/buffer.h"
-#include "resources/allocated_image.h"
-#include "resources/descriptor_set_layout.h"
-#include "resources/image_view.h"
-#include "resources/pipeline.h"
-#include "resources/pipeline_layout.h"
-#include "resources/resources_fwd.h"
-#include "resources/sampler.h"
-#include "resources/vulkan_resource.h"
-#include "resources/descriptor_buffer/descriptor_buffer_sampler.h"
-#include "resources/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "shaderc/shaderc.h"
 #include "shaderc/shaderc.hpp"
+#include "ktxvulkan.h"
+#include "vulkan_context.h"
+#include "resources/descriptor_set_layout.h"
+#include "resources/image_resource.h"
+#include "resources/resources_fwd.h"
+#include "resources/sampler.h"
 
 
 namespace will_engine
@@ -54,14 +48,6 @@ struct DestructorImageData
     VkImage image{VK_NULL_HANDLE};
     VmaAllocation allocation{VK_NULL_HANDLE};
 };
-
-using VulkanResourceVariant = std::variant<
-    AllocatedImage, Sampler, ImageView,
-    Buffer,
-    DescriptorSetLayout,
-    PipelineLayout, Pipeline,
-    DescriptorBufferSampler, DescriptorBufferUniform
->;
 
 struct DestructionQueue
 {
@@ -140,10 +126,9 @@ public:
     }
 
 public: // VkBuffer Helpers
-    void copyBufferImmediate(const Buffer& src, const Buffer& dst, VkDeviceSize size) const;
+    void copyBufferImmediate(VkBuffer src, VkBuffer dst, VkDeviceSize size) const;
 
-    void copyBufferImmediate(const Buffer& src, const Buffer& dst, VkDeviceSize size,
-                             VkDeviceSize offset) const;
+    void copyBufferImmediate(VkBuffer src, VkBuffer dst, VkDeviceSize size, VkDeviceSize offset) const;
 
     /**
      * Copy buffer immediate should generally only be used during asset initialization.
@@ -153,6 +138,7 @@ public: // VkBuffer Helpers
     void copyBufferImmediate(std::span<BufferCopyInfo> bufferCopyInfos) const;
 
     [[nodiscard]] VkDeviceAddress getBufferAddress(const Buffer& buffer) const;
+
     [[nodiscard]] VkDeviceAddress getBufferAddress(VkBuffer buffer) const;
 
 public:
@@ -171,7 +157,8 @@ public:
 public: // Special helpers for unique resources
     ImageResourcePtr createCubemapImage(VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
 
-    ImageResourcePtr createImageFromData(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage, bool mipmapped = false);
+    ImageResourcePtr createImageFromData(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,
+                                         bool mipmapped = false);
 
 public: // Shader Module
     // todo :shader modules is handled a little differently
@@ -184,20 +171,20 @@ public:
 
 public:
     // All the resources below are guaranteed to live for the duration of the application
-    [[nodiscard]] VkSampler getDefaultSamplerLinear() const { return defaultSamplerLinear.sampler; }
-    [[nodiscard]] VkSampler getDefaultSamplerNearest() const { return defaultSamplerNearest.sampler; }
-    [[nodiscard]] VkSampler getDefaultSamplerMipMappedNearest() const { return defaultSamplerMipMappedLinear.sampler; }
-    [[nodiscard]] VkImageView getWhiteImage() const { return whiteImage.imageView; }
-    [[nodiscard]] VkImageView getErrorCheckerboardImage() const { return errorCheckerboardImage.imageView; }
+    [[nodiscard]] VkSampler getDefaultSamplerLinear() const { return defaultSamplerLinear->sampler; }
+    [[nodiscard]] VkSampler getDefaultSamplerNearest() const { return defaultSamplerNearest->sampler; }
+    [[nodiscard]] VkSampler getDefaultSamplerMipMappedNearest() const { return defaultSamplerMipMappedLinear->sampler; }
+    [[nodiscard]] VkImageView getWhiteImage() const { return whiteImage->imageView; }
+    [[nodiscard]] VkImageView getErrorCheckerboardImage() const { return errorCheckerboardImage->imageView; }
 
-    [[nodiscard]] VkDescriptorSetLayout getEmptyLayout() const { return emptyDescriptorSetLayout.layout; }
-    [[nodiscard]] VkDescriptorSetLayout getSceneDataLayout() const { return sceneDataLayout.layout; }
-    [[nodiscard]] VkDescriptorSetLayout getFrustumCullLayout() const { return frustumCullLayout.layout; }
-    [[nodiscard]] VkDescriptorSetLayout getRenderObjectAddressesLayout() const { return addressesLayout.layout; }
-    [[nodiscard]] VkDescriptorSetLayout getTexturesLayout() const { return texturesLayout.layout; }
-    [[nodiscard]] VkDescriptorSetLayout getRenderTargetsLayout() const { return renderTargetsLayout.layout; }
-    [[nodiscard]] VkDescriptorSetLayout getTerrainTexturesLayout() const { return terrainTexturesLayout.layout; }
-    [[nodiscard]] VkDescriptorSetLayout getTerrainUniformLayout() const { return terrainUniformLayout.layout; }
+    [[nodiscard]] VkDescriptorSetLayout getEmptyLayout() const { return emptyDescriptorSetLayout->layout; }
+    [[nodiscard]] VkDescriptorSetLayout getSceneDataLayout() const { return sceneDataLayout->layout; }
+    [[nodiscard]] VkDescriptorSetLayout getFrustumCullLayout() const { return frustumCullLayout->layout; }
+    [[nodiscard]] VkDescriptorSetLayout getRenderObjectAddressesLayout() const { return addressesLayout->layout; }
+    [[nodiscard]] VkDescriptorSetLayout getTexturesLayout() const { return texturesLayout->layout; }
+    [[nodiscard]] VkDescriptorSetLayout getRenderTargetsLayout() const { return renderTargetsLayout->layout; }
+    [[nodiscard]] VkDescriptorSetLayout getTerrainTexturesLayout() const { return terrainTexturesLayout->layout; }
+    [[nodiscard]] VkDescriptorSetLayout getTerrainUniformLayout() const { return terrainUniformLayout->layout; }
 
 private:
     VulkanContext& context;
@@ -206,32 +193,32 @@ private:
     VkCommandPool ktxTextureCommandPool{VK_NULL_HANDLE};
     ktxVulkanDeviceInfo* vulkanDeviceInfo{nullptr};
 
-    AllocatedImage whiteImage{};
-    AllocatedImage errorCheckerboardImage{};
+    ImageResourcePtr whiteImage{};
+    ImageResourcePtr errorCheckerboardImage{};
     SamplerPtr defaultSamplerLinear{};
     SamplerPtr defaultSamplerNearest{};
     SamplerPtr defaultSamplerMipMappedLinear{};
 
-    DescriptorSetLayout emptyDescriptorSetLayout{};
+    DescriptorSetLayoutPtr emptyDescriptorSetLayout{};
 
-    DescriptorSetLayout sceneDataLayout{};
-    DescriptorSetLayout frustumCullLayout{};
+    DescriptorSetLayoutPtr sceneDataLayout{};
+    DescriptorSetLayoutPtr frustumCullLayout{};
     /**
      * Material and Instance Buffer Addresses
      */
-    DescriptorSetLayout addressesLayout{};
+    DescriptorSetLayoutPtr addressesLayout{};
     /**
      * Sampler and Image Arrays
      */
-    DescriptorSetLayout texturesLayout{};
+    DescriptorSetLayoutPtr texturesLayout{};
 
     /**
      * Used in deferred resolve
      */
-    DescriptorSetLayout renderTargetsLayout{};
+    DescriptorSetLayoutPtr renderTargetsLayout{};
 
-    DescriptorSetLayout terrainTexturesLayout{};
-    DescriptorSetLayout terrainUniformLayout{};
+    DescriptorSetLayoutPtr terrainTexturesLayout{};
+    DescriptorSetLayoutPtr terrainUniformLayout{};
 };
 
 class CustomIncluder final : public shaderc::CompileOptions::IncluderInterface
