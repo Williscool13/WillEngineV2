@@ -5,16 +5,11 @@
 #ifndef CONTACT_SHADOWS_H
 #define CONTACT_SHADOWS_H
 
-#include <volk/volk.h>
+#include <vulkan/vulkan_core.h>
 
 #include "contact_shadows_pipeline_types.h"
-#include "engine/renderer/vk_types.h"
-#include "engine/renderer/resources/allocated_image.h"
-#include "engine/renderer/resources/descriptor_set_layout.h"
-#include "engine/renderer/resources/pipeline.h"
-#include "engine/renderer/resources/pipeline_layout.h"
-#include "engine/renderer/resources/sampler.h"
-#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/image_resource.h"
+#include "engine/renderer/resources/resources_fwd.h"
 
 
 namespace will_engine
@@ -42,7 +37,7 @@ public:
         createPipeline();
     }
 
-    VkImageView getContactShadowRenderTarget() const { return contactShadowImage.imageView; }
+    VkImageView getContactShadowRenderTarget() const { return contactShadowImage->imageView; }
 
 private:
     void createPipeline();
@@ -53,20 +48,20 @@ private:
     static int32_t bend_max(const int32_t a, const int32_t b) { return a > b ? a : b; }
 
 private:
-    DescriptorSetLayout descriptorSetLayout{};
-    PipelineLayout pipelineLayout{};
-    Pipeline pipeline{};
+    DescriptorSetLayoutPtr descriptorSetLayout{};
+    PipelineLayoutPtr pipelineLayout{};
+    PipelinePtr pipeline{};
 
-    Sampler depthSampler{};
+    SamplerPtr depthSampler{};
 
     VkFormat contactShadowFormat{VK_FORMAT_R8_UNORM};
-    AllocatedImage contactShadowImage{};
+    ImageResourcePtr contactShadowImage{};
 
-    DescriptorBufferSampler descriptorBufferSampler;
+    DescriptorBufferSamplerPtr descriptorBufferSampler;
 
 private: // Debug
     VkFormat debugFormat{VK_FORMAT_R8G8B8A8_UNORM};
-    AllocatedImage debugImage{};
+    ImageResourcePtr debugImage{};
 
     ResourceManager& resourceManager;
 };

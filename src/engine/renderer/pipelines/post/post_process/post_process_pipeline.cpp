@@ -15,7 +15,7 @@ namespace will_engine::renderer
 PostProcessPipeline::PostProcessPipeline(ResourceManager& resourceManager)
     : resourceManager(resourceManager)
 {
-    DescriptorLayoutBuilder layoutBuilder;
+    DescriptorLayoutBuilder layoutBuilder{2};
     layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // taa resolve image
     layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // post process result
     VkDescriptorSetLayoutCreateInfo layoutCreateInfo = layoutBuilder.build(

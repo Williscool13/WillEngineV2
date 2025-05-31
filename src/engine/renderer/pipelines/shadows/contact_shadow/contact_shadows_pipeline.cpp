@@ -8,18 +8,23 @@
 #include "engine/renderer/resource_manager.h"
 #include "engine/core/camera/camera.h"
 #include "engine/renderer/lighting/directional_light.h"
+#include "engine/renderer/resources/image.h"
 
 namespace will_engine::renderer
 {
 ContactShadowsPipeline::ContactShadowsPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
-    DescriptorLayoutBuilder layoutBuilder;
+    DescriptorLayoutBuilder layoutBuilder{3};
     layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // MRT depth buffer
     layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // ss contact shadows image
     layoutBuilder.addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // debug image
+    VkDescriptorSetLayoutCreateInfo layoutCreateInfo = layoutBuilder.build(
+        VK_SHADER_STAGE_COMPUTE_BIT,
+        VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+    );
 
-    descriptorSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT,
-                                                                    VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+
+    descriptorSetLayout = resourceManager.createResource<DescriptorSetLayout>(layoutCreateInfo);
 
     VkPushConstantRange pushConstants{};
     pushConstants.offset = 0;
@@ -28,7 +33,7 @@ ContactShadowsPipeline::ContactShadowsPipeline(ResourceManager& resourceManager)
 
     VkDescriptorSetLayout setLayouts[2];
     setLayouts[0] = resourceManager.getSceneDataLayout();
-    setLayouts[1] = descriptorSetLayout.layout;
+    setLayouts[1] = descriptorSetLayout->layout;
 
     VkPipelineLayoutCreateInfo layoutInfo{};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -38,7 +43,7 @@ ContactShadowsPipeline::ContactShadowsPipeline(ResourceManager& resourceManager)
     layoutInfo.pPushConstantRanges = &pushConstants;
     layoutInfo.pushConstantRangeCount = 1;
 
-    pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+    pipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
     createPipeline();
 
     VkSamplerCreateInfo samplerInfo = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
@@ -55,7 +60,7 @@ ContactShadowsPipeline::ContactShadowsPipeline(ResourceManager& resourceManager)
     samplerInfo.minLod = 0.0f;
     samplerInfo.maxLod = 0.0f;
 
-    depthSampler = resourceManager.createSampler(samplerInfo);
+    depthSampler = resourceManager.createResource<Sampler>(samplerInfo);
 
     VkImageUsageFlags usage{};
     usage |= VK_IMAGE_USAGE_STORAGE_BIT;
@@ -63,7 +68,7 @@ ContactShadowsPipeline::ContactShadowsPipeline(ResourceManager& resourceManager)
     usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
     VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(contactShadowFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
-    contactShadowImage = resourceManager.createImage(imgInfo);
+    contactShadowImage = resourceManager.createResource<Image>(imgInfo);
 
     usage = {};
     usage |= VK_IMAGE_USAGE_STORAGE_BIT;
@@ -72,9 +77,9 @@ ContactShadowsPipeline::ContactShadowsPipeline(ResourceManager& resourceManager)
     usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
     imgInfo = vk_helpers::imageCreateInfo(debugFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
-    debugImage = resourceManager.createImage(imgInfo);
+    debugImage = resourceManager.createResource<Image>(imgInfo);
 
-    descriptorBufferSampler = resourceManager.createDescriptorBufferSampler(descriptorSetLayout.layout, 1);
+    descriptorBufferSampler = resourceManager.createResource<DescriptorBufferSampler>(descriptorSetLayout->layout, 1);
 }
 
 ContactShadowsPipeline::~ContactShadowsPipeline()
@@ -98,34 +103,34 @@ void ContactShadowsPipeline::setupDescriptorBuffer(const VkImageView& depthImage
     imageDescriptors.push_back(
         {
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            {depthSampler.sampler, depthImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+            {depthSampler->sampler, depthImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
             false
         });
     imageDescriptors.push_back(
         {
             VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-            {VK_NULL_HANDLE, contactShadowImage.imageView, VK_IMAGE_LAYOUT_GENERAL},
+            {VK_NULL_HANDLE, contactShadowImage->imageView, VK_IMAGE_LAYOUT_GENERAL},
             false
         });
     imageDescriptors.push_back({
         VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-        {VK_NULL_HANDLE, debugImage.imageView, VK_IMAGE_LAYOUT_GENERAL},
+        {VK_NULL_HANDLE, debugImage->imageView, VK_IMAGE_LAYOUT_GENERAL},
         false
     });
 
-    resourceManager.setupDescriptorBufferSampler(descriptorBufferSampler, imageDescriptors, 0);
+    descriptorBufferSampler->setupData(imageDescriptors, 0);
 }
 
 void ContactShadowsPipeline::draw(VkCommandBuffer cmd, const ContactShadowsDrawInfo& drawInfo)
 {
-    vk_helpers::imageBarrier(cmd, debugImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, contactShadowImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+    vk_helpers::imageBarrier(cmd, debugImage->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, contactShadowImage->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
     if (!drawInfo.bIsEnabled) {
         return;
     }
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipeline);
 
     ContactShadowsPushConstants push{drawInfo.push};
 
@@ -136,17 +141,17 @@ void ContactShadowsPipeline::draw(VkCommandBuffer cmd, const ContactShadowsDrawI
     for (int32_t i = 0; i < dispatchList.DispatchCount; ++i) {
         push.waveOffset = glm::ivec2(dispatchList.Dispatch[i].WaveOffset_Shader[0], dispatchList.Dispatch[i].WaveOffset_Shader[1]);
 
-        vkCmdPushConstants(cmd, pipelineLayout.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ContactShadowsPushConstants), &push);
+        vkCmdPushConstants(cmd, pipelineLayout->layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(ContactShadowsPushConstants), &push);
 
         VkDescriptorBufferBindingInfoEXT bindingInfos[2] = {};
         bindingInfos[0] = drawInfo.sceneDataBinding;
-        bindingInfos[1] = descriptorBufferSampler.getBindingInfo();
+        bindingInfos[1] = descriptorBufferSampler->getBindingInfo();
         vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos);
 
         constexpr std::array<uint32_t, 2> indices{0, 1};
         const std::array offsets{drawInfo.sceneDataOffset, ZERO_DEVICE_SIZE};
 
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout.layout, 0, 2, indices.data(), offsets.data());
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout->layout, 0, 2, indices.data(), offsets.data());
 
         const int32_t* waveCount = dispatchList.Dispatch[i].WaveCount;
         vkCmdDispatch(cmd, waveCount[0], waveCount[1], waveCount[2]);
@@ -168,11 +173,11 @@ void ContactShadowsPipeline::createPipeline()
     VkComputePipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipelineInfo.pNext = nullptr;
-    pipelineInfo.layout = pipelineLayout.layout;
+    pipelineInfo.layout = pipelineLayout->layout;
     pipelineInfo.stage = stageInfo;
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-    pipeline = resourceManager.createComputePipeline(pipelineInfo);
+    pipeline = resourceManager.createResource<Pipeline>(pipelineInfo);
     resourceManager.destroyShaderModule(computeShader);
 }
 

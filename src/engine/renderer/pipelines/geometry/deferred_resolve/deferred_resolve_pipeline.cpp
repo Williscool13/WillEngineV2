@@ -20,18 +20,20 @@ DeferredResolvePipeline::DeferredResolvePipeline(ResourceManager& resourceManage
     pushConstants.size = sizeof(DeferredResolvePushConstants);
     pushConstants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    VkDescriptorSetLayout setLayouts[5];
-    setLayouts[0] = resourceManager.getSceneDataLayout();
-    setLayouts[1] = resourceManager.getRenderTargetsLayout();
-    setLayouts[2] = environmentIBLLayout;
-    setLayouts[3] = cascadeUniformLayout;
-    setLayouts[4] = cascadeSamplerLayout;
+    std::array setLayouts {
+        resourceManager.getSceneDataLayout(),
+        resourceManager.getRenderTargetsLayout(),
+        environmentIBLLayout,
+        cascadeUniformLayout,
+        cascadeSamplerLayout,
+    };
+
 
     VkPipelineLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layoutInfo.pNext = nullptr;
-    layoutInfo.pSetLayouts = setLayouts;
-    layoutInfo.setLayoutCount = 5;
+    layoutInfo.pSetLayouts = setLayouts.data();
+    layoutInfo.setLayoutCount = setLayouts.size();
     layoutInfo.pPushConstantRanges = &pushConstants;
     layoutInfo.pushConstantRangeCount = 1;
 

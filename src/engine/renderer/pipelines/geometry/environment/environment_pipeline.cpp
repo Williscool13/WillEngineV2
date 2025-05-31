@@ -14,14 +14,16 @@ namespace will_engine::renderer
 EnvironmentPipeline::EnvironmentPipeline(ResourceManager& resourceManager, VkDescriptorSetLayout environmentMapLayout) : resourceManager(
     resourceManager)
 {
-    VkDescriptorSetLayout layouts[2];
-    layouts[0] = resourceManager.getSceneDataLayout();
-    layouts[1] = environmentMapLayout;
+    std::array layouts{
+        resourceManager.getSceneDataLayout(),
+        environmentMapLayout,
+    };
+
 
     VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
     layoutInfo.pNext = nullptr;
-    layoutInfo.setLayoutCount = 2;
-    layoutInfo.pSetLayouts = layouts;
+    layoutInfo.pSetLayouts = layouts.data();
+    layoutInfo.setLayoutCount = layouts.size();
     layoutInfo.pPushConstantRanges = nullptr;
     layoutInfo.pushConstantRangeCount = 0;
 

@@ -429,23 +429,5 @@ void ResourceManager::destroyShaderModule(VkShaderModule& module) const
     vkDestroyShaderModule(context.device, module, nullptr);
     module = VK_NULL_HANDLE;
 }
-
-DescriptorSetLayout ResourceManager::createDescriptorSetLayout(DescriptorLayoutBuilder& layoutBuilder,
-                                                               VkShaderStageFlagBits shaderStageFlags,
-                                                               VkDescriptorSetLayoutCreateFlags layoutCreateFlags) const
-{
-    for (auto& b : layoutBuilder.bindings) {
-        b.stageFlags |= shaderStageFlags;
-    }
-
-    const VkDescriptorSetLayoutCreateInfo createInfo = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .pNext = nullptr,
-        .flags = layoutCreateFlags,
-        .bindingCount = static_cast<uint32_t>(layoutBuilder.bindings.size()),
-        .pBindings = layoutBuilder.bindings.data(),
-    };
-
-    return DescriptorSetLayout::create(context.device, createInfo);
-}
+-
 }

@@ -32,7 +32,7 @@ VisibilityPassPipeline::VisibilityPassPipeline(ResourceManager& resourceManager)
     layoutInfo.pSetLayouts = layouts;
     layoutInfo.pPushConstantRanges = &pushConstantRange;
     layoutInfo.pushConstantRangeCount = 1;
-    pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+    pipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
 
 
     createPipeline();
@@ -51,16 +51,16 @@ void VisibilityPassPipeline::draw(VkCommandBuffer cmd, const VisibilityPassDrawI
     label.pLabelName = "Frustum Culling";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline.pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipeline);
 
 
     VisibilityPassPushConstants pushConstants = {};
     pushConstants.enable = drawInfo.bEnableFrustumCulling;
     pushConstants.shadowPass = drawInfo.bIsShadowPass;
 
-    vkCmdPushConstants(cmd, pipelineLayout.layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VisibilityPassPushConstants), &pushConstants);
+    vkCmdPushConstants(cmd, pipelineLayout->layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VisibilityPassPushConstants), &pushConstants);
 
-    for (RenderObject* renderObject : drawInfo.renderObjects) {
+    for (const RenderObject* renderObject : drawInfo.renderObjects) {
         if (drawInfo.bIsOpaque) {
             if (!renderObject->canDrawOpaque()) { continue; }
         }
@@ -83,7 +83,7 @@ void VisibilityPassPipeline::draw(VkCommandBuffer cmd, const VisibilityPassDrawI
 
         constexpr std::array<uint32_t, 3> indices{0, 1, 2};
 
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout.layout, 0, 3, indices.data(), offsets.data());
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout->layout, 0, 3, indices.data(), offsets.data());
 
         vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(renderObject->getOpaqueDrawIndirectCommandCount()) / 64.0f)), 1, 1);
 
@@ -111,11 +111,11 @@ void VisibilityPassPipeline::createPipeline()
     VkComputePipelineCreateInfo pipelineInfo;
     pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipelineInfo.pNext = nullptr;
-    pipelineInfo.layout = pipelineLayout.layout;
+    pipelineInfo.layout = pipelineLayout->layout;
     pipelineInfo.stage = stageInfo;
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-    pipeline = resourceManager.createComputePipeline(pipelineInfo);
+    pipeline = resourceManager.createResource<Pipeline>(pipelineInfo);
     resourceManager.destroyShaderModule(computeShader);
 }
 

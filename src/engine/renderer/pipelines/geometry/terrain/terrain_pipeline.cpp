@@ -15,10 +15,12 @@ namespace will_engine::renderer
 {
 TerrainPipeline::TerrainPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
-    VkDescriptorSetLayout descriptorLayout[3];
-    descriptorLayout[0] = resourceManager.getSceneDataLayout();
-    descriptorLayout[1] = resourceManager.getTerrainTexturesLayout();
-    descriptorLayout[2] = resourceManager.getTerrainUniformLayout();
+    std::array descriptorLayout{
+        resourceManager.getSceneDataLayout(),
+        resourceManager.getTerrainTexturesLayout(),
+        resourceManager.getTerrainUniformLayout(),
+    };
+
 
     VkPushConstantRange pushConstants = {};
     pushConstants.offset = 0;
@@ -26,9 +28,9 @@ TerrainPipeline::TerrainPipeline(ResourceManager& resourceManager) : resourceMan
     pushConstants.stageFlags = VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT;
 
     VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
-    layoutInfo.pSetLayouts = descriptorLayout;
     layoutInfo.pNext = nullptr;
-    layoutInfo.setLayoutCount = 3;
+    layoutInfo.pSetLayouts = descriptorLayout.data();
+    layoutInfo.setLayoutCount = descriptorLayout.size();
     layoutInfo.pPushConstantRanges = &pushConstants;
     layoutInfo.pushConstantRangeCount = 1;
 

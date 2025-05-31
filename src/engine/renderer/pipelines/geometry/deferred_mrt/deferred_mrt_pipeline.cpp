@@ -15,16 +15,17 @@ namespace will_engine::renderer
 {
 DeferredMrtPipeline::DeferredMrtPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
-    VkDescriptorSetLayout descriptorLayout[3];
-    descriptorLayout[0] = resourceManager.getSceneDataLayout();
-    descriptorLayout[1] = resourceManager.getRenderObjectAddressesLayout();
-    descriptorLayout[2] = resourceManager.getTexturesLayout();
+    std::array descriptorLayout {
+        resourceManager.getSceneDataLayout(),
+        resourceManager.getRenderObjectAddressesLayout(),
+        resourceManager.getTexturesLayout(),
+    };
 
 
     VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
-    layoutInfo.pSetLayouts = descriptorLayout;
     layoutInfo.pNext = nullptr;
-    layoutInfo.setLayoutCount = 3;
+    layoutInfo.pSetLayouts = descriptorLayout.data();
+    layoutInfo.setLayoutCount = descriptorLayout.size();
     layoutInfo.pPushConstantRanges = nullptr;
     layoutInfo.pushConstantRangeCount = 0;
 

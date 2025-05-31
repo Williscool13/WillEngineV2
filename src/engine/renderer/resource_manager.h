@@ -179,10 +179,6 @@ public: // Shader Module
 
     void destroyShaderModule(VkShaderModule& module) const;
 
-public: // Descriptor Set Layout
-    DescriptorSetLayout createDescriptorSetLayout(DescriptorLayoutBuilder& layoutBuilder, VkShaderStageFlagBits shaderStageFlags,
-                                                  VkDescriptorSetLayoutCreateFlags layoutCreateFlags) const;
-
 public:
     [[nodiscard]] ktxVulkanDeviceInfo* getKtxVulkanDeviceInfo() const { return vulkanDeviceInfo; }
 

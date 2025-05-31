@@ -13,15 +13,16 @@ namespace will_engine::renderer
 TemporalAntialiasingPipeline::TemporalAntialiasingPipeline(ResourceManager& resourceManager)
     : resourceManager(resourceManager)
 {
-    DescriptorLayoutBuilder layoutBuilder;
+    DescriptorLayoutBuilder layoutBuilder{5};
     layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // drawImage
     layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // history
     layoutBuilder.addBinding(2, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // depth
     layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // velocity
     layoutBuilder.addBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // output
+    VkDescriptorSetLayoutCreateInfo layoutCreateInfo = layoutBuilder.build(VK_SHADER_STAGE_COMPUTE_BIT,
+                                                                           VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
 
-    descriptorSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT,
-                                                                    VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    descriptorSetLayout = resourceManager.createResource<DescriptorSetLayout>(layoutCreateInfo);
 
     VkPushConstantRange pushConstants{};
     pushConstants.offset = 0;

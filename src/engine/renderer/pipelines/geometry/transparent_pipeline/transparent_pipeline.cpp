@@ -22,13 +22,15 @@ TransparentPipeline::TransparentPipeline(ResourceManager& resourceManager,
                                          VkDescriptorSetLayout cascadeUniformLayout,
                                          VkDescriptorSetLayout cascadeSamplerLayout): resourceManager(resourceManager)
 {
-    VkDescriptorSetLayout descriptorLayout[6];
-    descriptorLayout[0] = resourceManager.getSceneDataLayout();
-    descriptorLayout[1] = resourceManager.getRenderObjectAddressesLayout();
-    descriptorLayout[2] = resourceManager.getTexturesLayout();
-    descriptorLayout[3] = environmentIBLLayout;
-    descriptorLayout[4] = cascadeUniformLayout;
-    descriptorLayout[5] = cascadeSamplerLayout;
+    std::array descriptorLayout{
+        resourceManager.getSceneDataLayout(),
+        resourceManager.getRenderObjectAddressesLayout(),
+        resourceManager.getTexturesLayout(),
+        environmentIBLLayout,
+        cascadeUniformLayout,
+        cascadeSamplerLayout,
+    };
+
 
     VkPushConstantRange pushConstants = {};
     pushConstants.offset = 0;
@@ -37,9 +39,9 @@ TransparentPipeline::TransparentPipeline(ResourceManager& resourceManager,
 
 
     VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
-    layoutInfo.pSetLayouts = descriptorLayout;
     layoutInfo.pNext = nullptr;
-    layoutInfo.setLayoutCount = 6;
+    layoutInfo.pSetLayouts = descriptorLayout.data();
+    layoutInfo.setLayoutCount = descriptorLayout.size();
     layoutInfo.pPushConstantRanges = &pushConstants;
     layoutInfo.pushConstantRangeCount = 1;
 
