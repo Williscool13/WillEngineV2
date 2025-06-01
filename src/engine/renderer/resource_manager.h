@@ -93,6 +93,15 @@ public:
         return context.deviceDescriptorBufferProperties;
     }
 
+    [[nodiscard]] ktxVulkanDeviceInfo* getKtxVulkanDeviceInfo() const { return vulkanDeviceInfo; }
+
+private:
+    VulkanContext& context;
+    const ImmediateSubmitter& immediate;
+
+    VkCommandPool ktxTextureCommandPool{VK_NULL_HANDLE};
+    ktxVulkanDeviceInfo* vulkanDeviceInfo{nullptr};
+
 public:
     /**
      * Meant to be called every frame, should be called before
@@ -161,9 +170,6 @@ public: // Special helpers for unique resources
                                          bool mipmapped = false);
 
 public:
-    [[nodiscard]] ktxVulkanDeviceInfo* getKtxVulkanDeviceInfo() const { return vulkanDeviceInfo; }
-
-public:
     // All the resources below are guaranteed to live for the duration of the application
     [[nodiscard]] VkSampler getDefaultSamplerLinear() const { return defaultSamplerLinear->sampler; }
     [[nodiscard]] VkSampler getDefaultSamplerNearest() const { return defaultSamplerNearest->sampler; }
@@ -181,12 +187,6 @@ public:
     [[nodiscard]] VkDescriptorSetLayout getTerrainUniformLayout() const { return terrainUniformLayout->layout; }
 
 private:
-    VulkanContext& context;
-    const ImmediateSubmitter& immediate;
-
-    VkCommandPool ktxTextureCommandPool{VK_NULL_HANDLE};
-    ktxVulkanDeviceInfo* vulkanDeviceInfo{nullptr};
-
     ImageResourcePtr whiteImage{};
     ImageResourcePtr errorCheckerboardImage{};
     SamplerPtr defaultSamplerLinear{};

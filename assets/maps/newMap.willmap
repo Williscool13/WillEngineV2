@@ -6,7 +6,7 @@
     },
     "metadata": {
         "name": "newMap",
-        "created": "2025-05-25 21:45:29",
+        "created": "2025-06-01 14:33:54",
         "formatVersion": 1
     },
     "rootComponents": {
@@ -126,10 +126,6 @@
                 },
                 "components": {
                     "": {
-                        "renderReference": 195023067,
-                        "renderMeshIndex": 0,
-                        "renderIsVisible": true,
-                        "renderIsShadowCaster": true,
                         "transform": {
                             "position": {
                                 "x": 0.0,
@@ -146,6 +142,56 @@
                                 "x": 0.00800000037997961,
                                 "y": 0.00800000037997961,
                                 "z": 0.00800000037997961
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    }
+                }
+            },
+            {
+                "id": 1,
+                "gameObjectType": "GameObject",
+                "name": "GameObject_1",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "components": {
+                    "": {
+                        "renderReference": 2144292672,
+                        "renderMeshIndex": 0,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": -15.367568016052246,
+                                "y": -1.0115400552749634,
+                                "z": -9.462457656860352
+                            },
+                            "rotation": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 1.0
+                            },
+                            "scale": {
+                                "x": 0.0018169343238696456,
+                                "y": 0.0018169343238696456,
+                                "z": 0.0018169343238696456
                             }
                         },
                         "componentType": "MeshRendererComponent"

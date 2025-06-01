@@ -9,13 +9,16 @@
 
 namespace will_engine::renderer
 {
+struct ImageKtx final : ImageResource
+{
 
-struct ImageKtx final : ImageResource {
+    ImageKtx(ResourceManager* resourceManager, ktxTexture* ktxTexture);
+
+    ~ImageKtx() override;
 
 protected:
-    ktxVulkanTexture texture;
+    ktxVulkanTexture texture{};
 };
-
 }
 
 #endif //IMAGE_KTX_H

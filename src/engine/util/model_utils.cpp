@@ -4,14 +4,15 @@
 
 #include "model_utils.h"
 
+#include <volk/volk.h>
 #include <fmt/format.h>
 #include <stb/stb_image.h>
-#include <volk/volk.h>
 #include <ktx/ktx.h>
 #include <ktx/ktxvulkan.h>
 
 #include "engine/renderer/resource_manager.h"
 #include "engine/renderer/assets/render_object/render_object.h"
+#include "engine/renderer/resources/image_ktx.h"
 
 namespace will_engine::renderer
 {
@@ -149,8 +150,12 @@ ImageResourcePtr model_utils::loadImage(ResourceManager& resourceManager, const 
         }, image.data);
 
 
-    fmt::print("Image failed to load: {}\n", image.name.c_str());
-    return {};
+    if (!newImage) {
+        fmt::print("Image failed to load: {}\n", image.name.c_str());
+        return {};
+    }
+
+    return newImage;
 }
 
 MaterialProperties model_utils::extractMaterial(fastgltf::Asset& gltf, const fastgltf::Material& gltfMaterial)
@@ -340,14 +345,7 @@ ImageResourcePtr model_utils::processKtx2Vector(ResourceManager& resourceManager
 
 
         if (formatProperties.result == VK_SUCCESS) {
-            ktxVulkanTexture texture;
-            const KTX_error_code result = ktxTexture_VkUploadEx(ktxTexture(kTexture), resourceManager.getKtxVulkanDeviceInfo(), &texture,
-                                                                VK_IMAGE_TILING_OPTIMAL,
-                                                                VK_IMAGE_USAGE_SAMPLED_BIT,
-                                                                VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
-
-
-            ktxVulkanTexture_Destruct(&texture, resourceManager.getKtxVulkanDeviceInfo()->device, nullptr);
+            return resourceManager.createResource<ImageKtx>(ktxTexture(kTexture));
         }
         else {
             if (kTexture->classId == ktxTexture1_c) {
@@ -358,8 +356,6 @@ ImageResourcePtr model_utils::processKtx2Vector(ResourceManager& resourceManager
             else if (kTexture->classId == ktxTexture2_c) {
                 fmt::print("KTX 2\n");
             }
-
-            // todo: refactor this when converting all textures to .ktx
         }
 
         ktxTexture2_Destroy(kTexture);
