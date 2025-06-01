@@ -10,6 +10,7 @@
 #include "engine/renderer/vk_pipelines.h"
 #include "engine/renderer/resources/pipeline.h"
 #include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/shader_module.h"
 
 namespace will_engine::renderer
 {
@@ -115,11 +116,11 @@ void EnvironmentPipeline::draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& d
 void EnvironmentPipeline::createPipeline()
 {
     resourceManager.destroyResource(std::move(pipeline));
-    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/environment/environment.vert");
-    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/environment/environment.frag");
+    ShaderModulePtr vertShader = resourceManager.createResource<ShaderModule>("shaders/environment/environment.vert");
+    ShaderModulePtr fragShader = resourceManager.createResource<ShaderModule>("shaders/environment/environment.frag");
 
     RenderPipelineBuilder pipelineBuilder;
-    pipelineBuilder.setShaders(vertShader, fragShader);
+    pipelineBuilder.setShaders(vertShader->shader, fragShader->shader);
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     pipelineBuilder.disableMultisampling();
@@ -129,8 +130,5 @@ void EnvironmentPipeline::createPipeline()
     pipelineBuilder.setupPipelineLayout(pipelineLayout->layout);
     VkGraphicsPipelineCreateInfo pipelineCreateInfo = pipelineBuilder.generatePipelineCreateInfo();
     pipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
-
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
 }
 }

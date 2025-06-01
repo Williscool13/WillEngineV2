@@ -16,6 +16,7 @@
 #include "engine/renderer/assets/render_object/render_object_types.h"
 #include "engine/renderer/resources/pipeline.h"
 #include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/shader_module.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.h"
 
@@ -201,8 +202,8 @@ void DebugHighlighter::drawHighlightProcessing(VkCommandBuffer cmd, const DebugH
 
 void DebugHighlighter::createPipeline()
 {
-    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/debug/debug_highlighter.vert");
-    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/debug/debug_highlighter.frag");
+    ShaderModulePtr vertShader = resourceManager.createResource<ShaderModule>("shaders/debug/debug_highlighter.vert");
+    ShaderModulePtr fragShader = resourceManager.createResource<ShaderModule>("shaders/debug/debug_highlighter.frag");
 
     RenderPipelineBuilder renderPipelineBuilder;
     const std::vector<VkVertexInputBindingDescription> vertexBindings{
@@ -224,7 +225,7 @@ void DebugHighlighter::createPipeline()
 
     renderPipelineBuilder.setupVertexInput(vertexBindings, vertexAttributes);
 
-    renderPipelineBuilder.setShaders(vertShader, fragShader);
+    renderPipelineBuilder.setShaders(vertShader->shader, fragShader->shader);
     renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
     renderPipelineBuilder.disableMultisampling();
@@ -245,18 +246,15 @@ void DebugHighlighter::createPipeline()
     VkGraphicsPipelineCreateInfo pipelineCreateInfo = renderPipelineBuilder.generatePipelineCreateInfo();
     pipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
 
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
-
 
     resourceManager.destroyResource(std::move(processingPipeline));
-    VkShaderModule computeShader = resourceManager.createShaderModule("shaders/debug/debug_highlighter_processing.comp");
+    ShaderModulePtr shader = resourceManager.createResource<ShaderModule>("shaders/debug/debug_highlighter_processing.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
     stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stageInfo.pNext = nullptr;
     stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageInfo.module = computeShader;
+    stageInfo.module = shader->shader;
     stageInfo.pName = "main";
 
     VkComputePipelineCreateInfo pipelineInfo{};
@@ -267,6 +265,5 @@ void DebugHighlighter::createPipeline()
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     processingPipeline = resourceManager.createResource<Pipeline>(pipelineInfo);
-    resourceManager.destroyShaderModule(computeShader);
 }
 }

@@ -16,6 +16,7 @@
 #include "engine/renderer/assets/render_object/render_object_types.h"
 #include "engine/renderer/resources/pipeline.h"
 #include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/shader_module.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_uniform.h"
@@ -310,8 +311,8 @@ void TransparentPipeline::drawComposite(VkCommandBuffer cmd, const TransparentCo
 void TransparentPipeline::createAccumulationPipeline()
 {
     resourceManager.destroyResource(std::move(accumulationPipeline));
-    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/transparent.vert");
-    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/transparent.frag");
+    ShaderModulePtr vertShader = resourceManager.createResource<ShaderModule>("shaders/transparent.vert");
+    ShaderModulePtr fragShader = resourceManager.createResource<ShaderModule>("shaders/transparent.frag");
 
     RenderPipelineBuilder pipelineBuilder;
     const std::vector<VkVertexInputBindingDescription> vertexBindings{
@@ -356,7 +357,7 @@ void TransparentPipeline::createAccumulationPipeline()
 
     pipelineBuilder.setupVertexInput(vertexBindings, vertexAttributes);
 
-    pipelineBuilder.setShaders(vertShader, fragShader);
+    pipelineBuilder.setShaders(vertShader->shader, fragShader->shader);
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     pipelineBuilder.disableMultisampling();
@@ -391,18 +392,16 @@ void TransparentPipeline::createAccumulationPipeline()
     pipelineBuilder.setupPipelineLayout(accumulationPipelineLayout->layout);
     VkGraphicsPipelineCreateInfo pipelineCreateInfo = pipelineBuilder.generatePipelineCreateInfo();
     accumulationPipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
 }
 
 void TransparentPipeline::createCompositePipeline()
 {
     resourceManager.destroyResource(std::move(compositePipeline));
-    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/transparentComposite.vert");
-    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/transparentComposite.frag");
+    ShaderModulePtr vertShader = resourceManager.createResource<ShaderModule>("shaders/transparentComposite.vert");
+    ShaderModulePtr fragShader = resourceManager.createResource<ShaderModule>("shaders/transparentComposite.frag");
 
     RenderPipelineBuilder pipelineBuilder;
-    pipelineBuilder.setShaders(vertShader, fragShader);
+    pipelineBuilder.setShaders(vertShader->shader, fragShader->shader);
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     pipelineBuilder.disableMultisampling();
@@ -425,7 +424,5 @@ void TransparentPipeline::createCompositePipeline()
     pipelineBuilder.setupPipelineLayout(compositePipelineLayout->layout);
     VkGraphicsPipelineCreateInfo pipelineCreateInfo = pipelineBuilder.generatePipelineCreateInfo();
     compositePipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
 }
 }

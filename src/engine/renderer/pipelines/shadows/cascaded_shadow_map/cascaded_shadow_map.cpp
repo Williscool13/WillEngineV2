@@ -19,6 +19,7 @@
 #include "engine/renderer/resources/image.h"
 #include "engine/renderer/resources/pipeline.h"
 #include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/shader_module.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_uniform.h"
@@ -444,8 +445,8 @@ void CascadedShadowMap::createRenderObjectPipeline()
 {
     resourceManager.destroyResource(std::move(renderObjectPipeline));
 
-    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.vert");
-    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.frag");
+    ShaderModulePtr vertShader = resourceManager.createResource<ShaderModule>("shaders/shadows/shadow_pass.vert");
+    ShaderModulePtr fragShader = resourceManager.createResource<ShaderModule>("shaders/shadows/shadow_pass.frag");
 
     RenderPipelineBuilder pipelineBuilder;
     const std::vector<VkVertexInputBindingDescription> vertexBindings{
@@ -467,7 +468,7 @@ void CascadedShadowMap::createRenderObjectPipeline()
 
     pipelineBuilder.setupVertexInput(vertexBindings, vertexAttributes);
 
-    pipelineBuilder.setShaders(vertShader, fragShader);
+    pipelineBuilder.setShaders(vertShader->shader, fragShader->shader);
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     // set later during shadow pass
@@ -481,18 +482,16 @@ void CascadedShadowMap::createRenderObjectPipeline()
     VkGraphicsPipelineCreateInfo pipelineCreateInfo = pipelineBuilder.generatePipelineCreateInfo();
 
     renderObjectPipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
 }
 
 void CascadedShadowMap::createTerrainPipeline()
 {
     resourceManager.destroyResource(std::move(terrainPipeline));
 
-    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/shadows/terrain_shadow_pass.vert");
-    VkShaderModule tescShader = resourceManager.createShaderModule("shaders/shadows/terrain_shadow_pass.tesc");
-    VkShaderModule teseShader = resourceManager.createShaderModule("shaders/shadows/terrain_shadow_pass.tese");
-    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/shadows/shadow_pass.frag");
+    ShaderModulePtr vertShader = resourceManager.createResource<ShaderModule>("shaders/shadows/terrain_shadow_pass.vert");
+    ShaderModulePtr tescShader = resourceManager.createResource<ShaderModule>("shaders/shadows/terrain_shadow_pass.tesc");
+    ShaderModulePtr teseShader = resourceManager.createResource<ShaderModule>("shaders/shadows/terrain_shadow_pass.tese");
+    ShaderModulePtr fragShader = resourceManager.createResource<ShaderModule>("shaders/shadows/shadow_pass.frag");
 
 
     RenderPipelineBuilder pipelineBuilder;
@@ -515,7 +514,7 @@ void CascadedShadowMap::createTerrainPipeline()
 
     pipelineBuilder.setupVertexInput(vertexBindings, vertexAttributes);
 
-    pipelineBuilder.setShaders(vertShader, tescShader, teseShader, fragShader);
+    pipelineBuilder.setShaders(vertShader->shader, tescShader->shader, teseShader->shader, fragShader->shader);
     pipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_PATCH_LIST, false);
     pipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     // set later during shadow pass
@@ -530,10 +529,6 @@ void CascadedShadowMap::createTerrainPipeline()
     VkGraphicsPipelineCreateInfo pipelineCreateInfo = pipelineBuilder.generatePipelineCreateInfo();
 
     terrainPipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(tescShader);
-    resourceManager.destroyShaderModule(teseShader);
-    resourceManager.destroyShaderModule(fragShader);
 }
 
 void CascadedShadowMap::generateSplits()

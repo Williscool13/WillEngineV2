@@ -14,6 +14,7 @@
 #include "engine/renderer/assets/render_object/render_object_types.h"
 #include "engine/renderer/resources/pipeline.h"
 #include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/shader_module.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_uniform.h"
 
@@ -141,8 +142,8 @@ void DeferredMrtPipeline::draw(VkCommandBuffer cmd, const DeferredMrtDrawInfo& d
 void DeferredMrtPipeline::createPipeline()
 {
     resourceManager.destroyResource(std::move(pipeline));
-    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/deferredMrt.vert");
-    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/deferredMrt.frag");
+    ShaderModulePtr vertShader = resourceManager.createResource<ShaderModule>("shaders/deferredMrt.vert");
+    ShaderModulePtr fragShader = resourceManager.createResource<ShaderModule>("shaders/deferredMrt.frag");
 
     RenderPipelineBuilder renderPipelineBuilder;
     const std::vector<VkVertexInputBindingDescription> vertexBindings{
@@ -191,7 +192,7 @@ void DeferredMrtPipeline::createPipeline()
 
     renderPipelineBuilder.setupVertexInput(vertexBindings, vertexAttributes);
 
-    renderPipelineBuilder.setShaders(vertShader, fragShader);
+    renderPipelineBuilder.setShaders(vertShader->shader, fragShader->shader);
     renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     renderPipelineBuilder.disableMultisampling();
@@ -201,7 +202,5 @@ void DeferredMrtPipeline::createPipeline()
     renderPipelineBuilder.setupPipelineLayout(pipelineLayout->layout);
     VkGraphicsPipelineCreateInfo pipelineCreateInfo = renderPipelineBuilder.generatePipelineCreateInfo();
     pipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
 }
 }

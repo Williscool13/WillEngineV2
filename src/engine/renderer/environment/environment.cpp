@@ -13,6 +13,7 @@
 #include "engine/renderer/vk_descriptors.h"
 #include "engine/renderer/resources/image.h"
 #include "engine/renderer/resources/image_view.h"
+#include "engine/renderer/resources/shader_module.h"
 #include "engine/util/file.h"
 
 namespace will_engine::renderer
@@ -93,13 +94,13 @@ Environment::Environment(ResourceManager& resourceManager, ImmediateSubmitter& i
 
         equiToCubemapPipelineLayout = resourceManager.createResource<PipelineLayout>(layoutCreateInfo);
 
-        VkShaderModule computeShader = resourceManager.createShaderModule("shaders/environment/equitoface.comp");
+        ShaderModulePtr shader = resourceManager.createResource<ShaderModule>("shaders/environment/equitoface.comp");
 
         VkPipelineShaderStageCreateInfo stageInfo{};
         stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         stageInfo.pNext = nullptr;
         stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-        stageInfo.module = computeShader;
+        stageInfo.module = shader->shader;
         stageInfo.pName = "main";
 
         VkComputePipelineCreateInfo computePipelineCreateInfo{};
@@ -110,7 +111,6 @@ Environment::Environment(ResourceManager& resourceManager, ImmediateSubmitter& i
         computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
         equiToCubemapPipeline = resourceManager.createResource<Pipeline>(computePipelineCreateInfo);
-        resourceManager.destroyShaderModule(computeShader);
     }
 
     // Cubemap -> Diff Pipeline
@@ -131,13 +131,13 @@ Environment::Environment(ResourceManager& resourceManager, ImmediateSubmitter& i
 
         cubemapToDiffusePipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
 
-        VkShaderModule computeShader = resourceManager.createShaderModule("shaders/environment/cubetodiffirra.comp");
+        ShaderModulePtr shader = resourceManager.createResource<ShaderModule>("shaders/environment/cubetodiffirra.comp");
 
         VkPipelineShaderStageCreateInfo stageInfo{};
         stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         stageInfo.pNext = nullptr;
         stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-        stageInfo.module = computeShader;
+        stageInfo.module = shader->shader;
         stageInfo.pName = "main";
 
         VkComputePipelineCreateInfo computePipelineCreateInfo{};
@@ -148,7 +148,6 @@ Environment::Environment(ResourceManager& resourceManager, ImmediateSubmitter& i
         computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
         cubemapToDiffusePipeline = resourceManager.createResource<Pipeline>(computePipelineCreateInfo);
-        resourceManager.destroyShaderModule(computeShader);
     }
 
     // Cubemap -> Spec Pipeline
@@ -169,13 +168,13 @@ Environment::Environment(ResourceManager& resourceManager, ImmediateSubmitter& i
 
         cubemapToSpecularPipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
 
-        VkShaderModule computeShader = resourceManager.createShaderModule("shaders/environment/cubetospecprefilter.comp");
+        ShaderModulePtr shader = resourceManager.createResource<ShaderModule>("shaders/environment/cubetospecprefilter.comp");
 
         VkPipelineShaderStageCreateInfo stageInfo{};
         stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         stageInfo.pNext = nullptr;
         stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-        stageInfo.module = computeShader;
+        stageInfo.module = shader->shader;
         stageInfo.pName = "main";
 
         VkComputePipelineCreateInfo computePipelineCreateInfo{};
@@ -186,7 +185,6 @@ Environment::Environment(ResourceManager& resourceManager, ImmediateSubmitter& i
         computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
         cubemapToSpecularPipeline = resourceManager.createResource<Pipeline>(computePipelineCreateInfo);
-        resourceManager.destroyShaderModule(computeShader);
     }
 
     // LUT Generation
@@ -202,13 +200,13 @@ Environment::Environment(ResourceManager& resourceManager, ImmediateSubmitter& i
 
         lutPipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
 
-        VkShaderModule computeShader = resourceManager.createShaderModule("shaders/environment/brdflut.comp");
+        ShaderModulePtr shader = resourceManager.createResource<ShaderModule>("shaders/environment/brdflut.comp");
 
         VkPipelineShaderStageCreateInfo stageInfo{};
         stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
         stageInfo.pNext = nullptr;
         stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-        stageInfo.module = computeShader;
+        stageInfo.module = shader->shader;
         stageInfo.pName = "main";
 
         VkComputePipelineCreateInfo computePipelineCreateInfo{};
@@ -219,7 +217,6 @@ Environment::Environment(ResourceManager& resourceManager, ImmediateSubmitter& i
         computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
         lutPipeline = resourceManager.createResource<Pipeline>(computePipelineCreateInfo);
-        resourceManager.destroyShaderModule(computeShader);
     }
 
 

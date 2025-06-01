@@ -11,6 +11,7 @@
 #include "engine/renderer/vk_pipelines.h"
 #include "engine/renderer/resources/pipeline.h"
 #include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/shader_module.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.h"
 
@@ -117,11 +118,11 @@ void BasicRenderPipeline::draw(VkCommandBuffer cmd, const RenderDrawInfo& drawIn
 void BasicRenderPipeline::createPipeline()
 {
     resourceManager.destroyResource(std::move(pipeline));
-    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/basic/vertex.vert");
-    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/basic/fragment.frag");
+    ShaderModulePtr vertShader = resourceManager.createResource<ShaderModule>("shaders/basic/vertex.vert");
+    ShaderModulePtr fragShader = resourceManager.createResource<ShaderModule>("shaders/basic/fragment.frag");
 
     RenderPipelineBuilder renderPipelineBuilder;
-    renderPipelineBuilder.setShaders(vertShader, fragShader);
+    renderPipelineBuilder.setShaders(vertShader->shader, fragShader->shader);
     renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     renderPipelineBuilder.disableMultisampling();
@@ -131,8 +132,5 @@ void BasicRenderPipeline::createPipeline()
     renderPipelineBuilder.setupPipelineLayout(pipelineLayout->layout);
     VkGraphicsPipelineCreateInfo pipelineCreateInfo = renderPipelineBuilder.generatePipelineCreateInfo();
     pipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
-
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(fragShader);
 }
 }

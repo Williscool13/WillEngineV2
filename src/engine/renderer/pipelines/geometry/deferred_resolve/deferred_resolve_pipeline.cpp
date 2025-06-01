@@ -11,6 +11,7 @@
 #include "engine/renderer/resource_manager.h"
 #include "engine/renderer/resources/pipeline.h"
 #include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/shader_module.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.h"
 
@@ -170,13 +171,13 @@ void DeferredResolvePipeline::draw(VkCommandBuffer cmd, const DeferredResolveDra
 void DeferredResolvePipeline::createPipeline()
 {
     resourceManager.destroyResource(std::move(pipeline));
-    VkShaderModule deferredResolveShader = resourceManager.createShaderModule("shaders/deferredResolve.comp");
+    ShaderModulePtr shader = resourceManager.createResource<ShaderModule>("shaders/deferredResolve.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo = {};
     stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stageInfo.pNext = nullptr;
     stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageInfo.module = deferredResolveShader;
+    stageInfo.module = shader->shader;
     stageInfo.pName = "main";
 
     VkComputePipelineCreateInfo pipelineInfo = {};
@@ -187,6 +188,5 @@ void DeferredResolvePipeline::createPipeline()
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     pipeline = resourceManager.createResource<Pipeline>(pipelineInfo);
-    resourceManager.destroyShaderModule(deferredResolveShader);
 }
 }

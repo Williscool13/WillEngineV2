@@ -12,6 +12,7 @@
 #include "engine/renderer/assets/render_object/render_object.h"
 #include "engine/renderer/resources/pipeline.h"
 #include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/shader_module.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 
@@ -103,13 +104,13 @@ void VisibilityPassPipeline::draw(VkCommandBuffer cmd, const VisibilityPassDrawI
 void VisibilityPassPipeline::createPipeline()
 {
     resourceManager.destroyResource(std::move(pipeline));
-    VkShaderModule computeShader = resourceManager.createShaderModule("shaders/visibility_pass.comp");
+    ShaderModulePtr shader = resourceManager.createResource<ShaderModule>("shaders/visibility_pass.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
     stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stageInfo.pNext = nullptr;
     stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageInfo.module = computeShader;
+    stageInfo.module = shader->shader;
     stageInfo.pName = "main";
 
     VkComputePipelineCreateInfo pipelineInfo;
@@ -120,7 +121,6 @@ void VisibilityPassPipeline::createPipeline()
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     pipeline = resourceManager.createResource<Pipeline>(pipelineInfo);
-    resourceManager.destroyShaderModule(computeShader);
 }
 
 }

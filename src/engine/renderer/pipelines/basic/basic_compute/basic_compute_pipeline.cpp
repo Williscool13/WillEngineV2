@@ -9,6 +9,7 @@
 #include "engine/renderer/vk_descriptors.h"
 #include "engine/renderer/resources/pipeline.h"
 #include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/shader_module.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.h"
 
@@ -78,13 +79,13 @@ void BasicComputePipeline::draw(VkCommandBuffer cmd, const ComputeDrawInfo drawI
 void BasicComputePipeline::createPipeline()
 {
     resourceManager.destroyResource(std::move(pipeline));
-    VkShaderModule gradientShader = resourceManager.createShaderModule("shaders/basic/compute.comp");
+    ShaderModulePtr shader = resourceManager.createResource<ShaderModule>("shaders/basic/compute.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
     stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stageInfo.pNext = nullptr;
     stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageInfo.module = gradientShader;
+    stageInfo.module = shader->shader;
     stageInfo.pName = "main"; // entry point in shader
 
     VkComputePipelineCreateInfo computePipelineCreateInfo{};
@@ -95,7 +96,5 @@ void BasicComputePipeline::createPipeline()
     computePipelineCreateInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     pipeline = resourceManager.createResource<Pipeline>(computePipelineCreateInfo);
-
-    resourceManager.destroyShaderModule(gradientShader);
 }
 }

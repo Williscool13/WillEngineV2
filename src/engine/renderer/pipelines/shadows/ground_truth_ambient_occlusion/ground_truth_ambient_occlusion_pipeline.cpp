@@ -15,6 +15,7 @@
 #include "engine/renderer/resources/image_view.h"
 #include "engine/renderer/resources/pipeline.h"
 #include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/shader_module.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.h"
 
@@ -514,13 +515,13 @@ void GroundTruthAmbientOcclusionPipeline::reloadShaders()
 void GroundTruthAmbientOcclusionPipeline::createDepthPrefilterPipeline()
 {
     resourceManager.destroyResource(std::move(depthPrefilterPipeline));
-    VkShaderModule computeShader = resourceManager.createShaderModule("shaders/ambient_occlusion/ground_truth/gtao_depth_prefilter.comp");
+    ShaderModulePtr shader = resourceManager.createResource<ShaderModule>("shaders/ambient_occlusion/ground_truth/gtao_depth_prefilter.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
     stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stageInfo.pNext = nullptr;
     stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageInfo.module = computeShader;
+    stageInfo.module = shader->shader;
     stageInfo.pName = "main";
 
     VkComputePipelineCreateInfo pipelineInfo{};
@@ -531,19 +532,18 @@ void GroundTruthAmbientOcclusionPipeline::createDepthPrefilterPipeline()
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     depthPrefilterPipeline = resourceManager.createResource<Pipeline>(pipelineInfo);
-    resourceManager.destroyShaderModule(computeShader);
 }
 
 void GroundTruthAmbientOcclusionPipeline::createAmbientOcclusionPipeline()
 {
     resourceManager.destroyResource(std::move(ambientOcclusionPipeline));
-    VkShaderModule computeShader = resourceManager.createShaderModule("shaders/ambient_occlusion/ground_truth/gtao_main_pass.comp");
+    ShaderModulePtr shader = resourceManager.createResource<ShaderModule>("shaders/ambient_occlusion/ground_truth/gtao_main_pass.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
     stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stageInfo.pNext = nullptr;
     stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageInfo.module = computeShader;
+    stageInfo.module = shader->shader;
     stageInfo.pName = "main";
 
     VkComputePipelineCreateInfo pipelineInfo{};
@@ -554,19 +554,18 @@ void GroundTruthAmbientOcclusionPipeline::createAmbientOcclusionPipeline()
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     ambientOcclusionPipeline = resourceManager.createResource<Pipeline>(pipelineInfo);
-    resourceManager.destroyShaderModule(computeShader);
 }
 
 void GroundTruthAmbientOcclusionPipeline::createSpatialFilteringPipeline()
 {
     resourceManager.destroyResource(std::move(spatialFilteringPipeline));
-    VkShaderModule computeShader = resourceManager.createShaderModule("shaders/ambient_occlusion/ground_truth/gtao_spatial_filter.comp");
+    ShaderModulePtr shader = resourceManager.createResource<ShaderModule>("shaders/ambient_occlusion/ground_truth/gtao_spatial_filter.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
     stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stageInfo.pNext = nullptr;
     stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageInfo.module = computeShader;
+    stageInfo.module = shader->shader;
     stageInfo.pName = "main";
 
     VkComputePipelineCreateInfo pipelineInfo{};
@@ -577,6 +576,5 @@ void GroundTruthAmbientOcclusionPipeline::createSpatialFilteringPipeline()
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     spatialFilteringPipeline = resourceManager.createResource<Pipeline>(pipelineInfo);
-    resourceManager.destroyShaderModule(computeShader);
 }
 }

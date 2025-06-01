@@ -8,6 +8,7 @@
 #include "engine/renderer/vk_descriptors.h"
 #include "engine/renderer/resources/pipeline.h"
 #include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/shader_module.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.h"
 #include "volk/volk.h"
@@ -92,13 +93,13 @@ void DebugCompositePipeline::draw(VkCommandBuffer cmd, const DebugCompositePipel
 void DebugCompositePipeline::createPipeline()
 {
     resourceManager.destroyResource(std::move(pipeline));
-    VkShaderModule computeShader = resourceManager.createShaderModule("shaders/debug/debug_composite.comp");
+    ShaderModulePtr shader = resourceManager.createResource<ShaderModule>("shaders/debug/debug_composite.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
     stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stageInfo.pNext = nullptr;
     stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageInfo.module = computeShader;
+    stageInfo.module = shader->shader;
     stageInfo.pName = "main";
 
     VkComputePipelineCreateInfo pipelineInfo{};
@@ -109,6 +110,5 @@ void DebugCompositePipeline::createPipeline()
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     pipeline = resourceManager.createResource<Pipeline>(pipelineInfo);
-    resourceManager.destroyShaderModule(computeShader);
 }
 }

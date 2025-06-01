@@ -160,12 +160,6 @@ public: // Special helpers for unique resources
     ImageResourcePtr createImageFromData(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,
                                          bool mipmapped = false);
 
-public: // Shader Module
-    // todo :shader modules is handled a little differently
-    VkShaderModule createShaderModule(const std::filesystem::path& path) const;
-
-    void destroyShaderModule(VkShaderModule& module) const;
-
 public:
     [[nodiscard]] ktxVulkanDeviceInfo* getKtxVulkanDeviceInfo() const { return vulkanDeviceInfo; }
 

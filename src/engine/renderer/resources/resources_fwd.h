@@ -20,6 +20,7 @@ struct ImageResource;
 struct Sampler;
 struct Pipeline;
 struct PipelineLayout;
+struct ShaderModule;
 
 
 using BufferPtr = std::unique_ptr<Buffer>;
@@ -33,6 +34,7 @@ using DescriptorSetLayoutPtr = std::unique_ptr<DescriptorSetLayout>;
 using SamplerPtr = std::unique_ptr<Sampler>;
 using PipelineLayoutPtr = std::unique_ptr<PipelineLayout>;
 using PipelinePtr = std::unique_ptr<Pipeline>;
+using ShaderModulePtr = std::unique_ptr<ShaderModule>;
 }
 
 #endif //RESOURCES_FWD_H

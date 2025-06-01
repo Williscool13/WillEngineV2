@@ -10,6 +10,7 @@
 #include "engine/renderer/vk_pipelines.h"
 #include "engine/renderer/resources/pipeline.h"
 #include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/shader_module.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_uniform.h"
 #include "engine/renderer/terrain/terrain_chunk.h"
@@ -148,10 +149,10 @@ void TerrainPipeline::draw(VkCommandBuffer cmd, const TerrainDrawInfo& drawInfo)
 void TerrainPipeline::createPipeline()
 {
     resourceManager.destroyResource(std::move(pipeline));
-    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/terrain/terrain.vert");
-    VkShaderModule tescShader = resourceManager.createShaderModule("shaders/terrain/terrain.tesc");
-    VkShaderModule teseShader = resourceManager.createShaderModule("shaders/terrain/terrain.tese");
-    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/terrain/terrain.frag");
+    ShaderModulePtr vertShader = resourceManager.createResource<ShaderModule>("shaders/terrain/terrain.vert");
+    ShaderModulePtr tescShader = resourceManager.createResource<ShaderModule>("shaders/terrain/terrain.tesc");
+    ShaderModulePtr teseShader = resourceManager.createResource<ShaderModule>("shaders/terrain/terrain.tese");
+    ShaderModulePtr fragShader = resourceManager.createResource<ShaderModule>("shaders/terrain/terrain.frag");
 
     RenderPipelineBuilder renderPipelineBuilder;
     const std::vector<VkVertexInputBindingDescription> vertexBindings{
@@ -197,7 +198,7 @@ void TerrainPipeline::createPipeline()
 
     renderPipelineBuilder.setupVertexInput(vertexBindings, vertexAttributes);
 
-    renderPipelineBuilder.setShaders(vertShader, tescShader, teseShader, fragShader);
+    renderPipelineBuilder.setShaders(vertShader->shader, tescShader->shader, teseShader->shader, fragShader->shader);
     renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_PATCH_LIST, false);
     renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     renderPipelineBuilder.disableMultisampling();
@@ -209,9 +210,5 @@ void TerrainPipeline::createPipeline()
     renderPipelineBuilder.addDynamicState(VK_DYNAMIC_STATE_DEPTH_BIAS);
     VkGraphicsPipelineCreateInfo pipelineCreateInfo = renderPipelineBuilder.generatePipelineCreateInfo();
     pipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
-    resourceManager.destroyShaderModule(vertShader);
-    resourceManager.destroyShaderModule(tescShader);
-    resourceManager.destroyShaderModule(teseShader);
-    resourceManager.destroyShaderModule(fragShader);
 }
 }

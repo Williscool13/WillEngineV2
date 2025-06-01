@@ -16,6 +16,7 @@
 #include "engine/renderer/resources/buffer.h"
 #include "engine/renderer/resources/pipeline.h"
 #include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/shader_module.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_uniform.h"
 
@@ -343,8 +344,8 @@ void DebugRenderer::createPipeline()
 
     // Instanced Pipeline
     {
-        VkShaderModule vertShader = resourceManager.createShaderModule("shaders/debug/debug_renderer_instanced.vert");
-        VkShaderModule fragShader = resourceManager.createShaderModule("shaders/debug/debug_renderer_instanced.frag");
+        ShaderModulePtr vertShader = resourceManager.createResource<ShaderModule>("shaders/debug/debug_renderer_instanced.vert");
+        ShaderModulePtr fragShader = resourceManager.createResource<ShaderModule>("shaders/debug/debug_renderer_instanced.frag");
 
         RenderPipelineBuilder renderPipelineBuilder;
 
@@ -367,7 +368,7 @@ void DebugRenderer::createPipeline()
 
         renderPipelineBuilder.setupVertexInput(vertexBindings, vertexAttributes);
 
-        renderPipelineBuilder.setShaders(vertShader, fragShader);
+        renderPipelineBuilder.setShaders(vertShader->shader, fragShader->shader);
         renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_LINE_LIST); // line so that we don't see diagonals on quads
         renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_LINE, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
         renderPipelineBuilder.disableMultisampling();
@@ -378,15 +379,12 @@ void DebugRenderer::createPipeline()
         renderPipelineBuilder.addDynamicState(VK_DYNAMIC_STATE_LINE_WIDTH);
         VkGraphicsPipelineCreateInfo pipelineCreateInfo = renderPipelineBuilder.generatePipelineCreateInfo();
         instancedLinePipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
-
-        resourceManager.destroyShaderModule(vertShader);
-        resourceManager.destroyShaderModule(fragShader);
     }
 
     // Line Vertex Pipeline
     {
-        VkShaderModule vertShader = resourceManager.createShaderModule("shaders/debug/debug_renderer.vert");
-        VkShaderModule fragShader = resourceManager.createShaderModule("shaders/debug/debug_renderer.frag");
+        ShaderModulePtr vertShader = resourceManager.createResource<ShaderModule>("shaders/debug/debug_renderer.vert");
+        ShaderModulePtr fragShader = resourceManager.createResource<ShaderModule>("shaders/debug/debug_renderer.frag");
 
         RenderPipelineBuilder renderPipelineBuilder;
 
@@ -415,7 +413,7 @@ void DebugRenderer::createPipeline()
 
         renderPipelineBuilder.setupVertexInput(vertexBindings, vertexAttributes);
 
-        renderPipelineBuilder.setShaders(vertShader, fragShader);
+        renderPipelineBuilder.setShaders(vertShader->shader, fragShader->shader);
         renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_LINE_LIST);
         renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_LINE, VK_CULL_MODE_NONE, VK_FRONT_FACE_CLOCKWISE);
         renderPipelineBuilder.disableMultisampling();
@@ -431,9 +429,6 @@ void DebugRenderer::createPipeline()
         renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
         pipelineCreateInfo = renderPipelineBuilder.generatePipelineCreateInfo();
         trianglePipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
-
-        resourceManager.destroyShaderModule(vertShader);
-        resourceManager.destroyShaderModule(fragShader);
     }
 }
 
