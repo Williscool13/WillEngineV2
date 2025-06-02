@@ -83,7 +83,7 @@ Buffer::BufferConfig Buffer::getBufferConfig(BufferType type, VkBufferUsageFlags
         case BufferType::Receiving:
             return {
                 VK_BUFFER_USAGE_TRANSFER_DST_BIT | additionalUsages,
-                0,
+                VMA_ALLOCATION_CREATE_MAPPED_BIT,
                 VMA_MEMORY_USAGE_GPU_TO_CPU,
                 0
             };

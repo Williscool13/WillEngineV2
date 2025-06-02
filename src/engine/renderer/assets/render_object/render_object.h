@@ -178,7 +178,7 @@ private: // Model Data
     std::vector<RenderNode> renderNodes{};
     std::vector<int32_t> topNodes;
 
-private: // Buffer Data
+public: // Buffer Data
     std::vector<SamplerPtr> samplers{};
     // todo: refactor this to use the new TextureResource class
     std::vector<ImageResourcePtr> images{};

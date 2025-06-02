@@ -1184,6 +1184,21 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::End();
 
     if (ImGui::Begin("Discardable Debug")) {
+        static int32_t index = 0;
+        ImGui::InputInt("Index", &index);
+        if (ImGui::Button("Save Test Image")) {
+            if (renderer::RenderObject* renderObject = engine->assetManager->getRenderObject(2592612823)) {
+                const std::filesystem::path path = file::imagesSavePath / "testImage.png";
+                renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, renderObject->images[index].get(), renderer::vk_helpers::ImageFormat::RGBA8_UNORM, path.string());
+            }
+        }
+
+        if (ImGui::Button("Save Test Image Non KTX")) {
+            if (renderer::RenderObject* renderObject = engine->assetManager->getRenderObject(195023067)) {
+                const std::filesystem::path path = file::imagesSavePath / "testImageNonKtx.png";
+                renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, renderObject->images[index].get(), renderer::vk_helpers::ImageFormat::RGBA8_UNORM, path.string());
+            }
+        }
         ImGui::Separator();
         if (ImGui::Button("Save Stencil Debug Draw")) {
             if (file::getOrCreateDirectory(file::imagesSavePath)) {

@@ -41,7 +41,7 @@ void main() {
     int colorSamplerIndex = m.textureSamplerIndices.x;
     int colorImageIndex = m.textureImageIndices.x;
     if (colorSamplerIndex >= 0) {
-        albedo = texture(sampler2D(textures[nonuniformEXT(colorImageIndex)], samplers[nonuniformEXT(colorSamplerIndex)]), inUV);
+        albedo = textureLod(sampler2D(textures[nonuniformEXT(colorImageIndex)], samplers[nonuniformEXT(colorSamplerIndex)]), inUV, 0);
     }
     albedo = albedo * inColor * m.colorFactor;
 

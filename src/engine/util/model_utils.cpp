@@ -2,6 +2,7 @@
 // Created by William on 2025-02-22.
 //
 
+// ReSharper disable CppDFAUnreachableCode
 #include "model_utils.h"
 
 #include <volk/volk.h>
@@ -90,7 +91,7 @@ ImageResourcePtr model_utils::loadImage(ResourceManager& resourceManager, const 
                         newImage = processKtxVector(resourceManager, vector);
                     }
                     else {
-                        newImage = processKtx2Vector(resourceManager, vector);
+                        newImage = processKtx2Vector(resourceManager, vector, 0, vector.bytes.size());
                     }
                 }
 
@@ -118,7 +119,7 @@ ImageResourcePtr model_utils::loadImage(ResourceManager& resourceManager, const 
                 // specify LoadExternalBuffers, meaning all buffers
                 // are already loaded into a vector.
                 std::visit(fastgltf::visitor{
-                               [](auto& arg) {},
+                               [](auto&) {},
                                [&](const fastgltf::sources::Array& vector) {
                                    const int32_t ktxVersion = isKtxTexture(vector);
                                    if (ktxVersion > 0) {
@@ -126,7 +127,7 @@ ImageResourcePtr model_utils::loadImage(ResourceManager& resourceManager, const 
                                            newImage = processKtxVector(resourceManager, vector);
                                        }
                                        else {
-                                           newImage = processKtx2Vector(resourceManager, vector);
+                                           newImage = processKtx2Vector(resourceManager, vector, bufferView.byteOffset, bufferView.byteLength);
                                        }
                                    }
                                    else {
@@ -212,7 +213,10 @@ void model_utils::loadTextureIndices(const fastgltf::Optional<fastgltf::TextureI
     if (!texture.has_value()) { return; }
 
     const size_t textureIndex = texture.value().textureIndex;
-    if (gltf.textures[textureIndex].imageIndex.has_value()) {
+    if (gltf.textures[textureIndex].basisuImageIndex.has_value()) {
+        imageIndex = gltf.textures[textureIndex].basisuImageIndex.value() + imageOffset;
+    }
+    else if (gltf.textures[textureIndex].imageIndex.has_value()) {
         imageIndex = gltf.textures[textureIndex].imageIndex.value() + imageOffset;
     }
 
@@ -317,50 +321,73 @@ ImageResourcePtr model_utils::processKtxVector(ResourceManager& resourceManager,
     return {};
 }
 
-ImageResourcePtr model_utils::processKtx2Vector(ResourceManager& resourceManager, const fastgltf::sources::Array& vector)
+ImageResourcePtr model_utils::processKtx2Vector(ResourceManager& resourceManager, const fastgltf::sources::Array& vector, size_t offset,
+                                                size_t length)
 {
+    // Validation checks
+    if (vector.bytes.empty()) {
+        fmt::print("Error: Empty vector bytes\n");
+        return {};
+    }
+
+    if (offset >= vector.bytes.size()) {
+        fmt::print("Error: Offset ({}) >= vector size ({})\n", offset, vector.bytes.size());
+        return {};
+    }
+
+    if (offset + length > vector.bytes.size()) {
+        fmt::print("Error: Offset + length ({}) > vector size ({})\n", offset + length, vector.bytes.size());
+        return {};
+    }
+
+    if (length == 0) {
+        fmt::print("Error: Length is zero\n");
+        return {};
+    }
+
     ktxTexture2* kTexture;
 
     const KTX_error_code ktxResult = ktxTexture2_CreateFromMemory(
-        reinterpret_cast<const unsigned char*>(vector.bytes.data()),
-        vector.bytes.size(),
-        KTX_TEXTURE_CREATE_LOAD_IMAGE_DATA_BIT,
+        reinterpret_cast<const unsigned char*>(vector.bytes.data() + offset),
+        length,
+        KTX_TEXTURE_CREATE_NO_FLAGS,
         &kTexture);
 
-    if (ktxResult == KTX_SUCCESS) {
-        VkFormat format{VK_FORMAT_UNDEFINED};
-        if (ktxTexture2_NeedsTranscoding(kTexture)) {
-            // todo: choose appropriate format?
-            constexpr auto targetFormat = KTX_TTF_BC7_RGBA;
-
-            const KTX_error_code result = ktxTexture2_TranscodeBasis(kTexture, targetFormat, 0);
-            if (result != KTX_SUCCESS) {
-                fmt::print("Transcoding error");
-            }
-
-            format = ktxTexture2_GetVkFormat(kTexture);
-        }
-
-        const ImageFormatProperties formatProperties = resourceManager.getPhysicalDeviceImageFormatProperties(format, VK_IMAGE_USAGE_SAMPLED_BIT);
-
-
-        if (formatProperties.result == VK_SUCCESS) {
-            return resourceManager.createResource<ImageKtx>(ktxTexture(kTexture));
-        }
-        else {
-            if (kTexture->classId == ktxTexture1_c) {
-                fmt::print("KTX 1\n");
-                //auto kTex1 = reinterpret_cast<ktxTexture1*>(kTexture);
-                //KTX_error_code loadResult = ktxTexture1_LoadImageData(kTex1, NULL, 0);
-            }
-            else if (kTexture->classId == ktxTexture2_c) {
-                fmt::print("KTX 2\n");
-            }
-        }
-
-        ktxTexture2_Destroy(kTexture);
+    if (ktxResult != KTX_SUCCESS) {
+        fmt::print("Error: ktxTexture2_CreateFromMemory failed: {}\n", ktxErrorString(ktxResult));
+        return {};
     }
 
-    return {};
+    VkFormat format{VK_FORMAT_UNDEFINED};
+    if (ktxTexture2_NeedsTranscoding(kTexture)) {
+        // todo: choose appropriate format?
+        //constexpr auto targetFormat = KTX_TTF_BC7_RGBA;
+        constexpr ktx_transcode_fmt_e targetFormat = KTX_TTF_RGBA32;
+
+        const KTX_error_code result = ktxTexture2_TranscodeBasis(kTexture, targetFormat, 0);
+        if (result != KTX_SUCCESS) {
+            fmt::print("Error: Ktx texture transcoding error.\n");
+            ktxTexture2_Destroy(kTexture);
+            return {};
+        }
+
+        format = ktxTexture2_GetVkFormat(kTexture);
+    }
+    else {
+        format = ktxTexture2_GetVkFormat(kTexture);
+    }
+
+    const ImageFormatProperties formatProperties = resourceManager.getPhysicalDeviceImageFormatProperties(format, VK_IMAGE_USAGE_SAMPLED_BIT);
+
+
+    if (formatProperties.result != VK_SUCCESS) {
+        fmt::print("Error: Gormat property failed check (usually means not supported).\n");
+        ktxTexture2_Destroy(kTexture);
+        return {};
+    }
+
+    std::unique_ptr<ImageKtx> newImage = resourceManager.createResource<ImageKtx>(ktxTexture(kTexture));
+    ktxTexture2_Destroy(kTexture);
+    return newImage;
 }
 }

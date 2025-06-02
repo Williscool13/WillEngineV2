@@ -356,9 +356,9 @@ void Engine::updateGame(const float deltaTime)
 {
     if (fallbackCamera) { fallbackCamera->update(deltaTime); }
 
+    const input::Input& input = input::Input::get();
 #if WILL_ENGINE_DEBUG
     // Non-Core Gameplay Actions
-    const input::Input& input = input::Input::get();
     if (input.isKeyPressed(input::Key::R)) {
         if (fallbackCamera) {
             const glm::vec3 direction = fallbackCamera->getForwardWS();
@@ -576,7 +576,6 @@ void Engine::render(float deltaTime)
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
     profiler.beginTimer("2Render");
-
 
     std::vector<renderer::RenderObject*> allRenderObjects = assetManager->getAllRenderObjects();
 

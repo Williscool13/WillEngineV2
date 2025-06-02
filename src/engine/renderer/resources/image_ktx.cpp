@@ -14,7 +14,7 @@ namespace will_engine::renderer
 ImageKtx::ImageKtx(ResourceManager* resourceManager, ktxTexture* ktxTexture)
     : ImageResource(resourceManager)
 {
-    const ktx_error_code_e result = ktxTexture_VkUploadEx(ktxTexture, manager->getKtxVulkanDeviceInfo(), &texture, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_SAMPLED_BIT,
+    const ktx_error_code_e result = ktxTexture_VkUploadEx(ktxTexture, manager->getKtxVulkanDeviceInfo(), &texture, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_SRC_BIT | VK_IMAGE_USAGE_SAMPLED_BIT,
                           VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
     if (result != KTX_SUCCESS) {
         const char* errorCode = ktxErrorString(result);
