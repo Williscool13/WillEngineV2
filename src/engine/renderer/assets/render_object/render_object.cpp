@@ -495,10 +495,57 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath, std::vec
             // UV
             const fastgltf::Attribute* uvs = p.findAttribute("TEXCOORD_0");
             if (uvs != p.attributes.end()) {
-                fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(gltf, gltf.accessors[uvs->accessorIndex],
-                                                                          [&](fastgltf::math::fvec2 uv, const size_t index) {
-                                                                              primitiveVertexProperties[index].uv = {uv.x(), uv.y()};
-                                                                          });
+                const fastgltf::Accessor& uvAccessor = gltf.accessors[uvs->accessorIndex];
+
+                switch (uvAccessor.componentType) {
+                    case fastgltf::ComponentType::Byte:
+                        fastgltf::iterateAccessorWithIndex<fastgltf::math::s8vec2>(gltf, uvAccessor,
+                                                                                   [&](fastgltf::math::s8vec2 uv, const size_t index) {
+                                                                                       // f = max(c / 127.0, -1.0)
+                                                                                       float u = std::max(static_cast<float>(uv.x()) / 127.0f, -1.0f);
+                                                                                       float v = std::max(static_cast<float>(uv.y()) / 127.0f, -1.0f);
+                                                                                       primitiveVertexProperties[index].uv = {u, v};
+                                                                                   });
+                        break;
+                    case fastgltf::ComponentType::UnsignedByte:
+                        fastgltf::iterateAccessorWithIndex<fastgltf::math::u8vec2>(gltf, uvAccessor,
+                                                                                   [&](fastgltf::math::u8vec2 uv, const size_t index) {
+                                                                                       // f = c / 255.0
+                                                                                       float u = static_cast<float>(uv.x()) / 255.0f;
+                                                                                       float v = static_cast<float>(uv.y()) / 255.0f;
+                                                                                       primitiveVertexProperties[index].uv = {u, v};
+                                                                                   });
+                        break;
+                    case fastgltf::ComponentType::Short:
+                        fastgltf::iterateAccessorWithIndex<fastgltf::math::s16vec2>(gltf, uvAccessor,
+                                                                                    [&](fastgltf::math::s16vec2 uv, const size_t index) {
+                                                                                        // f = max(c / 32767.0, -1.0)
+                                                                                        float u = std::max(
+                                                                                            static_cast<float>(uv.x()) / 32767.0f, -1.0f);
+                                                                                        float v = std::max(
+                                                                                            static_cast<float>(uv.y()) / 32767.0f, -1.0f);
+                                                                                        primitiveVertexProperties[index].uv = {u, v};
+                                                                                    });
+                        break;
+                    case fastgltf::ComponentType::UnsignedShort:
+                        fastgltf::iterateAccessorWithIndex<fastgltf::math::u16vec2>(gltf, uvAccessor,
+                                                                                    [&](fastgltf::math::u16vec2 uv, const size_t index) {
+                                                                                        // f = c / 65535.0
+                                                                                        float u = static_cast<float>(uv.x()) / 65535.0f;
+                                                                                        float v = static_cast<float>(uv.y()) / 65535.0f;
+                                                                                        primitiveVertexProperties[index].uv = {u, v};
+                                                                                    });
+                        break;
+                    case fastgltf::ComponentType::Float:
+                        fastgltf::iterateAccessorWithIndex<fastgltf::math::fvec2>(gltf, uvAccessor,
+                                                                                  [&](fastgltf::math::fvec2 uv, const size_t index) {
+                                                                                      primitiveVertexProperties[index].uv = {uv.x(), uv.y()};
+                                                                                  });
+                        break;
+                    default:
+                        fmt::print("Unsupported UV component type: {}\n", static_cast<int>(uvAccessor.componentType));
+                        break;
+                }
             }
 
             // VERTEX COLOR

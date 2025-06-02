@@ -7,6 +7,7 @@
 
 #include <filesystem>
 #include <unordered_set>
+#include <fastgltf/types.hpp>
 
 #include "render_object_types.h"
 #include "render_reference.h"
