@@ -455,7 +455,7 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath, std::vec
 
             if (p.materialIndex.has_value()) {
                 primitiveData.materialIndex = p.materialIndex.value() + materialOffset;
-                primitiveData.bHasTransparent = (static_cast<MaterialType>(materials[primitiveData.materialIndex].alphaCutoff.y) ==
+                primitiveData.bHasTransparent = (static_cast<MaterialType>(materials[primitiveData.materialIndex].alphaProperties.y) ==
                                                  MaterialType::TRANSPARENT);
             }
 
@@ -491,23 +491,6 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath, std::vec
                                                                               primitiveVertexProperties[index].normal = {n.x(), n.y(), n.z()};
                                                                           });
             }
-
-            fastgltf::math::nvec2 scale{1,1};
-            fastgltf::math::nvec2 offset{0,0};
-
-            if (p.materialIndex.has_value()) {
-                const fastgltf::Material& material = gltf.materials[p.materialIndex.value()];
-
-                // Check baseColorTexture for texture transform
-                if (material.pbrData.baseColorTexture.has_value()) {
-                    auto& t = material.pbrData.baseColorTexture.value().transform;
-                    if (t) {
-                        scale = t->uvScale;
-                        offset = t->uvOffset;
-                    }
-                }
-            }
-
 
             // UV
             const fastgltf::Attribute* uvs = p.findAttribute("TEXCOORD_0");
@@ -548,8 +531,8 @@ bool RenderObject::parseGltf(const std::filesystem::path& gltfFilepath, std::vec
                         fastgltf::iterateAccessorWithIndex<fastgltf::math::u16vec2>(gltf, uvAccessor,
                                                                                     [&](fastgltf::math::u16vec2 uv, const size_t index) {
                                                                                         // f = c / 65535.0
-                                                                                        float u = static_cast<float>(uv.x()) / 65535.0f * scale.x() + offset.x();
-                                                                                        float v = static_cast<float>(uv.y()) / 65535.0f * scale.y() + offset.y();
+                                                                                        float u = static_cast<float>(uv.x()) / 65535.0f;
+                                                                                        float v = static_cast<float>(uv.y()) / 65535.0f;
                                                                                         primitiveVertexProperties[index].uv = {u, v};
                                                                                     });
                         break;

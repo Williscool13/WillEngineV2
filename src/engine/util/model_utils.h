@@ -17,11 +17,15 @@ namespace will_engine::renderer::model_utils
 static constexpr int32_t samplerOffset{1};
 static constexpr int32_t imageOffset{1};
 
-[[nodiscard]] ImageResourcePtr loadImage(ResourceManager& resourceManager, const fastgltf::Asset& asset, const fastgltf::Image& image, const std::filesystem::path& parentFolder);
+[[nodiscard]] ImageResourcePtr loadImage(ResourceManager& resourceManager, const fastgltf::Asset& asset, const fastgltf::Image& image,
+                                         const std::filesystem::path& parentFolder);
 
 MaterialProperties extractMaterial(fastgltf::Asset& gltf, const fastgltf::Material& gltfMaterial);
 
 void loadTextureIndices(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf, int& imageIndex, int& samplerIndex);
+
+void loadTextureIndicesAndUV(const ::fastgltf::TextureInfo& texture, const ::fastgltf::Asset& gltf, int& imageIndex, int& samplerIndex,
+                             glm::vec4& uvTransform);
 
 VkFilter extractFilter(fastgltf::Filter filter);
 

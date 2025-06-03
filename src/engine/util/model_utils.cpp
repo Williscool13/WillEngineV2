@@ -13,6 +13,7 @@
 
 #include "engine/renderer/resource_manager.h"
 #include "engine/renderer/assets/render_object/render_object.h"
+#include "engine/renderer/pipelines/shadows/ground_truth_ambient_occlusion/ambient_occlusion_types.h"
 #include "engine/renderer/resources/image_ktx.h"
 
 namespace will_engine::renderer
@@ -163,56 +164,98 @@ MaterialProperties model_utils::extractMaterial(fastgltf::Asset& gltf, const fas
 {
     MaterialProperties material = {};
     material.colorFactor = glm::vec4(
-        gltfMaterial.pbrData.baseColorFactor[0]
-        , gltfMaterial.pbrData.baseColorFactor[1]
-        , gltfMaterial.pbrData.baseColorFactor[2]
-        , gltfMaterial.pbrData.baseColorFactor[3]);
+        gltfMaterial.pbrData.baseColorFactor[0],
+        gltfMaterial.pbrData.baseColorFactor[1],
+        gltfMaterial.pbrData.baseColorFactor[2],
+        gltfMaterial.pbrData.baseColorFactor[3]);
 
     material.metalRoughFactors.x = gltfMaterial.pbrData.metallicFactor;
     material.metalRoughFactors.y = gltfMaterial.pbrData.roughnessFactor;
-    material.alphaCutoff.x = 0.5f;
+
+    material.alphaProperties.x = gltfMaterial.alphaCutoff;
+    material.alphaProperties.z = gltfMaterial.doubleSided ? 1.0f : 0.0f;
+    material.alphaProperties.w = gltfMaterial.unlit ? 1.0f : 0.0f;
 
     switch (gltfMaterial.alphaMode) {
         case fastgltf::AlphaMode::Opaque:
-            material.alphaCutoff.x = 1.0f;
-            material.alphaCutoff.y = static_cast<float>(MaterialType::OPAQUE);
+            material.alphaProperties.y = static_cast<float>(MaterialType::OPAQUE);
             break;
         case fastgltf::AlphaMode::Blend:
-            material.alphaCutoff.x = 1.0f;
-            material.alphaCutoff.y = static_cast<float>(MaterialType::TRANSPARENT);
+            material.alphaProperties.y = static_cast<float>(MaterialType::TRANSPARENT);
             break;
         case fastgltf::AlphaMode::Mask:
-            material.alphaCutoff.x = gltfMaterial.alphaCutoff;
-            material.alphaCutoff.y = static_cast<float>(MaterialType::MASK);
+            material.alphaProperties.y = static_cast<float>(MaterialType::MASK);
             break;
     }
 
-    loadTextureIndices(gltfMaterial.pbrData.baseColorTexture, gltf, material.textureImageIndices.x, material.textureSamplerIndices.x);
-    loadTextureIndices(gltfMaterial.pbrData.metallicRoughnessTexture, gltf, material.textureImageIndices.y, material.textureSamplerIndices.y);
+    material.emissiveFactor = glm::vec4(
+        gltfMaterial.emissiveFactor[0],
+        gltfMaterial.emissiveFactor[1],
+        gltfMaterial.emissiveFactor[2],
+        gltfMaterial.emissiveStrength);
 
-    // image defined but no sampler and vice versa - use defaults
-    // pretty rare/edge case
-    if (material.textureImageIndices.x == -1 && material.textureSamplerIndices.x != -1) {
-        material.textureImageIndices.x = 0;
+    material.physicalProperties.x = gltfMaterial.ior;
+    material.physicalProperties.y = gltfMaterial.dispersion;
+
+    if (gltfMaterial.pbrData.baseColorTexture.has_value()) {
+        loadTextureIndicesAndUV(gltfMaterial.pbrData.baseColorTexture.value(), gltf,
+                                material.textureImageIndices.x, material.textureSamplerIndices.x,
+                                material.colorUvTransform);
     }
-    if (material.textureSamplerIndices.x == -1 && material.textureImageIndices.x != -1) {
-        material.textureSamplerIndices.x = 0;
+
+
+    if (gltfMaterial.pbrData.metallicRoughnessTexture.has_value()) {
+        loadTextureIndicesAndUV(gltfMaterial.pbrData.metallicRoughnessTexture.value(), gltf,
+                                material.textureImageIndices.y, material.textureSamplerIndices.y,
+                                material.metalRoughUvTransform);
     }
-    if (material.textureImageIndices.y == -1 && material.textureSamplerIndices.y != -1) {
-        material.textureImageIndices.y = 0;
+
+
+    if (gltfMaterial.normalTexture.has_value()) {
+        loadTextureIndicesAndUV(gltfMaterial.normalTexture.value(), gltf,
+                                material.textureImageIndices.z, material.textureSamplerIndices.z,
+                                material.normalUvTransform);
+        material.physicalProperties.z = gltfMaterial.normalTexture->scale;
     }
-    if (material.textureSamplerIndices.y == -1 && material.textureImageIndices.y != -1) {
-        material.textureSamplerIndices.y = 0;
+
+    if (gltfMaterial.emissiveTexture.has_value()) {
+        loadTextureIndicesAndUV(gltfMaterial.emissiveTexture.value(), gltf,
+                                material.textureImageIndices.w, material.textureSamplerIndices.w,
+                                material.emissiveUvTransform);
     }
+
+    if (gltfMaterial.occlusionTexture.has_value()) {
+        loadTextureIndicesAndUV(gltfMaterial.occlusionTexture.value(), gltf,
+                                material.textureImageIndices2.x, material.textureSamplerIndices2.x,
+                                material.occlusionUvTransform);
+        material.physicalProperties.w = gltfMaterial.occlusionTexture->strength;
+    }
+
+    if (gltfMaterial.packedNormalMetallicRoughnessTexture.has_value()) {
+        fmt::print("Error: renderer does not support packed normal metallic roughness texture");
+    }
+
+    // Handle edge cases for missing samplers/images
+    auto fixTextureIndices = [](int& imageIdx, int& samplerIdx) {
+        if (imageIdx == -1 && samplerIdx != -1) imageIdx = 0;
+        if (samplerIdx == -1 && imageIdx != -1) samplerIdx = 0;
+    };
+
+    fixTextureIndices(material.textureImageIndices.x, material.textureSamplerIndices.x);
+    fixTextureIndices(material.textureImageIndices.y, material.textureSamplerIndices.y);
+    fixTextureIndices(material.textureImageIndices.z, material.textureSamplerIndices.z);
+    fixTextureIndices(material.textureImageIndices.w, material.textureSamplerIndices.w);
+    fixTextureIndices(material.textureImageIndices2.x, material.textureSamplerIndices2.x);
+    fixTextureIndices(material.textureImageIndices2.y, material.textureSamplerIndices2.y);
+
     return material;
 }
 
-void model_utils::loadTextureIndices(const fastgltf::Optional<fastgltf::TextureInfo>& texture, const fastgltf::Asset& gltf,
-                                     int& imageIndex, int& samplerIndex)
+void model_utils::loadTextureIndicesAndUV(const fastgltf::TextureInfo& texture, const fastgltf::Asset& gltf,
+                                          int& imageIndex, int& samplerIndex, glm::vec4& uvTransform)
 {
-    if (!texture.has_value()) { return; }
+    const size_t textureIndex = texture.textureIndex;
 
-    const size_t textureIndex = texture.value().textureIndex;
     if (gltf.textures[textureIndex].basisuImageIndex.has_value()) {
         imageIndex = gltf.textures[textureIndex].basisuImageIndex.value() + imageOffset;
     }
@@ -222,6 +265,14 @@ void model_utils::loadTextureIndices(const fastgltf::Optional<fastgltf::TextureI
 
     if (gltf.textures[textureIndex].samplerIndex.has_value()) {
         samplerIndex = gltf.textures[textureIndex].samplerIndex.value() + samplerOffset;
+    }
+
+    if (texture.transform) {
+        const auto& transform = texture.transform;
+        uvTransform.x = transform->uvScale[0];
+        uvTransform.y = transform->uvScale[1];
+        uvTransform.z = transform->uvOffset[0];
+        uvTransform.w = transform->uvOffset[1];
     }
 }
 
