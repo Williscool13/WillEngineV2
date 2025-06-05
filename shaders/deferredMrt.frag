@@ -43,7 +43,6 @@ void main() {
     if (colorSamplerIndex > -1 && colorImageIndex > -1) {
         vec2 colorUv = inUV * m.colorUvTransform.xy + m.colorUvTransform.zw;
         albedo = texture(sampler2D(textures[nonuniformEXT(colorImageIndex)], samplers[nonuniformEXT(colorSamplerIndex)]), colorUv);
-        albedo.xyz = linear2srgb(albedo.xyz);
     }
     //albedo = albedo * inColor * m.colorFactor;
 
