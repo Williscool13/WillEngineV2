@@ -17,6 +17,16 @@ namespace will_engine::renderer::model_utils
 static constexpr int32_t samplerOffset{1};
 static constexpr int32_t imageOffset{1};
 
+/**
+ * As specified by the GLTF 2.0 - Section 3.9.2., the base color texture must contain 8-bit values encoded with sRGB.
+ * This means that the output VkFormat should be an SRGB format and will be hardware decoded in the shaders
+ * https://registry.khronos.org/glTF/specs/2.0/glTF-2.0.html
+ * @param resourceManager
+ * @param asset
+ * @param image
+ * @param parentFolder
+ * @return
+ */
 [[nodiscard]] ImageResourcePtr loadImage(ResourceManager& resourceManager, const fastgltf::Asset& asset, const fastgltf::Image& image,
                                          const std::filesystem::path& parentFolder);
 
