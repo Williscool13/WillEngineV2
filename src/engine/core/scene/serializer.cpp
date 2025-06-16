@@ -364,6 +364,10 @@ std::optional<TextureInfo> Serializer::loadWillTexture(const std::filesystem::pa
 
 bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag engineSettings)
 {
+#if WILL_ENGINE_RELEASE
+    fmt::print("Warning: Attempted to serialize engine settings in release mode, this is not allowed.");
+    return false;
+#endif
     if (engine == nullptr) {
         fmt::print("Warning: engine is null\n");
         return false;
@@ -394,6 +398,7 @@ bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag 
 
     rootJ["version"] = EngineVersion::current();
 
+#if WILL_ENGINE_DEBUG
     if (hasFlag(engineSettings, EngineSettingsTypeFlag::EDITOR_SETTINGS)) {
         ordered_json editorSettings;
         EditorSettings _editorSettings = engine->getEditorSettings();
@@ -401,6 +406,7 @@ bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag 
 
         rootJ["editorSettings"] = editorSettings;
     }
+#endif
 
     if (hasFlag(engineSettings, EngineSettingsTypeFlag::ENGINE_SETTINGS)) {
         ordered_json _engineSettings;
@@ -569,6 +575,7 @@ bool Serializer::deserializeEngineSettings(Engine* engine, EngineSettingsTypeFla
 
         ordered_json rootJ = ordered_json::parse(file);
 
+#if WILL_ENGINE_DEBUG
         if (hasFlag(engineSettings, EngineSettingsTypeFlag::EDITOR_SETTINGS)) {
             ordered_json editorSettings = rootJ["editorSettings"];
             EditorSettings _editorSettings = engine->getEditorSettings();
@@ -579,7 +586,7 @@ bool Serializer::deserializeEngineSettings(Engine* engine, EngineSettingsTypeFla
 
             engine->setEditorSettings(_editorSettings);
         }
-
+#endif
 
         if (hasFlag(engineSettings, EngineSettingsTypeFlag::ENGINE_SETTINGS)) {
             ordered_json _engineSettings = rootJ["engineSettings"];

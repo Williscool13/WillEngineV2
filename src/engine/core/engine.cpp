@@ -628,7 +628,9 @@ void Engine::render(float deltaTime)
     velocityRenderTarget->imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     taaResolveTarget->imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
     finalImageBuffer->imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+#if WILL_ENGINE_DEBUG_DRAW
     debugTarget->imageLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+#endif
     // do not reset historyBuffer's layout to preserve contents
 
     renderer::vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, drawImage.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
