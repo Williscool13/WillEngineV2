@@ -25,3 +25,6 @@ SDL3d.lib filter=lfs diff=lfs merge=lfs -text
 SDL3d.pdb filter=lfs diff=lfs merge=lfs -text
 shaderc_combined.lib filter=lfs diff=lfs merge=lfs -text
 shaderc_combinedd.lib filter=lfs diff=lfs merge=lfs -text
+*.pdb filter=lfs diff=lfs merge=lfs -text
+*.lib filter=lfs diff=lfs merge=lfs -text
+*.dll filter=lfs diff=lfs merge=lfs -text
