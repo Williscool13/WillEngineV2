@@ -9,10 +9,9 @@
 
 #include <glm/glm.hpp>
 
-#include "engine/renderer/vk_types.h"
 #include "render_object_types.h"
 
-namespace will_engine
+namespace will_engine::renderer
 {
 class IRenderable;
 
@@ -34,11 +33,11 @@ public:
 
     virtual std::optional<std::reference_wrapper<const Mesh>> getMeshData(int32_t meshIndex) = 0;
 
-    virtual const AllocatedBuffer& getPositionVertexBuffer() const = 0;
+    virtual VkBuffer getPositionVertexBuffer() const = 0;
 
-    virtual const AllocatedBuffer& getPropertyVertexBuffer() const = 0;
+    virtual VkBuffer getPropertyVertexBuffer() const = 0;
 
-    virtual const AllocatedBuffer& getIndexBuffer() const = 0;
+    virtual VkBuffer getIndexBuffer() const = 0;
 };
 }
 

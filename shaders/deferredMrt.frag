@@ -40,14 +40,15 @@ void main() {
 
     int colorSamplerIndex = m.textureSamplerIndices.x;
     int colorImageIndex = m.textureImageIndices.x;
-    if (colorSamplerIndex >= 0) {
-        albedo = texture(sampler2D(textures[nonuniformEXT(colorImageIndex)], samplers[nonuniformEXT(colorSamplerIndex)]), inUV);
+    if (colorSamplerIndex > -1 && colorImageIndex > -1) {
+        vec2 colorUv = inUV * m.colorUvTransform.xy + m.colorUvTransform.zw;
+        albedo = texture(sampler2D(textures[nonuniformEXT(colorImageIndex)], samplers[nonuniformEXT(colorSamplerIndex)]), colorUv);
     }
-    albedo = albedo * inColor * m.colorFactor;
+    //albedo = albedo * inColor * m.colorFactor;
 
     // Look into custom shaders specifically for these? More draw commands vs branching...
     // 1 is transparent blend type
-    if (m.alphaCutoff.y == 1) {
+    if (m.alphaProperties.y == 1) {
         // Draw only if alpha is close enough to 1
         if (albedo.w <= 1.0 - TRANSPARENT_ALPHA_EPSILON) {
             discard;
@@ -55,9 +56,9 @@ void main() {
     }
 
     // 2 is "mask" (cutout) blend type
-    if (m.alphaCutoff.y == 2){
+    if (m.alphaProperties.y == 2){
         // 2 is "mask" blend type
-        if (albedo.w < m.alphaCutoff.x){
+        if (albedo.w < m.alphaProperties.x){
             discard;
         }
     }
@@ -67,8 +68,9 @@ void main() {
 
     float metallic = m.metalRoughFactors.x;
     float roughness = m.metalRoughFactors.y;
-    if (metalSamplerIndex >= 0) {
-        vec4 metalRoughSample = texture(sampler2D(textures[nonuniformEXT(metalImageIndex)], samplers[nonuniformEXT(metalSamplerIndex)]), inUV);
+    if (metalSamplerIndex > -1 && metalImageIndex > -1) {
+        vec2 metalRoughUv = inUV * m.metalRoughUvTransform.xy + m.metalRoughUvTransform.zw;
+        vec4 metalRoughSample = texture(sampler2D(textures[nonuniformEXT(metalImageIndex)], samplers[nonuniformEXT(metalSamplerIndex)]), metalRoughUv);
         metallic *= metalRoughSample.b;
         roughness *= metalRoughSample.g;
     }

@@ -5,17 +5,32 @@
 #ifndef VISIBILITY_PASS_PIPELINE_H
 #define VISIBILITY_PASS_PIPELINE_H
 
-#include <volk/volk.h>
+#include <vector>
+#include <vulkan/vulkan_core.h>
 
-namespace will_engine
+#include "engine/renderer/resources/resources_fwd.h"
+
+namespace will_engine::renderer
 {
 class ResourceManager;
 class RenderObject;
-}
 
-namespace will_engine::visibility_pass_pipeline
+struct VisibilityPassPushConstants
 {
-struct VisibilityPassDrawInfo;
+    int32_t enable{};
+    int32_t shadowPass{};
+};
+
+struct VisibilityPassDrawInfo
+{
+    int32_t currentFrameOverlap{0};
+    const std::vector<RenderObject*>& renderObjects{};
+    VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
+    VkDeviceSize sceneDataOffset{0};
+    bool bEnableFrustumCulling{};
+    bool bIsShadowPass{};
+    bool bIsOpaque{};
+};
 
 
 class VisibilityPassPipeline
@@ -35,8 +50,8 @@ private:
 private:
     ResourceManager& resourceManager;
 
-    VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
-    VkPipeline pipeline{VK_NULL_HANDLE};
+    PipelineLayoutPtr pipelineLayout{};
+    PipelinePtr pipeline{};
 };
 }
 

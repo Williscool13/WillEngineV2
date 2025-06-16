@@ -10,8 +10,8 @@
 #include "engine/core/engine.h"
 #include "engine/util/file.h"
 
-will_engine::Map::Map(const std::filesystem::path& mapSource, ResourceManager& resourceManager) : mapSource(mapSource),
-                                                                                                  resourceManager(resourceManager)
+will_engine::Map::Map(const std::filesystem::path& mapSource, renderer::ResourceManager& resourceManager) : mapSource(mapSource),
+                                                                                                            resourceManager(resourceManager)
 {
     if (!exists(mapSource)) {
         fmt::print("Map source file not found, generating an empty map\n");
@@ -90,6 +90,13 @@ bool will_engine::Map::loadMap()
     Serializer::deserializeMap(this, rootJ);
 
     return true;
+}
+
+bool will_engine::Map::saveMap()
+{
+    ordered_json rootJ;
+
+    return Serializer::serializeMap(this, rootJ, mapSource);
 }
 
 bool will_engine::Map::saveMap(const std::filesystem::path& newSavePath)
@@ -308,6 +315,7 @@ bool will_engine::Map::deleteChild(IHierarchical* child)
 
     if (it != children.end()) {
         if (Engine* engine = Engine::get()) {
+            it->get()->setParent(nullptr);
             engine->addToDeletionQueue(std::move(*it));
             children.erase(it);
             bChildrenCacheDirty = true;

@@ -6,7 +6,7 @@
 #define ENVIRONMENT_CONSTANTS_H
 #include <vulkan/vulkan_core.h>
 
-namespace will_engine::environment
+namespace will_engine::renderer
 {
 constexpr float DIFFUSE_SAMPLE_DELTA{0.025f};
 constexpr int32_t SPECULAR_SAMPLE_COUNT{2048};

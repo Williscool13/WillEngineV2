@@ -1,0 +1,207 @@
+{
+    "version": {
+        "major": 0,
+        "minor": 1,
+        "patch": 0
+    },
+    "metadata": {
+        "name": "newMap",
+        "created": "2025-06-02 18:35:06",
+        "formatVersion": 1
+    },
+    "rootComponents": {
+        "TerrainComponent": {
+            "terrain": {
+                "bIsGenerated": false,
+                "terrainGenerationProperties": {
+                    "scale": 100.0,
+                    "persistence": 0.5,
+                    "lacunarity": 2.0,
+                    "octaves": 4,
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    },
+                    "heightScale": 50.0
+                },
+                "terrainSeed": 13,
+                "terrainConfig": {
+                    "uvOffset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    },
+                    "uvScale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "baseColor": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0,
+                        "w": 1.0
+                    }
+                }
+            },
+            "componentName": "Terrain Component"
+        }
+    },
+    "gameObjects": {
+        "name": "newMap",
+        "transform": {
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            }
+        },
+        "components": {
+            "Terrain Component": {
+                "terrain": {
+                    "bIsGenerated": false,
+                    "terrainGenerationProperties": {
+                        "scale": 100.0,
+                        "persistence": 0.5,
+                        "lacunarity": 2.0,
+                        "octaves": 4,
+                        "offset": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "heightScale": 50.0
+                    },
+                    "terrainSeed": 13,
+                    "terrainConfig": {
+                        "uvOffset": {
+                            "x": 0.0,
+                            "y": 0.0
+                        },
+                        "uvScale": {
+                            "x": 1.0,
+                            "y": 1.0
+                        },
+                        "baseColor": {
+                            "x": 1.0,
+                            "y": 1.0,
+                            "z": 1.0,
+                            "w": 1.0
+                        }
+                    }
+                },
+                "componentType": "TerrainComponent"
+            }
+        },
+        "children": [
+            {
+                "id": 0,
+                "gameObjectType": "GameObject",
+                "name": "GameObject_0",
+                "transform": {
+                    "position": {
+                        "x": -600.9000244140625,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "components": {
+                    "": {
+                        "renderReference": 2592612823,
+                        "renderMeshIndex": 0,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": -15.367568016052246,
+                                "y": -1.0115400552749634,
+                                "z": -9.462457656860352
+                            },
+                            "rotation": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 1.0
+                            },
+                            "scale": {
+                                "x": 0.0018169343238696456,
+                                "y": 0.0018169343238696456,
+                                "z": 0.0018169343238696456
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    }
+                }
+            },
+            {
+                "id": 1,
+                "gameObjectType": "GameObject",
+                "name": "GameObject_1",
+                "transform": {
+                    "position": {
+                        "x": 4000.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "components": {
+                    "": {
+                        "renderReference": 195023067,
+                        "renderMeshIndex": 0,
+                        "renderIsVisible": true,
+                        "renderIsShadowCaster": true,
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 1.0
+                            },
+                            "scale": {
+                                "x": 0.00800000037997961,
+                                "y": 0.00800000037997961,
+                                "z": 0.00800000037997961
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    }
+                }
+            }
+        ]
+    }
+}

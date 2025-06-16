@@ -9,11 +9,19 @@
 #include <vulkan/vulkan_core.h>
 #include <vma/vk_mem_alloc.h>
 
+namespace will_engine
+{
 class VulkanContext
 {
 public:
     VulkanContext(SDL_Window* window, bool useValidationLayers);
+
     ~VulkanContext();
+
+    // No copying
+    VulkanContext(const VulkanContext&) = delete;
+
+    VulkanContext& operator=(const VulkanContext&) = delete;
 
     VkInstance instance{};
     VkSurfaceKHR surface{};
@@ -23,6 +31,10 @@ public:
     uint32_t graphicsQueueFamily{};
     VmaAllocator allocator{};
     VkDebugUtilsMessengerEXT debugMessenger{};
+
+    VkPhysicalDeviceDescriptorBufferPropertiesEXT deviceDescriptorBufferProperties{};
 };
+}
+
 
 #endif //VULKAN_CONTEXT_H

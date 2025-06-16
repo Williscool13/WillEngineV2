@@ -5,21 +5,42 @@
 #ifndef TRANSPARENT_PIPELINE_H
 #define TRANSPARENT_PIPELINE_H
 
-#include <volk/volk.h>
+#include <vector>
+#include <vulkan/vulkan_core.h>
 
-#include "engine/renderer/vk_types.h"
-#include "engine/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/resources_fwd.h"
 
-namespace will_engine
+namespace will_engine::renderer
 {
-class ResourceManager;
 class RenderObject;
-}
+class ResourceManager;
 
-namespace will_engine::transparent_pipeline
+struct TransparentPushConstants
 {
-struct TransparentCompositeDrawInfo;
-struct TransparentAccumulateDrawInfo;
+    int32_t bEnabled{true};
+    int32_t bDisableShadows{false};
+    int32_t bDisableContactShadows{false};
+};
+
+struct TransparentAccumulateDrawInfo
+{
+    bool enabled{true};
+    VkImageView depthTarget{VK_NULL_HANDLE};
+    int32_t currentFrameOverlap{0};
+    const std::vector<RenderObject*>& renderObjects{};
+    VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
+    VkDeviceSize sceneDataOffset{0};
+    VkDescriptorBufferBindingInfoEXT environmentIBLBinding{};
+    VkDeviceSize environmentIBLOffset{0};
+    VkDescriptorBufferBindingInfoEXT cascadeUniformBinding{};
+    VkDeviceSize cascadeUniformOffset{0};
+    VkDescriptorBufferBindingInfoEXT cascadeSamplerBinding{};
+};
+
+struct TransparentCompositeDrawInfo
+{
+    VkImageView opaqueImage;
+};
 
 class TransparentPipeline
 {
@@ -43,21 +64,21 @@ private:
     ResourceManager& resourceManager;
 
     const VkFormat debugImageFormat{VK_FORMAT_R16G16B16A16_SFLOAT};
-    AllocatedImage debugImage{};
+    ImageResourcePtr debugImage{};
 
     const VkFormat accumulationImageFormat{VK_FORMAT_R16G16B16A16_SFLOAT};
-    AllocatedImage accumulationImage{};
+    ImageResourcePtr accumulationImage{};
 
-    VkPipelineLayout accumulationPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline accumulationPipeline{VK_NULL_HANDLE};
+    PipelineLayoutPtr accumulationPipelineLayout{};
+    PipelinePtr accumulationPipeline{};
 
     const VkFormat revealageImageFormat{VK_FORMAT_R16_SFLOAT};
-    AllocatedImage revealageImage{};
+    ImageResourcePtr revealageImage{};
 
-    VkDescriptorSetLayout compositeDescriptorSetLayout{VK_NULL_HANDLE};
-    VkPipelineLayout compositePipelineLayout{VK_NULL_HANDLE};
-    VkPipeline compositePipeline{VK_NULL_HANDLE};
-    DescriptorBufferSampler compositeDescriptorBuffer;
+    DescriptorSetLayoutPtr compositeDescriptorSetLayout{};
+    PipelineLayoutPtr compositePipelineLayout{};
+    PipelinePtr compositePipeline{};
+    DescriptorBufferSamplerPtr compositeDescriptorBuffer;
 
     void createAccumulationPipeline();
 

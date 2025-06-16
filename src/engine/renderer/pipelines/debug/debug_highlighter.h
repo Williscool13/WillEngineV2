@@ -5,22 +5,20 @@
 #ifndef DEBUG_HIGHLIGHT_PIPELINE_H
 #define DEBUG_HIGHLIGHT_PIPELINE_H
 
-#include <glm/glm.hpp>
+#include <vulkan/vulkan_core.h>
 
-#include "engine/renderer/pipelines/debug/debug_highlight_types.h"
-#include "engine/core/game_object/renderable.h"
-#include "engine/renderer/imgui_wrapper.h"
-#include "engine/renderer/resource_manager.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/resources_fwd.h"
 
-namespace will_engine
+
+namespace will_engine::renderer
 {
-class IRenderable;
-}
+struct DebugHighlighterDrawInfo;
+class ResourceManager;
 
-namespace will_engine::debug_highlight_pipeline
+class DebugHighlighter
 {
-
-class DebugHighlighter {
 public:
     explicit DebugHighlighter(ResourceManager& resourceManager);
 
@@ -40,21 +38,15 @@ private:
 private:
     ResourceManager& resourceManager;
 
-    VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
-    VkPipeline pipeline{VK_NULL_HANDLE};
+    PipelineLayoutPtr pipelineLayout{};
+    PipelinePtr pipeline{};
 
-    VkDescriptorSetLayout processingSetLayout{VK_NULL_HANDLE};
-    VkPipelineLayout processingPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline processingPipeline{VK_NULL_HANDLE};
-    DescriptorBufferSampler descriptorBuffer{};
-
-    // todo: remove
-    friend void ImguiWrapper::imguiInterface(Engine* engine);
+    DescriptorSetLayoutPtr processingSetLayout{};
+    PipelineLayoutPtr processingPipelineLayout{};
+    PipelinePtr processingPipeline{};
+    DescriptorBufferSamplerPtr descriptorBuffer{};
 };
 }
-
-
-
 
 
 #endif //DEBUG_HIGHLIGHT_PIPELINE_H

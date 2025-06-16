@@ -11,7 +11,7 @@
 #include "engine/core/camera/camera.h"
 #include "engine/renderer/lighting/directional_light.h"
 
-namespace will_engine::contact_shadows_pipeline
+namespace will_engine::renderer
 {
 
 static constexpr int32_t CONTACT_SHADOW_WAVE_SIZE = 64;

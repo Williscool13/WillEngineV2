@@ -81,7 +81,7 @@ private:
     Map* selectedMap{nullptr};
 
     uint32_t selectedRenderObjectId = 0;
-    std::shared_ptr<TextureResource> currentlySelectedTexture;
+    std::shared_ptr<renderer::TextureResource> currentlySelectedTexture;
 
     int32_t shadowMapDebug{0};
 

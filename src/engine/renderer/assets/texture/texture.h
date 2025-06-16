@@ -10,7 +10,7 @@
 #include "texture_types.h"
 #include "engine/renderer/resource_manager.h"
 
-namespace will_engine
+namespace will_engine::renderer
 {
 class Texture
 {

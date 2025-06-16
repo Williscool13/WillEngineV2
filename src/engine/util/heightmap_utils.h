@@ -125,10 +125,10 @@ public:
         return noiseData;
     }
 
-    static AllocatedImage createHeightmapImage(const ResourceManager& resourceManager, const std::vector<float>& heightData, const uint32_t width, const uint32_t height)
+    static renderer::ImageResourcePtr createHeightmapImage(renderer::ResourceManager& resourceManager, const std::vector<float>& heightData, const uint32_t width, const uint32_t height)
     {
         const VkExtent3D imageExtent{width, height, 1};
-        return resourceManager.createImage(
+        return resourceManager.createImageFromData(
             heightData.data(),
             heightData.size() * sizeof(float),
             imageExtent,
@@ -136,10 +136,6 @@ public:
             VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT
         );
     }
-
-    // static std::vector<float> loadFromImage(const std::string& filename);
-
-    // static void saveToImage(const std::vector<float>& heightData, uint32_t width, uint32_t height, const std::string& filename);
 };
 } // namespace will_engine::util
 

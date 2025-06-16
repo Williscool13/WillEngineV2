@@ -188,6 +188,7 @@ bool GameObject::deleteChild(IHierarchical* child)
 
     if (it != children.end()) {
         if (will_engine::Engine* engine = will_engine::Engine::get()) {
+            it->get()->setParent(nullptr);
             engine->addToDeletionQueue(std::move(*it));
             children.erase(it);
             bChildrenCacheDirty = true;

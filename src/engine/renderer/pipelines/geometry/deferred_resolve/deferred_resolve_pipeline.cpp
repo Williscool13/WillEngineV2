@@ -5,16 +5,20 @@
 #include "deferred_resolve_pipeline.h"
 
 #include <array>
+#include <fmt/format.h>
 
-#include "deferred_resolve_pipeline_types.h"
 #include "engine/renderer/renderer_constants.h"
 #include "engine/renderer/resource_manager.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/shader_module.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.h"
 
-
-will_engine::deferred_resolve::DeferredResolvePipeline::DeferredResolvePipeline(ResourceManager& resourceManager,
-                                                                                VkDescriptorSetLayout environmentIBLLayout,
-                                                                                VkDescriptorSetLayout cascadeUniformLayout,
-                                                                                VkDescriptorSetLayout cascadeSamplerLayout)
+namespace will_engine::renderer
+{
+DeferredResolvePipeline::DeferredResolvePipeline(ResourceManager& resourceManager, VkDescriptorSetLayout environmentIBLLayout,
+                                                 VkDescriptorSetLayout cascadeUniformLayout, VkDescriptorSetLayout cascadeSamplerLayout)
     : resourceManager(resourceManager)
 {
     VkPushConstantRange pushConstants = {};
@@ -22,36 +26,38 @@ will_engine::deferred_resolve::DeferredResolvePipeline::DeferredResolvePipeline(
     pushConstants.size = sizeof(DeferredResolvePushConstants);
     pushConstants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-    VkDescriptorSetLayout setLayouts[5];
-    setLayouts[0] = resourceManager.getSceneDataLayout();
-    setLayouts[1] = resourceManager.getRenderTargetsLayout();
-    setLayouts[2] = environmentIBLLayout;
-    setLayouts[3] = cascadeUniformLayout;
-    setLayouts[4] = cascadeSamplerLayout;
+    std::array setLayouts {
+        resourceManager.getSceneDataLayout(),
+        resourceManager.getRenderTargetsLayout(),
+        environmentIBLLayout,
+        cascadeUniformLayout,
+        cascadeSamplerLayout,
+    };
+
 
     VkPipelineLayoutCreateInfo layoutInfo = {};
     layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     layoutInfo.pNext = nullptr;
-    layoutInfo.pSetLayouts = setLayouts;
-    layoutInfo.setLayoutCount = 5;
+    layoutInfo.pSetLayouts = setLayouts.data();
+    layoutInfo.setLayoutCount = setLayouts.size();
     layoutInfo.pPushConstantRanges = &pushConstants;
     layoutInfo.pushConstantRangeCount = 1;
 
-    pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+    pipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
 
     createPipeline();
 
-    resolveDescriptorBuffer = resourceManager.createDescriptorBufferSampler(resourceManager.getRenderTargetsLayout(), 1);
+    resolveDescriptorBuffer = resourceManager.createResource<DescriptorBufferSampler>(resourceManager.getRenderTargetsLayout(), 1);
 }
 
-will_engine::deferred_resolve::DeferredResolvePipeline::~DeferredResolvePipeline()
+DeferredResolvePipeline::~DeferredResolvePipeline()
 {
-    resourceManager.destroy(pipelineLayout);
-    resourceManager.destroy(pipeline);
-    resourceManager.destroy(resolveDescriptorBuffer);
+    resourceManager.destroyResource(std::move(pipelineLayout));
+    resourceManager.destroyResource(std::move(pipeline));
+    resourceManager.destroyResource(std::move(resolveDescriptorBuffer));
 }
 
-void will_engine::deferred_resolve::DeferredResolvePipeline::setupDescriptorBuffer(const DeferredResolveDescriptor& drawInfo)
+void DeferredResolvePipeline::setupDescriptorBuffer(const DeferredResolveDescriptor& drawInfo)
 {
     std::vector<DescriptorImageData> renderTargetDescriptors;
     renderTargetDescriptors.reserve(8);
@@ -104,12 +110,12 @@ void will_engine::deferred_resolve::DeferredResolvePipeline::setupDescriptorBuff
     renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, contactShadow, false});
     renderTargetDescriptors.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, drawImageTarget, false});
 
-    resourceManager.setupDescriptorBufferSampler(resolveDescriptorBuffer, renderTargetDescriptors, 0);
+    resolveDescriptorBuffer->setupData(renderTargetDescriptors, 0);
 }
 
-void will_engine::deferred_resolve::DeferredResolvePipeline::draw(VkCommandBuffer cmd, const DeferredResolveDrawInfo& drawInfo) const
+void DeferredResolvePipeline::draw(VkCommandBuffer cmd, const DeferredResolveDrawInfo& drawInfo) const
 {
-    if (!resolveDescriptorBuffer.isIndexOccupied(0)) {
+    if (!resolveDescriptorBuffer) {
         fmt::print("Descriptor buffer not yet set up");
         return;
     }
@@ -119,7 +125,7 @@ void will_engine::deferred_resolve::DeferredResolvePipeline::draw(VkCommandBuffe
     label.pLabelName = "Deferred Resolve Pass";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipeline);
 
     DeferredResolvePushConstants pushConstants = {};
     pushConstants.width = RENDER_EXTENT_WIDTH;
@@ -131,15 +137,17 @@ void will_engine::deferred_resolve::DeferredResolvePipeline::draw(VkCommandBuffe
     pushConstants.nearPlane = drawInfo.nearPlane;
     pushConstants.farPlane = drawInfo.farPlane;
 
-    vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(DeferredResolvePushConstants), &pushConstants);
+    vkCmdPushConstants(cmd, pipelineLayout->layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(DeferredResolvePushConstants), &pushConstants);
 
-    VkDescriptorBufferBindingInfoEXT bindingInfos[5] = {};
-    bindingInfos[0] = drawInfo.sceneDataBinding;
-    bindingInfos[1] = resolveDescriptorBuffer.getDescriptorBufferBindingInfo();
-    bindingInfos[2] = drawInfo.environmentIBLBinding;
-    bindingInfos[3] = drawInfo.cascadeUniformBinding;
-    bindingInfos[4] = drawInfo.cascadeSamplerBinding;
-    vkCmdBindDescriptorBuffersEXT(cmd, 5, bindingInfos);
+    std::array bindingInfos = {
+        drawInfo.sceneDataBinding,
+        resolveDescriptorBuffer->getBindingInfo(),
+        drawInfo.environmentIBLBinding,
+        drawInfo.cascadeUniformBinding,
+        drawInfo.cascadeSamplerBinding,
+    };
+
+    vkCmdBindDescriptorBuffersEXT(cmd, bindingInfos.size(), bindingInfos.data());
 
     constexpr std::array<uint32_t, 5> indices{0, 1, 2, 3, 4};
     const std::array offsets{
@@ -151,7 +159,7 @@ void will_engine::deferred_resolve::DeferredResolvePipeline::draw(VkCommandBuffe
     };
 
 
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout, 0, 5, indices.data(), offsets.data());
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout->layout, 0, 5, indices.data(), offsets.data());
 
     const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
     const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
@@ -160,25 +168,25 @@ void will_engine::deferred_resolve::DeferredResolvePipeline::draw(VkCommandBuffe
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }
 
-void will_engine::deferred_resolve::DeferredResolvePipeline::createPipeline()
+void DeferredResolvePipeline::createPipeline()
 {
-    resourceManager.destroy(pipeline);
-    VkShaderModule deferredResolveShader = resourceManager.createShaderModule("shaders/deferredResolve.comp");
+    resourceManager.destroyResource(std::move(pipeline));
+    ShaderModulePtr shader = resourceManager.createResource<ShaderModule>("shaders/deferredResolve.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo = {};
     stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stageInfo.pNext = nullptr;
     stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageInfo.module = deferredResolveShader;
+    stageInfo.module = shader->shader;
     stageInfo.pName = "main";
 
     VkComputePipelineCreateInfo pipelineInfo = {};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipelineInfo.pNext = nullptr;
-    pipelineInfo.layout = pipelineLayout;
+    pipelineInfo.layout = pipelineLayout->layout;
     pipelineInfo.stage = stageInfo;
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-    pipeline = resourceManager.createComputePipeline(pipelineInfo);
-    resourceManager.destroy(deferredResolveShader);
+    pipeline = resourceManager.createResource<Pipeline>(pipelineInfo);
+}
 }

@@ -5,40 +5,7 @@
 #ifndef VKTYPES_H
 #define VKTYPES_H
 
-#include <vector>
-#include <vma/vk_mem_alloc.h>
-#include <vulkan/vulkan_core.h>
 #include <glm/glm.hpp>
-
-struct AllocatedImage
-{
-    VkImage image{VK_NULL_HANDLE};
-    VkImageView imageView{VK_NULL_HANDLE};
-    VmaAllocation allocation{VK_NULL_HANDLE};
-    VkExtent3D imageExtent{};
-    VkFormat imageFormat{};
-};
-
-struct CubemapImageView
-{
-    VkImageView imageView;
-    VkExtent3D imageExtent;
-    float roughness;
-    int32_t descriptorBufferIndex;
-};
-
-struct AllocatedCubemap
-{
-    AllocatedImage allocatedImage;
-    std::vector<CubemapImageView> cubemapImageViews; // one for each active mip level
-};
-
-struct AllocatedBuffer
-{
-    VkBuffer buffer;
-    VmaAllocation allocation;
-    VmaAllocationInfo info;
-};
 
 struct SceneData
 {

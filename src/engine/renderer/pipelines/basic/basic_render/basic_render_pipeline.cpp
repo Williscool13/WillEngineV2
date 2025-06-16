@@ -4,21 +4,28 @@
 
 #include "basic_render_pipeline.h"
 
-#include "basic_render_pipeline_types.h"
 #include "engine/renderer/renderer_constants.h"
 #include "engine/renderer/resource_manager.h"
 #include "engine/renderer/vk_descriptors.h"
 #include "engine/renderer/vk_helpers.h"
 #include "engine/renderer/vk_pipelines.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/shader_module.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.h"
 
-
-will_engine::basic_render_pipeline::BasicRenderPipeline::BasicRenderPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
+namespace will_engine::renderer
 {
-    DescriptorLayoutBuilder layoutBuilder;
-    layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
-    samplerDescriptorLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_FRAGMENT_BIT,
-                                                                        VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
-    samplerDescriptorBuffer = resourceManager.createDescriptorBufferSampler(samplerDescriptorLayout, 1);
+BasicRenderPipeline::BasicRenderPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
+{
+    DescriptorLayoutBuilder builder{1};
+    builder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER);
+    VkDescriptorSetLayoutCreateInfo createInfo = builder.build(
+        VK_SHADER_STAGE_FRAGMENT_BIT,
+        VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+    samplerDescriptorLayout = resourceManager.createResource<DescriptorSetLayout>(createInfo);
+    samplerDescriptorBuffer = resourceManager.createResource<DescriptorBufferSampler>(samplerDescriptorLayout->layout, 1);
 
     VkPushConstantRange renderPushConstantRange{};
     renderPushConstantRange.offset = 0;
@@ -28,27 +35,27 @@ will_engine::basic_render_pipeline::BasicRenderPipeline::BasicRenderPipeline(Res
     VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
     layoutInfo.setLayoutCount = 2;
 
-    VkDescriptorSetLayout layouts[2]{samplerDescriptorLayout, resourceManager.getSceneDataLayout()};
-    layoutInfo.pSetLayouts = layouts;
+    std::array layouts{resourceManager.getSceneDataLayout(), samplerDescriptorLayout->layout};
+    layoutInfo.pSetLayouts = layouts.data();
     layoutInfo.pPushConstantRanges = &renderPushConstantRange;
     layoutInfo.pushConstantRangeCount = 1;
 
-    pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+    pipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
 
     createPipeline();
 }
 
-will_engine::basic_render_pipeline::BasicRenderPipeline::~BasicRenderPipeline()
+BasicRenderPipeline::~BasicRenderPipeline()
 {
-    resourceManager.destroy(pipeline);
-    resourceManager.destroy(pipelineLayout);
-    resourceManager.destroy(samplerDescriptorLayout);
-    resourceManager.destroy(samplerDescriptorBuffer);
+    resourceManager.destroyResource(std::move(pipeline));
+    resourceManager.destroyResource(std::move(pipelineLayout));
+    resourceManager.destroyResource(std::move(samplerDescriptorLayout));
+    resourceManager.destroyResource(std::move(samplerDescriptorBuffer));
 }
 
-void will_engine::basic_render_pipeline::BasicRenderPipeline::setupDescriptors(const RenderDescriptorInfo& descriptorInfo)
+void BasicRenderPipeline::setupDescriptors(const RenderDescriptorInfo& descriptorInfo)
 {
-    std::vector<will_engine::DescriptorImageData> imageDescriptor;
+    std::vector<DescriptorImageData> imageDescriptor;
     imageDescriptor.reserve(1);
 
     VkDescriptorImageInfo textureImage{};
@@ -57,10 +64,10 @@ void will_engine::basic_render_pipeline::BasicRenderPipeline::setupDescriptors(c
     textureImage.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 
     imageDescriptor.push_back({VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, textureImage, false});
-    resourceManager.setupDescriptorBufferSampler(samplerDescriptorBuffer, imageDescriptor, 0);
+    samplerDescriptorBuffer->setupData(imageDescriptor, 0);
 }
 
-void will_engine::basic_render_pipeline::BasicRenderPipeline::draw(VkCommandBuffer cmd, const RenderDrawInfo& drawInfo) const
+void BasicRenderPipeline::draw(VkCommandBuffer cmd, const RenderDrawInfo& drawInfo) const
 {
     if (drawInfo.drawImage == VK_NULL_HANDLE || drawInfo.depthImage == VK_NULL_HANDLE) { return; }
     constexpr VkClearValue colorClear = {.color = {0.0f, 0.0f, 0.0f, 0.0f}};
@@ -72,7 +79,7 @@ void will_engine::basic_render_pipeline::BasicRenderPipeline::draw(VkCommandBuff
     const VkRenderingInfo renderInfo = vk_helpers::renderingInfo(drawInfo.renderExtent, &colorAttachment, &depthAttachment);
 
     vkCmdBeginRendering(cmd, &renderInfo);
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
 
     // Dynamic States
     //  Viewport
@@ -93,41 +100,37 @@ void will_engine::basic_render_pipeline::BasicRenderPipeline::draw(VkCommandBuff
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
     VkDescriptorBufferBindingInfoEXT descriptorBufferBindingInfo[2];
-    descriptorBufferBindingInfo[0] = samplerDescriptorBuffer.getDescriptorBufferBindingInfo();
-    descriptorBufferBindingInfo[1] = drawInfo.sceneDataBinding;
+    descriptorBufferBindingInfo[0] = drawInfo.sceneDataBinding;
+    descriptorBufferBindingInfo[1] = samplerDescriptorBuffer->getBindingInfo();
     vkCmdBindDescriptorBuffersEXT(cmd, 2, descriptorBufferBindingInfo);
-    constexpr uint32_t imageBufferIndex = 0;
-    constexpr uint32_t sceneDataIndex = 1;
-    const VkDeviceSize sceneDataOffset = drawInfo.sceneDataOffset;
+    constexpr std::array indices{0u, 1u};
+    const std::array offsets{drawInfo.sceneDataOffset, ZERO_DEVICE_SIZE};
 
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 1, &imageBufferIndex, &ZERO_DEVICE_SIZE);
-    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 1, 1, &sceneDataIndex, &sceneDataOffset);
+    vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout->layout, 0, 2, indices.data(), offsets.data());
 
     RenderPushConstant push{};
     push.currentFrame = drawInfo.currentFrame;
-    vkCmdPushConstants(cmd, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(RenderPushConstant), &push);
+    vkCmdPushConstants(cmd, pipelineLayout->layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(RenderPushConstant), &push);
     vkCmdDraw(cmd, 3, 1, 0, 0);
     vkCmdEndRendering(cmd);
 }
 
-void will_engine::basic_render_pipeline::BasicRenderPipeline::createPipeline()
+void BasicRenderPipeline::createPipeline()
 {
-    resourceManager.destroy(pipeline);
-    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/basic/vertex.vert");
-    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/basic/fragment.frag");
+    resourceManager.destroyResource(std::move(pipeline));
+    ShaderModulePtr vertShader = resourceManager.createResource<ShaderModule>("shaders/basic/vertex.vert");
+    ShaderModulePtr fragShader = resourceManager.createResource<ShaderModule>("shaders/basic/fragment.frag");
 
-    PipelineBuilder renderPipelineBuilder;
-    renderPipelineBuilder.setShaders(vertShader, fragShader);
+    RenderPipelineBuilder renderPipelineBuilder;
+    renderPipelineBuilder.setShaders(vertShader->shader, fragShader->shader);
     renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     renderPipelineBuilder.disableMultisampling();
     renderPipelineBuilder.disableBlending();
     renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
     renderPipelineBuilder.setupRenderer({DRAW_FORMAT}, DEPTH_STENCIL_FORMAT);
-    renderPipelineBuilder.setupPipelineLayout(pipelineLayout);
-
-    pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder);
-
-    resourceManager.destroy(vertShader);
-    resourceManager.destroy(fragShader);
+    renderPipelineBuilder.setupPipelineLayout(pipelineLayout->layout);
+    VkGraphicsPipelineCreateInfo pipelineCreateInfo = renderPipelineBuilder.generatePipelineCreateInfo();
+    pipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
+}
 }

@@ -32,8 +32,38 @@ void Serializer::serializeGameObject(ordered_json& j, IHierarchical* obj)
             for (const auto& component : components) {
                 ordered_json componentData;
                 component->serialize(componentData);
-                componentsJson[component->getComponentType()] = componentData;
-                componentsJson[component->getComponentType()]["componentName"] = component->getComponentName();
+                std::string baseKey = component->getComponentName();
+                std::string key = baseKey;
+                int32_t counter = 0;
+
+                if (componentsJson.contains(key)) {
+                    size_t i = baseKey.size();
+                    while (i > 0 && std::isdigit(baseKey[i - 1])) {
+                        --i;
+                    }
+
+                    if (i < baseKey.size()) {
+                        try {
+                            counter = std::stoi(baseKey.substr(i));
+                            baseKey = baseKey.substr(0, i);
+                        } catch (...) {
+                            counter = 0;
+                        }
+                    }
+
+                    while (componentsJson.contains(key)) {
+                        ++counter;
+                        if (!baseKey.empty() && std::isdigit(baseKey.back())) {
+                            key = baseKey + "_" + std::to_string(counter);
+                        }
+                        else {
+                            key = baseKey + std::to_string(counter);
+                        }
+                    }
+                }
+
+                componentsJson[key] = componentData;
+                componentsJson[key]["componentType"] = component->getComponentType();
             }
             j["components"] = componentsJson;
         }
@@ -86,14 +116,12 @@ std::unique_ptr<IHierarchical> Serializer::deserializeGameObject(const ordered_j
         auto& factory = components::ComponentFactory::getInstance();
 
         const auto& components = j["components"];
-        for (const auto& [componentType, componentData] : components.items()) {
-            std::string componentName;
-            if (componentData.contains("componentName")) {
-                componentName = componentData["componentName"].get<std::string>();
+        for (const auto& [componentName, componentData] : components.items()) {
+            if (!componentData.contains("componentType")) {
+                // component must contain type, it is invalid otherwise.
+                continue;
             }
-            else {
-                componentName = componentType;
-            }
+            auto componentType = componentData["componentType"].get<std::string>();
 
 
             std::unique_ptr<components::Component> newComponent = factory.createComponent(componentType, componentName);
@@ -140,7 +168,7 @@ bool Serializer::serializeMap(IHierarchical* map, ordered_json& rootJ, const std
                 ordered_json componentData;
                 component->serialize(componentData);
                 componentsJson[component->getComponentType()] = componentData;
-                componentsJson[component->getComponentType()]["componentName"] = component->getComponentName();
+                componentsJson[component->getComponentType()]["componentName"] = component->getComponentNameView();
             }
             rootJ["rootComponents"] = componentsJson;
         }
@@ -336,6 +364,10 @@ std::optional<TextureInfo> Serializer::loadWillTexture(const std::filesystem::pa
 
 bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag engineSettings)
 {
+#if WILL_ENGINE_RELEASE
+    fmt::print("Warning: Attempted to serialize engine settings in release mode, this is not allowed.");
+    return false;
+#endif
     if (engine == nullptr) {
         fmt::print("Warning: engine is null\n");
         return false;
@@ -366,10 +398,20 @@ bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag 
 
     rootJ["version"] = EngineVersion::current();
 
-    if (hasFlag(engineSettings, EngineSettingsTypeFlag::GENERAL_SETTINGS)) {
+#if WILL_ENGINE_DEBUG
+    if (hasFlag(engineSettings, EngineSettingsTypeFlag::EDITOR_SETTINGS)) {
+        ordered_json editorSettings;
+        EditorSettings _editorSettings = engine->getEditorSettings();
+        editorSettings["saveOnExit"] = _editorSettings.saveOnExit;
+
+        rootJ["editorSettings"] = editorSettings;
+    }
+#endif
+
+    if (hasFlag(engineSettings, EngineSettingsTypeFlag::ENGINE_SETTINGS)) {
         ordered_json _engineSettings;
         EngineSettings mainEngineSettings = engine->getEngineSettings();
-        _engineSettings["saveOnExit"] = mainEngineSettings.saveOnExit;
+        _engineSettings["defaultMapToLoad"] = relative(mainEngineSettings.defaultMapToLoad);
 
         rootJ["engineSettings"] = _engineSettings;
     }
@@ -417,7 +459,7 @@ bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag 
     if (hasFlag(engineSettings, EngineSettingsTypeFlag::AMBIENT_OCCLUSION_SETTINGS)) {
         ordered_json aoSettings;
 
-        ambient_occlusion::GTAOSettings settings = engine->getAoSettings();
+        renderer::GTAOSettings settings = engine->getAoSettings();
         aoSettings["enabled"] = settings.bEnabled;
 
         aoSettings["properties"]["effect_radius"] = settings.pushConstants.effectRadius;
@@ -437,7 +479,7 @@ bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag 
     if (hasFlag(engineSettings, EngineSettingsTypeFlag::SCREEN_SPACE_SHADOWS_SETTINGS)) {
         ordered_json sssSettings;
 
-        contact_shadows_pipeline::ContactShadowSettings settings = engine->getSssSettings();
+        renderer::ContactShadowSettings settings = engine->getSssSettings();
         sssSettings["enabled"] = settings.bEnabled;
 
         sssSettings["properties"]["surfaceThickness"] = settings.pushConstants.surfaceThickness;
@@ -453,7 +495,7 @@ bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag 
     if (hasFlag(engineSettings, EngineSettingsTypeFlag::CASCADED_SHADOW_MAP_SETTINGS)) {
         ordered_json csmSettings;
 
-        cascaded_shadows::CascadedShadowMapSettings settings = engine->getCsmSettings();
+        renderer::CascadedShadowMapSettings settings = engine->getCsmSettings();
         csmSettings["enabled"] = settings.bEnabled;
 
         csmSettings["properties"]["pcfLevel"] = settings.pcfLevel;
@@ -533,12 +575,24 @@ bool Serializer::deserializeEngineSettings(Engine* engine, EngineSettingsTypeFla
 
         ordered_json rootJ = ordered_json::parse(file);
 
-        if (hasFlag(engineSettings, EngineSettingsTypeFlag::GENERAL_SETTINGS)) {
+#if WILL_ENGINE_DEBUG
+        if (hasFlag(engineSettings, EngineSettingsTypeFlag::EDITOR_SETTINGS)) {
+            ordered_json editorSettings = rootJ["editorSettings"];
+            EditorSettings _editorSettings = engine->getEditorSettings();
+
+            if (editorSettings.contains("saveOnExit")) {
+                _editorSettings.saveOnExit = editorSettings["saveOnExit"].get<bool>();
+            }
+
+            engine->setEditorSettings(_editorSettings);
+        }
+#endif
+
+        if (hasFlag(engineSettings, EngineSettingsTypeFlag::ENGINE_SETTINGS)) {
             ordered_json _engineSettings = rootJ["engineSettings"];
             EngineSettings mainEngineSettings = engine->getEngineSettings();
-
-            if (_engineSettings.contains("saveOnExit")) {
-                mainEngineSettings.saveOnExit = _engineSettings["saveOnExit"].get<bool>();
+            if (_engineSettings.contains("defaultMapToLoad")) {
+                mainEngineSettings.defaultMapToLoad = _engineSettings["defaultMapToLoad"].get<std::string>();
             }
 
             engine->setEngineSettings(mainEngineSettings);
@@ -632,7 +686,7 @@ bool Serializer::deserializeEngineSettings(Engine* engine, EngineSettingsTypeFla
         if (hasFlag(engineSettings, EngineSettingsTypeFlag::AMBIENT_OCCLUSION_SETTINGS)) {
             if (rootJ.contains("aoSettings")) {
                 ordered_json aoSettings = rootJ["aoSettings"];
-                ambient_occlusion::GTAOSettings settings = engine->getAoSettings();
+                renderer::GTAOSettings settings = engine->getAoSettings();
 
                 if (aoSettings.contains("enabled")) {
                     settings.bEnabled = aoSettings["enabled"].get<bool>();
@@ -690,7 +744,7 @@ bool Serializer::deserializeEngineSettings(Engine* engine, EngineSettingsTypeFla
         if (hasFlag(engineSettings, EngineSettingsTypeFlag::SCREEN_SPACE_SHADOWS_SETTINGS)) {
             if (rootJ.contains("sssSettings")) {
                 ordered_json sssSettings = rootJ["sssSettings"];
-                contact_shadows_pipeline::ContactShadowSettings settings = engine->getSssSettings();
+                renderer::ContactShadowSettings settings = engine->getSssSettings();
 
                 if (sssSettings.contains("enabled")) {
                     settings.bEnabled = sssSettings["enabled"].get<bool>();
@@ -732,7 +786,7 @@ bool Serializer::deserializeEngineSettings(Engine* engine, EngineSettingsTypeFla
         if (hasFlag(engineSettings, EngineSettingsTypeFlag::CASCADED_SHADOW_MAP_SETTINGS)) {
             if (rootJ.contains("csmSettings")) {
                 ordered_json csmSettings = rootJ["csmSettings"];
-                cascaded_shadows::CascadedShadowMapSettings settings = engine->getCsmSettings();
+                renderer::CascadedShadowMapSettings settings = engine->getCsmSettings();
 
                 if (csmSettings.contains("enabled")) {
                     settings.bEnabled = csmSettings["enabled"].get<bool>();

@@ -15,13 +15,13 @@
 #include <glm/glm.hpp>
 #include <half/half.hpp>
 
-#include "vk_types.h"
+#include "resource_manager.h"
+#include "engine/renderer/resources/resources_fwd.h"
 
-namespace will_engine
+struct DescriptorLayoutBuilder;
+
+namespace will_engine::renderer
 {
-class ResourceManager;
-class ImmediateSubmitter;
-
 namespace vk_helpers
 {
     // Enum to define supported image formats
@@ -83,7 +83,6 @@ namespace vk_helpers
 
     VkPresentInfoKHR presentInfo();
 
-
     /**
      * Returns the Buffer Device address of the specified buffer
      * @param device The device the buffer was created with
@@ -100,17 +99,23 @@ namespace vk_helpers
      */
     VkDeviceSize getAlignedSize(VkDeviceSize value, VkDeviceSize alignment);
 
-    void copyBuffer(VkCommandBuffer cmd, const AllocatedBuffer& src, VkDeviceSize srcOffset, const AllocatedBuffer& dst, VkDeviceSize dstOffset,
-                    VkDeviceSize size);
+    void copyBuffer(VkCommandBuffer cmd, VkBuffer src, VkDeviceSize srcOffset, VkBuffer dst, VkDeviceSize dstOffset, VkDeviceSize size);
+
+    void clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, ImageResource* image, VkImageLayout dstLayout,
+                         VkClearColorValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f});
 
     void clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout,
                          VkClearColorValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f});
 
+    void imageBarrier(VkCommandBuffer cmd, Image* image, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
+
+    void imageBarrier(VkCommandBuffer cmd, ImageResource* image, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
+
     void imageBarrier(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
 
-    void uniformBarrier(VkCommandBuffer cmd, const AllocatedBuffer& buffer, VkPipelineStageFlagBits2 srcPipelineStage,
-                            VkAccessFlagBits2 srcAccessBit, VkPipelineStageFlagBits2
-                            dstPipelineStage, VkAccessFlagBits2 dstAccessBit);
+    void uniformBarrier(VkCommandBuffer cmd, VkBuffer buffer, VkPipelineStageFlagBits2 srcPipelineStage,
+                        VkAccessFlagBits2 srcAccessBit, VkPipelineStageFlagBits2
+                        dstPipelineStage, VkAccessFlagBits2 dstAccessBit);
 
     void copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize);
 
@@ -127,7 +132,8 @@ namespace vk_helpers
     /**
      * Save the Allocated image as a grayscaled image. The image must be a format with only 1 channel (e.g. R32 or D32)
      */
-    void saveImageR32F(const ResourceManager& resourceManager, const ImmediateSubmitter& immediate, const AllocatedImage& image,
+    void saveImageR32F(ResourceManager& resourceManager, const ImmediateSubmitter& immediate,
+                       const ImageResource* image,
                        VkImageLayout imageLayout, VkImageAspectFlags aspectFlag, const char* savePath,
                        const std::function<float(float)>& valueTransform, int32_t mipLevel = 0);
 
@@ -139,10 +145,18 @@ namespace vk_helpers
                           uint32_t pixelCount,
                           ImageFormat format, bool stencilOnly = false);
 
-    void saveImage(const ResourceManager& resourceManager,
+    /**
+     * Used to save any type of image
+     * @param resourceManager
+     * @param immediate
+     * @param image
+     * @param format
+     * @param savePath
+     * @param saveStencilOnly value only used if aspect mask is depthStencil
+     */
+    void saveImage(ResourceManager& resourceManager,
                    const ImmediateSubmitter& immediate,
-                   const AllocatedImage& image,
-                   VkImageLayout imageLayout,
+                   ImageResource* image,
                    ImageFormat format,
                    const std::string& savePath,
                    bool saveStencilOnly = false);

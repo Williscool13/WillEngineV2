@@ -65,8 +65,8 @@ static std::vector<std::filesystem::path> findWillFiles(const std::filesystem::p
 
 static std::filesystem::path getSampleScene()
 {
-    const std::filesystem::path devSampleScenePath = "../assets/maps/sampleScene.willmap";
-    const std::filesystem::path releaseSampleScenePath = "assets/maps/sampleScene.willmap";
+    std::filesystem::path devSampleScenePath = "../assets/maps/sampleScene.willmap";
+    std::filesystem::path releaseSampleScenePath = "assets/maps/sampleScene.willmap";
 
     if (exists(devSampleScenePath)) {
         return devSampleScenePath;

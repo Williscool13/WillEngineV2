@@ -6,39 +6,48 @@
 
 #include <array>
 
-#include "deferred_mrt_pipeline_types.h"
 #include "engine/renderer/renderer_constants.h"
 #include "engine/renderer/resource_manager.h"
+#include "engine/renderer/vk_helpers.h"
+#include "engine/renderer/vk_pipelines.h"
 #include "engine/renderer/assets/render_object/render_object.h"
 #include "engine/renderer/assets/render_object/render_object_types.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/shader_module.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_uniform.h"
 
-will_engine::deferred_mrt::DeferredMrtPipeline::DeferredMrtPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
+namespace will_engine::renderer
 {
-    VkDescriptorSetLayout descriptorLayout[3];
-    descriptorLayout[0] = resourceManager.getSceneDataLayout();
-    descriptorLayout[1] = resourceManager.getRenderObjectAddressesLayout();
-    descriptorLayout[2] = resourceManager.getTexturesLayout();
+DeferredMrtPipeline::DeferredMrtPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
+{
+    std::array descriptorLayout {
+        resourceManager.getSceneDataLayout(),
+        resourceManager.getRenderObjectAddressesLayout(),
+        resourceManager.getTexturesLayout(),
+    };
 
 
     VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
-    layoutInfo.pSetLayouts = descriptorLayout;
     layoutInfo.pNext = nullptr;
-    layoutInfo.setLayoutCount = 3;
+    layoutInfo.pSetLayouts = descriptorLayout.data();
+    layoutInfo.setLayoutCount = descriptorLayout.size();
     layoutInfo.pPushConstantRanges = nullptr;
     layoutInfo.pushConstantRangeCount = 0;
 
-    pipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+    pipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
 
     createPipeline();
 }
 
-will_engine::deferred_mrt::DeferredMrtPipeline::~DeferredMrtPipeline()
+DeferredMrtPipeline::~DeferredMrtPipeline()
 {
-    resourceManager.destroy(pipelineLayout);
-    resourceManager.destroy(pipeline);
+    resourceManager.destroyResource(std::move(pipelineLayout));
+    resourceManager.destroyResource(std::move(pipeline));
 }
 
-void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, const DeferredMrtDrawInfo& drawInfo) const
+void DeferredMrtPipeline::draw(VkCommandBuffer cmd, const DeferredMrtDrawInfo& drawInfo) const
 {
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
@@ -77,7 +86,7 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
     renderInfo.pStencilAttachment = nullptr;
 
     vkCmdBeginRendering(cmd, &renderInfo);
-    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
 
     //  Viewport
     VkViewport viewport = {};
@@ -101,27 +110,27 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
 
         std::array descriptorBufferBindingInfos{
             drawInfo.sceneDataBinding,
-            renderObject->getAddressesDescriptorBuffer().getDescriptorBufferBindingInfo(),
-            renderObject->getTextureDescriptorBuffer().getDescriptorBufferBindingInfo(),
+            renderObject->getAddressesDescriptorBuffer()->getBindingInfo(),
+            renderObject->getTextureDescriptorBuffer()->getBindingInfo(),
         };
 
-        vkCmdBindDescriptorBuffersEXT(cmd, 3, descriptorBufferBindingInfos.data());
+        vkCmdBindDescriptorBuffersEXT(cmd, descriptorBufferBindingInfos.size(), descriptorBufferBindingInfos.data());
 
         constexpr std::array<uint32_t, 3> indices{0, 1, 2};
 
         std::array offsets{
             drawInfo.sceneDataOffset,
-            renderObject->getAddressesDescriptorBuffer().getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
+            renderObject->getAddressesDescriptorBuffer()->getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
             ZERO_DEVICE_SIZE
         };
 
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 0, 3, indices.data(), offsets.data());
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout->layout, 0, 3, indices.data(), offsets.data());
 
-        const VkBuffer vertexBuffers[2] = {renderObject->getPositionVertexBuffer().buffer, renderObject->getPropertyVertexBuffer().buffer};
+        const VkBuffer vertexBuffers[2] = {renderObject->getPositionVertexBuffer(), renderObject->getPropertyVertexBuffer()};
         constexpr VkDeviceSize vertexOffsets[2] = {0, 0};
         vkCmdBindVertexBuffers(cmd, 0, 2, vertexBuffers, vertexOffsets);
-        vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer().buffer, 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexedIndirect(cmd, renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap).buffer, 0,
+        vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+        vkCmdDrawIndexedIndirect(cmd, renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap), 0,
                                  renderObject->getOpaqueDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
     }
 
@@ -130,58 +139,68 @@ void will_engine::deferred_mrt::DeferredMrtPipeline::draw(VkCommandBuffer cmd, c
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }
 
-void will_engine::deferred_mrt::DeferredMrtPipeline::createPipeline()
+void DeferredMrtPipeline::createPipeline()
 {
-    resourceManager.destroy(pipeline);
-    VkShaderModule vertShader = resourceManager.createShaderModule("shaders/deferredMrt.vert");
-    VkShaderModule fragShader = resourceManager.createShaderModule("shaders/deferredMrt.frag");
+    resourceManager.destroyResource(std::move(pipeline));
+    ShaderModulePtr vertShader = resourceManager.createResource<ShaderModule>("shaders/deferredMrt.vert");
+    ShaderModulePtr fragShader = resourceManager.createResource<ShaderModule>("shaders/deferredMrt.frag");
 
-    PipelineBuilder renderPipelineBuilder;
-    VkVertexInputBindingDescription positionBinding{};
-    positionBinding.binding = 0;
-    positionBinding.stride = sizeof(VertexPosition);
-    positionBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    RenderPipelineBuilder renderPipelineBuilder;
+    const std::vector<VkVertexInputBindingDescription> vertexBindings{
+        {
+            .binding = 0,
+            .stride = sizeof(VertexPosition),
+            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+        },
+        {
+            .binding = 1,
+            .stride = sizeof(VertexProperty),
+            .inputRate = VK_VERTEX_INPUT_RATE_VERTEX,
+        }
+    };
 
-    VkVertexInputBindingDescription propertyBinding{};
-    propertyBinding.binding = 1;
-    propertyBinding.stride = sizeof(VertexProperty);
-    propertyBinding.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    const std::vector<VkVertexInputAttributeDescription> vertexAttributes{
+        {
+            .location = 0,
+            .binding = 0,
+            .format = VK_FORMAT_R32G32B32_SFLOAT,
+            .offset = offsetof(VertexPosition, position),
 
-    VkVertexInputAttributeDescription vertexAttributes[4];
-    vertexAttributes[0].binding = 0;
-    vertexAttributes[0].location = 0;
-    vertexAttributes[0].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertexAttributes[0].offset = offsetof(VertexPosition, position);
+        },
+        {
+            .location = 1,
+            .binding = 1,
+            .format = VK_FORMAT_R32G32B32_SFLOAT,
+            .offset = offsetof(VertexProperty, normal),
 
-    vertexAttributes[1].binding = 1;
-    vertexAttributes[1].location = 1;
-    vertexAttributes[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    vertexAttributes[1].offset = offsetof(VertexProperty, normal);
+        },
+        {
+            .location = 2,
+            .binding = 1,
+            .format = VK_FORMAT_R32G32B32A32_SFLOAT,
+            .offset = offsetof(VertexProperty, color),
 
-    vertexAttributes[2].binding = 1;
-    vertexAttributes[2].location = 2;
-    vertexAttributes[2].format = VK_FORMAT_R32G32B32A32_SFLOAT;
-    vertexAttributes[2].offset = offsetof(VertexProperty, color);
+        },
+        {
+            .location = 3,
+            .binding = 1,
+            .format = VK_FORMAT_R32G32_SFLOAT,
+            .offset = offsetof(VertexProperty, uv),
 
-    vertexAttributes[3].binding = 1;
-    vertexAttributes[3].location = 3;
-    vertexAttributes[3].format = VK_FORMAT_R32G32_SFLOAT;
-    vertexAttributes[3].offset = offsetof(VertexProperty, uv);
+        }
+    };
 
-    const VkVertexInputBindingDescription vertexBindings[2] = {positionBinding, propertyBinding};
+    renderPipelineBuilder.setupVertexInput(vertexBindings, vertexAttributes);
 
-    renderPipelineBuilder.setupVertexInput(vertexBindings, 2, vertexAttributes, 4);
-
-    renderPipelineBuilder.setShaders(vertShader, fragShader);
+    renderPipelineBuilder.setShaders(vertShader->shader, fragShader->shader);
     renderPipelineBuilder.setupInputAssembly(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
     renderPipelineBuilder.setupRasterization(VK_POLYGON_MODE_FILL, VK_CULL_MODE_BACK_BIT, VK_FRONT_FACE_CLOCKWISE);
     renderPipelineBuilder.disableMultisampling();
     renderPipelineBuilder.disableBlending();
     renderPipelineBuilder.enableDepthTest(true, VK_COMPARE_OP_GREATER_OR_EQUAL);
     renderPipelineBuilder.setupRenderer({NORMAL_FORMAT, ALBEDO_FORMAT, PBR_FORMAT, VELOCITY_FORMAT}, DEPTH_STENCIL_FORMAT);
-    renderPipelineBuilder.setupPipelineLayout(pipelineLayout);
-
-    pipeline = resourceManager.createRenderPipeline(renderPipelineBuilder);
-    resourceManager.destroy(vertShader);
-    resourceManager.destroy(fragShader);
+    renderPipelineBuilder.setupPipelineLayout(pipelineLayout->layout);
+    VkGraphicsPipelineCreateInfo pipelineCreateInfo = renderPipelineBuilder.generatePipelineCreateInfo();
+    pipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
+}
 }

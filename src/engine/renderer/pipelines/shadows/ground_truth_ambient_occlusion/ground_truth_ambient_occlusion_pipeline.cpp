@@ -8,9 +8,20 @@
 
 #include "engine/renderer/renderer_constants.h"
 #include "engine/renderer/vk_descriptors.h"
+#include "engine/renderer/resources/image.h"
+#include "engine/renderer/resource_manager.h"
+#include "engine/renderer/vk_helpers.h"
 #include "ambient_occlusion_types.h"
+#include "engine/renderer/resources/image_view.h"
+#include "engine/renderer/resources/pipeline.h"
+#include "engine/renderer/resources/pipeline_layout.h"
+#include "engine/renderer/resources/shader_module.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.h"
 
-will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruthAmbientOcclusionPipeline(
+namespace will_engine::renderer
+{
+GroundTruthAmbientOcclusionPipeline::GroundTruthAmbientOcclusionPipeline(
     ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
     // Debug
@@ -22,12 +33,12 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
         usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
         VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(debugFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
-        debugImage = resourceManager.createImage(imgInfo);
+        debugImage = resourceManager.createResource<Image>(imgInfo);
     }
 
     // Depth Pre-filtering
     {
-        DescriptorLayoutBuilder layoutBuilder;
+        DescriptorLayoutBuilder layoutBuilder{6};
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // MRT depth buffer
         layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // ao depth mip 0
         layoutBuilder.addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // ao depth mip 1
@@ -35,31 +46,33 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
         layoutBuilder.addBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // ao depth mip 3
         layoutBuilder.addBinding(5, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // ao depth mip 4
         layoutBuilder.addBinding(6, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // debug image
-
-        depthPrefilterSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT,
-                                                                            VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        VkDescriptorSetLayoutCreateInfo layoutCreateInfo = layoutBuilder.build(VK_SHADER_STAGE_COMPUTE_BIT,
+                                                                               VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        depthPrefilterSetLayout = resourceManager.createResource<DescriptorSetLayout>(layoutCreateInfo);
 
         VkPushConstantRange pushConstants{};
         pushConstants.offset = 0;
         pushConstants.size = sizeof(GTAOPushConstants);
         pushConstants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-        VkDescriptorSetLayout setLayouts[2];
-        setLayouts[0] = resourceManager.getSceneDataLayout();
-        setLayouts[1] = depthPrefilterSetLayout;
+        std::array setLayouts{
+            resourceManager.getSceneDataLayout(),
+            depthPrefilterSetLayout->layout,
+        };
+
 
         VkPipelineLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         layoutInfo.pNext = nullptr;
-        layoutInfo.pSetLayouts = setLayouts;
-        layoutInfo.setLayoutCount = 2;
+        layoutInfo.pSetLayouts = setLayouts.data();
+        layoutInfo.setLayoutCount = setLayouts.size();
         layoutInfo.pPushConstantRanges = &pushConstants;
         layoutInfo.pushConstantRangeCount = 1;
 
-        depthPrefilterPipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+        depthPrefilterPipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
         createDepthPrefilterPipeline();
 
-        depthPrefilterDescriptorBuffer = resourceManager.createDescriptorBufferSampler(depthPrefilterSetLayout, 1);
+        depthPrefilterDescriptorBuffer = resourceManager.createResource<DescriptorBufferSampler>(depthPrefilterSetLayout->layout, 1);
 
         VkImageUsageFlags usage{};
         usage |= VK_IMAGE_USAGE_STORAGE_BIT;
@@ -70,12 +83,12 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
         // 5 mips, suggested by Intel's implementation
         // https://github.com/GameTechDev/XeGTAO
         imgInfo.mipLevels = DEPTH_PREFILTER_MIP_COUNT;
-        depthPrefilterImage = resourceManager.createImage(imgInfo);
-        VkImageViewCreateInfo viewInfo = vk_helpers::imageviewCreateInfo(depthPrefilterFormat, depthPrefilterImage.image, VK_IMAGE_ASPECT_COLOR_BIT);
+        depthPrefilterImage = resourceManager.createResource<Image>(imgInfo);
+        VkImageViewCreateInfo viewInfo = vk_helpers::imageviewCreateInfo(depthPrefilterFormat, depthPrefilterImage->image, VK_IMAGE_ASPECT_COLOR_BIT);
 
         for (int32_t i = 0; i < DEPTH_PREFILTER_MIP_COUNT; ++i) {
             viewInfo.subresourceRange.baseMipLevel = i;
-            depthPrefilterImageViews[i] = resourceManager.createImageView(viewInfo);
+            depthPrefilterImageViews[i] = resourceManager.createResource<ImageView>(viewInfo);
         }
 
         VkSamplerCreateInfo samplerInfo = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
@@ -91,56 +104,61 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
         samplerInfo.minLod = 0.0f;
         samplerInfo.maxLod = 0.0f;
 
-        depthSampler = resourceManager.createSampler(samplerInfo);
+        depthSampler = resourceManager.createResource<Sampler>(samplerInfo);
     }
 
     // AO Calculation
     {
-        DescriptorLayoutBuilder layoutBuilder;
+        DescriptorLayoutBuilder layoutBuilder{5};
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // pre-filtered depth
         layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // MRT normal buffer
         layoutBuilder.addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // ao output
         layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // edge data output
         layoutBuilder.addBinding(4, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // debug image
+        VkDescriptorSetLayoutCreateInfo layoutCreateInfo = layoutBuilder.build(
+            VK_SHADER_STAGE_COMPUTE_BIT,
+            VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+        );
 
-        ambientOcclusionSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT,
-                                                                              VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        ambientOcclusionSetLayout = resourceManager.createResource<DescriptorSetLayout>(layoutCreateInfo);
 
         VkPushConstantRange pushConstants{};
         pushConstants.offset = 0;
         pushConstants.size = sizeof(GTAOPushConstants);
         pushConstants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-        VkDescriptorSetLayout setLayouts[2];
-        setLayouts[0] = resourceManager.getSceneDataLayout();
-        setLayouts[1] = ambientOcclusionSetLayout;
+        std::array setLayouts{
+            resourceManager.getSceneDataLayout(),
+            ambientOcclusionSetLayout->layout,
+        };
+
 
         VkPipelineLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         layoutInfo.pNext = nullptr;
-        layoutInfo.pSetLayouts = setLayouts;
-        layoutInfo.setLayoutCount = 2;
+        layoutInfo.pSetLayouts = setLayouts.data();
+        layoutInfo.setLayoutCount = setLayouts.size();
         layoutInfo.pPushConstantRanges = &pushConstants;
         layoutInfo.pushConstantRangeCount = 1;
 
-        ambientOcclusionPipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+        ambientOcclusionPipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
         createAmbientOcclusionPipeline();
 
-        ambientOcclusionDescriptorBuffer = resourceManager.createDescriptorBufferSampler(ambientOcclusionSetLayout, 1);
+        ambientOcclusionDescriptorBuffer = resourceManager.createResource<DescriptorBufferSampler>(ambientOcclusionSetLayout->layout, 1);
 
         VkImageUsageFlags usage{};
         usage |= VK_IMAGE_USAGE_STORAGE_BIT;
         usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
         VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(ambientOcclusionFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
-        ambientOcclusionImage = resourceManager.createImage(imgInfo);
+        ambientOcclusionImage = resourceManager.createResource<Image>(imgInfo);
 
         usage = {};
         usage |= VK_IMAGE_USAGE_STORAGE_BIT;
         usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
 
         imgInfo = vk_helpers::imageCreateInfo(edgeDataFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
-        edgeDataImage = resourceManager.createImage(imgInfo);
+        edgeDataImage = resourceManager.createResource<Image>(imgInfo);
 
 
         // Depth Mip sampler
@@ -158,7 +176,7 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
             samplerInfo.minLod = 0.0f;
             samplerInfo.maxLod = DEPTH_PREFILTER_MIP_COUNT - 1;
 
-            depthPrefilterSampler = resourceManager.createSampler(samplerInfo);
+            depthPrefilterSampler = resourceManager.createResource<Sampler>(samplerInfo);
         }
 
         // Normals sampler
@@ -176,42 +194,47 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
             samplerInfo.minLod = 0.0f;
             samplerInfo.maxLod = 0.0f;
 
-            normalsSampler = resourceManager.createSampler(samplerInfo);
+            normalsSampler = resourceManager.createResource<Sampler>(samplerInfo);
         }
     }
 
     // Spatial Filtering
     {
-        DescriptorLayoutBuilder layoutBuilder;
+        DescriptorLayoutBuilder layoutBuilder{4};
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // raw ao
         layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // edge data
         layoutBuilder.addBinding(2, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // filtered ao
         layoutBuilder.addBinding(3, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // debug image
+        VkDescriptorSetLayoutCreateInfo layoutCreateInfo = layoutBuilder.build(
+            VK_SHADER_STAGE_COMPUTE_BIT,
+            VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
+        );
 
-        spatialFilteringSetLayout = resourceManager.createDescriptorSetLayout(layoutBuilder, VK_SHADER_STAGE_COMPUTE_BIT,
-                                                                              VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT);
+        spatialFilteringSetLayout = resourceManager.createResource<DescriptorSetLayout>(layoutCreateInfo);
 
         VkPushConstantRange pushConstants{};
         pushConstants.offset = 0;
         pushConstants.size = sizeof(GTAOPushConstants);
         pushConstants.stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
 
-        VkDescriptorSetLayout setLayouts[2];
-        setLayouts[0] = resourceManager.getSceneDataLayout();
-        setLayouts[1] = spatialFilteringSetLayout;
+        std::array setLayouts{
+            resourceManager.getSceneDataLayout(),
+            spatialFilteringSetLayout->layout,
+        };
+
 
         VkPipelineLayoutCreateInfo layoutInfo{};
         layoutInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
         layoutInfo.pNext = nullptr;
-        layoutInfo.pSetLayouts = setLayouts;
-        layoutInfo.setLayoutCount = 2;
+        layoutInfo.pSetLayouts = setLayouts.data();
+        layoutInfo.setLayoutCount = setLayouts.size();
         layoutInfo.pPushConstantRanges = &pushConstants;
         layoutInfo.pushConstantRangeCount = 1;
 
-        spatialFilteringPipelineLayout = resourceManager.createPipelineLayout(layoutInfo);
+        spatialFilteringPipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
         createSpatialFilteringPipeline();
 
-        spatialFilteringDescriptorBuffer = resourceManager.createDescriptorBufferSampler(spatialFilteringSetLayout, 1);
+        spatialFilteringDescriptorBuffer = resourceManager.createResource<DescriptorBufferSampler>(spatialFilteringSetLayout->layout, 1);
 
         VkImageUsageFlags usage{};
         usage |= VK_IMAGE_USAGE_STORAGE_BIT;
@@ -219,52 +242,52 @@ will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::GroundTruth
         usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
 
         VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(ambientOcclusionFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
-        denoisedFinalAO = resourceManager.createImage(imgInfo);
+        denoisedFinalAO = resourceManager.createResource<Image>(imgInfo);
     }
 }
 
-will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::~GroundTruthAmbientOcclusionPipeline()
+GroundTruthAmbientOcclusionPipeline::~GroundTruthAmbientOcclusionPipeline()
 {
     // Debug Resources
-    resourceManager.destroy(debugImage);
+    resourceManager.destroyResource(std::move(debugImage));
 
     // Depth Prefilter Resources
-    resourceManager.destroy(depthPrefilterSetLayout);
-    resourceManager.destroy(depthPrefilterPipelineLayout);
-    resourceManager.destroy(depthPrefilterPipeline);
+    resourceManager.destroyResource(std::move(depthPrefilterSetLayout));
+    resourceManager.destroyResource(std::move(depthPrefilterPipelineLayout));
+    resourceManager.destroyResource(std::move(depthPrefilterPipeline));
 
     for (int32_t i = 0; i < DEPTH_PREFILTER_MIP_COUNT; ++i) {
-        resourceManager.destroy(depthPrefilterImageViews[i]);
+        resourceManager.destroyResource(std::move(depthPrefilterImageViews[i]));
     }
 
-    resourceManager.destroy(depthPrefilterImage);
-    resourceManager.destroy(depthSampler);
+    resourceManager.destroyResource(std::move(depthPrefilterImage));
+    resourceManager.destroyResource(std::move(depthSampler));
 
-    resourceManager.destroy(depthPrefilterDescriptorBuffer);
+    resourceManager.destroyResource(std::move(depthPrefilterDescriptorBuffer));
 
     // AO Resources
-    resourceManager.destroy(ambientOcclusionSetLayout);
-    resourceManager.destroy(ambientOcclusionPipelineLayout);
-    resourceManager.destroy(ambientOcclusionPipeline);
+    resourceManager.destroyResource(std::move(ambientOcclusionSetLayout));
+    resourceManager.destroyResource(std::move(ambientOcclusionPipelineLayout));
+    resourceManager.destroyResource(std::move(ambientOcclusionPipeline));
 
-    resourceManager.destroy(depthPrefilterSampler);
-    resourceManager.destroy(normalsSampler);
-    resourceManager.destroy(ambientOcclusionImage);
-    resourceManager.destroy(edgeDataImage);
+    resourceManager.destroyResource(std::move(depthPrefilterSampler));
+    resourceManager.destroyResource(std::move(normalsSampler));
+    resourceManager.destroyResource(std::move(ambientOcclusionImage));
+    resourceManager.destroyResource(std::move(edgeDataImage));
 
-    resourceManager.destroy(ambientOcclusionDescriptorBuffer);
+    resourceManager.destroyResource(std::move(ambientOcclusionDescriptorBuffer));
 
     // Spatial Filtering Resources
-    resourceManager.destroy(spatialFilteringSetLayout);
-    resourceManager.destroy(spatialFilteringPipelineLayout);
-    resourceManager.destroy(spatialFilteringPipeline);
+    resourceManager.destroyResource(std::move(spatialFilteringSetLayout));
+    resourceManager.destroyResource(std::move(spatialFilteringPipelineLayout));
+    resourceManager.destroyResource(std::move(spatialFilteringPipeline));
 
-    resourceManager.destroy(denoisedFinalAO);
+    resourceManager.destroyResource(std::move(denoisedFinalAO));
 
-    resourceManager.destroy(spatialFilteringDescriptorBuffer);
+    resourceManager.destroyResource(std::move(spatialFilteringDescriptorBuffer));
 }
 
-void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupDepthPrefilterDescriptorBuffer(const VkImageView& depthImageView)
+void GroundTruthAmbientOcclusionPipeline::setupDepthPrefilterDescriptorBuffer(const VkImageView& depthImageView)
 {
     std::vector<DescriptorImageData> imageDescriptors{};
     imageDescriptors.reserve(1 + DEPTH_PREFILTER_MIP_COUNT + 1);
@@ -272,7 +295,7 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupD
     imageDescriptors.push_back(
         {
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            {depthSampler, depthImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+            {depthSampler->sampler, depthImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
             false
         }
     );
@@ -280,7 +303,7 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupD
     for (int32_t i = 0; i < DEPTH_PREFILTER_MIP_COUNT; ++i) {
         DescriptorImageData imageData{};
         imageData.type = VK_DESCRIPTOR_TYPE_STORAGE_IMAGE;
-        imageData.imageInfo = {VK_NULL_HANDLE, depthPrefilterImageViews[i], VK_IMAGE_LAYOUT_GENERAL};
+        imageData.imageInfo = {VK_NULL_HANDLE, depthPrefilterImageViews[i]->imageView, VK_IMAGE_LAYOUT_GENERAL};
         imageData.bIsPadding = false;
 
         imageDescriptors.push_back(imageData);
@@ -288,14 +311,14 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupD
 
     imageDescriptors.push_back({
         VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-        {VK_NULL_HANDLE, debugImage.imageView, VK_IMAGE_LAYOUT_GENERAL},
+        {VK_NULL_HANDLE, debugImage->imageView, VK_IMAGE_LAYOUT_GENERAL},
         false
     });
 
-    resourceManager.setupDescriptorBufferSampler(depthPrefilterDescriptorBuffer, imageDescriptors, 0);
+    depthPrefilterDescriptorBuffer->setupData(imageDescriptors, 0);
 }
 
-void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupAmbientOcclusionDescriptorBuffer(const VkImageView& normalsImageView)
+void GroundTruthAmbientOcclusionPipeline::setupAmbientOcclusionDescriptorBuffer(const VkImageView& normalsImageView)
 {
     std::vector<DescriptorImageData> imageDescriptors{};
     imageDescriptors.reserve(4);
@@ -303,37 +326,37 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupA
     imageDescriptors.push_back(
         {
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            {depthPrefilterSampler, depthPrefilterImage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+            {depthPrefilterSampler->sampler, depthPrefilterImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
             false
         });
     imageDescriptors.push_back(
         {
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            {normalsSampler, normalsImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+            {normalsSampler->sampler, normalsImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
             false
         });
     imageDescriptors.push_back(
         {
             VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-            {VK_NULL_HANDLE, ambientOcclusionImage.imageView, VK_IMAGE_LAYOUT_GENERAL},
+            {VK_NULL_HANDLE, ambientOcclusionImage->imageView, VK_IMAGE_LAYOUT_GENERAL},
             false
         });
     imageDescriptors.push_back(
         {
             VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-            {VK_NULL_HANDLE, edgeDataImage.imageView, VK_IMAGE_LAYOUT_GENERAL},
+            {VK_NULL_HANDLE, edgeDataImage->imageView, VK_IMAGE_LAYOUT_GENERAL},
             false
         });
     imageDescriptors.push_back({
         VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-        {VK_NULL_HANDLE, debugImage.imageView, VK_IMAGE_LAYOUT_GENERAL},
+        {VK_NULL_HANDLE, debugImage->imageView, VK_IMAGE_LAYOUT_GENERAL},
         false
     });
 
-    resourceManager.setupDescriptorBufferSampler(ambientOcclusionDescriptorBuffer, imageDescriptors, 0);
+    ambientOcclusionDescriptorBuffer->setupData(imageDescriptors, 0);
 }
 
-void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupSpatialFilteringDescriptorBuffer()
+void GroundTruthAmbientOcclusionPipeline::setupSpatialFilteringDescriptorBuffer()
 {
     std::vector<DescriptorImageData> imageDescriptors{};
     imageDescriptors.reserve(5);
@@ -341,30 +364,30 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::setupS
     imageDescriptors.push_back(
         {
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            {depthSampler, ambientOcclusionImage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+            {depthSampler->sampler, ambientOcclusionImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
             false
         });
     imageDescriptors.push_back(
         {
             VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            {depthSampler, edgeDataImage.imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+            {depthSampler->sampler, edgeDataImage->imageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
             false
         });
     imageDescriptors.push_back({
         VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-        {VK_NULL_HANDLE, denoisedFinalAO.imageView, VK_IMAGE_LAYOUT_GENERAL},
+        {VK_NULL_HANDLE, denoisedFinalAO->imageView, VK_IMAGE_LAYOUT_GENERAL},
         false
     });
     imageDescriptors.push_back({
         VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-        {VK_NULL_HANDLE, debugImage.imageView, VK_IMAGE_LAYOUT_GENERAL},
+        {VK_NULL_HANDLE, debugImage->imageView, VK_IMAGE_LAYOUT_GENERAL},
         false
     });
 
-    resourceManager.setupDescriptorBufferSampler(spatialFilteringDescriptorBuffer, imageDescriptors, 0);
+    spatialFilteringDescriptorBuffer->setupData(imageDescriptors, 0);
 }
 
-void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(VkCommandBuffer cmd, const GTAODrawInfo& drawInfo)
+void GroundTruthAmbientOcclusionPipeline::draw(VkCommandBuffer cmd, const GTAODrawInfo& drawInfo)
 {
     VkDebugUtilsLabelEXT label{};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
@@ -388,31 +411,32 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
 
     drawInfo.push.noiseIndex = GTAO_DENOISE_PASSES > 0 ? drawInfo.currentFrame % 64 : 0;
 
-    vk_helpers::imageBarrier(cmd, debugImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::imageBarrier(cmd, debugImage->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
 
-    vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, depthPrefilterImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
+    vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, depthPrefilterImage->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
     if (!drawInfo.bEnabled) {
-        vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, denoisedFinalAO.image, VK_IMAGE_LAYOUT_UNDEFINED,
+        vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, denoisedFinalAO->image, VK_IMAGE_LAYOUT_UNDEFINED,
                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, {1.0f, 1.0f, 1.0f, 1.0f});
-        vk_helpers::imageBarrier(cmd, debugImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                    VK_IMAGE_ASPECT_COLOR_BIT);
+        vk_helpers::imageBarrier(cmd, debugImage->image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                                 VK_IMAGE_ASPECT_COLOR_BIT);
         return;
     }
     // Depth Prefilter
     {
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, depthPrefilterPipeline);
-        vkCmdPushConstants(cmd, depthPrefilterPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GTAOPushConstants), &drawInfo.push);
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, depthPrefilterPipeline->pipeline);
+        vkCmdPushConstants(cmd, depthPrefilterPipelineLayout->layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GTAOPushConstants), &drawInfo.push);
 
         VkDescriptorBufferBindingInfoEXT bindingInfos[2] = {};
         bindingInfos[0] = drawInfo.sceneDataBinding;
-        bindingInfos[1] = depthPrefilterDescriptorBuffer.getDescriptorBufferBindingInfo();
+        bindingInfos[1] = depthPrefilterDescriptorBuffer->getBindingInfo();
         vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos);
 
         constexpr std::array<uint32_t, 2> indices{0, 1};
         const std::array offsets{drawInfo.sceneDataOffset, ZERO_DEVICE_SIZE};
 
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, depthPrefilterPipelineLayout, 0, 2, indices.data(), offsets.data());
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, depthPrefilterPipelineLayout->layout, 0, 2, indices.data(),
+                                           offsets.data());
 
         // shader only operates on 8,8 work groups, mip 0 will operate on 2x2 texels, so its 16x16 as expected
         const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
@@ -420,23 +444,24 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
         vkCmdDispatch(cmd, x, y, 1);
     }
 
-    vk_helpers::imageBarrier(cmd, depthPrefilterImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::imageBarrier(cmd, ambientOcclusionImage.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::imageBarrier(cmd, depthPrefilterImage->image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                             VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::imageBarrier(cmd, ambientOcclusionImage->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     // Ambient Occlusion
     {
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, ambientOcclusionPipeline);
-        vkCmdPushConstants(cmd, ambientOcclusionPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GTAOPushConstants), &drawInfo.push);
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, ambientOcclusionPipeline->pipeline);
+        vkCmdPushConstants(cmd, ambientOcclusionPipelineLayout->layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GTAOPushConstants), &drawInfo.push);
 
         VkDescriptorBufferBindingInfoEXT bindingInfos[2] = {};
         bindingInfos[0] = drawInfo.sceneDataBinding;
-        bindingInfos[1] = ambientOcclusionDescriptorBuffer.getDescriptorBufferBindingInfo();
+        bindingInfos[1] = ambientOcclusionDescriptorBuffer->getBindingInfo();
         vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos);
 
         constexpr std::array<uint32_t, 2> indices{0, 1};
         const std::array offsets{drawInfo.sceneDataOffset, ZERO_DEVICE_SIZE};
 
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, depthPrefilterPipelineLayout, 0, 2, indices.data(), offsets.data());
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, depthPrefilterPipelineLayout->layout, 0, 2, indices.data(),
+                                           offsets.data());
 
         const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
         const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
@@ -444,24 +469,25 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
     }
 
 
-    vk_helpers::imageBarrier(cmd, ambientOcclusionImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::imageBarrier(cmd, denoisedFinalAO.image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::imageBarrier(cmd, ambientOcclusionImage->image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                             VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::imageBarrier(cmd, denoisedFinalAO->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
+                             VK_IMAGE_ASPECT_COLOR_BIT);
     // Spatial Filtering
     {
-        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, spatialFilteringPipeline);
-        vkCmdPushConstants(cmd, spatialFilteringPipelineLayout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GTAOPushConstants), &drawInfo.push);
+        vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, spatialFilteringPipeline->pipeline);
+        vkCmdPushConstants(cmd, spatialFilteringPipelineLayout->layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(GTAOPushConstants), &drawInfo.push);
 
         VkDescriptorBufferBindingInfoEXT bindingInfos[2] = {};
         bindingInfos[0] = drawInfo.sceneDataBinding;
-        bindingInfos[1] = spatialFilteringDescriptorBuffer.getDescriptorBufferBindingInfo();
+        bindingInfos[1] = spatialFilteringDescriptorBuffer->getBindingInfo();
         vkCmdBindDescriptorBuffersEXT(cmd, 2, bindingInfos);
 
         constexpr std::array<uint32_t, 2> indices{0, 1};
         const std::array offsets{drawInfo.sceneDataOffset, ZERO_DEVICE_SIZE};
 
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, spatialFilteringPipelineLayout, 0, 2, indices.data(), offsets.data());
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, spatialFilteringPipelineLayout->layout, 0, 2, indices.data(),
+                                           offsets.data());
 
         // each dispatch operates on 2x1 pixels
         const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / (16.0f * 2.0f)));
@@ -469,88 +495,86 @@ void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::draw(V
         vkCmdDispatch(cmd, x, y, 1);
     }
 
-    vk_helpers::imageBarrier(cmd, denoisedFinalAO.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::imageBarrier(cmd, denoisedFinalAO->image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                             VK_IMAGE_ASPECT_COLOR_BIT);
 
 
-    vk_helpers::imageBarrier(cmd, debugImage.image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                VK_IMAGE_ASPECT_COLOR_BIT);
+    vk_helpers::imageBarrier(cmd, debugImage->image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+                             VK_IMAGE_ASPECT_COLOR_BIT);
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
 }
 
-void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::reloadShaders()
+void GroundTruthAmbientOcclusionPipeline::reloadShaders()
 {
     createDepthPrefilterPipeline();
     createAmbientOcclusionPipeline();
     createSpatialFilteringPipeline();
 }
 
-void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::createDepthPrefilterPipeline()
+void GroundTruthAmbientOcclusionPipeline::createDepthPrefilterPipeline()
 {
-    resourceManager.destroy(depthPrefilterPipeline);
-    VkShaderModule computeShader = resourceManager.createShaderModule("shaders/ambient_occlusion/ground_truth/gtao_depth_prefilter.comp");
+    resourceManager.destroyResource(std::move(depthPrefilterPipeline));
+    ShaderModulePtr shader = resourceManager.createResource<ShaderModule>("shaders/ambient_occlusion/ground_truth/gtao_depth_prefilter.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
     stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stageInfo.pNext = nullptr;
     stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageInfo.module = computeShader;
+    stageInfo.module = shader->shader;
     stageInfo.pName = "main";
 
     VkComputePipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipelineInfo.pNext = nullptr;
-    pipelineInfo.layout = depthPrefilterPipelineLayout;
+    pipelineInfo.layout = depthPrefilterPipelineLayout->layout;
     pipelineInfo.stage = stageInfo;
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-    depthPrefilterPipeline = resourceManager.createComputePipeline(pipelineInfo);
-    resourceManager.destroy(computeShader);
+    depthPrefilterPipeline = resourceManager.createResource<Pipeline>(pipelineInfo);
 }
 
-void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::createAmbientOcclusionPipeline()
+void GroundTruthAmbientOcclusionPipeline::createAmbientOcclusionPipeline()
 {
-    resourceManager.destroy(ambientOcclusionPipeline);
-    VkShaderModule computeShader = resourceManager.createShaderModule("shaders/ambient_occlusion/ground_truth/gtao_main_pass.comp");
+    resourceManager.destroyResource(std::move(ambientOcclusionPipeline));
+    ShaderModulePtr shader = resourceManager.createResource<ShaderModule>("shaders/ambient_occlusion/ground_truth/gtao_main_pass.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
     stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stageInfo.pNext = nullptr;
     stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageInfo.module = computeShader;
+    stageInfo.module = shader->shader;
     stageInfo.pName = "main";
 
     VkComputePipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipelineInfo.pNext = nullptr;
-    pipelineInfo.layout = ambientOcclusionPipelineLayout;
+    pipelineInfo.layout = ambientOcclusionPipelineLayout->layout;
     pipelineInfo.stage = stageInfo;
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-    ambientOcclusionPipeline = resourceManager.createComputePipeline(pipelineInfo);
-    resourceManager.destroy(computeShader);
+    ambientOcclusionPipeline = resourceManager.createResource<Pipeline>(pipelineInfo);
 }
 
-void will_engine::ambient_occlusion::GroundTruthAmbientOcclusionPipeline::createSpatialFilteringPipeline()
+void GroundTruthAmbientOcclusionPipeline::createSpatialFilteringPipeline()
 {
-    resourceManager.destroy(spatialFilteringPipeline);
-    VkShaderModule computeShader = resourceManager.createShaderModule("shaders/ambient_occlusion/ground_truth/gtao_spatial_filter.comp");
+    resourceManager.destroyResource(std::move(spatialFilteringPipeline));
+    ShaderModulePtr shader = resourceManager.createResource<ShaderModule>("shaders/ambient_occlusion/ground_truth/gtao_spatial_filter.comp");
 
     VkPipelineShaderStageCreateInfo stageInfo{};
     stageInfo.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stageInfo.pNext = nullptr;
     stageInfo.stage = VK_SHADER_STAGE_COMPUTE_BIT;
-    stageInfo.module = computeShader;
+    stageInfo.module = shader->shader;
     stageInfo.pName = "main";
 
     VkComputePipelineCreateInfo pipelineInfo{};
     pipelineInfo.sType = VK_STRUCTURE_TYPE_COMPUTE_PIPELINE_CREATE_INFO;
     pipelineInfo.pNext = nullptr;
-    pipelineInfo.layout = spatialFilteringPipelineLayout;
+    pipelineInfo.layout = spatialFilteringPipelineLayout->layout;
     pipelineInfo.stage = stageInfo;
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
-    spatialFilteringPipeline = resourceManager.createComputePipeline(pipelineInfo);
-    resourceManager.destroy(computeShader);
+    spatialFilteringPipeline = resourceManager.createResource<Pipeline>(pipelineInfo);
+}
 }

@@ -6,13 +6,11 @@
 #define DEBUG_RENDERER_TYPES_H
 
 #include <glm/glm.hpp>
-#include <volk/volk.h>
 
 #include "engine/renderer/renderer_constants.h"
-#include "engine/renderer/vk_types.h"
-#include "engine/renderer/descriptor_buffer/descriptor_buffer_uniform.h"
+#include "engine/renderer/resources/resources_fwd.h"
 
-namespace will_engine::debug_renderer
+namespace will_engine::renderer
 {
 static constexpr inline int32_t DEFAULT_DEBUG_RENDERER_INSTANCE_COUNT = 512;
 static constexpr inline int32_t BOX_INSTANCE_INDEX = 0;
@@ -108,10 +106,10 @@ struct DrawIndexedData
 struct DebugRenderGroup
 {
     std::vector<DebugRendererInstance> instances;
-    std::array<AllocatedBuffer, FRAME_OVERLAP> instanceBuffers{VK_NULL_HANDLE, VK_NULL_HANDLE};
+    std::array<BufferPtr, FRAME_OVERLAP> instanceBuffers{};
     std::array<uint64_t, FRAME_OVERLAP> instanceBufferSizes{0, 0};
     DrawIndexedData drawIndexedData{};
-    DescriptorBufferUniform instanceDescriptorBuffer;
+    DescriptorBufferUniformPtr instanceDescriptorBuffer;
 
 };
 }

@@ -5,12 +5,14 @@
 #ifndef DEBUG_PIPELINE_H
 #define DEBUG_PIPELINE_H
 
+#include <vulkan/vulkan_core.h>
 
-#include "engine/renderer/resource_manager.h"
+#include "engine/renderer/resources/resources_fwd.h"
 
-
-namespace will_engine::debug_pipeline
+namespace will_engine::renderer
 {
+class ResourceManager;
+
 struct DebugCompositePipelineDrawInfo
 {
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
@@ -25,7 +27,7 @@ public:
 
     void setupDescriptorBuffer(VkImageView debugTarget, VkImageView finalImageView);
 
-    void draw(VkCommandBuffer cmd, DebugCompositePipelineDrawInfo drawInfo) const;
+    void draw(VkCommandBuffer cmd, const DebugCompositePipelineDrawInfo& drawInfo) const;
 
     void reloadShaders() { createPipeline(); }
 
@@ -35,10 +37,10 @@ private:
 private:
     ResourceManager& resourceManager;
 
-    VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
-    VkPipeline pipeline{VK_NULL_HANDLE};
-    VkDescriptorSetLayout descriptorSetLayout{VK_NULL_HANDLE};
-    DescriptorBufferSampler descriptorBuffer;
+    PipelineLayoutPtr pipelineLayout{};
+    PipelinePtr pipeline{};
+    DescriptorSetLayoutPtr descriptorSetLayout{};
+    DescriptorBufferSamplerPtr descriptorBuffer{};
 };
 
 }

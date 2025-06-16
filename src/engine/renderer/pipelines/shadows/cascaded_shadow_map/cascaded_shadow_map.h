@@ -5,10 +5,12 @@
 #ifndef CASCADED_SHADOW_MAP_H
 #define CASCADED_SHADOW_MAP_H
 
+#include <array>
+
 #include "shadow_types.h"
-#include "engine/renderer/resource_manager.h"
+#include "engine/renderer/renderer_constants.h"
 #include "engine/renderer/lighting/directional_light.h"
-#include "engine/renderer/assets/render_object/render_object.h"
+#include "engine/renderer/resources/descriptor_set_layout.h"
 
 namespace will_engine
 {
@@ -20,8 +22,9 @@ namespace terrain
 class Camera;
 }
 
-namespace will_engine::cascaded_shadows
+namespace will_engine::renderer
 {
+class ResourceManager;
 
 
 class CascadedShadowMap
@@ -53,10 +56,10 @@ public:
      */
     glm::mat4 getLightSpaceMatrix(int32_t cascadeLevel, glm::vec3 lightDirection, const Camera* camera, float cascadeNear, float cascadeFar, bool reversedDepth = false) const;
 
-    VkDescriptorSetLayout getCascadedShadowMapUniformLayout() const { return cascadedShadowMapUniformLayout; }
-    VkDescriptorSetLayout getCascadedShadowMapSamplerLayout() const { return cascadedShadowMapSamplerLayout; }
-    const DescriptorBufferUniform& getCascadedShadowMapUniformBuffer() const { return cascadedShadowMapDescriptorBufferUniform; }
-    const DescriptorBufferSampler& getCascadedShadowMapSamplerBuffer() const { return cascadedShadowMapDescriptorBufferSampler; }
+    VkDescriptorSetLayout getCascadedShadowMapUniformLayout() const { return cascadedShadowMapUniformLayout->layout; }
+    VkDescriptorSetLayout getCascadedShadowMapSamplerLayout() const { return cascadedShadowMapSamplerLayout->layout; }
+    const DescriptorBufferUniform* getCascadedShadowMapUniformBuffer() const { return cascadedShadowMapDescriptorBufferUniform.get(); }
+    const DescriptorBufferSampler* getCascadedShadowMapSamplerBuffer() const { return cascadedShadowMapDescriptorBufferSampler.get(); }
 
     void generateSplits();
 
@@ -78,47 +81,39 @@ public:
 
 public: // Debug
 
-    AllocatedImage getShadowMap(const int32_t cascadeLevel) const
+    const ImageResource* getShadowMap(const int32_t cascadeLevel) const
     {
         if (cascadeLevel >= SHADOW_CASCADE_COUNT || cascadeLevel < 0) {
-            return shadowMaps[0].depthShadowMap;
+            return shadowMaps[0].depthShadowMap.get();
         }
-        return shadowMaps[cascadeLevel].depthShadowMap;
-    }
-
-    CascadeShadowMapData getCascadedShadowMapData(const int32_t cascadeLevel) const
-    {
-        if (cascadeLevel >= SHADOW_CASCADE_COUNT || cascadeLevel < 0) {
-            return shadowMaps[0];
-        }
-        return shadowMaps[cascadeLevel];
+        return shadowMaps[cascadeLevel].depthShadowMap.get();
     }
 
 private:
     ResourceManager& resourceManager;
 
     std::array<CascadeShadowMapData, SHADOW_CASCADE_COUNT> shadowMaps{
-        CascadeShadowMapData(0, {}, {VK_NULL_HANDLE}, {}),
-        {1, {}, {VK_NULL_HANDLE}, {}},
-        {2, {}, {VK_NULL_HANDLE}, {}},
-        {3, {}, {VK_NULL_HANDLE}, {}},
+        CascadeShadowMapData(0, {}, {}, {}),
+        {1, {}, {}, {}},
+        {2, {}, {}, {}},
+        {3, {}, {}, {}},
     };
 
-    VkDescriptorSetLayout cascadedShadowMapUniformLayout{VK_NULL_HANDLE};
-    VkDescriptorSetLayout cascadedShadowMapSamplerLayout{VK_NULL_HANDLE};
+    DescriptorSetLayoutPtr cascadedShadowMapUniformLayout{};
+    DescriptorSetLayoutPtr cascadedShadowMapSamplerLayout{};
 
-    VkSampler sampler{VK_NULL_HANDLE};
-    VkPipelineLayout renderObjectPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline renderObjectPipeline{VK_NULL_HANDLE};
-    VkPipelineLayout terrainPipelineLayout{VK_NULL_HANDLE};
-    VkPipeline terrainPipeline{VK_NULL_HANDLE};
+    SamplerPtr sampler{};
+    PipelineLayoutPtr renderObjectPipelineLayout{};
+    PipelinePtr renderObjectPipeline{};
+    PipelineLayoutPtr terrainPipelineLayout{};
+    PipelinePtr terrainPipeline{};
 
     // contains the depth maps used by deferred resolve
-    DescriptorBufferSampler cascadedShadowMapDescriptorBufferSampler;
+    DescriptorBufferSamplerPtr cascadedShadowMapDescriptorBufferSampler;
     // contains the cascaded shadow map properties used by deferred resolve
-    //AllocatedBuffer cascadedShadowMapData{VK_NULL_HANDLE};
-    AllocatedBuffer cascadedShadowMapDatas[FRAME_OVERLAP]{VK_NULL_HANDLE};
-    DescriptorBufferUniform cascadedShadowMapDescriptorBufferUniform;
+    //Buffer cascadedShadowMapData{VK_NULL_HANDLE};
+    BufferPtr cascadedShadowMapDatas[FRAME_OVERLAP]{};
+    DescriptorBufferUniformPtr cascadedShadowMapDescriptorBufferUniform;
 
 private:
     CascadedShadowMapSettings csmProperties{};

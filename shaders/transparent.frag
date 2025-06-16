@@ -64,7 +64,7 @@ void main() {
     }
     albedo = albedo * inColor * m.colorFactor;
 
-    if (m.alphaCutoff.y == 1) {
+    if (m.alphaProperties.y == 1) {
         // Draw only if alpha is sufficiently less than 1
         if (albedo.w > 1.0 - TRANSPARENT_ALPHA_EPSILON) {
             discard;

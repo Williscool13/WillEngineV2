@@ -8,16 +8,13 @@
 #include <span>
 #include <glm/glm.hpp>
 
-#include "engine/renderer/vk_types.h"
 #include "engine/renderer/assets/render_object/render_object_types.h"
 
-namespace will_engine
+
+namespace will_engine::renderer
 {
 class IRenderable;
-}
 
-namespace will_engine::debug_highlight_pipeline
-{
 struct DebugHighlightDrawPushConstant
 {
     glm::mat4 modelMatrix{1.0f};
@@ -26,8 +23,8 @@ struct DebugHighlightDrawPushConstant
 
 struct HighlightData
 {
-    const AllocatedBuffer* vertexBuffer;
-    const AllocatedBuffer* indexBuffer;
+    VkBuffer vertexBuffer{VK_NULL_HANDLE};
+    VkBuffer indexBuffer{VK_NULL_HANDLE};
     std::span<const Primitive> primitives;
 
     glm::mat4 modelMatrix{1.0f};
@@ -36,7 +33,7 @@ struct HighlightData
 struct DebugHighlighterDrawInfo
 {
     IRenderable* highlightTarget{nullptr};
-    AllocatedImage depthStencilTarget{VK_NULL_HANDLE};
+    VkImageView depthStencilTarget{VK_NULL_HANDLE};
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};
 };

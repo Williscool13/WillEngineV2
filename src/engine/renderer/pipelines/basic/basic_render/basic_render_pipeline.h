@@ -5,19 +5,35 @@
 #ifndef BASIC_RENDER_PIPELINE_H
 #define BASIC_RENDER_PIPELINE_H
 
-#include <volk/volk.h>
+#include <vulkan/vulkan_core.h>
 
-#include "engine/renderer/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/resources_fwd.h"
 
-namespace will_engine
+
+namespace will_engine::renderer
 {
 class ResourceManager;
-}
 
-namespace will_engine::basic_render_pipeline
+struct RenderDescriptorInfo
 {
-struct RenderDrawInfo;
-struct RenderDescriptorInfo;
+    VkSampler sampler{VK_NULL_HANDLE};
+    VkImageView texture{VK_NULL_HANDLE};
+};
+
+struct RenderDrawInfo
+{
+    VkExtent2D renderExtent{};
+    VkImageView drawImage{VK_NULL_HANDLE};
+    VkImageView depthImage{VK_NULL_HANDLE};
+    VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
+    VkDeviceSize sceneDataOffset{0};
+    int32_t currentFrame{};
+};
+
+struct RenderPushConstant
+{
+    int32_t currentFrame;
+};
 
 class BasicRenderPipeline
 {
@@ -38,11 +54,10 @@ private:
 private:
     ResourceManager& resourceManager;
 
-    VkDescriptorSetLayout samplerDescriptorLayout{VK_NULL_HANDLE};
-    VkPipelineLayout pipelineLayout{VK_NULL_HANDLE};
-    VkPipeline pipeline{VK_NULL_HANDLE};
-
-    DescriptorBufferSampler samplerDescriptorBuffer;
+    DescriptorSetLayoutPtr samplerDescriptorLayout{};
+    PipelineLayoutPtr pipelineLayout{};
+    PipelinePtr pipeline{};
+    DescriptorBufferSamplerPtr samplerDescriptorBuffer{};
 };
 }
 

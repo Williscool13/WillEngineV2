@@ -9,7 +9,7 @@
 #include "engine/renderer/assets/render_object/render_reference.h"
 #include "engine/renderer/pipelines/debug/debug_highlight_types.h"
 
-namespace will_engine
+namespace will_engine::renderer
 {
 class IRenderable
 {
@@ -47,7 +47,7 @@ public:
     // Debug Highlight
     virtual bool canDrawHighlight() = 0;
 
-    virtual debug_highlight_pipeline::HighlightData getHighlightData() = 0;
+    virtual HighlightData getHighlightData() = 0;
 };
 }
 #endif //RENDERABLE_H

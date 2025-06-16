@@ -4,6 +4,7 @@
 
 #ifndef ENGINE_TYPES_H
 #define ENGINE_TYPES_H
+#include <filesystem>
 #include <vulkan/vulkan_core.h>
 
 namespace will_engine
@@ -16,9 +17,14 @@ struct FrameData
     VkFence _renderFence;
 };
 
-struct EngineSettings
+struct EditorSettings
 {
     bool saveOnExit{true};
+};
+
+struct EngineSettings
+{
+    std::filesystem::path defaultMapToLoad{};
 };
 }
 

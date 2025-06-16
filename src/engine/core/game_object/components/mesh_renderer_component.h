@@ -21,7 +21,7 @@ class ITransformable;
 
 namespace will_engine::components
 {
-class MeshRendererComponent : public Component, public IRenderable
+class MeshRendererComponent : public Component, public renderer::IRenderable
 {
 public:
     explicit MeshRendererComponent(const std::string& name = "");
@@ -41,7 +41,7 @@ private: // IRenderable
     /**
      * The render object that is responsible for drawing this gameobject's model
      */
-    IRenderReference* pRenderReference{nullptr};
+    renderer::IRenderReference* pRenderReference{nullptr};
     int32_t meshIndex{INDEX_NONE};
 
     int32_t renderFramesToUpdate{FRAME_OVERLAP + 1};
@@ -59,7 +59,7 @@ public:
 public: // Debug Highlight
     virtual bool canDrawHighlight() override;
 
-    virtual debug_highlight_pipeline::HighlightData getHighlightData() override;
+    virtual renderer::HighlightData getHighlightData() override;
 
 public: // Serialization
     void serialize(ordered_json& j) override;
@@ -77,7 +77,7 @@ public: // IRenderable
     void setRenderFramesToUpdate(const int32_t value) override { renderFramesToUpdate = value; }
 
 
-    void setRenderObjectReference(IRenderReference* owner, const int32_t meshIndex) override
+    void setRenderObjectReference(renderer::IRenderReference* owner, const int32_t meshIndex) override
     {
         pRenderReference = owner;
         this->meshIndex = meshIndex;
@@ -85,7 +85,7 @@ public: // IRenderable
 
     uint32_t getRenderReferenceId() const override { return pRenderReference ? pRenderReference->getId() : INDEX_NONE; }
 
-    IRenderReference* getRenderReference() const override { return pRenderReference; }
+    renderer::IRenderReference* getRenderReference() const override { return pRenderReference; }
 
     int32_t getMeshIndex() const override { return meshIndex; }
 
