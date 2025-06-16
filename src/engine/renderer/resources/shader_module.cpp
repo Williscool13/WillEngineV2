@@ -65,6 +65,10 @@ void ShaderModule::loadSpvShader(const std::filesystem::path& path)
 
 void ShaderModule::loadShader(const std::filesystem::path& path)
 {
+    if (!exists(path)) {
+        fmt::print("Shader source:\n{}\n", path.string());
+        throw std::runtime_error("Source shader file not found");
+    }
     std::ifstream file(path.string());
     auto source = std::string(std::istreambuf_iterator(file), std::istreambuf_iterator<char>());
     shaderc_shader_kind kind;

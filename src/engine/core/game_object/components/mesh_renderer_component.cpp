@@ -147,6 +147,28 @@ void MeshRendererComponent::updateRenderImgui()
             }
         }
     }
+
+    if (ImGui::CollapsingHeader("Transform", ImGuiTreeNodeFlags_DefaultOpen)) {
+        bool transformChanged = false;
+
+        glm::vec3 position = localTransform.getPosition();
+        const glm::quat rotation = localTransform.getRotation();
+        glm::vec3 scale = localTransform.getScale();
+
+        glm::vec3 eulerRotation = glm::degrees(glm::eulerAngles(rotation));
+
+        transformChanged |= ImGui::DragFloat3("Position", &position.x, 0.1f);
+        transformChanged |= ImGui::DragFloat3("Rotation", &eulerRotation.x, 0.5f);
+        transformChanged |= ImGui::DragFloat3("Scale", &scale.x, 0.01f, 0.001f, 100.0f);
+
+        if (transformChanged) {
+            localTransform.setPosition(position);
+            localTransform.setRotation(glm::quat(glm::radians(eulerRotation)));
+            localTransform.setScale(scale);
+            cachedLocalModel = localTransform.toModelMatrix();
+            dirty();
+        }
+    }
 }
 
 void MeshRendererComponent::dirty()
