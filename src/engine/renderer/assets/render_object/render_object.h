@@ -25,10 +25,6 @@ namespace will_engine
 class IComponentContainer;
 }
 
-namespace will_engine::game_object
-{
-class GameObject;
-}
 
 namespace will_engine::renderer
 {
@@ -89,6 +85,9 @@ private:
     std::string name;
 
 private:
+    /**
+     * A map between a renderable and its model matrix
+     */
     std::unordered_map<IRenderable*, RenderableProperties> renderableMap;
 
     uint32_t getFreePrimitiveIndex();
@@ -163,7 +162,7 @@ public: // Model Rendering API
     /**
      * @param renderable to assign mesh references.
      * @param meshIndex in the RenderObject to generate. \code 0 < n <= meshes.size()\endcode
-     * @return true if successfully generated mesh and assigned to gameobject.
+     * @return true if successfully generated mesh and assigned to the renderable
      */
     bool generateMesh(IRenderable* renderable, int32_t meshIndex);
 

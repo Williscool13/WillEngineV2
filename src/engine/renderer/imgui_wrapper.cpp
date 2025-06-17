@@ -115,7 +115,7 @@ void ImguiWrapper::selectMap(Map* newMap)
     auto terrainComponent = selectedMap->getComponent<components::TerrainComponent>();
     if (!terrainComponent) {
         auto& factory = components::ComponentFactory::getInstance();
-        auto newComponent = factory.createComponent(components::TerrainComponent::TYPE, "Terrain Component");
+        auto newComponent = factory.create(components::TerrainComponent::TYPE, "Terrain Component");
         selectedMap->addComponent(std::move(newComponent));
     }
 
@@ -813,7 +813,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                     if (ImGui::BeginTabItem("Full Model")) {
                                         if (ImGui::Button("Generate Full Object")) {
                                             auto& gameObjectFactory = game_object::GameObjectFactory::getInstance();
-                                            std::unique_ptr<game_object::GameObject> gameObject = gameObjectFactory.createGameObject(
+                                            std::unique_ptr<game_object::GameObject> gameObject = gameObjectFactory.create(
                                                 game_object::GameObject::getStaticType(), std::string(objectName));
                                             selectedRenderObject->generateMeshComponents(gameObject.get());
                                             selectedMap->addChild(std::move(gameObject));
@@ -847,7 +847,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                         if (auto container = dynamic_cast<IComponentContainer*>(engine->selectedItem)) {
                                             if (ImGui::Button("Add to selected item")) {
                                                 auto newComponent = components::ComponentFactory::getInstance().
-                                                        createComponent(components::MeshRendererComponent::getStaticType(), "Mesh Renderer");
+                                                        create(components::MeshRendererComponent::getStaticType(), "Mesh Renderer");
                                                 components::Component* component = container->addComponent(std::move(newComponent));
                                                 if (auto meshRenderer = dynamic_cast<components::MeshRendererComponent*>(component)) {
                                                     selectedRenderObject->generateMesh(meshRenderer, selectedMeshIndex);
@@ -860,7 +860,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                                 IHierarchical* gob = Engine::createGameObject(selectedMap, objectName);
 
                                                 if (auto _container = dynamic_cast<IComponentContainer*>(gob)) {
-                                                    auto newComponent = components::ComponentFactory::getInstance().createComponent(
+                                                    auto newComponent = components::ComponentFactory::getInstance().create(
                                                         components::MeshRendererComponent::getStaticType(), "Mesh Renderer");
 
                                                     components::Component* component = _container->addComponent(std::move(newComponent));

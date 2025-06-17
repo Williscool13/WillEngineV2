@@ -96,11 +96,11 @@ std::unique_ptr<IHierarchical> Serializer::deserializeGameObject(const ordered_j
 
     if (j.contains("gameObjectType")) {
         const std::string type = j["gameObjectType"];
-        gameObject = gameObjectFactory.createGameObject(type, name);
+        gameObject = gameObjectFactory.create(type, name);
     }
 
     if (!gameObject) {
-        gameObject = gameObjectFactory.createGameObject(game_object::GameObject::getStaticType(), "");
+        gameObject = gameObjectFactory.create(game_object::GameObject::getStaticType(), "");
     }
 
 
@@ -124,7 +124,7 @@ std::unique_ptr<IHierarchical> Serializer::deserializeGameObject(const ordered_j
             auto componentType = componentData["componentType"].get<std::string>();
 
 
-            std::unique_ptr<components::Component> newComponent = factory.createComponent(componentType, componentName);
+            std::unique_ptr<components::Component> newComponent = factory.create(componentType, componentName);
             components::Component* component = gameObject->addComponent(std::move(newComponent));
 
 
@@ -208,7 +208,7 @@ bool Serializer::deserializeMap(IHierarchical* root, ordered_json& rootJ)
                 }
 
                 auto& factory = components::ComponentFactory::getInstance();
-                auto newComponent = factory.createComponent(componentType, componentName);
+                auto newComponent = factory.create(componentType, componentName);
 
                 if (newComponent) {
                     auto orderedComponentData = ordered_json(componentData);

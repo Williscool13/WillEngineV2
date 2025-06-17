@@ -276,7 +276,6 @@ set(TEMP_SOURCES
         src/engine/renderer/pipelines/post/post_process/post_process_pipeline_types.h
         src/engine/renderer/pipelines/post/temporal_antialiasing/temporal_antialiasing_pipeline_types.h
         src/engine/renderer/pipelines/debug/debug_renderer_types.h
-        src/engine/core/game_object/game_object_factory.cpp
         src/engine/core/game_object/game_object_factory.h
         src/engine/renderer/pipelines/debug/debug_highlight_types.h
         src/engine/renderer/resources/vulkan_resource.cpp
@@ -303,6 +302,8 @@ set(TEMP_SOURCES
         src/engine/renderer/resources/resources_fwd.h
         src/engine/renderer/resources/shader_module.cpp
         src/engine/renderer/resources/shader_module.h
+        src/engine/core/factory/object_factory.h
+        src/engine/renderer/assets/render_object/render_object_factory.h
 )
 
 add_executable(WillEngine main.cpp

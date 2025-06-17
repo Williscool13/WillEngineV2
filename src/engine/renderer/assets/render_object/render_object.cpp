@@ -240,7 +240,7 @@ bool RenderObject::generateMeshComponents(IComponentContainer* container, const 
 void RenderObject::recursiveGenerate(const RenderNode& renderNode, IComponentContainer* container)
 {
     if (renderNode.meshIndex != -1) {
-        auto newMeshComponent = components::ComponentFactory::getInstance().createComponent(
+        auto newMeshComponent = components::ComponentFactory::getInstance().create(
             components::MeshRendererComponent::getStaticType(), renderNode.name);
         components::Component* component = container->addComponent(std::move(newMeshComponent));
         if (const auto meshComponent = dynamic_cast<components::MeshRendererComponent*>(component)) {
@@ -260,7 +260,7 @@ void RenderObject::recursiveGenerate(const RenderNode& renderNode, IComponentCon
     thisNodeTransform.applyParentTransform(parentTransform);
 
     if (renderNode.meshIndex != -1) {
-        auto newMeshComponent = components::ComponentFactory::getInstance().createComponent(
+        auto newMeshComponent = components::ComponentFactory::getInstance().create(
             components::MeshRendererComponent::getStaticType(), renderNode.name);
         components::Component* component = container->addComponent(std::move(newMeshComponent));
         if (const auto meshComponent = dynamic_cast<components::MeshRendererComponent*>(component)) {

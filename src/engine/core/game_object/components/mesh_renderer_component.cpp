@@ -198,7 +198,7 @@ void MeshRendererComponent::setTransform(const Transform& localTransform)
 glm::mat4 MeshRendererComponent::getModelMatrix()
 {
     if (transformableOwner) {
-        return cachedLocalModel * transformableOwner->getModelMatrix();
+        return transformableOwner->getModelMatrix() * cachedLocalModel;
     }
 
     return cachedLocalModel;

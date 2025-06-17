@@ -6,7 +6,7 @@
     },
     "metadata": {
         "name": "newMap",
-        "created": "2025-06-02 18:35:06",
+        "created": "2025-06-17 18:19:38",
         "formatVersion": 1
     },
     "rootComponents": {
@@ -108,7 +108,7 @@
                 "name": "GameObject_0",
                 "transform": {
                     "position": {
-                        "x": -600.9000244140625,
+                        "x": 0.0,
                         "y": 0.0,
                         "z": 0.0
                     },
@@ -158,7 +158,7 @@
                 "name": "GameObject_1",
                 "transform": {
                     "position": {
-                        "x": 4000.0,
+                        "x": 40.0,
                         "y": 0.0,
                         "z": 0.0
                     },

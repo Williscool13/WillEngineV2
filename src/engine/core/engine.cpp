@@ -945,6 +945,10 @@ void Engine::cleanup()
 #if WILL_ENGINE_DEBUG
     if (editorSettings.saveOnExit) {
         Serializer::serializeEngineSettings(this);
+
+        for (const std::unique_ptr<Map>& map : activeMaps) {
+            map->saveMap();
+        }
     }
 #endif
 

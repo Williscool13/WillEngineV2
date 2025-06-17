@@ -558,10 +558,10 @@ void GameObject::selectedRenderImgui()
                     ImGui::Text("Available Components:");
                     ImGui::Separator();
 
-                    const auto& creators = components::ComponentFactory::getInstance().getManuallyCreatableComponentCreators();
+                    const auto& creators = components::ComponentFactory::getInstance().getManuallyCreatableCreators();
                     for (const auto& type : creators | std::views::keys) {
                         if (ImGui::Selectable(type.data())) {
-                            auto newComponent = components::ComponentFactory::getInstance().createComponent(type, "New " + std::string(type));
+                            auto newComponent = components::ComponentFactory::getInstance().create(type, "New " + std::string(type));
                             if (newComponent) {
                                 addComponent(std::move(newComponent));
                             }
