@@ -51,28 +51,12 @@ public: // Serialization / Editor Tools
     virtual void closeRenderImgui() {}
 
 public: // Defined Behaviors
-    void setComponentName(char objectName[256])
-    {
-        componentName = objectName;
-    }
+    void setComponentName(const std::string& name) { componentName = name; }
+    void setComponentName(std::string&& name) { componentName = std::move(name); }
+    void setComponentName(const char* name) { componentName = name; }
 
-    std::string getComponentName()
-    {
-        return componentName;
-    }
-
-    std::string& getComponentNameRef()
-    {
-        return componentName;
-    }
-
-    std::string_view getComponentNameView()
-    {
-        if (componentName.empty()) {
-            return getComponentType();
-        }
-        return componentName;
-    }
+    const std::string& getComponentName() const { return componentName; }
+    std::string& getComponentNameImgui() { return componentName; }
 
     void enableComponent()
     {

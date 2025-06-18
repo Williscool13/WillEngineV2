@@ -170,7 +170,7 @@ void Engine::init()
     initRenderer();
     initGame();
 
-    Serializer::deserializeEngineSettings(this);
+    Serializer::deserializeEngineSettings(this, EngineSettingsTypeFlag::ALL_SETTINGS);
     if (!generateDefaultMap()) {
         createMap(file::getSampleScene());
     }
@@ -577,6 +577,7 @@ void Engine::render(float deltaTime)
 
     profiler.beginTimer("2Render");
 
+    // todo: optimize this, this is a vector realloc every frame
     std::vector<renderer::RenderObject*> allRenderObjects = assetManager->getAllRenderObjects();
 
     // Update Render Object Buffers and Model Matrices
@@ -943,11 +944,17 @@ void Engine::cleanup()
     fmt::print("Cleaning up {}\n", ENGINE_NAME);
 
 #if WILL_ENGINE_DEBUG
-    if (editorSettings.saveOnExit) {
-        Serializer::serializeEngineSettings(this);
+    if (editorSettings.bSaveSettingsOnExit) {
+        Serializer::serializeEngineSettings(this, EngineSettingsTypeFlag::ALL_SETTINGS);
 
+        fmt::print("Cleanup: Saved all engine settings\n");
+    }
+
+    if (editorSettings.bSaveMapOnExit) {
+        fmt::print("Cleanup: Saving all active maps:\n");
         for (const std::unique_ptr<Map>& map : activeMaps) {
             map->saveMap();
+            fmt::print("Map Saved ({})\n", map.get()->getName());
         }
     }
 #endif

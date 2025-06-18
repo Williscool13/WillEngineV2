@@ -1,216 +1,118 @@
 //
-// Created by William on 2025-01-24.
+// Created by William on 2025-06-17.
 //
 
-#ifndef MODEL_H
-#define MODEL_H
+#ifndef RENDER_OBJECT_H
+#define RENDER_OBJECT_H
 
-#include <filesystem>
-#include <unordered_set>
-#include <fastgltf/types.hpp>
-
-#include "render_object_types.h"
 #include "render_reference.h"
-#include "engine/core/game_object/renderable.h"
-#include "engine/renderer/renderer_constants.h"
 #include "engine/renderer/resource_manager.h"
-#include "engine/renderer/resources/buffer.h"
-#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
-#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_uniform.h"
-#include "engine/renderer/resources/resources_fwd.h"
-
 
 namespace will_engine
 {
 class IComponentContainer;
 }
 
-
 namespace will_engine::renderer
 {
-struct RenderableProperties
-{
-    uint32_t instanceIndex;
-};
-
 /**
  * Render Objects are persistent class representations of GLTF files. They always exist and their lifetime is managed through \code AssetManager\endcode.
  * \n The Render Object can be loaded/unloaded at runtime to avoid unnecessary GPU allocations.
  */
-class RenderObject final : public IRenderReference
+class RenderObject : public IRenderReference
 {
 public:
-    RenderObject(ResourceManager& resourceManager, const std::filesystem::path& willmodelPath, const std::filesystem::path& gltfFilepath,
-                 std::string name, uint32_t renderObjectId);
+    RenderObject() = delete;
+
+    RenderObject(ResourceManager& resourceManager, const RenderObjectInfo& renderObjectInfo);
 
     ~RenderObject() override;
 
-    void update(VkCommandBuffer cmd, int32_t currentFrameOverlap, int32_t previousFrameOverlap);
+public: // Resource management
+    virtual void load() = 0;
+
+    virtual void unload() = 0;
+
+public: // Buffer update
+    /**
+     * Called every frame to instruct the render object to update their buffers.
+     * This is deferred until after the game loop so that all changes execute at the same time.
+     * @param cmd
+     * @param currentFrameOverlap guaranteed to never exceed `FRAME_OVERLAP`
+     * @param previousFrameOverlap guaranteed to never exceed `FRAME_OVERLAP`
+     */
+    virtual void update(VkCommandBuffer cmd, int32_t currentFrameOverlap, int32_t previousFrameOverlap) = 0;
 
     /**
-     * Buffers only update if change to instance count/primitive count. Usually only on load, create, or destroy.
-     * \n Reasonably expensive.
-     * @param cmd
-     * @param currentFrameOverlap
-     * @param previousFrameOverlap
+     * Called whenever either meshes are loaded (init) or a model matrix is modified (gameplay). It is the responsibility of the RenderObject
+     * to correctly keep track of what needs to be updated over multiple frames.
+     */
+    virtual void dirty() = 0;
+
+public: // Engine API
+    /**
+     * Attempt to generate all mesh components associated with the RenderObject, assigning the appropriate transforms throughout the hierarchy
+     * @param container
+     * @param transform
+     */
+    virtual void generateMeshComponents(IComponentContainer* container, const Transform& transform) = 0;
+
+    /**
+     * Generates a single mesh from the RenderObject, the transform will always be Identity.
+     * @param renderable
+     * @param meshIndex
      * @return
      */
-    bool updateBuffers(VkCommandBuffer cmd, int32_t currentFrameOverlap, int32_t previousFrameOverlap);
+    virtual void generateMesh(IRenderable* renderable, int32_t meshIndex) = 0;
 
-    /**
-     * Will mark all renderables as dirty.
-     */
-    void dirty();
+    virtual size_t getMeshCount() const = 0;
 
-    int32_t bufferFramesToUpdate{0};
+    virtual bool canDraw() const = 0;
+
+    virtual bool canDrawOpaque() const = 0;
+
+    virtual bool canDrawTransparent() const = 0;
+
+    virtual const DescriptorBufferUniform* getAddressesDescriptorBuffer() const = 0;
+
+    virtual const DescriptorBufferSampler* getTextureDescriptorBuffer() const = 0;
+
+    virtual const DescriptorBufferUniform* getFrustumCullingAddressesDescriptorBuffer() const = 0;
+
+    VkBuffer getPositionVertexBuffer() const override = 0;
+
+    VkBuffer getPropertyVertexBuffer() const override = 0;
+
+    VkBuffer getIndexBuffer() const override = 0;
+
+    virtual VkBuffer getOpaqueIndirectBuffer(int32_t currentFrameOverlap) const = 0;
+
+    virtual size_t getOpaqueDrawIndirectCommandCount() const = 0;
+
+    virtual VkBuffer getTransparentIndirectBuffer(int32_t currentFrameOverlap) const = 0;
+
+    virtual size_t getTransparentDrawIndirectCommandCount() const = 0;
+
+public: // RenderReference
+    uint32_t getId() const override { return renderObjectInfo.id; }
 
 public:
-    void load();
-
-    void unload();
-
+    const RenderObjectInfo& getRenderObjectInfo() { return renderObjectInfo; }
+    const std::string& getName() const { return renderObjectInfo.name; }
     bool isLoaded() const { return bIsLoaded; }
 
-    const std::string& getName() { return name; }
+protected:
+    ResourceManager& resourceManager;
+    RenderObjectInfo renderObjectInfo;
 
-    const std::filesystem::path& getGltfPath() { return gltfPath; }
-
-    const std::filesystem::path& getWillmodelPath() { return willmodelPath; }
-
-private:
     bool bIsLoaded{false};
 
-    std::filesystem::path willmodelPath;
-    std::filesystem::path gltfPath;
-    std::string name;
+#if WILL_ENGINE_DEBUG
 
-private:
-    /**
-     * A map between a renderable and its model matrix
-     */
-    std::unordered_map<IRenderable*, RenderableProperties> renderableMap;
-
-    uint32_t getFreePrimitiveIndex();
-
-    std::unordered_set<uint32_t> freePrimitiveIndices{};
-    /**
-     * The max number of primitives this render object supports at the moment. If a new primitives is made that would exceed this limit, the primitives buffer will be expanded and this value inceased.
-     */
-    uint32_t currentMaxPrimitiveCount{0};
-
-
-    uint32_t getFreeInstanceIndex();
-
-    std::unordered_set<uint32_t> freeInstanceIndices{};
-    /**
-     * The max number of instances this render object supports at the moment. If a new instance is made that would exceed this limit, the instance buffer will be expanded
-     */
-    uint32_t currentMaxInstanceCount{0};
-
-    std::unordered_map<uint32_t, PrimitiveData> primitiveDataMap{};
-
-public: // IRenderReference
-    [[nodiscard]] uint32_t getId() const override { return renderObjectId; }
-
-    /**
-     * Releases the instance index and all associated primitives with that instance
-     * @param renderable
-     * @return
-     */
-    bool releaseInstanceIndex(IRenderable* renderable) override;
-
-    std::optional<std::reference_wrapper<const Mesh>> getMeshData(int32_t meshIndex) override;;
-
-private: // IRenderReference
-    /**
-     * Hash of the file path
-     */
-    uint32_t renderObjectId{};
-
-public: // Model Rendering API
-    bool generateMeshComponents(IComponentContainer* container, const Transform& transform = Transform::Identity);
-
-    [[nodiscard]] size_t getMeshCount() const { return meshes.size(); }
-    [[nodiscard]] bool canDraw() const { return freeInstanceIndices.size() != currentMaxInstanceCount; }
-    [[nodiscard]] bool canDrawOpaque() const { return opaqueDrawCommands.size() > 0; }
-    [[nodiscard]] bool canDrawTransparent() const { return transparentDrawCommands.size() > 0; }
-    [[nodiscard]] const DescriptorBufferUniform* getAddressesDescriptorBuffer() const { return addressesDescriptorBuffer.get(); }
-    [[nodiscard]] const DescriptorBufferSampler* getTextureDescriptorBuffer() const { return textureDescriptorBuffer.get(); }
-    [[nodiscard]] const DescriptorBufferUniform* getFrustumCullingAddressesDescriptorBuffer() const { return frustumCullingDescriptorBuffer.get(); }
-    [[nodiscard]] VkBuffer getPositionVertexBuffer() const override { return vertexPositionBuffer ? vertexPositionBuffer->buffer : VK_NULL_HANDLE; }
-    [[nodiscard]] VkBuffer getPropertyVertexBuffer() const override { return vertexPositionBuffer ? vertexPropertyBuffer->buffer : VK_NULL_HANDLE; }
-    [[nodiscard]] VkBuffer getIndexBuffer() const override          { return indexBuffer ? indexBuffer->buffer : VK_NULL_HANDLE; }
-
-    [[nodiscard]] VkBuffer getOpaqueIndirectBuffer(const int32_t currentFrameOverlap) const
-    {
-        return opaqueDrawIndirectBuffers[currentFrameOverlap]->buffer;
-    }
-
-    [[nodiscard]] size_t getOpaqueDrawIndirectCommandCount() const { return opaqueDrawCommands.size(); }
-
-    [[nodiscard]] VkBuffer getTransparentIndirectBuffer(const int32_t currentFrameOverlap) const
-    {
-        return transparentDrawIndirectBuffers[currentFrameOverlap]->buffer;
-    }
-
-    [[nodiscard]] size_t getTransparentDrawIndirectCommandCount() const { return transparentDrawCommands.size(); }
-
-
-    void recursiveGenerate(const RenderNode& renderNode, IComponentContainer* container);
-    void recursiveGenerate(const RenderNode& renderNode, IComponentContainer* container, const Transform& parentTransform);
-
-    /**
-     * @param renderable to assign mesh references.
-     * @param meshIndex in the RenderObject to generate. \code 0 < n <= meshes.size()\endcode
-     * @return true if successfully generated mesh and assigned to the renderable
-     */
-    bool generateMesh(IRenderable* renderable, int32_t meshIndex);
-
-private: // Model Parsing
-    bool parseGltf(const std::filesystem::path& gltfFilepath, std::vector<MaterialProperties>& materials,
-                   std::vector<VertexPosition>& vertexPositions, std::vector<VertexProperty>& vertexProperties, std::vector<uint32_t>& indices);
-
-private: // Model Data
-    ResourceManager& resourceManager;
-
-    std::vector<Mesh> meshes{};
-    std::vector<BoundingSphere> boundingSpheres{};
-    std::vector<RenderNode> renderNodes{};
-    std::vector<int32_t> topNodes;
-
-public: // Buffer Data
-    std::vector<SamplerPtr> samplers{};
-    // todo: refactor this to use the new TextureResource class
-    std::vector<ImageResourcePtr> images{};
-
-    std::vector<VkDrawIndexedIndirectCommand> opaqueDrawCommands{};
-    std::vector<VkDrawIndexedIndirectCommand> transparentDrawCommands{};
-
-    /**
-     * Split vertex Position and Properties to improve GPU cache performance for passes that only need position (shadow pass, depth prepass), assuming these passes don't need the other properties of course
-     */
-    BufferPtr vertexPositionBuffer{};
-    BufferPtr vertexPropertyBuffer{};
-    BufferPtr indexBuffer{};
-    std::array<BufferPtr, FRAME_OVERLAP> opaqueDrawIndirectBuffers{};
-    std::array<BufferPtr, FRAME_OVERLAP> transparentDrawIndirectBuffers{};
-
-    // addresses
-    std::array<BufferPtr, FRAME_OVERLAP> addressBuffers{};
-    //  the actual buffers
-    // todo: Material buffer probably also needs to be multi-buffered if it changes at runtime, which it probably should be allowed to
-    BufferPtr materialBuffer{};
-    std::array<BufferPtr, FRAME_OVERLAP> primitiveDataBuffers{};
-    std::array<BufferPtr, FRAME_OVERLAP> modelMatrixBuffers{};
-
-    DescriptorBufferUniformPtr addressesDescriptorBuffer{};
-    DescriptorBufferSamplerPtr textureDescriptorBuffer{};
-
-    BufferPtr meshBoundsBuffer{};
-    std::array<BufferPtr, FRAME_OVERLAP> opaqueCullingAddressBuffers{};
-    std::array<BufferPtr, FRAME_OVERLAP> transparentCullingAddressBuffers{};
-    DescriptorBufferUniformPtr frustumCullingDescriptorBuffer{};
+public:
+    virtual const std::vector<ImageResourcePtr>& debugGetImages() = 0;
+#endif
 };
 }
 
-#endif //MODEL_H
+#endif //RENDER_OBJECT_H

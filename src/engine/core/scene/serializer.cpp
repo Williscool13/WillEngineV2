@@ -168,7 +168,7 @@ bool Serializer::serializeMap(IHierarchical* map, ordered_json& rootJ, const std
                 ordered_json componentData;
                 component->serialize(componentData);
                 componentsJson[component->getComponentType()] = componentData;
-                componentsJson[component->getComponentType()]["componentName"] = component->getComponentNameView();
+                componentsJson[component->getComponentType()]["componentName"] = component->getComponentName();
             }
             rootJ["rootComponents"] = componentsJson;
         }
@@ -224,17 +224,23 @@ bool Serializer::deserializeMap(IHierarchical* root, ordered_json& rootJ)
 
 bool Serializer::generateWillModel(const std::filesystem::path& gltfPath, const std::filesystem::path& outputPath)
 {
-    RenderObjectInfo info;
-    info.gltfPath = gltfPath.string();
-    info.name = gltfPath.stem().string();
-    info.id = computePathHash(info.gltfPath);
+    std::string sourcePathStr = gltfPath.string();
+    std::string name = gltfPath.stem().string();
+    uint32_t id = computePathHash(sourcePathStr);
+
+    // do some checks and return false if filetype is not supported
+    std::filesystem::path sourcePath = sourcePathStr;
 
     nlohmann::json j;
-    j["version"] = WILL_MODEL_FORMAT_VERSION;
+    j["version"] = {
+        {"major", WILL_MODEL_FORMAT_VERSION_MAJOR},
+        {"minor", WILL_MODEL_FORMAT_VERSION_MINOR},
+        {"patch", WILL_MODEL_FORMAT_VERSION_PATCH}
+    };
     j["renderObject"] = {
-        {"gltfPath", info.gltfPath},
-        {"name", info.name},
-        {"id", info.id}
+        {"sourcePath", sourcePathStr},
+        {"name", name},
+        {"id", id}
     };
 
     try {
@@ -259,9 +265,30 @@ std::optional<RenderObjectInfo> Serializer::loadWillModel(const std::filesystem:
         nlohmann::json j;
         i >> j;
 
-        if (!j.contains("version") || j["version"] != 1) {
-            fmt::print("Invalid or unsupported willmodel version in: {}\n", willmodelPath.string());
+        if (!j.contains("version")) {
+            fmt::print("Missing version field in willmodel file: {}\n", willmodelPath.string());
             return std::nullopt;
+        }
+
+        auto& version = j["version"];
+        if (!version.is_object() || !version.contains("major") || !version.contains("minor") || !version.contains("patch")) {
+            fmt::print("Invalid version format in willmodel file: {}\n", willmodelPath.string());
+            return std::nullopt;
+        }
+
+        uint32_t major = version["major"];
+        uint32_t minor = version["minor"];
+        uint32_t patch = version["patch"];
+
+        // Check compatibility - adjust these rules as needed
+        if (major != WILL_MODEL_FORMAT_VERSION_MAJOR) {
+            fmt::print("Incompatible major version {} (expected {}) in willmodel file: {}\n", major, WILL_MODEL_FORMAT_VERSION_MAJOR, willmodelPath.string());
+            return std::nullopt;
+        }
+
+        if (minor > WILL_MODEL_FORMAT_VERSION_MINOR) {
+            fmt::print("Warning: Newer minor version {} (current {}) in willmodel file: {}\n", minor, WILL_MODEL_FORMAT_VERSION_MINOR, willmodelPath.string());
+            // Minor Compatibility Code
         }
 
         if (!j.contains("renderObject")) {
@@ -273,11 +300,14 @@ std::optional<RenderObjectInfo> Serializer::loadWillModel(const std::filesystem:
 
         RenderObjectInfo info;
         info.willmodelPath = willmodelPath;
-        info.gltfPath = renderObject["gltfPath"].get<std::string>();
+        if (!renderObject.contains("sourcePath")) {
+            return std::nullopt;
+        }
+        info.sourcePath = renderObject["sourcePath"].get<std::string>();
         info.name = renderObject["name"].get<std::string>();
         info.id = renderObject["id"].get<uint32_t>();
 
-        uint32_t computedId = computePathHash(info.gltfPath);
+        uint32_t computedId = computePathHash(info.sourcePath);
         if (computedId != info.id) {
             fmt::print("Warning: ID mismatch in {}, expected: {}, found: {} (not necessarily a problem).\n", willmodelPath.string(), computedId,
                        info.id);
@@ -301,7 +331,7 @@ bool Serializer::generateWillTexture(const std::filesystem::path& texturePath, c
     nlohmann::json j;
     j["version"] = WILL_TEXTURE_FORMAT_VERSION;
     j["texture"] = {
-        {"gltfPath", info.texturePath},
+        {"sourcePath", info.texturePath},
         {"name", info.name},
         {"id", info.id},
         {"textureProperties", info.textureProperties},
@@ -343,7 +373,7 @@ std::optional<TextureInfo> Serializer::loadWillTexture(const std::filesystem::pa
 
         TextureInfo info;
         info.willtexturePath = willtexturePath;
-        info.texturePath = texture.value<std::string>("gltfPath", "");
+        info.texturePath = texture.value<std::string>("sourcePath", "");
         info.name = texture.value<std::string>("name", "");
         info.id = texture.value<uint32_t>("id", 0);;
         info.textureProperties = texture.value<TextureProperties>("textureProperties", {});
@@ -402,7 +432,8 @@ bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag 
     if (hasFlag(engineSettings, EngineSettingsTypeFlag::EDITOR_SETTINGS)) {
         ordered_json editorSettings;
         EditorSettings _editorSettings = engine->getEditorSettings();
-        editorSettings["saveOnExit"] = _editorSettings.saveOnExit;
+        editorSettings["saveSettingsOnExit"] = _editorSettings.bSaveSettingsOnExit;
+        editorSettings["saveMapOnExit"] = _editorSettings.bSaveMapOnExit;
 
         rootJ["editorSettings"] = editorSettings;
     }
@@ -580,8 +611,12 @@ bool Serializer::deserializeEngineSettings(Engine* engine, EngineSettingsTypeFla
             ordered_json editorSettings = rootJ["editorSettings"];
             EditorSettings _editorSettings = engine->getEditorSettings();
 
-            if (editorSettings.contains("saveOnExit")) {
-                _editorSettings.saveOnExit = editorSettings["saveOnExit"].get<bool>();
+            if (editorSettings.contains("saveSettingsOnExit")) {
+                _editorSettings.bSaveSettingsOnExit = editorSettings["saveSettingsOnExit"].get<bool>();
+            }
+
+            if (editorSettings.contains("saveMapOnExit")) {
+                _editorSettings.bSaveSettingsOnExit = editorSettings["saveMapOnExit"].get<bool>();
             }
 
             engine->setEditorSettings(_editorSettings);

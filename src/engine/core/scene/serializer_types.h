@@ -70,14 +70,6 @@ struct SceneMetadata
     }
 };
 
-struct RenderObjectInfo
-{
-    std::filesystem::path willmodelPath;
-    std::string gltfPath;
-    std::string name;
-    uint32_t id;
-};
-
 struct TextureInfo
 {
     TextureProperties textureProperties;

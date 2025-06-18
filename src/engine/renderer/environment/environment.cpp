@@ -14,6 +14,8 @@
 #include "engine/renderer/resources/image.h"
 #include "engine/renderer/resources/image_view.h"
 #include "engine/renderer/resources/shader_module.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
+#include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_types.h"
 #include "engine/util/file.h"
 
 namespace will_engine::renderer

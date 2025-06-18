@@ -94,6 +94,10 @@ bool will_engine::Map::loadMap()
 
 bool will_engine::Map::saveMap()
 {
+#if WILL_ENGINE_RELEASE
+    fmt::print("Warning: Attempted to save game in release, this should generally not be allowed");
+    return false;
+#endif
     ordered_json rootJ;
 
     return Serializer::serializeMap(this, rootJ, mapSource);
@@ -101,6 +105,10 @@ bool will_engine::Map::saveMap()
 
 bool will_engine::Map::saveMap(const std::filesystem::path& newSavePath)
 {
+#if WILL_ENGINE_RELEASE
+    fmt::print("Warning: Attempted to save game in release, this should generally not be allowed");
+    return false;
+#endif
     if (!newSavePath.empty() && mapSource != newSavePath) {
         mapSource = newSavePath;
     }

@@ -270,9 +270,9 @@ public: // Textures
     static std::optional<TextureInfo> loadWillTexture(const std::filesystem::path& willtexturePath);
 
 public: // Engine Settings
-    static bool serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag engineSettings = EngineSettingsTypeFlag::ALL_SETTINGS);
+    static bool serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag engineSettings);
 
-    static bool deserializeEngineSettings(Engine* engine, EngineSettingsTypeFlag engineSettings = EngineSettingsTypeFlag::ALL_SETTINGS);
+    static bool deserializeEngineSettings(Engine* engine, EngineSettingsTypeFlag engineSettings);
 
 public: //
     static uint32_t computePathHash(const std::filesystem::path& path)

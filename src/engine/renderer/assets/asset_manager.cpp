@@ -46,8 +46,8 @@ void AssetManager::scanForRenderObjects()
         std::optional<RenderObjectInfo> renderObjectInfo = Serializer::loadWillModel(willModel);
         if (renderObjectInfo.has_value()) {
             if (!renderObjects.contains(renderObjectInfo->id)) {
-                renderObjects[renderObjectInfo->id] = std::make_unique<RenderObject>(resourceManager, renderObjectInfo->willmodelPath, std::filesystem::path(renderObjectInfo->gltfPath),
-                                                                                     renderObjectInfo->name, renderObjectInfo->id);
+                // todo: split here for other types
+                renderObjects[renderObjectInfo->id] = std::make_unique<RenderObjectGltf>(resourceManager, renderObjectInfo.value());
             }
         }
     }
@@ -98,7 +98,10 @@ std::vector<RenderObject*> AssetManager::getAllRenderObjects()
 
 RenderObject* AssetManager::getAnyRenderObject() const
 {
+    if (!hasAnyRenderObjects()) {
+        return nullptr;
+    }
+
     return renderObjects.begin()->second.get();
 }
-
 }

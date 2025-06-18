@@ -1,8 +1,12 @@
 {
     "renderObject": {
-        "gltfPath": "assets\\models\\sponza2\\Sponza.gltf",
         "id": 195023067,
-        "name": "Sponza"
+        "name": "Sponza",
+        "sourcePath": "assets\\models\\sponza2\\Sponza.gltf"
     },
-    "version": 1
+    "version": {
+        "major": 0,
+        "minor": 1,
+        "patch": 0
+    }
 }

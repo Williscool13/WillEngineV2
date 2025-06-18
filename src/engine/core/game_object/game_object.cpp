@@ -5,6 +5,7 @@
 #include "game_object.h"
 
 #include <imgui.h>
+#include <imgui/misc/cpp/imgui_stdlib.h>
 
 #include "glm/gtc/quaternion.hpp"
 #include "components/component.h"
@@ -577,7 +578,7 @@ void GameObject::selectedRenderImgui()
 
                 components::Component* componentToDestroy{nullptr};
                 for (auto& component : components) {
-                    std::string& componentName = component->getComponentNameRef();
+                    std::string& componentName = component->getComponentNameImgui();
                     ImGui::PushID(component.get());
 
                     ImGui::Text("%s:", component->getComponentType().data());
@@ -593,14 +594,14 @@ void GameObject::selectedRenderImgui()
 
 
                     const char* componentType = component->getComponentType().data();
-                    if (ImGui::Button(componentName.c_str(), ImVec2(-1, 0))) {
+                    if (ImGui::Button(componentName.data(), ImVec2(-1, 0))) {
                         ImGui::OpenPopup(componentType);
                     }
 
 
                     ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0.75f, 0.75f, 0.75f, 1.0f)); // Dark gray
                     if (ImGui::BeginPopupModal(componentType, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                        ImGui::InputText("Component Name", &componentName[0], componentName.capacity() + 1);
+                        ImGui::InputText("Component Name", &componentName);
                         ImGui::Separator();
 
                         component->updateRenderImgui();
