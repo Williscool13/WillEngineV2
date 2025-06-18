@@ -578,7 +578,7 @@ void Engine::render(float deltaTime)
     profiler.beginTimer("2Render");
 
     // todo: optimize this, this is a vector realloc every frame
-    std::vector<renderer::RenderObject*> allRenderObjects = assetManager->getAllRenderObjects();
+    const std::vector<renderer::RenderObject*>& allRenderObjects = assetManager->getAllRenderObjects();
 
     // Update Render Object Buffers and Model Matrices
     for (renderer::RenderObject* renderObject : allRenderObjects) {
@@ -954,7 +954,7 @@ void Engine::cleanup()
         fmt::print("Cleanup: Saving all active maps:\n");
         for (const std::unique_ptr<Map>& map : activeMaps) {
             map->saveMap();
-            fmt::print("Map Saved ({})\n", map.get()->getName());
+            fmt::print("    Map Saved ({})\n", map.get()->getName());
         }
     }
 #endif

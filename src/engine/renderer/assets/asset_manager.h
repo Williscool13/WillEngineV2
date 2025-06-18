@@ -41,7 +41,7 @@ private: // Textures
 public: // Render Objects
     RenderObject* getRenderObject(uint32_t renderObjectId) const;
 
-    std::vector<RenderObject*> getAllRenderObjects();
+    const std::vector<RenderObject*>& getAllRenderObjects();
 
     bool hasAnyRenderObjects() const { return renderObjects.size() > 0; }
 
@@ -49,6 +49,8 @@ public: // Render Objects
 
 private: // Render Objects
     std::unordered_map<uint32_t, RenderObjectPtr> renderObjects;
+    std::vector<RenderObject*> cachedRenderObjects;
+    bool bRenderObjectsCacheDirty = true;
 
     std::unordered_map<uint32_t, std::unique_ptr<Material> > materials;
 

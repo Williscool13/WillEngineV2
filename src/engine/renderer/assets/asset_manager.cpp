@@ -12,8 +12,7 @@ AssetManager::AssetManager(ResourceManager& resourceManager) : resourceManager(r
 {}
 
 AssetManager::~AssetManager()
-{
-}
+{}
 
 void AssetManager::scanForAll()
 {
@@ -31,7 +30,8 @@ void AssetManager::scanForTextures()
         std::optional<TextureInfo> textureInfo = Serializer::loadWillTexture(willTexture);
         if (textureInfo.has_value()) {
             if (!textures.contains(textureInfo->id)) {
-                textures[textureInfo->id] = std::make_unique<Texture>(resourceManager, textureInfo->id, textureInfo->willtexturePath, std::filesystem::path(textureInfo->texturePath),
+                textures[textureInfo->id] = std::make_unique<Texture>(resourceManager, textureInfo->id, textureInfo->willtexturePath,
+                                                                      std::filesystem::path(textureInfo->texturePath),
                                                                       textureInfo->textureProperties);
             }
         }
@@ -48,6 +48,7 @@ void AssetManager::scanForRenderObjects()
             if (!renderObjects.contains(renderObjectInfo->id)) {
                 // todo: split here for other types
                 renderObjects[renderObjectInfo->id] = std::make_unique<RenderObjectGltf>(resourceManager, renderObjectInfo.value());
+                bRenderObjectsCacheDirty = true;
             }
         }
     }
@@ -86,14 +87,16 @@ RenderObject* AssetManager::getRenderObject(const uint32_t renderObjectId) const
     return nullptr;
 }
 
-std::vector<RenderObject*> AssetManager::getAllRenderObjects()
+const std::vector<RenderObject*>& AssetManager::getAllRenderObjects()
 {
-    std::vector<RenderObject*> result;
-    result.reserve(renderObjects.size());
-
-    std::ranges::transform(renderObjects, std::back_inserter(result), [](const auto& pair) { return pair.second.get(); });
-
-    return result;
+    if (bRenderObjectsCacheDirty) {
+        cachedRenderObjects.clear();
+        cachedRenderObjects.reserve(renderObjects.size());
+        std::ranges::transform(renderObjects, std::back_inserter(cachedRenderObjects),
+                               [](const auto& pair) { return pair.second.get(); });
+        bRenderObjectsCacheDirty = false;
+    }
+    return cachedRenderObjects;
 }
 
 RenderObject* AssetManager::getAnyRenderObject() const
