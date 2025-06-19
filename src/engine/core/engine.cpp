@@ -142,10 +142,10 @@ void Engine::init()
     environmentMap = new renderer::Environment(*resourceManager, *immediate);
     startupProfiler.addEntry("Environment");
 
-    auto& componentFactory = components::ComponentFactory::getInstance();
+    auto& componentFactory = game::ComponentFactory::getInstance();
     componentFactory.registerComponents();
 
-    auto& gameObjectFactory = game_object::GameObjectFactory::getInstance();
+    auto& gameObjectFactory = game::GameObjectFactory::getInstance();
     gameObjectFactory.registerGameObjects();
 
     const std::filesystem::path envMapSource = "assets/environments";
@@ -507,8 +507,8 @@ void Engine::updateDebug(float deltaTime)
 {
 #if WILL_ENGINE_DEBUG_DRAW
     if (selectedItem) {
-        if (const auto gameObject = dynamic_cast<game_object::GameObject*>(selectedItem)) {
-            if (const components::RigidBodyComponent* rb = gameObject->getRigidbody()) {
+        if (const auto gameObject = dynamic_cast<game::GameObject*>(selectedItem)) {
+            if (const auto rb = gameObject->getComponent<game::RigidBodyComponent>()) {
                 if (rb->hasRigidBody()) {
                     physics::Physics::get()->drawDebug(rb->getPhysicsBodyId());
                 }
@@ -524,7 +524,7 @@ void Engine::updateDebug(float deltaTime)
                 if (const physics::RaycastHit result = physics::PhysicsUtils::raycast(fallbackCamera->getPosition(),
                                                                                       normalize(direction) * fallbackCamera->getNearPlane())) {
                     if (const physics::PhysicsObject* physicsObject = physics->getPhysicsObject(result.hitBodyID)) {
-                        if (const auto* component = dynamic_cast<components::Component*>(physicsObject->physicsBody)) {
+                        if (const auto* component = dynamic_cast<game::Component*>(physicsObject->physicsBody)) {
                             if (IComponentContainer* owner = component->getOwner()) {
                                 if (const auto hierarchical = dynamic_cast<IHierarchical*>(owner)) {
                                     selectItem(hierarchical);
@@ -848,8 +848,8 @@ void Engine::render(float deltaTime)
         };
 
 
-        if (IComponentContainer* cc = dynamic_cast<IComponentContainer*>(selectedItem)) {
-            if (components::MeshRendererComponent* meshRenderer = cc->getComponent<components::MeshRendererComponent>()) {
+        if (auto cc = dynamic_cast<IComponentContainer*>(selectedItem)) {
+            if (auto meshRenderer = cc->getComponent<game::MeshRendererComponent>()) {
                 highlightDrawInfo.highlightTarget = meshRenderer;
                 stencilDrawn = debugHighlighter->drawHighlightStencil(cmd, highlightDrawInfo);
             }
@@ -952,7 +952,7 @@ void Engine::cleanup()
 
     if (editorSettings.bSaveMapOnExit) {
         fmt::print("Cleanup: Saving all active maps:\n");
-        for (const std::unique_ptr<Map>& map : activeMaps) {
+        for (const std::unique_ptr<game::Map>& map : activeMaps) {
             map->saveMap();
             fmt::print("    Map Saved ({})\n", map.get()->getName());
         }
@@ -1056,8 +1056,8 @@ void Engine::selectItem(IHierarchical* hierarchical)
 
 void Engine::deselectItem()
 {
-    if (const auto gameObject = dynamic_cast<game_object::GameObject*>(selectedItem)) {
-        if (const components::RigidBodyComponent* rb = gameObject->getRigidbody()) {
+    if (const auto gameObject = dynamic_cast<game::GameObject*>(selectedItem)) {
+        if (const game::RigidBodyComponent* rb = gameObject->getComponent<game::RigidBodyComponent>()) {
             if (rb->hasRigidBody()) {
                 physics::Physics::get()->stopDrawDebug(rb->getPhysicsBodyId());
             }
@@ -1067,11 +1067,10 @@ void Engine::deselectItem()
 }
 #endif
 
-IHierarchical* Engine::createGameObject(Map* map, const std::string& name)
+IHierarchical* Engine::createGameObject(game::Map* map, const std::string& name)
 {
-    auto newGameObject = std::make_unique<game_object::GameObject>(name);
-    auto newGameObjectPtr = newGameObject.get();
-    map->addChild(std::move(newGameObject));
+    auto newGameObject = std::make_unique<game::GameObject>(name);
+    const auto newGameObjectPtr = map->addChild(std::move(newGameObject));
     return newGameObjectPtr;
 }
 
@@ -1080,10 +1079,10 @@ void Engine::addToBeginQueue(IHierarchical* obj)
     hierarchalBeginQueue.push_back(obj);
 }
 
-void Engine::addToMapDeletionQueue(Map* obj)
+void Engine::addToMapDeletionQueue(game::Map* obj)
 {
     auto it = std::ranges::find_if(activeMaps,
-                                   [obj](const std::unique_ptr<Map>& ptr) {
+                                   [obj](const std::unique_ptr<game::Map>& ptr) {
                                        return ptr.get() == obj;
                                    });
 
@@ -1155,11 +1154,11 @@ void Engine::resizeSwapchain()
     fmt::print("Window extent has been updated to {}x{}\n", windowExtent.x, windowExtent.y);
 }
 
-Map* Engine::createMap(const std::filesystem::path& path)
+game::Map* Engine::createMap(const std::filesystem::path& path)
 {
-    auto newMap = std::make_unique<Map>(path, *resourceManager);
+    auto newMap = std::make_unique<game::Map>(path, *resourceManager);
     if (!newMap) { return nullptr; }
-    Map* newMapPtr = newMap.get();
+    game::Map* newMapPtr = newMap.get();
     activeMaps.push_back(std::move(newMap));
     return newMapPtr;
 }

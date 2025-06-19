@@ -14,7 +14,7 @@ namespace will_engine
 void Serializer::serializeGameObject(ordered_json& j, IHierarchical* obj)
 
 {
-    if (const auto gameObject = dynamic_cast<game_object::GameObject*>(obj)) {
+    if (const auto gameObject = dynamic_cast<game::GameObject*>(obj)) {
         j["id"] = gameObject->getId();
         j["gameObjectType"] = gameObject->getComponentType();
     }
@@ -26,7 +26,7 @@ void Serializer::serializeGameObject(ordered_json& j, IHierarchical* obj)
     }
 
     if (const auto componentContainer = dynamic_cast<IComponentContainer*>(obj)) {
-        const std::vector<components::Component*> components = componentContainer->getAllComponents();
+        const std::vector<game::Component*> components = componentContainer->getAllComponents();
         if (components.size() > 0) {
             ordered_json componentsJson;
             for (const auto& component : components) {
@@ -86,8 +86,8 @@ void Serializer::serializeGameObject(ordered_json& j, IHierarchical* obj)
 
 std::unique_ptr<IHierarchical> Serializer::deserializeGameObject(const ordered_json& j)
 {
-    auto& gameObjectFactory = game_object::GameObjectFactory::getInstance();
-    std::unique_ptr<game_object::GameObject> gameObject{nullptr};
+    auto& gameObjectFactory = game::GameObjectFactory::getInstance();
+    std::unique_ptr<game::GameObject> gameObject{nullptr};
     std::string name{};
 
     if (j.contains("name")) {
@@ -100,7 +100,7 @@ std::unique_ptr<IHierarchical> Serializer::deserializeGameObject(const ordered_j
     }
 
     if (!gameObject) {
-        gameObject = gameObjectFactory.create(game_object::GameObject::getStaticType(), "");
+        gameObject = gameObjectFactory.create(game::GameObject::getStaticType(), "");
     }
 
 
@@ -113,7 +113,7 @@ std::unique_ptr<IHierarchical> Serializer::deserializeGameObject(const ordered_j
     }
 
     if (j.contains("components")) {
-        auto& factory = components::ComponentFactory::getInstance();
+        auto& factory = game::ComponentFactory::getInstance();
 
         const auto& components = j["components"];
         for (const auto& [componentName, componentData] : components.items()) {
@@ -124,8 +124,8 @@ std::unique_ptr<IHierarchical> Serializer::deserializeGameObject(const ordered_j
             auto componentType = componentData["componentType"].get<std::string>();
 
 
-            std::unique_ptr<components::Component> newComponent = factory.create(componentType, componentName);
-            components::Component* component = gameObject->addComponent(std::move(newComponent));
+            std::unique_ptr<game::Component> newComponent = factory.create(componentType, componentName);
+            game::Component* component = gameObject->addComponent(std::move(newComponent));
 
 
             if (!component) {
@@ -161,7 +161,7 @@ bool Serializer::serializeMap(IHierarchical* map, ordered_json& rootJ, const std
     rootJ["metadata"] = SceneMetadata::create(map->getName().data());
 
     if (const auto componentContainer = dynamic_cast<IComponentContainer*>(map)) {
-        const std::vector<components::Component*> components = componentContainer->getAllComponents();
+        const std::vector<game::Component*> components = componentContainer->getAllComponents();
         if (components.size() > 0) {
             ordered_json componentsJson;
             for (const auto& component : components) {
@@ -207,7 +207,7 @@ bool Serializer::deserializeMap(IHierarchical* root, ordered_json& rootJ)
                     componentName = componentType;
                 }
 
-                auto& factory = components::ComponentFactory::getInstance();
+                auto& factory = game::ComponentFactory::getInstance();
                 auto newComponent = factory.create(componentType, componentName);
 
                 if (newComponent) {

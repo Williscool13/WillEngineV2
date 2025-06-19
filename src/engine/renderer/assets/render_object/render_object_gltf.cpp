@@ -248,10 +248,10 @@ void RenderObjectGltf::recursiveGenerate(const RenderNode& renderNode, IComponen
     thisNodeTransform.applyParentTransform(parentTransform);
 
     if (renderNode.meshIndex != -1) {
-        auto newMeshComponent = components::ComponentFactory::getInstance().create(
-            components::MeshRendererComponent::getStaticType(), renderNode.name);
-        components::Component* component = container->addComponent(std::move(newMeshComponent));
-        if (const auto meshComponent = dynamic_cast<components::MeshRendererComponent*>(component)) {
+        auto newMeshComponent = game::ComponentFactory::getInstance().create(
+            game::MeshRendererComponent::getStaticType(), renderNode.name);
+        game::Component* component = container->addComponent(std::move(newMeshComponent));
+        if (const auto meshComponent = dynamic_cast<game::MeshRendererComponent*>(component)) {
             generateMesh(meshComponent, renderNode.meshIndex);
             meshComponent->setTransform(thisNodeTransform);
         }

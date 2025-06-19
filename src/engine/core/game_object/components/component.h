@@ -11,7 +11,7 @@
 #include "engine/core/game_object/component_container.h"
 
 
-namespace will_engine::components
+namespace will_engine::game
 {
 using ordered_json = nlohmann::ordered_json;
 

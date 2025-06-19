@@ -34,7 +34,7 @@ public:
 
     static void handleInput(const SDL_Event& e);
 
-    void selectMap(Map* newMap);
+    void selectMap(game::Map* newMap);
 
     void imguiInterface(Engine* engine);
 
@@ -78,7 +78,7 @@ private:
     VkDescriptorPool imguiPool{VK_NULL_HANDLE};
 
 
-    Map* selectedMap{nullptr};
+    game::Map* selectedMap{nullptr};
 
     uint32_t selectedRenderObjectId = 0;
     std::shared_ptr<renderer::TextureResource> currentlySelectedTexture;

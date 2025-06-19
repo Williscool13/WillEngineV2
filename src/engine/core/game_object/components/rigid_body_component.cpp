@@ -53,7 +53,7 @@ inline void from_json(const ordered_json& j, PhysicsProperties& props)
 }
 }
 
-namespace will_engine::components
+namespace will_engine::game
 {
 RigidBodyComponent::RigidBodyComponent(const std::string& name)
     : Component(name)

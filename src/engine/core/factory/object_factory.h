@@ -12,7 +12,7 @@
 #include <unordered_map>
 #include <type_traits>
 
-namespace will_engine
+namespace will_engine::game
 {
 template<typename T>
 concept HasGetStaticType = requires(T)

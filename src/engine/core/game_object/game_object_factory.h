@@ -9,7 +9,7 @@
 #include "engine/core/factory/object_factory.h"
 
 
-namespace will_engine::game_object
+namespace will_engine::game
 {
 class GameObjectFactory : public ObjectFactory<GameObject>
 {

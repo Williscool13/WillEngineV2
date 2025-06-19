@@ -10,7 +10,7 @@
 #include "engine/core/engine.h"
 #include "engine/core/game_object/transformable.h"
 
-namespace will_engine::components
+namespace will_engine::game
 {
 MeshRendererComponent::MeshRendererComponent(const std::string& name)
     : Component(name)

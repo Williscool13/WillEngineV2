@@ -105,21 +105,21 @@ void ImguiWrapper::handleInput(const SDL_Event& e)
     ImGui_ImplSDL3_ProcessEvent(&e);
 }
 
-void ImguiWrapper::selectMap(Map* newMap)
+void ImguiWrapper::selectMap(game::Map* newMap)
 {
     selectedMap = newMap;
     if (!selectedMap) {
         return;
     }
 
-    auto terrainComponent = selectedMap->getComponent<components::TerrainComponent>();
+    auto terrainComponent = selectedMap->getComponent<game::TerrainComponent>();
     if (!terrainComponent) {
-        auto& factory = components::ComponentFactory::getInstance();
-        auto newComponent = factory.create(components::TerrainComponent::TYPE, "Terrain Component");
+        auto& factory = game::ComponentFactory::getInstance();
+        auto newComponent = factory.create(game::TerrainComponent::TYPE, "Terrain Component");
         selectedMap->addComponent(std::move(newComponent));
     }
 
-    terrainComponent = selectedMap->getComponent<components::TerrainComponent>();
+    terrainComponent = selectedMap->getComponent<game::TerrainComponent>();
     if (!terrainComponent) {
         fmt::print("Unable to create terrain component, very strange");
         return;
@@ -818,9 +818,9 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                 if (ImGui::BeginTabBar("GameObject Generation")) {
                                     if (ImGui::BeginTabItem("Full Model")) {
                                         if (ImGui::Button("Generate Full Object")) {
-                                            auto& gameObjectFactory = game_object::GameObjectFactory::getInstance();
-                                            std::unique_ptr<game_object::GameObject> gameObject = gameObjectFactory.create(
-                                                game_object::GameObject::getStaticType(), std::string(objectName));
+                                            auto& gameObjectFactory = game::GameObjectFactory::getInstance();
+                                            std::unique_ptr<game::GameObject> gameObject = gameObjectFactory.create(
+                                                game::GameObject::getStaticType(), std::string(objectName));
                                             selectedRenderObject->generateMeshComponents(gameObject.get(), Transform::Identity);
                                             selectedMap->addChild(std::move(gameObject));
                                             fmt::print("Added whole gltf model to the scene\n");
@@ -852,10 +852,10 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                         ImGui::SameLine();
                                         if (auto container = dynamic_cast<IComponentContainer*>(engine->selectedItem)) {
                                             if (ImGui::Button("Add to selected item")) {
-                                                auto newComponent = components::ComponentFactory::getInstance().
-                                                        create(components::MeshRendererComponent::getStaticType(), "Mesh Renderer");
-                                                components::Component* component = container->addComponent(std::move(newComponent));
-                                                if (auto meshRenderer = dynamic_cast<components::MeshRendererComponent*>(component)) {
+                                                auto newComponent = game::ComponentFactory::getInstance().
+                                                        create(game::MeshRendererComponent::getStaticType(), "Mesh Renderer");
+                                                game::Component* component = container->addComponent(std::move(newComponent));
+                                                if (auto meshRenderer = dynamic_cast<game::MeshRendererComponent*>(component)) {
                                                     selectedRenderObject->generateMesh(meshRenderer, selectedMeshIndex);
                                                 }
                                             }
@@ -866,11 +866,11 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                                 IHierarchical* gob = Engine::createGameObject(selectedMap, objectName);
 
                                                 if (auto _container = dynamic_cast<IComponentContainer*>(gob)) {
-                                                    auto newComponent = components::ComponentFactory::getInstance().create(
-                                                        components::MeshRendererComponent::getStaticType(), "Mesh Renderer");
+                                                    auto newComponent = game::ComponentFactory::getInstance().create(
+                                                        game::MeshRendererComponent::getStaticType(), "Mesh Renderer");
 
-                                                    components::Component* component = _container->addComponent(std::move(newComponent));
-                                                    if (auto meshRenderer = dynamic_cast<components::MeshRendererComponent*>(component)) {
+                                                    game::Component* component = _container->addComponent(std::move(newComponent));
+                                                    if (auto meshRenderer = dynamic_cast<game::MeshRendererComponent*>(component)) {
                                                         selectedRenderObject->generateMesh(meshRenderer, selectedMeshIndex);
                                                     }
                                                     fmt::print("Added single mesh to scene\n");
@@ -1251,7 +1251,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
         if (IGFD::FileDialog::Instance()->IsOk()) {
             std::filesystem::path mapPath = IGFD::FileDialog::Instance()->GetFilePathName();
             mapPath = relative(mapPath);
-            Map* existing{nullptr};
+            game::Map* existing{nullptr};
             for (auto& map : engine->activeMaps) {
                 if (map->getMapPath() == mapPath) {
                     existing = map.get();
@@ -1261,7 +1261,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
             if (existing) {
                 selectMap(existing);
             }
-            else if (Map* map = engine->createMap(mapPath)) {
+            else if (game::Map* map = engine->createMap(mapPath)) {
                 selectMap(map);
             }
         }
@@ -1284,7 +1284,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
         if (IGFD::FileDialog::Instance()->IsOk()) {
             std::filesystem::path mapPath = IGFD::FileDialog::Instance()->GetFilePathName();
             mapPath = relative(mapPath);
-            Map* existing{nullptr};
+            game::Map* existing{nullptr};
             for (auto& map : engine->activeMaps) {
                 if (map->getMapPath() == mapPath) {
                     existing = map.get();
@@ -1294,7 +1294,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
             if (existing) {
                 selectMap(existing);
             }
-            else if (Map* map = engine->createMap(mapPath)) {
+            else if (game::Map* map = engine->createMap(mapPath)) {
                 selectMap(map);
             }
         }
@@ -1381,7 +1381,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
         }
 
         if (ImGui::BeginTabItem("Terrain")) {
-            const auto currentTerrainComponent = selectedMap->getComponent<components::TerrainComponent>();
+            const auto currentTerrainComponent = selectedMap->getComponent<game::TerrainComponent>();
             ImGui::BeginDisabled(!currentTerrainComponent);
             if (ImGui::Button("Save Terrain as HeightMap")) {
                 const std::vector<float> heightmapData = currentTerrainComponent->getHeightMapData();

@@ -7,22 +7,24 @@
 #include "imgui.h"
 #include "engine/core/engine.h"
 
-will_engine::components::TerrainComponent::TerrainComponent(const std::string& name) : Component(name)
+namespace will_engine::game
+{
+TerrainComponent::TerrainComponent(const std::string& name) : Component(name)
 {}
 
-will_engine::components::TerrainComponent::~TerrainComponent() = default;
+TerrainComponent::~TerrainComponent() = default;
 
-void will_engine::components::TerrainComponent::beginPlay()
+void TerrainComponent::beginPlay()
 {
     Component::beginPlay();
 }
 
-void will_engine::components::TerrainComponent::update(const float deltaTime)
+void TerrainComponent::update(const float deltaTime)
 {
     Component::update(deltaTime);
 }
 
-void will_engine::components::TerrainComponent::beginDestroy()
+void TerrainComponent::beginDestroy()
 {
     Component::beginDestroy();
 
@@ -32,7 +34,7 @@ void will_engine::components::TerrainComponent::beginDestroy()
     }
 }
 
-void will_engine::components::TerrainComponent::serialize(ordered_json& j)
+void TerrainComponent::serialize(ordered_json& j)
 {
     Component::serialize(j);
 
@@ -46,7 +48,7 @@ void will_engine::components::TerrainComponent::serialize(ordered_json& j)
     }
 }
 
-void will_engine::components::TerrainComponent::deserialize(ordered_json& j)
+void TerrainComponent::deserialize(ordered_json& j)
 {
     Component::deserialize(j);
 
@@ -90,20 +92,25 @@ void will_engine::components::TerrainComponent::deserialize(ordered_json& j)
     }
 }
 
-void will_engine::components::TerrainComponent::generateTerrain()
+void TerrainComponent::generateTerrain()
 {
-    std::vector<float> heightMapData = HeightmapUtil::generateFromNoise(NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, seed, terrainGenerationProperties);
-    terrainChunk = std::make_unique<terrain::TerrainChunk>(*Engine::get()->getResourceManager(), heightMapData, NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, terrainConfig);
+    std::vector<float> heightMapData =
+            HeightmapUtil::generateFromNoise(NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, seed, terrainGenerationProperties);
+    terrainChunk = std::make_unique<terrain::TerrainChunk>(*Engine::get()->getResourceManager(), heightMapData, NOISE_MAP_DIMENSIONS,
+                                                           NOISE_MAP_DIMENSIONS, terrainConfig);
     if (Engine* engine = Engine::get()) {
         engine->addToActiveTerrain(this);
     }
     bIsGenerated = true;
 }
 
-void will_engine::components::TerrainComponent::generateTerrain(terrain::TerrainProperties terrainProperties, std::array<uint32_t, terrain::MAX_TERRAIN_TEXTURE_COUNT> textureIds)
+void TerrainComponent::generateTerrain(terrain::TerrainProperties terrainProperties,
+                                                                std::array<uint32_t, terrain::MAX_TERRAIN_TEXTURE_COUNT> textureIds)
 {
-    std::vector<float> heightMapData = HeightmapUtil::generateFromNoise(NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, seed, terrainGenerationProperties);
-    terrainChunk = std::make_unique<terrain::TerrainChunk>(*Engine::get()->getResourceManager(), heightMapData, NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, terrainConfig);
+    std::vector<float> heightMapData =
+            HeightmapUtil::generateFromNoise(NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, seed, terrainGenerationProperties);
+    terrainChunk = std::make_unique<terrain::TerrainChunk>(*Engine::get()->getResourceManager(), heightMapData, NOISE_MAP_DIMENSIONS,
+                                                           NOISE_MAP_DIMENSIONS, terrainConfig);
     if (Engine* engine = Engine::get()) {
         engine->addToActiveTerrain(this);
     }
@@ -111,20 +118,21 @@ void will_engine::components::TerrainComponent::generateTerrain(terrain::Terrain
     bIsGenerated = true;
 }
 
-void will_engine::components::TerrainComponent::destroyTerrain()
+void TerrainComponent::destroyTerrain()
 {
     terrainChunk.reset();
     bIsGenerated = false;
 }
 
-std::vector<float> will_engine::components::TerrainComponent::getHeightMapData() const
+std::vector<float> TerrainComponent::getHeightMapData() const
 {
     return HeightmapUtil::generateFromNoise(NOISE_MAP_DIMENSIONS, NOISE_MAP_DIMENSIONS, seed, terrainGenerationProperties);
 }
 
-void will_engine::components::TerrainComponent::updateRenderImgui()
+void TerrainComponent::updateRenderImgui()
 {
     Component::updateRenderImgui();
 
     ImGui::Text("This component is not meant to be added directly to game objects. This will have no effect.\n");
+}
 }

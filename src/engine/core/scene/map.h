@@ -11,9 +11,10 @@
 #include "engine/core/game_object/hierarchical.h"
 #include "engine/core/game_object/transformable.h"
 #include "engine/core/game_object/components/terrain_component.h"
+#include "engine/renderer/assets/asset_manager.h"
 #include "engine/util/heightmap_utils.h"
 
-namespace will_engine
+namespace will_engine::game
 {
 /**
  * Maps represent the top-most object in a scene hierarchy. It has no parents and can have an unbound number of children.
@@ -45,7 +46,7 @@ public:
 #pragma region Interfaces
 
 public: // IComponentContainer
-    components::Component* getComponentImpl(const std::type_info& type) override
+    Component* getComponentImpl(const std::type_info& type) override
     {
         for (const auto& component : components) {
             if (typeid(*component) == type) {
@@ -55,9 +56,9 @@ public: // IComponentContainer
         return nullptr;
     }
 
-    std::vector<components::Component*> getComponentsImpl(const std::type_info& type) override
+    std::vector<Component*> getComponentsImpl(const std::type_info& type) override
     {
-        std::vector<components::Component*> outComponents;
+        std::vector<Component*> outComponents;
         outComponents.reserve(components.size());
         for (const auto& component : components) {
             if (typeid(*component) == type) {
@@ -68,9 +69,9 @@ public: // IComponentContainer
         return outComponents;
     }
 
-    std::vector<components::Component*> getAllComponents() override
+    std::vector<Component*> getAllComponents() override
     {
-        std::vector<components::Component*> _components;
+        std::vector<Component*> _components;
         _components.reserve(components.size());
         for (auto& comp : components) {
             _components.push_back(comp.get());
@@ -79,23 +80,21 @@ public: // IComponentContainer
         return _components;
     }
 
-    components::Component* getComponentByTypeName(std::string_view componentType) override;
+    Component* getComponentByTypeName(std::string_view componentType) override;
 
-    std::vector<components::Component*> getComponentsByTypeName(std::string_view componentType) override;
+    std::vector<Component*> getComponentsByTypeName(std::string_view componentType) override;
 
     bool hasComponent(std::string_view componentType) override;
 
-    components::Component* addComponent(std::unique_ptr<components::Component> component) override;
+    Component* addComponent(std::unique_ptr<Component> component) override;
 
-    void destroyComponent(components::Component* component) override;
-
-    components::RigidBodyComponent* getRigidbody() const override { return nullptr; }
+    void destroyComponent(Component* component) override;
 
 protected: // IComponentContainer
-    std::vector<std::unique_ptr<components::Component> > components{};
+    std::vector<std::unique_ptr<Component> > components{};
 
 protected:
-    components::TerrainComponent* terrainComponent{nullptr};
+    TerrainComponent* terrainComponent{nullptr};
 
 public: // IHierarchical
     void beginPlay() override;

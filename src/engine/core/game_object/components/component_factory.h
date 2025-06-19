@@ -12,7 +12,7 @@
 #include "engine/core/factory/object_factory.h"
 #include "engine/core/game_object/components/component.h"
 
-namespace will_engine::components
+namespace will_engine::game
 {
 class ComponentFactory : public ObjectFactory<Component>
 {
