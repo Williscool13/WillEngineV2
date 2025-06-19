@@ -30,6 +30,7 @@
 #include "engine/renderer/resources/image_view.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 #include "engine/renderer/resources/resources_fwd.h"
+#include "events/event_dispatcher.h"
 
 #if WILL_ENGINE_DEBUG_DRAW
 namespace will_engine::renderer
@@ -168,6 +169,8 @@ private: // Rendering
     bool bResizeRequested{false};
 
     void createDrawResources();
+
+    EventDispatcher<int32_t> testDispatcher;
 
 private: // Engine Settings
 #if WILL_ENGINE_DEBUG

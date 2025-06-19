@@ -269,6 +269,14 @@ void Engine::initGame()
 {
     assetManager->scanForAll();
     fallbackCamera = new FreeCamera();
+
+    const auto testHandle = testDispatcher.subscribe([this](uint32_t test) {
+    fmt::print("Test dispatcher successful {}\n", test);
+});
+
+    testDispatcher.dispatch(10);
+
+    testDispatcher.unsubscribe(testHandle);
 }
 
 void Engine::run()
