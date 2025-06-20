@@ -28,7 +28,7 @@ class ImguiWrapper
 public:
     friend class Engine;
 
-    ImguiWrapper(const VulkanContext& context, const ImguiWrapperInfo& imguiWrapperInfo);
+    ImguiWrapper(const renderer::VulkanContext& context, const ImguiWrapperInfo& imguiWrapperInfo);
 
     ~ImguiWrapper();
 
@@ -73,7 +73,7 @@ private:
     static void deselectItem(Engine* engine);
 
 private:
-    const VulkanContext& context;
+    const renderer::VulkanContext& context;
 
     VkDescriptorPool imguiPool{VK_NULL_HANDLE};
 

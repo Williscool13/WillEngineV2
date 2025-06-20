@@ -206,7 +206,7 @@ private:
 public:
     Input() = default;
 
-    void init(SDL_Window* window, glm::vec2 windowExtents);
+    void init(SDL_Window* window, uint32_t w, uint32_t h);
 
     void processEvent(const SDL_Event& event);
 
@@ -230,7 +230,7 @@ public:
 
     InputStateData getMouseData(MouseButton mouseButton) const;
 
-    void setWindowExtent(const glm::vec2 windowExtent) { this->windowExtents = windowExtent; }
+    void updateWindowExtent(const uint32_t w, const uint32_t h) { this->windowExtents = glm::vec2(static_cast<float>(w), static_cast<float>(h)); }
 
     glm::vec2 getMousePosition() const { return mousePosition; }
     glm::vec2 getMousePositionAbsolute() const { return mousePositionAbsolute; }

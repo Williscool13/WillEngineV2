@@ -23,6 +23,7 @@
 #include "engine/renderer/assets/render_object/render_object.h"
 #include "engine/renderer/environment/environment.h"
 #include "engine/core/game_object/game_object_factory.h"
+#include "engine/renderer/render_context.h"
 #include "engine/renderer/pipelines/shadows/cascaded_shadow_map/cascaded_shadow_map.h"
 #include "engine/renderer/pipelines/geometry/deferred_mrt/deferred_mrt_pipeline.h"
 #include "engine/renderer/pipelines/geometry/deferred_resolve/deferred_resolve_pipeline.h"
@@ -74,26 +75,26 @@ void Engine::init()
 
     // We initialize SDL and create a window with it.
     SDL_Init(SDL_INIT_VIDEO);
-    //constexpr auto window_flags = SDL_WINDOW_VULKAN | SDL_WINDOW_BORDERLESS | SDL_WINDOW_RESIZABLE;
     constexpr auto window_flags = SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE;
-    windowExtent = {RENDER_EXTENTS.width, RENDER_EXTENTS.height};
+
+    renderContext = new renderer::RenderContext(DEFAULT_RENDER_EXTENT, 1.0f);
 
     window = SDL_CreateWindow(
         ENGINE_NAME,
-        static_cast<int>(windowExtent.x),
-        static_cast<int>(windowExtent.y),
+        static_cast<int32_t>(renderContext->windowExtent.width),
+        static_cast<int32_t>(renderContext->windowExtent.height),
         window_flags);
 
-    input::Input::get().init(window, windowExtent);
+    input::Input::get().init(window, renderContext->windowExtent.width, renderContext->windowExtent.height);
 
     startupProfiler.addEntry("Windowing");
 
 
-    context = new VulkanContext(window, USE_VALIDATION_LAYERS);
+    context = new renderer::VulkanContext(window, USE_VALIDATION_LAYERS);
 
     startupProfiler.addEntry("Vulkan Context");
 
-    createSwapchain(windowExtent.x, windowExtent.y);
+    createSwapchain(renderContext->windowExtent.width, renderContext->windowExtent.height);
 
     startupProfiler.addEntry("Swapchain");
 
@@ -271,8 +272,8 @@ void Engine::initGame()
     fallbackCamera = new FreeCamera();
 
     const auto testHandle = testDispatcher.subscribe([this](uint32_t test) {
-    fmt::print("Test dispatcher successful {}\n", test);
-});
+        fmt::print("Test dispatcher successful {}\n", test);
+    });
 
     testDispatcher.dispatch(10);
 
@@ -299,10 +300,9 @@ void Engine::run()
 
 
             if (e.type == SDL_EVENT_WINDOW_MINIMIZED) { bStopRendering = true; }
-            if (e.type == SDL_EVENT_WINDOW_RESTORED) { bStopRendering = true; }
+            if (e.type == SDL_EVENT_WINDOW_RESTORED) { bStopRendering = false; }
             if (e.type == SDL_EVENT_WINDOW_RESIZED || e.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) {
-                bResizeRequested = true;
-                fmt::print("Window resized, resize requested\n");
+                bWindowChanged = true;
             }
 
             if (engine_constants::useImgui) {
@@ -312,18 +312,28 @@ void Engine::run()
             input.processEvent(e);
         }
 
+        if (bWindowChanged) {
+            int32_t w, h;
+            SDL_GetWindowSize(window, &w, &h);
+            renderContext->requestWindowResize(static_cast<uint32_t>(w), static_cast<uint32_t>(h));
+            bWindowChanged = false;
+        }
+
+
+        if (renderContext->applyPendingChanges()) {
+            vkDeviceWaitIdle(context->device);
+
+            vkDestroySwapchainKHR(context->device, swapchain, nullptr);
+            for (const auto swapchainImage : swapchainImageViews) {
+                vkDestroyImageView(context->device, swapchainImage, nullptr);
+            }
+
+            createSwapchain(renderContext->windowExtent.width, renderContext->windowExtent.height);
+            input::Input::get().updateWindowExtent(renderContext->windowExtent.width, renderContext->windowExtent.height);
+        }
+
         input.updateFocus(SDL_GetWindowFlags(window));
         time.update();
-
-        if (bResizeRequested) {
-            resizeSwapchain();
-        }
-
-        // Minimized
-        if (bStopRendering) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            continue;
-        }
 
         if (engine_constants::useImgui) {
             imguiWrapper->imguiInterface(this);
@@ -342,7 +352,15 @@ void Engine::run()
 
         updateDebug(deltaTime);
 
-        render(deltaTime);
+        if (bStopRendering) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+        else {
+            render(deltaTime);
+        }
+
+        debugRenderer->clear();
+
         profiler.endTimer("3Total");
     }
 }
@@ -567,8 +585,8 @@ void Engine::render(float deltaTime)
     uint32_t swapchainImageIndex;
     VkResult e = vkAcquireNextImageKHR(context->device, swapchain, 1000000000, getCurrentFrame()._swapchainSemaphore, nullptr, &swapchainImageIndex);
     if (e == VK_ERROR_OUT_OF_DATE_KHR || e == VK_SUBOPTIMAL_KHR) {
-        bResizeRequested = true;
-        fmt::print("Swapchain out of date or suboptimal, resize requested (At Acquire)\n");
+        bWindowChanged = true;
+        fmt::print("Swapchain out of date or suboptimal (Acquire)\n");
         return;
     }
 
@@ -580,7 +598,8 @@ void Engine::render(float deltaTime)
 
     VkCommandBuffer cmd = getCurrentFrame()._mainCommandBuffer;
     VK_CHECK(vkResetCommandBuffer(cmd, 0));
-    const VkCommandBufferBeginInfo cmdBeginInfo = renderer::vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT); // only submit once
+    const VkCommandBufferBeginInfo cmdBeginInfo = renderer::vk_helpers::commandBufferBeginInfo(VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT);
+    // only submit once
     VK_CHECK(vkBeginCommandBuffer(cmd, &cmdBeginInfo));
 
     profiler.beginTimer("2Render");
@@ -744,7 +763,7 @@ void Engine::render(float deltaTime)
 
     renderer::vk_helpers::imageBarrier(cmd, drawImage.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
     renderer::vk_helpers::imageBarrier(cmd, depthStencilImage.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                             VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+                                       VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
     renderer::vk_helpers::imageBarrier(cmd, normalRenderTarget.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     renderer::vk_helpers::imageBarrier(cmd, albedoRenderTarget.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     renderer::vk_helpers::imageBarrier(cmd, pbrRenderTarget.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -831,9 +850,9 @@ void Engine::render(float deltaTime)
     // This should ALWAYS be the final step before copying to swapchain
     if (bDrawDebugRendering) {
         renderer::vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, debugTarget.get(), VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                    {0.0f, 0.0f, 0.0f, 0.0f});
+                                              {0.0f, 0.0f, 0.0f, 0.0f});
         renderer::vk_helpers::imageBarrier(cmd, depthStencilImage.get(), VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                                 VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+                                           VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
 
         renderer::DebugRendererDrawInfo debugRendererDrawInfo{
@@ -865,7 +884,8 @@ void Engine::render(float deltaTime)
 
         if (stencilDrawn) {
             renderer::vk_helpers::imageBarrier(cmd, debugTarget.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
-            renderer::vk_helpers::imageBarrier(cmd, depthStencilImage.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+            renderer::vk_helpers::imageBarrier(cmd, depthStencilImage.get(), VK_IMAGE_LAYOUT_GENERAL,
+                                               VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
             debugHighlighter->drawHighlightProcessing(cmd, highlightDrawInfo);
 
@@ -888,21 +908,21 @@ void Engine::render(float deltaTime)
 #endif
     renderer::vk_helpers::imageBarrier(cmd, finalImageBuffer.get(), VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     renderer::vk_helpers::imageBarrier(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                             VK_IMAGE_ASPECT_COLOR_BIT);
+                                       VK_IMAGE_ASPECT_COLOR_BIT);
     renderer::vk_helpers::copyImageToImage(cmd, finalImageBuffer->image, swapchainImages[swapchainImageIndex], RENDER_EXTENTS, swapchainExtent);
 
     if (engine_constants::useImgui) {
         renderer::vk_helpers::imageBarrier(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                 VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
+                                           VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
         imguiWrapper->drawImgui(cmd, swapchainImageViews[swapchainImageIndex], swapchainExtent);
 
         renderer::vk_helpers::imageBarrier(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-                                 VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-                                 VK_IMAGE_ASPECT_COLOR_BIT);
+                                           VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+                                           VK_IMAGE_ASPECT_COLOR_BIT);
     }
     else {
         renderer::vk_helpers::imageBarrier(cmd, swapchainImages[swapchainImageIndex], VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-                                 VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_ASPECT_COLOR_BIT);
+                                           VK_IMAGE_LAYOUT_PRESENT_SRC_KHR, VK_IMAGE_ASPECT_COLOR_BIT);
     }
 
     // End Command Buffer Recording
@@ -913,7 +933,7 @@ void Engine::render(float deltaTime)
     // Submission
     const VkCommandBufferSubmitInfo cmdSubmitInfo = renderer::vk_helpers::commandBufferSubmitInfo(cmd);
     const VkSemaphoreSubmitInfo waitInfo = renderer::vk_helpers::semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT_KHR,
-                                                                           getCurrentFrame()._swapchainSemaphore);
+                                                                                     getCurrentFrame()._swapchainSemaphore);
     const VkSemaphoreSubmitInfo signalInfo =
             renderer::vk_helpers::semaphoreSubmitInfo(VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, getCurrentFrame()._renderSemaphore);
     const VkSubmitInfo2 submit = renderer::vk_helpers::submitInfo(&cmdSubmitInfo, &signalInfo, &waitInfo);
@@ -939,10 +959,11 @@ void Engine::render(float deltaTime)
 
     //increase the number of frames drawn
     frameNumber++;
+    renderContext->advanceFrame();
 
     if (presentResult == VK_ERROR_OUT_OF_DATE_KHR || presentResult == VK_SUBOPTIMAL_KHR) {
-        bResizeRequested = true;
-        fmt::print("Swapchain out of date or suboptimal, resize requested (At Present)\n");
+        bWindowChanged = true;
+        fmt::print("Swapchain out of date or suboptimal (Present)\n");
     }
 }
 
@@ -1140,28 +1161,6 @@ void Engine::createSwapchain(const uint32_t width, const uint32_t height)
     swapchainImageViews = vkbSwapchain.get_image_views().value();
 }
 
-void Engine::resizeSwapchain()
-{
-    vkDeviceWaitIdle(context->device);
-
-    vkDestroySwapchainKHR(context->device, swapchain, nullptr);
-    for (const auto swapchainImage : swapchainImageViews) {
-        vkDestroyImageView(context->device, swapchainImage, nullptr);
-    }
-
-    int32_t w, h;
-    // get new window size
-    SDL_GetWindowSize(window, &w, &h);
-    windowExtent = {w, h};
-
-
-    createSwapchain(windowExtent.x, windowExtent.y);
-    input::Input::get().setWindowExtent(windowExtent);
-
-    bResizeRequested = false;
-    fmt::print("Window extent has been updated to {}x{}\n", windowExtent.x, windowExtent.y);
-}
-
 game::Map* Engine::createMap(const std::filesystem::path& path)
 {
     auto newMap = std::make_unique<game::Map>(path, *resourceManager);
@@ -1209,14 +1208,14 @@ void Engine::createDrawResources()
 
 
         VkImageViewCreateInfo combinedViewInfo = renderer::vk_helpers::imageviewCreateInfo(DEPTH_STENCIL_FORMAT, VK_NULL_HANDLE,
-                                                                                 VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+                                                                                           VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
 
         depthStencilImage = resourceManager->createResource<renderer::Image>(depthImageInfo, depthImageAllocationInfo, combinedViewInfo);
 
         VkImageViewCreateInfo depthViewInfo = renderer::vk_helpers::imageviewCreateInfo(depthStencilImage->imageFormat, depthStencilImage->image,
-                                                                              VK_IMAGE_ASPECT_DEPTH_BIT);
+                                                                                        VK_IMAGE_ASPECT_DEPTH_BIT);
         VkImageViewCreateInfo stencilViewInfo = renderer::vk_helpers::imageviewCreateInfo(depthStencilImage->imageFormat, depthStencilImage->image,
-                                                                                VK_IMAGE_ASPECT_STENCIL_BIT);
+                                                                                          VK_IMAGE_ASPECT_STENCIL_BIT);
         depthImageView = resourceManager->createResource<renderer::ImageView>(depthViewInfo);
         stencilImageView = resourceManager->createResource<renderer::ImageView>(stencilViewInfo);
     }
@@ -1236,7 +1235,8 @@ void Engine::createDrawResources()
                 .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
             };
 
-            VkImageViewCreateInfo imageViewInfo = renderer::vk_helpers::imageviewCreateInfo(renderTargetFormat, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
+            VkImageViewCreateInfo imageViewInfo = renderer::vk_helpers::imageviewCreateInfo(
+                renderTargetFormat, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
 
             return resourceManager->createResource<renderer::Image>(imageInfo, allocInfo, imageViewInfo);
         });

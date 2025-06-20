@@ -11,8 +11,6 @@ layout (rgba16f, set = 1, binding = 1) uniform image2D outputImage;
 
 
 layout (push_constant) uniform PushConstants {
-    int width;
-    int height;
     uint flags;
 } push;
 
@@ -39,7 +37,7 @@ vec3 sharpen(vec3 centerColor, vec2 texelSize, vec2 uv) {
 
 void main() {
     ivec2 pixel = ivec2(gl_GlobalInvocationID.xy);
-    if (pixel.x >= push.width || pixel.y >= push.height) {
+    if (pixel.x >= sceneData.renderTargetSize.x || pixel.y >= sceneData.renderTargetSize.y) {
         return;
     }
 
