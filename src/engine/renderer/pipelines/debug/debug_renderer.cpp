@@ -323,8 +323,6 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     }
 
     vkCmdEndRendering(cmd);
-
-    clear();
 }
 
 void DebugRenderer::clear()
@@ -469,6 +467,7 @@ void DebugRenderer::drawBoxImpl(const glm::vec3& center, const glm::vec3& dimens
     instance.color = color;
 
     debugRenderInstanceGroups[BOX_INSTANCE_INDEX].instances.push_back(instance);
+
 }
 
 void DebugRenderer::drawBoxMinMaxImpl(const glm::vec3& min, const glm::vec3& max, const glm::vec3& color, const DebugRendererCategory category)

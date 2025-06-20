@@ -309,6 +309,8 @@ set(TEMP_SOURCES
         src/engine/renderer/assets/render_object/render_object_fwd.h
         src/engine/core/events/event_dispatcher.cpp
         src/engine/core/events/event_dispatcher.h
+        src/engine/renderer/render_context.cpp
+        src/engine/renderer/render_context.h
 )
 
 add_executable(WillEngine main.cpp

@@ -8,7 +8,7 @@
 #include <vk-bootstrap/VkBootstrap.h>
 #include <volk/volk.h>
 
-namespace will_engine
+namespace will_engine::renderer
 {
 VulkanContext::VulkanContext(SDL_Window* window, bool useValidationLayers)
 {

@@ -56,25 +56,33 @@ public:
 
     static void drawTriangle(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& color);
 
-    static void drawSphere(const glm::vec3& center, float radius, const glm::vec3& color, DebugRendererCategory category = DebugRendererCategory::General);
+    static void drawSphere(const glm::vec3& center, float radius, const glm::vec3& color,
+                           DebugRendererCategory category = DebugRendererCategory::General);
 
-    static void drawBox(const glm::vec3& center, const glm::vec3& dimensions, const glm::vec3& color, DebugRendererCategory category = DebugRendererCategory::General);
+    static void drawBox(const glm::vec3& center, const glm::vec3& dimensions, const glm::vec3& color,
+                        DebugRendererCategory category = DebugRendererCategory::General);
 
-    static void drawBoxMinMax(const glm::vec3& min, const glm::vec3& max, const glm::vec3& color, DebugRendererCategory category = DebugRendererCategory::General);
+    static void drawBoxMinMax(const glm::vec3& min, const glm::vec3& max, const glm::vec3& color,
+                              DebugRendererCategory category = DebugRendererCategory::General);
 
 private:
     void drawLineImpl(const glm::vec3& start, const glm::vec3& end, const glm::vec3& color);
 
     void drawTriangleImpl(const glm::vec3& v1, const glm::vec3& v2, const glm::vec3& v3, const glm::vec3& color);
 
-    void drawSphereImpl(const glm::vec3& center, float radius, const glm::vec3& color, DebugRendererCategory category = DebugRendererCategory::General);
+    void drawSphereImpl(const glm::vec3& center, float radius, const glm::vec3& color,
+                        DebugRendererCategory category = DebugRendererCategory::General);
 
-    void drawBoxImpl(const glm::vec3& center, const glm::vec3& dimensions, const glm::vec3& color, DebugRendererCategory category = DebugRendererCategory::General);
+    void drawBoxImpl(const glm::vec3& center, const glm::vec3& dimensions, const glm::vec3& color,
+                     DebugRendererCategory category = DebugRendererCategory::General);
 
-    void drawBoxMinMaxImpl(const glm::vec3& min, const glm::vec3& max, const glm::vec3& color, DebugRendererCategory category = DebugRendererCategory::General);
+    void drawBoxMinMaxImpl(const glm::vec3& min, const glm::vec3& max, const glm::vec3& color,
+                           DebugRendererCategory category = DebugRendererCategory::General);
 
 public:
     void draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawInfo);
+
+    void clear();
 
     void reloadShaders()
     {
@@ -82,8 +90,6 @@ public:
     }
 
 private:
-    void clear();
-
     void createPipeline();
 
     PipelineLayoutPtr instancedPipelineLayout{};

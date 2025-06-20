@@ -30,7 +30,7 @@
 
 namespace will_engine
 {
-ImguiWrapper::ImguiWrapper(const VulkanContext& context, const ImguiWrapperInfo& imguiWrapperInfo) : context(context)
+ImguiWrapper::ImguiWrapper(const renderer::VulkanContext& context, const ImguiWrapperInfo& imguiWrapperInfo) : context(context)
 {
     // DearImGui implementation, basically copied directly from the Vulkan/SDl2 from DearImGui samples.
     // Because this project uses VOLK, additionally need to load functions.
@@ -66,26 +66,26 @@ ImguiWrapper::ImguiWrapper(const VulkanContext& context, const ImguiWrapperInfo&
 
     // Setup Platform/Renderer backends
     ImGui_ImplSDL3_InitForVulkan(imguiWrapperInfo.window);
-    ImGui_ImplVulkan_InitInfo init_info = {};
-    init_info.Instance = context.instance;
-    init_info.PhysicalDevice = context.physicalDevice;
-    init_info.Device = context.device;
-    init_info.QueueFamily = context.graphicsQueueFamily;
-    init_info.Queue = context.graphicsQueue;
-    init_info.DescriptorPool = imguiPool;
-    init_info.Subpass = 0;
-    init_info.MinImageCount = 3;
-    init_info.ImageCount = 3;
-    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    ImGui_ImplVulkan_InitInfo initInfo = {};
+    initInfo.Instance = context.instance;
+    initInfo.PhysicalDevice = context.physicalDevice;
+    initInfo.Device = context.device;
+    initInfo.QueueFamily = context.graphicsQueueFamily;
+    initInfo.Queue = context.graphicsQueue;
+    initInfo.DescriptorPool = imguiPool;
+    initInfo.Subpass = 0;
+    initInfo.MinImageCount = 3;
+    initInfo.ImageCount = 3;
+    initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
     //dynamic rendering parameters for imgui to use
-    init_info.UseDynamicRendering = true;
-    init_info.PipelineRenderingCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
-    init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
-    init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &imguiWrapperInfo.swapchainImageFormat;
+    initInfo.UseDynamicRendering = true;
+    initInfo.PipelineRenderingCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
+    initInfo.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
+    initInfo.PipelineRenderingCreateInfo.pColorAttachmentFormats = &imguiWrapperInfo.swapchainImageFormat;
 
 
-    ImGui_ImplVulkan_Init(&init_info);
+    ImGui_ImplVulkan_Init(&initInfo);
     ImGui_ImplVulkan_CreateFontsTexture();
 }
 

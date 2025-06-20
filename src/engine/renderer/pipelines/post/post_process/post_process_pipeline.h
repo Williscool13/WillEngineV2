@@ -5,6 +5,7 @@
 #ifndef POST_PROCESS_PIPELINE_H
 #define POST_PROCESS_PIPELINE_H
 
+#include <glm/glm.hpp>
 #include <vulkan/vulkan_core.h>
 
 #include "post_process_pipeline_types.h"
@@ -23,10 +24,8 @@ struct PostProcessDescriptor
 
 struct PostProcessPushConstants
 {
-    int32_t width;
-    int32_t height;
     uint32_t postProcessFlags;
-    int32_t padding;
+    glm::vec3 padding;
 };
 
 struct PostProcessDrawInfo

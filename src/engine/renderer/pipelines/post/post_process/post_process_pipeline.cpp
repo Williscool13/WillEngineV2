@@ -99,8 +99,6 @@ void PostProcessPipeline::draw(VkCommandBuffer cmd, PostProcessDrawInfo drawInfo
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipeline);
 
     PostProcessPushConstants push{};
-    push.width = RENDER_EXTENTS.width;
-    push.height = RENDER_EXTENTS.height;
     push.postProcessFlags = static_cast<uint32_t>(drawInfo.postProcessFlags);
 
     vkCmdPushConstants(cmd, pipelineLayout->layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PostProcessPushConstants), &push);

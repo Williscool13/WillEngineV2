@@ -12,10 +12,10 @@
 
 namespace will_engine::input
 {
-void Input::init(SDL_Window* window, const glm::vec2 windowExtents)
+void Input::init(SDL_Window* window, const uint32_t w, const uint32_t h)
 {
     this->window = window;
-    this->windowExtents = windowExtents;
+    this->windowExtents = glm::vec2(w, h);
 }
 
 void Input::processEvent(const SDL_Event& event)

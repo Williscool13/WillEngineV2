@@ -35,6 +35,7 @@
 #if WILL_ENGINE_DEBUG_DRAW
 namespace will_engine::renderer
 {
+class RenderContext;
 class DebugRenderer;
 class DebugHighlighter;
 class DebugCompositePipeline;
@@ -133,10 +134,10 @@ public:
     void removeFromActiveTerrain(ITerrain* terrain);
 
 private:
-    glm::vec2 windowExtent{1700, 900};
     SDL_Window* window{nullptr};
 
-    VulkanContext* context{nullptr};
+    renderer::RenderContext* renderContext;
+    renderer::VulkanContext* context{nullptr};
     renderer::ImmediateSubmitter* immediate{nullptr};
     renderer::ResourceManager* resourceManager{nullptr};
     renderer::AssetManager* assetManager{nullptr};
@@ -166,7 +167,7 @@ private: // Rendering
     FrameData& getCurrentFrame() { return frames[getCurrentFrameOverlap()]; }
 
     bool bStopRendering{false};
-    bool bResizeRequested{false};
+    bool bWindowChanged{false};
 
     void createDrawResources();
 
@@ -305,8 +306,6 @@ private: // Swapchain
     VkExtent2D swapchainExtent{};
 
     void createSwapchain(uint32_t width, uint32_t height);
-
-    void resizeSwapchain();
 
 public:
     game::Map* createMap(const std::filesystem::path& path);
