@@ -105,21 +105,21 @@ void ImguiWrapper::handleInput(const SDL_Event& e)
     ImGui_ImplSDL3_ProcessEvent(&e);
 }
 
-void ImguiWrapper::selectMap(Map* newMap)
+void ImguiWrapper::selectMap(game::Map* newMap)
 {
     selectedMap = newMap;
     if (!selectedMap) {
         return;
     }
 
-    auto terrainComponent = selectedMap->getComponent<components::TerrainComponent>();
+    auto terrainComponent = selectedMap->getComponent<game::TerrainComponent>();
     if (!terrainComponent) {
-        auto& factory = components::ComponentFactory::getInstance();
-        auto newComponent = factory.createComponent(components::TerrainComponent::TYPE, "Terrain Component");
+        auto& factory = game::ComponentFactory::getInstance();
+        auto newComponent = factory.create(game::TerrainComponent::TYPE, "Terrain Component");
         selectedMap->addComponent(std::move(newComponent));
     }
 
-    terrainComponent = selectedMap->getComponent<components::TerrainComponent>();
+    terrainComponent = selectedMap->getComponent<game::TerrainComponent>();
     if (!terrainComponent) {
         fmt::print("Unable to create terrain component, very strange");
         return;
@@ -225,7 +225,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                 bool anySettingChanged = false;
 #if WILL_ENGINE_DEBUG
-                if (ImGui::Checkbox("Save Settings On Exit", &engine->editorSettings.saveOnExit)) {
+                if (ImGui::Checkbox("Save Settings On Exit", &engine->editorSettings.bSaveSettingsOnExit)) {
                     anySettingChanged = true;
                 }
 #endif
@@ -701,7 +701,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save Draw Image")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "drawImage.png";
-                        renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->drawImage.get(), renderer::vk_helpers::ImageFormat::RGBA16F, path.string());
+                        renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->drawImage.get(),
+                                                        renderer::vk_helpers::ImageFormat::RGBA16F, path.string());
                     }
                     else {
                         fmt::print(" Failed to find/create image save path directory");
@@ -719,7 +720,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                         };
 
                         renderer::vk_helpers::saveImageR32F(*engine->resourceManager, *engine->immediate, engine->depthStencilImage.get(),
-                                                            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT, path.string().c_str(),
+                                                            VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT,
+                                                            path.string().c_str(),
                                                             depthNormalize);
                     }
                     else {
@@ -730,7 +732,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 if (ImGui::Button("Save Normals")) {
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "normalRT.png";
-                        renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->normalRenderTarget.get(), renderer::vk_helpers::ImageFormat::A2R10G10B10_UNORM, path.string());
+                        renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->normalRenderTarget.get(),
+                                                        renderer::vk_helpers::ImageFormat::A2R10G10B10_UNORM, path.string());
                     }
                     else {
                         fmt::print(" Failed to save normal render target");
@@ -741,7 +744,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         const std::filesystem::path path = file::imagesSavePath / "albedoRT.png";
                         renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->albedoRenderTarget.get(),
-                                                         renderer::vk_helpers::ImageFormat::RGBA16F, path.string());
+                                                        renderer::vk_helpers::ImageFormat::RGBA16F, path.string());
                     }
                     else {
                         fmt::print(" Failed to save albedo render target");
@@ -752,7 +755,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     if (file::getOrCreateDirectory(file::imagesSavePath)) {
                         std::filesystem::path path = file::imagesSavePath / "pbrRT.png";
                         renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->pbrRenderTarget.get(),
-                                                         renderer::vk_helpers::ImageFormat::RGBA8_UNORM, path.string());
+                                                        renderer::vk_helpers::ImageFormat::RGBA8_UNORM, path.string());
                     }
                     else {
                         fmt::print(" Failed to save pbr render target");
@@ -791,16 +794,19 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                         ImGui::BeginChild("Selected Object", ImVec2(0, detailsHeight), ImGuiChildFlags_Borders);
                         renderer::RenderObject* _currentlySelected = engine->assetManager->getRenderObject(selectedRenderObjectId);
 
-                        if (!_currentlySelected && engine->assetManager->hasAnyRenderObjects()) {
-                            selectedRenderObjectId = engine->assetManager->getAnyRenderObject()->getId();
+                        if (!_currentlySelected) {
+                            if (renderer::RenderObject* anyRenderObject = engine->assetManager->getAnyRenderObject()) {
+                                selectedRenderObjectId = anyRenderObject->getId();
+                            }
                         }
 
                         renderer::RenderObject* selectedRenderObject = engine->assetManager->getRenderObject(selectedRenderObjectId);
                         if (selectedRenderObject) {
-                            ImGui::Text("Source: %s", file::getRelativePath(selectedRenderObject->getWillmodelPath()).string().c_str());
+                            const RenderObjectInfo& info = selectedRenderObject->getRenderObjectInfo();
+                            ImGui::Text("Source: %s", file::getRelativePath(info.willmodelPath).string().c_str());
                             ImGui::Separator();
-                            ImGui::Text("Name: %s", selectedRenderObject->getName().c_str());
-                            ImGui::Text("GLTF Path: %s", file::getRelativePath(selectedRenderObject->getGltfPath()).string().c_str());
+                            ImGui::Text("Name: %s", info.name.c_str());
+                            ImGui::Text("GLTF Path: %s", file::getRelativePath(info.sourcePath).string().c_str());
                             ImGui::Text("ID: %u", selectedRenderObject->getId());
 
                             bool isLoaded = selectedRenderObject->isLoaded();
@@ -812,10 +818,10 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                 if (ImGui::BeginTabBar("GameObject Generation")) {
                                     if (ImGui::BeginTabItem("Full Model")) {
                                         if (ImGui::Button("Generate Full Object")) {
-                                            auto& gameObjectFactory = game_object::GameObjectFactory::getInstance();
-                                            std::unique_ptr<game_object::GameObject> gameObject = gameObjectFactory.createGameObject(
-                                                game_object::GameObject::getStaticType(), std::string(objectName));
-                                            selectedRenderObject->generateMeshComponents(gameObject.get());
+                                            auto& gameObjectFactory = game::GameObjectFactory::getInstance();
+                                            std::unique_ptr<game::GameObject> gameObject = gameObjectFactory.create(
+                                                game::GameObject::getStaticType(), std::string(objectName));
+                                            selectedRenderObject->generateMeshComponents(gameObject.get(), Transform::Identity);
                                             selectedMap->addChild(std::move(gameObject));
                                             fmt::print("Added whole gltf model to the scene\n");
                                         }
@@ -846,10 +852,10 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                         ImGui::SameLine();
                                         if (auto container = dynamic_cast<IComponentContainer*>(engine->selectedItem)) {
                                             if (ImGui::Button("Add to selected item")) {
-                                                auto newComponent = components::ComponentFactory::getInstance().
-                                                        createComponent(components::MeshRendererComponent::getStaticType(), "Mesh Renderer");
-                                                components::Component* component = container->addComponent(std::move(newComponent));
-                                                if (auto meshRenderer = dynamic_cast<components::MeshRendererComponent*>(component)) {
+                                                auto newComponent = game::ComponentFactory::getInstance().
+                                                        create(game::MeshRendererComponent::getStaticType(), "Mesh Renderer");
+                                                game::Component* component = container->addComponent(std::move(newComponent));
+                                                if (auto meshRenderer = dynamic_cast<game::MeshRendererComponent*>(component)) {
                                                     selectedRenderObject->generateMesh(meshRenderer, selectedMeshIndex);
                                                 }
                                             }
@@ -860,11 +866,11 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                                                 IHierarchical* gob = Engine::createGameObject(selectedMap, objectName);
 
                                                 if (auto _container = dynamic_cast<IComponentContainer*>(gob)) {
-                                                    auto newComponent = components::ComponentFactory::getInstance().createComponent(
-                                                        components::MeshRendererComponent::getStaticType(), "Mesh Renderer");
+                                                    auto newComponent = game::ComponentFactory::getInstance().create(
+                                                        game::MeshRendererComponent::getStaticType(), "Mesh Renderer");
 
-                                                    components::Component* component = _container->addComponent(std::move(newComponent));
-                                                    if (auto meshRenderer = dynamic_cast<components::MeshRendererComponent*>(component)) {
+                                                    game::Component* component = _container->addComponent(std::move(newComponent));
+                                                    if (auto meshRenderer = dynamic_cast<game::MeshRendererComponent*>(component)) {
                                                         selectedRenderObject->generateMesh(meshRenderer, selectedMeshIndex);
                                                     }
                                                     fmt::print("Added single mesh to scene\n");
@@ -1186,24 +1192,29 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     if (ImGui::Begin("Discardable Debug")) {
         static int32_t index = 0;
         ImGui::InputInt("Index", &index);
+#if WILL_ENGINE_DEBUG
         if (ImGui::Button("Save Test Image")) {
             if (renderer::RenderObject* renderObject = engine->assetManager->getRenderObject(2592612823)) {
                 const std::filesystem::path path = file::imagesSavePath / "testImage.png";
-                renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, renderObject->images[index].get(), renderer::vk_helpers::ImageFormat::RGBA8_UNORM, path.string());
+                renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, renderObject->debugGetImages()[index].get(),
+                                                renderer::vk_helpers::ImageFormat::RGBA8_UNORM, path.string());
             }
         }
 
         if (ImGui::Button("Save Test Image Non KTX")) {
             if (renderer::RenderObject* renderObject = engine->assetManager->getRenderObject(195023067)) {
                 const std::filesystem::path path = file::imagesSavePath / "testImageNonKtx.png";
-                renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, renderObject->images[index].get(), renderer::vk_helpers::ImageFormat::RGBA8_UNORM, path.string());
+                renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, renderObject->debugGetImages()[index].get(),
+                                                renderer::vk_helpers::ImageFormat::RGBA8_UNORM, path.string());
             }
         }
+#endif
         ImGui::Separator();
         if (ImGui::Button("Save Stencil Debug Draw")) {
             if (file::getOrCreateDirectory(file::imagesSavePath)) {
                 const std::filesystem::path path = file::imagesSavePath / "debugStencil.png";
-                renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->depthStencilImage.get(), renderer::vk_helpers::ImageFormat::D32S8, path.string(), true);
+                renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->depthStencilImage.get(),
+                                                renderer::vk_helpers::ImageFormat::D32S8, path.string(), true);
             }
             else {
                 fmt::print(" Failed to find/create image save path directory");
@@ -1240,7 +1251,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
         if (IGFD::FileDialog::Instance()->IsOk()) {
             std::filesystem::path mapPath = IGFD::FileDialog::Instance()->GetFilePathName();
             mapPath = relative(mapPath);
-            Map* existing{nullptr};
+            game::Map* existing{nullptr};
             for (auto& map : engine->activeMaps) {
                 if (map->getMapPath() == mapPath) {
                     existing = map.get();
@@ -1249,7 +1260,8 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
             }
             if (existing) {
                 selectMap(existing);
-            } else if (Map* map = engine->createMap(mapPath)) {
+            }
+            else if (game::Map* map = engine->createMap(mapPath)) {
                 selectMap(map);
             }
         }
@@ -1272,7 +1284,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
         if (IGFD::FileDialog::Instance()->IsOk()) {
             std::filesystem::path mapPath = IGFD::FileDialog::Instance()->GetFilePathName();
             mapPath = relative(mapPath);
-            Map* existing{nullptr};
+            game::Map* existing{nullptr};
             for (auto& map : engine->activeMaps) {
                 if (map->getMapPath() == mapPath) {
                     existing = map.get();
@@ -1281,7 +1293,8 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
             }
             if (existing) {
                 selectMap(existing);
-            } else if (Map* map = engine->createMap(mapPath)) {
+            }
+            else if (game::Map* map = engine->createMap(mapPath)) {
                 selectMap(map);
             }
         }
@@ -1368,7 +1381,7 @@ void ImguiWrapper::drawSceneGraph(Engine* engine)
         }
 
         if (ImGui::BeginTabItem("Terrain")) {
-            const auto currentTerrainComponent = selectedMap->getComponent<components::TerrainComponent>();
+            const auto currentTerrainComponent = selectedMap->getComponent<game::TerrainComponent>();
             ImGui::BeginDisabled(!currentTerrainComponent);
             if (ImGui::Button("Save Terrain as HeightMap")) {
                 const std::vector<float> heightmapData = currentTerrainComponent->getHeightMapData();
@@ -1659,7 +1672,8 @@ void ImguiWrapper::drawImgui(VkCommandBuffer cmd, const VkImageView targetImageV
     label.pLabelName = "DearImgui Draw Pass";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
-    const VkRenderingAttachmentInfo colorAttachment = renderer::vk_helpers::attachmentInfo(targetImageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+    const VkRenderingAttachmentInfo colorAttachment = renderer::vk_helpers::attachmentInfo(
+        targetImageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     const VkRenderingInfo renderInfo = renderer::vk_helpers::renderingInfo(swapchainExtent, &colorAttachment, nullptr);
     vkCmdBeginRendering(cmd, &renderInfo);
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);

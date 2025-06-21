@@ -6,7 +6,7 @@
     },
     "metadata": {
         "name": "newMap",
-        "created": "2025-06-02 18:35:06",
+        "created": "2025-06-18 22:58:52",
         "formatVersion": 1
     },
     "rootComponents": {
@@ -108,7 +108,7 @@
                 "name": "GameObject_0",
                 "transform": {
                     "position": {
-                        "x": -600.9000244140625,
+                        "x": 0.0,
                         "y": 0.0,
                         "z": 0.0
                     },
@@ -126,10 +126,6 @@
                 },
                 "components": {
                     "": {
-                        "renderReference": 2592612823,
-                        "renderMeshIndex": 0,
-                        "renderIsVisible": true,
-                        "renderIsShadowCaster": true,
                         "transform": {
                             "position": {
                                 "x": -15.367568016052246,
@@ -158,7 +154,99 @@
                 "name": "GameObject_1",
                 "transform": {
                     "position": {
-                        "x": 4000.0,
+                        "x": 40.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "components": {
+                    "": {
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 1.0
+                            },
+                            "scale": {
+                                "x": 0.00800000037997961,
+                                "y": 0.00800000037997961,
+                                "z": 0.00800000037997961
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    }
+                }
+            },
+            {
+                "id": 2,
+                "gameObjectType": "GameObject",
+                "name": "GameObject_2",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0
+                    },
+                    "rotation": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 1.0
+                    },
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 1.0
+                    }
+                },
+                "components": {
+                    "": {
+                        "transform": {
+                            "position": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0
+                            },
+                            "rotation": {
+                                "x": 0.0,
+                                "y": 0.0,
+                                "z": 0.0,
+                                "w": 1.0
+                            },
+                            "scale": {
+                                "x": 0.00800000037997961,
+                                "y": 0.00800000037997961,
+                                "z": 0.00800000037997961
+                            }
+                        },
+                        "componentType": "MeshRendererComponent"
+                    }
+                }
+            },
+            {
+                "id": 3,
+                "gameObjectType": "GameObject",
+                "name": "GameObject_3",
+                "transform": {
+                    "position": {
+                        "x": 0.0,
                         "y": 0.0,
                         "z": 0.0
                     },

@@ -5,6 +5,7 @@
 #ifndef MODEL_TYPES_H
 #define MODEL_TYPES_H
 
+#include <filesystem>
 #include <string>
 #include <vector>
 
@@ -17,9 +18,9 @@ namespace will_engine
 {
 enum class MaterialType
 {
-    OPAQUE      = 0,
+    OPAQUE = 0,
     TRANSPARENT = 1,
-    MASK        = 2,
+    MASK = 2,
 };
 
 struct MaterialProperties
@@ -56,7 +57,7 @@ struct VertexProperty
 {
     glm::vec3 normal{1.0f, 0.0f, 0.0f};
     glm::vec4 color{1.0f};
-    glm::vec2 uv{0,0};
+    glm::vec2 uv{0, 0};
 };
 
 struct Primitive
@@ -75,8 +76,10 @@ struct Mesh
     std::vector<Primitive> primitives;
 };
 
-struct BoundingSphere {
+struct BoundingSphere
+{
     BoundingSphere() = default;
+
     explicit BoundingSphere(const std::vector<VertexPosition>& vertices);
 
     glm::vec3 center{};
@@ -115,6 +118,14 @@ struct FrustumCullingBuffers
     glm::vec3 padding;
 };
 
+struct RenderObjectInfo
+{
+    std::filesystem::path willmodelPath;
+    std::string sourcePath;
+    std::string name;
+    std::string type;
+    uint32_t id;
+};
 }
 
 

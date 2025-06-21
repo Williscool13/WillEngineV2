@@ -17,15 +17,10 @@
 #include "engine/core/game_object/components/component.h"
 #include "engine/util/math_constants.h"
 
-namespace will_engine::components
+namespace will_engine::game
 {
-class MeshRendererComponent;
 class RigidBodyComponent;
-}
-
-namespace will_engine::game_object
-{
-class Engine;
+class MeshRendererComponent;
 
 class GameObject : public ITransformable,
                    public IHierarchical,
@@ -154,7 +149,7 @@ protected: // ITransformable
     glm::mat4 cachedModelMatrix{1.0f};
 
 public: // IComponentContainer
-    components::Component* getComponentImpl(const std::type_info& type) override
+    Component* getComponentImpl(const std::type_info& type) override
     {
         for (const auto& component : components) {
             if (typeid(*component) == type) {
@@ -164,9 +159,9 @@ public: // IComponentContainer
         return nullptr;
     }
 
-    std::vector<components::Component*> getComponentsImpl(const std::type_info& type) override
+    std::vector<Component*> getComponentsImpl(const std::type_info& type) override
     {
-        std::vector<components::Component*> outComponents;
+        std::vector<Component*> outComponents;
         outComponents.reserve(components.size());
         for (const auto& component : components) {
             if (typeid(*component) == type) {
@@ -177,9 +172,9 @@ public: // IComponentContainer
         return outComponents;
     }
 
-    std::vector<components::Component*> getAllComponents() override
+    std::vector<Component*> getAllComponents() override
     {
-        std::vector<components::Component*> _components;
+        std::vector<Component*> _components;
         _components.reserve(components.size());
         for (auto& comp : components) {
             _components.push_back(comp.get());
@@ -193,14 +188,14 @@ public: // IComponentContainer
      * @param componentType
      * @return
      */
-    components::Component* getComponentByTypeName(std::string_view componentType) override;
+    Component* getComponentByTypeName(std::string_view componentType) override;
 
     /**
      * Returns all components of the type specified.
      * @param componentType
      * @return
      */
-    std::vector<components::Component*> getComponentsByTypeName(std::string_view componentType) override;
+    std::vector<Component*> getComponentsByTypeName(std::string_view componentType) override;
 
     bool hasComponent(std::string_view componentType) override;
 
@@ -209,13 +204,11 @@ public: // IComponentContainer
      * @param component
      * @return returns a pointer to the newly created component
      */
-    components::Component* addComponent(std::unique_ptr<components::Component> component) override;
+    Component* addComponent(std::unique_ptr<Component> component) override;
 
-    void destroyComponent(components::Component* component) override;
+    void destroyComponent(Component* component) override;
 
-    components::RigidBodyComponent* getRigidbody() const override { return rigidbodyComponent; }
-
-    std::vector<components::MeshRendererComponent*> getMeshRendererComponents();
+    std::vector<MeshRendererComponent*> getMeshRendererComponents();
 
 public:
     static constexpr auto TYPE = "GameObject";
@@ -229,11 +222,11 @@ public:
     virtual std::string_view getComponentType() { return TYPE; }
 
 protected: // IComponentContainer
-    std::vector<std::unique_ptr<components::Component> > components{};
+    std::vector<std::unique_ptr<Component> > components{};
 
 protected:
-    components::RigidBodyComponent* rigidbodyComponent{nullptr};
-    std::vector<components::MeshRendererComponent*> cachedMeshRendererComponents{};
+    RigidBodyComponent* rigidbodyComponent{nullptr};
+    std::vector<MeshRendererComponent*> cachedMeshRendererComponents{};
     bool bIsCachedMeshRenderersDirty{false};
 
 public:

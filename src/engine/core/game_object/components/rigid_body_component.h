@@ -22,7 +22,7 @@ namespace will_engine
 class ITransformable;
 }
 
-namespace will_engine::components
+namespace will_engine::game
 {
 class RigidBodyComponent : public Component, public IPhysicsBody
 {

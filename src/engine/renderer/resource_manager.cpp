@@ -297,7 +297,16 @@ ImageResourcePtr ResourceManager::createCubemapImage(VkExtent3D size, VkFormat f
     createInfo.arrayLayers = 6;
     createInfo.flags = VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT;
 
-    return createResource<Image>(createInfo);
+    constexpr VmaAllocationCreateInfo allocInfo{
+        .flags = 0,
+        .usage = VMA_MEMORY_USAGE_GPU_ONLY,
+        .requiredFlags = static_cast<VkMemoryPropertyFlags>(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT),
+    };
+
+    VkImageViewCreateInfo viewInfo = vk_helpers::cubemapViewCreateInfo(format, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
+    viewInfo.subresourceRange.levelCount = createInfo.mipLevels;
+
+    return createResource<Image>(createInfo, allocInfo, viewInfo);
 }
 
 ImageResourcePtr ResourceManager::createImageFromData(const void* data, size_t dataSize, VkExtent3D size, VkFormat format, VkImageUsageFlags usage,

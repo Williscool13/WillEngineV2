@@ -4,12 +4,15 @@
 
 #include "component.h"
 
-void will_engine::components::Component::beginPlay()
+
+namespace will_engine::game
+{
+void Component::beginPlay()
 {
     bHasBegunPlay = true;
 }
 
-void will_engine::components::Component::beginDestroy()
+void Component::beginDestroy()
 {
     if (bIsDestroyed) {
         return;
@@ -17,4 +20,5 @@ void will_engine::components::Component::beginDestroy()
 
     bIsDestroyed = true;
     owner = nullptr;
+}
 }

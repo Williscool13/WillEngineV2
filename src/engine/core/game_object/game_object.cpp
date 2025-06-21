@@ -5,6 +5,7 @@
 #include "game_object.h"
 
 #include <imgui.h>
+#include <imgui/misc/cpp/imgui_stdlib.h>
 
 #include "glm/gtc/quaternion.hpp"
 #include "components/component.h"
@@ -12,7 +13,7 @@
 #include "engine/core/engine.h"
 #include "engine/core/time.h"
 
-namespace will_engine::game_object
+namespace will_engine::game
 {
 uint64_t GameObject::runningTallyId = 0;
 
@@ -201,7 +202,7 @@ bool GameObject::deleteChild(IHierarchical* child)
 
 void GameObject::dirty()
 {
-    for (components::MeshRendererComponent* meshRenderer : getMeshRendererComponents()) {
+    for (MeshRendererComponent* meshRenderer : getMeshRendererComponents()) {
         meshRenderer->dirty();
     }
 
@@ -426,7 +427,7 @@ void GameObject::rotateAxis(const float angle, const glm::vec3& axis)
 }
 
 
-components::Component* GameObject::getComponentByTypeName(const std::string_view componentType)
+Component* GameObject::getComponentByTypeName(const std::string_view componentType)
 {
     for (const auto& _component : components) {
         if (componentType == _component->getComponentType()) {
@@ -437,9 +438,9 @@ components::Component* GameObject::getComponentByTypeName(const std::string_view
     return nullptr;
 }
 
-std::vector<components::Component*> GameObject::getComponentsByTypeName(const std::string_view componentType)
+std::vector<Component*> GameObject::getComponentsByTypeName(const std::string_view componentType)
 {
-    std::vector<components::Component*> outComponents;
+    std::vector<Component*> outComponents;
     outComponents.reserve(components.size());
     for (const auto& component : components) {
         if (component->getComponentType() == componentType) {
@@ -461,14 +462,14 @@ bool GameObject::hasComponent(std::string_view componentType)
     return false;
 }
 
-components::Component* GameObject::addComponent(std::unique_ptr<components::Component> component)
+Component* GameObject::addComponent(std::unique_ptr<Component> component)
 {
     if (!component) { return nullptr; }
 
     component->setOwner(this);
     components.push_back(std::move(component));
 
-    rigidbodyComponent = getComponent<components::RigidBodyComponent>();
+    rigidbodyComponent = getComponent<RigidBodyComponent>();
     bIsCachedMeshRenderersDirty = true;
 
     if (bHasBegunPlay) {
@@ -478,11 +479,11 @@ components::Component* GameObject::addComponent(std::unique_ptr<components::Comp
     return components.back().get();
 }
 
-void GameObject::destroyComponent(components::Component* component)
+void GameObject::destroyComponent(Component* component)
 {
     if (!component) { return; }
 
-    const auto it = std::ranges::find_if(components, [component](const std::unique_ptr<components::Component>& comp) {
+    const auto it = std::ranges::find_if(components, [component](const std::unique_ptr<Component>& comp) {
         return comp.get() == component;
     });
 
@@ -495,14 +496,14 @@ void GameObject::destroyComponent(components::Component* component)
     }
 
     rigidbodyComponent = nullptr;
-    rigidbodyComponent = getComponent<components::RigidBodyComponent>();
+    rigidbodyComponent = getComponent<RigidBodyComponent>();
     bIsCachedMeshRenderersDirty = true;
 }
 
-std::vector<components::MeshRendererComponent*> GameObject::getMeshRendererComponents()
+std::vector<MeshRendererComponent*> GameObject::getMeshRendererComponents()
 {
     if (bIsCachedMeshRenderersDirty) {
-        getComponentsInto<components::MeshRendererComponent>(cachedMeshRendererComponents);
+        getComponentsInto<MeshRendererComponent>(cachedMeshRendererComponents);
         bIsCachedMeshRenderersDirty = false;
     }
     return cachedMeshRendererComponents;
@@ -558,10 +559,10 @@ void GameObject::selectedRenderImgui()
                     ImGui::Text("Available Components:");
                     ImGui::Separator();
 
-                    const auto& creators = components::ComponentFactory::getInstance().getManuallyCreatableComponentCreators();
+                    const auto& creators = ComponentFactory::getInstance().getManuallyCreatableCreators();
                     for (const auto& type : creators | std::views::keys) {
                         if (ImGui::Selectable(type.data())) {
-                            auto newComponent = components::ComponentFactory::getInstance().createComponent(type, "New " + std::string(type));
+                            auto newComponent = ComponentFactory::getInstance().create(type, "New " + std::string(type));
                             if (newComponent) {
                                 addComponent(std::move(newComponent));
                             }
@@ -575,9 +576,9 @@ void GameObject::selectedRenderImgui()
 
                 ImGui::Separator();
 
-                components::Component* componentToDestroy{nullptr};
+                Component* componentToDestroy{nullptr};
                 for (auto& component : components) {
-                    std::string& componentName = component->getComponentNameRef();
+                    std::string& componentName = component->getComponentNameImgui();
                     ImGui::PushID(component.get());
 
                     ImGui::Text("%s:", component->getComponentType().data());
@@ -593,14 +594,14 @@ void GameObject::selectedRenderImgui()
 
 
                     const char* componentType = component->getComponentType().data();
-                    if (ImGui::Button(componentName.c_str(), ImVec2(-1, 0))) {
+                    if (ImGui::Button(componentName.data(), ImVec2(-1, 0))) {
                         ImGui::OpenPopup(componentType);
                     }
 
 
                     ImGui::PushStyleColor(ImGuiCol_PopupBg, ImVec4(0.75f, 0.75f, 0.75f, 1.0f)); // Dark gray
                     if (ImGui::BeginPopupModal(componentType, nullptr, ImGuiWindowFlags_AlwaysAutoResize)) {
-                        ImGui::InputText("Component Name", &componentName[0], componentName.capacity() + 1);
+                        ImGui::InputText("Component Name", &componentName);
                         ImGui::Separator();
 
                         component->updateRenderImgui();

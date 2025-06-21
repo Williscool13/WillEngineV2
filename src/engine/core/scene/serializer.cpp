@@ -14,7 +14,7 @@ namespace will_engine
 void Serializer::serializeGameObject(ordered_json& j, IHierarchical* obj)
 
 {
-    if (const auto gameObject = dynamic_cast<game_object::GameObject*>(obj)) {
+    if (const auto gameObject = dynamic_cast<game::GameObject*>(obj)) {
         j["id"] = gameObject->getId();
         j["gameObjectType"] = gameObject->getComponentType();
     }
@@ -26,7 +26,7 @@ void Serializer::serializeGameObject(ordered_json& j, IHierarchical* obj)
     }
 
     if (const auto componentContainer = dynamic_cast<IComponentContainer*>(obj)) {
-        const std::vector<components::Component*> components = componentContainer->getAllComponents();
+        const std::vector<game::Component*> components = componentContainer->getAllComponents();
         if (components.size() > 0) {
             ordered_json componentsJson;
             for (const auto& component : components) {
@@ -86,8 +86,8 @@ void Serializer::serializeGameObject(ordered_json& j, IHierarchical* obj)
 
 std::unique_ptr<IHierarchical> Serializer::deserializeGameObject(const ordered_json& j)
 {
-    auto& gameObjectFactory = game_object::GameObjectFactory::getInstance();
-    std::unique_ptr<game_object::GameObject> gameObject{nullptr};
+    auto& gameObjectFactory = game::GameObjectFactory::getInstance();
+    std::unique_ptr<game::GameObject> gameObject{nullptr};
     std::string name{};
 
     if (j.contains("name")) {
@@ -96,11 +96,11 @@ std::unique_ptr<IHierarchical> Serializer::deserializeGameObject(const ordered_j
 
     if (j.contains("gameObjectType")) {
         const std::string type = j["gameObjectType"];
-        gameObject = gameObjectFactory.createGameObject(type, name);
+        gameObject = gameObjectFactory.create(type, name);
     }
 
     if (!gameObject) {
-        gameObject = gameObjectFactory.createGameObject(game_object::GameObject::getStaticType(), "");
+        gameObject = gameObjectFactory.create(game::GameObject::getStaticType(), "");
     }
 
 
@@ -113,7 +113,7 @@ std::unique_ptr<IHierarchical> Serializer::deserializeGameObject(const ordered_j
     }
 
     if (j.contains("components")) {
-        auto& factory = components::ComponentFactory::getInstance();
+        auto& factory = game::ComponentFactory::getInstance();
 
         const auto& components = j["components"];
         for (const auto& [componentName, componentData] : components.items()) {
@@ -124,8 +124,8 @@ std::unique_ptr<IHierarchical> Serializer::deserializeGameObject(const ordered_j
             auto componentType = componentData["componentType"].get<std::string>();
 
 
-            std::unique_ptr<components::Component> newComponent = factory.createComponent(componentType, componentName);
-            components::Component* component = gameObject->addComponent(std::move(newComponent));
+            std::unique_ptr<game::Component> newComponent = factory.create(componentType, componentName);
+            game::Component* component = gameObject->addComponent(std::move(newComponent));
 
 
             if (!component) {
@@ -161,14 +161,14 @@ bool Serializer::serializeMap(IHierarchical* map, ordered_json& rootJ, const std
     rootJ["metadata"] = SceneMetadata::create(map->getName().data());
 
     if (const auto componentContainer = dynamic_cast<IComponentContainer*>(map)) {
-        const std::vector<components::Component*> components = componentContainer->getAllComponents();
+        const std::vector<game::Component*> components = componentContainer->getAllComponents();
         if (components.size() > 0) {
             ordered_json componentsJson;
             for (const auto& component : components) {
                 ordered_json componentData;
                 component->serialize(componentData);
                 componentsJson[component->getComponentType()] = componentData;
-                componentsJson[component->getComponentType()]["componentName"] = component->getComponentNameView();
+                componentsJson[component->getComponentType()]["componentName"] = component->getComponentName();
             }
             rootJ["rootComponents"] = componentsJson;
         }
@@ -207,8 +207,8 @@ bool Serializer::deserializeMap(IHierarchical* root, ordered_json& rootJ)
                     componentName = componentType;
                 }
 
-                auto& factory = components::ComponentFactory::getInstance();
-                auto newComponent = factory.createComponent(componentType, componentName);
+                auto& factory = game::ComponentFactory::getInstance();
+                auto newComponent = factory.create(componentType, componentName);
 
                 if (newComponent) {
                     auto orderedComponentData = ordered_json(componentData);
@@ -224,17 +224,23 @@ bool Serializer::deserializeMap(IHierarchical* root, ordered_json& rootJ)
 
 bool Serializer::generateWillModel(const std::filesystem::path& gltfPath, const std::filesystem::path& outputPath)
 {
-    RenderObjectInfo info;
-    info.gltfPath = gltfPath.string();
-    info.name = gltfPath.stem().string();
-    info.id = computePathHash(info.gltfPath);
+    std::string sourcePathStr = gltfPath.string();
+    std::string name = gltfPath.stem().string();
+    uint32_t id = computePathHash(sourcePathStr);
+
+    // do some checks and return false if filetype is not supported
+    std::filesystem::path sourcePath = sourcePathStr;
 
     nlohmann::json j;
-    j["version"] = WILL_MODEL_FORMAT_VERSION;
+    j["version"] = {
+        {"major", WILL_MODEL_FORMAT_VERSION_MAJOR},
+        {"minor", WILL_MODEL_FORMAT_VERSION_MINOR},
+        {"patch", WILL_MODEL_FORMAT_VERSION_PATCH}
+    };
     j["renderObject"] = {
-        {"gltfPath", info.gltfPath},
-        {"name", info.name},
-        {"id", info.id}
+        {"sourcePath", sourcePathStr},
+        {"name", name},
+        {"id", id}
     };
 
     try {
@@ -259,9 +265,30 @@ std::optional<RenderObjectInfo> Serializer::loadWillModel(const std::filesystem:
         nlohmann::json j;
         i >> j;
 
-        if (!j.contains("version") || j["version"] != 1) {
-            fmt::print("Invalid or unsupported willmodel version in: {}\n", willmodelPath.string());
+        if (!j.contains("version")) {
+            fmt::print("Missing version field in willmodel file: {}\n", willmodelPath.string());
             return std::nullopt;
+        }
+
+        auto& version = j["version"];
+        if (!version.is_object() || !version.contains("major") || !version.contains("minor") || !version.contains("patch")) {
+            fmt::print("Invalid version format in willmodel file: {}\n", willmodelPath.string());
+            return std::nullopt;
+        }
+
+        uint32_t major = version["major"];
+        uint32_t minor = version["minor"];
+        uint32_t patch = version["patch"];
+
+        // Check compatibility - adjust these rules as needed
+        if (major != WILL_MODEL_FORMAT_VERSION_MAJOR) {
+            fmt::print("Incompatible major version {} (expected {}) in willmodel file: {}\n", major, WILL_MODEL_FORMAT_VERSION_MAJOR, willmodelPath.string());
+            return std::nullopt;
+        }
+
+        if (minor > WILL_MODEL_FORMAT_VERSION_MINOR) {
+            fmt::print("Warning: Newer minor version {} (current {}) in willmodel file: {}\n", minor, WILL_MODEL_FORMAT_VERSION_MINOR, willmodelPath.string());
+            // Minor Compatibility Code
         }
 
         if (!j.contains("renderObject")) {
@@ -273,11 +300,14 @@ std::optional<RenderObjectInfo> Serializer::loadWillModel(const std::filesystem:
 
         RenderObjectInfo info;
         info.willmodelPath = willmodelPath;
-        info.gltfPath = renderObject["gltfPath"].get<std::string>();
+        if (!renderObject.contains("sourcePath")) {
+            return std::nullopt;
+        }
+        info.sourcePath = renderObject["sourcePath"].get<std::string>();
         info.name = renderObject["name"].get<std::string>();
         info.id = renderObject["id"].get<uint32_t>();
 
-        uint32_t computedId = computePathHash(info.gltfPath);
+        uint32_t computedId = computePathHash(info.sourcePath);
         if (computedId != info.id) {
             fmt::print("Warning: ID mismatch in {}, expected: {}, found: {} (not necessarily a problem).\n", willmodelPath.string(), computedId,
                        info.id);
@@ -301,7 +331,7 @@ bool Serializer::generateWillTexture(const std::filesystem::path& texturePath, c
     nlohmann::json j;
     j["version"] = WILL_TEXTURE_FORMAT_VERSION;
     j["texture"] = {
-        {"gltfPath", info.texturePath},
+        {"sourcePath", info.texturePath},
         {"name", info.name},
         {"id", info.id},
         {"textureProperties", info.textureProperties},
@@ -343,7 +373,7 @@ std::optional<TextureInfo> Serializer::loadWillTexture(const std::filesystem::pa
 
         TextureInfo info;
         info.willtexturePath = willtexturePath;
-        info.texturePath = texture.value<std::string>("gltfPath", "");
+        info.texturePath = texture.value<std::string>("sourcePath", "");
         info.name = texture.value<std::string>("name", "");
         info.id = texture.value<uint32_t>("id", 0);;
         info.textureProperties = texture.value<TextureProperties>("textureProperties", {});
@@ -402,7 +432,8 @@ bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag 
     if (hasFlag(engineSettings, EngineSettingsTypeFlag::EDITOR_SETTINGS)) {
         ordered_json editorSettings;
         EditorSettings _editorSettings = engine->getEditorSettings();
-        editorSettings["saveOnExit"] = _editorSettings.saveOnExit;
+        editorSettings["saveSettingsOnExit"] = _editorSettings.bSaveSettingsOnExit;
+        editorSettings["saveMapOnExit"] = _editorSettings.bSaveMapOnExit;
 
         rootJ["editorSettings"] = editorSettings;
     }
@@ -580,8 +611,12 @@ bool Serializer::deserializeEngineSettings(Engine* engine, EngineSettingsTypeFla
             ordered_json editorSettings = rootJ["editorSettings"];
             EditorSettings _editorSettings = engine->getEditorSettings();
 
-            if (editorSettings.contains("saveOnExit")) {
-                _editorSettings.saveOnExit = editorSettings["saveOnExit"].get<bool>();
+            if (editorSettings.contains("saveSettingsOnExit")) {
+                _editorSettings.bSaveSettingsOnExit = editorSettings["saveSettingsOnExit"].get<bool>();
+            }
+
+            if (editorSettings.contains("saveMapOnExit")) {
+                _editorSettings.bSaveSettingsOnExit = editorSettings["saveMapOnExit"].get<bool>();
             }
 
             engine->setEditorSettings(_editorSettings);

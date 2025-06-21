@@ -7,7 +7,7 @@
 #include <unordered_map>
 
 #include "material/material.h"
-#include "render_object/render_object.h"
+#include "render_object/render_object_fwd.h"
 #include "texture/texture.h"
 
 
@@ -16,7 +16,7 @@ namespace will_engine::renderer
 class AssetManager
 {
 public:
-    explicit AssetManager(renderer::ResourceManager& resourceManager);
+    explicit AssetManager(ResourceManager& resourceManager);
 
     ~AssetManager();
 
@@ -39,17 +39,18 @@ private: // Textures
     std::unordered_map<uint32_t, std::unique_ptr<Texture> > textures;
 
 public: // Render Objects
-
     RenderObject* getRenderObject(uint32_t renderObjectId) const;
 
-    std::vector<RenderObject*> getAllRenderObjects();
+    const std::vector<RenderObject*>& getAllRenderObjects();
 
     bool hasAnyRenderObjects() const { return renderObjects.size() > 0; }
 
     RenderObject* getAnyRenderObject() const;
 
 private: // Render Objects
-    std::unordered_map<uint32_t, std::unique_ptr<RenderObject> > renderObjects;
+    std::unordered_map<uint32_t, RenderObjectPtr> renderObjects;
+    std::vector<RenderObject*> cachedRenderObjects;
+    bool bRenderObjectsCacheDirty = true;
 
     std::unordered_map<uint32_t, std::unique_ptr<Material> > materials;
 

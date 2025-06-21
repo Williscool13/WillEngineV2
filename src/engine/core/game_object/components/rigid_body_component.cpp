@@ -53,7 +53,7 @@ inline void from_json(const ordered_json& j, PhysicsProperties& props)
 }
 }
 
-namespace will_engine::components
+namespace will_engine::game
 {
 RigidBodyComponent::RigidBodyComponent(const std::string& name)
     : Component(name)
@@ -90,6 +90,7 @@ void RigidBodyComponent::setOwner(IComponentContainer* owner)
 
 void RigidBodyComponent::setTransform(const glm::vec3& position, const glm::quat& rotation)
 {
+    // todo: check if value doesn't exceed epsilon. If it doesn't then do NOT modify this so that the render object doesn't get updated unnecessarily.
     transformableOwner->setGlobalTransformFromPhysics(position, rotation);
 }
 

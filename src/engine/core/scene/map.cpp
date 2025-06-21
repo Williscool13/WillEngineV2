@@ -10,7 +10,9 @@
 #include "engine/core/engine.h"
 #include "engine/util/file.h"
 
-will_engine::Map::Map(const std::filesystem::path& mapSource, renderer::ResourceManager& resourceManager) : mapSource(mapSource),
+namespace will_engine::game
+{
+Map::Map(const std::filesystem::path& mapSource, renderer::ResourceManager& resourceManager) : mapSource(mapSource),
                                                                                                             resourceManager(resourceManager)
 {
     if (!exists(mapSource)) {
@@ -28,7 +30,7 @@ will_engine::Map::Map(const std::filesystem::path& mapSource, renderer::Resource
     }
 }
 
-will_engine::Map::~Map()
+Map::~Map()
 {
     if (!children.empty()) {
         fmt::print(
@@ -36,7 +38,7 @@ will_engine::Map::~Map()
     }
 }
 
-void will_engine::Map::destroy()
+void Map::destroy()
 {
     recursivelyDestroy();
 
@@ -45,7 +47,7 @@ void will_engine::Map::destroy()
     }
 }
 
-bool will_engine::Map::loadMap()
+bool Map::loadMap()
 {
     std::ifstream file(mapSource);
     if (!file.is_open()) {
@@ -92,15 +94,23 @@ bool will_engine::Map::loadMap()
     return true;
 }
 
-bool will_engine::Map::saveMap()
+bool Map::saveMap()
 {
+#if WILL_ENGINE_RELEASE
+    fmt::print("Warning: Attempted to save game in release, this should generally not be allowed");
+    return false;
+#endif
     ordered_json rootJ;
 
     return Serializer::serializeMap(this, rootJ, mapSource);
 }
 
-bool will_engine::Map::saveMap(const std::filesystem::path& newSavePath)
+bool Map::saveMap(const std::filesystem::path& newSavePath)
 {
+#if WILL_ENGINE_RELEASE
+    fmt::print("Warning: Attempted to save game in release, this should generally not be allowed");
+    return false;
+#endif
     if (!newSavePath.empty() && mapSource != newSavePath) {
         mapSource = newSavePath;
     }
@@ -110,7 +120,7 @@ bool will_engine::Map::saveMap(const std::filesystem::path& newSavePath)
     return Serializer::serializeMap(this, rootJ, mapSource);
 }
 
-will_engine::components::Component* will_engine::Map::getComponentByTypeName(std::string_view componentType)
+Component* Map::getComponentByTypeName(std::string_view componentType)
 {
     for (const auto& _component : components) {
         if (componentType == _component->getComponentType()) {
@@ -121,9 +131,9 @@ will_engine::components::Component* will_engine::Map::getComponentByTypeName(std
     return nullptr;
 }
 
-std::vector<will_engine::components::Component*> will_engine::Map::getComponentsByTypeName(std::string_view componentType)
+std::vector<Component*> Map::getComponentsByTypeName(std::string_view componentType)
 {
-    std::vector<components::Component*> outComponents;
+    std::vector<Component*> outComponents;
     outComponents.reserve(components.size());
     for (const auto& component : components) {
         if (component->getComponentType() == componentType) {
@@ -134,7 +144,7 @@ std::vector<will_engine::components::Component*> will_engine::Map::getComponents
     return outComponents;
 }
 
-bool will_engine::Map::hasComponent(const std::string_view componentType)
+bool Map::hasComponent(const std::string_view componentType)
 {
     for (const auto& _component : components) {
         if (componentType == _component->getComponentType()) {
@@ -145,7 +155,7 @@ bool will_engine::Map::hasComponent(const std::string_view componentType)
     return false;
 }
 
-will_engine::components::Component* will_engine::Map::addComponent(std::unique_ptr<components::Component> component)
+Component* Map::addComponent(std::unique_ptr<Component> component)
 {
     if (!component) { return nullptr; }
 
@@ -158,7 +168,7 @@ will_engine::components::Component* will_engine::Map::addComponent(std::unique_p
     component->setOwner(this);
     components.push_back(std::move(component));
 
-    terrainComponent = getComponent<components::TerrainComponent>();
+    terrainComponent = getComponent<TerrainComponent>();
 
     if (bHasBegunPlay) {
         components.back()->beginPlay();
@@ -167,11 +177,11 @@ will_engine::components::Component* will_engine::Map::addComponent(std::unique_p
     return components.back().get();
 }
 
-void will_engine::Map::destroyComponent(components::Component* component)
+void Map::destroyComponent(Component* component)
 {
     if (!component) { return; }
 
-    const auto it = std::ranges::find_if(components, [component](const std::unique_ptr<components::Component>& comp) {
+    const auto it = std::ranges::find_if(components, [component](const std::unique_ptr<Component>& comp) {
         return comp.get() == component;
     });
 
@@ -183,10 +193,10 @@ void will_engine::Map::destroyComponent(components::Component* component)
         fmt::print("Attempted to remove a component that does not belong to this gameobject.\n");
     }
 
-    terrainComponent = getComponent<components::TerrainComponent>();
+    terrainComponent = getComponent<TerrainComponent>();
 }
 
-void will_engine::Map::beginPlay()
+void Map::beginPlay()
 {
     for (const auto& component : components) {
         component->beginPlay();
@@ -194,7 +204,7 @@ void will_engine::Map::beginPlay()
     bHasBegunPlay = true;
 }
 
-void will_engine::Map::update(const float deltaTime)
+void Map::update(const float deltaTime)
 {
     if (!bHasBegunPlay) { return; }
 
@@ -207,16 +217,16 @@ void will_engine::Map::update(const float deltaTime)
     recursivelyUpdate(deltaTime);
 }
 
-void will_engine::Map::beginDestructor()
+void Map::beginDestructor()
 {
     for (const auto& component : components) {
         component->beginDestroy();
     }
 }
 
-will_engine::IHierarchical* will_engine::Map::addChild(std::unique_ptr<IHierarchical> child, bool retainTransform)
+IHierarchical* Map::addChild(std::unique_ptr<IHierarchical> child, bool retainTransform)
 {
-    ITransformable* transformable = dynamic_cast<ITransformable*>(child.get());
+    const auto transformable = dynamic_cast<ITransformable*>(child.get());
     Transform prevTransform = Transform::Identity;
     if (retainTransform && transformable) {
         prevTransform = transformable->getGlobalTransform();
@@ -236,7 +246,7 @@ will_engine::IHierarchical* will_engine::Map::addChild(std::unique_ptr<IHierarch
     return children.back().get();
 }
 
-bool will_engine::Map::moveChild(IHierarchical* child, IHierarchical* newParent, const bool retainTransform)
+bool Map::moveChild(IHierarchical* child, IHierarchical* newParent, const bool retainTransform)
 {
     const auto it = std::ranges::find_if(children,
                                          [child](const std::unique_ptr<IHierarchical>& ptr) {
@@ -252,7 +262,7 @@ bool will_engine::Map::moveChild(IHierarchical* child, IHierarchical* newParent,
     return false;
 }
 
-void will_engine::Map::moveChildToIndex(int32_t fromIndex, int32_t targetIndex)
+void Map::moveChildToIndex(int32_t fromIndex, int32_t targetIndex)
 {
     if (fromIndex >= children.size() || targetIndex >= children.size() || fromIndex == targetIndex) {
         return;
@@ -276,7 +286,7 @@ void will_engine::Map::moveChildToIndex(int32_t fromIndex, int32_t targetIndex)
     bChildrenCacheDirty = true;
 }
 
-void will_engine::Map::recursivelyUpdate(const float deltaTime)
+void Map::recursivelyUpdate(const float deltaTime)
 {
     for (auto& child : children) {
         if (child == nullptr) { continue; }
@@ -284,7 +294,7 @@ void will_engine::Map::recursivelyUpdate(const float deltaTime)
     }
 }
 
-void will_engine::Map::recursivelyDestroy()
+void Map::recursivelyDestroy()
 {
     for (const auto& child : children) {
         if (child == nullptr) { continue; }
@@ -306,7 +316,7 @@ void will_engine::Map::recursivelyDestroy()
     }
 }
 
-bool will_engine::Map::deleteChild(IHierarchical* child)
+bool Map::deleteChild(IHierarchical* child)
 {
     const auto it = std::ranges::find_if(children,
                                          [child](const std::unique_ptr<IHierarchical>& ptr) {
@@ -326,7 +336,7 @@ bool will_engine::Map::deleteChild(IHierarchical* child)
     return false;
 }
 
-void will_engine::Map::dirty()
+void Map::dirty()
 {
     cachedModelMatrix = transform.toModelMatrix();
 
@@ -336,17 +346,17 @@ void will_engine::Map::dirty()
     }
 }
 
-void will_engine::Map::setParent(IHierarchical* newParent)
+void Map::setParent(IHierarchical* newParent)
 {
     fmt::print("Warning: You re not allowed to set the parent a willmap");
 }
 
-will_engine::IHierarchical* will_engine::Map::getParent() const
+IHierarchical* Map::getParent() const
 {
     return nullptr;
 }
 
-std::vector<will_engine::IHierarchical*>& will_engine::Map::getChildren()
+std::vector<IHierarchical*>& Map::getChildren()
 {
     if (bChildrenCacheDirty) {
         childrenCache.clear();
@@ -361,56 +371,59 @@ std::vector<will_engine::IHierarchical*>& will_engine::Map::getChildren()
     return childrenCache;
 }
 
-void will_engine::Map::setName(std::string newName)
+void Map::setName(std::string newName)
 {
     if (newName == "") { return; }
     mapName = std::move(newName);
 }
 
-void will_engine::Map::setLocalPosition(const glm::vec3 localPosition)
+void Map::setLocalPosition(const glm::vec3 localPosition)
 {
     transform.setPosition(localPosition);
     dirty();
 }
 
-void will_engine::Map::setLocalRotation(const glm::quat localRotation)
+void Map::setLocalRotation(const glm::quat localRotation)
 {
     transform.setRotation(localRotation);
     dirty();
 }
 
-void will_engine::Map::setLocalScale(const glm::vec3 localScale)
+void Map::setLocalScale(const glm::vec3 localScale)
 {
     transform.setScale(localScale);
     dirty();
 }
 
-void will_engine::Map::setLocalScale(const float localScale)
+void Map::setLocalScale(const float localScale)
 {
     transform.setScale(glm::vec3(localScale));
     dirty();
 }
 
-void will_engine::Map::setLocalTransform(const Transform& newLocalTransform)
+void Map::setLocalTransform(const Transform& newLocalTransform)
 {
     transform = newLocalTransform;
     dirty();
 }
 
-void will_engine::Map::translate(const glm::vec3 translation)
+void Map::translate(const glm::vec3 translation)
 {
     transform.translate(translation);
     dirty();
 }
 
-void will_engine::Map::rotate(const glm::quat rotation)
+void Map::rotate(const glm::quat rotation)
 {
     transform.rotate(rotation);
     dirty();
 }
 
-void will_engine::Map::rotateAxis(const float angle, const glm::vec3& axis)
+void Map::rotateAxis(const float angle, const glm::vec3& axis)
 {
     transform.rotateAxis(angle, axis);
     dirty();
 }
+
+}
+

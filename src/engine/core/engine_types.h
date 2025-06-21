@@ -19,7 +19,8 @@ struct FrameData
 
 struct EditorSettings
 {
-    bool saveOnExit{true};
+    bool bSaveSettingsOnExit{true};
+    bool bSaveMapOnExit{true};
 };
 
 struct EngineSettings

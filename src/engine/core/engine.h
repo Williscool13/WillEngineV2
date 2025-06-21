@@ -30,6 +30,7 @@
 #include "engine/renderer/resources/image_view.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 #include "engine/renderer/resources/resources_fwd.h"
+#include "events/event_dispatcher.h"
 
 #if WILL_ENGINE_DEBUG_DRAW
 namespace will_engine::renderer
@@ -115,11 +116,11 @@ public:
      * @param name
      * @return
      */
-    [[nodiscard]] static IHierarchical* createGameObject(Map* map, const std::string& name);
+    [[nodiscard]] static IHierarchical* createGameObject(game::Map* map, const std::string& name);
 
     void addToBeginQueue(IHierarchical* obj);
 
-    void addToMapDeletionQueue(Map* obj);
+    void addToMapDeletionQueue(game::Map* obj);
 
     void addToDeletionQueue(std::unique_ptr<IHierarchical> obj);
 
@@ -168,6 +169,8 @@ private: // Rendering
     bool bResizeRequested{false};
 
     void createDrawResources();
+
+    EventDispatcher<int32_t> testDispatcher;
 
 private: // Engine Settings
 #if WILL_ENGINE_DEBUG
@@ -235,13 +238,13 @@ private: // Scene Data
     renderer::PostProcessType postProcessData{
         renderer::PostProcessType::Tonemapping | renderer::PostProcessType::Sharpening
     };
-    std::vector<std::unique_ptr<Map> > activeMaps;
+    std::vector<std::unique_ptr<game::Map> > activeMaps;
     std::unordered_set<ITerrain*> activeTerrains;
 
 
     std::vector<IHierarchical*> hierarchalBeginQueue{};
     std::vector<std::unique_ptr<IHierarchical> > hierarchicalDeletionQueue{};
-    std::vector<std::unique_ptr<Map> > mapDeletionQueue{};
+    std::vector<std::unique_ptr<game::Map> > mapDeletionQueue{};
 
 private: // Pipelines
     renderer::VisibilityPassPipeline* visibilityPassPipeline{nullptr};
@@ -306,7 +309,7 @@ private: // Swapchain
     void resizeSwapchain();
 
 public:
-    Map* createMap(const std::filesystem::path& path);
+    game::Map* createMap(const std::filesystem::path& path);
 
     friend class ImguiWrapper;
 };

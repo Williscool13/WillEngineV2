@@ -71,6 +71,7 @@ set(IMGUI_SOURCES
         ${IMGUI_DIR}/imgui_widgets.cpp
         ${IMGUI_DIR}/backends/imgui_impl_sdl3.cpp
         ${IMGUI_DIR}/backends/imgui_impl_vulkan.cpp
+        ${IMGUI_DIR}/misc/cpp/imgui_stdlib.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/ImGuiFileDialog/ImGuiFileDialog.cpp
 )
 set(FASTGLTF_DIR ${CMAKE_CURRENT_SOURCE_DIR}/extern/fastgltf)
@@ -161,8 +162,8 @@ set(RENDERER_SOURCES
         src/engine/renderer/vk_types.cpp
         src/engine/renderer/vk_types.h
         src/engine/renderer/renderer_constants.h
-        src/engine/renderer/assets/render_object/render_object.h
-        src/engine/renderer/assets/render_object/render_object.cpp
+        src/engine/renderer/assets/render_object/render_object_gltf.h
+        src/engine/renderer/assets/render_object/render_object_gltf.cpp
         src/engine/renderer/assets/render_object/render_object_types.h
         src/engine/renderer/assets/render_object/render_object_types.cpp
         src/engine/renderer/assets/render_object/render_reference.h
@@ -276,7 +277,6 @@ set(TEMP_SOURCES
         src/engine/renderer/pipelines/post/post_process/post_process_pipeline_types.h
         src/engine/renderer/pipelines/post/temporal_antialiasing/temporal_antialiasing_pipeline_types.h
         src/engine/renderer/pipelines/debug/debug_renderer_types.h
-        src/engine/core/game_object/game_object_factory.cpp
         src/engine/core/game_object/game_object_factory.h
         src/engine/renderer/pipelines/debug/debug_highlight_types.h
         src/engine/renderer/resources/vulkan_resource.cpp
@@ -303,6 +303,12 @@ set(TEMP_SOURCES
         src/engine/renderer/resources/resources_fwd.h
         src/engine/renderer/resources/shader_module.cpp
         src/engine/renderer/resources/shader_module.h
+        src/engine/core/factory/object_factory.h
+        src/engine/renderer/assets/render_object/render_object.cpp
+        src/engine/renderer/assets/render_object/render_object.h
+        src/engine/renderer/assets/render_object/render_object_fwd.h
+        src/engine/core/events/event_dispatcher.cpp
+        src/engine/core/events/event_dispatcher.h
 )
 
 add_executable(WillEngine main.cpp
@@ -324,6 +330,7 @@ target_include_directories(WillEngine PRIVATE
         ${Vulkan_INCLUDE_DIRS}                                              # Vulkan
         ${IMGUI_DIR}                                                        # ImGui
         ${IMGUI_DIR}/backends                                               # ImGui backends
+        ${IMGUI_DIR}/misc/cpp                                               # ImGui cpp (stdlib)
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/JoltPhysics                      # Jolt Physics
         ${CMAKE_CURRENT_SOURCE_DIR}/extern/shaderc                          # ShaderC

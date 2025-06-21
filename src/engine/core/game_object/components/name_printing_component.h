@@ -7,7 +7,7 @@
 
 #include "component.h"
 
-namespace will_engine::components
+namespace will_engine::game
 {
 class NamePrintingComponent final : public Component
 {

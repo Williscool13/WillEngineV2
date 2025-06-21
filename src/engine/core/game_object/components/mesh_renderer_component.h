@@ -19,7 +19,7 @@ namespace will_engine
 class ITransformable;
 }
 
-namespace will_engine::components
+namespace will_engine::game
 {
 class MeshRendererComponent : public Component, public renderer::IRenderable
 {

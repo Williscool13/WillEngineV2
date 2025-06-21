@@ -8,7 +8,7 @@
 #include "engine/core/game_object/terrain.h"
 #include "engine/util/heightmap_utils.h"
 
-namespace will_engine::components
+namespace will_engine::game
 {
 class TerrainComponent : public Component, public ITerrain
 {

@@ -105,7 +105,7 @@ struct CascadedShadowMapDrawInfo
 {
     bool bEnabled{true};
     int32_t currentFrameOverlap{};
-    std::vector<RenderObject*>& renderObjects;
+    const std::vector<RenderObject*>& renderObjects;
     std::unordered_set<ITerrain*>& terrains;
 };
 }

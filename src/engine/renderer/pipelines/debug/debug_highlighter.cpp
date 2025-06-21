@@ -96,7 +96,7 @@ void DebugHighlighter::setupDescriptorBuffer(VkImageView stencilImageView, VkIma
     descriptorBuffer->setupData(descriptors, 0);
 }
 
-bool DebugHighlighter::drawHighlightStencil(VkCommandBuffer cmd, const renderer::DebugHighlighterDrawInfo& drawInfo) const
+bool DebugHighlighter::drawHighlightStencil(VkCommandBuffer cmd, const DebugHighlighterDrawInfo& drawInfo) const
 {
     if (!drawInfo.highlightTarget->canDrawHighlight()) {
         return false;
