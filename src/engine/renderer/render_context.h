@@ -33,7 +33,7 @@ public:
     };
 
 public:
-    RenderContext(const VkExtent2D windowExtent, float renderScale);
+    RenderContext(VkExtent2D windowExtent, float renderScale);
 
 
 public:

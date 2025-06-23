@@ -169,7 +169,7 @@ private: // Rendering
     bool bStopRendering{false};
     bool bWindowChanged{false};
 
-    void createDrawResources();
+    void createDrawResources(VkExtent3D extents);
 
     EventDispatcher<int32_t> testDispatcher;
 
@@ -303,7 +303,7 @@ private: // Swapchain
     VkFormat swapchainImageFormat{};
     std::vector<VkImage> swapchainImages{};
     std::vector<VkImageView> swapchainImageViews{};
-    VkExtent2D swapchainExtent{};
+    VkExtent3D swapchainExtent{};
 
     void createSwapchain(uint32_t width, uint32_t height);
 

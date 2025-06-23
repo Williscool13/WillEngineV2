@@ -7,6 +7,7 @@
 
 #include <volk/volk.h>
 
+#include "engine/renderer/renderer_constants.h"
 #include "engine/renderer/resources/resources_fwd.h"
 
 namespace will_engine::renderer
@@ -15,7 +16,7 @@ class ResourceManager;
 
 struct EnvironmentDrawInfo
 {
-    bool bClearColor{false};
+    VkExtent2D renderExtents{DEFAULT_RENDER_EXTENTS_2D};
     VkImageView normalTarget{VK_NULL_HANDLE};
     VkImageView albedoTarget{VK_NULL_HANDLE};
     VkImageView pbrTarget{VK_NULL_HANDLE};

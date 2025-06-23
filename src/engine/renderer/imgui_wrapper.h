@@ -50,7 +50,7 @@ public:
      */
     bool displayGameObject(Engine* engine, IHierarchical* obj, int32_t depth);
 
-    void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView, VkExtent2D swapchainExtent);
+    void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView, VkExtent3D swapchainExtent);
 
 private:
     static void indent(IHierarchical* obj);

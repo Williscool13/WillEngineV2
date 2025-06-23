@@ -14,6 +14,11 @@ constexpr bool USING_REVERSED_DEPTH_BUFFER = true;
 constexpr VkDeviceSize ZERO_DEVICE_SIZE = 0;
 constexpr VkExtent2D DEFAULT_RENDER_EXTENT{1920, 1080};
 constexpr VkExtent2D RENDER_EXTENTS{1920, 1080};
+/**
+ * Default extents to use as a struct default parameter
+ */
+constexpr VkExtent2D DEFAULT_RENDER_EXTENTS_2D{1920, 1080};
+constexpr VkExtent3D DEFAULT_RENDER_EXTENTS_3D{1920, 1080, 1};
 //constexpr VkExtent2D RENDER_EXTENTS{2560 , 1440};
 //constexpr VkExtent2D RENDER_EXTENTS{3840, 2160};
 

@@ -30,7 +30,7 @@ struct TerrainDrawInfo
 {
     bool bClearColor{true};
     int32_t currentFrameOverlap{0};
-    glm::vec2 viewportExtents{RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
+    VkExtent2D renderExtents{DEFAULT_RENDER_EXTENTS_2D};
     const std::unordered_set<ITerrain*>& terrains;
     VkImageView normalTarget{VK_NULL_HANDLE};
     VkImageView albedoTarget{VK_NULL_HANDLE};

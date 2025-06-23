@@ -107,8 +107,6 @@ namespace vk_helpers
     void clearColorImage(VkCommandBuffer cmd, VkImageAspectFlags aspectFlag, VkImage image, VkImageLayout srcLayout, VkImageLayout dstLayout,
                          VkClearColorValue clearColor = {0.0f, 0.0f, 0.0f, 1.0f});
 
-    void imageBarrier(VkCommandBuffer cmd, Image* image, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
-
     void imageBarrier(VkCommandBuffer cmd, ImageResource* image, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
 
     void imageBarrier(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
@@ -118,6 +116,7 @@ namespace vk_helpers
                         dstPipelineStage, VkAccessFlagBits2 dstAccessBit);
 
     void copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize);
+    void copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent3D srcSize, VkExtent3D dstSize);
 
     void generateMipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize);
 
