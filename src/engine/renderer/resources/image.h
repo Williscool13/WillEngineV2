@@ -12,7 +12,7 @@
 
 namespace will_engine::renderer
 {
-struct Image final : ImageResource
+struct Image : ImageResource
 {
     VmaAllocation allocation{VK_NULL_HANDLE};
 

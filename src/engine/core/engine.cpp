@@ -35,6 +35,7 @@
 #include "engine/renderer/pipelines/shadows/ground_truth_ambient_occlusion/ground_truth_ambient_occlusion_pipeline.h"
 #include "engine/renderer/pipelines/visibility_pass/visibility_pass_pipeline.h"
 #include "engine/renderer/resources/image.h"
+#include "engine/renderer/resources/render_target.h"
 #include "engine/util/file.h"
 #include "engine/util/halton.h"
 #if  WILL_ENGINE_DEBUG_DRAW
@@ -656,16 +657,16 @@ void Engine::render(float deltaTime)
         constexpr uint32_t COLOR_IMAGE_COUNT = 7;
 #endif
         // History buffer is not reset
-        std::array<VkImage, COLOR_IMAGE_COUNT> colorImages = {
-            drawImage->image,
-            normalRenderTarget->image,
-            albedoRenderTarget->image,
-            pbrRenderTarget->image,
-            velocityRenderTarget->image,
-            taaResolveTarget->image,
-            finalImageBuffer->image,
+        std::array<renderer::RenderTarget*, COLOR_IMAGE_COUNT> colorImages = {
+            drawImage.get(),
+            normalRenderTarget.get(),
+            albedoRenderTarget.get(),
+            pbrRenderTarget.get(),
+            velocityRenderTarget.get(),
+            taaResolveTarget.get(),
+            finalImageBuffer.get(),
 #if WILL_ENGINE_DEBUG_DRAW
-            debugTarget->image,
+            debugTarget.get(),
 #endif
         };
 
@@ -688,7 +689,8 @@ void Engine::render(float deltaTime)
                 .baseArrayLayer = 0,
                 .layerCount = 1
             };
-            barrier.image = colorImages[i];
+            barrier.image = colorImages[i]->image;
+            colorImages[i]->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
         }
 
         VkImageMemoryBarrier2& depthBarrier = barriers[COLOR_IMAGE_COUNT];
@@ -708,6 +710,7 @@ void Engine::render(float deltaTime)
             .layerCount = 1
         };
         depthBarrier.image = depthStencilImage->image;
+        depthStencilImage->imageLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
 
         VkDependencyInfo depInfo{};
         depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
@@ -724,8 +727,8 @@ void Engine::render(float deltaTime)
             .layerCount = 1
         };
 
-        for (VkImage image : colorImages) {
-            vkCmdClearColorImage(cmd, image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColor, 1, &colorRange);
+        for (renderer::RenderTarget* rt : colorImages) {
+            vkCmdClearColorImage(cmd, rt->image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &clearColor, 1, &colorRange);
         }
 
         VkClearDepthStencilValue depthClear = {0.0f, 0};
@@ -746,7 +749,8 @@ void Engine::render(float deltaTime)
             barrier.dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT;
             barrier.dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT;
             barrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-            barrier.newLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            barrier.newLayout = colorImages[i]->afterClearFormat;
+            colorImages[i]->imageLayout = colorImages[i]->afterClearFormat;
         }
 
         VkImageMemoryBarrier2& finalDepthBarrier = barriers[COLOR_IMAGE_COUNT];
@@ -755,25 +759,17 @@ void Engine::render(float deltaTime)
         finalDepthBarrier.dstStageMask = VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT;
         finalDepthBarrier.dstAccessMask = VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
         finalDepthBarrier.oldLayout = VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-        finalDepthBarrier.newLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+        finalDepthBarrier.newLayout = depthStencilImage->afterClearFormat;
+        depthStencilImage->imageLayout = depthStencilImage->afterClearFormat;
 
         VkDependencyInfo finalDep{.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO};
         finalDep.imageMemoryBarrierCount = COLOR_IMAGE_COUNT + 1;
         finalDep.pImageMemoryBarriers = barriers.data();
         vkCmdPipelineBarrier2(cmd, &finalDep);
 
-        drawImage->imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        depthStencilImage->imageLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
-        normalRenderTarget->imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        albedoRenderTarget->imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        pbrRenderTarget->imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        velocityRenderTarget->imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        taaResolveTarget->imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-        finalImageBuffer->imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
-#if WILL_ENGINE_DEBUG_DRAW
-        debugTarget->imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-#endif
+
+
     }
 
     renderer::EnvironmentDrawInfo environmentPipelineDrawInfo{
@@ -1296,7 +1292,8 @@ void Engine::createDrawResources(VkExtent3D extents)
 
 
         VkImageViewCreateInfo renderViewInfo = renderer::vk_helpers::imageviewCreateInfo(DRAW_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
-        drawImage = resourceManager->createResource<renderer::Image>(createInfo, renderImageAllocationInfo, renderViewInfo);
+        drawImage = resourceManager->createResource<renderer::RenderTarget>(createInfo, renderImageAllocationInfo, renderViewInfo,
+                                                                            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     }
     // Depth Image
     {
@@ -1315,8 +1312,8 @@ void Engine::createDrawResources(VkExtent3D extents)
 
         VkImageViewCreateInfo combinedViewInfo = renderer::vk_helpers::imageviewCreateInfo(DEPTH_STENCIL_FORMAT, VK_NULL_HANDLE,
                                                                                            VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
-
-        depthStencilImage = resourceManager->createResource<renderer::Image>(depthImageInfo, depthImageAllocationInfo, combinedViewInfo);
+        depthStencilImage = resourceManager->createResource<renderer::RenderTarget>(depthImageInfo, depthImageAllocationInfo, combinedViewInfo,
+                                                                                    VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
         VkImageViewCreateInfo depthViewInfo = renderer::vk_helpers::imageviewCreateInfo(depthStencilImage->imageFormat, depthStencilImage->image,
                                                                                         VK_IMAGE_ASPECT_DEPTH_BIT);
@@ -1343,7 +1340,9 @@ void Engine::createDrawResources(VkExtent3D extents)
             VkImageViewCreateInfo imageViewInfo = renderer::vk_helpers::imageviewCreateInfo(
                 renderTargetFormat, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
 
-            return resourceManager->createResource<renderer::Image>(imageInfo, allocInfo, imageViewInfo);
+
+            return resourceManager->createResource<renderer::RenderTarget>(imageInfo, allocInfo, imageViewInfo,
+                                                                           VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
         });
 
         normalRenderTarget = generateRenderTarget(NORMAL_FORMAT);
@@ -1354,7 +1353,6 @@ void Engine::createDrawResources(VkExtent3D extents)
     // TAA Resolve
     {
         VkImageUsageFlags taaResolveUsages{};
-        taaResolveUsages |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         taaResolveUsages |= VK_IMAGE_USAGE_STORAGE_BIT;
         taaResolveUsages |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
         taaResolveUsages |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
@@ -1369,7 +1367,8 @@ void Engine::createDrawResources(VkExtent3D extents)
 
         VkImageViewCreateInfo imageViewCreateInfo = renderer::vk_helpers::imageviewCreateInfo(DRAW_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
 
-        taaResolveTarget = resourceManager->createResource<renderer::Image>(imageCreateInfo, allocInfo, imageViewCreateInfo);
+
+        taaResolveTarget = resourceManager->createResource<renderer::RenderTarget>(imageCreateInfo, allocInfo, imageViewCreateInfo, VK_IMAGE_LAYOUT_GENERAL);
     }
     // Draw History
     {
@@ -1385,7 +1384,8 @@ void Engine::createDrawResources(VkExtent3D extents)
         };
 
         VkImageViewCreateInfo imageViewCreateInfo = renderer::vk_helpers::imageviewCreateInfo(DRAW_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
-        historyBuffer = resourceManager->createResource<renderer::Image>(imageCreateInfo, allocInfo, imageViewCreateInfo);
+        historyBuffer = resourceManager->createResource<renderer::RenderTarget>(imageCreateInfo, allocInfo, imageViewCreateInfo,
+                                                                                VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     }
     // Final Image
     {
@@ -1402,7 +1402,8 @@ void Engine::createDrawResources(VkExtent3D extents)
         };
 
         VkImageViewCreateInfo imageViewCreateInfo = renderer::vk_helpers::imageviewCreateInfo(DRAW_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
-        finalImageBuffer = resourceManager->createResource<renderer::Image>(imageCreateInfo, allocInfo, imageViewCreateInfo);
+        finalImageBuffer = resourceManager->createResource<renderer::RenderTarget>(imageCreateInfo, allocInfo, imageViewCreateInfo,
+                                                                                   VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
     }
 
 #if WILL_ENGINE_DEBUG_DRAW
@@ -1417,7 +1418,7 @@ void Engine::createDrawResources(VkExtent3D extents)
         .requiredFlags = VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
     };
     VkImageViewCreateInfo imageViewCreateInfo = renderer::vk_helpers::imageviewCreateInfo(DEBUG_FORMAT, VK_NULL_HANDLE, VK_IMAGE_ASPECT_COLOR_BIT);
-    debugTarget = resourceManager->createResource<renderer::Image>(imageCreateInfo, allocInfo, imageViewCreateInfo);
+    debugTarget = resourceManager->createResource<renderer::RenderTarget>(imageCreateInfo, allocInfo, imageViewCreateInfo, VK_IMAGE_LAYOUT_GENERAL);
 
 #endif
 }

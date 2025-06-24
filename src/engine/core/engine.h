@@ -28,6 +28,7 @@
 #include "engine/renderer/resources/pipeline_layout.h"
 #include "engine/renderer/resources/buffer.h"
 #include "engine/renderer/resources/image_view.h"
+#include "engine/renderer/resources/render_target.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 #include "engine/renderer/resources/resources_fwd.h"
 #include "events/event_dispatcher.h"
@@ -146,7 +147,7 @@ private:
     renderer::DebugRenderer* debugRenderer{nullptr};
     renderer::DebugHighlighter* debugHighlighter{nullptr};
     renderer::DebugCompositePipeline* debugPipeline{nullptr};
-    renderer::ImageResourcePtr debugTarget{};
+    renderer::RenderTargetPtr debugTarget{};
 #endif
     // Might be used in imgui which can be active outside of debug build
     IHierarchical* selectedItem{nullptr};
@@ -265,38 +266,39 @@ private: // Pipelines
     renderer::PostProcessPipeline* postProcessPipeline{nullptr};
 
 private: // Draw Resources
-    renderer::ImageResourcePtr drawImage{nullptr};
-    renderer::ImageResourcePtr depthStencilImage{nullptr};
+
+    renderer::RenderTargetPtr drawImage{nullptr};
+    renderer::RenderTargetPtr depthStencilImage{nullptr};
     renderer::ImageViewPtr depthImageView{nullptr};
     renderer::ImageViewPtr stencilImageView{nullptr};
 
     /**
      * 10,10,10 View Normals - 2 unused
      */
-    renderer::ImageResourcePtr normalRenderTarget{nullptr};
+    renderer::RenderTargetPtr normalRenderTarget{nullptr};
     /**
      * 16,16,16 RGB Albedo (HDR) - 16 indicates if the image should be shaded
      */
-    renderer::ImageResourcePtr albedoRenderTarget{nullptr};
+    renderer::RenderTargetPtr albedoRenderTarget{nullptr};
     /**
      * 8 Metallic, 8 Roughness, 8 Unused, 8 Is Transparent
      */
-    renderer::ImageResourcePtr pbrRenderTarget{nullptr};
+    renderer::RenderTargetPtr pbrRenderTarget{nullptr};
     /**
      * 16 X and 16 Y
      */
-    renderer::ImageResourcePtr velocityRenderTarget{nullptr};
+    renderer::RenderTargetPtr velocityRenderTarget{nullptr};
     /**
     * The results of the TAA pass will be outputted into this buffer
     */
-    renderer::ImageResourcePtr taaResolveTarget{nullptr};
+    renderer::RenderTargetPtr taaResolveTarget{nullptr};
 
     /**
      * A copy of the previous TAA Resolve Buffer
      */
-    renderer::ImageResourcePtr historyBuffer{nullptr};
+    renderer::RenderTargetPtr historyBuffer{nullptr};
 
-    renderer::ImageResourcePtr finalImageBuffer{nullptr};
+    renderer::RenderTargetPtr finalImageBuffer{nullptr};
 
 private: // Swapchain
     VkSwapchainKHR swapchain{};
