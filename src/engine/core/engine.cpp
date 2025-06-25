@@ -331,7 +331,9 @@ void Engine::run()
             render(deltaTime);
         }
 
+#if WILL_ENGINE_DEBUG_DRAW
         debugRenderer->clear();
+#endif
 
         profiler.endTimer("3Total");
     }
