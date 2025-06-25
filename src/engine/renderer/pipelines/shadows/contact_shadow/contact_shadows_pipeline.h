@@ -8,6 +8,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include "contact_shadows_pipeline_types.h"
+#include "engine/renderer/render_context.h"
 #include "engine/renderer/resources/image_resource.h"
 #include "engine/renderer/resources/resources_fwd.h"
 
@@ -24,11 +25,11 @@ class ResourceManager;
 
 class ContactShadowsPipeline {
 public:
-    explicit ContactShadowsPipeline(ResourceManager& resourceManager);
+    explicit ContactShadowsPipeline(ResourceManager& resourceManager, RenderContext& renderContext);
 
     ~ContactShadowsPipeline();
 
-    void setupDescriptorBuffer(const VkImageView& depthImageView);
+    void setupDescriptorBuffer(const VkImageView& depthImageView) const;
 
     void draw(VkCommandBuffer cmd, const ContactShadowsDrawInfo& drawInfo);
 
@@ -42,7 +43,19 @@ public:
 private:
     void createPipeline();
 
-    static DispatchList buildDispatchList(const Camera* camera, const DirectionalLight& mainLight);
+    void createIntermediateRenderTargets(VkExtent2D extents);
+
+    void handleResize(const ResolutionChangedEvent& event);
+
+    EventDispatcher<ResolutionChangedEvent>::Handle resolutionChangedHandle;
+
+    /**
+     * Used to calculate dispatch lists
+     */
+    glm::vec2 cachedRenderExtents{DEFAULT_RENDER_EXTENT_2D.width, DEFAULT_RENDER_EXTENT_2D.height};
+
+private:
+    DispatchList buildDispatchList(const Camera* camera, const DirectionalLight& mainLight) const;
 
     static int32_t bend_min(const int32_t a, const int32_t b) { return a > b ? b : a; }
     static int32_t bend_max(const int32_t a, const int32_t b) { return a > b ? a : b; }

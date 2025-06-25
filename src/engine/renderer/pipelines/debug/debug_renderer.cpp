@@ -232,7 +232,7 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     VkRenderingAttachmentInfo renderAttachments[1];
     renderAttachments[0] = imageAttachment;
 
-    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, RENDER_EXTENTS};
+    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, drawInfo.extents};
     renderInfo.layerCount = 1;
     renderInfo.colorAttachmentCount = 1;
     renderInfo.pColorAttachments = renderAttachments;
@@ -247,8 +247,8 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     VkViewport viewport = {};
     viewport.x = 0;
     viewport.y = 0;
-    viewport.width = RENDER_EXTENTS.width;
-    viewport.height = RENDER_EXTENTS.height;
+    viewport.width = drawInfo.extents.width;
+    viewport.height = drawInfo.extents.height;
     viewport.minDepth = 0.f;
     viewport.maxDepth = 1.f;
     vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -256,8 +256,8 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     VkRect2D scissor = {};
     scissor.offset.x = 0;
     scissor.offset.y = 0;
-    scissor.extent.width = RENDER_EXTENTS.width;
-    scissor.extent.height = RENDER_EXTENTS.height;
+    scissor.extent.width = drawInfo.extents.width;
+    scissor.extent.height = drawInfo.extents.height;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
     // Instanced rendering

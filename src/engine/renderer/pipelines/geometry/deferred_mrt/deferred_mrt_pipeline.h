@@ -20,7 +20,7 @@ struct DeferredMrtDrawInfo
 {
     bool bClearColor{true};
     int32_t currentFrameOverlap{0};
-    glm::vec2 viewportExtents{RENDER_EXTENT_WIDTH, RENDER_EXTENT_HEIGHT};
+    VkExtent2D extents{DEFAULT_RENDER_EXTENT_2D};
     const std::vector<RenderObject*>& renderObjects{};
     VkImageView normalTarget{VK_NULL_HANDLE};
     VkImageView albedoTarget{VK_NULL_HANDLE};

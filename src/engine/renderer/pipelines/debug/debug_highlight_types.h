@@ -9,6 +9,7 @@
 #include <glm/glm.hpp>
 
 #include "engine/renderer/assets/render_object/render_object_types.h"
+#include "engine/renderer/renderer_constants.h"
 
 
 namespace will_engine::renderer
@@ -33,6 +34,7 @@ struct HighlightData
 struct DebugHighlighterDrawInfo
 {
     IRenderable* highlightTarget{nullptr};
+    VkExtent2D extents{DEFAULT_RENDER_EXTENT_2D};
     VkImageView depthStencilTarget{VK_NULL_HANDLE};
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};

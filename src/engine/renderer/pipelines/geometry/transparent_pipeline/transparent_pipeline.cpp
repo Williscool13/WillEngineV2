@@ -24,6 +24,7 @@
 namespace will_engine::renderer
 {
 TransparentPipeline::TransparentPipeline(ResourceManager& resourceManager,
+                                         RenderContext& renderContext,
                                          VkDescriptorSetLayout environmentIBLLayout,
                                          VkDescriptorSetLayout cascadeUniformLayout,
                                          VkDescriptorSetLayout cascadeSamplerLayout): resourceManager(resourceManager)
@@ -64,7 +65,7 @@ TransparentPipeline::TransparentPipeline(ResourceManager& resourceManager,
     compositeDescriptorSetLayout = resourceManager.createResource<DescriptorSetLayout>(layoutCreateInfo);
 
 
-    std::array compositeDescriptor{
+    const std::array compositeDescriptor{
         compositeDescriptorSetLayout->layout
     };
 
@@ -79,39 +80,13 @@ TransparentPipeline::TransparentPipeline(ResourceManager& resourceManager,
 
     compositeDescriptorBuffer = resourceManager.createResource<DescriptorBufferSampler>(compositeDescriptorSetLayout->layout, 1);
 
-    VkImageUsageFlags usage{};
-    usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
-    usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-    usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-
-    const VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(accumulationImageFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
-    accumulationImage = resourceManager.createResource<Image>(imgInfo);
-
-    const VkImageCreateInfo revealageImgInfo = vk_helpers::imageCreateInfo(revealageImageFormat, usage, {
-                                                                               RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1
-                                                                           });
-    revealageImage = resourceManager.createResource<Image>(revealageImgInfo);
-
-    const VkImageCreateInfo debugImgInfo = vk_helpers::imageCreateInfo(debugImageFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
-    debugImage = resourceManager.createResource<Image>(debugImgInfo);
-
-    VkDescriptorImageInfo accumulation{};
-    accumulation.sampler = resourceManager.getDefaultSamplerNearest();
-    accumulation.imageView = accumulationImage->imageView;
-    accumulation.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    VkDescriptorImageInfo revealage{};
-    revealage.sampler = resourceManager.getDefaultSamplerNearest();
-    revealage.imageView = revealageImage->imageView;
-    revealage.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-    std::array<DescriptorImageData, 2> descriptors{
-        DescriptorImageData{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, accumulation, false},
-        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, revealage, false},
-    };
-
-    compositeDescriptorBuffer->setupData(descriptors, 0);
-
+    createIntermediateRenderTargets(renderContext.renderExtent);
     createAccumulationPipeline();
     createCompositePipeline();
+
+    resolutionChangedHandle = renderContext.resolutionChangedEvent.subscribe([this](const ResolutionChangedEvent& event) {
+        this->handleResize(event);
+    });
 }
 
 TransparentPipeline::~TransparentPipeline()
@@ -165,7 +140,7 @@ void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentA
     transparentAttachments[1] = revealageAttachment;
     transparentAttachments[2] = debugAttachment;
 
-    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, RENDER_EXTENTS};
+    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, drawInfo.renderExtent};
     renderInfo.layerCount = 1;
     renderInfo.colorAttachmentCount = 3;
     renderInfo.pColorAttachments = transparentAttachments;
@@ -184,8 +159,8 @@ void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentA
     VkViewport viewport = {};
     viewport.x = 0;
     viewport.y = 0;
-    viewport.width = RENDER_EXTENTS.width;
-    viewport.height = RENDER_EXTENTS.height;
+    viewport.width = drawInfo.renderExtent.width;
+    viewport.height = drawInfo.renderExtent.height;
     viewport.minDepth = 0.f;
     viewport.maxDepth = 1.f;
     vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -193,8 +168,8 @@ void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentA
     VkRect2D scissor = {};
     scissor.offset.x = 0;
     scissor.offset.y = 0;
-    scissor.extent.width = RENDER_EXTENTS.width;
-    scissor.extent.height = RENDER_EXTENTS.height;
+    scissor.extent.width = drawInfo.renderExtent.width;
+    scissor.extent.height = drawInfo.renderExtent.height;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
     constexpr VkDeviceSize zeroOffset{0};
 
@@ -259,7 +234,7 @@ void TransparentPipeline::drawComposite(VkCommandBuffer cmd, const TransparentCo
     VkRenderingAttachmentInfo attachments[1];
     attachments[0] = opaqueAttachment;
 
-    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, RENDER_EXTENTS};
+    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, drawInfo.renderExtent};
     renderInfo.layerCount = 1;
     renderInfo.colorAttachmentCount = 1;
     renderInfo.pColorAttachments = attachments;
@@ -273,8 +248,8 @@ void TransparentPipeline::drawComposite(VkCommandBuffer cmd, const TransparentCo
     VkViewport viewport = {};
     viewport.x = 0;
     viewport.y = 0;
-    viewport.width = RENDER_EXTENTS.width;
-    viewport.height = RENDER_EXTENTS.height;
+    viewport.width = drawInfo.renderExtent.width;
+    viewport.height = drawInfo.renderExtent.height;
     viewport.minDepth = 0.f;
     viewport.maxDepth = 1.f;
     vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -282,8 +257,8 @@ void TransparentPipeline::drawComposite(VkCommandBuffer cmd, const TransparentCo
     VkRect2D scissor = {};
     scissor.offset.x = 0;
     scissor.offset.y = 0;
-    scissor.extent.width = RENDER_EXTENTS.width;
-    scissor.extent.height = RENDER_EXTENTS.height;
+    scissor.extent.width = drawInfo.renderExtent.width;
+    scissor.extent.height = drawInfo.renderExtent.height;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
     constexpr VkDeviceSize zeroOffset{0};
 
@@ -424,5 +399,44 @@ void TransparentPipeline::createCompositePipeline()
     pipelineBuilder.setupPipelineLayout(compositePipelineLayout->layout);
     VkGraphicsPipelineCreateInfo pipelineCreateInfo = pipelineBuilder.generatePipelineCreateInfo();
     compositePipeline = resourceManager.createResource<Pipeline>(pipelineCreateInfo);
+}
+
+void TransparentPipeline::createIntermediateRenderTargets(VkExtent2D extents)
+{
+    VkImageUsageFlags usage{};
+    usage |= VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
+    usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+    const VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(accumulationImageFormat, usage, {extents.width, extents.height, 1});
+    const VkImageCreateInfo revealageImgInfo = vk_helpers::imageCreateInfo(revealageImageFormat, usage, {extents.width, extents.height, 1});
+    const VkImageCreateInfo debugImgInfo = vk_helpers::imageCreateInfo(debugImageFormat, usage, {extents.width, extents.height, 1});
+    accumulationImage = resourceManager.createResource<Image>(imgInfo);
+    revealageImage = resourceManager.createResource<Image>(revealageImgInfo);
+    debugImage = resourceManager.createResource<Image>(debugImgInfo);
+
+    VkDescriptorImageInfo accumulation{};
+    accumulation.sampler = resourceManager.getDefaultSamplerNearest();
+    accumulation.imageView = accumulationImage->imageView;
+    accumulation.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    VkDescriptorImageInfo revealage{};
+    revealage.sampler = resourceManager.getDefaultSamplerNearest();
+    revealage.imageView = revealageImage->imageView;
+    revealage.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    std::array<DescriptorImageData, 2> descriptors{
+        DescriptorImageData{VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, accumulation, false},
+        {VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, revealage, false},
+    };
+
+    compositeDescriptorBuffer->setupData(descriptors, 0);
+}
+
+void TransparentPipeline::handleResize(const ResolutionChangedEvent& event)
+{
+    resourceManager.destroyResourceImmediate(std::move(accumulationImage));
+    resourceManager.destroyResourceImmediate(std::move(revealageImage));
+    resourceManager.destroyResourceImmediate(std::move(debugImage));
+
+    createIntermediateRenderTargets(event.newExtent);
 }
 }

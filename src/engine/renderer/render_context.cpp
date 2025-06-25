@@ -21,9 +21,18 @@ RenderContext::RenderContext(const VkExtent2D windowExtent, float renderScale)
     applyPendingChanges();
 }
 
+bool RenderContext::hasPendingChanges() const
+{
+    return pending.hasPendingChanges();
+}
+
 bool RenderContext::applyPendingChanges()
 {
     if (!pending.hasPendingChanges()) return false;
+
+    ResolutionChangedEvent changedEvent{};
+    changedEvent.oldExtent = windowExtent;
+    changedEvent.oldRenderScale = renderScale;
 
     if (pending.windowResizePending) {
         windowExtent = pending.newWindowExtent;
@@ -41,6 +50,12 @@ bool RenderContext::applyPendingChanges()
     };
 
     pending.clear();
+
+
+    changedEvent.newExtent = windowExtent;
+    changedEvent.newRenderScale = renderScale;
+    resolutionChangedEvent.dispatch(changedEvent);
+    postResolutionChangedEvent.dispatch(changedEvent);
     return true;
 }
 }

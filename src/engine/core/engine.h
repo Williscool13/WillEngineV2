@@ -225,6 +225,13 @@ public:
     int32_t getCurrentEnvironmentMapIndex() const { return environmentMapIndex; }
     void setCurrentEnvironmentMapIndex(const int32_t index) { environmentMapIndex = index; }
 
+private:
+    EventDispatcher<renderer::ResolutionChangedEvent>::Handle resolutionChangedHandle;
+    EventDispatcher<renderer::ResolutionChangedEvent>::Handle postResolutionChangedHandle;
+
+    void handleResize(const renderer::ResolutionChangedEvent& event);
+    void setupDescriptorBuffers() const;
+
 private: // Scene Data
     renderer::DescriptorBufferUniformPtr sceneDataDescriptorBuffer;
     std::array<renderer::BufferPtr, FRAME_OVERLAP> sceneDataBuffers;

@@ -117,7 +117,7 @@ bool DebugHighlighter::drawHighlightStencil(VkCommandBuffer cmd, const DebugHigh
     renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     renderInfo.pNext = nullptr;
 
-    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, RENDER_EXTENTS};
+    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, drawInfo.extents};
     renderInfo.layerCount = 1;
     renderInfo.colorAttachmentCount = 0;
     renderInfo.pColorAttachments = nullptr;
@@ -132,8 +132,8 @@ bool DebugHighlighter::drawHighlightStencil(VkCommandBuffer cmd, const DebugHigh
     VkViewport viewport = {};
     viewport.x = 0;
     viewport.y = 0;
-    viewport.width = RENDER_EXTENTS.width;
-    viewport.height = RENDER_EXTENTS.height;
+    viewport.width = drawInfo.extents.width;
+    viewport.height = drawInfo.extents.height;
     viewport.minDepth = 0.f;
     viewport.maxDepth = 1.f;
     vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -141,8 +141,8 @@ bool DebugHighlighter::drawHighlightStencil(VkCommandBuffer cmd, const DebugHigh
     VkRect2D scissor = {};
     scissor.offset.x = 0;
     scissor.offset.y = 0;
-    scissor.extent.width = RENDER_EXTENTS.width;
-    scissor.extent.height = RENDER_EXTENTS.height;
+    scissor.extent.width = drawInfo.extents.width;
+    scissor.extent.height = drawInfo.extents.height;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
@@ -194,8 +194,8 @@ void DebugHighlighter::drawHighlightProcessing(VkCommandBuffer cmd, const DebugH
     const std::array<VkDeviceSize, 2> offsets{drawInfo.sceneDataOffset, 0};
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, processingPipelineLayout->layout, 0, 2, indices.data(), offsets.data());
 
-    const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
-    const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
+    const auto x = static_cast<uint32_t>(std::ceil(drawInfo.extents.width / 16.0f));
+    const auto y = static_cast<uint32_t>(std::ceil(drawInfo.extents.height / 16.0f));
     vkCmdDispatch(cmd, x, y, 1);
 }
 

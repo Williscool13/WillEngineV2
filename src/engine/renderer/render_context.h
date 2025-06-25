@@ -5,11 +5,20 @@
 #ifndef RENDER_CONTEXT_H
 #define RENDER_CONTEXT_H
 #include <vulkan/vulkan_core.h>
+#include <glm/glm.hpp>
 
 #include "renderer_constants.h"
+#include "engine/core/events/event_dispatcher.h"
 
 namespace will_engine::renderer
 {
+struct ResolutionChangedEvent {
+    VkExtent2D oldExtent;
+    VkExtent2D newExtent;
+    float oldRenderScale;
+    float newRenderScale;
+};
+
 class RenderContext
 {
 public:
@@ -35,6 +44,11 @@ public:
 public:
     RenderContext(VkExtent2D windowExtent, float renderScale);
 
+    /**
+     * Dispatched when `applyPendingChanges` is called. This should only execute when there are no FIFs (vkDeviceWaitIdle).
+     */
+    EventDispatcher<ResolutionChangedEvent> resolutionChangedEvent;
+    EventDispatcher<ResolutionChangedEvent> postResolutionChangedEvent;
 
 public:
     VkExtent2D windowExtent{1920, 1080};
@@ -62,6 +76,8 @@ public:
         pending.newRenderScale = scale;
         pending.renderScaleChangePending = true;
     }
+
+    bool hasPendingChanges() const;
 
     bool applyPendingChanges();
 

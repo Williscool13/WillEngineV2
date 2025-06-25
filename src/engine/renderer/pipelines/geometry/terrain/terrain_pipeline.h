@@ -30,7 +30,7 @@ struct TerrainDrawInfo
 {
     bool bClearColor{true};
     int32_t currentFrameOverlap{0};
-    VkExtent2D renderExtents{DEFAULT_RENDER_EXTENTS_2D};
+    VkExtent2D renderExtents{DEFAULT_RENDER_EXTENT_2D};
     const std::unordered_set<ITerrain*>& terrains;
     VkImageView normalTarget{VK_NULL_HANDLE};
     VkImageView albedoTarget{VK_NULL_HANDLE};

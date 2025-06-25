@@ -78,7 +78,7 @@ void DeferredMrtPipeline::draw(VkCommandBuffer cmd, const DeferredMrtDrawInfo& d
     deferredAttachments[2] = pbrAttachment;
     deferredAttachments[3] = velocityAttachment;
 
-    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, RENDER_EXTENTS};
+    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, drawInfo.extents};
     renderInfo.layerCount = 1;
     renderInfo.colorAttachmentCount = 4;
     renderInfo.pColorAttachments = deferredAttachments;
@@ -92,8 +92,8 @@ void DeferredMrtPipeline::draw(VkCommandBuffer cmd, const DeferredMrtDrawInfo& d
     VkViewport viewport = {};
     viewport.x = 0;
     viewport.y = 0;
-    viewport.width = drawInfo.viewportExtents.x;
-    viewport.height = drawInfo.viewportExtents.y;
+    viewport.width = drawInfo.extents.width;
+    viewport.height = drawInfo.extents.height;
     viewport.minDepth = 0.f;
     viewport.maxDepth = 1.f;
     vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -101,8 +101,8 @@ void DeferredMrtPipeline::draw(VkCommandBuffer cmd, const DeferredMrtDrawInfo& d
     VkRect2D scissor = {};
     scissor.offset.x = 0;
     scissor.offset.y = 0;
-    scissor.extent.width = RENDER_EXTENTS.width;
-    scissor.extent.height = RENDER_EXTENTS.height;
+    scissor.extent.width = drawInfo.extents.width;
+    scissor.extent.height = drawInfo.extents.height;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
     for (RenderObject* renderObject : drawInfo.renderObjects) {

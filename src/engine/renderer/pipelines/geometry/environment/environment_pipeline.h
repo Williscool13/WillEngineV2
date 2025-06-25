@@ -16,7 +16,7 @@ class ResourceManager;
 
 struct EnvironmentDrawInfo
 {
-    VkExtent2D renderExtents{DEFAULT_RENDER_EXTENTS_2D};
+    VkExtent2D renderExtents{DEFAULT_RENDER_EXTENT_2D};
     VkImageView normalTarget{VK_NULL_HANDLE};
     VkImageView albedoTarget{VK_NULL_HANDLE};
     VkImageView pbrTarget{VK_NULL_HANDLE};

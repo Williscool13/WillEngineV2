@@ -128,8 +128,8 @@ void DeferredResolvePipeline::draw(VkCommandBuffer cmd, const DeferredResolveDra
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipeline);
 
     DeferredResolvePushConstants pushConstants = {};
-    pushConstants.width = RENDER_EXTENT_WIDTH;
-    pushConstants.height = RENDER_EXTENT_HEIGHT;
+    pushConstants.width = drawInfo.extents.width;
+    pushConstants.height = drawInfo.extents.height;
     pushConstants.deferredDebug = drawInfo.deferredDebug;
     pushConstants.disableShadows = drawInfo.bEnableShadowMap ? 0 : 1;
     pushConstants.disableContactShadows = drawInfo.bEnableContactShadows ? 0 : 1;
@@ -161,8 +161,8 @@ void DeferredResolvePipeline::draw(VkCommandBuffer cmd, const DeferredResolveDra
 
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout->layout, 0, 5, indices.data(), offsets.data());
 
-    const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
-    const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
+    const auto x = static_cast<uint32_t>(std::ceil(drawInfo.extents.width / 16.0f));
+    const auto y = static_cast<uint32_t>(std::ceil(drawInfo.extents.height / 16.0f));
     vkCmdDispatch(cmd, x, y, 1);
 
     vkCmdEndDebugUtilsLabelEXT(cmd);

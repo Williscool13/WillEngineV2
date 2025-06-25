@@ -8,10 +8,13 @@
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
+#include "engine/core/events/event_dispatcher.h"
+#include "engine/renderer/render_context.h"
 #include "engine/renderer/resources/resources_fwd.h"
 
 namespace will_engine::renderer
 {
+class RenderContext;
 class RenderObject;
 class ResourceManager;
 
@@ -25,6 +28,7 @@ struct TransparentPushConstants
 struct TransparentAccumulateDrawInfo
 {
     bool enabled{true};
+    VkExtent2D renderExtent{DEFAULT_RENDER_EXTENT_2D};
     VkImageView depthTarget{VK_NULL_HANDLE};
     int32_t currentFrameOverlap{0};
     const std::vector<RenderObject*>& renderObjects{};
@@ -39,13 +43,14 @@ struct TransparentAccumulateDrawInfo
 
 struct TransparentCompositeDrawInfo
 {
+    VkExtent2D renderExtent{DEFAULT_RENDER_EXTENT_2D};
     VkImageView opaqueImage;
 };
 
 class TransparentPipeline
 {
 public:
-    explicit TransparentPipeline(ResourceManager& resourceManager, VkDescriptorSetLayout environmentIBLLayout,
+    explicit TransparentPipeline(ResourceManager& resourceManager, RenderContext& renderContext,  VkDescriptorSetLayout environmentIBLLayout,
                                  VkDescriptorSetLayout cascadeUniformLayout, VkDescriptorSetLayout cascadeSamplerLayout);
 
     ~TransparentPipeline();
@@ -84,6 +89,12 @@ private:
 
     void createCompositePipeline();
 
+    void createIntermediateRenderTargets(VkExtent2D extents);
+
+private:
+    void handleResize(const ResolutionChangedEvent& event);
+
+    EventDispatcher<ResolutionChangedEvent>::Handle resolutionChangedHandle;
 };
 }
 

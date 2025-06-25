@@ -12,9 +12,10 @@ namespace will_engine::renderer
 struct RenderTarget : Image
 {
     /**
-         * The format
-         */
+     * The format the render target will be when the format first exits the
+    */
     VkImageLayout afterClearFormat;
+
 
     RenderTarget(ResourceManager* resourceManager, const VkImageCreateInfo& createInfo, const VmaAllocationCreateInfo& allocInfo, VkImageViewCreateInfo& viewInfo, VkImageLayout afterClearFormat);
 };
