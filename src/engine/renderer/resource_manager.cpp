@@ -102,15 +102,23 @@ ResourceManager::ResourceManager(VulkanContext& context, ImmediateSubmitter& imm
         );
         sceneDataLayout = createResource<DescriptorSetLayout>(layoutCreateInfo);
     }
-    // Frustum Cull Layout
+    // Visibility Pass Layout
     {
         DescriptorLayoutBuilder layoutBuilder{1};
+        // BDA Uniform that contains (see FrustumCullingBuffers):
+        // - Primitive Data Buffer (BDA)
+        // - Instance Data buffer (BDA)
+        // - Model Matrix Data Buffer (BDA)
+        // - Opaque Indirect Buffer (BDA)
+        // - Transparent Indirect Buffer (BDA)
+        // - Opaque Indirect Count (BDA)
+        // - Transparent Indirect Count (BDA)
         layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER);
         VkDescriptorSetLayoutCreateInfo layoutCreateInfo = layoutBuilder.build(
             VK_SHADER_STAGE_COMPUTE_BIT,
             VK_DESCRIPTOR_SET_LAYOUT_CREATE_DESCRIPTOR_BUFFER_BIT_EXT
         );
-        frustumCullLayout = createResource<DescriptorSetLayout>(layoutCreateInfo);
+        visibilityPassLayout = createResource<DescriptorSetLayout>(layoutCreateInfo);
     }
 
     // Render Object Addresses
@@ -195,7 +203,7 @@ ResourceManager::~ResourceManager()
     destroyResource(std::move(defaultSamplerMipMappedLinear));
     destroyResource(std::move(emptyDescriptorSetLayout));
     destroyResource(std::move(sceneDataLayout));
-    destroyResource(std::move(frustumCullLayout));
+    destroyResource(std::move(visibilityPassLayout));
     destroyResource(std::move(addressesLayout));
     destroyResource(std::move(texturesLayout));
     destroyResource(std::move(renderTargetsLayout));

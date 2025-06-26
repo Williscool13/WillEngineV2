@@ -73,6 +73,8 @@ public: // Engine API
 
     virtual bool canDrawTransparent() const = 0;
 
+    virtual const DescriptorBufferUniform* getVisibilityDescriptorBuffer() const = 0;
+
     virtual const DescriptorBufferUniform* getAddressesDescriptorBuffer() const = 0;
 
     virtual const DescriptorBufferSampler* getTextureDescriptorBuffer() const = 0;
@@ -87,11 +89,7 @@ public: // Engine API
 
     virtual VkBuffer getOpaqueIndirectBuffer(int32_t currentFrameOverlap) const = 0;
 
-    virtual size_t getOpaqueDrawIndirectCommandCount() const = 0;
-
     virtual VkBuffer getTransparentIndirectBuffer(int32_t currentFrameOverlap) const = 0;
-
-    virtual size_t getTransparentDrawIndirectCommandCount() const = 0;
 
 public: // RenderReference
     uint32_t getId() const override { return renderObjectInfo.id; }

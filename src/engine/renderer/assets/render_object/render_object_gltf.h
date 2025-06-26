@@ -31,7 +31,7 @@ namespace will_engine::renderer
 {
 struct RenderableProperties
 {
-    uint32_t instanceIndex;
+    uint32_t modelIndex;
 };
 
 /**
@@ -71,24 +71,24 @@ private:
      */
     std::unordered_map<IRenderable*, RenderableProperties> renderableMap{};
 
-    uint32_t getFreePrimitiveIndex();
+    uint32_t getFreeInstanceIndex();
 
-    std::unordered_set<uint32_t> freePrimitiveIndices{};
+    std::vector<uint32_t> freeInstanceIndices{};
     /**
      * The max number of primitives this render object supports at the moment. If a new primitives is made that would exceed this limit, the primitives buffer will be expanded and this value inceased.
      */
-    uint32_t currentMaxPrimitiveCount{0};
+    uint32_t currentMaxInstanceCount{DEFAULT_RENDER_OBJECT_INSTANCE_COUNT};
 
 
-    uint32_t getFreeInstanceIndex();
+    uint32_t getFreeModelIndex();
 
-    std::unordered_set<uint32_t> freeInstanceIndices{};
+    std::vector<uint32_t> freeModelIndex{};
     /**
      * The max number of instances this render object supports at the moment. If a new instance is made that would exceed this limit, the instance buffer will be expanded
      */
-    uint32_t currentMaxInstanceCount{0};
+    uint32_t currentMaxModelCount{DEFAULT_RENDER_OBJECT_MODEL_COUNT};
 
-    std::unordered_map<uint32_t, PrimitiveData> primitiveDataMap{};
+    std::vector<InstanceData> instanceData;
 
 public: // IRenderReference
     /**
@@ -102,9 +102,8 @@ public: // IRenderReference
 
 public: // Model Rendering API
     size_t getMeshCount() const override { return meshes.size(); }
-    bool canDraw() const override { return freeInstanceIndices.size() != currentMaxInstanceCount; }
-    bool canDrawOpaque() const override { return opaqueDrawCommands.size() > 0; }
-    bool canDrawTransparent() const override { return transparentDrawCommands.size() > 0; }
+    bool canDraw() const override { return freeModelIndex.size() != currentMaxModelCount; }
+    const DescriptorBufferUniform* getVisibilityDescriptorBuffer() const override { return visibilityPassDescriptorBuffer.get(); }
     const DescriptorBufferUniform* getAddressesDescriptorBuffer() const override { return addressesDescriptorBuffer.get(); }
     const DescriptorBufferSampler* getTextureDescriptorBuffer() const override { return textureDescriptorBuffer.get(); }
     const DescriptorBufferUniform* getFrustumCullingAddressesDescriptorBuffer() const override { return frustumCullingDescriptorBuffer.get(); }
@@ -114,17 +113,13 @@ public: // Model Rendering API
 
     VkBuffer getOpaqueIndirectBuffer(const int32_t currentFrameOverlap) const override
     {
-        return opaqueDrawIndirectBuffers[currentFrameOverlap]->buffer;
+        return compactOpaqueDrawBuffer->buffer;
     }
-
-    size_t getOpaqueDrawIndirectCommandCount() const override { return opaqueDrawCommands.size(); }
 
     VkBuffer getTransparentIndirectBuffer(const int32_t currentFrameOverlap) const override
     {
-        return transparentDrawIndirectBuffers[currentFrameOverlap]->buffer;
+        return compactTransparentDrawBuffer->buffer;
     }
-
-    size_t getTransparentDrawIndirectCommandCount() const override { return transparentDrawCommands.size(); }
 
     void generateMeshComponents(IComponentContainer* container, const Transform& transform) override;
 
@@ -133,8 +128,8 @@ public: // Model Rendering API
     void recursiveGenerate(const RenderNode& renderNode, IComponentContainer* container, const Transform& parentTransform);
 
 private: // Model Parsing
-    bool parseGltf(const std::filesystem::path& gltfFilepath, std::vector<MaterialProperties>& materials,
-                   std::vector<VertexPosition>& vertexPositions, std::vector<VertexProperty>& vertexProperties, std::vector<uint32_t>& indices);
+    bool parseGltf(const std::filesystem::path& gltfFilepath, std::vector<MaterialProperties>& materials, std::vector<VertexPosition>& vertexPositions, std::vector<VertexProperty>& vertexProperties,
+                   std::vector<uint32_t>& indices, std::vector<Primitive>& primitives);
 
 private: // Model Data
     std::vector<Mesh> meshes{};
@@ -147,33 +142,35 @@ public: // Buffer Data
     // todo: refactor this to use the new TextureResource class
     std::vector<ImageResourcePtr> images{};
 
-    std::vector<VkDrawIndexedIndirectCommand> opaqueDrawCommands{};
-    std::vector<VkDrawIndexedIndirectCommand> transparentDrawCommands{};
-
     /**
      * Split vertex Position and Properties to improve GPU cache performance for passes that only need position (shadow pass, depth prepass), assuming these passes don't need the other properties of course
      */
     BufferPtr vertexPositionBuffer{};
     BufferPtr vertexPropertyBuffer{};
     BufferPtr indexBuffer{};
-    std::array<BufferPtr, FRAME_OVERLAP> opaqueDrawIndirectBuffers{};
-    std::array<BufferPtr, FRAME_OVERLAP> transparentDrawIndirectBuffers{};
+    BufferPtr primitiveBuffer{};
+    BufferPtr meshBoundsBuffer{};
 
-    // addresses
-    std::array<BufferPtr, FRAME_OVERLAP> addressBuffers{};
-    //  the actual buffers
-    // todo: Material buffer probably also needs to be multi-buffered if it changes at runtime, which it probably should be allowed to
-    BufferPtr materialBuffer{};
-    std::array<BufferPtr, FRAME_OVERLAP> primitiveDataBuffers{};
-    std::array<BufferPtr, FRAME_OVERLAP> modelMatrixBuffers{};
-
-    DescriptorBufferUniformPtr addressesDescriptorBuffer{};
     DescriptorBufferSamplerPtr textureDescriptorBuffer{};
 
-    BufferPtr meshBoundsBuffer{};
-    std::array<BufferPtr, FRAME_OVERLAP> opaqueCullingAddressBuffers{};
-    std::array<BufferPtr, FRAME_OVERLAP> transparentCullingAddressBuffers{};
-    DescriptorBufferUniformPtr frustumCullingDescriptorBuffer{};
+    // Main Pass
+    DescriptorBufferUniformPtr addressesDescriptorBuffer{};
+    std::array<BufferPtr, FRAME_OVERLAP> addressBuffers{};
+
+    // todo: Material buffer probably also needs to be multi-buffered if it changes at runtime, which it probably should be allowed to
+    BufferPtr materialBuffer{};
+    std::array<BufferPtr, FRAME_OVERLAP> instanceDataBuffer{};
+    std::array<BufferPtr, FRAME_OVERLAP> modelMatrixBuffers{};
+
+    // Visibility Pass
+    DescriptorBufferUniformPtr visibilityPassDescriptorBuffer{};
+    std::array<BufferPtr, FRAME_OVERLAP> visibilityPassBuffers{};
+    // Draw buffer written to by the visibility pass
+    BufferPtr compactOpaqueDrawBuffer{};
+    BufferPtr compactTransparentDrawBuffer{};
+    // Separate buffer to keep track of the number of draws (atomically manipulated by the visibility pass)
+    BufferPtr opaqueDrawCountBuffer{};
+    BufferPtr transparentDrawCountBuffer{};
 
 #if WILL_ENGINE_DEBUG
     const std::vector<ImageResourcePtr>& debugGetImages() override { return images; }

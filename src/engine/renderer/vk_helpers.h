@@ -111,7 +111,7 @@ namespace vk_helpers
 
     void imageBarrier(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
 
-    void uniformBarrier(VkCommandBuffer cmd, VkBuffer buffer, VkPipelineStageFlagBits2 srcPipelineStage,
+    void bufferBarrier(VkCommandBuffer cmd, VkBuffer buffer, VkPipelineStageFlagBits2 srcPipelineStage,
                         VkAccessFlagBits2 srcAccessBit, VkPipelineStageFlagBits2
                         dstPipelineStage, VkAccessFlagBits2 dstAccessBit);
 

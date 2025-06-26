@@ -24,7 +24,7 @@ VisibilityPassPipeline::VisibilityPassPipeline(ResourceManager& resourceManager)
     VkDescriptorSetLayout layouts[3];
     layouts[0] = resourceManager.getSceneDataLayout();
     layouts[1] = resourceManager.getRenderObjectAddressesLayout();
-    layouts[2] = resourceManager.getFrustumCullLayout();
+    layouts[2] = resourceManager.getVisibilityPassLayout();
 
     VkPushConstantRange pushConstantRange;
     pushConstantRange.size = sizeof(VisibilityPassPushConstants);
@@ -92,7 +92,7 @@ void VisibilityPassPipeline::draw(VkCommandBuffer cmd, const VisibilityPassDrawI
 
         vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(renderObject->getOpaqueDrawIndirectCommandCount()) / 64.0f)), 1, 1);
 
-        vk_helpers::uniformBarrier(cmd, renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap),
+        vk_helpers::bufferBarrier(cmd, renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap),
                                        VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT,
                                        VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT);
     }

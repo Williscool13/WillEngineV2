@@ -16,6 +16,10 @@
 
 namespace will_engine
 {
+
+static inline constexpr uint32_t DEFAULT_RENDER_OBJECT_INSTANCE_COUNT = 10;
+static inline constexpr uint32_t DEFAULT_RENDER_OBJECT_MODEL_COUNT = 10;
+
 enum class MaterialType
 {
     OPAQUE = 0,
@@ -62,10 +66,10 @@ struct VertexProperty
 
 struct Primitive
 {
-    uint32_t firstIndex{0}; // ID of the instance (used to get model matrix)
+    uint32_t firstIndex{0};
     uint32_t indexCount{0};
     int32_t vertexOffset{0};
-    bool bHasTransparent{false};
+    uint32_t bHasTransparent{0};
     uint32_t boundingSphereIndex{0};
     uint32_t materialIndex{0};
 };
@@ -73,7 +77,7 @@ struct Primitive
 struct Mesh
 {
     std::string name;
-    std::vector<Primitive> primitives;
+    std::vector<uint32_t> primitiveIndices;
 };
 
 struct BoundingSphere
@@ -95,27 +99,34 @@ struct RenderNode
     int32_t meshIndex{-1};
 };
 
-struct PrimitiveData
+struct InstanceData
 {
-    uint32_t materialIndex;
-    uint32_t instanceDataIndex;
-    uint32_t boundingVolumeIndex;
-    uint32_t bHasTransparent;
+    int32_t modelIndex;
+    int32_t primitiveDataIndex;
+    int32_t bIsBeingDrawn; // i.e. 0 if the primitive is free
+    uint32_t padding0;
+    uint32_t padding1;
+    uint32_t padding2;
+    uint32_t padding3;
+    uint32_t padding4;
 };
 
-struct InstanceData
+struct ModelData
 {
     glm::mat4 currentModelMatrix;
     glm::mat4 previousModelMatrix;
     glm::vec4 flags; // x: visible, y: casts shadows, z,w: reserved for future use
 };
 
-struct FrustumCullingBuffers
+struct VisibilityPassData
 {
-    VkDeviceAddress meshBoundsBuffer;
-    VkDeviceAddress commandBuffer;
-    uint32_t commandBufferCount;
-    glm::vec3 padding;
+    VkDeviceAddress primitiveData;
+    VkDeviceAddress instanceBuffer;
+    VkDeviceAddress modelMatrixBuffer;
+    VkDeviceAddress opaqueIndirectBuffer;
+    VkDeviceAddress transparentIndirectBuffer;
+    VkDeviceAddress opaqueIndirectCount;
+    VkDeviceAddress transparentIndirectCount;
 };
 
 struct RenderObjectInfo
@@ -125,6 +136,15 @@ struct RenderObjectInfo
     std::string name;
     std::string type;
     uint32_t id;
+};
+
+struct IndirectCount
+{
+    uint32_t count;
+    /**
+     * The maximum number of primitives that are in the buffer. Equal to size of indirect buffer
+     */
+    uint32_t limit;
 };
 }
 
