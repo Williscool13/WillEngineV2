@@ -85,6 +85,18 @@ static uint32_t computePathHash(const std::filesystem::path& path)
     const std::string normalizedPath = path.lexically_normal().string();
     return std::hash<std::string>{}(normalizedPath);
 }
+
+static std::filesystem::path getGameSettingsPath()
+{
+    return "config/GameSettings.config";
+}
+
+#if WILL_ENGINE_DEBUG
+static std::filesystem::path getEditorSettingsPath()
+{
+    return "config/Engine.config";
+}
+#endif
 }
 
 #endif //FILE_UTILS_H
