@@ -102,7 +102,7 @@ public: // IRenderReference
 
 public: // Model Rendering API
     size_t getMeshCount() const override { return meshes.size(); }
-    bool canDraw() const override { return freeModelIndex.size() != currentMaxModelCount; }
+    bool canDraw() const override { return bIsLoaded && freeModelIndex.size() != currentMaxModelCount; }
     const DescriptorBufferUniform* getAddressesDescriptorBuffer() const override { return addressesDescriptorBuffer.get(); }
     const DescriptorBufferSampler* getTextureDescriptorBuffer() const override { return textureDescriptorBuffer.get(); }
     const DescriptorBufferUniform* getVisibilityPassDescriptorBuffer() const override { return visibilityPassDescriptorBuffer.get(); }
@@ -119,7 +119,6 @@ public: // Model Rendering API
     VkDeviceSize getDrawCountTransparentOffset() const override { return offsetof(IndirectCount, transparentCount); }
     VkDeviceSize getDrawCountShadowOffset() const override { return offsetof(IndirectCount, shadowCount); }
     uint32_t getMaxDrawCount() const override { return currentMaxInstanceCount; }
-    void resetDrawCount(VkCommandBuffer cmd, int32_t currentFrameOverlap) const override;
 
     void generateMeshComponents(IComponentContainer* container, const Transform& transform) override;
 

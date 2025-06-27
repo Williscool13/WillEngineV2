@@ -165,16 +165,6 @@ void RenderObjectGltf::dirty()
     }
 }
 
-void RenderObjectGltf::resetDrawCount(VkCommandBuffer cmd, const int32_t currentFrameOverlap) const
-{
-    if (countBuffers[currentFrameOverlap]->buffer == VK_NULL_HANDLE) { return; }
-    vkCmdFillBuffer(cmd,
-                    countBuffers[currentFrameOverlap]->buffer,
-                    offsetof(IndirectCount, opaqueCount),
-                    sizeof(uint32_t) * 2,
-                    0);
-}
-
 void RenderObjectGltf::generateMeshComponents(IComponentContainer* container, const Transform& transform)
 {
     if (container == nullptr) {
@@ -729,6 +719,7 @@ void RenderObjectGltf::load()
     resourceManager.destroyResourceImmediate(std::move(primitiveBufferStaging));
 
     bIsLoaded = true;
+    dirty();
 }
 
 void RenderObjectGltf::unload()
@@ -749,27 +740,35 @@ void RenderObjectGltf::unload()
     for (ImageResourcePtr& image : images) {
         resourceManager.destroyResource(std::move(image));
     }
+    images.clear();
 
     for (SamplerPtr& sampler : samplers) {
         resourceManager.destroyResource(std::move(sampler));
     }
+    samplers.clear();
 
     resourceManager.destroyResource(std::move(vertexPositionBuffer));
     resourceManager.destroyResource(std::move(vertexPropertyBuffer));
     resourceManager.destroyResource(std::move(indexBuffer));
+    resourceManager.destroyResource(std::move(primitiveBuffer));
 
     resourceManager.destroyResource(std::move(materialBuffer));
+
+    resourceManager.destroyResource(std::move(compactOpaqueDrawBuffer));
+    resourceManager.destroyResource(std::move(compactTransparentDrawBuffer));
+    resourceManager.destroyResource(std::move(fullShadowDrawBuffer));
 
     for (int i = 0; i < FRAME_OVERLAP; ++i) {
         resourceManager.destroyResource(std::move(addressBuffers[i]));
         resourceManager.destroyResource(std::move(instanceDataBuffer[i]));
         resourceManager.destroyResource(std::move(modelMatrixBuffers[i]));
+        resourceManager.destroyResource(std::move(visibilityPassBuffers[i]));
+        resourceManager.destroyResource(std::move(countBuffers[i]));
     }
 
     resourceManager.destroyResource(std::move(addressesDescriptorBuffer));
     resourceManager.destroyResource(std::move(textureDescriptorBuffer));
-
-    // todo add the new buffers
+    resourceManager.destroyResource(std::move(visibilityPassDescriptorBuffer));
 
     meshes.clear();
     renderNodes.clear();

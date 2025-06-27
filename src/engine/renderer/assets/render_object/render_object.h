@@ -97,9 +97,6 @@ public: // Engine API
 
     virtual uint32_t getMaxDrawCount() const = 0;
 
-
-    virtual void resetDrawCount(VkCommandBuffer cmd, int32_t currentFrameOverlap) const = 0;
-
 public: // RenderReference
     uint32_t getId() const override { return renderObjectInfo.id; }
 

@@ -47,20 +47,11 @@ void main() {
         vec2 colorUv = inUV * material.colorUvTransform.xy + material.colorUvTransform.zw;
         albedo = texture(sampler2D(textures[nonuniformEXT(colorImageIndex)], samplers[nonuniformEXT(colorSamplerIndex)]), colorUv);
     }
-    //albedo = albedo * inColor * m.colorFactor;
-
-    // Look into custom shaders specifically for these? More draw commands vs branching...
-    // 1 is transparent blend type
-    if (material.alphaProperties.y == 1) {
-        // Draw only if alpha is close enough to 1
-        if (albedo.w <= 1.0 - TRANSPARENT_ALPHA_EPSILON) {
-            discard;
-        }
-    }
+    albedo = albedo * inColor * material.colorFactor;
 
     // 2 is "mask" (cutout) blend type
     if (material.alphaProperties.y == 2){
-        // 2 is "mask" blend type
+        // x is the cutout value (if any)
         if (albedo.w < material.alphaProperties.x){
             discard;
         }

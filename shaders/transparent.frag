@@ -67,11 +67,9 @@ void main() {
     }
     albedo = albedo * inColor * material.colorFactor;
 
-    if (material.alphaProperties.y == 1) {
-        // Draw only if alpha is sufficiently less than 1
-        if (albedo.w > 1.0 - TRANSPARENT_ALPHA_EPSILON) {
-            discard;
-        }
+    if (albedo.w >= 1.0){
+        // Weighted-Blended OIT does not play nice if any fragment has a 1.0 alpha
+        albedo.w = 1.0 - TRANSPARENT_ALPHA_EPSILON;
     }
 
     int metalSamplerIndex = int(material.textureSamplerIndices.y);
