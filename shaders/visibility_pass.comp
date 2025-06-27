@@ -16,17 +16,17 @@ layout (set = 1, binding = 0) uniform VisibilityPassData
     PrimitiveData primitives;
     CommandBuffer opaqueCommands;
     CommandBuffer transparentCommands;
+    CommandBuffer shadowCommands;
     DrawCounts drawCounts;
 } visibilityPassData;
 
 
 layout (push_constant) uniform PushConstants {
-    int enabledFrustumCull;
-    int shadowPass;
+    int bEnableFrustumCull;
 } push;
 
 // todo make this only require a single dot product
-int checkIsVisible(mat4 mat, vec3 origin, float radius)
+bool checkIsVisible(mat4 mat, vec3 origin, float radius)
 {
     uint plane_index = 0;
     for (uint i = 0; i < 3; ++i)
@@ -46,11 +46,11 @@ int checkIsVisible(mat4 mat, vec3 origin, float radius)
             plane.xyzw /= sqrt(dot(plane.xyz, plane.xyz));
             if (dot(origin, plane.xyz) + plane.w + radius < 0)
             {
-                return 0;
+                return false;
             }
         }
     }
-    return 1;
+    return true;
 }
 
 void main()
@@ -65,75 +65,44 @@ void main()
     Primitive primitive = visibilityPassData.primitives.primitiveArray[instanceData.primitiveDataIndex];
     bool bTransparent = primitive.bHasTransparent != 0;
 
+    VkDrawIndexedIndirectCommand cmd;
+    cmd.indexCount = primitive.indexCount;
+    cmd.firstIndex = primitive.firstIndex;
+    cmd.vertexOffset = primitive.vertexOffset;
+    cmd.instanceCount = 1;
+    cmd.firstInstance = invocationId;
 
-    if (push.shadowPass == 1){
-        // "Dont Cast Shadows" flag
-        if (model.flags.y == 0){ return; }
-
-        VkDrawIndexedIndirectCommand cmd;
-        cmd.indexCount = primitive.indexCount;
-        cmd.instanceCount = 1;
-        cmd.firstIndex = primitive.firstIndex;
-        cmd.vertexOffset = primitive.vertexOffset;
-        cmd.firstInstance = invocationId;
-
-        if (bTransparent) {
-            uint outputIndex = atomicAdd(visibilityPassData.drawCounts.indirectCount.transparentCount, 1);
-            visibilityPassData.transparentCommands.commandArray[outputIndex] = cmd;
-        } else {
-            uint outputIndex = atomicAdd(visibilityPassData.drawCounts.indirectCount.opaqueCount, 1);
-            visibilityPassData.opaqueCommands.commandArray[outputIndex] = cmd;
-        }
-        return;
-    } else {
-        // "Don't draw" flag
-        if (model.flags.x == 0){ return; }
+    // "Cast Shadows" flag
+    if (model.flags.y == 1){
+        uint outputIndex = atomicAdd(visibilityPassData.drawCounts.indirectCount.shadowCount, 1);
+        visibilityPassData.shadowCommands.commandArray[outputIndex] = cmd;
     }
 
-    if (push.enabledFrustumCull == 0){
-        VkDrawIndexedIndirectCommand cmd;
-        cmd.indexCount = primitive.indexCount;
-        cmd.instanceCount = 1;
-        cmd.firstIndex = primitive.firstIndex;
-        cmd.vertexOffset = primitive.vertexOffset;
-        cmd.firstInstance = invocationId;
+    // "Draw" flag
+    if (model.flags.x == 1){
+        vec3 position = primitive.boundingSphere.yzw;
+        float radius = primitive.boundingSphere.x;
+        vec3 scale = vec3(length(model.currentModelMatrix[0].xyz),
+        length(model.currentModelMatrix[1].xyz),
+        length(model.currentModelMatrix[2].xyz));
+        float maxScale = max(max(scale.x, scale.y), scale.z);
+        position = vec3(model.currentModelMatrix * vec4(position, 1.0));
+        float worldRadius = radius * maxScale;
 
-        if (bTransparent) {
-            uint outputIndex = atomicAdd(visibilityPassData.drawCounts.indirectCount.transparentCount, 1);
-            visibilityPassData.transparentCommands.commandArray[outputIndex] = cmd;
-        } else {
-            uint outputIndex = atomicAdd(visibilityPassData.drawCounts.indirectCount.opaqueCount, 1);
-            visibilityPassData.opaqueCommands.commandArray[outputIndex] = cmd;
+
+        bool visible = checkIsVisible(sceneData.viewProj, position, worldRadius);
+        if (push.bEnableFrustumCull == 0){
+            visible = true;
         }
-        return;
-    }
 
-    vec3 position = primitive.boundingSphere.yzw;
-    float radius = primitive.boundingSphere.x;
-    vec3 scale = vec3(length(model.currentModelMatrix[0].xyz),
-    length(model.currentModelMatrix[1].xyz),
-    length(model.currentModelMatrix[2].xyz));
-    float maxScale = max(max(scale.x, scale.y), scale.z);
-    position = vec3(model.currentModelMatrix * vec4(position, 1.0));
-    float worldRadius = radius * maxScale;
-
-
-    int visible = checkIsVisible(sceneData.viewProj, position, worldRadius);
-
-    if (visible != 0) {
-        VkDrawIndexedIndirectCommand cmd;
-        cmd.indexCount = primitive.indexCount;
-        cmd.firstIndex = primitive.firstIndex;
-        cmd.vertexOffset = primitive.vertexOffset;
-        cmd.instanceCount = 1;
-        cmd.firstInstance = invocationId;
-
-        if (bTransparent) {
-            uint outputIndex = atomicAdd(visibilityPassData.drawCounts.indirectCount.transparentCount, 1);
-            visibilityPassData.transparentCommands.commandArray[outputIndex] = cmd;
-        } else {
-            uint outputIndex = atomicAdd(visibilityPassData.drawCounts.indirectCount.opaqueCount, 1);
-            visibilityPassData.opaqueCommands.commandArray[outputIndex] = cmd;
+        if (visible) {
+            if (bTransparent) {
+                uint outputIndex = atomicAdd(visibilityPassData.drawCounts.indirectCount.transparentCount, 1);
+                visibilityPassData.transparentCommands.commandArray[outputIndex] = cmd;
+            } else {
+                uint outputIndex = atomicAdd(visibilityPassData.drawCounts.indirectCount.opaqueCount, 1);
+                visibilityPassData.opaqueCommands.commandArray[outputIndex] = cmd;
+            }
         }
     }
 }

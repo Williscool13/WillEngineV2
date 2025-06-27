@@ -111,19 +111,22 @@ void RenderObjectGltf::updateBuffers(VkCommandBuffer cmd, const int32_t currentF
         bDrawBuffersRecreated = true;
     }
 
-    size_t requiredOpaqueSize = sizeof(VkDrawIndexedIndirectCommand) * currentMaxInstanceCount;
-    BufferPtr& currentOpaqueDrawBuffer = compactOpaqueDrawBuffers[currentFrameOverlap];
-    if (currentOpaqueDrawBuffer->info.size != requiredOpaqueSize) {
-        resourceManager.destroyResource(std::move(currentOpaqueDrawBuffer));
-        currentOpaqueDrawBuffer = resourceManager.createResource<Buffer>(BufferType::Device, requiredOpaqueSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+    size_t requiredBufferSize = sizeof(VkDrawIndexedIndirectCommand) * currentMaxInstanceCount;
+    if (compactOpaqueDrawBuffer->info.size != requiredBufferSize) {
+        resourceManager.destroyResource(std::move(compactOpaqueDrawBuffer));
+        compactOpaqueDrawBuffer = resourceManager.createResource<Buffer>(BufferType::Device, requiredBufferSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
         bDrawBuffersRecreated = true;
     }
 
-    size_t requiredTransparentSize = sizeof(VkDrawIndexedIndirectCommand) * currentMaxInstanceCount;
-    BufferPtr& currentTransparentDrawBuffer = compactTransparentDrawBuffers[currentFrameOverlap];
-    if (currentTransparentDrawBuffer->info.size != requiredTransparentSize) {
-        resourceManager.destroyResource(std::move(currentTransparentDrawBuffer));
-        currentTransparentDrawBuffer = resourceManager.createResource<Buffer>(BufferType::Device, requiredTransparentSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+    if (compactTransparentDrawBuffer->info.size != requiredBufferSize) {
+        resourceManager.destroyResource(std::move(compactTransparentDrawBuffer));
+        compactTransparentDrawBuffer = resourceManager.createResource<Buffer>(BufferType::Device, requiredBufferSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+        bDrawBuffersRecreated = true;
+    }
+
+    if (fullShadowDrawBuffer->info.size != requiredBufferSize) {
+        resourceManager.destroyResource(std::move(fullShadowDrawBuffer));
+        fullShadowDrawBuffer = resourceManager.createResource<Buffer>(BufferType::Device, requiredBufferSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
         bDrawBuffersRecreated = true;
     }
 
@@ -134,8 +137,9 @@ void RenderObjectGltf::updateBuffers(VkCommandBuffer cmd, const int32_t currentF
         visPassData.instanceBuffer = resourceManager.getBufferAddress(currentInstanceBuffer->buffer);
         visPassData.modelMatrixBuffer = resourceManager.getBufferAddress(currentModelBuffer->buffer);
         visPassData.primitiveDataBuffer = resourceManager.getBufferAddress(primitiveBuffer->buffer);
-        visPassData.opaqueIndirectBuffer = resourceManager.getBufferAddress(currentOpaqueDrawBuffer->buffer);
-        visPassData.transparentIndirectBuffer = resourceManager.getBufferAddress(currentTransparentDrawBuffer->buffer);
+        visPassData.opaqueIndirectBuffer = resourceManager.getBufferAddress(compactOpaqueDrawBuffer->buffer);
+        visPassData.transparentIndirectBuffer = resourceManager.getBufferAddress(compactTransparentDrawBuffer->buffer);
+        visPassData.shadowIndirectBuffer = resourceManager.getBufferAddress(fullShadowDrawBuffer->buffer);
         visPassData.countBuffer = resourceManager.getBufferAddress(countBuffers[currentFrameOverlap]->buffer);
         memcpy(visibilityPassBuffers[currentFrameOverlap]->info.pMappedData, &visPassData, visPassAddressesSize);
 
@@ -688,14 +692,15 @@ void RenderObjectGltf::load()
         memcpy(addressBuffers[i]->info.pMappedData, &mainDrawData, addressesSize);
     }
 
+    size_t maxDrawBufferSize = sizeof(VkDrawIndexedIndirectCommand) * currentMaxInstanceCount;
+    compactOpaqueDrawBuffer = resourceManager.createResource<Buffer>(BufferType::Device, maxDrawBufferSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+    compactTransparentDrawBuffer = resourceManager.createResource<Buffer>(BufferType::Device, maxDrawBufferSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+    fullShadowDrawBuffer = resourceManager.createResource<Buffer>(BufferType::Device, maxDrawBufferSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
 
     visibilityPassDescriptorBuffer = resourceManager.createResource<DescriptorBufferUniform>(resourceManager.getVisibilityPassLayout(), FRAME_OVERLAP);
     std::array<DescriptorUniformData, 1> uniformData{};
     for (int32_t i = 0; i < FRAME_OVERLAP; ++i) {
         countBuffers[i] = resourceManager.createResource<Buffer>(BufferType::Device, sizeof(IndirectCount), VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
-        compactOpaqueDrawBuffers[i] = resourceManager.createResource<Buffer>(BufferType::Device, sizeof(VkDrawIndexedIndirectCommand) * currentMaxInstanceCount, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
-        compactTransparentDrawBuffers[i] = resourceManager.createResource<Buffer>(BufferType::Device, sizeof(VkDrawIndexedIndirectCommand) * currentMaxInstanceCount,
-                                                                                  VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
 
 
         constexpr size_t bufferSize = sizeof(VisibilityPassBuffers);
@@ -710,8 +715,9 @@ void RenderObjectGltf::load()
         visPassData.instanceBuffer = resourceManager.getBufferAddress(instanceDataBuffer[i]->buffer);
         visPassData.modelMatrixBuffer = resourceManager.getBufferAddress(modelMatrixBuffers[i]->buffer);
         visPassData.primitiveDataBuffer = resourceManager.getBufferAddress(primitiveBuffer->buffer);
-        visPassData.opaqueIndirectBuffer = resourceManager.getBufferAddress(compactOpaqueDrawBuffers[i]->buffer);
-        visPassData.transparentIndirectBuffer = resourceManager.getBufferAddress(compactTransparentDrawBuffers[i]->buffer);
+        visPassData.opaqueIndirectBuffer = resourceManager.getBufferAddress(compactOpaqueDrawBuffer->buffer);
+        visPassData.transparentIndirectBuffer = resourceManager.getBufferAddress(compactTransparentDrawBuffer->buffer);
+        visPassData.shadowIndirectBuffer = resourceManager.getBufferAddress(fullShadowDrawBuffer->buffer);
         visPassData.countBuffer = resourceManager.getBufferAddress(countBuffers[i]->buffer);
         memcpy(visibilityPassBuffers[i]->info.pMappedData, &visPassData, bufferSize);
     }

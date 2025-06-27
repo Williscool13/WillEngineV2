@@ -133,6 +133,7 @@ struct VisibilityPassBuffers
     VkDeviceAddress primitiveDataBuffer;
     VkDeviceAddress opaqueIndirectBuffer;
     VkDeviceAddress transparentIndirectBuffer;
+    VkDeviceAddress shadowIndirectBuffer;
     VkDeviceAddress countBuffer;
 };
 
@@ -157,11 +158,11 @@ struct IndirectCount
 {
     uint32_t opaqueCount;
     uint32_t transparentCount;
+    uint32_t shadowCount;
     /**
      * The maximum number of primitives that are in the buffer. Equal to size of indirect buffer
      */
     uint32_t limit;
-    uint32_t padding;
 };
 }
 

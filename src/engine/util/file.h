@@ -94,7 +94,7 @@ static std::filesystem::path getGameSettingsPath()
 #if WILL_ENGINE_DEBUG
 static std::filesystem::path getEditorSettingsPath()
 {
-    return "config/Engine.config";
+    return "assets/settings.willengine";
 }
 #endif
 }

@@ -76,9 +76,9 @@ struct IndirectCount
 {
     uint opaqueCount;
     uint transparentCount;
+    uint shadowCount;
     // The maximum number of primitives that are in the buffer. Equal to size of indirect buffer
     uint limit;
-    uint padding;
 };
 
 layout (buffer_reference, std430) readonly buffer Instances

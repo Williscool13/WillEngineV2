@@ -60,8 +60,7 @@ void VisibilityPassPipeline::draw(VkCommandBuffer cmd, const VisibilityPassDrawI
 
 
     VisibilityPassPushConstants pushConstants = {};
-    pushConstants.enable = drawInfo.bEnableFrustumCulling;
-    pushConstants.shadowPass = drawInfo.bIsShadowPass;
+    pushConstants.bEnableFrustumCull = drawInfo.bEnableFrustumCull;
 
     vkCmdPushConstants(cmd, pipelineLayout->layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VisibilityPassPushConstants), &pushConstants);
 
@@ -74,7 +73,7 @@ void VisibilityPassPipeline::draw(VkCommandBuffer cmd, const VisibilityPassDrawI
         }
 
         const VkBuffer drawCountBuffer = renderObject->getDrawCountBuffer(drawInfo.currentFrameOverlap);
-        vkCmdFillBuffer(cmd, drawCountBuffer,offsetof(IndirectCount, opaqueCount), sizeof(uint32_t) * 2, 0);
+        vkCmdFillBuffer(cmd, drawCountBuffer,offsetof(IndirectCount, opaqueCount), sizeof(uint32_t) * 3, 0);
         const uint32_t limit = renderObject->getMaxDrawCount();
         vkCmdFillBuffer(cmd, drawCountBuffer,offsetof(IndirectCount, limit), sizeof(uint32_t), limit);
         vk_helpers::bufferBarrier(cmd, drawCountBuffer, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
@@ -104,12 +103,12 @@ void VisibilityPassPipeline::draw(VkCommandBuffer cmd, const VisibilityPassDrawI
 
         barrierCache.insert(barrierCache.end(), {
                                 {
-                                    renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap),
+                                    renderObject->getOpaqueIndirectBuffer(),
                                     VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
                                     VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT
                                 },
                                 {
-                                    renderObject->getTransparentIndirectBuffer(drawInfo.currentFrameOverlap),
+                                    renderObject->getTransparentIndirectBuffer(),
                                     VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
                                     VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT
                                 },

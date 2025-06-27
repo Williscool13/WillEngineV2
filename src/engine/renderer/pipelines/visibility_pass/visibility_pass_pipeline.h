@@ -18,8 +18,7 @@ class RenderObject;
 
 struct VisibilityPassPushConstants
 {
-    int32_t enable{};
-    int32_t shadowPass{};
+    int32_t bEnableFrustumCull{};
 };
 
 struct VisibilityPassDrawInfo
@@ -28,9 +27,7 @@ struct VisibilityPassDrawInfo
     const std::vector<RenderObject*>& renderObjects{};
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};
-    bool bEnableFrustumCulling{};
-    bool bIsShadowPass{};
-    bool bIsOpaque{};
+    bool bEnableFrustumCull{};
 };
 
 

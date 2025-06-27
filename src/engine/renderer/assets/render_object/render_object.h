@@ -81,9 +81,11 @@ public: // Engine API
 
     VkBuffer getIndexBuffer() const override = 0;
 
-    virtual VkBuffer getOpaqueIndirectBuffer(int32_t currentFrameOverlap) const = 0;
+    virtual VkBuffer getOpaqueIndirectBuffer() const = 0;
 
-    virtual VkBuffer getTransparentIndirectBuffer(int32_t currentFrameOverlap) const = 0;
+    virtual VkBuffer getTransparentIndirectBuffer() const = 0;
+
+    virtual VkBuffer getShadowIndirectBuffer() const = 0;
 
     virtual VkBuffer getDrawCountBuffer(int32_t currentFrameOverlap) const = 0;
 
@@ -91,8 +93,9 @@ public: // Engine API
 
     virtual VkDeviceSize getDrawCountTransparentOffset() const = 0;
 
-    virtual uint32_t getMaxDrawCount() const = 0;
+    virtual VkDeviceSize getDrawCountShadowOffset() const = 0;
 
+    virtual uint32_t getMaxDrawCount() const = 0;
 
 
     virtual void resetDrawCount(VkCommandBuffer cmd, int32_t currentFrameOverlap) const = 0;

@@ -600,27 +600,6 @@ void Engine::render(float deltaTime)
     // Updates Cascaded Shadow Map Properties
     cascadedShadowMap->update(mainLight, fallbackCamera, currentFrameOverlap);
 
-    // renderer::VisibilityPassDrawInfo csmFrustumCullDrawInfo{
-    //     currentFrameOverlap,
-    //     allRenderObjects,
-    //     sceneDataBinding,
-    //     sceneDataBufferOffset,
-    //     false,
-    //     true,
-    //     true,
-    // };
-    // visibilityPassPipeline->draw(cmd, csmFrustumCullDrawInfo);
-
-
-    // renderer::CascadedShadowMapDrawInfo csmDrawInfo{
-    //     csmSettings.bEnabled,
-    //     currentFrameOverlap,
-    //     allRenderObjects,
-    //     activeTerrains,
-    // };
-    //
-    // cascadedShadowMap->draw(cmd, csmDrawInfo);
-
     // Clear Color
     {
         constexpr VkClearColorValue clearColor = {0.0f, 0.0f, 0.0f, 0.0f};
@@ -741,6 +720,24 @@ void Engine::render(float deltaTime)
         vkCmdPipelineBarrier2(cmd, &finalDep);
     }
 
+    renderer::VisibilityPassDrawInfo deferredFrustumCullDrawInfo{
+        currentFrameOverlap,
+        allRenderObjects,
+        sceneDataBinding,
+        sceneDataBufferOffset,
+        true,
+    };
+    visibilityPassPipeline->draw(cmd, deferredFrustumCullDrawInfo);
+
+    renderer::CascadedShadowMapDrawInfo csmDrawInfo{
+        csmSettings.bEnabled,
+        currentFrameOverlap,
+        allRenderObjects,
+        activeTerrains,
+    };
+
+    cascadedShadowMap->draw(cmd, csmDrawInfo);
+
     renderer::EnvironmentDrawInfo environmentPipelineDrawInfo{
         renderContext->renderExtent,
         normalRenderTarget->imageView,
@@ -754,18 +751,6 @@ void Engine::render(float deltaTime)
         environmentMap->getCubemapDescriptorBuffer()->getDescriptorBufferSize() * environmentMapIndex,
     };
     environmentPipeline->draw(cmd, environmentPipelineDrawInfo);
-
-
-    renderer::VisibilityPassDrawInfo deferredFrustumCullDrawInfo{
-        currentFrameOverlap,
-        allRenderObjects,
-        sceneDataBinding,
-        sceneDataBufferOffset,
-        true,
-        false,
-        true,
-    };
-    visibilityPassPipeline->draw(cmd, deferredFrustumCullDrawInfo);
 
     renderer::TerrainDrawInfo terrainDrawInfo{
         false,

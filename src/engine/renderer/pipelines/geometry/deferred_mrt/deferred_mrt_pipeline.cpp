@@ -131,7 +131,7 @@ void DeferredMrtPipeline::draw(VkCommandBuffer cmd, const DeferredMrtDrawInfo& d
         vkCmdBindVertexBuffers(cmd, 0, 2, vertexBuffers, vertexOffsets);
         vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexedIndirectCount(cmd,
-                                      renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap), 0,
+                                      renderObject->getOpaqueIndirectBuffer(), 0,
                                       renderObject->getDrawCountBuffer(drawInfo.currentFrameOverlap), renderObject->getDrawCountOpaqueOffset(),
                                       renderObject->getMaxDrawCount(), sizeof(VkDrawIndexedIndirectCommand));
     }

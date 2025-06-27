@@ -350,20 +350,19 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                     bool change = false;
                     float direction[3] = {currentMainLight.direction.x, currentMainLight.direction.y, currentMainLight.direction.z};
                     if (ImGui::DragFloat3("Direction", direction, 0.1)) {
-                        currentMainLight.direction = glm::vec3(direction[0], direction[1], direction[2]);
                         change = true;
                     }
                     float color[3] = {currentMainLight.color.x, currentMainLight.color.y, currentMainLight.color.z};
                     if (ImGui::DragFloat3("Color", color, 0.1)) {
-                        engine->mainLight.color = glm::vec3(color[0], color[1], color[2]);
                         change = true;
                     }
-                    if (ImGui::DragFloat("Intensity", &engine->mainLight.intensity, 0.05f, 0.0f, 5.0f)) {
+                    if (ImGui::DragFloat("Intensity", &currentMainLight.intensity, 0.05f, 0.0f, 5.0f)) {
                         change = true;
                     }
 
                     if (change) {
-                        currentMainLight.direction = normalize(currentMainLight.direction);
+                        currentMainLight.direction = glm::normalize(glm::vec3(direction[0], direction[1], direction[2]));
+                        currentMainLight.color = glm::normalize(glm::vec3(color[0], color[1], color[2]));
                         engine->setMainLight(currentMainLight);
                     }
                 }
