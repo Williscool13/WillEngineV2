@@ -10,7 +10,7 @@
 namespace will_engine::renderer
 {
 Buffer::Buffer(ResourceManager* resourceManager, BufferType type, size_t size,
-                                 VkBufferUsageFlags additionalUsages) : VulkanResource(resourceManager)
+               VkBufferUsageFlags additionalUsages) : VulkanResource(resourceManager)
 {
     auto [bufferUsage, allocFlags, memoryUsage, requiredFlags] = getBufferConfig(type, additionalUsages);
 
@@ -31,7 +31,7 @@ Buffer::Buffer(ResourceManager* resourceManager, BufferType type, size_t size,
 }
 
 Buffer::Buffer(ResourceManager* resourceManager, size_t size, VkBufferUsageFlags usage,
-                                 VmaMemoryUsage memoryUsage) : VulkanResource(resourceManager)
+               VmaMemoryUsage memoryUsage) : VulkanResource(resourceManager)
 {
     const VkBufferCreateInfo bufferInfo = {
         .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -67,8 +67,7 @@ Buffer::BufferConfig Buffer::getBufferConfig(BufferType type, VkBufferUsageFlags
             };
         case BufferType::Device:
             return {
-                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT |
-                VK_BUFFER_USAGE_TRANSFER_DST_BIT | additionalUsages,
+                VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_SHADER_DEVICE_ADDRESS_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT | additionalUsages,
                 0,
                 VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE,
                 VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT

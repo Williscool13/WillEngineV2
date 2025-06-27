@@ -368,34 +368,59 @@ void imageBarrier(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayou
     vkCmdPipelineBarrier2(cmd, &depInfo);
 }
 
-void bufferBarrier(VkCommandBuffer cmd, VkBuffer buffer, VkPipelineStageFlagBits2 srcPipelineStage,
-                    VkAccessFlagBits2 srcAccessBit, VkPipelineStageFlagBits2 dstPipelineStage,
-                    VkAccessFlagBits2 dstAccessBit)
+void bufferBarriers(VkCommandBuffer cmd, std::span<const BufferBarrierInfo> barriers)
 {
-    VkBufferMemoryBarrier2 bufferBarrier{};
-    bufferBarrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
-    bufferBarrier.pNext = nullptr;
+    if (barriers.empty()) return;
 
-    bufferBarrier.srcStageMask = srcPipelineStage;
-    bufferBarrier.srcAccessMask = srcAccessBit;
+    // Stack allocation for small batches, heap for large ones
+    constexpr size_t STACK_THRESHOLD = 16;
 
-    bufferBarrier.dstStageMask = dstPipelineStage;
-    bufferBarrier.dstAccessMask = dstAccessBit;
+    VkBufferMemoryBarrier2 stackBarriers[STACK_THRESHOLD];
+    std::vector<VkBufferMemoryBarrier2> heapBarriers;
 
-    bufferBarrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    bufferBarrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
-    bufferBarrier.buffer = buffer;
-    bufferBarrier.offset = 0;
-    bufferBarrier.size = VK_WHOLE_SIZE;
+    VkBufferMemoryBarrier2* barrierArray;
+    if (barriers.size() <= STACK_THRESHOLD) {
+        barrierArray = stackBarriers;
+    } else {
+        heapBarriers.resize(barriers.size());
+        barrierArray = heapBarriers.data();
+    }
+
+    // Fill barrier array
+    for (size_t i = 0; i < barriers.size(); ++i) {
+        const auto& info = barriers[i];
+        auto& barrier = barrierArray[i];
+
+        barrier.sType = VK_STRUCTURE_TYPE_BUFFER_MEMORY_BARRIER_2;
+        barrier.pNext = nullptr;
+        barrier.srcStageMask = info.srcPipelineStage;
+        barrier.srcAccessMask = info.srcAccessBit;
+        barrier.dstStageMask = info.dstPipelineStage;
+        barrier.dstAccessMask = info.dstAccessBit;
+        barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+        barrier.buffer = info.buffer;
+        barrier.offset = info.offset;
+        barrier.size = info.size;
+    }
 
     VkDependencyInfo depInfo{};
     depInfo.sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO;
     depInfo.pNext = nullptr;
     depInfo.dependencyFlags = 0;
-    depInfo.bufferMemoryBarrierCount = 1;
-    depInfo.pBufferMemoryBarriers = &bufferBarrier;
+    depInfo.bufferMemoryBarrierCount = static_cast<uint32_t>(barriers.size());
+    depInfo.pBufferMemoryBarriers = barrierArray;
 
     vkCmdPipelineBarrier2(cmd, &depInfo);
+}
+
+
+void bufferBarrier(VkCommandBuffer cmd, VkBuffer buffer, VkPipelineStageFlagBits2 srcPipelineStage,
+                  VkAccessFlagBits2 srcAccessBit, VkPipelineStageFlagBits2 dstPipelineStage,
+                  VkAccessFlagBits2 dstAccessBit)
+{
+    BufferBarrierInfo info{buffer, srcPipelineStage, srcAccessBit, dstPipelineStage, dstAccessBit};
+    bufferBarriers(cmd, std::span{&info, 1});
 }
 
 void copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize)

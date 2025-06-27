@@ -26,8 +26,11 @@ layout (location = 2) out vec4 debugTarget;
 
 layout (set = 1, binding = 0) uniform Addresses
 {
-    MaterialData materialBufferDeviceAddress;
-    ModelData modelBufferDeviceAddress;
+    Instances instances;
+    Models models;
+    PrimitiveData primitives;
+    Materials materials;
+
 } bufferAddresses;
 
 layout (set = 2, binding = 0) uniform sampler samplers[];
@@ -54,28 +57,28 @@ layout (push_constant) uniform PushConstants {
 } pushConstants;
 
 void main() {
-    Material m = bufferAddresses.materialBufferDeviceAddress.materials[inMaterialIndex];
+    Material material = bufferAddresses.materials.materialArray[inMaterialIndex];
     vec4 albedo = vec4(1.0f);
 
-    int colorSamplerIndex = m.textureSamplerIndices.x;
-    int colorImageIndex = m.textureImageIndices.x;
+    int colorSamplerIndex = material.textureSamplerIndices.x;
+    int colorImageIndex = material.textureImageIndices.x;
     if (colorSamplerIndex >= 0) {
         albedo = texture(sampler2D(textures[nonuniformEXT(colorImageIndex)], samplers[nonuniformEXT(colorSamplerIndex)]), inUV);
     }
-    albedo = albedo * inColor * m.colorFactor;
+    albedo = albedo * inColor * material.colorFactor;
 
-    if (m.alphaProperties.y == 1) {
+    if (material.alphaProperties.y == 1) {
         // Draw only if alpha is sufficiently less than 1
         if (albedo.w > 1.0 - TRANSPARENT_ALPHA_EPSILON) {
             discard;
         }
     }
 
-    int metalSamplerIndex = int(m.textureSamplerIndices.y);
-    int metalImageIndex = int(m.textureImageIndices.y);
+    int metalSamplerIndex = int(material.textureSamplerIndices.y);
+    int metalImageIndex = int(material.textureImageIndices.y);
 
-    float metallic = m.metalRoughFactors.x;
-    float roughness = m.metalRoughFactors.y;
+    float metallic = material.metalRoughFactors.x;
+    float roughness = material.metalRoughFactors.y;
     if (metalSamplerIndex >= 0) {
         vec4 metalRoughSample = texture(sampler2D(textures[nonuniformEXT(metalImageIndex)], samplers[nonuniformEXT(metalSamplerIndex)]), inUV);
         metallic *= metalRoughSample.b;

@@ -498,9 +498,9 @@ void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int3
     pDebugSceneData->deltaTime = deltaTime;
 
     renderer::vk_helpers::bufferBarrier(cmd, sceneDataBuffer->buffer, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
-                                         VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
+                                        VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
     renderer::vk_helpers::bufferBarrier(cmd, debugSceneDataBuffer->buffer, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
-                                         VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
+                                        VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
 }
 
 void Engine::updateDebug(float deltaTime)
@@ -600,26 +600,26 @@ void Engine::render(float deltaTime)
     // Updates Cascaded Shadow Map Properties
     cascadedShadowMap->update(mainLight, fallbackCamera, currentFrameOverlap);
 
-    renderer::VisibilityPassDrawInfo csmFrustumCullDrawInfo{
-        currentFrameOverlap,
-        allRenderObjects,
-        sceneDataBinding,
-        sceneDataBufferOffset,
-        false,
-        true,
-        true,
-    };
-    visibilityPassPipeline->draw(cmd, csmFrustumCullDrawInfo);
+    // renderer::VisibilityPassDrawInfo csmFrustumCullDrawInfo{
+    //     currentFrameOverlap,
+    //     allRenderObjects,
+    //     sceneDataBinding,
+    //     sceneDataBufferOffset,
+    //     false,
+    //     true,
+    //     true,
+    // };
+    // visibilityPassPipeline->draw(cmd, csmFrustumCullDrawInfo);
 
 
-    renderer::CascadedShadowMapDrawInfo csmDrawInfo{
-        csmSettings.bEnabled,
-        currentFrameOverlap,
-        allRenderObjects,
-        activeTerrains,
-    };
-
-    cascadedShadowMap->draw(cmd, csmDrawInfo);
+    // renderer::CascadedShadowMapDrawInfo csmDrawInfo{
+    //     csmSettings.bEnabled,
+    //     currentFrameOverlap,
+    //     allRenderObjects,
+    //     activeTerrains,
+    // };
+    //
+    // cascadedShadowMap->draw(cmd, csmDrawInfo);
 
     // Clear Color
     {
@@ -630,7 +630,7 @@ void Engine::render(float deltaTime)
         constexpr uint32_t COLOR_IMAGE_COUNT = 7;
 #endif
         // History buffer is not reset
-        std::array<renderer::RenderTarget*, COLOR_IMAGE_COUNT> colorImages = {
+        std::array colorImages = {
             drawImage.get(),
             normalRenderTarget.get(),
             albedoRenderTarget.get(),
@@ -834,8 +834,7 @@ void Engine::render(float deltaTime)
     }
 
     renderer::vk_helpers::imageBarrier(cmd, drawImage.get(), VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_ASPECT_COLOR_BIT);
-    renderer::vk_helpers::imageBarrier(cmd, depthStencilImage.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-                                       VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
+    renderer::vk_helpers::imageBarrier(cmd, depthStencilImage.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT);
     renderer::vk_helpers::imageBarrier(cmd, normalRenderTarget.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     renderer::vk_helpers::imageBarrier(cmd, albedoRenderTarget.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     renderer::vk_helpers::imageBarrier(cmd, pbrRenderTarget.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
@@ -890,7 +889,6 @@ void Engine::render(float deltaTime)
     if (bDrawTransparents) {
         transparentPipeline->drawComposite(cmd, compositeDrawInfo);
     }
-
 
     renderer::vk_helpers::imageBarrier(cmd, drawImage.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);
     renderer::vk_helpers::imageBarrier(cmd, historyBuffer.get(), VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_IMAGE_ASPECT_COLOR_BIT);

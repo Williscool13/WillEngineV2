@@ -27,28 +27,31 @@ layout (location = 3) out vec2 velocityTarget;
 
 layout (set = 1, binding = 0) uniform Addresses
 {
-    MaterialData materialBufferDeviceAddress;
-    ModelData modelBufferDeviceAddress;
+    Instances instances;
+    Models models;
+    PrimitiveData primitives;
+    Materials materials;
+
 } bufferAddresses;
 
 layout (set = 2, binding = 0) uniform sampler samplers[];
 layout (set = 2, binding = 1) uniform texture2D textures[];
 
 void main() {
-    Material m = bufferAddresses.materialBufferDeviceAddress.materials[inMaterialIndex];
+    Material material = bufferAddresses.materials.materialArray[inMaterialIndex];
     vec4 albedo = vec4(1.0f);
 
-    int colorSamplerIndex = m.textureSamplerIndices.x;
-    int colorImageIndex = m.textureImageIndices.x;
+    int colorSamplerIndex = material.textureSamplerIndices.x;
+    int colorImageIndex = material.textureImageIndices.x;
     if (colorSamplerIndex > -1 && colorImageIndex > -1) {
-        vec2 colorUv = inUV * m.colorUvTransform.xy + m.colorUvTransform.zw;
+        vec2 colorUv = inUV * material.colorUvTransform.xy + material.colorUvTransform.zw;
         albedo = texture(sampler2D(textures[nonuniformEXT(colorImageIndex)], samplers[nonuniformEXT(colorSamplerIndex)]), colorUv);
     }
     //albedo = albedo * inColor * m.colorFactor;
 
     // Look into custom shaders specifically for these? More draw commands vs branching...
     // 1 is transparent blend type
-    if (m.alphaProperties.y == 1) {
+    if (material.alphaProperties.y == 1) {
         // Draw only if alpha is close enough to 1
         if (albedo.w <= 1.0 - TRANSPARENT_ALPHA_EPSILON) {
             discard;
@@ -56,20 +59,20 @@ void main() {
     }
 
     // 2 is "mask" (cutout) blend type
-    if (m.alphaProperties.y == 2){
+    if (material.alphaProperties.y == 2){
         // 2 is "mask" blend type
-        if (albedo.w < m.alphaProperties.x){
+        if (albedo.w < material.alphaProperties.x){
             discard;
         }
     }
 
-    int metalSamplerIndex = int(m.textureSamplerIndices.y);
-    int metalImageIndex = int(m.textureImageIndices.y);
+    int metalSamplerIndex = int(material.textureSamplerIndices.y);
+    int metalImageIndex = int(material.textureImageIndices.y);
 
-    float metallic = m.metalRoughFactors.x;
-    float roughness = m.metalRoughFactors.y;
+    float metallic = material.metalRoughFactors.x;
+    float roughness = material.metalRoughFactors.y;
     if (metalSamplerIndex > -1 && metalImageIndex > -1) {
-        vec2 metalRoughUv = inUV * m.metalRoughUvTransform.xy + m.metalRoughUvTransform.zw;
+        vec2 metalRoughUv = inUV * material.metalRoughUvTransform.xy + material.metalRoughUvTransform.zw;
         vec4 metalRoughSample = texture(sampler2D(textures[nonuniformEXT(metalImageIndex)], samplers[nonuniformEXT(metalSamplerIndex)]), metalRoughUv);
         metallic *= metalRoughSample.b;
         roughness *= metalRoughSample.g;

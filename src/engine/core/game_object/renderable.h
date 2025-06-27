@@ -45,8 +45,6 @@ public:
     virtual void setRenderFramesToUpdate(int32_t value) = 0;
 
     // Debug Highlight
-    virtual bool canDrawHighlight() = 0;
-
     virtual HighlightData getHighlightData() = 0;
 };
 }

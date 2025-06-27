@@ -26,9 +26,11 @@ struct HighlightData
 {
     VkBuffer vertexBuffer{VK_NULL_HANDLE};
     VkBuffer indexBuffer{VK_NULL_HANDLE};
-    std::span<const Primitive> primitives;
+    std::vector<Primitive> primitives;
 
     glm::mat4 modelMatrix{1.0f};
+
+    bool isValid() const { return vertexBuffer != VK_NULL_HANDLE && indexBuffer != VK_NULL_HANDLE && !primitives.empty(); }
 };
 
 struct DebugHighlighterDrawInfo

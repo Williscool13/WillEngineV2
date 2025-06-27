@@ -22,7 +22,7 @@ namespace will_engine::renderer
 {
 DeferredMrtPipeline::DeferredMrtPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
 {
-    std::array descriptorLayout {
+    std::array descriptorLayout{
         resourceManager.getSceneDataLayout(),
         resourceManager.getRenderObjectAddressesLayout(),
         resourceManager.getTexturesLayout(),
@@ -130,8 +130,10 @@ void DeferredMrtPipeline::draw(VkCommandBuffer cmd, const DeferredMrtDrawInfo& d
         constexpr VkDeviceSize vertexOffsets[2] = {0, 0};
         vkCmdBindVertexBuffers(cmd, 0, 2, vertexBuffers, vertexOffsets);
         vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexedIndirect(cmd, renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap), 0,
-                                 renderObject->getOpaqueDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
+        vkCmdDrawIndexedIndirectCount(cmd,
+                                      renderObject->getOpaqueIndirectBuffer(), 0,
+                                      renderObject->getDrawCountBuffer(drawInfo.currentFrameOverlap), renderObject->getDrawCountOpaqueOffset(),
+                                      renderObject->getMaxDrawCount(), sizeof(VkDrawIndexedIndirectCommand));
     }
 
     vkCmdEndRendering(cmd);

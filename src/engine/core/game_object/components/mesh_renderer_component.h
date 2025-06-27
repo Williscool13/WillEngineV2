@@ -57,9 +57,7 @@ public:
     void beginDestroy() override;
 
 public: // Debug Highlight
-    virtual bool canDrawHighlight() override;
-
-    virtual renderer::HighlightData getHighlightData() override;
+    renderer::HighlightData getHighlightData() override;
 
 public: // Serialization
     void serialize(ordered_json& j) override;

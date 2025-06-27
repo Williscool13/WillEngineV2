@@ -43,8 +43,6 @@ DebugHighlighter::DebugHighlighter(ResourceManager& resourceManager) : resourceM
     pipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
 
 
-
-
     DescriptorLayoutBuilder layoutBuilder{2};
     layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // Stencil Image
     layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // Debug Target
@@ -98,20 +96,17 @@ void DebugHighlighter::setupDescriptorBuffer(VkImageView stencilImageView, VkIma
 
 bool DebugHighlighter::drawHighlightStencil(VkCommandBuffer cmd, const DebugHighlighterDrawInfo& drawInfo) const
 {
-    if (!drawInfo.highlightTarget->canDrawHighlight()) {
+    HighlightData highlightData = drawInfo.highlightTarget->getHighlightData();
+
+    if (!highlightData.isValid()) {
         return false;
     }
 
-    HighlightData highlightData = drawInfo.highlightTarget->getHighlightData();
-
-
-    const VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthStencilTarget, nullptr,
-                                                                                 VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    const VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthStencilTarget, nullptr, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
     VkClearValue stencilClear{};
     stencilClear.depthStencil = {0.0f, 0};
-    const VkRenderingAttachmentInfo stencilAttachment = vk_helpers::attachmentInfo(drawInfo.depthStencilTarget, &stencilClear,
-                                                                                   VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    const VkRenderingAttachmentInfo stencilAttachment = vk_helpers::attachmentInfo(drawInfo.depthStencilTarget, &stencilClear, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
     VkRenderingInfo renderInfo{};
     renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;

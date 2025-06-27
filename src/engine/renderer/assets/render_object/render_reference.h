@@ -31,7 +31,7 @@ public:
 
     virtual bool releaseInstanceIndex(IRenderable* renderable) = 0;
 
-    virtual std::optional<std::reference_wrapper<const Mesh>> getMeshData(int32_t meshIndex) = 0;
+    virtual std::vector<Primitive> getPrimitives(int32_t meshIndex) = 0;
 
     virtual VkBuffer getPositionVertexBuffer() const = 0;
 

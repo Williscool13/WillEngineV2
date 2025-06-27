@@ -9,9 +9,10 @@
 
 layout (set = 1, binding = 0) uniform Addresses
 {
-    MaterialData materialBufferDeviceAddress;
-    PrimitiveData primitiveBufferDeviceAddress;
-    ModelData modelBufferDeviceAddress;
+    Instances instances;
+    Models models;
+    PrimitiveData primitives;
+    Materials materials;
 } bufferAddresses;
 
 
@@ -30,22 +31,25 @@ layout (location = 6) out vec4 outCurrMvpPosition;
 layout (location = 7) out vec4 outPrevMvpPosition;
 
 void main() {
-    Primitive primitive = bufferAddresses.primitiveBufferDeviceAddress.primitives[gl_InstanceIndex];
-    uint modelIndex = primitive.modelIndex;
-    uint materialIndex = primitive.materialIndex;
-    Model models = bufferAddresses.modelBufferDeviceAddress.models[modelIndex];
+    Instance instances = bufferAddresses.instances.instanceArray[gl_InstanceIndex];
 
-    vec4 viewPos = sceneData.view * models.currentModelMatrix * vec4(position, 1.0);
+    Primitive primitive = bufferAddresses.primitives.primitiveArray[instances.primitiveDataIndex];
+    Model model = bufferAddresses.models.modelArray[instances.modelIndex];
+
+    Material material = bufferAddresses.materials.materialArray[primitive.materialIndex];
+
+
+    vec4 viewPos = sceneData.view * model.currentModelMatrix * vec4(position, 1.0);
 
     outViewPosition = viewPos.xyz;
-    outViewNormal = mat3(sceneData.view) * adjugate(models.currentModelMatrix) * normal;
+    outViewNormal = mat3(sceneData.view) * adjugate(model.currentModelMatrix) * normal;
     outColor = color;
     outUV = uv;
-    outMaterialIndex = materialIndex;
+    outMaterialIndex = primitive.materialIndex;
     outHasTransparent = primitive.bHasTransparent;
 
     vec4 currClipPos = sceneData.proj * viewPos;
-    vec4 prevClipPos = sceneData.prevViewProj * models.previousModelMatrix * vec4(position, 1.0);
+    vec4 prevClipPos = sceneData.prevViewProj * model.previousModelMatrix * vec4(position, 1.0);
     currClipPos.xy += currClipPos.w * sceneData.jitter.xy;
     prevClipPos.xy += prevClipPos.w * sceneData.jitter.zw;
     outCurrMvpPosition = currClipPos;

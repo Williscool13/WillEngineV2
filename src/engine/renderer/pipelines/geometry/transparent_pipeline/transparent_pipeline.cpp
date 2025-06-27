@@ -174,7 +174,7 @@ void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentA
     constexpr VkDeviceSize zeroOffset{0};
 
     for (RenderObject* renderObject : drawInfo.renderObjects) {
-        if (!renderObject->canDrawTransparent()) { continue; }
+        if (!renderObject->canDraw()) { continue; }
 
         std::array descriptorBufferBindingInfos{
             drawInfo.sceneDataBinding,
@@ -204,8 +204,10 @@ void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentA
         constexpr VkDeviceSize vertexOffsets[2] = {0, 0};
         vkCmdBindVertexBuffers(cmd, 0, 2, vertexBuffers, vertexOffsets);
         vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
-        vkCmdDrawIndexedIndirect(cmd, renderObject->getTransparentIndirectBuffer(drawInfo.currentFrameOverlap), 0,
-                                 renderObject->getTransparentDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
+        vkCmdDrawIndexedIndirectCount(cmd,
+                              renderObject->getTransparentIndirectBuffer(), 0,
+                              renderObject->getDrawCountBuffer(drawInfo.currentFrameOverlap), renderObject->getDrawCountTransparentOffset(),
+                              renderObject->getMaxDrawCount(), sizeof(VkDrawIndexedIndirectCommand));
     }
 
     vkCmdEndRendering(cmd);

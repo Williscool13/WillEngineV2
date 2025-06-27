@@ -345,30 +345,31 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, CascadedShadowMapDrawInfo draw
             constexpr VkDeviceSize zeroOffset{0};
 
             for (RenderObject* renderObject : drawInfo.renderObjects) {
-                if (!renderObject->canDrawOpaque()) { continue; }
-
-                std::array bindings{
-                    cascadedShadowMapDescriptorBufferUniform->getBindingInfo(),
-                    renderObject->getAddressesDescriptorBuffer()->getBindingInfo()
-                };
-                vkCmdBindDescriptorBuffersEXT(cmd, 2, bindings.data());
-
-                std::array indices{0u, 1u};
-                std::array offsets{
-                    cascadedShadowMapDescriptorBufferUniform->getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
-                    renderObject->getAddressesDescriptorBuffer()->getDescriptorBufferSize() * drawInfo.currentFrameOverlap
-                };
-
-                vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObjectPipelineLayout->layout, 0, 2, indices.data(),
-                                                   offsets.data());
-
-
-                const std::array vertexBuffers = {renderObject->getPositionVertexBuffer()};
-
-                vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), &zeroOffset);
-                vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
-                vkCmdDrawIndexedIndirect(cmd, renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap), 0,
-                                         renderObject->getOpaqueDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
+                // todo: use hard-coded indirects as we will not be doing culling for shadow maps
+                // if (!renderObject->canDraw()) { continue; }
+                //
+                // std::array bindings{
+                //     cascadedShadowMapDescriptorBufferUniform->getBindingInfo(),
+                //     renderObject->getAddressesDescriptorBuffer()->getBindingInfo()
+                // };
+                // vkCmdBindDescriptorBuffersEXT(cmd, 2, bindings.data());
+                //
+                // std::array indices{0u, 1u};
+                // std::array offsets{
+                //     cascadedShadowMapDescriptorBufferUniform->getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
+                //     renderObject->getAddressesDescriptorBuffer()->getDescriptorBufferSize() * drawInfo.currentFrameOverlap
+                // };
+                //
+                // vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, renderObjectPipelineLayout->layout, 0, 2, indices.data(),
+                //                                    offsets.data());
+                //
+                //
+                // const std::array vertexBuffers = {renderObject->getPositionVertexBuffer()};
+                //
+                // vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), &zeroOffset);
+                // vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
+                // vkCmdDrawIndexedIndirect(cmd, renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap), 0,
+                //                          renderObject->getOpaqueDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
             }
 
             vkCmdEndRendering(cmd);

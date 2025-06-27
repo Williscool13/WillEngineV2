@@ -69,17 +69,11 @@ public: // Engine API
 
     virtual bool canDraw() const = 0;
 
-    virtual bool canDrawOpaque() const = 0;
-
-    virtual bool canDrawTransparent() const = 0;
-
-    virtual const DescriptorBufferUniform* getVisibilityDescriptorBuffer() const = 0;
-
     virtual const DescriptorBufferUniform* getAddressesDescriptorBuffer() const = 0;
 
     virtual const DescriptorBufferSampler* getTextureDescriptorBuffer() const = 0;
 
-    virtual const DescriptorBufferUniform* getFrustumCullingAddressesDescriptorBuffer() const = 0;
+    virtual const DescriptorBufferUniform* getVisibilityPassDescriptorBuffer() const = 0;
 
     VkBuffer getPositionVertexBuffer() const override = 0;
 
@@ -87,9 +81,19 @@ public: // Engine API
 
     VkBuffer getIndexBuffer() const override = 0;
 
-    virtual VkBuffer getOpaqueIndirectBuffer(int32_t currentFrameOverlap) const = 0;
+    virtual VkBuffer getOpaqueIndirectBuffer() const = 0;
 
-    virtual VkBuffer getTransparentIndirectBuffer(int32_t currentFrameOverlap) const = 0;
+    virtual VkBuffer getTransparentIndirectBuffer() const = 0;
+
+    virtual VkBuffer getDrawCountBuffer(const int32_t currentFrameOverlap) const = 0;
+
+    virtual VkDeviceSize getDrawCountOpaqueOffset() const = 0;
+
+    virtual VkDeviceSize getDrawCountTransparentOffset() const = 0;
+
+    virtual uint32_t getMaxDrawCount() const = 0;
+
+    virtual void resetDrawCount(int32_t currentFrameOverlap) const = 0;
 
 public: // RenderReference
     uint32_t getId() const override { return renderObjectInfo.id; }

@@ -16,8 +16,7 @@
 
 namespace will_engine
 {
-
-static inline constexpr uint32_t DEFAULT_RENDER_OBJECT_INSTANCE_COUNT = 10;
+static inline constexpr uint32_t DEFAULT_RENDER_OBJECT_INSTANCE_COUNT = 50;
 static inline constexpr uint32_t DEFAULT_RENDER_OBJECT_MODEL_COUNT = 10;
 
 enum class MaterialType
@@ -64,30 +63,11 @@ struct VertexProperty
     glm::vec2 uv{0, 0};
 };
 
-struct Primitive
-{
-    uint32_t firstIndex{0};
-    uint32_t indexCount{0};
-    int32_t vertexOffset{0};
-    uint32_t bHasTransparent{0};
-    uint32_t boundingSphereIndex{0};
-    uint32_t materialIndex{0};
-};
 
 struct Mesh
 {
     std::string name;
     std::vector<uint32_t> primitiveIndices;
-};
-
-struct BoundingSphere
-{
-    BoundingSphere() = default;
-
-    explicit BoundingSphere(const std::vector<VertexPosition>& vertices);
-
-    glm::vec3 center{};
-    float radius{};
 };
 
 struct RenderNode
@@ -98,6 +78,28 @@ struct RenderNode
     RenderNode* parent;
     int32_t meshIndex{-1};
 };
+
+struct BoundingSphere
+{
+    float radius{};
+    glm::vec3 center{};
+
+    BoundingSphere() = default;
+
+    explicit BoundingSphere(const std::vector<VertexPosition>& vertices);
+};
+
+
+struct Primitive
+{
+    uint32_t firstIndex{0};
+    uint32_t indexCount{0};
+    int32_t vertexOffset{0};
+    uint32_t bHasTransparent{0};
+    uint32_t materialIndex{0};
+    BoundingSphere boundingSphere{};
+};
+
 
 struct InstanceData
 {
@@ -118,15 +120,22 @@ struct ModelData
     glm::vec4 flags; // x: visible, y: casts shadows, z,w: reserved for future use
 };
 
-struct VisibilityPassData
+struct VisibilityPassBuffers
 {
-    VkDeviceAddress primitiveData;
     VkDeviceAddress instanceBuffer;
     VkDeviceAddress modelMatrixBuffer;
+    VkDeviceAddress primitiveDataBuffer;
     VkDeviceAddress opaqueIndirectBuffer;
     VkDeviceAddress transparentIndirectBuffer;
-    VkDeviceAddress opaqueIndirectCount;
-    VkDeviceAddress transparentIndirectCount;
+    VkDeviceAddress countBuffer;
+};
+
+struct MainDrawBuffers
+{
+    VkDeviceAddress instanceBuffer;
+    VkDeviceAddress modelBufferAddress;
+    VkDeviceAddress primitiveDataBuffer;
+    VkDeviceAddress materialBuffer;
 };
 
 struct RenderObjectInfo
@@ -140,11 +149,13 @@ struct RenderObjectInfo
 
 struct IndirectCount
 {
-    uint32_t count;
+    uint32_t opaqueCount;
+    uint32_t transparentCount;
     /**
      * The maximum number of primitives that are in the buffer. Equal to size of indirect buffer
      */
     uint32_t limit;
+    uint32_t padding;
 };
 }
 

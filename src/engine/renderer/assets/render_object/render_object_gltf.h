@@ -98,28 +98,26 @@ public: // IRenderReference
      */
     bool releaseInstanceIndex(IRenderable* renderable) override;
 
-    std::optional<std::reference_wrapper<const Mesh> > getMeshData(int32_t meshIndex) override;;
+    std::vector<Primitive> getPrimitives(int32_t meshIndex) override;
 
 public: // Model Rendering API
     size_t getMeshCount() const override { return meshes.size(); }
     bool canDraw() const override { return freeModelIndex.size() != currentMaxModelCount; }
-    const DescriptorBufferUniform* getVisibilityDescriptorBuffer() const override { return visibilityPassDescriptorBuffer.get(); }
     const DescriptorBufferUniform* getAddressesDescriptorBuffer() const override { return addressesDescriptorBuffer.get(); }
     const DescriptorBufferSampler* getTextureDescriptorBuffer() const override { return textureDescriptorBuffer.get(); }
-    const DescriptorBufferUniform* getFrustumCullingAddressesDescriptorBuffer() const override { return frustumCullingDescriptorBuffer.get(); }
+    const DescriptorBufferUniform* getVisibilityPassDescriptorBuffer() const override { return visibilityPassDescriptorBuffer.get(); }
+
     VkBuffer getPositionVertexBuffer() const override { return vertexPositionBuffer ? vertexPositionBuffer->buffer : VK_NULL_HANDLE; }
     VkBuffer getPropertyVertexBuffer() const override { return vertexPositionBuffer ? vertexPropertyBuffer->buffer : VK_NULL_HANDLE; }
     VkBuffer getIndexBuffer() const override { return indexBuffer ? indexBuffer->buffer : VK_NULL_HANDLE; }
 
-    VkBuffer getOpaqueIndirectBuffer(const int32_t currentFrameOverlap) const override
-    {
-        return compactOpaqueDrawBuffer->buffer;
-    }
-
-    VkBuffer getTransparentIndirectBuffer(const int32_t currentFrameOverlap) const override
-    {
-        return compactTransparentDrawBuffer->buffer;
-    }
+    VkBuffer getOpaqueIndirectBuffer() const override { return compactOpaqueDrawBuffer ? compactOpaqueDrawBuffer->buffer : VK_NULL_HANDLE; }
+    VkBuffer getTransparentIndirectBuffer() const override { return compactTransparentDrawBuffer ? compactTransparentDrawBuffer->buffer : VK_NULL_HANDLE; }
+    VkBuffer getDrawCountBuffer(const int32_t currentFrameOverlap) const override { return countBuffers[currentFrameOverlap] ? countBuffers[currentFrameOverlap]->buffer : VK_NULL_HANDLE; }
+    VkDeviceSize getDrawCountOpaqueOffset() const override { return offsetof(IndirectCount, opaqueCount); }
+    VkDeviceSize getDrawCountTransparentOffset() const override { return offsetof(IndirectCount, transparentCount); }
+    uint32_t getMaxDrawCount() const override { return currentMaxInstanceCount; }
+    void resetDrawCount(int32_t currentFrameOverlap) const override;
 
     void generateMeshComponents(IComponentContainer* container, const Transform& transform) override;
 
@@ -133,7 +131,6 @@ private: // Model Parsing
 
 private: // Model Data
     std::vector<Mesh> meshes{};
-    std::vector<BoundingSphere> boundingSpheres{};
     std::vector<RenderNode> renderNodes{};
     std::vector<int32_t> topNodes{};
 
@@ -149,7 +146,6 @@ public: // Buffer Data
     BufferPtr vertexPropertyBuffer{};
     BufferPtr indexBuffer{};
     BufferPtr primitiveBuffer{};
-    BufferPtr meshBoundsBuffer{};
 
     DescriptorBufferSamplerPtr textureDescriptorBuffer{};
 
@@ -168,11 +164,11 @@ public: // Buffer Data
     // Draw buffer written to by the visibility pass
     BufferPtr compactOpaqueDrawBuffer{};
     BufferPtr compactTransparentDrawBuffer{};
-    // Separate buffer to keep track of the number of draws (atomically manipulated by the visibility pass)
-    BufferPtr opaqueDrawCountBuffer{};
-    BufferPtr transparentDrawCountBuffer{};
+    std::array<BufferPtr, FRAME_OVERLAP> countBuffers{};
 
 #if WILL_ENGINE_DEBUG
+    std::vector<Primitive> debugPrimitives;
+
     const std::vector<ImageResourcePtr>& debugGetImages() override { return images; }
 #endif
 };

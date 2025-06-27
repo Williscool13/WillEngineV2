@@ -14,11 +14,6 @@
 #include "engine/renderer/vk_types.h"
 #include "engine/renderer/resources/vulkan_resource.h"
 
-namespace will_engine
-{
-class VulkanContext;
-}
-
 namespace will_engine::renderer
 {
 struct DescriptorBuffer : VulkanResource

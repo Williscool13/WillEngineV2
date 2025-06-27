@@ -105,10 +105,10 @@ ResourceManager::ResourceManager(VulkanContext& context, ImmediateSubmitter& imm
     // Visibility Pass Layout
     {
         DescriptorLayoutBuilder layoutBuilder{1};
-        // BDA Uniform that contains (see FrustumCullingBuffers):
-        // - Primitive Data Buffer (BDA)
+        // BDA Uniform that contains (see VisibilityPassBuffers):
         // - Instance Data buffer (BDA)
         // - Model Matrix Data Buffer (BDA)
+        // - Primitive Data Buffer (BDA)
         // - Opaque Indirect Buffer (BDA)
         // - Transparent Indirect Buffer (BDA)
         // - Opaque Indirect Count (BDA)

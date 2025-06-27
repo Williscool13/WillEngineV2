@@ -46,6 +46,17 @@ namespace vk_helpers
         VkImageAspectFlags aspectMask;
     };
 
+    struct BufferBarrierInfo
+    {
+        VkBuffer buffer;
+        VkPipelineStageFlagBits2 srcPipelineStage;
+        VkAccessFlagBits2 srcAccessBit;
+        VkPipelineStageFlagBits2 dstPipelineStage;
+        VkAccessFlagBits2 dstAccessBit;
+        VkDeviceSize offset = 0;
+        VkDeviceSize size = VK_WHOLE_SIZE;
+    };
+
     VkImageCreateInfo imageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
 
     VkImageCreateInfo cubemapCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
@@ -111,11 +122,14 @@ namespace vk_helpers
 
     void imageBarrier(VkCommandBuffer cmd, VkImage image, VkImageLayout currentLayout, VkImageLayout targetLayout, VkImageAspectFlags aspectMask);
 
+    void bufferBarriers(VkCommandBuffer cmd, std::span<const BufferBarrierInfo> barriers);
+
     void bufferBarrier(VkCommandBuffer cmd, VkBuffer buffer, VkPipelineStageFlagBits2 srcPipelineStage,
-                        VkAccessFlagBits2 srcAccessBit, VkPipelineStageFlagBits2
-                        dstPipelineStage, VkAccessFlagBits2 dstAccessBit);
+                       VkAccessFlagBits2 srcAccessBit, VkPipelineStageFlagBits2
+                       dstPipelineStage, VkAccessFlagBits2 dstAccessBit);
 
     void copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent2D srcSize, VkExtent2D dstSize);
+
     void copyImageToImage(VkCommandBuffer cmd, VkImage source, VkImage destination, VkExtent3D srcSize, VkExtent3D dstSize);
 
     void generateMipmaps(VkCommandBuffer cmd, VkImage image, VkExtent2D imageSize);
