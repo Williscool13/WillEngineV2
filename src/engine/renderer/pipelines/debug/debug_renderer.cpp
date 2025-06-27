@@ -146,6 +146,10 @@ void DebugRenderer::drawBoxMinMax(const glm::vec3& min, const glm::vec3& max, co
 
 void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawInfo)
 {
+    VkDebugUtilsLabelEXT label = {};
+    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+    label.pLabelName = "Debug Renderer";
+    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
     if (drawInfo.currentFrameOverlap < 0 || drawInfo.currentFrameOverlap >= FRAME_OVERLAP) { return; }
 
     // Upload
@@ -323,6 +327,8 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     }
 
     vkCmdEndRendering(cmd);
+
+    vkCmdEndDebugUtilsLabelEXT(cmd);
 }
 
 void DebugRenderer::clear()

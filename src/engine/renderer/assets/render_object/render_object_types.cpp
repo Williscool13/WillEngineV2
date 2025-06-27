@@ -19,4 +19,21 @@ BoundingSphere::BoundingSphere(const std::vector<VertexPosition>& vertices)
     }
     this->radius = std::nextafter(sqrtf(this->radius), std::numeric_limits<float>::max());
 }
+
+glm::vec4 BoundingSphere::getBounds(const std::vector<VertexPosition>& vertices)
+{
+    glm::vec3 center = {0, 0, 0};
+
+    for (auto&& vertex : vertices) {
+        center += vertex.position;
+    }
+    center /= static_cast<float>(vertices.size());
+    float radius = glm::distance2(vertices[0].position, center);
+    for (size_t i = 1; i < vertices.size(); ++i) {
+        radius = std::max(radius, glm::distance2(vertices[i].position, center));
+    }
+    radius = std::nextafter(sqrtf(radius), std::numeric_limits<float>::max());
+
+    return {radius, center};
+}
 }

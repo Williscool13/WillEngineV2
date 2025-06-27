@@ -32,7 +32,10 @@ struct Primitive
     int vertexOffset;
     uint bHasTransparent;
     uint materialIndex;
-    MeshBounds meshBounds;
+    uint padding0;
+    uint padding1;
+    uint padding2;
+    vec4 boundingSphere;
 };
 
 

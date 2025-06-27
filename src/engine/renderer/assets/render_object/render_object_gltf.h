@@ -111,13 +111,13 @@ public: // Model Rendering API
     VkBuffer getPropertyVertexBuffer() const override { return vertexPositionBuffer ? vertexPropertyBuffer->buffer : VK_NULL_HANDLE; }
     VkBuffer getIndexBuffer() const override { return indexBuffer ? indexBuffer->buffer : VK_NULL_HANDLE; }
 
-    VkBuffer getOpaqueIndirectBuffer() const override { return compactOpaqueDrawBuffer ? compactOpaqueDrawBuffer->buffer : VK_NULL_HANDLE; }
-    VkBuffer getTransparentIndirectBuffer() const override { return compactTransparentDrawBuffer ? compactTransparentDrawBuffer->buffer : VK_NULL_HANDLE; }
+    VkBuffer getOpaqueIndirectBuffer(const int32_t currentFrameOverlap) const override { return compactOpaqueDrawBuffers[currentFrameOverlap] ? compactOpaqueDrawBuffers[currentFrameOverlap]->buffer : VK_NULL_HANDLE; }
+    VkBuffer getTransparentIndirectBuffer(const int32_t currentFrameOverlap) const override { return compactTransparentDrawBuffers[currentFrameOverlap] ? compactTransparentDrawBuffers[currentFrameOverlap]->buffer : VK_NULL_HANDLE; }
     VkBuffer getDrawCountBuffer(const int32_t currentFrameOverlap) const override { return countBuffers[currentFrameOverlap] ? countBuffers[currentFrameOverlap]->buffer : VK_NULL_HANDLE; }
     VkDeviceSize getDrawCountOpaqueOffset() const override { return offsetof(IndirectCount, opaqueCount); }
     VkDeviceSize getDrawCountTransparentOffset() const override { return offsetof(IndirectCount, transparentCount); }
     uint32_t getMaxDrawCount() const override { return currentMaxInstanceCount; }
-    void resetDrawCount(int32_t currentFrameOverlap) const override;
+    void resetDrawCount(VkCommandBuffer cmd, int32_t currentFrameOverlap) const override;
 
     void generateMeshComponents(IComponentContainer* container, const Transform& transform) override;
 
@@ -162,8 +162,8 @@ public: // Buffer Data
     DescriptorBufferUniformPtr visibilityPassDescriptorBuffer{};
     std::array<BufferPtr, FRAME_OVERLAP> visibilityPassBuffers{};
     // Draw buffer written to by the visibility pass
-    BufferPtr compactOpaqueDrawBuffer{};
-    BufferPtr compactTransparentDrawBuffer{};
+    std::array<BufferPtr, FRAME_OVERLAP> compactOpaqueDrawBuffers{};
+    std::array<BufferPtr, FRAME_OVERLAP> compactTransparentDrawBuffers{};
     std::array<BufferPtr, FRAME_OVERLAP> countBuffers{};
 
 #if WILL_ENGINE_DEBUG

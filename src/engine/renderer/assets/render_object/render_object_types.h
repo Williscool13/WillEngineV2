@@ -87,6 +87,8 @@ struct BoundingSphere
     BoundingSphere() = default;
 
     explicit BoundingSphere(const std::vector<VertexPosition>& vertices);
+
+    static glm::vec4 getBounds(const std::vector<VertexPosition>& vertices);
 };
 
 
@@ -97,7 +99,11 @@ struct Primitive
     int32_t vertexOffset{0};
     uint32_t bHasTransparent{0};
     uint32_t materialIndex{0};
-    BoundingSphere boundingSphere{};
+    uint32_t padding{0};
+    uint32_t padding1{0};
+    uint32_t padding2{0};
+    // {1} radius, {3} center
+    glm::vec4 boundingSphere{};
 };
 
 

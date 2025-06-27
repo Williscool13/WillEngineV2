@@ -205,7 +205,7 @@ void TransparentPipeline::drawAccumulate(VkCommandBuffer cmd, const TransparentA
         vkCmdBindVertexBuffers(cmd, 0, 2, vertexBuffers, vertexOffsets);
         vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
         vkCmdDrawIndexedIndirectCount(cmd,
-                              renderObject->getTransparentIndirectBuffer(), 0,
+                              renderObject->getTransparentIndirectBuffer(drawInfo.currentFrameOverlap), 0,
                               renderObject->getDrawCountBuffer(drawInfo.currentFrameOverlap), renderObject->getDrawCountTransparentOffset(),
                               renderObject->getMaxDrawCount(), sizeof(VkDrawIndexedIndirectCommand));
     }

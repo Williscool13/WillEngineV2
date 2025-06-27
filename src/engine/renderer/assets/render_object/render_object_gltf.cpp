@@ -104,8 +104,6 @@ void RenderObjectGltf::updateBuffers(VkCommandBuffer cmd, const int32_t currentF
 
 
     BufferPtr& currentModelBuffer = modelMatrixBuffers[currentFrameOverlap];
-
-
     const size_t latestModelBufferSize = currentMaxModelCount * sizeof(ModelData);
     if (currentModelBuffer->info.size != latestModelBufferSize) {
         resourceManager.destroyResource(std::move(currentModelBuffer));
@@ -113,17 +111,20 @@ void RenderObjectGltf::updateBuffers(VkCommandBuffer cmd, const int32_t currentF
         bDrawBuffersRecreated = true;
     }
 
-
     size_t requiredOpaqueSize = sizeof(VkDrawIndexedIndirectCommand) * currentMaxInstanceCount;
-    if (compactOpaqueDrawBuffer->info.size != requiredOpaqueSize) {
-        resourceManager.destroyResource(std::move(compactOpaqueDrawBuffer));
-        compactOpaqueDrawBuffer = resourceManager.createResource<Buffer>(BufferType::Device, requiredOpaqueSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+    BufferPtr& currentOpaqueDrawBuffer = compactOpaqueDrawBuffers[currentFrameOverlap];
+    if (currentOpaqueDrawBuffer->info.size != requiredOpaqueSize) {
+        resourceManager.destroyResource(std::move(currentOpaqueDrawBuffer));
+        currentOpaqueDrawBuffer = resourceManager.createResource<Buffer>(BufferType::Device, requiredOpaqueSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+        bDrawBuffersRecreated = true;
     }
 
     size_t requiredTransparentSize = sizeof(VkDrawIndexedIndirectCommand) * currentMaxInstanceCount;
-    if (compactTransparentDrawBuffer->info.size != requiredTransparentSize) {
-        resourceManager.destroyResource(std::move(compactTransparentDrawBuffer));
-        compactTransparentDrawBuffer = resourceManager.createResource<Buffer>(BufferType::Device, requiredTransparentSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+    BufferPtr& currentTransparentDrawBuffer = compactTransparentDrawBuffers[currentFrameOverlap];
+    if (currentTransparentDrawBuffer->info.size != requiredTransparentSize) {
+        resourceManager.destroyResource(std::move(currentTransparentDrawBuffer));
+        currentTransparentDrawBuffer = resourceManager.createResource<Buffer>(BufferType::Device, requiredTransparentSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+        bDrawBuffersRecreated = true;
     }
 
 
@@ -133,8 +134,8 @@ void RenderObjectGltf::updateBuffers(VkCommandBuffer cmd, const int32_t currentF
         visPassData.instanceBuffer = resourceManager.getBufferAddress(currentInstanceBuffer->buffer);
         visPassData.modelMatrixBuffer = resourceManager.getBufferAddress(currentModelBuffer->buffer);
         visPassData.primitiveDataBuffer = resourceManager.getBufferAddress(primitiveBuffer->buffer);
-        visPassData.opaqueIndirectBuffer = resourceManager.getBufferAddress(compactOpaqueDrawBuffer->buffer);
-        visPassData.transparentIndirectBuffer = resourceManager.getBufferAddress(compactTransparentDrawBuffer->buffer);
+        visPassData.opaqueIndirectBuffer = resourceManager.getBufferAddress(currentOpaqueDrawBuffer->buffer);
+        visPassData.transparentIndirectBuffer = resourceManager.getBufferAddress(currentTransparentDrawBuffer->buffer);
         visPassData.countBuffer = resourceManager.getBufferAddress(countBuffers[currentFrameOverlap]->buffer);
         memcpy(visibilityPassBuffers[currentFrameOverlap]->info.pMappedData, &visPassData, visPassAddressesSize);
 
@@ -160,14 +161,14 @@ void RenderObjectGltf::dirty()
     }
 }
 
-void RenderObjectGltf::resetDrawCount(const int32_t currentFrameOverlap) const
+void RenderObjectGltf::resetDrawCount(VkCommandBuffer cmd, const int32_t currentFrameOverlap) const
 {
     if (countBuffers[currentFrameOverlap]->buffer == VK_NULL_HANDLE) { return; }
-    const auto counts = static_cast<IndirectCount*>(countBuffers[currentFrameOverlap]->info.pMappedData);
-    if (!counts) { return; }
-    counts->limit = currentMaxInstanceCount;
-    counts->opaqueCount = 0;
-    counts->transparentCount = 0;
+    vkCmdFillBuffer(cmd,
+                    countBuffers[currentFrameOverlap]->buffer,
+                    offsetof(IndirectCount, opaqueCount),
+                    sizeof(uint32_t) * 2,
+                    0);
 }
 
 void RenderObjectGltf::generateMeshComponents(IComponentContainer* container, const Transform& transform)
@@ -476,7 +477,7 @@ bool RenderObjectGltf::parseGltf(const std::filesystem::path& gltfFilepath, std:
             primitiveData.firstIndex = static_cast<uint32_t>(indices.size());
             primitiveData.vertexOffset = static_cast<int32_t>(vertexPositions.size());
             primitiveData.indexCount = static_cast<uint32_t>(primitiveIndices.size());
-            primitiveData.boundingSphere = BoundingSphere(primitiveVertexPositions);
+            primitiveData.boundingSphere = BoundingSphere::getBounds(primitiveVertexPositions);
 
             vertexPositions.insert(vertexPositions.end(), primitiveVertexPositions.begin(), primitiveVertexPositions.end());
             vertexProperties.insert(vertexProperties.end(), primitiveVertexProperties.begin(), primitiveVertexProperties.end());
@@ -688,19 +689,15 @@ void RenderObjectGltf::load()
     }
 
 
-    compactOpaqueDrawBuffer = resourceManager.createResource<Buffer>(BufferType::Device, sizeof(VkDrawIndexedIndirectCommand) * currentMaxInstanceCount, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
-    compactTransparentDrawBuffer = resourceManager.createResource<Buffer>(BufferType::Device, sizeof(VkDrawIndexedIndirectCommand) * currentMaxInstanceCount, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
     visibilityPassDescriptorBuffer = resourceManager.createResource<DescriptorBufferUniform>(resourceManager.getVisibilityPassLayout(), FRAME_OVERLAP);
-
+    std::array<DescriptorUniformData, 1> uniformData{};
     for (int32_t i = 0; i < FRAME_OVERLAP; ++i) {
-        countBuffers[i] = resourceManager.createResource<Buffer>(BufferType::HostRandom, sizeof(IndirectCount), VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
-        const auto counts = static_cast<IndirectCount*>(countBuffers[i]->info.pMappedData);
-        counts->limit = currentMaxInstanceCount;
-        counts->opaqueCount = 0;
-        counts->transparentCount = 0;
+        countBuffers[i] = resourceManager.createResource<Buffer>(BufferType::Device, sizeof(IndirectCount), VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+        compactOpaqueDrawBuffers[i] = resourceManager.createResource<Buffer>(BufferType::Device, sizeof(VkDrawIndexedIndirectCommand) * currentMaxInstanceCount, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+        compactTransparentDrawBuffers[i] = resourceManager.createResource<Buffer>(BufferType::Device, sizeof(VkDrawIndexedIndirectCommand) * currentMaxInstanceCount,
+                                                                                  VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
 
 
-        std::array<DescriptorUniformData, 1> uniformData{};
         constexpr size_t bufferSize = sizeof(VisibilityPassBuffers);
         visibilityPassBuffers[i] = resourceManager.createResource<Buffer>(BufferType::HostSequential, bufferSize);
         uniformData[0] = {
@@ -713,8 +710,8 @@ void RenderObjectGltf::load()
         visPassData.instanceBuffer = resourceManager.getBufferAddress(instanceDataBuffer[i]->buffer);
         visPassData.modelMatrixBuffer = resourceManager.getBufferAddress(modelMatrixBuffers[i]->buffer);
         visPassData.primitiveDataBuffer = resourceManager.getBufferAddress(primitiveBuffer->buffer);
-        visPassData.opaqueIndirectBuffer = resourceManager.getBufferAddress(compactOpaqueDrawBuffer->buffer);
-        visPassData.transparentIndirectBuffer = resourceManager.getBufferAddress(compactTransparentDrawBuffer->buffer);
+        visPassData.opaqueIndirectBuffer = resourceManager.getBufferAddress(compactOpaqueDrawBuffers[i]->buffer);
+        visPassData.transparentIndirectBuffer = resourceManager.getBufferAddress(compactTransparentDrawBuffers[i]->buffer);
         visPassData.countBuffer = resourceManager.getBufferAddress(countBuffers[i]->buffer);
         memcpy(visibilityPassBuffers[i]->info.pMappedData, &visPassData, bufferSize);
     }

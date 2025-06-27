@@ -108,8 +108,8 @@ void main()
         return;
     }
 
-    vec3 position = primitive.meshBounds.position;
-    float radius = primitive.meshBounds.radius;
+    vec3 position = primitive.boundingSphere.yzw;
+    float radius = primitive.boundingSphere.x;
     vec3 scale = vec3(length(model.currentModelMatrix[0].xyz),
     length(model.currentModelMatrix[1].xyz),
     length(model.currentModelMatrix[2].xyz));
@@ -120,25 +120,20 @@ void main()
 
     int visible = checkIsVisible(sceneData.viewProj, position, worldRadius);
 
-    //if (visible != 0) {
-    VkDrawIndexedIndirectCommand cmd;
-    cmd.indexCount = primitive.indexCount;
-    cmd.firstIndex = primitive.firstIndex;
-    cmd.vertexOffset = primitive.vertexOffset;
-    cmd.instanceCount = 1;
-    cmd.firstInstance = invocationId;
+    if (visible != 0) {
+        VkDrawIndexedIndirectCommand cmd;
+        cmd.indexCount = primitive.indexCount;
+        cmd.firstIndex = primitive.firstIndex;
+        cmd.vertexOffset = primitive.vertexOffset;
+        cmd.instanceCount = 1;
+        cmd.firstInstance = invocationId;
 
-    visibilityPassData.drawCounts.indirectCount.opaqueCount = 1;
-    visibilityPassData.opaqueCommands.commandArray[0] = cmd;
-    return;
-
-    if (bTransparent) {
-        uint outputIndex = atomicAdd(visibilityPassData.drawCounts.indirectCount.transparentCount, 1);
-        visibilityPassData.transparentCommands.commandArray[outputIndex] = cmd;
-    } else {
-        uint outputIndex = atomicAdd(visibilityPassData.drawCounts.indirectCount.opaqueCount, 1);
-        visibilityPassData.opaqueCommands.commandArray[outputIndex] = cmd;
+        if (bTransparent) {
+            uint outputIndex = atomicAdd(visibilityPassData.drawCounts.indirectCount.transparentCount, 1);
+            visibilityPassData.transparentCommands.commandArray[outputIndex] = cmd;
+        } else {
+            uint outputIndex = atomicAdd(visibilityPassData.drawCounts.indirectCount.opaqueCount, 1);
+            visibilityPassData.opaqueCommands.commandArray[outputIndex] = cmd;
+        }
     }
-    //}
-
 }

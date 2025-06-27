@@ -96,6 +96,11 @@ void DebugHighlighter::setupDescriptorBuffer(VkImageView stencilImageView, VkIma
 
 bool DebugHighlighter::drawHighlightStencil(VkCommandBuffer cmd, const DebugHighlighterDrawInfo& drawInfo) const
 {
+    VkDebugUtilsLabelEXT label = {};
+    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+    label.pLabelName = "Debug Highlight (Stencil Draw))";
+    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
+
     HighlightData highlightData = drawInfo.highlightTarget->getHighlightData();
 
     if (!highlightData.isValid()) {
@@ -170,9 +175,10 @@ bool DebugHighlighter::drawHighlightStencil(VkCommandBuffer cmd, const DebugHigh
     }
 
     vkCmdEndRendering(cmd);
-    return true;
 
-    return false;
+    vkCmdEndDebugUtilsLabelEXT(cmd);
+
+    return true;
 }
 
 void DebugHighlighter::drawHighlightProcessing(VkCommandBuffer cmd, const DebugHighlighterDrawInfo& drawInfo) const

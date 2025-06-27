@@ -73,7 +73,16 @@ void VisibilityPassPipeline::draw(VkCommandBuffer cmd, const VisibilityPassDrawI
             continue;
         }
 
-        renderObject->resetDrawCount(drawInfo.currentFrameOverlap);
+        const VkBuffer drawCountBuffer = renderObject->getDrawCountBuffer(drawInfo.currentFrameOverlap);
+        vkCmdFillBuffer(cmd, drawCountBuffer,offsetof(IndirectCount, opaqueCount), sizeof(uint32_t) * 2, 0);
+        const uint32_t limit = renderObject->getMaxDrawCount();
+        vkCmdFillBuffer(cmd, drawCountBuffer,offsetof(IndirectCount, limit), sizeof(uint32_t), limit);
+        vk_helpers::bufferBarrier(cmd, drawCountBuffer, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                                  VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                                  VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                                  VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT);
+
+
 
         std::array bindings{
             drawInfo.sceneDataBinding,
@@ -94,22 +103,22 @@ void VisibilityPassPipeline::draw(VkCommandBuffer cmd, const VisibilityPassDrawI
         vkCmdDispatch(cmd, dispatchSize, 1, 1);
 
         barrierCache.insert(barrierCache.end(), {
-                               {
-                                   renderObject->getOpaqueIndirectBuffer(),
-                                   VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
-                                   VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT
-                               },
-                               {
-                                   renderObject->getTransparentIndirectBuffer(),
-                                   VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
-                                   VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT
-                               },
-                               {
-                                   renderObject->getDrawCountBuffer(drawInfo.currentFrameOverlap),
-                                   VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
-                                   VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT
-                               }
-                           });
+                                {
+                                    renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap),
+                                    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+                                    VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT
+                                },
+                                {
+                                    renderObject->getTransparentIndirectBuffer(drawInfo.currentFrameOverlap),
+                                    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+                                    VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT
+                                },
+                                {
+                                    renderObject->getDrawCountBuffer(drawInfo.currentFrameOverlap),
+                                    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+                                    VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT
+                                }
+                            });
     }
 
     if (!barrierCache.empty()) {
