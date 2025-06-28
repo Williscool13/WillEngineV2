@@ -93,7 +93,7 @@ public:
 
     void updateGame(float deltaTime);
 
-    void updateRender(VkCommandBuffer cmd, float deltaTime, int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
+    void updateRender(VkCommandBuffer cmd, float deltaTime, int32_t currentFrameOverlap, int32_t previousFrameOverlap);
 
     void updateDebug(float deltaTime);
 
@@ -206,7 +206,6 @@ public:
     void setTaaSettings(const temporal_antialiasing_pipeline::TemporalAntialiasingSettings& settings) { taaSettings = settings; }
 
 private: // Debug
-    bool bEnableDebugFrustumCullDraw{false};
     int32_t deferredDebug{0};
     bool bEnablePhysics{true};
     bool bDrawTransparents{true};
@@ -214,6 +213,7 @@ private: // Debug
     bool bEnableContactShadows{true};
     bool bDrawDebugRendering{true};
     bool bDebugPhysics{true};
+    bool bFreezeVisibilitySceneData{false};
 
     void hotReloadShaders() const;
 
@@ -236,6 +236,7 @@ private: // Scene Data
     renderer::DescriptorBufferUniformPtr sceneDataDescriptorBuffer;
     std::array<renderer::BufferPtr, FRAME_OVERLAP> sceneDataBuffers;
     renderer::BufferPtr debugSceneDataBuffer{nullptr};
+    SceneData snapshotSceneData{};
 
     /**
      * Should always exist and be used if no other camera is in the scene (todo: camera system)

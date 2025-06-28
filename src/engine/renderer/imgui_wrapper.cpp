@@ -691,8 +691,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 ImGui::Combo("Deferred Debug", &engine->deferredDebug, deferredDebugOptions, IM_ARRAYSIZE(deferredDebugOptions));
                 ImGui::Separator();
 
-                ImGui::Text("Frustum Cull Debug Draw");
-                ImGui::Checkbox("Enable Frustum Cull Debug Draw", &engine->bEnableDebugFrustumCullDraw);
+                ImGui::Checkbox("Freeze Visibility Pass Scene Data", &engine->bFreezeVisibilitySceneData);
                 ImGui::EndTabItem();
             }
 

@@ -194,8 +194,14 @@ void Engine::init()
 void Engine::initRenderer()
 {
     // +1 for the debug scene data buffer. Not multi-buffering the debug for simplicity, may result in some flickering
+#if WILL_ENGINE_DEBUG
+    int32_t sceneDataCount = FRAME_OVERLAP + 1;
+#else
+    int32_t sceneDataCount = FRAME_OVERLAP;
+#endif
+
     sceneDataDescriptorBuffer = resourceManager->createResource<renderer::DescriptorBufferUniform>(
-        resourceManager->getSceneDataLayout(), FRAME_OVERLAP + 1);
+        resourceManager->getSceneDataLayout(), sceneDataCount);
 
     std::vector<DescriptorUniformData> sceneDataBufferData{1};
     for (int i{0}; i < FRAME_OVERLAP; i++) {
@@ -204,9 +210,11 @@ void Engine::initRenderer()
         sceneDataDescriptorBuffer->setupData(sceneDataBufferData, i);
     }
 
+#if WILL_ENGINE_DEBUG
     debugSceneDataBuffer = resourceManager->createResource<renderer::Buffer>(renderer::BufferType::HostSequential, sizeof(SceneData));
     sceneDataBufferData[0] = DescriptorUniformData{.buffer = debugSceneDataBuffer->buffer, .allocSize = sizeof(SceneData)};
     sceneDataDescriptorBuffer->setupData(sceneDataBufferData, FRAME_OVERLAP);
+#endif
 
     visibilityPassPipeline = new renderer::VisibilityPassPipeline(*resourceManager);
     startupProfiler.addEntry("Init Visibility Pass");
@@ -423,7 +431,7 @@ void Engine::updateGame(const float deltaTime)
     hierarchicalDeletionQueue.clear();
 }
 
-void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap) const
+void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int32_t currentFrameOverlap, const int32_t previousFrameOverlap)
 {
     const renderer::Buffer* previousSceneDataBuffer = sceneDataBuffers[previousFrameOverlap].get();
     const renderer::Buffer* sceneDataBuffer = sceneDataBuffers[currentFrameOverlap].get();
@@ -476,30 +484,16 @@ void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int3
     pSceneData->deltaTime = deltaTime;
 
 
-    const auto pDebugSceneData = static_cast<SceneData*>(debugSceneDataBuffer->info.pMappedData);
-    pDebugSceneData->jitter = glm::vec4(0.0f);
-    pDebugSceneData->view = glm::lookAt(glm::vec3(0), glm::vec3(0, 0, -1), glm::vec3(0, 1, 0));
-    pDebugSceneData->proj = fallbackCamera->getProjMatrix();
-    pDebugSceneData->viewProj = pDebugSceneData->proj * pDebugSceneData->view;
-
-    pDebugSceneData->prevView = pDebugSceneData->view;
-    pDebugSceneData->prevProj = pDebugSceneData->proj;
-    pDebugSceneData->prevViewProj = pDebugSceneData->viewProj;
-
-    pDebugSceneData->invView = glm::inverse(pDebugSceneData->view);
-    pDebugSceneData->invProj = glm::inverse(pDebugSceneData->proj);
-    pDebugSceneData->invViewProj = glm::inverse(pDebugSceneData->viewProj);
-
-    pDebugSceneData->prevCameraWorldPos = glm::vec4(0.0f);
-    pDebugSceneData->cameraWorldPos = glm::vec4(0.0f);
-
-    pDebugSceneData->renderTargetSize = {renderContext->renderExtent.width, renderContext->renderExtent.height};
-    pDebugSceneData->texelSize = 1.0f / pSceneData->renderTargetSize;
-    pDebugSceneData->deltaTime = deltaTime;
+#if WILL_ENGINE_DEBUG
+    if (!bFreezeVisibilitySceneData) {
+        const auto pDebugSceneData = static_cast<SceneData*>(debugSceneDataBuffer->info.pMappedData);
+        *pDebugSceneData = *pSceneData;
+        renderer::vk_helpers::bufferBarrier(cmd, debugSceneDataBuffer->buffer, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
+                                        VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
+    }
+#endif
 
     renderer::vk_helpers::bufferBarrier(cmd, sceneDataBuffer->buffer, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
-                                        VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
-    renderer::vk_helpers::bufferBarrier(cmd, debugSceneDataBuffer->buffer, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
                                         VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
 }
 
@@ -727,6 +721,12 @@ void Engine::render(float deltaTime)
         sceneDataBufferOffset,
         true,
     };
+#if WILL_ENGINE_DEBUG
+    if (bFreezeVisibilitySceneData) {
+        deferredFrustumCullDrawInfo.sceneDataOffset = sceneDataDescriptorBuffer->getDescriptorBufferSize() * FRAME_OVERLAP;
+    }
+#endif
+
     visibilityPassPipeline->draw(cmd, deferredFrustumCullDrawInfo);
 
     renderer::CascadedShadowMapDrawInfo csmDrawInfo{
@@ -782,23 +782,23 @@ void Engine::render(float deltaTime)
     };
     deferredMrtPipeline->draw(cmd, deferredMrtDrawInfo);
 
-    if (bEnableDebugFrustumCullDraw) {
-        // todo: rework this to be separate cameras and an easy toggle to change between
-        // const renderer::DeferredMrtDrawInfo debugDeferredMrtDrawInfo{
-        //     false,
-        //     currentFrameOverlap,
-        //     {RENDER_EXTENT_WIDTH / 3.0f, RENDER_EXTENT_HEIGHT / 3.0f},
-        //     allRenderObjects,
-        //     normalRenderTarget->imageView,
-        //     albedoRenderTarget->imageView,
-        //     pbrRenderTarget->imageView,
-        //     velocityRenderTarget->imageView,
-        //     depthImageView->imageView,
-        //     sceneDataBinding,
-        //     sceneDataBufferOffset,
-        // };
-        // deferredMrtPipeline->draw(cmd, debugDeferredMrtDrawInfo);
-    }
+
+    // todo: rework this to be separate cameras and an easy toggle to change between
+    // const renderer::DeferredMrtDrawInfo debugDeferredMrtDrawInfo{
+    //     false,
+    //     currentFrameOverlap,
+    //     {RENDER_EXTENT_WIDTH / 3.0f, RENDER_EXTENT_HEIGHT / 3.0f},
+    //     allRenderObjects,
+    //     normalRenderTarget->imageView,
+    //     albedoRenderTarget->imageView,
+    //     pbrRenderTarget->imageView,
+    //     velocityRenderTarget->imageView,
+    //     depthImageView->imageView,
+    //     sceneDataBinding,
+    //     sceneDataBufferOffset,
+    // };
+    // deferredMrtPipeline->draw(cmd, debugDeferredMrtDrawInfo);
+
 
     renderer::TransparentAccumulateDrawInfo transparentDrawInfo{
         true,
