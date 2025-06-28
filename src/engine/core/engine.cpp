@@ -782,24 +782,6 @@ void Engine::render(float deltaTime)
     };
     deferredMrtPipeline->draw(cmd, deferredMrtDrawInfo);
 
-
-    // todo: rework this to be separate cameras and an easy toggle to change between
-    // const renderer::DeferredMrtDrawInfo debugDeferredMrtDrawInfo{
-    //     false,
-    //     currentFrameOverlap,
-    //     {RENDER_EXTENT_WIDTH / 3.0f, RENDER_EXTENT_HEIGHT / 3.0f},
-    //     allRenderObjects,
-    //     normalRenderTarget->imageView,
-    //     albedoRenderTarget->imageView,
-    //     pbrRenderTarget->imageView,
-    //     velocityRenderTarget->imageView,
-    //     depthImageView->imageView,
-    //     sceneDataBinding,
-    //     sceneDataBufferOffset,
-    // };
-    // deferredMrtPipeline->draw(cmd, debugDeferredMrtDrawInfo);
-
-
     renderer::TransparentAccumulateDrawInfo transparentDrawInfo{
         true,
         renderContext->renderExtent,
