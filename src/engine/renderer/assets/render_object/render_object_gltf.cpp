@@ -82,26 +82,19 @@ void RenderObjectGltf::updateBuffers(VkCommandBuffer cmd, const int32_t currentF
 
     bool bDrawBuffersRecreated = false;
     BufferPtr& currentInstanceBuffer = instanceDataBuffer[currentFrameOverlap];
+    BufferPtr& currentInstanceStaging = instanceDataStaging[currentFrameOverlap];
+
 
     // Recreate the instance buffer if needed (will never shrink)
     const size_t latestInstanceBufferSize = currentMaxInstanceCount * sizeof(InstanceData);
     if (currentInstanceBuffer->info.size != latestInstanceBufferSize) {
         resourceManager.destroyResource(std::move(currentInstanceBuffer));
         currentInstanceBuffer = resourceManager.createResource<Buffer>(BufferType::Device, latestInstanceBufferSize);
+        resourceManager.destroyResource(std::move(currentInstanceStaging));
+        currentInstanceStaging = resourceManager.createResource<Buffer>(BufferType::Staging, latestInstanceBufferSize);
+
         bDrawBuffersRecreated = true;
     }
-
-    // Upload instance data
-    BufferPtr instanceStaging = resourceManager.createResource<Buffer>(BufferType::Staging, latestInstanceBufferSize);
-    memcpy(instanceStaging->info.pMappedData, instanceData.data(), latestInstanceBufferSize);
-    vk_helpers::copyBuffer(cmd, instanceStaging->buffer, 0, currentInstanceBuffer->buffer, 0, latestInstanceBufferSize);
-    vk_helpers::bufferBarrier(cmd, currentInstanceBuffer->buffer,
-                              VK_PIPELINE_STAGE_2_COPY_BIT,
-                              VK_ACCESS_2_TRANSFER_WRITE_BIT,
-                              VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
-                              VK_ACCESS_2_UNIFORM_READ_BIT);
-    resourceManager.destroyResource(std::move(instanceStaging));
-
 
     BufferPtr& currentModelBuffer = modelMatrixBuffers[currentFrameOverlap];
     const size_t latestModelBufferSize = currentMaxModelCount * sizeof(ModelData);
@@ -110,6 +103,15 @@ void RenderObjectGltf::updateBuffers(VkCommandBuffer cmd, const int32_t currentF
         currentModelBuffer = resourceManager.createResource<Buffer>(BufferType::HostRandom, latestModelBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
         bDrawBuffersRecreated = true;
     }
+
+    // Upload instance data
+    memcpy(currentInstanceStaging->info.pMappedData, instanceData.data(), latestInstanceBufferSize);
+    vk_helpers::copyBuffer(cmd, currentInstanceStaging->buffer, 0, currentInstanceBuffer->buffer, 0, latestInstanceBufferSize);
+    vk_helpers::bufferBarrier(cmd, currentInstanceBuffer->buffer,
+                              VK_PIPELINE_STAGE_2_COPY_BIT,
+                              VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                              VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                              VK_ACCESS_2_UNIFORM_READ_BIT);
 
     size_t requiredBufferSize = sizeof(VkDrawIndexedIndirectCommand) * currentMaxInstanceCount;
     if (compactOpaqueDrawBuffer->info.size != requiredBufferSize) {
@@ -664,6 +666,7 @@ void RenderObjectGltf::load()
         constexpr size_t addressesSize = sizeof(MainDrawBuffers);
         modelMatrixBuffers[i] = resourceManager.createResource<Buffer>(BufferType::HostRandom, currentMaxModelCount * sizeof(ModelData));
         instanceDataBuffer[i] = resourceManager.createResource<Buffer>(BufferType::Device, currentMaxInstanceCount * sizeof(InstanceData));
+        instanceDataStaging[i] = resourceManager.createResource<Buffer>(BufferType::Staging, currentMaxInstanceCount * sizeof(InstanceData));
 
         addressBuffers[i] = resourceManager.createResource<Buffer>(BufferType::HostSequential, addressesSize);
         addressUniformData[0] = {
@@ -761,6 +764,7 @@ void RenderObjectGltf::unload()
     for (int i = 0; i < FRAME_OVERLAP; ++i) {
         resourceManager.destroyResource(std::move(addressBuffers[i]));
         resourceManager.destroyResource(std::move(instanceDataBuffer[i]));
+        resourceManager.destroyResource(std::move(instanceDataStaging[i]));
         resourceManager.destroyResource(std::move(modelMatrixBuffers[i]));
         resourceManager.destroyResource(std::move(visibilityPassBuffers[i]));
         resourceManager.destroyResource(std::move(countBuffers[i]));

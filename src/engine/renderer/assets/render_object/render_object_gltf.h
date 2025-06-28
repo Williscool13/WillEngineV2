@@ -157,6 +157,7 @@ public: // Buffer Data
     // todo: Material buffer probably also needs to be multi-buffered if it changes at runtime, which it probably should be allowed to
     BufferPtr materialBuffer{};
     std::array<BufferPtr, FRAME_OVERLAP> instanceDataBuffer{};
+    std::array<BufferPtr, FRAME_OVERLAP> instanceDataStaging{};
     std::array<BufferPtr, FRAME_OVERLAP> modelMatrixBuffers{};
 
     // Visibility Pass
