@@ -35,7 +35,7 @@ struct HighlightData
 
 struct DebugHighlighterDrawInfo
 {
-    IRenderable* highlightTarget{nullptr};
+    std::span<IRenderable*> highlightTargets{};
     VkExtent2D extents{DEFAULT_RENDER_EXTENT_2D};
     VkImageView depthStencilTarget{VK_NULL_HANDLE};
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};

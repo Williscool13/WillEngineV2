@@ -45,6 +45,24 @@ public:
         return typed;
     }
 
+    template<typename Interface>
+    std::vector<Interface*> getComponentsImplementing()
+    {
+        static_assert(std::is_abstract_v<Interface> || std::is_class_v<Interface>,
+                      "Interface must be a class or interface type");
+
+        std::vector<game::Component*> allComponents = getAllComponents(); // or however you get all components
+        std::vector<Interface*> implementing;
+
+        for (auto* comp : allComponents) {
+            if (auto* interface = dynamic_cast<Interface*>(comp)) {
+                implementing.push_back(interface);
+            }
+        }
+
+        return implementing;
+    }
+
     template<typename T>
     void getComponentsInto(std::vector<T*>& outComponents)
     {

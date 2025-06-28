@@ -489,7 +489,7 @@ void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int3
         const auto pDebugSceneData = static_cast<SceneData*>(debugSceneDataBuffer->info.pMappedData);
         *pDebugSceneData = *pSceneData;
         renderer::vk_helpers::bufferBarrier(cmd, debugSceneDataBuffer->buffer, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
-                                        VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
+                                            VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
     }
 #endif
 
@@ -908,7 +908,7 @@ void Engine::render(float deltaTime)
         bool stencilDrawn = false;
 
         renderer::DebugHighlighterDrawInfo highlightDrawInfo{
-            nullptr,
+            {},
             renderContext->renderExtent,
             depthStencilImage->imageView,
             sceneDataBinding,
@@ -917,8 +917,9 @@ void Engine::render(float deltaTime)
 
 
         if (auto cc = dynamic_cast<IComponentContainer*>(selectedItem)) {
-            if (auto meshRenderer = cc->getComponent<game::MeshRendererComponent>()) {
-                highlightDrawInfo.highlightTarget = meshRenderer;
+            std::vector<renderer::IRenderable*> meshRenderers = cc->getComponentsImplementing<renderer::IRenderable>();
+            if (!meshRenderers.empty()) {
+                highlightDrawInfo.highlightTargets = meshRenderers;
                 stencilDrawn = debugHighlighter->drawHighlightStencil(cmd, highlightDrawInfo);
             }
         }

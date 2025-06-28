@@ -90,8 +90,17 @@ void RigidBodyComponent::setOwner(IComponentContainer* owner)
 
 void RigidBodyComponent::setTransform(const glm::vec3& position, const glm::quat& rotation)
 {
-    // todo: check if value doesn't exceed epsilon. If it doesn't then do NOT modify this so that the render object doesn't get updated unnecessarily.
-    transformableOwner->setGlobalTransformFromPhysics(position, rotation);
+    const auto currentTransform = transformableOwner->getGlobalTransform();
+
+    const float positionDelta = glm::length(position - currentTransform.getPosition());
+
+    const float rotationDot = glm::abs(glm::dot(rotation, currentTransform.getRotation()));
+    const bool rotationChanged = rotationDot < (1.0f - physics::ROTATION_EPSILON);
+
+    if (positionDelta > physics::POSITION_EPSILON || rotationChanged)
+    {
+        transformableOwner->setGlobalTransformFromPhysics(position, rotation);
+    }
 }
 
 glm::vec3 RigidBodyComponent::getGlobalPosition()

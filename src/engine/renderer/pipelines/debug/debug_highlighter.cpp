@@ -101,12 +101,6 @@ bool DebugHighlighter::drawHighlightStencil(VkCommandBuffer cmd, const DebugHigh
     label.pLabelName = "Debug Highlight (Stencil Draw))";
     vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
-    HighlightData highlightData = drawInfo.highlightTarget->getHighlightData();
-
-    if (!highlightData.isValid()) {
-        return false;
-    }
-
     const VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthStencilTarget, nullptr, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
     VkClearValue stencilClear{};
@@ -156,29 +150,41 @@ bool DebugHighlighter::drawHighlightStencil(VkCommandBuffer cmd, const DebugHigh
     const std::array offsets{drawInfo.sceneDataOffset};
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout->layout, 0, 1, indices.data(), offsets.data());
 
-    DebugHighlightDrawPushConstant push{};
-    push.modelMatrix = highlightData.modelMatrix;
-    vkCmdPushConstants(cmd, pipelineLayout->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(DebugHighlightDrawPushConstant), &push);
+    bool anyDrawn = false;
+    for (IRenderable* renderable : drawInfo.highlightTargets) {
+        HighlightData highlightData = renderable->getHighlightData();
 
-    vkCmdBindVertexBuffers(cmd, 0, 1, &highlightData.vertexBuffer, &ZERO_DEVICE_SIZE);
-    vkCmdBindIndexBuffer(cmd, highlightData.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        if (!highlightData.isValid()) {
+            return false;
+        }
 
-    for (const Primitive& primitive : highlightData.primitives) {
-        const uint32_t indexCount = primitive.indexCount;
-        const uint32_t firstIndex = primitive.firstIndex;
-        const int32_t vertexOffset = primitive.vertexOffset;
-        constexpr uint32_t firstInstance = 0;
-        constexpr uint32_t instanceCount = 1;
+        anyDrawn = true;
 
-        // Draw this mesh w/ vkCmdDrawIndexed w/ model matrix passed through push
-        vkCmdDrawIndexed(cmd, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+        DebugHighlightDrawPushConstant push{};
+        push.modelMatrix = highlightData.modelMatrix;
+        vkCmdPushConstants(cmd, pipelineLayout->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(DebugHighlightDrawPushConstant), &push);
+
+        vkCmdBindVertexBuffers(cmd, 0, 1, &highlightData.vertexBuffer, &ZERO_DEVICE_SIZE);
+        vkCmdBindIndexBuffer(cmd, highlightData.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+        for (const Primitive& primitive : highlightData.primitives) {
+            const uint32_t indexCount = primitive.indexCount;
+            const uint32_t firstIndex = primitive.firstIndex;
+            const int32_t vertexOffset = primitive.vertexOffset;
+            constexpr uint32_t firstInstance = 0;
+            constexpr uint32_t instanceCount = 1;
+
+            // Draw this mesh w/ vkCmdDrawIndexed w/ model matrix passed through push
+            vkCmdDrawIndexed(cmd, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+        }
     }
+
 
     vkCmdEndRendering(cmd);
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
 
-    return true;
+    return anyDrawn;
 }
 
 void DebugHighlighter::drawHighlightProcessing(VkCommandBuffer cmd, const DebugHighlighterDrawInfo& drawInfo) const
