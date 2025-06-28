@@ -238,7 +238,10 @@ public:
     float getMouseYDelta() const { return mouseYDelta; }
     float getMouseWheelDelta() const { return mouseWheelDelta; }
 
-    bool isInFocus() const { return inFocus; }
+    bool isTyping() const { return bIsTyping; }
+    bool isPopupActive() const { return bIsPopupActive; }
+    bool isCursorActive() const { return bIsCursorActive; }
+    bool isWindowInputFocus() const { return bIsWindowInputFocus; }
 
 private:
     /**
@@ -253,8 +256,11 @@ private:
     float mouseYDelta{0.0f};
     float mouseWheelDelta{0.0f};
 
-    bool windowInputFocus{false};
-    bool inFocus{false};
+    bool bIsTyping{false};
+    bool bIsPopupActive{false};
+    bool bIsCursorActive{false};
+    bool bIsWindowInputFocus{false};
+
 
     SDL_Window* window{nullptr};
     glm::vec2 windowExtents{1700, 900};

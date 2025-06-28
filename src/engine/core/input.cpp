@@ -59,17 +59,17 @@ void Input::processEvent(const SDL_Event& event)
 
 void Input::updateFocus(const Uint32 sdlWindowFlags)
 {
-    windowInputFocus = (sdlWindowFlags & SDL_WINDOW_INPUT_FOCUS) != 0;
-    const bool isTyping = engine_constants::useImgui ? ImGui::GetIO().WantTextInput : false;
-    const bool isPopupActive = engine_constants::useImgui ? ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopup) : false;
+    bIsWindowInputFocus = (sdlWindowFlags & SDL_WINDOW_INPUT_FOCUS) != 0;
+    bIsTyping = engine_constants::useImgui ? ImGui::GetIO().WantTextInput : false;
+    bIsPopupActive = engine_constants::useImgui ? ImGui::IsPopupOpen("", ImGuiPopupFlags_AnyPopup) : false;
 
-    if (windowInputFocus && !isTyping && !isPopupActive && isKeyPressed(Key::NUMLOCKCLEAR)) {
-        inFocus = !inFocus;
+    if (bIsWindowInputFocus && !bIsTyping && !bIsPopupActive && isKeyPressed(Key::NUMLOCKCLEAR)) {
+        bIsCursorActive = !bIsCursorActive;
         if (!window) {
             fmt::print("Input: Attempted to update focus but window is not defined, perhaps init was not called?\n");
             return;
         }
-        SDL_SetWindowRelativeMouseMode(window, inFocus);
+        SDL_SetWindowRelativeMouseMode(window, bIsCursorActive);
     }
 }
 

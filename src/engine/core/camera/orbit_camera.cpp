@@ -17,7 +17,7 @@ void will_engine::OrbitCamera::update(const float deltaTime)
     if (!orbitTarget) { return; }
 
     const input::Input& input = input::Input::get();
-    if (input.isInFocus()) {
+    if (input.isCursorActive()) {
         if (input.isKeyDown(input::Key::E)) {
             armOffset.z -= 2 * deltaTime;
         }

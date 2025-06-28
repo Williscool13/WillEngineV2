@@ -53,6 +53,7 @@ struct PhysicsProperties
     uint16_t layer{};
     JPH::EShapeSubType shapeType;
     glm::vec3 shapeParams{}; // shape specific params, don't think it's necessary yet
+    glm::vec3 offset{};
 };
 }
 

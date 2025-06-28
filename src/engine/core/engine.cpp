@@ -511,8 +511,11 @@ void Engine::updateDebug(float deltaTime)
     }
 
     const input::Input& input = input::Input::get();
-    if (!input.isInFocus()) {
-        if (input.isMousePressed(input::MouseButton::LMB)) {
+    if (!input.isTyping() && !input.isPopupActive() && !input.isCursorActive() && input.isWindowInputFocus()) {
+        if (input.isMousePressed(input::MouseButton::X1)) {
+            deselectItem();
+        }
+        if (selectedItem == nullptr && input.isMousePressed(input::MouseButton::LMB)) {
             if (physics::Physics* physics = physics::Physics::get()) {
                 const glm::vec3 direction = fallbackCamera->screenToWorldDirection(input.getMousePosition());
                 if (const physics::RaycastHit result = physics::PhysicsUtils::raycast(fallbackCamera->getPosition(),
