@@ -28,6 +28,12 @@ struct EnvironmentDrawInfo
     VkDeviceSize environmentMapOffset{};
 };
 
+struct EnvironmentPushConstants
+{
+    float sunSize{0.995f};
+    float sunFalloff{0.999f};
+};
+
 class EnvironmentPipeline
 {
 public:
@@ -38,6 +44,9 @@ public:
     void draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& drawInfo) const;
 
     void reloadShaders() { createPipeline(); }
+
+public: // Debug
+    EnvironmentPushConstants pushConstants{};
 
 private:
     void createPipeline();

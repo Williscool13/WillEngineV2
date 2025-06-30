@@ -150,7 +150,6 @@ void RenderObjectGltf::updateBuffers(VkCommandBuffer cmd, const int32_t currentF
         mainDrawData.instanceBuffer = resourceManager.getBufferAddress(currentInstanceBuffer->buffer);
         mainDrawData.modelBufferAddress = resourceManager.getBufferAddress(currentModelBuffer->buffer);
         mainDrawData.primitiveDataBuffer = resourceManager.getBufferAddress(primitiveBuffer->buffer);
-        //todo: multi-material buffer for runtime-modification
         mainDrawData.materialBuffer = resourceManager.getBufferAddress(materialBuffer->buffer);
         memcpy(addressBuffers[currentFrameOverlap]->info.pMappedData, &mainDrawData, mainDrawAddressesSize);
     }
@@ -680,7 +679,7 @@ void RenderObjectGltf::load()
         mainDrawData.instanceBuffer = resourceManager.getBufferAddress(instanceDataBuffer[i]->buffer);
         mainDrawData.modelBufferAddress = resourceManager.getBufferAddress(modelMatrixBuffers[i]->buffer);
         mainDrawData.primitiveDataBuffer = resourceManager.getBufferAddress(primitiveBuffer->buffer);
-        //todo: multi-material buffer for runtime-modification
+        //todo: multi-material buffer for runtime-modification - will likely include material serialization (material data defined from gltf only for init)
         mainDrawData.materialBuffer = resourceManager.getBufferAddress(materialBuffer->buffer);
         memcpy(addressBuffers[i]->info.pMappedData, &mainDrawData, addressesSize);
     }

@@ -481,6 +481,7 @@ void Engine::updateRender(VkCommandBuffer cmd, const float deltaTime, const int3
     pSceneData->renderTargetSize = {renderContext->renderExtent.width, renderContext->renderExtent.height};
     pSceneData->texelSize = 1.0f / pSceneData->renderTargetSize;
     pSceneData->cameraPlanes = {fallbackCamera->getNearPlane(), fallbackCamera->getFarPlane()};
+    pSceneData->mainLightData = mainLight.getData();
     pSceneData->deltaTime = deltaTime;
 
 

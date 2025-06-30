@@ -27,6 +27,7 @@
 #include "engine/physics/physics.h"
 #include "engine/util/file.h"
 #include "engine/util/math_utils.h"
+#include "pipelines/geometry/environment/environment_pipeline.h"
 
 namespace will_engine
 {
@@ -347,16 +348,28 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                 if (ImGui::CollapsingHeader("Main Directional Light", ImGuiTreeNodeFlags_DefaultOpen)) {
                     DirectionalLight currentMainLight = engine->getMainLight();
+                    static float color[3];
+                    static float direction[3];
+                    static bool init = true;
+                    if (init) {
+                        color[0] = currentMainLight.color.x;
+                        color[1] = currentMainLight.color.y;
+                        color[2] = currentMainLight.color.z;
+                        direction[0] = currentMainLight.direction.x;
+                        direction[1] = currentMainLight.direction.y;
+                        direction[2] = currentMainLight.direction.z;
+                        init = false;
+                    }
+
                     bool change = false;
-                    float direction[3] = {currentMainLight.direction.x, currentMainLight.direction.y, currentMainLight.direction.z};
-                    if (ImGui::DragFloat3("Direction", direction, 0.1)) {
+                    if (ImGui::DragFloat3("Direction", direction, 0.01)) {
                         change = true;
                     }
-                    float color[3] = {currentMainLight.color.x, currentMainLight.color.y, currentMainLight.color.z};
-                    if (ImGui::DragFloat3("Color", color, 0.1)) {
+
+                    if (ImGui::DragFloat3("Color", color, 0.01)) {
                         change = true;
                     }
-                    if (ImGui::DragFloat("Intensity", &currentMainLight.intensity, 0.05f, 0.0f, 5.0f)) {
+                    if (ImGui::DragFloat("Intensity", &currentMainLight.intensity, 0.05f, 0.0f, 100.0f)) {
                         change = true;
                     }
 
@@ -1188,36 +1201,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::End();
 
     if (ImGui::Begin("Discardable Debug")) {
-        static int32_t index = 0;
-        ImGui::InputInt("Index", &index);
-#if WILL_ENGINE_DEBUG
-        if (ImGui::Button("Save Test Image")) {
-            if (renderer::RenderObject* renderObject = engine->assetManager->getRenderObject(2592612823)) {
-                const std::filesystem::path path = file::imagesSavePath / "testImage.png";
-                renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, renderObject->debugGetImages()[index].get(),
-                                                renderer::vk_helpers::ImageFormat::RGBA8_UNORM, path.string());
-            }
-        }
-
-        if (ImGui::Button("Save Test Image Non KTX")) {
-            if (renderer::RenderObject* renderObject = engine->assetManager->getRenderObject(195023067)) {
-                const std::filesystem::path path = file::imagesSavePath / "testImageNonKtx.png";
-                renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, renderObject->debugGetImages()[index].get(),
-                                                renderer::vk_helpers::ImageFormat::RGBA8_UNORM, path.string());
-            }
-        }
-#endif
-        ImGui::Separator();
-        if (ImGui::Button("Save Stencil Debug Draw")) {
-            if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                const std::filesystem::path path = file::imagesSavePath / "debugStencil.png";
-                renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->depthStencilImage.get(),
-                                                renderer::vk_helpers::ImageFormat::D32S8, path.string(), true);
-            }
-            else {
-                fmt::print(" Failed to find/create image save path directory");
-            }
-        }
+        ImGui::InputFloat("Sun Size", &engine->environmentPipeline->pushConstants.sunSize);
+        ImGui::InputFloat("Sun Falloff", &engine->environmentPipeline->pushConstants.sunFalloff);
     }
     ImGui::End();
 

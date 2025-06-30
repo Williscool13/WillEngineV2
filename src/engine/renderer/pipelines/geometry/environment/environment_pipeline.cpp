@@ -21,13 +21,17 @@ EnvironmentPipeline::EnvironmentPipeline(ResourceManager& resourceManager, VkDes
         environmentMapLayout,
     };
 
+    VkPushConstantRange pushConstants = {};
+    pushConstants.offset = 0;
+    pushConstants.size = sizeof(pushConstants);
+    pushConstants.stageFlags = VK_SHADER_STAGE_FRAGMENT_BIT;
 
     VkPipelineLayoutCreateInfo layoutInfo = vk_helpers::pipelineLayoutCreateInfo();
     layoutInfo.pNext = nullptr;
     layoutInfo.pSetLayouts = layouts.data();
     layoutInfo.setLayoutCount = layouts.size();
-    layoutInfo.pPushConstantRanges = nullptr;
-    layoutInfo.pushConstantRangeCount = 0;
+    layoutInfo.pPushConstantRanges = &pushConstants;
+    layoutInfo.pushConstantRangeCount = 1;
 
     pipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
 
@@ -90,6 +94,9 @@ void EnvironmentPipeline::draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& d
     scissor.extent.width = drawInfo.renderExtents.width;
     scissor.extent.height = drawInfo.renderExtents.height;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
+
+
+    vkCmdPushConstants(cmd, pipelineLayout->layout, VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(EnvironmentPushConstants), &pushConstants);
 
     std::array bindingInfos{drawInfo.sceneDataBinding, drawInfo.environmentMapBinding};
 

@@ -93,8 +93,12 @@ void main()
 
     // "Cast Shadows" flag
     if (model.flags.y == 1){
-        uint outputIndex = atomicAdd(visibilityPassData.drawCounts.indirectCount.shadowCount, 1);
-        visibilityPassData.shadowCommands.commandArray[outputIndex] = cmd;
+        // Only opaques casts shadows
+        if (!bTransparent){
+            uint outputIndex = atomicAdd(visibilityPassData.drawCounts.indirectCount.shadowCount, 1);
+            visibilityPassData.shadowCommands.commandArray[outputIndex] = cmd;
+        }
+
     }
 
     // "Draw" flag
