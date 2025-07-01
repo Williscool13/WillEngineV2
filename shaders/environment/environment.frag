@@ -16,11 +16,27 @@ layout (location = 3) out vec2 velocityTarget;// 16 X, 16 Y
 
 layout(set = 1, binding = 0) uniform samplerCube environmentMap;
 
+layout (push_constant) uniform PushConstants {
+    float sunSize;
+    float sunFalloff;
+} push;
+
+
 void main()
 {
     vec3 direction = normalize(uv);
     direction.y = -direction.y;
     vec3 envColor = textureLod(environmentMap, direction, 0).rgb;
+
+    vec3 sunDir = -sceneData.directionalLightData.direction;
+    float sunDot = dot(normalize(uv), sunDir);
+
+    if (sunDot > push.sunSize) {
+        float sunIntensity = smoothstep(push.sunSize, push.sunFalloff, sunDot);
+        vec3 sunColor = sceneData.directionalLightData.color * sceneData.directionalLightData.intensity;
+        envColor = mix(envColor, sunColor * 10.0, sunIntensity);
+    }
+
 
     // 0 = "do not calculate lighting" flag
     albedoTarget = vec4(envColor, 0.0);

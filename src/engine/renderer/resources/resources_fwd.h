@@ -9,6 +9,7 @@
 
 namespace will_engine::renderer
 {
+struct RenderTarget;
 struct DescriptorSetLayout;
 struct Buffer;
 struct DescriptorBufferUniform;
@@ -30,6 +31,7 @@ using ImageViewPtr = std::unique_ptr<ImageView>;
 using ImagePtr = std::unique_ptr<Image>;
 using ImageKtxPtr = std::unique_ptr<ImageKtx>;
 using ImageResourcePtr = std::unique_ptr<ImageResource>;
+using RenderTargetPtr = std::unique_ptr<RenderTarget>;
 using DescriptorSetLayoutPtr = std::unique_ptr<DescriptorSetLayout>;
 using SamplerPtr = std::unique_ptr<Sampler>;
 using PipelineLayoutPtr = std::unique_ptr<PipelineLayout>;

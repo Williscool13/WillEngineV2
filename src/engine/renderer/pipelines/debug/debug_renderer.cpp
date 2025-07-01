@@ -146,6 +146,10 @@ void DebugRenderer::drawBoxMinMax(const glm::vec3& min, const glm::vec3& max, co
 
 void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawInfo)
 {
+    VkDebugUtilsLabelEXT label = {};
+    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+    label.pLabelName = "Debug Renderer";
+    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
     if (drawInfo.currentFrameOverlap < 0 || drawInfo.currentFrameOverlap >= FRAME_OVERLAP) { return; }
 
     // Upload
@@ -232,7 +236,7 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     VkRenderingAttachmentInfo renderAttachments[1];
     renderAttachments[0] = imageAttachment;
 
-    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, RENDER_EXTENTS};
+    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, drawInfo.extents};
     renderInfo.layerCount = 1;
     renderInfo.colorAttachmentCount = 1;
     renderInfo.pColorAttachments = renderAttachments;
@@ -247,8 +251,8 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     VkViewport viewport = {};
     viewport.x = 0;
     viewport.y = 0;
-    viewport.width = RENDER_EXTENTS.width;
-    viewport.height = RENDER_EXTENTS.height;
+    viewport.width = drawInfo.extents.width;
+    viewport.height = drawInfo.extents.height;
     viewport.minDepth = 0.f;
     viewport.maxDepth = 1.f;
     vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -256,8 +260,8 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
     VkRect2D scissor = {};
     scissor.offset.x = 0;
     scissor.offset.y = 0;
-    scissor.extent.width = RENDER_EXTENTS.width;
-    scissor.extent.height = RENDER_EXTENTS.height;
+    scissor.extent.width = drawInfo.extents.width;
+    scissor.extent.height = drawInfo.extents.height;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
     // Instanced rendering
@@ -324,7 +328,7 @@ void DebugRenderer::draw(VkCommandBuffer cmd, const DebugRendererDrawInfo& drawI
 
     vkCmdEndRendering(cmd);
 
-    clear();
+    vkCmdEndDebugUtilsLabelEXT(cmd);
 }
 
 void DebugRenderer::clear()
@@ -469,6 +473,7 @@ void DebugRenderer::drawBoxImpl(const glm::vec3& center, const glm::vec3& dimens
     instance.color = color;
 
     debugRenderInstanceGroups[BOX_INSTANCE_INDEX].instances.push_back(instance);
+
 }
 
 void DebugRenderer::drawBoxMinMaxImpl(const glm::vec3& min, const glm::vec3& max, const glm::vec3& color, const DebugRendererCategory category)

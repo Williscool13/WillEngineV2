@@ -210,7 +210,22 @@ ImageResourcePtr model_utils::loadImage(ResourceManager& resourceManager, const 
                                        }
                                        break;
                                        default:
-                                           fmt::print("Error: Failed to get correct ktx version from buffer view\n");
+                                           unsigned char* data = stbi_load_from_memory(reinterpret_cast<const stbi_uc*>(vector.bytes.data() + bufferView.byteOffset),
+                                                                                       static_cast<int>(bufferView.byteLength), &width, &height, &nrChannels, 4);
+                                           if (data) {
+                                               VkExtent3D imagesize;
+                                               imagesize.width = width;
+                                               imagesize.height = height;
+                                               imagesize.depth = 1;
+                                               const size_t size = width * height * 4;
+                                               newImage = resourceManager.createImageFromData(data, size, imagesize, VK_FORMAT_R8G8B8A8_UNORM,
+                                                                                              VK_IMAGE_USAGE_SAMPLED_BIT, true);
+                                               stbi_image_free(data);
+                                           }
+                                           else {
+                                               fmt::print("Error: Failed to get correct ktx version from buffer view. Fallback stbi load from memory also failed.\n");
+                                           }
+
                                            break;
                                    }
                                }

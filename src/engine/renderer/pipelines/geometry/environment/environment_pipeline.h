@@ -7,6 +7,7 @@
 
 #include <volk/volk.h>
 
+#include "engine/renderer/renderer_constants.h"
 #include "engine/renderer/resources/resources_fwd.h"
 
 namespace will_engine::renderer
@@ -15,7 +16,7 @@ class ResourceManager;
 
 struct EnvironmentDrawInfo
 {
-    bool bClearColor{false};
+    VkExtent2D renderExtents{DEFAULT_RENDER_EXTENT_2D};
     VkImageView normalTarget{VK_NULL_HANDLE};
     VkImageView albedoTarget{VK_NULL_HANDLE};
     VkImageView pbrTarget{VK_NULL_HANDLE};
@@ -25,6 +26,12 @@ struct EnvironmentDrawInfo
     VkDeviceSize sceneDataOffset{};
     VkDescriptorBufferBindingInfoEXT environmentMapBinding{};
     VkDeviceSize environmentMapOffset{};
+};
+
+struct EnvironmentPushConstants
+{
+    float sunSize{0.995f};
+    float sunFalloff{0.999f};
 };
 
 class EnvironmentPipeline
@@ -37,6 +44,9 @@ public:
     void draw(VkCommandBuffer cmd, const EnvironmentDrawInfo& drawInfo) const;
 
     void reloadShaders() { createPipeline(); }
+
+public: // Debug
+    EnvironmentPushConstants pushConstants{};
 
 private:
     void createPipeline();

@@ -27,10 +27,11 @@
 #include "engine/physics/physics.h"
 #include "engine/util/file.h"
 #include "engine/util/math_utils.h"
+#include "pipelines/geometry/environment/environment_pipeline.h"
 
 namespace will_engine
 {
-ImguiWrapper::ImguiWrapper(const VulkanContext& context, const ImguiWrapperInfo& imguiWrapperInfo) : context(context)
+ImguiWrapper::ImguiWrapper(const renderer::VulkanContext& context, const ImguiWrapperInfo& imguiWrapperInfo) : context(context)
 {
     // DearImGui implementation, basically copied directly from the Vulkan/SDl2 from DearImGui samples.
     // Because this project uses VOLK, additionally need to load functions.
@@ -66,26 +67,26 @@ ImguiWrapper::ImguiWrapper(const VulkanContext& context, const ImguiWrapperInfo&
 
     // Setup Platform/Renderer backends
     ImGui_ImplSDL3_InitForVulkan(imguiWrapperInfo.window);
-    ImGui_ImplVulkan_InitInfo init_info = {};
-    init_info.Instance = context.instance;
-    init_info.PhysicalDevice = context.physicalDevice;
-    init_info.Device = context.device;
-    init_info.QueueFamily = context.graphicsQueueFamily;
-    init_info.Queue = context.graphicsQueue;
-    init_info.DescriptorPool = imguiPool;
-    init_info.Subpass = 0;
-    init_info.MinImageCount = 3;
-    init_info.ImageCount = 3;
-    init_info.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
+    ImGui_ImplVulkan_InitInfo initInfo = {};
+    initInfo.Instance = context.instance;
+    initInfo.PhysicalDevice = context.physicalDevice;
+    initInfo.Device = context.device;
+    initInfo.QueueFamily = context.graphicsQueueFamily;
+    initInfo.Queue = context.graphicsQueue;
+    initInfo.DescriptorPool = imguiPool;
+    initInfo.Subpass = 0;
+    initInfo.MinImageCount = 3;
+    initInfo.ImageCount = 3;
+    initInfo.MSAASamples = VK_SAMPLE_COUNT_1_BIT;
 
     //dynamic rendering parameters for imgui to use
-    init_info.UseDynamicRendering = true;
-    init_info.PipelineRenderingCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
-    init_info.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
-    init_info.PipelineRenderingCreateInfo.pColorAttachmentFormats = &imguiWrapperInfo.swapchainImageFormat;
+    initInfo.UseDynamicRendering = true;
+    initInfo.PipelineRenderingCreateInfo = {.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO};
+    initInfo.PipelineRenderingCreateInfo.colorAttachmentCount = 1;
+    initInfo.PipelineRenderingCreateInfo.pColorAttachmentFormats = &imguiWrapperInfo.swapchainImageFormat;
 
 
-    ImGui_ImplVulkan_Init(&init_info);
+    ImGui_ImplVulkan_Init(&initInfo);
     ImGui_ImplVulkan_CreateFontsTexture();
 }
 
@@ -347,23 +348,34 @@ void ImguiWrapper::imguiInterface(Engine* engine)
 
                 if (ImGui::CollapsingHeader("Main Directional Light", ImGuiTreeNodeFlags_DefaultOpen)) {
                     DirectionalLight currentMainLight = engine->getMainLight();
+                    static float color[3];
+                    static float direction[3];
+                    static bool init = true;
+                    if (init) {
+                        color[0] = currentMainLight.color.x;
+                        color[1] = currentMainLight.color.y;
+                        color[2] = currentMainLight.color.z;
+                        direction[0] = currentMainLight.direction.x;
+                        direction[1] = currentMainLight.direction.y;
+                        direction[2] = currentMainLight.direction.z;
+                        init = false;
+                    }
+
                     bool change = false;
-                    float direction[3] = {currentMainLight.direction.x, currentMainLight.direction.y, currentMainLight.direction.z};
-                    if (ImGui::DragFloat3("Direction", direction, 0.1)) {
-                        currentMainLight.direction = glm::vec3(direction[0], direction[1], direction[2]);
+                    if (ImGui::DragFloat3("Direction", direction, 0.01)) {
                         change = true;
                     }
-                    float color[3] = {currentMainLight.color.x, currentMainLight.color.y, currentMainLight.color.z};
-                    if (ImGui::DragFloat3("Color", color, 0.1)) {
-                        engine->mainLight.color = glm::vec3(color[0], color[1], color[2]);
+
+                    if (ImGui::DragFloat3("Color", color, 0.01)) {
                         change = true;
                     }
-                    if (ImGui::DragFloat("Intensity", &engine->mainLight.intensity, 0.05f, 0.0f, 5.0f)) {
+                    if (ImGui::DragFloat("Intensity", &currentMainLight.intensity, 0.05f, 0.0f, 100.0f)) {
                         change = true;
                     }
 
                     if (change) {
-                        currentMainLight.direction = normalize(currentMainLight.direction);
+                        currentMainLight.direction = glm::normalize(glm::vec3(direction[0], direction[1], direction[2]));
+                        currentMainLight.color = glm::normalize(glm::vec3(color[0], color[1], color[2]));
                         engine->setMainLight(currentMainLight);
                     }
                 }
@@ -692,8 +704,7 @@ void ImguiWrapper::imguiInterface(Engine* engine)
                 ImGui::Combo("Deferred Debug", &engine->deferredDebug, deferredDebugOptions, IM_ARRAYSIZE(deferredDebugOptions));
                 ImGui::Separator();
 
-                ImGui::Text("Frustum Cull Debug Draw");
-                ImGui::Checkbox("Enable Frustum Cull Debug Draw", &engine->bEnableDebugFrustumCullDraw);
+                ImGui::Checkbox("Freeze Visibility Pass Scene Data", &engine->bFreezeVisibilitySceneData);
                 ImGui::EndTabItem();
             }
 
@@ -1190,36 +1201,8 @@ void ImguiWrapper::imguiInterface(Engine* engine)
     ImGui::End();
 
     if (ImGui::Begin("Discardable Debug")) {
-        static int32_t index = 0;
-        ImGui::InputInt("Index", &index);
-#if WILL_ENGINE_DEBUG
-        if (ImGui::Button("Save Test Image")) {
-            if (renderer::RenderObject* renderObject = engine->assetManager->getRenderObject(2592612823)) {
-                const std::filesystem::path path = file::imagesSavePath / "testImage.png";
-                renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, renderObject->debugGetImages()[index].get(),
-                                                renderer::vk_helpers::ImageFormat::RGBA8_UNORM, path.string());
-            }
-        }
-
-        if (ImGui::Button("Save Test Image Non KTX")) {
-            if (renderer::RenderObject* renderObject = engine->assetManager->getRenderObject(195023067)) {
-                const std::filesystem::path path = file::imagesSavePath / "testImageNonKtx.png";
-                renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, renderObject->debugGetImages()[index].get(),
-                                                renderer::vk_helpers::ImageFormat::RGBA8_UNORM, path.string());
-            }
-        }
-#endif
-        ImGui::Separator();
-        if (ImGui::Button("Save Stencil Debug Draw")) {
-            if (file::getOrCreateDirectory(file::imagesSavePath)) {
-                const std::filesystem::path path = file::imagesSavePath / "debugStencil.png";
-                renderer::vk_helpers::saveImage(*engine->resourceManager, *engine->immediate, engine->depthStencilImage.get(),
-                                                renderer::vk_helpers::ImageFormat::D32S8, path.string(), true);
-            }
-            else {
-                fmt::print(" Failed to find/create image save path directory");
-            }
-        }
+        ImGui::InputFloat("Sun Size", &engine->environmentPipeline->pushConstants.sunSize);
+        ImGui::InputFloat("Sun Falloff", &engine->environmentPipeline->pushConstants.sunFalloff);
     }
     ImGui::End();
 
@@ -1665,7 +1648,7 @@ bool ImguiWrapper::displayGameObject(Engine* engine, IHierarchical* obj, const i
     return !exit;
 }
 
-void ImguiWrapper::drawImgui(VkCommandBuffer cmd, const VkImageView targetImageView, const VkExtent2D swapchainExtent)
+void ImguiWrapper::drawImgui(VkCommandBuffer cmd, const VkImageView targetImageView, const VkExtent3D swapchainExtent)
 {
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
@@ -1674,7 +1657,18 @@ void ImguiWrapper::drawImgui(VkCommandBuffer cmd, const VkImageView targetImageV
 
     const VkRenderingAttachmentInfo colorAttachment = renderer::vk_helpers::attachmentInfo(
         targetImageView, nullptr, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
-    const VkRenderingInfo renderInfo = renderer::vk_helpers::renderingInfo(swapchainExtent, &colorAttachment, nullptr);
+
+    VkRenderingInfo renderInfo{};
+    renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
+    renderInfo.pNext = nullptr;
+
+    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, {swapchainExtent.width, swapchainExtent.height}};
+    renderInfo.layerCount = 1;
+    renderInfo.colorAttachmentCount = 1;
+    renderInfo.pColorAttachments = &colorAttachment;
+    renderInfo.pDepthAttachment = nullptr;
+    renderInfo.pStencilAttachment = nullptr;
+
     vkCmdBeginRendering(cmd, &renderInfo);
     ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), cmd);
     vkCmdEndRendering(cmd);

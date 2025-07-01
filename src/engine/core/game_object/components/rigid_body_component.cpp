@@ -30,6 +30,13 @@ inline void to_json(ordered_json& j, const PhysicsProperties& p)
         {"layer", p.layer},
         {"shapeType", p.shapeType},
         {
+            "offset", {
+                {"x", p.offset.x},
+                {"y", p.offset.y},
+                {"z", p.offset.z}
+            }
+        },
+        {
             "shapeParams", {
                 {"x", p.shapeParams.x},
                 {"y", p.shapeParams.y},
@@ -45,11 +52,20 @@ inline void from_json(const ordered_json& j, PhysicsProperties& props)
     props.motionType = j["motionType"].get<uint8_t>();
     props.layer = (j["layer"].get<uint16_t>());
     props.shapeType = j["shapeType"].get<JPH::EShapeSubType>();
-    props.shapeParams = glm::vec3(
-        j["shapeParams"]["x"].get<float>(),
-        j["shapeParams"]["y"].get<float>(),
-        j["shapeParams"]["z"].get<float>()
-    );
+    if (j.contains("shapeParams")) {
+        props.shapeParams = glm::vec3(
+            j["shapeParams"]["x"].get<float>(),
+            j["shapeParams"]["y"].get<float>(),
+            j["shapeParams"]["z"].get<float>()
+        );
+    }
+    if (j.contains("offset")) {
+        props.offset = glm::vec3(
+            j["offset"]["x"].get<float>(),
+            j["offset"]["y"].get<float>(),
+            j["offset"]["z"].get<float>()
+        );
+    }
 }
 }
 
@@ -90,16 +106,28 @@ void RigidBodyComponent::setOwner(IComponentContainer* owner)
 
 void RigidBodyComponent::setTransform(const glm::vec3& position, const glm::quat& rotation)
 {
-    // todo: check if value doesn't exceed epsilon. If it doesn't then do NOT modify this so that the render object doesn't get updated unnecessarily.
-    transformableOwner->setGlobalTransformFromPhysics(position, rotation);
+    const auto currentTransform = transformableOwner->getGlobalTransform();
+
+    const glm::vec3 rotatedOffset = currentTransform.getRotation() * offset;
+    const glm::vec3 offsetPosition = currentTransform.getPosition() + rotatedOffset;
+
+    const float positionDelta = glm::length(position - offsetPosition);
+    const float rotationDot = glm::abs(glm::dot(rotation, currentTransform.getRotation()));
+    const bool rotationChanged = rotationDot < (1.0f - physics::ROTATION_EPSILON);
+
+    if (positionDelta > physics::POSITION_EPSILON || rotationChanged) {
+        const glm::vec3 newRotatedOffset = rotation * offset;
+        transformableOwner->setGlobalTransformFromPhysics(position - newRotatedOffset, rotation);
+    }
 }
 
 glm::vec3 RigidBodyComponent::getGlobalPosition()
 {
     if (!transformableOwner) {
-        return glm::vec3(0.0f);
+        return glm::vec3(0.0f) + offset;
     }
-    return transformableOwner->getPosition();
+    const glm::vec3 rotatedOffset = transformableOwner->getRotation() * offset;
+    return transformableOwner->getPosition() + rotatedOffset;
 }
 
 glm::quat RigidBodyComponent::getGlobalRotation()
@@ -115,6 +143,7 @@ void RigidBodyComponent::serialize(ordered_json& j)
     Component::serialize(j);
 
     physics::PhysicsProperties properties = physics::Physics::get()->serializeProperties(this);
+    properties.offset = offset;
     if (properties.isActive) {
         j["properties"] = properties;
     }
@@ -126,6 +155,7 @@ void RigidBodyComponent::deserialize(ordered_json& j)
 
     if (j.contains("properties")) {
         const auto properties = j["properties"].get<physics::PhysicsProperties>();
+        offset = properties.offset;
         if (!physics::Physics::get()->deserializeProperties(this, properties)) {
             fmt::print("Warning: RigidBodyComponent failed to deserialize physics\n");
         }
@@ -136,7 +166,6 @@ void RigidBodyComponent::updateRenderImgui()
 {
     if (hasRigidBody()) {
         ImGui::Text("Body Id: %u  | ", bodyId);
-
         ImGui::SameLine();
 
         // Layer
@@ -150,6 +179,8 @@ void RigidBodyComponent::updateRenderImgui()
                 ImGui::Text("Layer: Invalid Layer Found greater than NUM_LAYERS");
             }
         }
+
+        ImGui::DragFloat3("Offset", &offset[0], 0.1f);
 
         // Shape
         {

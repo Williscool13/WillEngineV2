@@ -9,7 +9,7 @@
 #include <vulkan/vulkan_core.h>
 #include <vma/vk_mem_alloc.h>
 
-namespace will_engine
+namespace will_engine::renderer
 {
 class VulkanContext
 {

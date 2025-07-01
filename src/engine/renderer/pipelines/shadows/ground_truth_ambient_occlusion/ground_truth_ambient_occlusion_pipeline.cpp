@@ -21,21 +21,9 @@
 
 namespace will_engine::renderer
 {
-GroundTruthAmbientOcclusionPipeline::GroundTruthAmbientOcclusionPipeline(
-    ResourceManager& resourceManager) : resourceManager(resourceManager)
+GroundTruthAmbientOcclusionPipeline::GroundTruthAmbientOcclusionPipeline(ResourceManager& resourceManager, RenderContext& renderContext)
+: resourceManager(resourceManager)
 {
-    // Debug
-    {
-        VkImageUsageFlags usage{};
-        usage |= VK_IMAGE_USAGE_STORAGE_BIT;
-        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-        usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-        usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-
-        VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(debugFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
-        debugImage = resourceManager.createResource<Image>(imgInfo);
-    }
-
     // Depth Pre-filtering
     {
         DescriptorLayoutBuilder layoutBuilder{6};
@@ -73,23 +61,6 @@ GroundTruthAmbientOcclusionPipeline::GroundTruthAmbientOcclusionPipeline(
         createDepthPrefilterPipeline();
 
         depthPrefilterDescriptorBuffer = resourceManager.createResource<DescriptorBufferSampler>(depthPrefilterSetLayout->layout, 1);
-
-        VkImageUsageFlags usage{};
-        usage |= VK_IMAGE_USAGE_STORAGE_BIT;
-        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-        usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-
-        VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(depthPrefilterFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
-        // 5 mips, suggested by Intel's implementation
-        // https://github.com/GameTechDev/XeGTAO
-        imgInfo.mipLevels = DEPTH_PREFILTER_MIP_COUNT;
-        depthPrefilterImage = resourceManager.createResource<Image>(imgInfo);
-        VkImageViewCreateInfo viewInfo = vk_helpers::imageviewCreateInfo(depthPrefilterFormat, depthPrefilterImage->image, VK_IMAGE_ASPECT_COLOR_BIT);
-
-        for (int32_t i = 0; i < DEPTH_PREFILTER_MIP_COUNT; ++i) {
-            viewInfo.subresourceRange.baseMipLevel = i;
-            depthPrefilterImageViews[i] = resourceManager.createResource<ImageView>(viewInfo);
-        }
 
         VkSamplerCreateInfo samplerInfo = {.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
         samplerInfo.magFilter = VK_FILTER_NEAREST;
@@ -145,21 +116,6 @@ GroundTruthAmbientOcclusionPipeline::GroundTruthAmbientOcclusionPipeline(
         createAmbientOcclusionPipeline();
 
         ambientOcclusionDescriptorBuffer = resourceManager.createResource<DescriptorBufferSampler>(ambientOcclusionSetLayout->layout, 1);
-
-        VkImageUsageFlags usage{};
-        usage |= VK_IMAGE_USAGE_STORAGE_BIT;
-        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-
-        VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(ambientOcclusionFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
-        ambientOcclusionImage = resourceManager.createResource<Image>(imgInfo);
-
-        usage = {};
-        usage |= VK_IMAGE_USAGE_STORAGE_BIT;
-        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-
-        imgInfo = vk_helpers::imageCreateInfo(edgeDataFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
-        edgeDataImage = resourceManager.createResource<Image>(imgInfo);
-
 
         // Depth Mip sampler
         {
@@ -235,15 +191,12 @@ GroundTruthAmbientOcclusionPipeline::GroundTruthAmbientOcclusionPipeline(
         createSpatialFilteringPipeline();
 
         spatialFilteringDescriptorBuffer = resourceManager.createResource<DescriptorBufferSampler>(spatialFilteringSetLayout->layout, 1);
-
-        VkImageUsageFlags usage{};
-        usage |= VK_IMAGE_USAGE_STORAGE_BIT;
-        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-        usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-
-        VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(ambientOcclusionFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
-        denoisedFinalAO = resourceManager.createResource<Image>(imgInfo);
     }
+
+    createIntermediateRenderTargets(renderContext.renderExtent);
+    resolutionChangedHandle = renderContext.resolutionChangedEvent.subscribe([this](const ResolutionChangedEvent& event) {
+        this->handleResize(event);
+    });
 }
 
 GroundTruthAmbientOcclusionPipeline::~GroundTruthAmbientOcclusionPipeline()
@@ -282,7 +235,7 @@ GroundTruthAmbientOcclusionPipeline::~GroundTruthAmbientOcclusionPipeline()
     resourceManager.destroyResource(std::move(spatialFilteringPipelineLayout));
     resourceManager.destroyResource(std::move(spatialFilteringPipeline));
 
-    resourceManager.destroyResource(std::move(denoisedFinalAO));
+    resourceManager.destroyResource(std::move(denoisedFinalAOImage));
 
     resourceManager.destroyResource(std::move(spatialFilteringDescriptorBuffer));
 }
@@ -375,7 +328,7 @@ void GroundTruthAmbientOcclusionPipeline::setupSpatialFilteringDescriptorBuffer(
         });
     imageDescriptors.push_back({
         VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-        {VK_NULL_HANDLE, denoisedFinalAO->imageView, VK_IMAGE_LAYOUT_GENERAL},
+        {VK_NULL_HANDLE, denoisedFinalAOImage->imageView, VK_IMAGE_LAYOUT_GENERAL},
         false
     });
     imageDescriptors.push_back({
@@ -406,7 +359,7 @@ void GroundTruthAmbientOcclusionPipeline::draw(VkCommandBuffer cmd, const GTAODr
     drawInfo.push.cameraTanHalfFOV = {tanHalfFOVX, tanHalfFOVY};
     drawInfo.push.ndcToViewMul = {drawInfo.push.cameraTanHalfFOV.x * 2.0f, drawInfo.push.cameraTanHalfFOV.y * -2.0f};
     drawInfo.push.ndcToViewAdd = {drawInfo.push.cameraTanHalfFOV.x * -1.0f, drawInfo.push.cameraTanHalfFOV.y * 1.0f};
-    constexpr glm::vec2 texelSize = {1.0f / RENDER_EXTENT_WIDTH, 1.0f / RENDER_EXTENT_HEIGHT};
+    const glm::vec2 texelSize = {1.0f / drawInfo.renderExtent.width, 1.0f / drawInfo.renderExtent.height};
     drawInfo.push.ndcToViewMul_x_PixelSize = {drawInfo.push.ndcToViewMul.x * texelSize.x, drawInfo.push.ndcToViewMul.y * texelSize.y};
 
     drawInfo.push.noiseIndex = GTAO_DENOISE_PASSES > 0 ? drawInfo.currentFrame % 64 : 0;
@@ -416,7 +369,7 @@ void GroundTruthAmbientOcclusionPipeline::draw(VkCommandBuffer cmd, const GTAODr
     vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, depthPrefilterImage->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL);
 
     if (!drawInfo.bEnabled) {
-        vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, denoisedFinalAO->image, VK_IMAGE_LAYOUT_UNDEFINED,
+        vk_helpers::clearColorImage(cmd, VK_IMAGE_ASPECT_COLOR_BIT, denoisedFinalAOImage->image, VK_IMAGE_LAYOUT_UNDEFINED,
                                     VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, {1.0f, 1.0f, 1.0f, 1.0f});
         vk_helpers::imageBarrier(cmd, debugImage->image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                                  VK_IMAGE_ASPECT_COLOR_BIT);
@@ -439,8 +392,8 @@ void GroundTruthAmbientOcclusionPipeline::draw(VkCommandBuffer cmd, const GTAODr
                                            offsets.data());
 
         // shader only operates on 8,8 work groups, mip 0 will operate on 2x2 texels, so its 16x16 as expected
-        const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
-        const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
+        const auto x = static_cast<uint32_t>(std::ceil(drawInfo.renderExtent.width / 16.0f));
+        const auto y = static_cast<uint32_t>(std::ceil(drawInfo.renderExtent.height / 16.0f));
         vkCmdDispatch(cmd, x, y, 1);
     }
 
@@ -463,15 +416,15 @@ void GroundTruthAmbientOcclusionPipeline::draw(VkCommandBuffer cmd, const GTAODr
         vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, depthPrefilterPipelineLayout->layout, 0, 2, indices.data(),
                                            offsets.data());
 
-        const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
-        const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
+        const auto x = static_cast<uint32_t>(std::ceil(drawInfo.renderExtent.width / 16.0f));
+        const auto y = static_cast<uint32_t>(std::ceil(drawInfo.renderExtent.height / 16.0f));
         vkCmdDispatch(cmd, x, y, 1);
     }
 
 
     vk_helpers::imageBarrier(cmd, ambientOcclusionImage->image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                              VK_IMAGE_ASPECT_COLOR_BIT);
-    vk_helpers::imageBarrier(cmd, denoisedFinalAO->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
+    vk_helpers::imageBarrier(cmd, denoisedFinalAOImage->image, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_GENERAL,
                              VK_IMAGE_ASPECT_COLOR_BIT);
     // Spatial Filtering
     {
@@ -490,12 +443,12 @@ void GroundTruthAmbientOcclusionPipeline::draw(VkCommandBuffer cmd, const GTAODr
                                            offsets.data());
 
         // each dispatch operates on 2x1 pixels
-        const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / (16.0f * 2.0f)));
-        const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
+        const auto x = static_cast<uint32_t>(std::ceil(drawInfo.renderExtent.width / (16.0f * 2.0f)));
+        const auto y = static_cast<uint32_t>(std::ceil(drawInfo.renderExtent.height / 16.0f));
         vkCmdDispatch(cmd, x, y, 1);
     }
 
-    vk_helpers::imageBarrier(cmd, denoisedFinalAO->image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+    vk_helpers::imageBarrier(cmd, denoisedFinalAOImage->image, VK_IMAGE_LAYOUT_GENERAL, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
                              VK_IMAGE_ASPECT_COLOR_BIT);
 
 
@@ -576,5 +529,84 @@ void GroundTruthAmbientOcclusionPipeline::createSpatialFilteringPipeline()
     pipelineInfo.flags = VK_PIPELINE_CREATE_DESCRIPTOR_BUFFER_BIT_EXT;
 
     spatialFilteringPipeline = resourceManager.createResource<Pipeline>(pipelineInfo);
+}
+
+void GroundTruthAmbientOcclusionPipeline::createIntermediateRenderTargets(VkExtent2D extents)
+{
+    // Debug
+    {
+        VkImageUsageFlags usage{};
+        usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+        usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+        usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+        VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(debugFormat, usage, {extents.width, extents.height, 1});
+        debugImage = resourceManager.createResource<Image>(imgInfo);
+    }
+
+    // Depth pre-filter
+    {
+        VkImageUsageFlags usage{};
+        usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+        usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+        VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(depthPrefilterFormat, usage, {extents.width, extents.height, 1});
+        // 5 mips, suggested by Intel's implementation
+        // https://github.com/GameTechDev/XeGTAO
+        imgInfo.mipLevels = DEPTH_PREFILTER_MIP_COUNT;
+        depthPrefilterImage = resourceManager.createResource<Image>(imgInfo);
+        VkImageViewCreateInfo viewInfo = vk_helpers::imageviewCreateInfo(depthPrefilterFormat, depthPrefilterImage->image, VK_IMAGE_ASPECT_COLOR_BIT);
+
+        for (int32_t i = 0; i < DEPTH_PREFILTER_MIP_COUNT; ++i) {
+            viewInfo.subresourceRange.baseMipLevel = i;
+            depthPrefilterImageViews[i] = resourceManager.createResource<ImageView>(viewInfo);
+        }
+    }
+
+    // Main AO Pass
+    {
+        VkImageUsageFlags usage{};
+        usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+
+        VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(ambientOcclusionFormat, usage, {extents.width, extents.height, 1});
+        ambientOcclusionImage = resourceManager.createResource<Image>(imgInfo);
+
+        usage = {};
+        usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+
+        imgInfo = vk_helpers::imageCreateInfo(edgeDataFormat, usage, {extents.width, extents.height, 1});
+        edgeDataImage = resourceManager.createResource<Image>(imgInfo);
+    }
+
+    // Spatial Filtering
+    {
+        VkImageUsageFlags usage{};
+        usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+        usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+        usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+        VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(ambientOcclusionFormat, usage, {extents.width, extents.height, 1});
+        denoisedFinalAOImage = resourceManager.createResource<Image>(imgInfo);
+    }
+}
+
+void GroundTruthAmbientOcclusionPipeline::handleResize(const ResolutionChangedEvent& event)
+{
+    resourceManager.destroyResource(std::move(debugImage));
+
+    for (int32_t i = 0; i < DEPTH_PREFILTER_MIP_COUNT; ++i) {
+        resourceManager.destroyResource(std::move(depthPrefilterImageViews[i]));
+    }
+
+    resourceManager.destroyResource(std::move(depthPrefilterImage));
+    resourceManager.destroyResource(std::move(ambientOcclusionImage));
+    resourceManager.destroyResource(std::move(edgeDataImage));
+    resourceManager.destroyResource(std::move(denoisedFinalAOImage));
+
+    createIntermediateRenderTargets(event.newExtent);
 }
 }

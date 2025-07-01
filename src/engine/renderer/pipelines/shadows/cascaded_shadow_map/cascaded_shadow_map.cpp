@@ -345,7 +345,7 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, CascadedShadowMapDrawInfo draw
             constexpr VkDeviceSize zeroOffset{0};
 
             for (RenderObject* renderObject : drawInfo.renderObjects) {
-                if (!renderObject->canDrawOpaque()) { continue; }
+                if (!renderObject->canDraw()) { continue; }
 
                 std::array bindings{
                     cascadedShadowMapDescriptorBufferUniform->getBindingInfo(),
@@ -367,8 +367,10 @@ void CascadedShadowMap::draw(VkCommandBuffer cmd, CascadedShadowMapDrawInfo draw
 
                 vkCmdBindVertexBuffers(cmd, 0, 1, vertexBuffers.data(), &zeroOffset);
                 vkCmdBindIndexBuffer(cmd, renderObject->getIndexBuffer(), 0, VK_INDEX_TYPE_UINT32);
-                vkCmdDrawIndexedIndirect(cmd, renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap), 0,
-                                         renderObject->getOpaqueDrawIndirectCommandCount(), sizeof(VkDrawIndexedIndirectCommand));
+                vkCmdDrawIndexedIndirectCount(cmd,
+                              renderObject->getShadowIndirectBuffer(), 0,
+                              renderObject->getDrawCountBuffer(drawInfo.currentFrameOverlap), renderObject->getDrawCountShadowOffset(),
+                              renderObject->getMaxDrawCount(), sizeof(VkDrawIndexedIndirectCommand));
             }
 
             vkCmdEndRendering(cmd);

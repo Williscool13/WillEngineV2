@@ -28,6 +28,7 @@
 #include "engine/renderer/resources/pipeline_layout.h"
 #include "engine/renderer/resources/buffer.h"
 #include "engine/renderer/resources/image_view.h"
+#include "engine/renderer/resources/render_target.h"
 #include "engine/renderer/resources/descriptor_buffer/descriptor_buffer_sampler.h"
 #include "engine/renderer/resources/resources_fwd.h"
 #include "events/event_dispatcher.h"
@@ -35,6 +36,7 @@
 #if WILL_ENGINE_DEBUG_DRAW
 namespace will_engine::renderer
 {
+class RenderContext;
 class DebugRenderer;
 class DebugHighlighter;
 class DebugCompositePipeline;
@@ -91,7 +93,7 @@ public:
 
     void updateGame(float deltaTime);
 
-    void updateRender(VkCommandBuffer cmd, float deltaTime, int32_t currentFrameOverlap, int32_t previousFrameOverlap) const;
+    void updateRender(VkCommandBuffer cmd, float deltaTime, int32_t currentFrameOverlap, int32_t previousFrameOverlap);
 
     void updateDebug(float deltaTime);
 
@@ -133,10 +135,10 @@ public:
     void removeFromActiveTerrain(ITerrain* terrain);
 
 private:
-    glm::vec2 windowExtent{1700, 900};
     SDL_Window* window{nullptr};
 
-    VulkanContext* context{nullptr};
+    renderer::RenderContext* renderContext;
+    renderer::VulkanContext* context{nullptr};
     renderer::ImmediateSubmitter* immediate{nullptr};
     renderer::ResourceManager* resourceManager{nullptr};
     renderer::AssetManager* assetManager{nullptr};
@@ -145,7 +147,7 @@ private:
     renderer::DebugRenderer* debugRenderer{nullptr};
     renderer::DebugHighlighter* debugHighlighter{nullptr};
     renderer::DebugCompositePipeline* debugPipeline{nullptr};
-    renderer::ImageResourcePtr debugTarget{};
+    renderer::RenderTargetPtr debugTarget{};
 #endif
     // Might be used in imgui which can be active outside of debug build
     IHierarchical* selectedItem{nullptr};
@@ -166,9 +168,9 @@ private: // Rendering
     FrameData& getCurrentFrame() { return frames[getCurrentFrameOverlap()]; }
 
     bool bStopRendering{false};
-    bool bResizeRequested{false};
+    bool bWindowChanged{false};
 
-    void createDrawResources();
+    void createDrawResources(VkExtent3D extents);
 
     EventDispatcher<int32_t> testDispatcher;
 
@@ -204,7 +206,6 @@ public:
     void setTaaSettings(const temporal_antialiasing_pipeline::TemporalAntialiasingSettings& settings) { taaSettings = settings; }
 
 private: // Debug
-    bool bEnableDebugFrustumCullDraw{false};
     int32_t deferredDebug{0};
     bool bEnablePhysics{true};
     bool bDrawTransparents{true};
@@ -212,6 +213,7 @@ private: // Debug
     bool bEnableContactShadows{true};
     bool bDrawDebugRendering{true};
     bool bDebugPhysics{true};
+    bool bFreezeVisibilitySceneData{false};
 
     void hotReloadShaders() const;
 
@@ -223,10 +225,18 @@ public:
     int32_t getCurrentEnvironmentMapIndex() const { return environmentMapIndex; }
     void setCurrentEnvironmentMapIndex(const int32_t index) { environmentMapIndex = index; }
 
+private:
+    EventDispatcher<renderer::ResolutionChangedEvent>::Handle resolutionChangedHandle;
+    EventDispatcher<renderer::ResolutionChangedEvent>::Handle postResolutionChangedHandle;
+
+    void handleResize(const renderer::ResolutionChangedEvent& event);
+    void setupDescriptorBuffers() const;
+
 private: // Scene Data
     renderer::DescriptorBufferUniformPtr sceneDataDescriptorBuffer;
     std::array<renderer::BufferPtr, FRAME_OVERLAP> sceneDataBuffers;
     renderer::BufferPtr debugSceneDataBuffer{nullptr};
+    SceneData snapshotSceneData{};
 
     /**
      * Should always exist and be used if no other camera is in the scene (todo: camera system)
@@ -264,49 +274,48 @@ private: // Pipelines
     renderer::PostProcessPipeline* postProcessPipeline{nullptr};
 
 private: // Draw Resources
-    renderer::ImageResourcePtr drawImage{nullptr};
-    renderer::ImageResourcePtr depthStencilImage{nullptr};
+
+    renderer::RenderTargetPtr drawImage{nullptr};
+    renderer::RenderTargetPtr depthStencilImage{nullptr};
     renderer::ImageViewPtr depthImageView{nullptr};
     renderer::ImageViewPtr stencilImageView{nullptr};
 
     /**
      * 10,10,10 View Normals - 2 unused
      */
-    renderer::ImageResourcePtr normalRenderTarget{nullptr};
+    renderer::RenderTargetPtr normalRenderTarget{nullptr};
     /**
      * 16,16,16 RGB Albedo (HDR) - 16 indicates if the image should be shaded
      */
-    renderer::ImageResourcePtr albedoRenderTarget{nullptr};
+    renderer::RenderTargetPtr albedoRenderTarget{nullptr};
     /**
      * 8 Metallic, 8 Roughness, 8 Unused, 8 Is Transparent
      */
-    renderer::ImageResourcePtr pbrRenderTarget{nullptr};
+    renderer::RenderTargetPtr pbrRenderTarget{nullptr};
     /**
      * 16 X and 16 Y
      */
-    renderer::ImageResourcePtr velocityRenderTarget{nullptr};
+    renderer::RenderTargetPtr velocityRenderTarget{nullptr};
     /**
     * The results of the TAA pass will be outputted into this buffer
     */
-    renderer::ImageResourcePtr taaResolveTarget{nullptr};
+    renderer::RenderTargetPtr taaResolveTarget{nullptr};
 
     /**
      * A copy of the previous TAA Resolve Buffer
      */
-    renderer::ImageResourcePtr historyBuffer{nullptr};
+    renderer::RenderTargetPtr historyBuffer{nullptr};
 
-    renderer::ImageResourcePtr finalImageBuffer{nullptr};
+    renderer::RenderTargetPtr finalImageBuffer{nullptr};
 
 private: // Swapchain
     VkSwapchainKHR swapchain{};
     VkFormat swapchainImageFormat{};
     std::vector<VkImage> swapchainImages{};
     std::vector<VkImageView> swapchainImageViews{};
-    VkExtent2D swapchainExtent{};
+    VkExtent3D swapchainExtent{};
 
     void createSwapchain(uint32_t width, uint32_t height);
-
-    void resizeSwapchain();
 
 public:
     game::Map* createMap(const std::filesystem::path& path);

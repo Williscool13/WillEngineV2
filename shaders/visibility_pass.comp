@@ -7,133 +7,125 @@
 
 layout(local_size_x = 64) in;
 
-struct MeshBounds
-{
-    vec3 position;
-    float radius;
-};
-
-struct VkDrawIndexedIndirectCommand
-{
-    uint indexCount;
-    uint instanceCount;
-    uint firstIndex;
-    int  vertexOffset;
-    uint firstInstance;
-};
-
-layout(buffer_reference, std430) readonly buffer MeshBoundsBuffer
-{
-    MeshBounds meshBounds[];
-};
-
-layout(buffer_reference, std430) buffer CommandBuffer
-{
-    VkDrawIndexedIndirectCommand commands[];
-};
-
-layout(buffer_reference, std430) buffer MeshIndexBuffer
-{
-    int indices[];
-};
-
 // layout (std140, set = 0, binding = 0) uniform SceneData - scene.glsl
 
-layout (set = 1, binding = 0) uniform Addresses
+layout (set = 1, binding = 0) uniform VisibilityPassData
 {
-    MaterialData materialBufferDeviceAddress;
-    PrimitiveData primitiveBufferDeviceAddress;
-    ModelData modelBufferDeviceAddress;
-} bufferAddresses;
+    Instances instances;
+    Models models;
+    PrimitiveData primitives;
+    CommandBuffer opaqueCommands;
+    CommandBuffer transparentCommands;
+    CommandBuffer shadowCommands;
+    DrawCounts drawCounts;
+} visibilityPassData;
 
-layout(set = 2, binding = 0) uniform bufferData
-{
-    MeshBoundsBuffer boundsBuffer;
-    CommandBuffer commandBuffer;
-    uint commandBufferCount;
-    vec3 padding;
-} buffers;
 
 layout (push_constant) uniform PushConstants {
-    int enabledFrustumCull;
-    int shadowPass;
+    int bEnableFrustumCull;
 } push;
 
-int checkIsVisible(mat4 mat, vec3 origin, float radius)
+bool checkIsVisible(mat4 viewProj, vec3 worldPos, float worldRadius)
 {
-    uint plane_index = 0;
-    for (uint i = 0; i < 3; ++i)
-    {
-        for (uint j = 0; j < 2; ++j, ++plane_index)
-        {
-            if (plane_index == 2 || plane_index == 3)
-            {
-                continue;
-            }
-            const float sign  = (j > 0) ? 1.f : -1.f;
-            vec4        plane = vec4(0, 0, 0, 0);
-            for (uint k = 0; k < 4; ++k)
-            {
-                plane[k] = mat[k][3] + sign * mat[k][i];
-            }
-            plane.xyzw /= sqrt(dot(plane.xyz, plane.xyz));
-            if (dot(origin, plane.xyz) + plane.w + radius < 0)
-            {
-                return 0;
-            }
-        }
-    }
-    return 1;
+    // Left plane: row3 + row0
+    vec4 plane = vec4(viewProj[0][3] + viewProj[0][0],
+    viewProj[1][3] + viewProj[1][0],
+    viewProj[2][3] + viewProj[2][0],
+    viewProj[3][3] + viewProj[3][0]);
+    if (dot(worldPos, plane.xyz) + plane.w < -worldRadius * length(plane.xyz)) return false;
+
+    // Right plane: row3 - row0
+    plane = vec4(viewProj[0][3] - viewProj[0][0],
+    viewProj[1][3] - viewProj[1][0],
+    viewProj[2][3] - viewProj[2][0],
+    viewProj[3][3] - viewProj[3][0]);
+    if (dot(worldPos, plane.xyz) + plane.w < -worldRadius * length(plane.xyz)) return false;
+
+    // Bottom plane: row3 + row1
+    plane = vec4(viewProj[0][3] + viewProj[0][1],
+    viewProj[1][3] + viewProj[1][1],
+    viewProj[2][3] + viewProj[2][1],
+    viewProj[3][3] + viewProj[3][1]);
+    if (dot(worldPos, plane.xyz) + plane.w < -worldRadius * length(plane.xyz)) return false;
+
+    // Top plane: row3 - row1
+    plane = vec4(viewProj[0][3] - viewProj[0][1],
+    viewProj[1][3] - viewProj[1][1],
+    viewProj[2][3] - viewProj[2][1],
+    viewProj[3][3] - viewProj[3][1]);
+    if (dot(worldPos, plane.xyz) + plane.w < -worldRadius * length(plane.xyz)) return false;
+
+    // Near plane: row3 + row2
+    plane = vec4(viewProj[0][3] + viewProj[0][2],
+    viewProj[1][3] + viewProj[1][2],
+    viewProj[2][3] + viewProj[2][2],
+    viewProj[3][3] + viewProj[3][2]);
+    if (dot(worldPos, plane.xyz) + plane.w < -worldRadius * length(plane.xyz)) return false;
+
+    // Far plane: row3 - row2
+    plane = vec4(viewProj[0][3] - viewProj[0][2],
+    viewProj[1][3] - viewProj[1][2],
+    viewProj[2][3] - viewProj[2][2],
+    viewProj[3][3] - viewProj[3][2]);
+    if (dot(worldPos, plane.xyz) + plane.w < -worldRadius * length(plane.xyz)) return false;
+
+    return true;
 }
 
 void main()
 {
     uint invocationId = gl_GlobalInvocationID.x;
-    if (invocationId >= buffers.commandBufferCount) { return; }
+    if (invocationId >= visibilityPassData.drawCounts.indirectCount.limit) { return; }
 
-    uint primitiveId = buffers.commandBuffer.commands[invocationId].firstInstance;
-    Primitive primitive = bufferAddresses.primitiveBufferDeviceAddress.primitives[primitiveId];
-    uint modelIndex = primitive.modelIndex;
-    Model models = bufferAddresses.modelBufferDeviceAddress.models[modelIndex];
-    uint meshBoundId = primitive.boundingVolumeIndex;
+    Instance instanceData = visibilityPassData.instances.instanceArray[invocationId];
+    if (instanceData.bIsDrawn == 0) { return; }
 
-    if (push.shadowPass == 1){
-        if (models.flags.y == 0){
-            buffers.commandBuffer.commands[invocationId].instanceCount = 0;
-            return;
+    Model model = visibilityPassData.models.modelArray[instanceData.modelIndex];
+    Primitive primitive = visibilityPassData.primitives.primitiveArray[instanceData.primitiveDataIndex];
+    bool bTransparent = primitive.bHasTransparent != 0;
+
+    VkDrawIndexedIndirectCommand cmd;
+    cmd.indexCount = primitive.indexCount;
+    cmd.firstIndex = primitive.firstIndex;
+    cmd.vertexOffset = primitive.vertexOffset;
+    cmd.instanceCount = 1;
+    cmd.firstInstance = invocationId;
+
+    // "Cast Shadows" flag
+    if (model.flags.y == 1){
+        // Only opaques casts shadows
+        if (!bTransparent){
+            uint outputIndex = atomicAdd(visibilityPassData.drawCounts.indirectCount.shadowCount, 1);
+            visibilityPassData.shadowCommands.commandArray[outputIndex] = cmd;
         }
 
-        // don't use frustum cull for shadow pass for now. Not 100% certain its working.
-        buffers.commandBuffer.commands[invocationId].instanceCount = 1;
-        return;
-    } else {
-        if (models.flags.x == 0){
-            // isVisible = false
-            buffers.commandBuffer.commands[invocationId].instanceCount = 0;
-            return;
+    }
+
+    // "Draw" flag
+    if (model.flags.x == 1){
+        vec3 worldPosition = primitive.boundingSphere.yzw;
+        float radius = primitive.boundingSphere.x;
+        vec3 scale = vec3(length(model.currentModelMatrix[0].xyz),
+        length(model.currentModelMatrix[1].xyz),
+        length(model.currentModelMatrix[2].xyz));
+        float maxScale = max(max(scale.x, scale.y), scale.z);
+        worldPosition = vec3(model.currentModelMatrix * vec4(worldPosition, 1.0));
+        float worldRadius = radius * maxScale;
+
+
+        bool visible = checkIsVisible(sceneData.viewProj, worldPosition, worldRadius);
+        if (push.bEnableFrustumCull == 0){
+            visible = true;
+        }
+
+        if (visible) {
+            if (bTransparent) {
+                uint outputIndex = atomicAdd(visibilityPassData.drawCounts.indirectCount.transparentCount, 1);
+                visibilityPassData.transparentCommands.commandArray[outputIndex] = cmd;
+            } else {
+                uint outputIndex = atomicAdd(visibilityPassData.drawCounts.indirectCount.opaqueCount, 1);
+                visibilityPassData.opaqueCommands.commandArray[outputIndex] = cmd;
+            }
         }
     }
-
-
-    if (push.enabledFrustumCull == 0){
-        buffers.commandBuffer.commands[invocationId].instanceCount = 1;
-        return;
-    }
-
-    MeshBounds bounds = buffers.boundsBuffer.meshBounds[meshBoundId];
-
-    vec3 position = bounds.position;
-    float radius = bounds.radius;
-    vec3 scale =  vec3(length(models.currentModelMatrix[0].xyz), length(models.currentModelMatrix[1].xyz), length(models.currentModelMatrix[2].xyz));
-    float maxScale = max(max(scale.x, scale.y), scale.z);
-
-    // transform position to clip space
-    position = vec3(models.currentModelMatrix * vec4(position, 1.0));
-    // scale radius w/ model scale
-    float worldRadius = radius * maxScale;
-
-    int visible = checkIsVisible(sceneData.viewProj, position, worldRadius);
-
-    // only ever modify instanceCount to frustum Cull
-    buffers.commandBuffer.commands[invocationId].instanceCount = uint(visible);
 }

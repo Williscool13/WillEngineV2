@@ -1,0 +1,12 @@
+{
+    "renderObject": {
+        "id": 3129368917,
+        "name": "primitives",
+        "sourcePath": "assets\\models\\primitives\\primitives.gltf"
+    },
+    "version": {
+        "major": 0,
+        "minor": 1,
+        "patch": 0
+    }
+}

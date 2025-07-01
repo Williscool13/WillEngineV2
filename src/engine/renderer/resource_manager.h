@@ -179,7 +179,7 @@ public:
 
     [[nodiscard]] VkDescriptorSetLayout getEmptyLayout() const { return emptyDescriptorSetLayout->layout; }
     [[nodiscard]] VkDescriptorSetLayout getSceneDataLayout() const { return sceneDataLayout->layout; }
-    [[nodiscard]] VkDescriptorSetLayout getFrustumCullLayout() const { return frustumCullLayout->layout; }
+    [[nodiscard]] VkDescriptorSetLayout getVisibilityPassLayout() const { return visibilityPassLayout->layout; }
     [[nodiscard]] VkDescriptorSetLayout getRenderObjectAddressesLayout() const { return addressesLayout->layout; }
     [[nodiscard]] VkDescriptorSetLayout getTexturesLayout() const { return texturesLayout->layout; }
     [[nodiscard]] VkDescriptorSetLayout getRenderTargetsLayout() const { return renderTargetsLayout->layout; }
@@ -196,7 +196,7 @@ private:
     DescriptorSetLayoutPtr emptyDescriptorSetLayout{};
 
     DescriptorSetLayoutPtr sceneDataLayout{};
-    DescriptorSetLayoutPtr frustumCullLayout{};
+    DescriptorSetLayoutPtr visibilityPassLayout{};
     /**
      * Material and Instance Buffer Addresses
      */

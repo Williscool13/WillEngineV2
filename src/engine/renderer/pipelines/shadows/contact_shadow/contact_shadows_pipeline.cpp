@@ -19,7 +19,7 @@
 
 namespace will_engine::renderer
 {
-ContactShadowsPipeline::ContactShadowsPipeline(ResourceManager& resourceManager) : resourceManager(resourceManager)
+ContactShadowsPipeline::ContactShadowsPipeline(ResourceManager& resourceManager, RenderContext& renderContext) : resourceManager(resourceManager)
 {
     DescriptorLayoutBuilder layoutBuilder{3};
     layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER); // MRT depth buffer
@@ -69,24 +69,12 @@ ContactShadowsPipeline::ContactShadowsPipeline(ResourceManager& resourceManager)
 
     depthSampler = resourceManager.createResource<Sampler>(samplerInfo);
 
-    VkImageUsageFlags usage{};
-    usage |= VK_IMAGE_USAGE_STORAGE_BIT;
-    usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-    usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-
-    VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(contactShadowFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
-    contactShadowImage = resourceManager.createResource<Image>(imgInfo);
-
-    usage = {};
-    usage |= VK_IMAGE_USAGE_STORAGE_BIT;
-    usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
-    usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
-    usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
-
-    imgInfo = vk_helpers::imageCreateInfo(debugFormat, usage, {RENDER_EXTENTS.width, RENDER_EXTENTS.height, 1});
-    debugImage = resourceManager.createResource<Image>(imgInfo);
-
     descriptorBufferSampler = resourceManager.createResource<DescriptorBufferSampler>(descriptorSetLayout->layout, 1);
+
+    createIntermediateRenderTargets(renderContext.renderExtent);
+    resolutionChangedHandle = renderContext.resolutionChangedEvent.subscribe([this](const ResolutionChangedEvent& event) {
+        this->handleResize(event);
+    });
 }
 
 ContactShadowsPipeline::~ContactShadowsPipeline()
@@ -102,28 +90,28 @@ ContactShadowsPipeline::~ContactShadowsPipeline()
     resourceManager.destroyResource(std::move(descriptorBufferSampler));
 }
 
-void ContactShadowsPipeline::setupDescriptorBuffer(const VkImageView& depthImageView)
+void ContactShadowsPipeline::setupDescriptorBuffer(const VkImageView& depthImageView) const
 {
-    std::vector<DescriptorImageData> imageDescriptors{};
-    imageDescriptors.reserve(3);
+    std::array<DescriptorImageData, 3> imageDescriptors{};
 
-    imageDescriptors.push_back(
-        {
-            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-            {depthSampler->sampler, depthImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
-            false
-        });
-    imageDescriptors.push_back(
-        {
-            VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
-            {VK_NULL_HANDLE, contactShadowImage->imageView, VK_IMAGE_LAYOUT_GENERAL},
-            false
-        });
-    imageDescriptors.push_back({
+    imageDescriptors[0] =
+    {
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+        {depthSampler->sampler, depthImageView, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL},
+        false
+    };
+    imageDescriptors[1] =
+    {
+        VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
+        {VK_NULL_HANDLE, contactShadowImage->imageView, VK_IMAGE_LAYOUT_GENERAL},
+        false
+    };
+    imageDescriptors[2] =
+    {
         VK_DESCRIPTOR_TYPE_STORAGE_IMAGE,
         {VK_NULL_HANDLE, debugImage->imageView, VK_IMAGE_LAYOUT_GENERAL},
         false
-    });
+    };
 
     descriptorBufferSampler->setupData(imageDescriptors, 0);
 }
@@ -187,7 +175,36 @@ void ContactShadowsPipeline::createPipeline()
     pipeline = resourceManager.createResource<Pipeline>(pipelineInfo);
 }
 
-DispatchList ContactShadowsPipeline::buildDispatchList(const Camera* camera, const DirectionalLight& mainLight)
+void ContactShadowsPipeline::createIntermediateRenderTargets(VkExtent2D extents)
+{
+    VkImageUsageFlags usage{};
+    usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+    usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+    VkImageCreateInfo imgInfo = vk_helpers::imageCreateInfo(contactShadowFormat, usage, {extents.width, extents.height, 1});
+    contactShadowImage = resourceManager.createResource<Image>(imgInfo);
+
+    usage = {};
+    usage |= VK_IMAGE_USAGE_STORAGE_BIT;
+    usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    usage |= VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    usage |= VK_IMAGE_USAGE_TRANSFER_DST_BIT;
+
+    imgInfo = vk_helpers::imageCreateInfo(debugFormat, usage, {extents.width, extents.height, 1});
+    debugImage = resourceManager.createResource<Image>(imgInfo);
+}
+
+void ContactShadowsPipeline::handleResize(const ResolutionChangedEvent& event)
+{
+    resourceManager.destroyResource(std::move(contactShadowImage));
+    resourceManager.destroyResource(std::move(debugImage));
+
+    createIntermediateRenderTargets(event.newExtent);
+    cachedRenderExtents = {event.newExtent.width, event.newExtent.height};
+}
+
+DispatchList ContactShadowsPipeline::buildDispatchList(const Camera* camera, const DirectionalLight& mainLight) const
 {
     DispatchList result = {};
 
@@ -202,8 +219,8 @@ DispatchList ContactShadowsPipeline::buildDispatchList(const Camera* camera, con
     else if (xy_light_w < 0 && xy_light_w > -FP_limit) xy_light_w = -FP_limit;
 
     // Need precise XY pixel coordinates of the light
-    result.LightCoordinate_Shader[0] = ((lightProjection[0] / xy_light_w) * +0.5f + 0.5f) * RENDER_EXTENT_WIDTH;
-    result.LightCoordinate_Shader[1] = ((lightProjection[1] / xy_light_w) * -0.5f + 0.5f) * RENDER_EXTENT_HEIGHT;
+    result.LightCoordinate_Shader[0] = ((lightProjection[0] / xy_light_w) * +0.5f + 0.5f) * cachedRenderExtents.x;
+    result.LightCoordinate_Shader[1] = ((lightProjection[1] / xy_light_w) * -0.5f + 0.5f) * cachedRenderExtents.y;
     result.LightCoordinate_Shader[2] = lightProjection[3] == 0 ? 0 : (lightProjection[2] / lightProjection[3]);
     result.LightCoordinate_Shader[3] = lightProjection[3] > 0 ? 1 : -1;
 
@@ -215,8 +232,8 @@ DispatchList ContactShadowsPipeline::buildDispatchList(const Camera* camera, con
     const int32_t biased_bounds[4] =
     {
         0 - light_xy[0],
-        -static_cast<int32_t>(RENDER_EXTENT_HEIGHT - light_xy[1]),
-        static_cast<int32_t>(RENDER_EXTENT_WIDTH - light_xy[0]),
+        -static_cast<int32_t>(cachedRenderExtents.y - light_xy[1]),
+        static_cast<int32_t>(cachedRenderExtents.x - light_xy[0]),
         -(0 - light_xy[1]),
     };
 

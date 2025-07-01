@@ -8,6 +8,7 @@
 #include "engine/core/engine_types.h"
 #include "engine/core/game_object/game_object_factory.h"
 #include "engine/renderer/lighting/directional_light.h"
+#include "engine/util/file.h"
 
 namespace will_engine
 {
@@ -394,16 +395,13 @@ std::optional<TextureInfo> Serializer::loadWillTexture(const std::filesystem::pa
 
 bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag engineSettings)
 {
-#if WILL_ENGINE_RELEASE
-    fmt::print("Warning: Attempted to serialize engine settings in release mode, this is not allowed.");
-    return false;
-#endif
+#if WILL_ENGINE_DEBUG
     if (engine == nullptr) {
         fmt::print("Warning: engine is null\n");
         return false;
     }
 
-    const std::filesystem::path filepath = {"assets/settings.willengine"};
+    const std::filesystem::path filepath = file::getEditorSettingsPath();
 
     ordered_json rootJ;
     bool fileExists = std::filesystem::exists(filepath);
@@ -428,7 +426,6 @@ bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag 
 
     rootJ["version"] = EngineVersion::current();
 
-#if WILL_ENGINE_DEBUG
     if (hasFlag(engineSettings, EngineSettingsTypeFlag::EDITOR_SETTINGS)) {
         ordered_json editorSettings;
         EditorSettings _editorSettings = engine->getEditorSettings();
@@ -437,7 +434,6 @@ bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag 
 
         rootJ["editorSettings"] = editorSettings;
     }
-#endif
 
     if (hasFlag(engineSettings, EngineSettingsTypeFlag::ENGINE_SETTINGS)) {
         ordered_json _engineSettings;
@@ -580,6 +576,11 @@ bool Serializer::serializeEngineSettings(Engine* engine, EngineSettingsTypeFlag 
 
     outFile << rootJ.dump(4);
     outFile.close();
+#endif
+
+#if WILL_ENGINE_RELEASE
+    fmt::print("Warning: Attempted to serialize engine settings in release mode, this is not allowed.");
+#endif
     return true;
 }
 

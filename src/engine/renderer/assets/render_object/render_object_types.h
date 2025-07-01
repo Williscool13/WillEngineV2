@@ -16,6 +16,9 @@
 
 namespace will_engine
 {
+static inline constexpr uint32_t DEFAULT_RENDER_OBJECT_INSTANCE_COUNT = 50;
+static inline constexpr uint32_t DEFAULT_RENDER_OBJECT_MODEL_COUNT = 10;
+
 enum class MaterialType
 {
     OPAQUE = 0,
@@ -60,30 +63,11 @@ struct VertexProperty
     glm::vec2 uv{0, 0};
 };
 
-struct Primitive
-{
-    uint32_t firstIndex{0}; // ID of the instance (used to get model matrix)
-    uint32_t indexCount{0};
-    int32_t vertexOffset{0};
-    bool bHasTransparent{false};
-    uint32_t boundingSphereIndex{0};
-    uint32_t materialIndex{0};
-};
 
 struct Mesh
 {
     std::string name;
-    std::vector<Primitive> primitives;
-};
-
-struct BoundingSphere
-{
-    BoundingSphere() = default;
-
-    explicit BoundingSphere(const std::vector<VertexPosition>& vertices);
-
-    glm::vec3 center{};
-    float radius{};
+    std::vector<uint32_t> primitiveIndices;
 };
 
 struct RenderNode
@@ -95,27 +79,70 @@ struct RenderNode
     int32_t meshIndex{-1};
 };
 
-struct PrimitiveData
+struct BoundingSphere
 {
-    uint32_t materialIndex;
-    uint32_t instanceDataIndex;
-    uint32_t boundingVolumeIndex;
-    uint32_t bHasTransparent;
+    float radius{};
+    glm::vec3 center{};
+
+    BoundingSphere() = default;
+
+    explicit BoundingSphere(const std::vector<VertexPosition>& vertices);
+
+    static glm::vec4 getBounds(const std::vector<VertexPosition>& vertices);
 };
 
+
+struct Primitive
+{
+    uint32_t firstIndex{0};
+    uint32_t indexCount{0};
+    int32_t vertexOffset{0};
+    uint32_t bHasTransparent{0};
+    uint32_t materialIndex{0};
+    uint32_t padding{0};
+    uint32_t padding1{0};
+    uint32_t padding2{0};
+    // {1} radius, {3} center
+    glm::vec4 boundingSphere{};
+};
+
+
 struct InstanceData
+{
+    int32_t modelIndex;
+    int32_t primitiveDataIndex;
+    int32_t bIsBeingDrawn; // i.e. 0 if the primitive is free
+    uint32_t padding0;
+    uint32_t padding1;
+    uint32_t padding2;
+    uint32_t padding3;
+    uint32_t padding4;
+};
+
+struct ModelData
 {
     glm::mat4 currentModelMatrix;
     glm::mat4 previousModelMatrix;
     glm::vec4 flags; // x: visible, y: casts shadows, z,w: reserved for future use
 };
 
-struct FrustumCullingBuffers
+struct VisibilityPassBuffers
 {
-    VkDeviceAddress meshBoundsBuffer;
-    VkDeviceAddress commandBuffer;
-    uint32_t commandBufferCount;
-    glm::vec3 padding;
+    VkDeviceAddress instanceBuffer;
+    VkDeviceAddress modelMatrixBuffer;
+    VkDeviceAddress primitiveDataBuffer;
+    VkDeviceAddress opaqueIndirectBuffer;
+    VkDeviceAddress transparentIndirectBuffer;
+    VkDeviceAddress shadowIndirectBuffer;
+    VkDeviceAddress countBuffer;
+};
+
+struct MainDrawBuffers
+{
+    VkDeviceAddress instanceBuffer;
+    VkDeviceAddress modelBufferAddress;
+    VkDeviceAddress primitiveDataBuffer;
+    VkDeviceAddress materialBuffer;
 };
 
 struct RenderObjectInfo
@@ -125,6 +152,17 @@ struct RenderObjectInfo
     std::string name;
     std::string type;
     uint32_t id;
+};
+
+struct IndirectCount
+{
+    uint32_t opaqueCount;
+    uint32_t transparentCount;
+    uint32_t shadowCount;
+    /**
+     * The maximum number of primitives that are in the buffer. Equal to size of indirect buffer
+     */
+    uint32_t limit;
 };
 }
 

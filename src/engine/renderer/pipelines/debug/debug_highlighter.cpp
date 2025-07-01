@@ -43,8 +43,6 @@ DebugHighlighter::DebugHighlighter(ResourceManager& resourceManager) : resourceM
     pipelineLayout = resourceManager.createResource<PipelineLayout>(layoutInfo);
 
 
-
-
     DescriptorLayoutBuilder layoutBuilder{2};
     layoutBuilder.addBinding(0, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // Stencil Image
     layoutBuilder.addBinding(1, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE); // Debug Target
@@ -98,26 +96,22 @@ void DebugHighlighter::setupDescriptorBuffer(VkImageView stencilImageView, VkIma
 
 bool DebugHighlighter::drawHighlightStencil(VkCommandBuffer cmd, const DebugHighlighterDrawInfo& drawInfo) const
 {
-    if (!drawInfo.highlightTarget->canDrawHighlight()) {
-        return false;
-    }
+    VkDebugUtilsLabelEXT label = {};
+    label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
+    label.pLabelName = "Debug Highlight (Stencil Draw))";
+    vkCmdBeginDebugUtilsLabelEXT(cmd, &label);
 
-    HighlightData highlightData = drawInfo.highlightTarget->getHighlightData();
-
-
-    const VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthStencilTarget, nullptr,
-                                                                                 VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    const VkRenderingAttachmentInfo depthAttachment = vk_helpers::attachmentInfo(drawInfo.depthStencilTarget, nullptr, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
     VkClearValue stencilClear{};
     stencilClear.depthStencil = {0.0f, 0};
-    const VkRenderingAttachmentInfo stencilAttachment = vk_helpers::attachmentInfo(drawInfo.depthStencilTarget, &stencilClear,
-                                                                                   VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
+    const VkRenderingAttachmentInfo stencilAttachment = vk_helpers::attachmentInfo(drawInfo.depthStencilTarget, &stencilClear, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL);
 
     VkRenderingInfo renderInfo{};
     renderInfo.sType = VK_STRUCTURE_TYPE_RENDERING_INFO;
     renderInfo.pNext = nullptr;
 
-    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, RENDER_EXTENTS};
+    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, drawInfo.extents};
     renderInfo.layerCount = 1;
     renderInfo.colorAttachmentCount = 0;
     renderInfo.pColorAttachments = nullptr;
@@ -132,8 +126,8 @@ bool DebugHighlighter::drawHighlightStencil(VkCommandBuffer cmd, const DebugHigh
     VkViewport viewport = {};
     viewport.x = 0;
     viewport.y = 0;
-    viewport.width = RENDER_EXTENTS.width;
-    viewport.height = RENDER_EXTENTS.height;
+    viewport.width = drawInfo.extents.width;
+    viewport.height = drawInfo.extents.height;
     viewport.minDepth = 0.f;
     viewport.maxDepth = 1.f;
     vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -141,8 +135,8 @@ bool DebugHighlighter::drawHighlightStencil(VkCommandBuffer cmd, const DebugHigh
     VkRect2D scissor = {};
     scissor.offset.x = 0;
     scissor.offset.y = 0;
-    scissor.extent.width = RENDER_EXTENTS.width;
-    scissor.extent.height = RENDER_EXTENTS.height;
+    scissor.extent.width = drawInfo.extents.width;
+    scissor.extent.height = drawInfo.extents.height;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, pipeline->pipeline);
@@ -156,28 +150,41 @@ bool DebugHighlighter::drawHighlightStencil(VkCommandBuffer cmd, const DebugHigh
     const std::array offsets{drawInfo.sceneDataOffset};
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout->layout, 0, 1, indices.data(), offsets.data());
 
-    DebugHighlightDrawPushConstant push{};
-    push.modelMatrix = highlightData.modelMatrix;
-    vkCmdPushConstants(cmd, pipelineLayout->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(DebugHighlightDrawPushConstant), &push);
+    bool anyDrawn = false;
+    for (IRenderable* renderable : drawInfo.highlightTargets) {
+        HighlightData highlightData = renderable->getHighlightData();
 
-    vkCmdBindVertexBuffers(cmd, 0, 1, &highlightData.vertexBuffer, &ZERO_DEVICE_SIZE);
-    vkCmdBindIndexBuffer(cmd, highlightData.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+        if (!highlightData.isValid()) {
+            return false;
+        }
 
-    for (const Primitive& primitive : highlightData.primitives) {
-        const uint32_t indexCount = primitive.indexCount;
-        const uint32_t firstIndex = primitive.firstIndex;
-        const int32_t vertexOffset = primitive.vertexOffset;
-        constexpr uint32_t firstInstance = 0;
-        constexpr uint32_t instanceCount = 1;
+        anyDrawn = true;
 
-        // Draw this mesh w/ vkCmdDrawIndexed w/ model matrix passed through push
-        vkCmdDrawIndexed(cmd, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+        DebugHighlightDrawPushConstant push{};
+        push.modelMatrix = highlightData.modelMatrix;
+        vkCmdPushConstants(cmd, pipelineLayout->layout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(DebugHighlightDrawPushConstant), &push);
+
+        vkCmdBindVertexBuffers(cmd, 0, 1, &highlightData.vertexBuffer, &ZERO_DEVICE_SIZE);
+        vkCmdBindIndexBuffer(cmd, highlightData.indexBuffer, 0, VK_INDEX_TYPE_UINT32);
+
+        for (const Primitive& primitive : highlightData.primitives) {
+            const uint32_t indexCount = primitive.indexCount;
+            const uint32_t firstIndex = primitive.firstIndex;
+            const int32_t vertexOffset = primitive.vertexOffset;
+            constexpr uint32_t firstInstance = 0;
+            constexpr uint32_t instanceCount = 1;
+
+            // Draw this mesh w/ vkCmdDrawIndexed w/ model matrix passed through push
+            vkCmdDrawIndexed(cmd, indexCount, instanceCount, firstIndex, vertexOffset, firstInstance);
+        }
     }
 
-    vkCmdEndRendering(cmd);
-    return true;
 
-    return false;
+    vkCmdEndRendering(cmd);
+
+    vkCmdEndDebugUtilsLabelEXT(cmd);
+
+    return anyDrawn;
 }
 
 void DebugHighlighter::drawHighlightProcessing(VkCommandBuffer cmd, const DebugHighlighterDrawInfo& drawInfo) const
@@ -194,8 +201,8 @@ void DebugHighlighter::drawHighlightProcessing(VkCommandBuffer cmd, const DebugH
     const std::array<VkDeviceSize, 2> offsets{drawInfo.sceneDataOffset, 0};
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, processingPipelineLayout->layout, 0, 2, indices.data(), offsets.data());
 
-    const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
-    const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
+    const auto x = static_cast<uint32_t>(std::ceil(drawInfo.extents.width / 16.0f));
+    const auto y = static_cast<uint32_t>(std::ceil(drawInfo.extents.height / 16.0f));
     vkCmdDispatch(cmd, x, y, 1);
 }
 

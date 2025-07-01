@@ -81,7 +81,7 @@ void TerrainPipeline::draw(VkCommandBuffer cmd, const TerrainDrawInfo& drawInfo)
     deferredAttachments[2] = pbrAttachment;
     deferredAttachments[3] = velocityAttachment;
 
-    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, RENDER_EXTENTS};
+    renderInfo.renderArea = VkRect2D{VkOffset2D{0, 0}, drawInfo.renderExtents};
     renderInfo.layerCount = 1;
     renderInfo.colorAttachmentCount = 4;
     renderInfo.pColorAttachments = deferredAttachments;
@@ -96,8 +96,8 @@ void TerrainPipeline::draw(VkCommandBuffer cmd, const TerrainDrawInfo& drawInfo)
     VkViewport viewport = {};
     viewport.x = 0;
     viewport.y = 0;
-    viewport.width = drawInfo.viewportExtents.x;
-    viewport.height = drawInfo.viewportExtents.y;
+    viewport.width = drawInfo.renderExtents.width;
+    viewport.height = drawInfo.renderExtents.height;
     viewport.minDepth = 0.f;
     viewport.maxDepth = 1.f;
     vkCmdSetViewport(cmd, 0, 1, &viewport);
@@ -105,8 +105,8 @@ void TerrainPipeline::draw(VkCommandBuffer cmd, const TerrainDrawInfo& drawInfo)
     VkRect2D scissor = {};
     scissor.offset.x = 0;
     scissor.offset.y = 0;
-    scissor.extent.width = RENDER_EXTENTS.width;
-    scissor.extent.height = RENDER_EXTENTS.height;
+    scissor.extent.width = drawInfo.renderExtents.width;
+    scissor.extent.height = drawInfo.renderExtents.height;
     vkCmdSetScissor(cmd, 0, 1, &scissor);
 
     TerrainPushConstants push{4.0f};

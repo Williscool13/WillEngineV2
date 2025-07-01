@@ -24,7 +24,7 @@ VisibilityPassPipeline::VisibilityPassPipeline(ResourceManager& resourceManager)
     VkDescriptorSetLayout layouts[3];
     layouts[0] = resourceManager.getSceneDataLayout();
     layouts[1] = resourceManager.getRenderObjectAddressesLayout();
-    layouts[2] = resourceManager.getFrustumCullLayout();
+    layouts[2] = resourceManager.getVisibilityPassLayout();
 
     VkPushConstantRange pushConstantRange;
     pushConstantRange.size = sizeof(VisibilityPassPushConstants);
@@ -49,7 +49,7 @@ VisibilityPassPipeline::~VisibilityPassPipeline()
     resourceManager.destroyResource(std::move(pipelineLayout));
 }
 
-void VisibilityPassPipeline::draw(VkCommandBuffer cmd, const VisibilityPassDrawInfo& drawInfo) const
+void VisibilityPassPipeline::draw(VkCommandBuffer cmd, const VisibilityPassDrawInfo& drawInfo)
 {
     VkDebugUtilsLabelEXT label = {};
     label.sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_LABEL_EXT;
@@ -60,41 +60,68 @@ void VisibilityPassPipeline::draw(VkCommandBuffer cmd, const VisibilityPassDrawI
 
 
     VisibilityPassPushConstants pushConstants = {};
-    pushConstants.enable = drawInfo.bEnableFrustumCulling;
-    pushConstants.shadowPass = drawInfo.bIsShadowPass;
+    pushConstants.bEnableFrustumCull = drawInfo.bEnableFrustumCull;
 
     vkCmdPushConstants(cmd, pipelineLayout->layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(VisibilityPassPushConstants), &pushConstants);
 
+    barrierCache.clear();
+    barrierCache.reserve(drawInfo.renderObjects.size() * 3);
+
     for (const RenderObject* renderObject : drawInfo.renderObjects) {
-        if (drawInfo.bIsOpaque) {
-            if (!renderObject->canDrawOpaque()) { continue; }
+        if (!renderObject->canDraw()) {
+            continue;
         }
-        else {
-            if (!renderObject->canDrawTransparent()) { continue; }
-        }
+
+        const VkBuffer drawCountBuffer = renderObject->getDrawCountBuffer(drawInfo.currentFrameOverlap);
+        vkCmdFillBuffer(cmd, drawCountBuffer,offsetof(IndirectCount, opaqueCount), sizeof(uint32_t) * 3, 0);
+        const uint32_t limit = renderObject->getMaxDrawCount();
+        vkCmdFillBuffer(cmd, drawCountBuffer,offsetof(IndirectCount, limit), sizeof(uint32_t), limit);
+        vk_helpers::bufferBarrier(cmd, drawCountBuffer, VK_PIPELINE_STAGE_2_TRANSFER_BIT,
+                                  VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                                  VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                                  VK_ACCESS_2_SHADER_READ_BIT | VK_ACCESS_2_SHADER_WRITE_BIT);
+
+
 
         std::array bindings{
             drawInfo.sceneDataBinding,
-            renderObject->getAddressesDescriptorBuffer()->getBindingInfo(),
-            renderObject->getFrustumCullingAddressesDescriptorBuffer()->getBindingInfo()
+            renderObject->getVisibilityPassDescriptorBuffer()->getBindingInfo()
         };
-        vkCmdBindDescriptorBuffersEXT(cmd, 3, bindings.data());
+        vkCmdBindDescriptorBuffersEXT(cmd, 2, bindings.data());
 
         std::array offsets{
             drawInfo.sceneDataOffset,
-            renderObject->getAddressesDescriptorBuffer()->getDescriptorBufferSize() * drawInfo.currentFrameOverlap,
-            renderObject->getFrustumCullingAddressesDescriptorBuffer()->getDescriptorBufferSize() * drawInfo.currentFrameOverlap
+            renderObject->getVisibilityPassDescriptorBuffer()->getDescriptorBufferSize() * drawInfo.currentFrameOverlap
         };
 
-        constexpr std::array<uint32_t, 3> indices{0, 1, 2};
+        constexpr std::array<uint32_t, 2> indices{0, 1};
 
-        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout->layout, 0, 3, indices.data(), offsets.data());
+        vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout->layout, 0, 2, indices.data(), offsets.data());
 
-        vkCmdDispatch(cmd, static_cast<uint32_t>(std::ceil(static_cast<float>(renderObject->getOpaqueDrawIndirectCommandCount()) / 64.0f)), 1, 1);
+        const uint32_t dispatchSize = (renderObject->getMaxDrawCount() + 63) / 64;
+        vkCmdDispatch(cmd, dispatchSize, 1, 1);
 
-        vk_helpers::uniformBarrier(cmd, renderObject->getOpaqueIndirectBuffer(drawInfo.currentFrameOverlap),
-                                       VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT, VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT,
-                                       VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT);
+        barrierCache.insert(barrierCache.end(), {
+                                {
+                                    renderObject->getOpaqueIndirectBuffer(),
+                                    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+                                    VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT
+                                },
+                                {
+                                    renderObject->getTransparentIndirectBuffer(),
+                                    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+                                    VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT
+                                },
+                                {
+                                    renderObject->getDrawCountBuffer(drawInfo.currentFrameOverlap),
+                                    VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT, VK_ACCESS_2_SHADER_WRITE_BIT,
+                                    VK_PIPELINE_STAGE_2_DRAW_INDIRECT_BIT, VK_ACCESS_2_INDIRECT_COMMAND_READ_BIT
+                                }
+                            });
+    }
+
+    if (!barrierCache.empty()) {
+        vk_helpers::bufferBarriers(cmd, barrierCache);
     }
 
     vkCmdEndDebugUtilsLabelEXT(cmd);
@@ -122,5 +149,4 @@ void VisibilityPassPipeline::createPipeline()
 
     pipeline = resourceManager.createResource<Pipeline>(pipelineInfo);
 }
-
 }

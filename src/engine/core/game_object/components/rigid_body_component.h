@@ -41,6 +41,8 @@ private:
 
     bool bIsPhysicsDirty{true};
 
+    glm::vec3 offset{};
+
 public:
     void releaseRigidBody();
 

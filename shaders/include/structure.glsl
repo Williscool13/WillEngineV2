@@ -1,12 +1,15 @@
 #extension GL_EXT_buffer_reference : require
 
-
-struct Primitive
+struct Instance
 {
-    uint materialIndex;
-    uint modelIndex;
-    uint boundingVolumeIndex;
-    uint bHasTransparent;
+    int modelIndex;
+    int primitiveDataIndex;
+    int bIsDrawn;
+    uint padding0;
+    uint padding1;
+    uint padding2;
+    uint padding3;
+    uint padding4;
 };
 
 struct Model
@@ -15,6 +18,26 @@ struct Model
     mat4 previousModelMatrix;
     vec4 flags; // x: enabled, xyz: reserved for future use
 };
+
+struct MeshBounds
+{
+    float radius;
+    vec3 position;
+};
+
+struct Primitive
+{
+    uint firstIndex;
+    uint indexCount;
+    int vertexOffset;
+    uint bHasTransparent;
+    uint materialIndex;
+    uint padding0;
+    uint padding1;
+    uint padding2;
+    vec4 boundingSphere;
+};
+
 
 struct Material
 {
@@ -40,17 +63,50 @@ struct Material
     vec4 physicalProperties; // x: IOR, y: dispersion, z: normalScale, w: occlusionStrength
 };
 
+struct VkDrawIndexedIndirectCommand
+{
+    uint indexCount;
+    uint instanceCount;
+    uint firstIndex;
+    int  vertexOffset;
+    uint firstInstance;
+};
+
+struct IndirectCount
+{
+    uint opaqueCount;
+    uint transparentCount;
+    uint shadowCount;
+    // The maximum number of primitives that are in the buffer. Equal to size of indirect buffer
+    uint limit;
+};
+
+layout (buffer_reference, std430) readonly buffer Instances
+{
+    Instance instanceArray[];
+};
+
+layout (buffer_reference, std430) readonly buffer Models
+{
+    Model modelArray[];
+};
+
 layout (buffer_reference, std430) readonly buffer PrimitiveData
 {
-    Primitive primitives[];
+    Primitive primitiveArray[];
 };
 
-layout (buffer_reference, std430) readonly buffer ModelData
+layout (buffer_reference, std430) readonly buffer Materials
 {
-    Model models[];
+    Material materialArray[];
 };
 
-layout (buffer_reference, std430) readonly buffer MaterialData
+layout(buffer_reference, std430) buffer CommandBuffer
 {
-    Material materials[];
+    VkDrawIndexedIndirectCommand commandArray[];
+};
+
+layout(buffer_reference, std430) buffer DrawCounts
+{
+    IndirectCount indirectCount;
 };

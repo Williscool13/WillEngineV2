@@ -18,7 +18,8 @@ namespace will_engine
 class Camera
 {
 public:
-    explicit Camera(float fov = 1.308996939f, float aspect = RENDER_EXTENT_WIDTH / RENDER_EXTENT_HEIGHT, float nearPlane = 1000.0f,
+    explicit Camera(float fov = 1.308996939f, float aspect = DEFAULT_RENDER_EXTENT_2D.width / DEFAULT_RENDER_EXTENT_2D.height,
+                    float nearPlane = 1000.0f,
                     float farPlane = 0.1f);
 
     virtual ~Camera() = default;
@@ -60,7 +61,7 @@ public:
         };
     }
 
-    void setProjectionProperties(float fov = 1.308996939f, float aspect = RENDER_EXTENT_WIDTH / RENDER_EXTENT_HEIGHT, float nearPlane = 1000.0f,
+    void setProjectionProperties(float fov = 1.308996939f, float aspect = DEFAULT_RENDER_EXTENT_2D.width / DEFAULT_RENDER_EXTENT_2D.height, float nearPlane = 1000.0f,
                                  float farPlane = 0.1f);
 
     void setCameraTransform(glm::vec3 position, glm::quat rotation);

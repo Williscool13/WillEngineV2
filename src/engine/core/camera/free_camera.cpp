@@ -13,7 +13,7 @@ will_engine::FreeCamera::FreeCamera(const float fov, const float aspect, const f
 void will_engine::FreeCamera::update(const float deltaTime)
 {
     const input::Input& input = input::Input::get();
-    if (!input.isInFocus()) {
+    if (!input.isCursorActive()) {
         return;
     }
 

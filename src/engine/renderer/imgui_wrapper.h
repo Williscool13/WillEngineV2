@@ -28,7 +28,7 @@ class ImguiWrapper
 public:
     friend class Engine;
 
-    ImguiWrapper(const VulkanContext& context, const ImguiWrapperInfo& imguiWrapperInfo);
+    ImguiWrapper(const renderer::VulkanContext& context, const ImguiWrapperInfo& imguiWrapperInfo);
 
     ~ImguiWrapper();
 
@@ -50,7 +50,7 @@ public:
      */
     bool displayGameObject(Engine* engine, IHierarchical* obj, int32_t depth);
 
-    void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView, VkExtent2D swapchainExtent);
+    void drawImgui(VkCommandBuffer cmd, VkImageView targetImageView, VkExtent3D swapchainExtent);
 
 private:
     static void indent(IHierarchical* obj);
@@ -73,7 +73,7 @@ private:
     static void deselectItem(Engine* engine);
 
 private:
-    const VulkanContext& context;
+    const renderer::VulkanContext& context;
 
     VkDescriptorPool imguiPool{VK_NULL_HANDLE};
 

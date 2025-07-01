@@ -7,6 +7,7 @@
 
 #include <volk/volk.h>
 
+#include "engine/renderer/renderer_constants.h"
 #include "engine/renderer/resources/resources_fwd.h"
 
 namespace will_engine::renderer
@@ -43,6 +44,7 @@ struct DeferredResolveDrawInfo
 {
     int32_t deferredDebug{0};
     int32_t csmPcf{0};
+    VkExtent2D extents{DEFAULT_RENDER_EXTENT_2D};
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};
     VkDescriptorBufferBindingInfoEXT environmentIBLBinding{};

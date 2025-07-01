@@ -40,9 +40,9 @@ void RenderObjectGltf::update(VkCommandBuffer cmd, const int32_t currentFrameOve
     for (const std::pair renderablePair : renderableMap) {
         IRenderable* renderable = renderablePair.first;
         if (renderable->getRenderFramesToUpdate() > 0) {
-            const uint32_t instanceIndex = renderablePair.second.instanceIndex;
+            const uint32_t instanceIndex = renderablePair.second.modelIndex;
 
-            if (instanceIndex >= currentMaxInstanceCount) {
+            if (instanceIndex >= currentMaxModelCount) {
                 fmt::print("Instance from renderable is not a valid index");
                 continue;
             }
@@ -55,13 +55,13 @@ void RenderObjectGltf::update(VkCommandBuffer cmd, const int32_t currentFrameOve
                 continue;
             }
 
-            auto prevModel = reinterpret_cast<InstanceData*>(static_cast<char*>(previousFrameModelMatrix->info.pMappedData) + instanceIndex * sizeof(
-                                                                 InstanceData));
-            auto currentModel = reinterpret_cast<InstanceData*>(
-                static_cast<char*>(currentFrameModelMatrix->info.pMappedData) + instanceIndex * sizeof(InstanceData));
+            auto prevModel = reinterpret_cast<ModelData*>(static_cast<char*>(previousFrameModelMatrix->info.pMappedData) + instanceIndex * sizeof(
+                                                              ModelData));
+            auto currentModel = reinterpret_cast<ModelData*>(
+                static_cast<char*>(currentFrameModelMatrix->info.pMappedData) + instanceIndex * sizeof(ModelData));
 
-            assert(reinterpret_cast<uintptr_t>(prevModel) % alignof(InstanceData) == 0 && "Misaligned instance data access");
-            assert(reinterpret_cast<uintptr_t>(currentModel) % alignof(InstanceData) == 0 && "Misaligned instance data access");
+            assert(reinterpret_cast<uintptr_t>(prevModel) % alignof(ModelData) == 0 && "Misaligned instance data access");
+            assert(reinterpret_cast<uintptr_t>(currentModel) % alignof(ModelData) == 0 && "Misaligned instance data access");
 
             currentModel->previousModelMatrix = prevModel->currentModelMatrix;
             currentModel->currentModelMatrix = renderable->getModelMatrix();
@@ -70,150 +70,88 @@ void RenderObjectGltf::update(VkCommandBuffer cmd, const int32_t currentFrameOve
 
             renderable->setRenderFramesToUpdate(renderable->getRenderFramesToUpdate() - 1);
 
-            vk_helpers::uniformBarrier(cmd, currentFrameModelMatrix->buffer, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
-                                       VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
+            vk_helpers::bufferBarrier(cmd, currentFrameModelMatrix->buffer, VK_PIPELINE_STAGE_2_HOST_BIT, VK_ACCESS_2_HOST_WRITE_BIT,
+                                      VK_PIPELINE_STAGE_2_ALL_GRAPHICS_BIT, VK_ACCESS_2_UNIFORM_READ_BIT);
         }
     }
 }
 
 void RenderObjectGltf::updateBuffers(VkCommandBuffer cmd, const int32_t currentFrameOverlap)
 {
-    if (bufferFramesToUpdate <= 0) { return; }
+    if (!bIsLoaded || bufferFramesToUpdate <= 0) { return; }
 
-    BufferPtr& currentPrimitiveBuffer = primitiveDataBuffers[currentFrameOverlap];
+    bool bDrawBuffersRecreated = false;
+    BufferPtr& currentInstanceBuffer = instanceDataBuffer[currentFrameOverlap];
+    BufferPtr& currentInstanceStaging = instanceDataStaging[currentFrameOverlap];
 
-    if (!currentPrimitiveBuffer) {
-        fmt::print("Render Object primitive data buffer not found");
-        return;
-    }
 
-    // Recreate the primitive buffer if needed
-    size_t latestPrimitiveBufferSize = currentMaxPrimitiveCount * sizeof(PrimitiveData);
-    if (currentPrimitiveBuffer->info.size != latestPrimitiveBufferSize) {
-        resourceManager.destroyResource(std::move(currentPrimitiveBuffer));
-        primitiveDataBuffers[currentFrameOverlap] = resourceManager.createResource<Buffer>(BufferType::HostRandom, latestPrimitiveBufferSize,
-                                                                                           VK_BUFFER_USAGE_TRANSFER_SRC_BIT |
-                                                                                           VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-
-        const VkDeviceAddress primitiveBufferAddress = resourceManager.getBufferAddress(currentPrimitiveBuffer->buffer);
-        memcpy(static_cast<char*>(addressBuffers[currentFrameOverlap]->info.pMappedData) + sizeof(VkDeviceAddress), &primitiveBufferAddress,
-               sizeof(VkDeviceAddress));
-    }
-
-    // Upload primitive data
-    {
-        for (auto& pair : primitiveDataMap) {
-            auto mappedData = static_cast<char*>(currentPrimitiveBuffer->info.pMappedData);
-            auto pPrimitiveData = reinterpret_cast<PrimitiveData*>(mappedData + sizeof(PrimitiveData) * pair.first);
-
-            *pPrimitiveData = pair.second;
-        }
-        vk_helpers::uniformBarrier(cmd, currentPrimitiveBuffer->buffer, VK_PIPELINE_STAGE_2_HOST_BIT
-                                   , VK_ACCESS_2_HOST_WRITE_BIT
-                                   , VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT
-                                   , VK_ACCESS_2_UNIFORM_READ_BIT);
-    }
-
-    BufferPtr& currentInstanceBuffer = modelMatrixBuffers[currentFrameOverlap];
-    if (!currentInstanceBuffer) {
-        fmt::print("Render Object instance data buffer not found");
-        return;
-    }
-
-    // sizes don't match, need to recreate the buffer
-    size_t latestInstanceBufferSize = currentMaxInstanceCount * sizeof(InstanceData);
+    // Recreate the instance buffer if needed (will never shrink)
+    const size_t latestInstanceBufferSize = currentMaxInstanceCount * sizeof(InstanceData);
     if (currentInstanceBuffer->info.size != latestInstanceBufferSize) {
         resourceManager.destroyResource(std::move(currentInstanceBuffer));
-        currentInstanceBuffer = resourceManager.createResource<Buffer>(BufferType::HostRandom, latestInstanceBufferSize,
-                                                                       VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+        currentInstanceBuffer = resourceManager.createResource<Buffer>(BufferType::Device, latestInstanceBufferSize);
+        resourceManager.destroyResource(std::move(currentInstanceStaging));
+        currentInstanceStaging = resourceManager.createResource<Buffer>(BufferType::Staging, latestInstanceBufferSize);
 
-        const VkDeviceAddress instanceBufferAddress = resourceManager.getBufferAddress(currentInstanceBuffer->buffer);
-        memcpy(static_cast<char*>(addressBuffers[currentFrameOverlap]->info.pMappedData) + sizeof(VkDeviceAddress) * 2, &instanceBufferAddress,
-               sizeof(VkDeviceAddress));
+        bDrawBuffersRecreated = true;
     }
 
-    // instance records could be stale,  need to ensure that it cleared/invalidated on GPU
-    for (const uint32_t freeIndex : freeInstanceIndices) {
-        auto targetModel = reinterpret_cast<InstanceData*>(static_cast<char*>(currentInstanceBuffer->info.pMappedData) + freeIndex * sizeof(
-                                                               InstanceData));
-
-        assert(reinterpret_cast<uintptr_t>(targetModel) % alignof(InstanceData) == 0 && "Misaligned instance data access");
-
-        targetModel->previousModelMatrix = glm::identity<glm::mat4>();
-        targetModel->currentModelMatrix = glm::identity<glm::mat4>();
-        targetModel->flags = glm::vec4(0.0f);
+    BufferPtr& currentModelBuffer = modelMatrixBuffers[currentFrameOverlap];
+    const size_t latestModelBufferSize = currentMaxModelCount * sizeof(ModelData);
+    if (currentModelBuffer->info.size != latestModelBufferSize) {
+        resourceManager.destroyResource(std::move(currentModelBuffer));
+        currentModelBuffer = resourceManager.createResource<Buffer>(BufferType::HostRandom, latestModelBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
+        bDrawBuffersRecreated = true;
     }
 
-    BufferPtr& currentOpaqueDrawIndirectBuffer = opaqueDrawIndirectBuffers[currentFrameOverlap];
-    resourceManager.destroyResource(std::move(currentOpaqueDrawIndirectBuffer));
-    if (!opaqueDrawCommands.empty()) {
-        resourceManager.destroyResource(std::move(currentOpaqueDrawIndirectBuffer));
-        BufferPtr indirectStaging = resourceManager.createResource<Buffer>(
-            BufferType::Staging,
-            opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+    // Upload instance data
+    memcpy(currentInstanceStaging->info.pMappedData, instanceData.data(), latestInstanceBufferSize);
+    vk_helpers::copyBuffer(cmd, currentInstanceStaging->buffer, 0, currentInstanceBuffer->buffer, 0, latestInstanceBufferSize);
+    vk_helpers::bufferBarrier(cmd, currentInstanceBuffer->buffer,
+                              VK_PIPELINE_STAGE_2_COPY_BIT,
+                              VK_ACCESS_2_TRANSFER_WRITE_BIT,
+                              VK_PIPELINE_STAGE_2_VERTEX_SHADER_BIT | VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT | VK_PIPELINE_STAGE_2_COMPUTE_SHADER_BIT,
+                              VK_ACCESS_2_UNIFORM_READ_BIT);
 
-        memcpy(indirectStaging->info.pMappedData, opaqueDrawCommands.data(), opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-
-        currentOpaqueDrawIndirectBuffer = resourceManager.createResource<Buffer>(
-            BufferType::Device,
-            opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand),
-            VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
-
-        vk_helpers::copyBuffer(cmd, indirectStaging->buffer, 0, currentOpaqueDrawIndirectBuffer->buffer, 0,
-                               opaqueDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-        resourceManager.destroyResource(std::move(indirectStaging));
-
-        const FrustumCullingBuffers cullingAddresses{
-            .meshBoundsBuffer = resourceManager.getBufferAddress(meshBoundsBuffer->buffer),
-            .commandBuffer = resourceManager.getBufferAddress(currentOpaqueDrawIndirectBuffer->buffer),
-            .commandBufferCount = static_cast<uint32_t>(opaqueDrawCommands.size()),
-            .padding = {},
-        };
-
-        const BufferPtr& currentCullingAddressBuffers = opaqueCullingAddressBuffers[currentFrameOverlap];
-        BufferPtr stagingCullingAddressesBuffer = resourceManager.createResource<Buffer>(
-            BufferType::Staging, sizeof(FrustumCullingBuffers));
-        memcpy(stagingCullingAddressesBuffer->info.pMappedData, &cullingAddresses, sizeof(FrustumCullingBuffers));
-        vk_helpers::copyBuffer(cmd, stagingCullingAddressesBuffer->buffer, 0, currentCullingAddressBuffers->buffer, 0, sizeof(FrustumCullingBuffers));
-        resourceManager.destroyResource(std::move(stagingCullingAddressesBuffer));
+    size_t requiredBufferSize = sizeof(VkDrawIndexedIndirectCommand) * currentMaxInstanceCount;
+    if (compactOpaqueDrawBuffer->info.size != requiredBufferSize) {
+        resourceManager.destroyResource(std::move(compactOpaqueDrawBuffer));
+        compactOpaqueDrawBuffer = resourceManager.createResource<Buffer>(BufferType::Device, requiredBufferSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+        bDrawBuffersRecreated = true;
     }
 
-    BufferPtr& currentTransparentDrawIndirectBuffer = transparentDrawIndirectBuffers[currentFrameOverlap];
-    resourceManager.destroyResource(std::move(currentTransparentDrawIndirectBuffer));
+    if (compactTransparentDrawBuffer->info.size != requiredBufferSize) {
+        resourceManager.destroyResource(std::move(compactTransparentDrawBuffer));
+        compactTransparentDrawBuffer = resourceManager.createResource<Buffer>(BufferType::Device, requiredBufferSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+        bDrawBuffersRecreated = true;
+    }
 
-    if (!transparentDrawCommands.empty()) {
-        BufferPtr indirectStaging = resourceManager.createResource<Buffer>(
-            BufferType::Staging,
-            transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
+    if (fullShadowDrawBuffer->info.size != requiredBufferSize) {
+        resourceManager.destroyResource(std::move(fullShadowDrawBuffer));
+        fullShadowDrawBuffer = resourceManager.createResource<Buffer>(BufferType::Device, requiredBufferSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+        bDrawBuffersRecreated = true;
+    }
 
-        memcpy(indirectStaging->info.pMappedData, transparentDrawCommands.data(),
-               transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
 
-        currentTransparentDrawIndirectBuffer = resourceManager.createResource<Buffer>(
-            BufferType::Device,
-            transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand),
-            VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+    if (bDrawBuffersRecreated) {
+        constexpr size_t visPassAddressesSize = sizeof(VisibilityPassBuffers);
+        VisibilityPassBuffers visPassData{};
+        visPassData.instanceBuffer = resourceManager.getBufferAddress(currentInstanceBuffer->buffer);
+        visPassData.modelMatrixBuffer = resourceManager.getBufferAddress(currentModelBuffer->buffer);
+        visPassData.primitiveDataBuffer = resourceManager.getBufferAddress(primitiveBuffer->buffer);
+        visPassData.opaqueIndirectBuffer = resourceManager.getBufferAddress(compactOpaqueDrawBuffer->buffer);
+        visPassData.transparentIndirectBuffer = resourceManager.getBufferAddress(compactTransparentDrawBuffer->buffer);
+        visPassData.shadowIndirectBuffer = resourceManager.getBufferAddress(fullShadowDrawBuffer->buffer);
+        visPassData.countBuffer = resourceManager.getBufferAddress(countBuffers[currentFrameOverlap]->buffer);
+        memcpy(visibilityPassBuffers[currentFrameOverlap]->info.pMappedData, &visPassData, visPassAddressesSize);
 
-        vk_helpers::copyBuffer(cmd, indirectStaging->buffer, 0, currentTransparentDrawIndirectBuffer->buffer, 0,
-                               transparentDrawCommands.size() * sizeof(VkDrawIndexedIndirectCommand));
-        resourceManager.destroyResource(std::move(indirectStaging));
-
-        const FrustumCullingBuffers cullingAddresses{
-            .meshBoundsBuffer = resourceManager.getBufferAddress(meshBoundsBuffer->buffer),
-            .commandBuffer = resourceManager.getBufferAddress(currentTransparentDrawIndirectBuffer->buffer),
-            .commandBufferCount = static_cast<uint32_t>(transparentDrawCommands.size()),
-            .padding = {},
-        };
-
-        BufferPtr stagingCullingAddressesBuffer = resourceManager.createResource<Buffer>(
-            BufferType::Staging,
-            sizeof(FrustumCullingBuffers));
-        memcpy(stagingCullingAddressesBuffer->info.pMappedData, &cullingAddresses, sizeof(FrustumCullingBuffers));
-
-        const BufferPtr& currentCullingAddressBuffers = transparentCullingAddressBuffers[currentFrameOverlap];
-
-        vk_helpers::copyBuffer(cmd, stagingCullingAddressesBuffer->buffer, 0, currentCullingAddressBuffers->buffer, 0, sizeof(FrustumCullingBuffers));
-        resourceManager.destroyResource(std::move(stagingCullingAddressesBuffer));
+        constexpr size_t mainDrawAddressesSize = sizeof(MainDrawBuffers);
+        MainDrawBuffers mainDrawData{};
+        mainDrawData.instanceBuffer = resourceManager.getBufferAddress(currentInstanceBuffer->buffer);
+        mainDrawData.modelBufferAddress = resourceManager.getBufferAddress(currentModelBuffer->buffer);
+        mainDrawData.primitiveDataBuffer = resourceManager.getBufferAddress(primitiveBuffer->buffer);
+        mainDrawData.materialBuffer = resourceManager.getBufferAddress(materialBuffer->buffer);
+        memcpy(addressBuffers[currentFrameOverlap]->info.pMappedData, &mainDrawData, mainDrawAddressesSize);
     }
 
     bufferFramesToUpdate--;
@@ -274,41 +212,22 @@ void RenderObjectGltf::generateMesh(IRenderable* renderable, const int32_t meshI
         return;
     }
 
-    const uint32_t instanceIndex = getFreeInstanceIndex();
+    const uint32_t modelIndex = getFreeModelIndex();
 
-    const std::vector<Primitive>& meshPrimitives = meshes[meshIndex].primitives;
-    opaqueDrawCommands.reserve(opaqueDrawCommands.size() + meshPrimitives.size());
-
-    for (const Primitive primitive : meshPrimitives) {
-        const uint32_t primitiveIndex = getFreePrimitiveIndex();
-        opaqueDrawCommands.emplace_back();
-        VkDrawIndexedIndirectCommand& indirectData = opaqueDrawCommands.back();
-        indirectData.firstIndex = primitive.firstIndex;
-        indirectData.indexCount = primitive.indexCount;
-        indirectData.vertexOffset = primitive.vertexOffset;
-        indirectData.instanceCount = 1;
-        indirectData.firstInstance = primitiveIndex;
-
-        if (primitive.bHasTransparent) {
-            transparentDrawCommands.emplace_back();
-            VkDrawIndexedIndirectCommand& transparentIndirectData = transparentDrawCommands.back();
-            transparentIndirectData.firstIndex = primitive.firstIndex;
-            transparentIndirectData.firstIndex = primitive.firstIndex;
-            transparentIndirectData.indexCount = primitive.indexCount;
-            transparentIndirectData.vertexOffset = primitive.vertexOffset;
-            transparentIndirectData.instanceCount = 1;
-            transparentIndirectData.firstInstance = primitiveIndex;
-        }
-
-        primitiveDataMap[primitiveIndex] = {
-            primitive.materialIndex, instanceIndex, primitive.boundingSphereIndex, primitive.bHasTransparent ? 1u : 0u
-        };
+    // All primitives associated with the mesh
+    const std::vector<uint32_t>& meshPrimitiveIndices = meshes[meshIndex].primitiveIndices;
+    for (const uint32_t primitiveIndex : meshPrimitiveIndices) {
+        const uint32_t instanceIndex = getFreeInstanceIndex();
+        InstanceData& instanceDatum = instanceData[instanceIndex];
+        instanceDatum.modelIndex = modelIndex;
+        instanceDatum.primitiveDataIndex = primitiveIndex;
+        instanceDatum.bIsBeingDrawn = 1;
     }
 
     renderable->setRenderObjectReference(this, meshIndex);
 
     RenderableProperties renderableProperties{
-        instanceIndex
+        modelIndex
     };
     renderableMap.insert({renderable, renderableProperties});
 
@@ -323,53 +242,45 @@ bool RenderObjectGltf::releaseInstanceIndex(IRenderable* renderable)
         return false;
     }
 
-    for (auto pair : primitiveDataMap) {
-        if (pair.second.instanceDataIndex == it->second.instanceIndex) {
-            if (freePrimitiveIndices.contains(pair.first)) {
-                fmt::print(
-                    "WARNING: Render object instructed to release primitive index when it is already free (free indices already contains the index)");
-                continue;
-            }
+    const RenderableProperties& renderableProperties = it->second;
+    const uint32_t renderableModelIndex = renderableProperties.modelIndex;
 
+    for (int32_t i = 0; i < instanceData.size(); ++i) {
+        if (instanceData[i].modelIndex == renderableModelIndex) {
+            instanceData[i].modelIndex = -1;
+            instanceData[i].primitiveDataIndex = -1;
+            instanceData[i].bIsBeingDrawn = 0;
 
-            freePrimitiveIndices.insert(pair.first);
-
-            for (size_t i = opaqueDrawCommands.size(); i > 0; --i) {
-                const size_t index = i - 1;
-                if (opaqueDrawCommands[index].firstInstance == pair.first) {
-                    opaqueDrawCommands.erase(opaqueDrawCommands.begin() + index);
-                }
-            }
-
-            for (size_t i = transparentDrawCommands.size(); i > 0; --i) {
-                const size_t index = i - 1;
-                if (transparentDrawCommands[index].firstInstance == pair.first) {
-                    transparentDrawCommands.erase(transparentDrawCommands.begin() + index);
-                }
-            }
+            freeInstanceIndices.push_back(i);
         }
     }
 
-    for (auto freeIndex : freePrimitiveIndices) {
-        primitiveDataMap.erase(freeIndex);
-    }
 
-    freeInstanceIndices.insert(it->second.instanceIndex);
-
+    freeModelIndex.push_back(renderableModelIndex);
     renderableMap.erase(renderable);
+
     dirty();
     return true;
 }
 
-std::optional<std::reference_wrapper<const Mesh> > RenderObjectGltf::getMeshData(const int32_t meshIndex)
+std::vector<Primitive> RenderObjectGltf::getPrimitives(const int32_t meshIndex)
 {
-    if (meshIndex < 0 || meshIndex >= meshes.size()) { return std::nullopt; }
-    return meshes[meshIndex];
+#if WILL_ENGINE_DEBUG
+    const std::vector<uint32_t>& meshPrimitiveIndices = meshes[meshIndex].primitiveIndices;
+    std::vector<Primitive> primitives;
+    primitives.reserve(meshPrimitiveIndices.size()); // Reserve space, don't create objects
+
+    for (const uint32_t primitiveIndex : meshPrimitiveIndices) {
+        primitives.push_back(debugPrimitives[primitiveIndex]);
+    }
+    return primitives;
+#else
+    return {};
+#endif
 }
 
-bool RenderObjectGltf::parseGltf(const std::filesystem::path& gltfFilepath, std::vector<MaterialProperties>& materials,
-                                 std::vector<VertexPosition>& vertexPositions, std::vector<VertexProperty>& vertexProperties,
-                                 std::vector<uint32_t>& indices)
+bool RenderObjectGltf::parseGltf(const std::filesystem::path& gltfFilepath, std::vector<MaterialProperties>& materials, std::vector<VertexPosition>& vertexPositions,
+                                 std::vector<VertexProperty>& vertexProperties, std::vector<uint32_t>& indices, std::vector<Primitive>& primitives)
 {
     auto start = std::chrono::system_clock::now();
 
@@ -439,8 +350,11 @@ bool RenderObjectGltf::parseGltf(const std::filesystem::path& gltfFilepath, std:
     for (fastgltf::Mesh& mesh : gltf.meshes) {
         Mesh meshData{};
         meshData.name = mesh.name;
-        meshData.primitives.reserve(mesh.primitives.size());
-        boundingSpheres.reserve(boundingSpheres.size() + mesh.primitives.size());
+        primitives.reserve(primitives.capacity() + mesh.primitives.size());
+#if WILL_ENGINE_DEBUG
+        debugPrimitives.reserve(debugPrimitives.capacity() + mesh.primitives.size());;
+#endif
+        meshData.primitiveIndices.reserve(mesh.primitives.size());
 
         for (fastgltf::Primitive& p : mesh.primitives) {
             Primitive primitiveData{};
@@ -555,17 +469,20 @@ bool RenderObjectGltf::parseGltf(const std::filesystem::path& gltfFilepath, std:
                                                                           });
             }
 
-            boundingSpheres.emplace_back(primitiveVertexPositions);
-
             primitiveData.firstIndex = static_cast<uint32_t>(indices.size());
             primitiveData.vertexOffset = static_cast<int32_t>(vertexPositions.size());
             primitiveData.indexCount = static_cast<uint32_t>(primitiveIndices.size());
-            primitiveData.boundingSphereIndex = static_cast<uint32_t>(boundingSpheres.size() - 1);
+            primitiveData.boundingSphere = BoundingSphere::getBounds(primitiveVertexPositions);
 
             vertexPositions.insert(vertexPositions.end(), primitiveVertexPositions.begin(), primitiveVertexPositions.end());
             vertexProperties.insert(vertexProperties.end(), primitiveVertexProperties.begin(), primitiveVertexProperties.end());
             indices.insert(indices.end(), primitiveIndices.begin(), primitiveIndices.end());
-            meshData.primitives.push_back(primitiveData);
+
+            meshData.primitiveIndices.push_back(primitives.size());
+#if WILL_ENGINE_DEBUG
+            debugPrimitives.push_back(primitiveData);
+#endif
+            primitives.push_back(primitiveData);
         }
 
         meshes.push_back(meshData);
@@ -633,17 +550,12 @@ bool RenderObjectGltf::parseGltf(const std::filesystem::path& gltfFilepath, std:
         }
     }
 
-    size_t primitiveCount{0};
-    for (const Mesh& mesh : meshes) {
-        primitiveCount += mesh.primitives.size();
-    }
     const auto end = std::chrono::system_clock::now();
     const auto elapsed = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
     float time = static_cast<float>(elapsed.count()) / 1000000.0f;
     fmt::print("GLTF: {} | Sampl: {} | Imag: {} | Mats: {} | Mesh: {} | Prim: {} | Inst: {} | in {}ms\n",
                file::getFileName(gltfFilepath.filename().string().c_str()),
-               samplers.size(),
-               images.size(), materials.size() - materialOffset, meshes.size(), primitiveCount, instanceCount, time);
+               samplers.size(), images.size(), materials.size() - materialOffset, meshes.size(), primitives.size(), instanceCount, time);
     return true;
 }
 
@@ -654,25 +566,25 @@ void RenderObjectGltf::load()
         return;
     }
 
-    freeInstanceIndices.reserve(10);
-    for (int32_t i = 0; i < 10; ++i) { freeInstanceIndices.insert(i); }
-    currentMaxInstanceCount = freeInstanceIndices.size();
+    freeModelIndex.reserve(currentMaxModelCount);
+    for (int32_t i = 0; i < currentMaxModelCount; ++i) { freeModelIndex.push_back(i); }
 
-    freePrimitiveIndices.reserve(10);
-    for (int32_t i = 0; i < 10; ++i) { freePrimitiveIndices.insert(i); }
-    currentMaxPrimitiveCount = freePrimitiveIndices.size();
+    freeInstanceIndices.reserve(currentMaxInstanceCount);
+    for (int32_t i = 0; i < currentMaxInstanceCount; ++i) { freeInstanceIndices.push_back(i); }
+    instanceData.resize(currentMaxInstanceCount);
 
     std::vector<MaterialProperties> materials{};
     std::vector<VertexPosition> vertexPositions{};
     std::vector<VertexProperty> vertexProperties{};
     std::vector<uint32_t> indices{};
+    std::vector<Primitive> primitives{};
 
-    if (!parseGltf(renderObjectInfo.sourcePath, materials, vertexPositions, vertexProperties, indices)) { return; }
+    if (!parseGltf(renderObjectInfo.sourcePath, materials, vertexPositions, vertexProperties, indices, primitives)) { return; }
 
     std::vector<DescriptorImageData> textureDescriptors;
     // 0 is always a "fallback sampler"
     textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, {.sampler = resourceManager.getDefaultSamplerNearest()}, false});
-    for (SamplerPtr& sampler : samplers) {
+    for (const SamplerPtr& sampler : samplers) {
         if (!sampler) {
             textureDescriptors.push_back({VK_DESCRIPTOR_TYPE_SAMPLER, {.sampler = resourceManager.getDefaultSamplerNearest()}, false});
         }
@@ -716,7 +628,6 @@ void RenderObjectGltf::load()
     materialBuffer = resourceManager.createResource<Buffer>(BufferType::Device, materialBufferSize);
 
     const size_t vertexCount = vertexPositions.size();
-
     const uint64_t vertexPositionBufferSize = vertexCount * sizeof(VertexPosition);
     BufferPtr vertexPositionStaging = resourceManager.createResource<Buffer>(BufferType::Staging, vertexPositionBufferSize);
     memcpy(vertexPositionStaging->info.pMappedData, vertexPositions.data(), vertexPositionBufferSize);
@@ -732,82 +643,85 @@ void RenderObjectGltf::load()
     memcpy(indexStaging->info.pMappedData, indices.data(), indicesBufferSize);
     indexBuffer = resourceManager.createResource<Buffer>(BufferType::Device, indicesBufferSize, VK_BUFFER_USAGE_INDEX_BUFFER_BIT);
 
-    // Addresses (Texture and Uniform model data)
-    // todo: make address buffer for statics (dont need multiple)
-    addressesDescriptorBuffer = resourceManager.createResource<DescriptorBufferUniform>(resourceManager.getRenderObjectAddressesLayout(),
-                                                                                        FRAME_OVERLAP);
-    std::array<DescriptorUniformData, 1> addressUniformData{{}};
-    for (int32_t i = 0; i < FRAME_OVERLAP; i++) {
-        constexpr size_t addressesSize = sizeof(VkDeviceAddress) * 3;
-        addressBuffers[i] = resourceManager.createResource<Buffer>(BufferType::HostSequential, addressesSize);
-        DescriptorUniformData addressesUniformData{
-            .buffer = addressBuffers[i]->buffer,
-            .allocSize = addressesSize,
-        };
-        addressUniformData[0] = addressesUniformData;
-        addressesDescriptorBuffer->setupData(addressUniformData, i);
-
-        modelMatrixBuffers[i] = resourceManager.createResource<Buffer>(BufferType::HostRandom, currentMaxInstanceCount * sizeof(InstanceData),
-                                                                       VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-        primitiveDataBuffers[i] = resourceManager.createResource<Buffer>(BufferType::HostRandom, currentMaxPrimitiveCount * sizeof(PrimitiveData),
-                                                                         VK_BUFFER_USAGE_TRANSFER_SRC_BIT | VK_BUFFER_USAGE_TRANSFER_DST_BIT);
-
-        const VkDeviceAddress materialBufferAddress = resourceManager.getBufferAddress(materialBuffer->buffer);
-        const VkDeviceAddress primitiveDataBufferAddress = resourceManager.getBufferAddress(primitiveDataBuffers[i]->buffer);
-        const VkDeviceAddress instanceBufferAddress = resourceManager.getBufferAddress(modelMatrixBuffers[i]->buffer);
-        const VkDeviceAddress addresses[3] = {materialBufferAddress, primitiveDataBufferAddress, instanceBufferAddress};
-        memcpy(addressBuffers[i]->info.pMappedData, addresses, addressesSize);
-    }
-
-    frustumCullingDescriptorBuffer = resourceManager.createResource<DescriptorBufferUniform>(
-        resourceManager.getFrustumCullLayout(), FRAME_OVERLAP * 2);
-    // In 2 Frame Overlap: 0 and 1 for Opaque, 2 and 3 for Transparent
-    // Opaque Culling Buffer
-    for (int32_t i = 0; i < FRAME_OVERLAP; i++) {
-        opaqueCullingAddressBuffers[i] = resourceManager.createResource<Buffer>(BufferType::Device, sizeof(FrustumCullingBuffers));
-        const DescriptorUniformData cullingAddressesUniformData{
-            .buffer = opaqueCullingAddressBuffers[i]->buffer,
-            .allocSize = sizeof(FrustumCullingBuffers),
-        };
-        addressUniformData[0] = cullingAddressesUniformData;
-        frustumCullingDescriptorBuffer->setupData(addressUniformData, i);
-    }
-    // Transparent Culling Buffer
-    for (int32_t i = 0; i < FRAME_OVERLAP; i++) {
-        transparentCullingAddressBuffers[i] = resourceManager.createResource<Buffer>(BufferType::Device, sizeof(FrustumCullingBuffers));
-        const DescriptorUniformData cullingAddressesUniformData{
-            .buffer = transparentCullingAddressBuffers[i]->buffer,
-            .allocSize = sizeof(FrustumCullingBuffers),
-        };
-
-        addressUniformData[0] = cullingAddressesUniformData;
-        frustumCullingDescriptorBuffer->setupData(addressUniformData, FRAME_OVERLAP + i);
-    }
-
-    uint64_t boundingSphereBufferSize = sizeof(BoundingSphere) * boundingSpheres.size();
-    BufferPtr meshBoundsStaging = resourceManager.createResource<Buffer>(BufferType::Staging, boundingSphereBufferSize);
-    memcpy(meshBoundsStaging->info.pMappedData, boundingSpheres.data(), boundingSphereBufferSize);
-    meshBoundsBuffer = resourceManager.createResource<Buffer>(BufferType::Device, boundingSphereBufferSize);
+    uint64_t primitiveBufferSize = sizeof(Primitive) * primitives.size();
+    BufferPtr primitiveBufferStaging = resourceManager.createResource<Buffer>(BufferType::Staging, primitiveBufferSize);
+    memcpy(primitiveBufferStaging->info.pMappedData, primitives.data(), primitiveBufferSize);
+    primitiveBuffer = resourceManager.createResource<Buffer>(BufferType::Device, primitiveBufferSize);
 
     std::array<BufferCopyInfo, 5> bufferCopies = {
         BufferCopyInfo(materialStaging->buffer, 0, materialBuffer->buffer, 0, materialBufferSize),
         {vertexPositionStaging->buffer, 0, vertexPositionBuffer->buffer, 0, vertexPositionBufferSize},
         {vertexPropertiesStaging->buffer, 0, vertexPropertyBuffer->buffer, 0, vertexPropertiesBufferSize},
         {indexStaging->buffer, 0, indexBuffer->buffer, 0, indicesBufferSize},
-        {meshBoundsStaging->buffer, 0, meshBoundsBuffer->buffer, 0, boundingSphereBufferSize},
+        {primitiveBufferStaging->buffer, 0, primitiveBuffer->buffer, 0, primitiveBufferSize},
     };
 
     resourceManager.copyBufferImmediate(bufferCopies);
 
-    // Be careful, this destroys a copy of the staging buffer. Not an issue since it deletes the buffer in GPU memory.
-    // Will be dangerous if you attempt to hold onto the staging buffers outside of this load function
+
+    addressesDescriptorBuffer = resourceManager.createResource<DescriptorBufferUniform>(resourceManager.getRenderObjectAddressesLayout(), FRAME_OVERLAP);
+    std::array<DescriptorUniformData, 1> addressUniformData{{}};
+    for (int32_t i = 0; i < FRAME_OVERLAP; i++) {
+        constexpr size_t addressesSize = sizeof(MainDrawBuffers);
+        modelMatrixBuffers[i] = resourceManager.createResource<Buffer>(BufferType::HostRandom, currentMaxModelCount * sizeof(ModelData));
+        instanceDataBuffer[i] = resourceManager.createResource<Buffer>(BufferType::Device, currentMaxInstanceCount * sizeof(InstanceData));
+        instanceDataStaging[i] = resourceManager.createResource<Buffer>(BufferType::Staging, currentMaxInstanceCount * sizeof(InstanceData));
+
+        addressBuffers[i] = resourceManager.createResource<Buffer>(BufferType::HostSequential, addressesSize);
+        addressUniformData[0] = {
+            .buffer = addressBuffers[i]->buffer,
+            .allocSize = addressesSize,
+        };
+        addressesDescriptorBuffer->setupData(addressUniformData, i);
+
+
+        MainDrawBuffers mainDrawData{};
+        mainDrawData.instanceBuffer = resourceManager.getBufferAddress(instanceDataBuffer[i]->buffer);
+        mainDrawData.modelBufferAddress = resourceManager.getBufferAddress(modelMatrixBuffers[i]->buffer);
+        mainDrawData.primitiveDataBuffer = resourceManager.getBufferAddress(primitiveBuffer->buffer);
+        //todo: multi-material buffer for runtime-modification - will likely include material serialization (material data defined from gltf only for init)
+        mainDrawData.materialBuffer = resourceManager.getBufferAddress(materialBuffer->buffer);
+        memcpy(addressBuffers[i]->info.pMappedData, &mainDrawData, addressesSize);
+    }
+
+    size_t maxDrawBufferSize = sizeof(VkDrawIndexedIndirectCommand) * currentMaxInstanceCount;
+    compactOpaqueDrawBuffer = resourceManager.createResource<Buffer>(BufferType::Device, maxDrawBufferSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+    compactTransparentDrawBuffer = resourceManager.createResource<Buffer>(BufferType::Device, maxDrawBufferSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+    fullShadowDrawBuffer = resourceManager.createResource<Buffer>(BufferType::Device, maxDrawBufferSize, VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+
+    visibilityPassDescriptorBuffer = resourceManager.createResource<DescriptorBufferUniform>(resourceManager.getVisibilityPassLayout(), FRAME_OVERLAP);
+    std::array<DescriptorUniformData, 1> uniformData{};
+    for (int32_t i = 0; i < FRAME_OVERLAP; ++i) {
+        countBuffers[i] = resourceManager.createResource<Buffer>(BufferType::Device, sizeof(IndirectCount), VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT);
+
+
+        constexpr size_t bufferSize = sizeof(VisibilityPassBuffers);
+        visibilityPassBuffers[i] = resourceManager.createResource<Buffer>(BufferType::HostSequential, bufferSize);
+        uniformData[0] = {
+            .buffer = visibilityPassBuffers[i]->buffer,
+            .allocSize = bufferSize,
+        };
+        visibilityPassDescriptorBuffer->setupData(uniformData, i);
+
+        VisibilityPassBuffers visPassData{};
+        visPassData.instanceBuffer = resourceManager.getBufferAddress(instanceDataBuffer[i]->buffer);
+        visPassData.modelMatrixBuffer = resourceManager.getBufferAddress(modelMatrixBuffers[i]->buffer);
+        visPassData.primitiveDataBuffer = resourceManager.getBufferAddress(primitiveBuffer->buffer);
+        visPassData.opaqueIndirectBuffer = resourceManager.getBufferAddress(compactOpaqueDrawBuffer->buffer);
+        visPassData.transparentIndirectBuffer = resourceManager.getBufferAddress(compactTransparentDrawBuffer->buffer);
+        visPassData.shadowIndirectBuffer = resourceManager.getBufferAddress(fullShadowDrawBuffer->buffer);
+        visPassData.countBuffer = resourceManager.getBufferAddress(countBuffers[i]->buffer);
+        memcpy(visibilityPassBuffers[i]->info.pMappedData, &visPassData, bufferSize);
+    }
+
     resourceManager.destroyResourceImmediate(std::move(materialStaging));
     resourceManager.destroyResourceImmediate(std::move(vertexPositionStaging));
     resourceManager.destroyResourceImmediate(std::move(vertexPropertiesStaging));
     resourceManager.destroyResourceImmediate(std::move(indexStaging));
-    resourceManager.destroyResourceImmediate(std::move(meshBoundsStaging));
+    resourceManager.destroyResourceImmediate(std::move(primitiveBufferStaging));
 
     bIsLoaded = true;
+    dirty();
 }
 
 void RenderObjectGltf::unload()
@@ -828,38 +742,38 @@ void RenderObjectGltf::unload()
     for (ImageResourcePtr& image : images) {
         resourceManager.destroyResource(std::move(image));
     }
+    images.clear();
 
     for (SamplerPtr& sampler : samplers) {
         resourceManager.destroyResource(std::move(sampler));
     }
+    samplers.clear();
 
     resourceManager.destroyResource(std::move(vertexPositionBuffer));
     resourceManager.destroyResource(std::move(vertexPropertyBuffer));
     resourceManager.destroyResource(std::move(indexBuffer));
+    resourceManager.destroyResource(std::move(primitiveBuffer));
 
     resourceManager.destroyResource(std::move(materialBuffer));
 
-    resourceManager.destroyResource(std::move(meshBoundsBuffer));
+    resourceManager.destroyResource(std::move(compactOpaqueDrawBuffer));
+    resourceManager.destroyResource(std::move(compactTransparentDrawBuffer));
+    resourceManager.destroyResource(std::move(fullShadowDrawBuffer));
 
     for (int i = 0; i < FRAME_OVERLAP; ++i) {
-        resourceManager.destroyResource(std::move(opaqueDrawIndirectBuffers[i]));
-        resourceManager.destroyResource(std::move(transparentDrawIndirectBuffers[i]));
         resourceManager.destroyResource(std::move(addressBuffers[i]));
-        resourceManager.destroyResource(std::move(primitiveDataBuffers[i]));
+        resourceManager.destroyResource(std::move(instanceDataBuffer[i]));
+        resourceManager.destroyResource(std::move(instanceDataStaging[i]));
         resourceManager.destroyResource(std::move(modelMatrixBuffers[i]));
-        resourceManager.destroyResource(std::move(opaqueCullingAddressBuffers[i]));
-        resourceManager.destroyResource(std::move(transparentCullingAddressBuffers[i]));
+        resourceManager.destroyResource(std::move(visibilityPassBuffers[i]));
+        resourceManager.destroyResource(std::move(countBuffers[i]));
     }
 
     resourceManager.destroyResource(std::move(addressesDescriptorBuffer));
-    resourceManager.destroyResource(std::move(frustumCullingDescriptorBuffer));
     resourceManager.destroyResource(std::move(textureDescriptorBuffer));
-
-    opaqueDrawCommands.clear();
-    transparentDrawCommands.clear();
+    resourceManager.destroyResource(std::move(visibilityPassDescriptorBuffer));
 
     meshes.clear();
-    boundingSpheres.clear();
     renderNodes.clear();
     topNodes.clear();
 
@@ -867,30 +781,14 @@ void RenderObjectGltf::unload()
     bIsLoaded = false;
 }
 
-uint32_t RenderObjectGltf::getFreePrimitiveIndex()
-{
-    if (freePrimitiveIndices.empty()) {
-        const size_t oldSize = currentMaxPrimitiveCount;
-        const size_t newSize = currentMaxPrimitiveCount + 50;
-        freePrimitiveIndices.reserve(newSize);
-        for (int32_t i = oldSize; i < newSize; ++i) { freePrimitiveIndices.insert(i); }
-        currentMaxPrimitiveCount = newSize;
-        dirty();
-    }
-
-    assert(!freePrimitiveIndices.empty());
-    const uint32_t index = *freePrimitiveIndices.begin();
-    freePrimitiveIndices.erase(freePrimitiveIndices.begin());
-    return index;
-}
-
 uint32_t RenderObjectGltf::getFreeInstanceIndex()
 {
     if (freeInstanceIndices.empty()) {
         const size_t oldSize = currentMaxInstanceCount;
-        const size_t newSize = currentMaxInstanceCount + 10;
+        const size_t newSize = currentMaxInstanceCount + DEFAULT_RENDER_OBJECT_INSTANCE_COUNT;
         freeInstanceIndices.reserve(newSize);
-        for (int32_t i = oldSize; i < newSize; ++i) { freeInstanceIndices.insert(i); }
+        instanceData.resize(newSize);
+        for (int32_t i = oldSize; i < newSize; ++i) { freeInstanceIndices.push_back(i); }
         currentMaxInstanceCount = newSize;
         dirty();
     }
@@ -898,6 +796,23 @@ uint32_t RenderObjectGltf::getFreeInstanceIndex()
     assert(!freeInstanceIndices.empty());
     const uint32_t index = *freeInstanceIndices.begin();
     freeInstanceIndices.erase(freeInstanceIndices.begin());
+    return index;
+}
+
+uint32_t RenderObjectGltf::getFreeModelIndex()
+{
+    if (freeModelIndex.empty()) {
+        const size_t oldSize = currentMaxModelCount;
+        const size_t newSize = currentMaxModelCount + 10;
+        freeModelIndex.reserve(newSize);
+        for (int32_t i = oldSize; i < newSize; ++i) { freeModelIndex.push_back(i); }
+        currentMaxModelCount = newSize;
+        dirty();
+    }
+
+    assert(!freeModelIndex.empty());
+    const uint32_t index = *freeModelIndex.begin();
+    freeModelIndex.erase(freeModelIndex.begin());
     return index;
 }
 }

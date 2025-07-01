@@ -5,9 +5,11 @@
 #ifndef POST_PROCESS_PIPELINE_H
 #define POST_PROCESS_PIPELINE_H
 
+#include <glm/glm.hpp>
 #include <vulkan/vulkan_core.h>
 
 #include "post_process_pipeline_types.h"
+#include "engine/renderer/renderer_constants.h"
 #include "engine/renderer/resources/resources_fwd.h"
 
 namespace will_engine::renderer
@@ -23,15 +25,14 @@ struct PostProcessDescriptor
 
 struct PostProcessPushConstants
 {
-    int32_t width;
-    int32_t height;
     uint32_t postProcessFlags;
-    int32_t padding;
+    glm::vec3 padding;
 };
 
 struct PostProcessDrawInfo
 {
     PostProcessType postProcessFlags{PostProcessType::ALL};
+    VkExtent2D extents{DEFAULT_RENDER_EXTENT_2D};
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};
 };

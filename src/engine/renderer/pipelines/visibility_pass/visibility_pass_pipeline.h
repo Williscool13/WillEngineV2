@@ -8,6 +8,7 @@
 #include <vector>
 #include <vulkan/vulkan_core.h>
 
+#include "engine/renderer/vk_helpers.h"
 #include "engine/renderer/resources/resources_fwd.h"
 
 namespace will_engine::renderer
@@ -17,8 +18,7 @@ class RenderObject;
 
 struct VisibilityPassPushConstants
 {
-    int32_t enable{};
-    int32_t shadowPass{};
+    int32_t bEnableFrustumCull{};
 };
 
 struct VisibilityPassDrawInfo
@@ -27,9 +27,7 @@ struct VisibilityPassDrawInfo
     const std::vector<RenderObject*>& renderObjects{};
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};
-    bool bEnableFrustumCulling{};
-    bool bIsShadowPass{};
-    bool bIsOpaque{};
+    bool bEnableFrustumCull{};
 };
 
 
@@ -40,7 +38,7 @@ public:
 
     ~VisibilityPassPipeline();
 
-    void draw(VkCommandBuffer cmd, const VisibilityPassDrawInfo& drawInfo) const;
+    void draw(VkCommandBuffer cmd, const VisibilityPassDrawInfo& drawInfo);
 
     void reloadShaders() { createPipeline(); }
 
@@ -52,6 +50,8 @@ private:
 
     PipelineLayoutPtr pipelineLayout{};
     PipelinePtr pipeline{};
+
+    std::vector<vk_helpers::BufferBarrierInfo> barrierCache;
 };
 }
 

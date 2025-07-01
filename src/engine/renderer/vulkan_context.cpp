@@ -8,7 +8,7 @@
 #include <vk-bootstrap/VkBootstrap.h>
 #include <volk/volk.h>
 
-namespace will_engine
+namespace will_engine::renderer
 {
 VulkanContext::VulkanContext(SDL_Window* window, bool useValidationLayers)
 {
@@ -47,6 +47,7 @@ VulkanContext::VulkanContext(SDL_Window* window, bool useValidationLayers)
     features12.descriptorIndexing = VK_TRUE;
     features12.runtimeDescriptorArray = VK_TRUE;
     features12.shaderSampledImageArrayNonUniformIndexing = VK_TRUE;
+    features12.drawIndirectCount = VK_TRUE;
 
     VkPhysicalDeviceFeatures otherFeatures{};
     otherFeatures.multiDrawIndirect = VK_TRUE;

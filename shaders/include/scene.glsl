@@ -1,3 +1,5 @@
+#include "lights.glsl"
+
 layout (std140, set = 0, binding = 0) uniform SceneData {
     mat4 view;
     mat4 proj;
@@ -24,8 +26,10 @@ layout (std140, set = 0, binding = 0) uniform SceneData {
 
     vec4 jitter;
 
+    DirectionalLight directionalLightData;
+
     vec2 renderTargetSize;
-    // equal to 1 / renderTargetSize
+
     vec2 texelSize;
     vec2 cameraPlanes;
     float deltaTime;

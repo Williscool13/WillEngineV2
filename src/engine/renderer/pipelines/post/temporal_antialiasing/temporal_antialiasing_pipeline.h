@@ -7,6 +7,7 @@
 
 #include <vulkan/vulkan_core.h>
 
+#include "engine/renderer/renderer_constants.h"
 #include "engine/renderer/resources/resources_fwd.h"
 
 
@@ -34,6 +35,7 @@ struct TemporalAntialiasingDrawInfo
 {
     float blendValue{};
     int32_t debugMode{};
+    VkExtent2D extents{DEFAULT_RENDER_EXTENT_2D};
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};
 };

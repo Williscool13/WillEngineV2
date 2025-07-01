@@ -63,6 +63,7 @@ struct GTAOPushConstants
 
 struct GTAODrawInfo
 {
+    VkExtent2D renderExtent{DEFAULT_RENDER_EXTENT_2D};
     Camera* camera{nullptr};
     bool bEnabled{true};
     GTAOPushConstants& push;

@@ -134,8 +134,8 @@ void TemporalAntialiasingPipeline::draw(VkCommandBuffer cmd, const TemporalAntia
 
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout->layout, 0, 2, indices.data(), offsets.data());
 
-    const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
-    const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
+    const auto x = static_cast<uint32_t>(std::ceil(drawInfo.extents.width / 16.0f));
+    const auto y = static_cast<uint32_t>(std::ceil(drawInfo.extents.height / 16.0f));
     vkCmdDispatch(cmd, x, y, 1);
 
     vkCmdEndDebugUtilsLabelEXT(cmd);

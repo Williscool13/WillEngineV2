@@ -1,0 +1,12 @@
+{
+    "renderObject": {
+        "id": 6331695,
+        "name": "AlphaBlendModeTest",
+        "sourcePath": "assets\\models\\AlphaBlendModeTest.glb"
+    },
+    "version": {
+        "major": 0,
+        "minor": 1,
+        "patch": 0
+    }
+}

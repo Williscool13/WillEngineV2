@@ -7,6 +7,9 @@
 
 #include <glm/glm.hpp>
 
+#include "lighting/directional_light.h"
+namespace will_engine
+{
 struct SceneData
 {
     glm::mat4 view{1.0f};
@@ -37,11 +40,17 @@ struct SceneData
      */
     glm::vec4 jitter{0.0f};
 
+    // vec4 + vec4
+    DirectionalLightData mainLightData{};
+
     glm::vec2 renderTargetSize{};
     glm::vec2 texelSize{};
 
     glm::vec2 cameraPlanes{1000.0f, 0.1f};
+
     float deltaTime{};
 };
+}
+
 
 #endif //VKTYPES_H

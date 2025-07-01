@@ -9,10 +9,12 @@
 
 layout (set = 1, binding = 0) uniform Addresses
 {
-    MaterialData materialBufferDeviceAddress;
-    PrimitiveData primitiveBufferDeviceAddress;
-    ModelData modelBufferDeviceAddress;
+    Instances instances;
+    Models models;
+    PrimitiveData primitives;
+    Materials materials;
 } bufferAddresses;
+
 
 
 layout (location = 0) in vec3 position;
@@ -27,18 +29,20 @@ layout (location = 3) out vec2 outUV;
 layout (location = 4) out flat uint outMaterialIndex;
 
 void main() {
-    Primitive primitive = bufferAddresses.primitiveBufferDeviceAddress.primitives[gl_InstanceIndex];
-    uint modelIndex = primitive.modelIndex;
-    uint materialIndex = primitive.materialIndex;
-    Model models = bufferAddresses.modelBufferDeviceAddress.models[modelIndex];
+    Instance instances = bufferAddresses.instances.instanceArray[gl_InstanceIndex];
 
-    vec4 viewPos = sceneData.view * models.currentModelMatrix * vec4(position, 1.0);
+    Primitive primitive = bufferAddresses.primitives.primitiveArray[instances.primitiveDataIndex];
+    Model model = bufferAddresses.models.modelArray[instances.modelIndex];
+
+    Material material = bufferAddresses.materials.materialArray[primitive.materialIndex];
+
+    vec4 viewPos = sceneData.view * model.currentModelMatrix * vec4(position, 1.0);
 
     outViewPosition = viewPos.xyz;
-    outViewNormal = mat3(sceneData.view) * adjugate(models.currentModelMatrix) * normal;
+    outViewNormal = mat3(sceneData.view) * adjugate(model.currentModelMatrix) * normal;
     outColor = color;
     outUV = uv;
-    outMaterialIndex = materialIndex;
+    outMaterialIndex = primitive.materialIndex;
 
     vec4 currClipPos = sceneData.proj * viewPos;
     currClipPos.xy += currClipPos.w * sceneData.jitter.xy;

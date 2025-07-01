@@ -8,6 +8,7 @@
 #include <array>
 
 #include "ambient_occlusion_types.h"
+#include "engine/renderer/render_context.h"
 #include "engine/renderer/resources/image_resource.h"
 #include "engine/renderer/resources/resources_fwd.h"
 
@@ -19,7 +20,7 @@ class ResourceManager;
 class GroundTruthAmbientOcclusionPipeline
 {
 public:
-    explicit GroundTruthAmbientOcclusionPipeline(ResourceManager& resourceManager);
+    explicit GroundTruthAmbientOcclusionPipeline(ResourceManager& resourceManager, RenderContext& renderContext);
 
     ~GroundTruthAmbientOcclusionPipeline();
 
@@ -33,7 +34,7 @@ public:
 
     void reloadShaders();
 
-    VkImageView getAmbientOcclusionRenderTarget() const { return denoisedFinalAO->imageView; }
+    VkImageView getAmbientOcclusionRenderTarget() const { return denoisedFinalAOImage->imageView; }
 
 private:
     void createDepthPrefilterPipeline();
@@ -41,6 +42,12 @@ private:
     void createAmbientOcclusionPipeline();
 
     void createSpatialFilteringPipeline();
+
+    void createIntermediateRenderTargets(VkExtent2D extents);
+
+    void handleResize(const ResolutionChangedEvent& event);
+
+    EventDispatcher<ResolutionChangedEvent>::Handle resolutionChangedHandle;
 
 private: // Depth Pre-filter
     DescriptorSetLayoutPtr depthPrefilterSetLayout{};
@@ -78,7 +85,7 @@ private: // Spatial Filtering
     PipelineLayoutPtr spatialFilteringPipelineLayout{};
     PipelinePtr spatialFilteringPipeline{};
 
-    ImageResourcePtr denoisedFinalAO{};
+    ImageResourcePtr denoisedFinalAOImage{};
 
     DescriptorBufferSamplerPtr spatialFilteringDescriptorBuffer;
 

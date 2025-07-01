@@ -1,3 +1,6 @@
+#ifndef LIGHTS_GLSL
+#define LIGHTS_GLSL
+
 struct DirectionalLight {
     vec3 direction;
     float intensity;
@@ -12,3 +15,5 @@ struct PointLight {
     int shadowMapIndex;
     vec3 pad;
 };
+
+#endif // LIGHTS_GLSL

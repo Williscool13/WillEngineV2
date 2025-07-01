@@ -99,8 +99,6 @@ void PostProcessPipeline::draw(VkCommandBuffer cmd, PostProcessDrawInfo drawInfo
     vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipeline->pipeline);
 
     PostProcessPushConstants push{};
-    push.width = RENDER_EXTENTS.width;
-    push.height = RENDER_EXTENTS.height;
     push.postProcessFlags = static_cast<uint32_t>(drawInfo.postProcessFlags);
 
     vkCmdPushConstants(cmd, pipelineLayout->layout, VK_SHADER_STAGE_COMPUTE_BIT, 0, sizeof(PostProcessPushConstants), &push);
@@ -115,8 +113,8 @@ void PostProcessPipeline::draw(VkCommandBuffer cmd, PostProcessDrawInfo drawInfo
     const std::array<VkDeviceSize, 2> offsets{drawInfo.sceneDataOffset, 0};
     vkCmdSetDescriptorBufferOffsetsEXT(cmd, VK_PIPELINE_BIND_POINT_COMPUTE, pipelineLayout->layout, 0, 2, indices.data(), offsets.data());
 
-    const auto x = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_WIDTH / 16.0f));
-    const auto y = static_cast<uint32_t>(std::ceil(RENDER_EXTENT_HEIGHT / 16.0f));
+    const auto x = static_cast<uint32_t>(std::ceil(drawInfo.extents.width / 16.0f));
+    const auto y = static_cast<uint32_t>(std::ceil(drawInfo.extents.height / 16.0f));
     vkCmdDispatch(cmd, x, y, 1);
 
     vkCmdEndDebugUtilsLabelEXT(cmd);

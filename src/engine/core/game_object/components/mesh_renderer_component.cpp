@@ -41,35 +41,17 @@ void MeshRendererComponent::beginDestroy()
     releaseMesh();
 }
 
-bool MeshRendererComponent::canDrawHighlight()
-{
-    if (pRenderReference) {
-        const std::optional<std::reference_wrapper<const Mesh> > meshData = pRenderReference->getMeshData(meshIndex);
-        if (meshData.has_value()) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
 renderer::HighlightData MeshRendererComponent::getHighlightData()
 {
-    renderer::HighlightData data{VK_NULL_HANDLE, VK_NULL_HANDLE,};
     if (!pRenderReference) {
-        return data;
+        return {};
     }
 
-    const std::optional<std::reference_wrapper<const Mesh> > meshData = pRenderReference->getMeshData(meshIndex);
-
-    if (!meshData.has_value()) {
-        return data;
-    }
-
+    renderer::HighlightData data{};
+    data.primitives = pRenderReference->getPrimitives(meshIndex);
     data.vertexBuffer = pRenderReference->getPositionVertexBuffer();
     data.indexBuffer = pRenderReference->getIndexBuffer();
     data.modelMatrix = getModelMatrix();
-    data.primitives = std::span(meshData.value().get().primitives);
     return data;
 }
 

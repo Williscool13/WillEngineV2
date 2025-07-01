@@ -9,6 +9,7 @@
 #include <glm/glm.hpp>
 
 #include "engine/renderer/assets/render_object/render_object_types.h"
+#include "engine/renderer/renderer_constants.h"
 
 
 namespace will_engine::renderer
@@ -25,14 +26,17 @@ struct HighlightData
 {
     VkBuffer vertexBuffer{VK_NULL_HANDLE};
     VkBuffer indexBuffer{VK_NULL_HANDLE};
-    std::span<const Primitive> primitives;
+    std::vector<Primitive> primitives;
 
     glm::mat4 modelMatrix{1.0f};
+
+    bool isValid() const { return vertexBuffer != VK_NULL_HANDLE && indexBuffer != VK_NULL_HANDLE && !primitives.empty(); }
 };
 
 struct DebugHighlighterDrawInfo
 {
-    IRenderable* highlightTarget{nullptr};
+    std::span<IRenderable*> highlightTargets{};
+    VkExtent2D extents{DEFAULT_RENDER_EXTENT_2D};
     VkImageView depthStencilTarget{VK_NULL_HANDLE};
     VkDescriptorBufferBindingInfoEXT sceneDataBinding{};
     VkDeviceSize sceneDataOffset{0};
