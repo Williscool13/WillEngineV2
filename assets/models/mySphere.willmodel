@@ -1,0 +1,12 @@
+{
+    "renderObject": {
+        "id": 3725271840,
+        "name": "mySphere",
+        "sourcePath": "assets\\models\\mySphere.glb"
+    },
+    "version": {
+        "major": 0,
+        "minor": 1,
+        "patch": 0
+    }
+}
